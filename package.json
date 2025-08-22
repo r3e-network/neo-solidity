@@ -1,0 +1,53 @@
+{
+  "name": "@r3e-network/neo-solidity",
+  "version": "1.0.0",
+  "description": "Production-ready Solidity-to-NeoVM compilation system",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r3e-network/neo-solidity.git"
+  },
+  "homepage": "https://github.com/r3e-network/neo-solidity#readme",
+  "bugs": {
+    "url": "https://github.com/r3e-network/neo-solidity/issues"
+  },
+  "author": {
+    "name": "Jimmy",
+    "email": "jimmy@r3e.network"
+  },
+  "license": "MIT",
+  "keywords": [
+    "neo",
+    "solidity",
+    "blockchain",
+    "smart-contracts",
+    "neovm",
+    "ethereum",
+    "evm",
+    "compiler",
+    "r3e-network"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write .",
+    "dev": "turbo run dev",
+    "clean": "turbo run clean",
+    "typecheck": "turbo run typecheck"
+  },
+  "workspaces": [
+    "tooling/packages/*"
+  ],
+  "devDependencies": {
+    "@turbo/gen": "^1.10.7",
+    "prettier": "^3.0.0",
+    "turbo": "^1.10.7",
+    "typescript": "^5.1.6"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}

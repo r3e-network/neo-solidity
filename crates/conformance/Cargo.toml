@@ -1,0 +1,47 @@
+[package]
+name = "neo-solidity-conformance"
+version = "0.1.0"
+edition = "2021"
+description = "Conformance testing suite for Neo Solidity compiler and runtime"
+
+[dependencies]
+# Core testing
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+
+# Test execution
+async-trait = "0.1"
+futures = "0.3"
+
+# File handling
+walkdir = "2.4"
+glob = "0.3"
+
+# Solidity standards
+semver = "1.0"
+
+# Neo and EVM integration
+neo-vm = "0.1"
+alloy-primitives = "0.7"
+alloy-sol-types = "0.7"
+revm = { version = "10.0", features = ["std"] }
+
+# Parent crates
+neo-solidity = { path = "../.." }
+neo-solidity-testing = { path = "../testing" }
+
+[dev-dependencies]
+tempfile = "3.8"
+criterion = "0.5"
+
+[features]
+default = ["evm-tests", "solidity-tests", "neo-tests"]
+evm-tests = []
+solidity-tests = []
+neo-tests = []
+ethereum-tests = []

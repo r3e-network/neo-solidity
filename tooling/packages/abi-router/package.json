@@ -1,0 +1,51 @@
+{
+  "name": "@neo-solidity/abi-router",
+  "version": "0.1.0",
+  "description": "ABI-compatible caller routing for Neo-Solidity contracts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "neo",
+    "blockchain",
+    "abi",
+    "ethereum",
+    "compatibility",
+    "router",
+    "rpc"
+  ],
+  "dependencies": {
+    "@neo-solidity/types": "workspace:*",
+    "ethers": "^6.9.0",
+    "axios": "^1.6.0",
+    "debug": "^4.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/debug": "^4.1.12",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0",
+    "eslint": "^8.56.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

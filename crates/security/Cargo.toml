@@ -1,0 +1,48 @@
+[package]
+name = "neo-solidity-security"
+version = "0.1.0"
+edition = "2021"
+description = "Security analysis framework for Neo Solidity"
+
+[dependencies]
+# Core utilities
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+
+# Crypto operations
+sha3 = "0.10"
+secp256k1 = { version = "0.28", features = ["recovery"] }
+ed25519-dalek = "2.0"
+hmac = "0.12"
+aes = "0.8"
+
+# Pattern matching and analysis
+regex = "1.10"
+petgraph = "0.6"
+
+# Neo and EVM integration
+neo-vm = "0.1"
+alloy-primitives = "0.7"
+revm = { version = "10.0", features = ["std"] }
+
+# Static analysis
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+
+# Parent crate
+neo-solidity = { path = "../.." }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.8"
+
+[features]
+default = ["static-analysis", "runtime-analysis"]
+static-analysis = []
+runtime-analysis = []
+crypto-analysis = []
+storage-analysis = []
+reentrancy-detection = []
