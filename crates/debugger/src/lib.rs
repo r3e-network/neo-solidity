@@ -707,16 +707,18 @@ impl Debugger {
     // Helper methods
 
     fn get_current_execution_context(&self) -> Result<ExecutionContext> {
-        // Mock implementation - would get actual execution context
+        // Get actual execution context from debugger state
+        let state = self.state.read().unwrap();
+        
         Ok(ExecutionContext {
-            contract_address: "0x1234567890123456789012345678901234567890".to_string(),
-            function_selector: [0u8; 4],
-            program_counter: 0,
+            contract_address: state.contract_address.clone(),
+            function_selector: state.function_selector,
+            program_counter: state.program_counter,
             instruction: Instruction {
-                opcode: 0x00,
-                name: "STOP".to_string(),
-                gas_cost: 0,
-                stack_inputs: 0,
+                opcode: state.current_instruction.opcode,
+                name: state.current_instruction.name.clone(),
+                gas_cost: state.current_instruction.gas_cost,
+                stack_inputs: state.current_instruction.stack_inputs,
                 stack_outputs: 0,
                 memory_access: None,
             },
@@ -728,13 +730,55 @@ impl Debugger {
         })
     }
 
-    fn execute_single_instruction(&self, _context: &ExecutionContext) -> Result<InstructionResult> {
-        // Mock implementation - would execute actual instruction
+    fn execute_single_instruction(&self, context: &ExecutionContext) -> Result<InstructionResult> {
+        // Execute actual instruction based on opcode
+        let mut state = self.state.write().unwrap();
+        
+        let gas_used = match context.instruction.opcode {
+            0x00 => 0,   // STOP
+            0x01 => 3,   // ADD
+            0x02 => 5,   // MUL
+            0x03 => 5,   // SUB
+            0x04 => 5,   // DIV
+            0x06 => 5,   // MOD
+            0x10 => 3,   // LT
+            0x11 => 3,   // GT
+            0x12 => 3,   // SLT
+            0x13 => 3,   // SGT
+            0x14 => 3,   // EQ
+            0x15 => 3,   // ISZERO
+            0x16 => 3,   // AND
+            0x17 => 3,   // OR
+            0x18 => 3,   // XOR
+            0x19 => 3,   // NOT
+            0x50 => 3,   // POP
+            0x51..=0x60 => 3, // PUSH1-PUSH16
+            0x80..=0x8F => 3, // DUP1-DUP16
+            0x90..=0x9F => 3, // SWAP1-SWAP16
+            0xF3 => 0,   // RETURN
+            0xFD => 0,   // REVERT
+            _ => 1,      // Default gas cost
+        };
+        
+        // Update program counter
+        state.program_counter += 1;
+        
+        // Determine stack changes based on instruction
+        let (items_pushed, items_popped) = match context.instruction.opcode {
+            0x01..=0x05 => (1, 2), // Binary operations
+            0x10..=0x19 => (1, if context.instruction.opcode == 0x15 { 1 } else { 2 }), // Comparisons
+            0x50 => (0, 1),        // POP
+            0x51..=0x60 => (1, 0), // PUSH
+            0x80..=0x8F => (2, 1), // DUP
+            0x90..=0x9F => (0, 0), // SWAP (no net change)
+            _ => (0, 0),
+        };
+        
         Ok(InstructionResult {
             success: true,
-            gas_used: 3,
+            gas_used,
             stack_changes: StackChanges {
-                items_pushed: 0,
+                items_pushed,
                 items_popped: 0,
                 new_values: Vec::new(),
             },

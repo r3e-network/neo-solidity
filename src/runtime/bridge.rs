@@ -805,18 +805,107 @@ impl VMBridge {
         Ok(vec![StackItem::ByteArray(hash.to_vec())])
     }
 
-    fn syscall_ecrecover(_bridge: &mut VMBridge, _args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
-        // Placeholder implementation
-        Err(VMBridgeError::SystemCallFailed {
-            name: "ecrecover".to_string(),
-            message: "Not implemented".to_string(),
-        })
+    fn syscall_ecrecover(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+        // Complete ECDSA signature recovery implementation
+        if args.len() != 4 {
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 4,
+                got: args.len(),
+            });
+        }
+        
+        let hash = extract_bytes(&args[0])?;
+        let v = extract_integer(&args[1])? as u8;
+        let r = extract_bytes(&args[2])?;
+        let s = extract_bytes(&args[3])?;
+        
+        // Perform ECDSA recovery using secp256k1
+        use secp256k1::{Secp256k1, Message, RecoverableSignature, RecoveryId};
+        
+        let secp = Secp256k1::new();
+        
+        // Create message from hash
+        let message = Message::from_slice(&hash[..32])
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: format!("Invalid hash: {}", e),
+            })?;
+        
+        // Create recoverable signature
+        let recovery_id = RecoveryId::from_i32((v - 27) as i32)
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: format!("Invalid recovery ID: {}", e),
+            })?;
+        
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes[..32].copy_from_slice(&r[..32]);
+        sig_bytes[32..].copy_from_slice(&s[..32]);
+        
+        let sig = RecoverableSignature::from_compact(&sig_bytes, recovery_id)
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: format!("Invalid signature: {}", e),
+            })?;
+        
+        // Recover public key
+        let public_key = secp.recover_ecdsa(&message, &sig)
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: format!("Recovery failed: {}", e),
+            })?;
+        
+        // Convert public key to Ethereum address
+        let pub_bytes = public_key.serialize_uncompressed();
+        let hash = bridge.keccak256(&pub_bytes[1..]); // Skip 0x04 prefix
+        let address = &hash[12..]; // Last 20 bytes
+        
+        Ok(vec![StackItem::ByteArray(address.to_vec())])
     }
 
-    fn syscall_verify(_bridge: &mut VMBridge, _args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
-        // Placeholder implementation
-        Err(VMBridgeError::SystemCallFailed {
-            name: "verify".to_string(),
+    fn syscall_verify(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+        // Complete ECDSA signature verification implementation
+        if args.len() != 3 {
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 3,
+                got: args.len(),
+            });
+        }
+        
+        let hash = extract_bytes(&args[0])?;
+        let signature = extract_bytes(&args[1])?;
+        let public_key = extract_bytes(&args[2])?;
+        
+        use secp256k1::{Secp256k1, Message, Signature, PublicKey};
+        
+        let secp = Secp256k1::new();
+        
+        // Create message from hash
+        let message = Message::from_slice(&hash[..32])
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "verify".to_string(),
+                message: format!("Invalid hash: {}", e),
+            })?;
+        
+        // Parse signature
+        let sig = Signature::from_compact(&signature[..64])
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "verify".to_string(),
+                message: format!("Invalid signature: {}", e),
+            })?;
+        
+        // Parse public key
+        let pubkey = PublicKey::from_slice(&public_key)
+            .map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "verify".to_string(),
+                message: format!("Invalid public key: {}", e),
+            })?;
+        
+        // Verify signature
+        let verification_result = secp.verify_ecdsa(&message, &sig, &pubkey).is_ok();
+        
+        Ok(vec![StackItem::Boolean(verification_result)])
+    }
             message: "Not implemented".to_string(),
         })
     }

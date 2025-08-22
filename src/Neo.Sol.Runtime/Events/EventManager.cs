@@ -12,12 +12,20 @@ namespace Neo.Sol.Runtime.Events;
 public sealed class EventManager
 {
     private readonly UInt160 _contractHash;
+    private uint _eventCount;
     private const string EVENT_PREFIX = "EVM_Event";
     
     public EventManager(UInt160 contractHash)
     {
         _contractHash = contractHash;
+        _eventCount = 0;
     }
+    
+    /// <summary>
+    /// Get the number of events emitted
+    /// </summary>
+    /// <returns>Event count</returns>
+    public uint GetEventCount() => _eventCount;
     
     /// <summary>
     /// Emit an event with up to 4 indexed parameters (EVM LOG0-LOG4)
@@ -52,6 +60,7 @@ public sealed class EventManager
         };
         
         // Emit as Neo notification
+        _eventCount++;
         Runtime.Notify(EVENT_PREFIX, eventLog.ToNotificationObject());
     }
     

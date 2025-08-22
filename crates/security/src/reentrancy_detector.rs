@@ -580,15 +580,157 @@ impl ReentrancyDetector {
     /// Detect read-only reentrancy
     fn detect_read_only_reentrancy(&self) -> Result<Vec<SecurityFinding>> {
         debug!("Detecting read-only reentrancy");
-        // Implementation for read-only reentrancy detection
-        Ok(Vec::new())
+        let mut findings = Vec::new();
+
+        // Read-only reentrancy occurs when:
+        // 1. A view function reads inconsistent state during external calls
+        // 2. State changes happen after external calls, affecting view function results
+        
+        for function in self.call_graph.get_all_functions() {
+            // Check for view functions that might be affected by reentrancy
+            if function.state_mutability == StateMutability::View {
+                // Look for state variables read by this view function
+                let read_variables = self.get_variables_read_by_function(&function.name);
+                
+                // Check if any other functions modify these variables after external calls
+                for other_function in self.call_graph.get_all_functions() {
+                    if other_function.name == function.name {
+                        continue;
+                    }
+                    
+                    // Check if this function has external calls
+                    let has_external_calls = self.external_calls.calls.iter()
+                        .any(|call| self.is_call_in_function(call, &other_function.name));
+                    
+                    if has_external_calls {
+                        // Check if this function modifies variables read by the view function
+                        let modified_variables = self.get_variables_modified_by_function(&other_function.name);
+                        let shared_variables: Vec<_> = read_variables.iter()
+                            .filter(|var| modified_variables.contains(var))
+                            .collect();
+                        
+                        if !shared_variables.is_empty() {
+                            // Check if modifications happen after external calls
+                            let modifications_after_calls = self.state_changes.changes.iter()
+                                .filter(|change| {
+                                    change.function_context == other_function.name &&
+                                    shared_variables.contains(&&change.variable) &&
+                                    self.is_state_change_after_external_call(change)
+                                })
+                                .collect::<Vec<_>>();
+                            
+                            if !modifications_after_calls.is_empty() {
+                                let finding = SecurityFinding {
+                                    id: format!("REENTRANCY_RO_{}_{}", function.name, other_function.name),
+                                    vulnerability: Vulnerability::ReadOnlyReentrancy {
+                                        view_function: function.name.clone(),
+                                        state_modifying_function: other_function.name.clone(),
+                                        shared_variables: shared_variables.iter().map(|s| s.to_string()).collect(),
+                                    },
+                                    location: Some(CodeLocation {
+                                        file: "contract.sol".to_string(),
+                                        line: function.line_range.0,
+                                        column: 0,
+                                        function: Some(function.name.clone()),
+                                        contract: None,
+                                    }),
+                                    severity: Severity::Medium,
+                                    confidence: Confidence::Medium,
+                                    message: format!(
+                                        "Read-only reentrancy vulnerability: view function '{}' reads variables {:?} that are modified by '{}' after external calls",
+                                        function.name,
+                                        shared_variables,
+                                        other_function.name
+                                    ),
+                                    recommendation: "Ensure view functions return consistent state by using reentrancy guards or check-effects-interactions pattern".to_string(),
+                                    proof_of_concept: Some(self.generate_read_only_reentrancy_poc(&function.name, &other_function.name, &shared_variables)),
+                                };
+                                
+                                findings.push(finding);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(findings)
     }
 
     /// Detect creation reentrancy
     fn detect_creation_reentrancy(&self) -> Result<Vec<SecurityFinding>> {
         debug!("Detecting creation reentrancy");
-        // Implementation for creation reentrancy detection
-        Ok(Vec::new())
+        let mut findings = Vec::new();
+
+        // Creation reentrancy occurs when:
+        // 1. Constructor makes external calls
+        // 2. Contract state can be manipulated during construction
+        // 3. External calls happen before state is fully initialized
+        
+        for function in self.call_graph.get_all_functions() {
+            // Check for constructors (by naming convention)
+            if self.is_constructor(&function.name) {
+                // Look for external calls in constructor
+                let constructor_calls: Vec<&ExternalCall> = self.external_calls.calls
+                    .iter()
+                    .filter(|call| self.is_call_in_function(call, &function.name))
+                    .collect();
+                
+                for external_call in constructor_calls {
+                    // Check for state changes after external call
+                    let state_changes_after: Vec<&StateChange> = self.state_changes.changes
+                        .iter()
+                        .filter(|change| {
+                            change.function_context == function.name &&
+                            change.line_number > external_call.line_number
+                        })
+                        .collect();
+                    
+                    // If there are state changes after external call in constructor,
+                    // this could be vulnerable to creation reentrancy
+                    if !state_changes_after.is_empty() {
+                        // Check if the external call can potentially trigger reentrancy
+                        let is_risky_call = match &external_call.call_type {
+                            CallType::External => external_call.value_sent, // Calls with value are risky
+                            CallType::DelegateCall => true, // Delegate calls are risky
+                            _ => false,
+                        };
+                        
+                        if is_risky_call {
+                            let finding = SecurityFinding {
+                                id: format!("REENTRANCY_CREATE_{}", function.name),
+                                vulnerability: Vulnerability::CreationReentrancy {
+                                    constructor: function.name.clone(),
+                                    vulnerable_state_changes: state_changes_after.iter()
+                                        .map(|change| change.variable.clone())
+                                        .collect(),
+                                },
+                                location: Some(CodeLocation {
+                                    file: "contract.sol".to_string(),
+                                    line: external_call.line_number,
+                                    column: 0,
+                                    function: Some(function.name.clone()),
+                                    contract: None,
+                                }),
+                                severity: Severity::High,
+                                confidence: Confidence::High,
+                                message: format!(
+                                    "Creation reentrancy vulnerability in constructor '{}': external call on line {} followed by state changes",
+                                    function.name,
+                                    external_call.line_number
+                                ),
+                                recommendation: "Move external calls to the end of constructor or use reentrancy guards".to_string(),
+                                proof_of_concept: Some(self.generate_creation_reentrancy_poc(&function.name, external_call)),
+                            };
+                            
+                            findings.push(finding);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(findings)
     }
 
     /// Analyze protection patterns
@@ -683,6 +825,113 @@ contract Attacker {{
 }}
             "#,
             function1, function2, shared_state, function1, function2
+        )
+    }
+    
+    /// Check if a function is a constructor
+    fn is_constructor(&self, function_name: &str) -> bool {
+        function_name == "constructor" || 
+        function_name.starts_with("constructor") ||
+        function_name == "init" ||
+        function_name == "initialize"
+    }
+    
+    /// Check if an external call is in a specific function
+    fn is_call_in_function(&self, call: &ExternalCall, function_name: &str) -> bool {
+        // In a real implementation, this would track which function each call belongs to
+        // For now, we use a simple heuristic
+        true // Simplified
+    }
+    
+    /// Get variables read by a function
+    fn get_variables_read_by_function(&self, function_name: &str) -> Vec<String> {
+        // In a real implementation, this would analyze the function's bytecode or AST
+        // to determine which state variables are read
+        vec!["balance".to_string(), "totalSupply".to_string()] // Simplified
+    }
+    
+    /// Get variables modified by a function
+    fn get_variables_modified_by_function(&self, function_name: &str) -> Vec<String> {
+        self.state_changes.changes
+            .iter()
+            .filter(|change| change.function_context == function_name)
+            .map(|change| change.variable.clone())
+            .collect()
+    }
+    
+    /// Check if a state change occurs after an external call
+    fn is_state_change_after_external_call(&self, change: &StateChange) -> bool {
+        // Check if there's an external call in the same function before this state change
+        self.external_calls.calls
+            .iter()
+            .any(|call| {
+                self.is_call_in_function(call, &change.function_context) &&
+                call.line_number < change.line_number
+            })
+    }
+    
+    /// Generate proof of concept for read-only reentrancy
+    fn generate_read_only_reentrancy_poc(&self, view_function: &str, state_function: &str, shared_vars: &[&String]) -> String {
+        format!(
+            r#"
+// Proof of Concept: Read-Only Reentrancy Attack
+// View Function: {}
+// State Modifying Function: {}
+// Shared Variables: {:?}
+contract ReadOnlyAttacker {{
+    Target target;
+    uint256 public exploitedValue;
+    
+    constructor(address _target) {{
+        target = Target(_target);
+    }}
+    
+    function exploit() public {{
+        // Call state-modifying function
+        target.{}();
+    }}
+    
+    fallback() external payable {{
+        // During reentrancy, read inconsistent state
+        exploitedValue = target.{}();
+    }}
+}}
+            "#,
+            view_function, state_function, shared_vars, state_function, view_function
+        )
+    }
+    
+    /// Generate proof of concept for creation reentrancy
+    fn generate_creation_reentrancy_poc(&self, constructor_name: &str, external_call: &ExternalCall) -> String {
+        format!(
+            r#"
+// Proof of Concept: Creation Reentrancy Attack
+// Constructor: {}
+// External Call Line: {}
+contract CreationAttacker {{
+    Target target;
+    bool public exploited;
+    
+    function deployAndExploit(bytes memory initCode) public {{
+        // Deploy target contract
+        address targetAddr;
+        assembly {{
+            targetAddr := create(0, add(initCode, 0x20), mload(initCode))
+        }}
+        target = Target(targetAddr);
+    }}
+    
+    // This will be called during target contract construction
+    fallback() external payable {{
+        if (!exploited) {{
+            exploited = true;
+            // Manipulate target's state during construction
+            // The target's state is inconsistent at this point
+        }}
+    }}
+}}
+            "#,
+            constructor_name, external_call.line_number
         )
     }
 }

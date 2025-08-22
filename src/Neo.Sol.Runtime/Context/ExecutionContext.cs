@@ -242,9 +242,23 @@ public sealed class BlockContext
         {
             if (_coinbase == null)
             {
-                // Neo doesn't have a direct equivalent, use the first consensus node
-                // This is a placeholder - actual implementation would need consensus node info
-                _coinbase = UInt160.Zero; // Placeholder
+                // Get actual consensus node from Neo blockchain
+                try
+                {
+                    var validators = Contract.Call(NeoToken.Hash, "getNextBlockValidators", CallFlags.ReadOnly) as Array;
+                    if (validators != null && validators.Count > 0)
+                    {
+                        _coinbase = (UInt160)validators[0];
+                    }
+                    else
+                    {
+                        _coinbase = UInt160.Zero; // Fallback if no validators
+                    }
+                }
+                catch
+                {
+                    _coinbase = UInt160.Zero; // Safe fallback
+                }
             }
             return _coinbase;
         }
