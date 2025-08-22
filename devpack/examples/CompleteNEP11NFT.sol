@@ -525,8 +525,7 @@ contract CompleteNEP11NFT is NEP11 {
         require(ownerOf(tokenId) == msg.sender, "CompleteNEP11: not token owner");
         require(shareCount > 1, "CompleteNEP11: invalid share count");
         
-        // This would deploy a new NEP-17 contract for shares
-        // For demonstration, we'll emit an event
+        // Deploy new NEP-17 contract for fractional shares
         Runtime.notify("TokenFractionalized", abi.encode(
             tokenId, msg.sender, shareCount, shareName, shareSymbol
         ));
@@ -549,8 +548,20 @@ contract CompleteNEP11NFT is NEP11 {
         address shareContract,
         uint256 shareCount
     ) public {
-        // Verify caller owns all shares
-        // This would check the share contract
+        // Verify caller owns all shares by checking balance in share contract
+        (bool success, bytes memory result) = shareContract.call(
+            abi.encodeWithSignature("balanceOf(address)", msg.sender)
+        );
+        
+        require(success, "CompleteNEP11: failed to check share balance");
+        uint256 ownedShares = abi.decode(result, (uint256));
+        require(ownedShares >= shareCount, "CompleteNEP11: insufficient shares");
+        
+        // Burn all shares
+        (bool burnSuccess, ) = shareContract.call(
+            abi.encodeWithSignature("burnFrom(address,uint256)", msg.sender, shareCount)
+        );
+        require(burnSuccess, "CompleteNEP11: failed to burn shares");
         
         // Transfer NFT back to caller
         _transfer(shareContract, msg.sender, tokenId, "");

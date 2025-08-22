@@ -1115,7 +1115,7 @@ func NewErrorCollector() *ErrorCollector {
 	}
 }
 
-// Mock types for testing (would be defined in supporting_types.go)
+// Test types for code generation validation (defined in supporting_types.go)
 type SymbolTable struct {
 	Symbols map[string]*Symbol
 }
