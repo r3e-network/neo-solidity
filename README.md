@@ -30,7 +30,7 @@ Neo Solidity Compiler is a comprehensive, production-ready system that allows So
 - **Complete Toolchain**: CLI compiler, Hardhat plugins, Foundry integration
 - **Rich Debugging**: Source maps, breakpoints, step-by-step execution
 - **Comprehensive Errors**: Detailed error messages with suggestions
-- **Multiple Formats**: Binary, hex, assembly, JSON output options
+- **Neo N3 Native**: Generates .nef and .manifest.json files for direct deployment
 
 ### **🔒 Security & Quality**
 - **Security Analysis**: Automated vulnerability detection
@@ -56,14 +56,18 @@ chmod +x neo-solc
 ### **Basic Usage**
 
 ```bash
-# Compile a Solidity file
-neo-solc contract.sol -o contract.hex
+# Compile Solidity to Neo N3 contract (generates .nef + .manifest.json)
+neo-solc contract.sol -o contract
 
 # With optimization
-neo-solc contract.sol -O3 -f json -o output.json
+neo-solc contract.sol -O3 -o contract
 
-# Include debug information
-neo-solc contract.sol --debug --source-map -o contract.hex
+# Include debug information  
+neo-solc contract.sol --debug --source-map -o contract
+
+# Generate only specific formats
+neo-solc contract.sol -f nef -o contract.nef
+neo-solc contract.sol -f manifest -o contract.manifest.json
 ```
 
 ### **Example Contract**
@@ -96,11 +100,15 @@ contract SimpleToken {
 **Compilation & Deployment:**
 
 ```bash
-# 1. Compile to NeoVM bytecode
-neo-solc SimpleToken.sol -O2 -f json -o SimpleToken.json
+# 1. Compile to Neo N3 contract files
+neo-solc SimpleToken.sol -O2 -o SimpleToken
+# This generates: SimpleToken.nef + SimpleToken.manifest.json
 
-# 2. Deploy to Neo TestNet (using neo-cli or SDK)
+# 2. Deploy to Neo TestNet
 neo-cli contract deploy SimpleToken.nef SimpleToken.manifest.json
+
+# 3. Verify deployment  
+neo-cli contract invoke <contract-hash> totalSupply
 ```
 
 ## 📚 **Complete Documentation**
@@ -184,55 +192,57 @@ make dev
 #### **Basic Commands**
 
 ```bash
-# Compile with default settings
-neo-solc input.yul
+# Compile with default settings (generates .nef + .manifest.json)
+neo-solc contract.sol
 
-# Specify output file and format
-neo-solc input.yul -o output.hex -f hex
+# Specify output file prefix
+neo-solc contract.sol -o MyContract
 
 # Set optimization level (0-3)
-neo-solc input.yul -O3
+neo-solc contract.sol -O3
 
 # Target specific NeoVM version
-neo-solc input.yul -t 3.5
+neo-solc contract.sol -t 3.5
 
-# Generate ABI and source maps
-neo-solc input.yul --abi --source-map
+# Generate specific formats
+neo-solc contract.sol -f nef          # Only .nef file
+neo-solc contract.sol -f manifest     # Only .manifest.json
+neo-solc contract.sol -f complete     # Both files (default)
 ```
 
 #### **Advanced Options**
 
 ```bash
 # Security analysis mode
-neo-solc input.yul --analyze --focus security
+neo-solc contract.sol --analyze --focus security
 
 # Performance profiling
-neo-solc input.yul --analyze --focus performance
+neo-solc contract.sol --analyze --focus performance
 
-# Multiple output formats
-neo-solc input.yul -f json,hex,assembly
+# JSON output with all information
+neo-solc contract.sol -f json -o contract.json
 
 # Custom gas model
-neo-solc input.yul --gas-model hybrid
+neo-solc contract.sol --gas-model hybrid
 
 # Validation only (no compilation)
-neo-solc input.yul --validate
+neo-solc contract.sol --validate
 
 # Verbose output for debugging
-neo-solc input.yul -v --debug
+neo-solc contract.sol -v --debug
 ```
 
 #### **Batch Operations**
 
 ```bash
 # Compile multiple files
-neo-solc src/*.yul -o build/
+neo-solc src/*.sol -o build/
 
-# Watch mode for development
-neo-solc src/ --watch --output-dir build/
+# Compile specific contract
+neo-solc contracts/Token.sol -o build/Token
 
-# Parallel compilation
-neo-solc src/*.yul --parallel --max-jobs 8
+# Batch compilation with optimization
+neo-solc contracts/*.sol -O3 -o build/
 ```
 
 ### **🔗 Integration Guide**
@@ -468,9 +478,10 @@ address[] holders; // Expensive to search
 neo-solc contract.sol --analyze --focus performance
 
 # Compare optimization levels
-neo-solc contract.sol -O0 --gas-report > gas-O0.txt
-neo-solc contract.sol -O3 --gas-report > gas-O3.txt
-diff gas-O0.txt gas-O3.txt
+neo-solc contract.sol -O0 -o contract-O0
+neo-solc contract.sol -O3 -o contract-O3
+# Compare the generated .nef file sizes
+ls -la contract-O0.nef contract-O3.nef
 ```
 
 ### **🔒 Security Best Practices**
@@ -481,11 +492,11 @@ diff gas-O0.txt gas-O3.txt
 # Run security analyzer
 neo-solc contract.sol --analyze --focus security
 
-# Generate security report
-neo-solc contract.sol --security-report --output security.json
+# Generate security report  
+neo-solc contract.sol --analyze -f json -o security.json
 
 # Check for common vulnerabilities
-neo-solc contract.sol --check-vulnerabilities
+neo-solc contract.sol --analyze --focus security
 ```
 
 #### **Common Security Patterns**
@@ -520,10 +531,13 @@ function transfer(address to, uint256 amount) public {
 
 ```bash
 # Compile with debug info
-neo-solc contract.sol --debug --source-map -o contract.json
+neo-solc contract.sol --debug --source-map -o contract
 
 # View debug information
-cat contract.json | jq '.debugInfo'
+cat contract.debug.json | jq '.'
+
+# View manifest information
+cat contract.manifest.json | jq '.'
 ```
 
 #### **Common Issues & Solutions**
@@ -644,7 +658,7 @@ make publish
 - ✅ Complete NeoVM code generator
 - ✅ Comprehensive error handling and reporting
 - ✅ CLI interface with 25+ options
-- ✅ Multiple output formats (binary, hex, assembly, JSON)
+- ✅ Neo N3 native formats (.nef and .manifest.json)
 
 #### **Runtime Library (100% Complete)**
 - ✅ EVM-compatible memory manager with garbage collection
@@ -773,7 +787,7 @@ We've included complete, production-ready implementations of popular contract pa
 
 ```bash
 # Compile ERC20 token
-neo-solc examples/ERC20Token.sol -O3 -f json -o build/
+neo-solc examples/ERC20Token.sol -O3 -o build/ERC20Token
 
 # Deploy to Neo TestNet
 neo-cli contract deploy build/ERC20Token.nef build/ERC20Token.manifest.json

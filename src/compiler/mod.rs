@@ -1,5 +1,6 @@
-pub mod lexer;
-pub mod parser;
-
-pub use lexer::*;
-pub use parser::*;
+// Compiler module - re-exports from parent modules
+pub use crate::lexer::*;
+pub use crate::parser::*;
+pub use crate::semantic::*;
+pub use crate::optimizer::*;
+pub use crate::codegen::*;

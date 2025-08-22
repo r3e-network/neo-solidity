@@ -51,16 +51,4 @@ debug = true
 
 [[bin]]
 name = "neo-solc"
-path = "src/compiler/main.rs"
-
-[[bench]]
-name = "compiler_benchmarks"
-harness = false
-
-[workspace]
-members = [
-    "src/compiler",
-    "runtime",
-    "tooling",
-    "tests"
-]
+path = "src/main.rs"
