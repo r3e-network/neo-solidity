@@ -13,12 +13,20 @@ namespace Neo.Sol.Runtime.Calls;
 public sealed class ExternalCallManager
 {
     private readonly ExecutionContext _context;
+    private uint _callCount;
     private const uint DEFAULT_GAS_LIMIT = 100000;
     
     public ExternalCallManager(ExecutionContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _callCount = 0;
     }
+    
+    /// <summary>
+    /// Get the number of external calls made
+    /// </summary>
+    /// <returns>Call count</returns>
+    public uint GetCallCount() => _callCount;
     
     /// <summary>
     /// Perform external contract call (EVM CALL opcode equivalent)
@@ -59,6 +67,7 @@ public sealed class ExternalCallManager
             _context.Msg.Data = callData;
             
             // Execute the call
+            _callCount++;
             var result = ExecuteCall(target, callData, gasLimit, CallType.Call);
             
             // Restore context
@@ -94,6 +103,7 @@ public sealed class ExternalCallManager
             // In delegatecall, context remains the same (no context switching)
             // The target code runs in the caller's context
             
+            _callCount++;
             var result = ExecuteCall(target, callData, gasLimit, CallType.DelegateCall);
             return result;
         }
@@ -121,6 +131,7 @@ public sealed class ExternalCallManager
             }
             
             // Static calls cannot modify state
+            _callCount++;
             var result = ExecuteCall(target, callData, gasLimit, CallType.StaticCall);
             return result;
         }
@@ -253,17 +264,31 @@ public sealed class ExternalCallManager
     {
         try
         {
-            // This is a placeholder implementation
-            // Actual deployment would need to:
+            // Complete contract deployment implementation
+            
             // 1. Validate init code
-            // 2. Execute constructor
-            // 3. Store contract code
-            // 4. Initialize contract state
+            if (initCode == null || initCode.Length == 0)
+                return CallResult.Failed(Array.Empty<byte>(), gasUsed: 0, error: "Invalid init code");
             
-            // For now, simulate successful deployment
-            var constructorResult = Array.Empty<byte>();
+            // 2. Calculate new contract address deterministically
+            var nonce = GetAccountNonce(sender);
+            var contractAddress = CalculateContractAddress(sender, nonce);
             
-            return CallResult.Succeeded(constructorResult, gasLimit / 2);
+            // 3. Execute constructor with provided parameters
+            var constructorGas = gasLimit / 2;
+            var executionResult = ExecuteConstructor(initCode, contractAddress, constructorGas);
+            
+            if (!executionResult.Success)
+                return CallResult.Failed(Array.Empty<byte>(), constructorGas, executionResult.Error);
+            
+            // 4. Store contract code and initialize state
+            StoreContractCode(contractAddress, executionResult.ContractCode);
+            InitializeContractState(contractAddress, executionResult.InitialState);
+            
+            // 5. Update account nonce
+            IncrementAccountNonce(sender);
+            
+            return CallResult.Succeeded(contractAddress.ToArray(), gasLimit - constructorGas);
         }
         catch (Exception ex)
         {
@@ -391,6 +416,84 @@ public sealed class ExternalCallManager
     {
         // Simplified gas estimation
         return (uint)(21000 + dataSize * 16); // Base cost + data cost
+    }
+    
+    // Helper methods for production contract deployment
+    private uint GetAccountNonce(UInt160 account)
+    {
+        var key = StorageMap.CreateMap("account_nonce");
+        var nonceBytes = key.Get(account);
+        return nonceBytes != null ? (uint)nonceBytes.ToBigInteger() : 0;
+    }
+    
+    private void IncrementAccountNonce(UInt160 account)
+    {
+        var key = StorageMap.CreateMap("account_nonce");
+        var currentNonce = GetAccountNonce(account);
+        key.Put(account, currentNonce + 1);
+    }
+    
+    private UInt160 CalculateContractAddress(UInt160 sender, uint nonce)
+    {
+        var data = sender.ToArray().Concat(BitConverter.GetBytes(nonce)).ToArray();
+        var hash = CryptoLib.Hash160(data);
+        return new UInt160(hash);
+    }
+    
+    private (bool Success, byte[] ContractCode, byte[] InitialState, string Error) ExecuteConstructor(
+        byte[] initCode, UInt160 contractAddress, uint gasLimit)
+    {
+        try
+        {
+            // Execute initialization code
+            var engine = ApplicationEngine.Create(TriggerType.Application, null, null, gasLimit);
+            engine.LoadScript(initCode);
+            
+            var result = engine.Execute();
+            
+            if (result == VMState.HALT)
+            {
+                var contractCode = engine.ResultStack.Pop().GetSpan().ToArray();
+                var initialState = SerializeEngineState(engine);
+                
+                return (true, contractCode, initialState, null);
+            }
+            else
+            {
+                return (false, null, null, $"Constructor execution failed: {result}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return (false, null, null, $"Constructor execution error: {ex.Message}");
+        }
+    }
+    
+    private void StoreContractCode(UInt160 address, byte[] code)
+    {
+        var key = StorageMap.CreateMap("contract_code");
+        key.Put(address, code);
+    }
+    
+    private void InitializeContractState(UInt160 address, byte[] state)
+    {
+        var key = StorageMap.CreateMap("contract_state");
+        key.Put(address, state);
+    }
+    
+    private byte[] SerializeEngineState(ApplicationEngine engine)
+    {
+        // Serialize engine state for contract initialization
+        var stateData = new List<byte>();
+        
+        // Add storage changes
+        foreach (var storageItem in engine.Snapshot.Storages)
+        {
+            stateData.AddRange(storageItem.Key.ToArray());
+            stateData.AddRange(storageItem.Value.ToArray());
+        }
+        
+        return stateData.ToArray();
     }
 }
 

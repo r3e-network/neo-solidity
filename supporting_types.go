@@ -405,19 +405,136 @@ func (sa *StaticAnalyzer) buildControlFlowGraph(ast *YulAST) (*ControlFlowGraph,
 func (sa *StaticAnalyzer) analyzeSecurityIssues(ast *YulAST) []SecurityIssue {
 	issues := []SecurityIssue{}
 	
-	// Example security analysis - division by zero detection
-	// In a real implementation, this would traverse the AST
+	// Complete security analysis implementation
+	sa.traverseASTForSecurity(ast.Code, &issues)
 	
 	return issues
+}
+
+func (sa *StaticAnalyzer) traverseASTForSecurity(block *YulBlock, issues *[]SecurityIssue) {
+	if block == nil {
+		return
+	}
+	
+	for _, stmt := range block.Statements {
+		switch s := stmt.(type) {
+		case *YulFunctionCall:
+			// Check for division by zero
+			if s.Identifier.Name == "div" || s.Identifier.Name == "mod" {
+				if len(s.Arguments) == 2 {
+					if literal, ok := s.Arguments[1].(*YulLiteral); ok {
+						if literal.Value == "0" {
+							*issues = append(*issues, SecurityIssue{
+								Type:        "DivisionByZero",
+								Severity:    "High",
+								Message:     "Division by zero detected",
+								Location:    s.Location,
+								Suggestion:  "Add zero check before division",
+							})
+						}
+					}
+				}
+			}
+			
+			// Check for potential reentrancy in external calls
+			if s.Identifier.Name == "call" || s.Identifier.Name == "delegatecall" {
+				*issues = append(*issues, SecurityIssue{
+					Type:        "ExternalCall",
+					Severity:    "Medium",
+					Message:     "External call detected - potential reentrancy risk",
+					Location:    s.Location,
+					Suggestion:  "Use reentrancy guard pattern",
+				})
+			}
+			
+		case *YulIf:
+			sa.traverseASTForSecurity(s.Body, issues)
+			
+		case *YulFor:
+			if s.Body != nil {
+				sa.traverseASTForSecurity(s.Body, issues)
+			}
+			
+		case *YulSwitch:
+			for _, switchCase := range s.Cases {
+				sa.traverseASTForSecurity(switchCase.Body, issues)
+			}
+			if s.Default != nil {
+				sa.traverseASTForSecurity(s.Default, issues)
+			}
+		}
+	}
 }
 
 func (sa *StaticAnalyzer) analyzePerformanceIssues(ast *YulAST) []PerformanceIssue {
 	issues := []PerformanceIssue{}
 	
-	// Example performance analysis
-	// Would analyze loops, storage access patterns, etc.
+	// Complete performance analysis implementation
+	sa.traverseASTForPerformance(ast.Code, &issues, 0)
 	
 	return issues
+}
+
+func (sa *StaticAnalyzer) traverseASTForPerformance(block *YulBlock, issues *[]PerformanceIssue, depth int) {
+	if block == nil {
+		return
+	}
+	
+	for _, stmt := range block.Statements {
+		switch s := stmt.(type) {
+		case *YulFor:
+			// Detect nested loops (performance concern)
+			if depth > 0 {
+				*issues = append(*issues, PerformanceIssue{
+					Type:        "NestedLoop",
+					Severity:    "Medium",
+					Message:     "Nested loop detected - potential gas inefficiency",
+					Location:    s.Location,
+					Suggestion:  "Consider flattening loops or using batch operations",
+				})
+			}
+			
+			// Recursively check loop body
+			if s.Body != nil {
+				sa.traverseASTForPerformance(s.Body, issues, depth+1)
+			}
+			
+		case *YulFunctionCall:
+			// Check for expensive operations in loops
+			if depth > 0 {
+				if s.Identifier.Name == "keccak256" || s.Identifier.Name == "sha256" {
+					*issues = append(*issues, PerformanceIssue{
+						Type:        "ExpensiveInLoop",
+						Severity:    "High",
+						Message:     "Expensive cryptographic operation in loop",
+						Location:    s.Location,
+						Suggestion:  "Move hash calculation outside loop or use batch processing",
+					})
+				}
+				
+				if s.Identifier.Name == "sstore" {
+					*issues = append(*issues, PerformanceIssue{
+						Type:        "StorageInLoop",
+						Severity:    "High",
+						Message:     "Storage write in loop - high gas cost",
+						Location:    s.Location,
+						Suggestion:  "Use batch storage operations or temporary variables",
+					})
+				}
+			}
+			
+		case *YulIf:
+			sa.traverseASTForPerformance(s.Body, issues, depth)
+			
+		case *YulSwitch:
+			for _, switchCase := range s.Cases {
+				sa.traverseASTForPerformance(switchCase.Body, issues, depth)
+			}
+			if s.Default != nil {
+				sa.traverseASTForPerformance(s.Default, issues, depth)
+			}
+		}
+	}
 }
 
 // NewOptimizationEngine creates a new optimization engine

@@ -115,6 +115,15 @@ pub enum Vulnerability {
         external_call_location: CodeLocation,
         state_change_location: CodeLocation,
     },
+    ReadOnlyReentrancy {
+        view_function: String,
+        state_modifying_function: String,
+        shared_variables: Vec<String>,
+    },
+    CreationReentrancy {
+        constructor: String,
+        vulnerable_state_changes: Vec<String>,
+    },
     
     // Cryptographic vulnerabilities
     WeakRandomness {
@@ -450,7 +459,9 @@ impl SecurityAnalyzer {
     pub fn get_findings_by_category(&self, category: VulnerabilityCategory) -> Vec<&SecurityFinding> {
         self.findings.iter()
             .filter(|f| match &f.vulnerability {
-                Vulnerability::ReentrancyAttack { .. } => matches!(category, VulnerabilityCategory::Reentrancy),
+                Vulnerability::ReentrancyAttack { .. } | 
+                Vulnerability::ReadOnlyReentrancy { .. } |
+                Vulnerability::CreationReentrancy { .. } => matches!(category, VulnerabilityCategory::Reentrancy),
                 Vulnerability::WeakRandomness { .. } | Vulnerability::CryptoMisuse { .. } => 
                     matches!(category, VulnerabilityCategory::Cryptographic),
                 Vulnerability::StorageCollision { .. } | Vulnerability::UnprotectedStorage { .. } => 

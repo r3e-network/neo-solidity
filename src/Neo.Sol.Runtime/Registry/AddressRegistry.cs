@@ -220,13 +220,54 @@ public sealed class AddressRegistry
     /// <returns>List of contract addresses supporting the interface</returns>
     public UInt160[] GetContractsByInterface(byte[] interfaceId)
     {
+        ValidateInterfaceId(interfaceId);
+        
         var contracts = new List<UInt160>();
         
-        // This is a simplified implementation
-        // A real implementation would need to maintain an index
-        // or use a more efficient lookup mechanism
-        
-        return contracts.ToArray();
+        try
+        {
+            // Create interface registry key prefix for efficient searching
+            // Key format: [PREFIX][INTERFACE_ID][CONTRACT_ADDRESS]
+            var prefixKey = new byte[1 + interfaceId.Length];
+            prefixKey[0] = INTERFACE_REGISTRY_PREFIX;
+            Array.Copy(interfaceId, 0, prefixKey, 1, interfaceId.Length);
+            
+            // Use Neo storage iterator to find all contracts supporting this interface
+            var iterator = Storage.Find(_context, prefixKey, FindOptions.None);
+            
+            while (iterator.Next())
+            {
+                var key = iterator.Key;
+                var value = iterator.Value;
+                
+                // Verify this is a valid interface registration
+                if (key.Length == 1 + interfaceId.Length + 20 && 
+                    value.Length > 0 && value[0] == 1)
+                {
+                    // Extract contract address from the key
+                    var addressBytes = new byte[20];
+                    Array.Copy(key, 1 + interfaceId.Length, addressBytes, 0, 20);
+                    var contractAddress = new UInt160(addressBytes);
+                    
+                    // Verify contract is still active
+                    var contractInfo = GetContractInfo(contractAddress);
+                    if (contractInfo != null && contractInfo.IsActive)
+                    {
+                        contracts.Add(contractAddress);
+                    }
+                }
+            }
+            
+            // Sort addresses for deterministic results
+            contracts.Sort((a, b) => string.Compare(a.ToString(), b.ToString(), StringComparison.Ordinal));
+            
+            return contracts.ToArray();
+        }
+        catch (Exception ex)
+        {
+            Runtime.Log($"Error getting contracts by interface {Convert.ToHexString(interfaceId)}: {ex.Message}");
+            return Array.Empty<UInt160>();
+        }
     }
     
     /// <summary>
@@ -235,9 +276,24 @@ public sealed class AddressRegistry
     /// <param name="registrations">Contract registrations</param>
     public void BatchRegisterContracts(IEnumerable<ContractRegistration> registrations)
     {
-        foreach (var registration in registrations)
+        var registrationList = registrations.ToList();
+        
+        if (registrationList.Count == 0)
+            return;
+            
+        try
         {
-            RegisterContract(registration.Address, registration.Info);
+            foreach (var registration in registrationList)
+            {
+                RegisterContract(registration.Address, registration.Info);
+            }
+            
+            Runtime.Notify("BatchContractsRegistered", registrationList.Count, Runtime.Time);
+        }
+        catch (Exception ex)
+        {
+            Runtime.Log($"Error in batch registration: {ex.Message}");
+            throw;
         }
     }
     
@@ -277,10 +333,10 @@ public sealed class AddressRegistry
     private byte[] CreateInterfaceKey(UInt160 contractAddress, byte[] interfaceId)
     {
         var addressBytes = contractAddress.ToArray();
-        var key = new byte[1 + addressBytes.Length + interfaceId.Length];
+        var key = new byte[1 + interfaceId.Length + addressBytes.Length];
         key[0] = INTERFACE_REGISTRY_PREFIX;
-        Array.Copy(addressBytes, 0, key, 1, addressBytes.Length);
-        Array.Copy(interfaceId, 0, key, 1 + addressBytes.Length, interfaceId.Length);
+        Array.Copy(interfaceId, 0, key, 1, interfaceId.Length);
+        Array.Copy(addressBytes, 0, key, 1 + interfaceId.Length, addressBytes.Length);
         return key;
     }
     
@@ -342,19 +398,132 @@ public sealed class AddressRegistry
     
     private uint CountRegisteredContracts()
     {
-        // This would need to be implemented based on the storage structure
-        return (uint)_cache.Count; // Simplified
+        try
+        {
+            uint count = 0;
+            
+            // Create storage key for contract registry
+            var contractPrefix = new byte[] { CONTRACT_INFO_PREFIX };
+            
+            // Use Neo storage iterator to count registered contracts
+            var iterator = Storage.Find(_context, contractPrefix, FindOptions.None);
+            
+            while (iterator.Next())
+            {
+                var value = iterator.Value;
+                
+                if (value != null && value.Length > 0)
+                {
+                    try
+                    {
+                        var contractInfo = DeserializeContractInfo(value);
+                        count++;
+                    }
+                    catch
+                    {
+                        // Skip invalid records
+                        continue;
+                    }
+                }
+            }
+            
+            return count;
+        }
+        catch (Exception ex)
+        {
+            Runtime.Log($"Error counting registered contracts: {ex.Message}");
+            // Fallback to cache count
+            return (uint)_cache.Count;
+        }
     }
     
     private uint CountActiveContracts()
     {
-        return (uint)_cache.Values.Count(c => c.IsActive);
+        try
+        {
+            uint count = 0;
+            
+            // Create storage key for contract registry
+            var contractPrefix = new byte[] { CONTRACT_INFO_PREFIX };
+            
+            // Use Neo storage iterator to count active contracts
+            var iterator = Storage.Find(_context, contractPrefix, FindOptions.None);
+            
+            while (iterator.Next())
+            {
+                var value = iterator.Value;
+                
+                if (value != null && value.Length > 0)
+                {
+                    try
+                    {
+                        var contractInfo = DeserializeContractInfo(value);
+                        if (contractInfo.IsActive)
+                        {
+                            count++;
+                        }
+                    }
+                    catch
+                    {
+                        // Skip invalid records
+                        continue;
+                    }
+                }
+            }
+            
+            return count;
+        }
+        catch (Exception ex)
+        {
+            Runtime.Log($"Error counting active contracts: {ex.Message}");
+            // Fallback to cache count
+            return (uint)_cache.Values.Count(c => c.IsActive);
+        }
     }
     
     private uint CountRegisteredNames()
     {
-        // This would need to maintain a counter or iterate through storage
-        return 0; // Placeholder
+        try
+        {
+            uint count = 0;
+            
+            // Create storage key for name registry
+            var namePrefix = new byte[] { ENS_REGISTRY_PREFIX };
+            
+            // Use Neo storage iterator to count active name registrations
+            var iterator = Storage.Find(_context, namePrefix, FindOptions.None);
+            
+            while (iterator.Next())
+            {
+                var value = iterator.Value;
+                
+                if (value != null && value.Length > 0)
+                {
+                    try
+                    {
+                        var record = DeserializeNameRecord(value);
+                        
+                        // Only count active, non-expired names
+                        if (record.IsActive && Runtime.Time <= record.ExpiresAt)
+                        {
+                            count++;
+                        }
+                    }
+                    catch
+                    {
+                        // Skip invalid records
+                        continue;
+                    }
+                }
+            }
+            
+            return count;
+        }
+        catch (Exception ex)
+        {
+            Runtime.Log($"Error counting registered names: {ex.Message}");
+            return 0;
+        }
     }
     
     // Serialization methods (simplified)

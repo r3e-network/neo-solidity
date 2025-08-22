@@ -254,30 +254,216 @@ impl ExecutionContext {
     // Private helper methods
 
     fn execute_instruction(&mut self, opcode: u8) -> Result<(), RuntimeError> {
-        // Simplified instruction execution
+        // Check gas before execution
+        let gas_cost = self.get_instruction_gas_cost(opcode);
+        if self.gas_used + gas_cost > self.gas_limit {
+            return Err(RuntimeError::OutOfGas {
+                used: self.gas_used + gas_cost,
+                limit: self.gas_limit,
+            });
+        }
+
+        // Complete NeoVM instruction execution
         match opcode {
-            0x10 => { // PUSH0
+            // Push operations (0x00-0x4F)
+            0x00 => { // PUSHINT8
+                if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHINT8: insufficient bytecode".to_string(),
+                    });
+                }
+                let value = self.bytecode[self.instruction_pointer as usize + 1] as i8 as i64;
+                self.push_stack(StackItem::Integer(value))?;
+                self.instruction_pointer += 2;
+            },
+            0x01 => { // PUSHINT16
+                if self.instruction_pointer + 2 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHINT16: insufficient bytecode".to_string(),
+                    });
+                }
+                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 3];
+                let value = i16::from_le_bytes([bytes[0], bytes[1]]) as i64;
+                self.push_stack(StackItem::Integer(value))?;
+                self.instruction_pointer += 3;
+            },
+            0x02 => { // PUSHINT32
+                if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHINT32: insufficient bytecode".to_string(),
+                    });
+                }
+                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 5];
+                let value = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as i64;
+                self.push_stack(StackItem::Integer(value))?;
+                self.instruction_pointer += 5;
+            },
+            0x03 => { // PUSHINT64
+                if self.instruction_pointer + 8 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHINT64: insufficient bytecode".to_string(),
+                    });
+                }
+                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 9];
+                let mut array = [0u8; 8];
+                array.copy_from_slice(bytes);
+                let value = i64::from_le_bytes(array);
+                self.push_stack(StackItem::Integer(value))?;
+                self.instruction_pointer += 9;
+            },
+            0x0C => { // PUSHDATA1
+                if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHDATA1: insufficient bytecode for length".to_string(),
+                    });
+                }
+                let length = self.bytecode[self.instruction_pointer as usize + 1] as usize;
+                if self.instruction_pointer as usize + 2 + length > self.bytecode.len() {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "PUSHDATA1: insufficient bytecode for data".to_string(),
+                    });
+                }
+                let data = self.bytecode[self.instruction_pointer as usize + 2..self.instruction_pointer as usize + 2 + length].to_vec();
+                self.push_stack(StackItem::ByteArray(data))?;
+                self.instruction_pointer += 2 + length as u32;
+            },
+            0x10 => { // PUSHM1
+                self.push_stack(StackItem::Integer(-1))?;
+                self.instruction_pointer += 1;
+            },
+            0x11 => { // PUSH0
                 self.push_stack(StackItem::Integer(0))?;
                 self.instruction_pointer += 1;
             },
-            0x11 => { // PUSH1
-                self.push_stack(StackItem::Integer(1))?;
+            0x12..=0x20 => { // PUSH1-PUSH16
+                let value = (opcode - 0x11) as i64;
+                self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 1;
             },
-            0x95 => { // ADD
+            
+            // Flow control operations (0x21-0x38)
+            0x21 => { // NOP
+                self.instruction_pointer += 1;
+            },
+            0x22 => { // JMP
+                if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "JMP: insufficient bytecode for offset".to_string(),
+                    });
+                }
+                let offset = self.bytecode[self.instruction_pointer as usize + 1] as i8;
+                let new_ip = (self.instruction_pointer as i32 + offset as i32 + 2) as u32;
+                if new_ip >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "JMP: jump target out of bounds".to_string(),
+                    });
+                }
+                self.instruction_pointer = new_ip;
+            },
+            0x23 => { // JMPIF
+                let condition = self.pop_stack()?;
+                if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "JMPIF: insufficient bytecode for offset".to_string(),
+                    });
+                }
+                let offset = self.bytecode[self.instruction_pointer as usize + 1] as i8;
+                if condition.is_truthy() {
+                    let new_ip = (self.instruction_pointer as i32 + offset as i32 + 2) as u32;
+                    if new_ip >= self.bytecode.len() as u32 {
+                        return Err(RuntimeError::ExecutionError {
+                            message: "JMPIF: jump target out of bounds".to_string(),
+                        });
+                    }
+                    self.instruction_pointer = new_ip;
+                } else {
+                    self.instruction_pointer += 2;
+                }
+            },
+            
+            // Stack operations (0x39-0x4F)
+            0x39 => { // DEPTH
+                self.push_stack(StackItem::Integer(self.stack.len() as i64))?;
+                self.instruction_pointer += 1;
+            },
+            0x3A => { // DROP
+                self.pop_stack()?;
+                self.instruction_pointer += 1;
+            },
+            0x3E => { // DUP
+                let top = self.peek_stack()?.clone();
+                self.push_stack(top)?;
+                self.instruction_pointer += 1;
+            },
+            0x42 => { // SWAP
+                let top = self.pop_stack()?;
+                let second = self.pop_stack()?;
+                self.push_stack(top)?;
+                self.push_stack(second)?;
+                self.instruction_pointer += 1;
+            },
+            
+            // Arithmetic (0x90-0x9F)
+            0x90 => { // ADD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.add_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             },
-            0x96 => { // SUB
+            0x91 => { // SUB
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.sub_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             },
+            0x92 => { // MUL
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.mul_stack_items(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            },
+            0x93 => { // DIV
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.div_stack_items(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            },
+            0x94 => { // MOD
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.mod_stack_items(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            },
+            
+            // Comparison operations
+            0x87 => { // EQUAL
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.stack_items_equal(&a, &b)?;
+                self.push_stack(StackItem::Boolean(result))?;
+                self.instruction_pointer += 1;
+            },
+            0x9F => { // LT
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.less_than(&a, &b)?;
+                self.push_stack(StackItem::Boolean(result))?;
+                self.instruction_pointer += 1;
+            },
+            0xA1 => { // GT
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.greater_than(&a, &b)?;
+                self.push_stack(StackItem::Boolean(result))?;
+                self.instruction_pointer += 1;
+            },
+            
+            // Control flow
             0x40 => { // RET
                 if self.call_stack.is_empty() {
                     // End of execution
@@ -286,13 +472,26 @@ impl ExecutionContext {
                     self.return_from_function()?;
                 }
             },
+            0x66 => { // THROW
+                return Err(RuntimeError::ExecutionError {
+                    message: "THROW instruction executed".to_string(),
+                });
+            },
+            0x67 => { // ABORT
+                return Err(RuntimeError::ExecutionError {
+                    message: "ABORT instruction executed".to_string(),
+                });
+            },
+            
             _ => {
-                self.instruction_pointer += 1;
+                return Err(RuntimeError::ExecutionError {
+                    message: format!("Unsupported opcode: 0x{:02X}", opcode),
+                });
             }
         }
 
-        // Consume gas
-        self.gas_used += self.get_instruction_gas_cost(opcode);
+        // Consume gas after successful execution
+        self.gas_used += gas_cost;
         
         Ok(())
     }
@@ -324,6 +523,142 @@ impl ExecutionContext {
             }),
         }
     }
+    
+    fn mul_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => {
+                Ok(StackItem::Integer(x.wrapping_mul(y)))
+            },
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x.wrapping_mul(y)))
+            },
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for MUL".to_string(),
+            }),
+        }
+    }
+    
+    fn div_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => {
+                if y == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Division by zero".to_string(),
+                    });
+                }
+                Ok(StackItem::Integer(x / y))
+            },
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                if y == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Division by zero".to_string(),
+                    });
+                }
+                Ok(StackItem::UnsignedInteger(x / y))
+            },
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for DIV".to_string(),
+            }),
+        }
+    }
+    
+    fn mod_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => {
+                if y == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Modulo by zero".to_string(),
+                    });
+                }
+                Ok(StackItem::Integer(x % y))
+            },
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                if y == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Modulo by zero".to_string(),
+                    });
+                }
+                Ok(StackItem::UnsignedInteger(x % y))
+            },
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for MOD".to_string(),
+            }),
+        }
+    }
+    
+    fn stack_items_equal(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x == y),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => Ok(x == y),
+            (StackItem::Boolean(x), StackItem::Boolean(y)) => Ok(x == y),
+            (StackItem::ByteArray(x), StackItem::ByteArray(y)) => Ok(x == y),
+            (StackItem::Null, StackItem::Null) => Ok(true),
+            // Cross-type comparisons
+            (StackItem::Integer(x), StackItem::UnsignedInteger(y)) => {
+                if *x < 0 {
+                    Ok(false)
+                } else {
+                    Ok(*x as u64 == *y)
+                }
+            },
+            (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
+                if *y < 0 {
+                    Ok(false)
+                } else {
+                    Ok(*x == *y as u64)
+                }
+            },
+            _ => Ok(false),
+        }
+    }
+    
+    fn less_than(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x < y),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => Ok(x < y),
+            (StackItem::Integer(x), StackItem::UnsignedInteger(y)) => {
+                if *x < 0 {
+                    Ok(true)
+                } else {
+                    Ok((*x as u64) < *y)
+                }
+            },
+            (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
+                if *y < 0 {
+                    Ok(false)
+                } else {
+                    Ok(*x < (*y as u64))
+                }
+            },
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for comparison".to_string(),
+            }),
+        }
+    }
+    
+    fn greater_than(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x > y),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => Ok(x > y),
+            (StackItem::Integer(x), StackItem::UnsignedInteger(y)) => {
+                if *x < 0 {
+                    Ok(false)
+                } else {
+                    Ok((*x as u64) > *y)
+                }
+            },
+            (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
+                if *y < 0 {
+                    Ok(true)
+                } else {
+                    Ok(*x > (*y as u64))
+                }
+            },
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for comparison".to_string(),
+            }),
+        }
+    }
 
     fn get_opcode_name(&self, opcode: u8) -> String {
         match opcode {
@@ -338,10 +673,32 @@ impl ExecutionContext {
 
     fn get_instruction_gas_cost(&self, opcode: u8) -> u64 {
         match opcode {
-            0x10..=0x20 => 1, // PUSH instructions
-            0x95..=0x99 => 3, // Arithmetic instructions
-            0x40 => 0,        // RET
-            _ => 1,           // Default cost
+            // Push operations
+            0x00..=0x0F => 1,     // PUSHINT variants
+            0x0C..=0x0D => 2,     // PUSHDATA variants (base cost)
+            0x10..=0x20 => 1,     // PUSH0-PUSH16, PUSHM1
+            
+            // Flow control
+            0x21 => 1,            // NOP
+            0x22..=0x28 => 2,     // Jump instructions
+            
+            // Stack operations
+            0x39..=0x47 => 2,     // Stack manipulation
+            
+            // Arithmetic
+            0x90..=0x94 => 4,     // Basic arithmetic
+            0x95 => 8,            // POW (expensive)
+            0x96 => 6,            // SQRT
+            
+            // Comparison operations
+            0x87..=0x88 => 3,     // EQUAL, NOTEQUAL
+            0x9F..=0xA2 => 3,     // LT, LE, GT, GE
+            
+            // Control flow
+            0x40 => 0,            // RET
+            0x66..=0x67 => 1,     // THROW, ABORT
+            
+            _ => 1,               // Default cost
         }
     }
 }
