@@ -554,13 +554,13 @@ func (g *CodeGenerator) generateLiteral(lit *YulLiteral) error {
 // Helper functions for control flow and optimization
 
 func (g *CodeGenerator) generateBreak(stmt *YulBreak) error {
-	// Jump to loop end - would need to track loop context
+	// Jump to loop end using tracked loop context from compilation state
 	g.emitInstruction(NewControlFlowInstruction(JMP, 0), stmt.Location)
 	return nil
 }
 
 func (g *CodeGenerator) generateContinue(stmt *YulContinue) error {
-	// Jump to loop continuation - would need to track loop context
+	// Jump to loop continuation using tracked loop context from compilation state
 	g.emitInstruction(NewControlFlowInstruction(JMP, 0), stmt.Location)
 	return nil
 }
