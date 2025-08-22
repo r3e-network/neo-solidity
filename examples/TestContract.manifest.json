@@ -1,0 +1,54 @@
+{
+  "abi": {
+    "events": [
+      {
+        "name": "ValueChanged",
+        "parameters": [
+          {
+            "name": "newValue",
+            "type": "Integer"
+          }
+        ]
+      }
+    ],
+    "methods": [
+      {
+        "name": "getValue",
+        "offset": 0,
+        "parameters": [],
+        "returntype": "Integer",
+        "safe": true
+      },
+      {
+        "name": "setValue",
+        "offset": 16,
+        "parameters": [
+          {
+            "name": "_value",
+            "type": "Integer"
+          }
+        ],
+        "returntype": "Void",
+        "safe": false
+      }
+    ]
+  },
+  "extra": {
+    "Author": "Jimmy <jimmy@r3e.network>",
+    "Compiler": "neo-solidity-1.0.0",
+    "Description": "Solidity contract 'TestContract' compiled to NeoVM",
+    "Repository": "https://github.com/r3e-network/neo-solidity",
+    "Version": "1.0.0"
+  },
+  "features": {},
+  "groups": [],
+  "name": "TestContract",
+  "permissions": [
+    {
+      "contract": "*",
+      "methods": "*"
+    }
+  ],
+  "supportedstandards": [],
+  "trusts": []
+}
