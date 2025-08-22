@@ -1,0 +1,78 @@
+{
+  "name": "@r3e-network/neo-solidity-devpack",
+  "version": "1.0.0",
+  "description": "Complete Neo N3 development framework for Solidity smart contracts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r3e-network/neo-solidity.git",
+    "directory": "devpack"
+  },
+  "homepage": "https://github.com/r3e-network/neo-solidity/tree/main/devpack",
+  "bugs": {
+    "url": "https://github.com/r3e-network/neo-solidity/issues"
+  },
+  "author": {
+    "name": "Jimmy",
+    "email": "jimmy@r3e.network"
+  },
+  "license": "MIT",
+  "keywords": [
+    "neo",
+    "neo-n3",
+    "solidity",
+    "smart-contracts",
+    "neovm",
+    "devpack",
+    "syscalls",
+    "nep-17",
+    "nep-11",
+    "nep-24",
+    "blockchain",
+    "r3e-network"
+  ],
+  "files": [
+    "contracts/",
+    "standards/",
+    "libraries/",
+    "examples/",
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network neo_testnet",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network neo_mainnet",
+    "verify": "hardhat verify",
+    "clean": "hardhat clean",
+    "size": "hardhat size-contracts",
+    "coverage": "hardhat coverage",
+    "lint": "solhint 'contracts/**/*.sol' && eslint '**/*.js'",
+    "format": "prettier --write '**/*.{js,json,md,sol}'",
+    "docs": "hardhat docgen"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.0",
+    "hardhat": "^2.17.0",
+    "ethers": "^5.7.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@r3e-network/hardhat-solc-neo": "^1.0.0",
+    "@r3e-network/hardhat-neo-deployer": "^1.0.0",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-docgen": "^1.3.0",
+    "solhint": "^3.4.1",
+    "prettier": "^3.0.0",
+    "prettier-plugin-solidity": "^1.1.3"
+  },
+  "peerDependencies": {
+    "@r3e-network/neo-solidity": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
