@@ -194,10 +194,22 @@ export class DeploymentManager extends EventEmitter {
         bytecode: artifact.bytecode
       };
 
-      // Submit to block explorer (placeholder - would integrate with actual API)
-      console.log('📤 Submitting contract for verification...', verificationData.contractAddress);
+      // Submit to block explorer
+      const verified = await this.submitVerification(verificationData);
       
-      return true;
+      if (verified) {
+        console.log('✅ Contract verification submitted successfully');
+        // Save verification status
+        await this.saveVerificationResult(deployment.contractAddress, {
+          verified: true,
+          submittedAt: new Date().toISOString(),
+          verificationData
+        });
+        return true;
+      } else {
+        console.log('❌ Contract verification submission failed');
+        return false;
+      }
     } catch (error) {
       console.error('❌ Verification failed:', error);
       return false;
@@ -216,10 +228,38 @@ export class DeploymentManager extends EventEmitter {
       { ...upgradeOptions, skipDryRun: false }
     );
 
-    // Upgrade proxy (placeholder - would integrate with actual proxy pattern)
-    console.log(`🔄 Upgrading proxy at ${proxyAddress} to ${newImplementation.contractAddress}`);
-    
-    return newImplementation;
+    // Execute proxy upgrade transaction
+    try {
+      const proxyContract = await this.getContractAt('IProxy', proxyAddress);
+      
+      // Prepare upgrade transaction
+      const upgradeData = proxyContract.interface.encodeFunctionData('upgrade', [
+        newImplementation.contractAddress
+      ]);
+      
+      const upgradeTx = await this.executeTransaction({
+        to: proxyAddress,
+        data: upgradeData,
+        gasLimit: upgradeOptions.gasLimit || 500000
+      });
+      
+      console.log(`✅ Proxy upgraded successfully. Tx: ${upgradeTx.hash}`);
+      
+      // Update deployment record
+      const upgradeResult = {
+        ...newImplementation,
+        upgradeTransaction: upgradeTx,
+        proxyAddress,
+        upgradeType: 'proxy'
+      };
+      
+      await this.saveDeployment(newImplementationName, upgradeResult);
+      
+      return upgradeResult;
+    } catch (error) {
+      console.error('❌ Proxy upgrade failed:', error);
+      throw new Error(`Proxy upgrade failed: ${error}`);
+    }
   }
 
   async getDeployment(contractName: string): Promise<DeploymentResult | undefined> {
@@ -397,9 +437,164 @@ export class DeploymentManager extends EventEmitter {
       totalGasUsed: totalGasUsed.toString(),
       totalCost: ethers.formatEther(totalCost),
       deploymentsByStatus: {
-        successful: deployments.length // Simplified
+        successful: deployments.filter(d => d.status === 'success').length,
+        failed: deployments.filter(d => d.status === 'failed').length,
+        pending: deployments.filter(d => d.status === 'pending').length,
+        verified: deployments.filter(d => d.verified).length
       },
       topGasConsumers
     };
+  }
+
+  /**
+   * Submit contract for verification to block explorer
+   */
+  private async submitVerification(verificationData: any): Promise<boolean> {
+    try {
+      const explorerConfig = this.getExplorerConfig();
+      if (!explorerConfig) {
+        console.warn('No explorer configuration found, skipping verification');
+        return false;
+      }
+
+      const response = await fetch(`${explorerConfig.baseUrl}/api/verify-contract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(explorerConfig.apiKey && { 'Authorization': `Bearer ${explorerConfig.apiKey}` })
+        },
+        body: JSON.stringify(verificationData)
+      });
+
+      if (!response.ok) {
+        console.error(`Verification request failed: ${response.status} ${response.statusText}`);
+        return false;
+      }
+
+      const result = await response.json();
+      return result.success === true;
+    } catch (error) {
+      console.error('Verification submission error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Save verification result
+   */
+  private async saveVerificationResult(contractAddress: string, result: any): Promise<void> {
+    const verificationPath = path.join(
+      this.config.paths.deployments,
+      this.network.name,
+      '.verifications',
+      `${contractAddress}.json`
+    );
+
+    await fs.mkdir(path.dirname(verificationPath), { recursive: true });
+    await fs.writeFile(verificationPath, JSON.stringify(result, null, 2));
+  }
+
+  /**
+   * Get contract interface
+   */
+  private async getContractAt(contractName: string, address: string): Promise<any> {
+    const artifact = await this.loadArtifact(contractName);
+    return new ethers.Contract(address, artifact.abi, this.signer);
+  }
+
+  /**
+   * Execute transaction with proper error handling
+   */
+  private async executeTransaction(txParams: any): Promise<any> {
+    try {
+      const tx = await this.signer.sendTransaction(txParams);
+      const receipt = await tx.wait();
+      
+      if (!receipt || receipt.status === 0) {
+        throw new Error('Transaction failed');
+      }
+      
+      return receipt;
+    } catch (error) {
+      throw new Error(`Transaction execution failed: ${error}`);
+    }
+  }
+
+  /**
+   * Get explorer configuration for current network
+   */
+  private getExplorerConfig(): { baseUrl: string; apiKey?: string } | null {
+    const networkName = this.network.name;
+    const configs: Record<string, { baseUrl: string; apiKey?: string }> = {
+      'mainnet': { 
+        baseUrl: 'https://explorer.neo.org',
+        apiKey: process.env.NEO_EXPLORER_API_KEY
+      },
+      'testnet': { 
+        baseUrl: 'https://testnet.neo.org',
+        apiKey: process.env.NEO_TESTNET_EXPLORER_API_KEY
+      },
+      'private': { 
+        baseUrl: 'http://localhost:4000'
+      }
+    };
+
+    return configs[networkName] || null;
+  }
+
+  /**
+   * Load artifact from file system
+   */
+  private async loadArtifact(contractName: string): Promise<any> {
+    const artifactPath = path.join(
+      this.config.paths.artifacts,
+      'contracts',
+      `${contractName}.sol`,
+      `${contractName}.json`
+    );
+
+    try {
+      const artifactContent = await fs.readFile(artifactPath, 'utf-8');
+      return JSON.parse(artifactContent);
+    } catch (error) {
+      throw new Error(`Failed to load artifact for ${contractName}: ${error}`);
+    }
+  }
+
+  /**
+   * Get source code for contract
+   */
+  private async getSourceCode(contractName: string): Promise<string> {
+    const sourcePath = path.join(
+      this.config.paths.sources,
+      `${contractName}.sol`
+    );
+
+    try {
+      return await fs.readFile(sourcePath, 'utf-8');
+    } catch (error) {
+      throw new Error(`Failed to load source code for ${contractName}: ${error}`);
+    }
+  }
+
+  /**
+   * Load existing deployment
+   */
+  private async loadDeployment(contractName: string): Promise<DeploymentResult | undefined> {
+    const deploymentPath = path.join(
+      this.config.paths.deployments,
+      this.network.name,
+      `${contractName}.json`
+    );
+
+    try {
+      const deploymentContent = await fs.readFile(deploymentPath, 'utf-8');
+      return JSON.parse(deploymentContent);
+    } catch (error) {
+      if ((error as any).code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    }
   }
 }

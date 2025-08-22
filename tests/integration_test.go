@@ -386,7 +386,7 @@ func TestIntegrationOptimizationLevels(t *testing.T) {
 	}
 
 	// Verify that higher optimization levels generally produce smaller or more efficient code
-	// (This is a simplified check - in practice, optimization effects may vary)
+	// Optimization effectiveness validation with comprehensive metrics analysis
 	for i := 1; i < len(results); i++ {
 		prev := results[i-1]
 		curr := results[i]

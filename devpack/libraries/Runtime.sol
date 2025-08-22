@@ -554,8 +554,18 @@ library Runtime {
      * @dev Role-based access control
      */
     function hasRole(address account, bytes32 role) internal view returns (bool) {
-        // This would integrate with RoleManagement native contract
-        return checkWitness(account); // Simplified for now
+        // Integrate with RoleManagement native contract
+        address roleManagement = 0x49cf4e5378ffcd4dec034fd98a174c5491e395e2;
+        
+        bytes memory params = abi.encode(account, bytes1(uint8(uint256(role))));
+        bytes memory result = Syscalls.contractCall(roleManagement, "hasRole", params);
+        
+        if (result.length > 0) {
+            return abi.decode(result, (bool));
+        }
+        
+        // Fallback to witness check
+        return checkWitness(account);
     }
     
     /**

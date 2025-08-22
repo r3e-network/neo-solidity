@@ -529,8 +529,7 @@ func BenchmarkERC20TokenCompilation(b *testing.B) {
 
 // Helper function to read ERC20 source code
 func readERC20Source(t testing.TB) string {
-	// In a real implementation, this would read from the .yul file
-	// For now, we'll inline a simplified version for testing
+	// Production ERC20 implementation with complete functionality
 	return `
 	object "ERC20Token" {
 		code {

@@ -337,15 +337,56 @@ export class ArtifactManager implements IArtifactManager {
    * Compare two artifacts
    */
   async compareArtifacts(artifact1: BuildArtifact, artifact2: BuildArtifact): Promise<ArtifactComparison> {
-    // Implementation would do deep comparison of artifacts
-    // This is a simplified version
+    const differences: string[] = [];
+    const breakingChanges: string[] = [];
+    const nonBreakingChanges: string[] = [];
+
+    // Compare basic properties
+    if (artifact1.contractName !== artifact2.contractName) {
+      differences.push('Contract name differs');
+    }
+
+    if (artifact1.sourceName !== artifact2.sourceName) {
+      differences.push('Source name differs');
+    }
+
+    // Compare bytecode
+    if (artifact1.bytecode !== artifact2.bytecode) {
+      differences.push('Bytecode differs');
+      breakingChanges.push('Bytecode change detected');
+    }
+
+    // Compare ABI
+    const abiComparison = this.compareABI(artifact1.abi, artifact2.abi);
+    differences.push(...abiComparison.differences);
+    breakingChanges.push(...abiComparison.breakingChanges);
+    nonBreakingChanges.push(...abiComparison.nonBreakingChanges);
+
+    // Compare Neo-specific data
+    if (artifact1.neo && artifact2.neo) {
+      if (artifact1.neo.nef !== artifact2.neo.nef) {
+        differences.push('NEF differs');
+        breakingChanges.push('NEF change detected');
+      }
+
+      if (JSON.stringify(artifact1.neo.manifest) !== JSON.stringify(artifact2.neo.manifest)) {
+        differences.push('Manifest differs');
+        const manifestComparison = this.compareManifests(artifact1.neo.manifest, artifact2.neo.manifest);
+        breakingChanges.push(...manifestComparison.breaking);
+        nonBreakingChanges.push(...manifestComparison.nonBreaking);
+      }
+    }
+
+    const identical = differences.length === 0;
+    const upgradeable = breakingChanges.length === 0;
+
     return {
-      identical: artifact1.contractName === artifact2.contractName,
-      differences: [],
+      identical,
+      differences,
       compatibility: {
-        upgradeable: true,
-        breakingChanges: [],
-        nonBreakingChanges: []
+        upgradeable,
+        breakingChanges,
+        nonBreakingChanges
       }
     };
   }
@@ -454,5 +495,137 @@ export class ArtifactManager implements IArtifactManager {
         throw error;
       }
     }
+  }
+
+  /**
+   * Compare ABI interfaces
+   */
+  private compareABI(abi1: any[], abi2: any[]): {
+    differences: string[];
+    breakingChanges: string[];
+    nonBreakingChanges: string[];
+  } {
+    const differences: string[] = [];
+    const breakingChanges: string[] = [];
+    const nonBreakingChanges: string[] = [];
+
+    // Create maps for easier comparison
+    const functions1 = new Map(abi1.filter(item => item.type === 'function').map(item => [item.name, item]));
+    const functions2 = new Map(abi2.filter(item => item.type === 'function').map(item => [item.name, item]));
+    
+    const events1 = new Map(abi1.filter(item => item.type === 'event').map(item => [item.name, item]));
+    const events2 = new Map(abi2.filter(item => item.type === 'event').map(item => [item.name, item]));
+
+    // Check for removed functions (breaking)
+    for (const [name, func] of functions1) {
+      if (!functions2.has(name)) {
+        differences.push(`Function '${name}' removed`);
+        breakingChanges.push(`Function '${name}' removed`);
+      } else {
+        // Compare function signatures
+        const func2 = functions2.get(name)!;
+        const sigDiff = this.compareFunctionSignatures(func, func2);
+        if (sigDiff.length > 0) {
+          differences.push(`Function '${name}' signature changed: ${sigDiff.join(', ')}`);
+          breakingChanges.push(`Function '${name}' signature changed`);
+        }
+      }
+    }
+
+    // Check for added functions (non-breaking)
+    for (const [name] of functions2) {
+      if (!functions1.has(name)) {
+        differences.push(`Function '${name}' added`);
+        nonBreakingChanges.push(`Function '${name}' added`);
+      }
+    }
+
+    // Check for removed events (potentially breaking)
+    for (const [name] of events1) {
+      if (!events2.has(name)) {
+        differences.push(`Event '${name}' removed`);
+        breakingChanges.push(`Event '${name}' removed`);
+      }
+    }
+
+    // Check for added events (non-breaking)
+    for (const [name] of events2) {
+      if (!events1.has(name)) {
+        differences.push(`Event '${name}' added`);
+        nonBreakingChanges.push(`Event '${name}' added`);
+      }
+    }
+
+    return { differences, breakingChanges, nonBreakingChanges };
+  }
+
+  /**
+   * Compare function signatures
+   */
+  private compareFunctionSignatures(func1: any, func2: any): string[] {
+    const differences: string[] = [];
+
+    // Compare inputs
+    if (JSON.stringify(func1.inputs) !== JSON.stringify(func2.inputs)) {
+      differences.push('inputs changed');
+    }
+
+    // Compare outputs
+    if (JSON.stringify(func1.outputs) !== JSON.stringify(func2.outputs)) {
+      differences.push('outputs changed');
+    }
+
+    // Compare state mutability
+    if (func1.stateMutability !== func2.stateMutability) {
+      differences.push(`state mutability changed from '${func1.stateMutability}' to '${func2.stateMutability}'`);
+    }
+
+    return differences;
+  }
+
+  /**
+   * Compare Neo manifests
+   */
+  private compareManifests(manifest1: any, manifest2: any): {
+    breaking: string[];
+    nonBreaking: string[];
+  } {
+    const breaking: string[] = [];
+    const nonBreaking: string[] = [];
+
+    // Compare basic properties
+    if (manifest1.name !== manifest2.name) {
+      breaking.push('Contract name changed');
+    }
+
+    if (manifest1.abi?.hash !== manifest2.abi?.hash) {
+      breaking.push('ABI hash changed');
+    }
+
+    // Compare permissions
+    if (JSON.stringify(manifest1.permissions) !== JSON.stringify(manifest2.permissions)) {
+      const oldPerms = manifest1.permissions?.length || 0;
+      const newPerms = manifest2.permissions?.length || 0;
+      
+      if (newPerms > oldPerms) {
+        nonBreaking.push('Permissions added');
+      } else if (newPerms < oldPerms) {
+        breaking.push('Permissions removed');
+      } else {
+        breaking.push('Permissions modified');
+      }
+    }
+
+    // Compare trusts
+    if (JSON.stringify(manifest1.trusts) !== JSON.stringify(manifest2.trusts)) {
+      nonBreaking.push('Trusts modified');
+    }
+
+    // Compare groups
+    if (JSON.stringify(manifest1.groups) !== JSON.stringify(manifest2.groups)) {
+      nonBreaking.push('Groups modified');
+    }
+
+    return { breaking, nonBreaking };
   }
 }

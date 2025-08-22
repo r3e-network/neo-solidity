@@ -250,9 +250,29 @@ contract NEP24Oracle is INEP24Oracle, Framework {
         requestIds = new uint256[](urls.length);
         
         for (uint256 i = 0; i < urls.length; i++) {
-            // Note: This would call the request function internally
-            // For simplicity, we'll just track the request IDs
-            requestIds[i] = _requestCounter++;
+            // Make individual oracle requests
+            uint256 requestId = _requestCounter++;
+            
+            // Create request record
+            _requests[requestId] = OracleRequest({
+                id: requestId,
+                requester: msg.sender,
+                url: urls[i],
+                filter: filters[i],
+                callback: callbacks[i],
+                userData: userDatas[i],
+                gasForResponse: gasAmounts[i],
+                timestamp: block.timestamp,
+                blockHeight: block.number,
+                status: RequestStatus.Pending,
+                responseCode: 0,
+                responseData: ""
+            });
+            
+            // Make syscall
+            Syscalls.oracleRequest(urls[i], filters[i], callbacks[i], userDatas[i], gasAmounts[i]);
+            
+            requestIds[i] = requestId;
         }
         
         return requestIds;
@@ -701,12 +721,51 @@ contract NEP24Oracle is INEP24Oracle, Framework {
         string[] memory urls,
         uint256[] memory counts
     ) {
-        // This would require maintaining a separate index
-        // Simplified implementation for demonstration
-        urls = new string[](1);
-        counts = new uint256[](1);
-        urls[0] = "https://api.coinpaprika.com";
-        counts[0] = 1;
+        // Get all URL request counts from storage
+        Storage.Iterator memory iterator = Storage.find(abi.encode("url_count"));
+        
+        string[] memory tempUrls = new string[](100);
+        uint256[] memory tempCounts = new uint256[](100);
+        uint256 foundCount = 0;
+        
+        while (iterator.next() && foundCount < 100) {
+            bytes memory countData = iterator.value();
+            if (countData.length > 0) {
+                uint256 count = abi.decode(countData, (uint256));
+                if (count > 0) {
+                    // Extract URL from key
+                    bytes memory key = iterator.currentKey;
+                    string memory url = abi.decode(key, (string));
+                    
+                    tempUrls[foundCount] = url;
+                    tempCounts[foundCount] = count;
+                    foundCount++;
+                }
+            }
+        }
+        
+        // Sort by count (descending) and resize arrays
+        for (uint256 i = 0; i < foundCount - 1; i++) {
+            for (uint256 j = i + 1; j < foundCount; j++) {
+                if (tempCounts[j] > tempCounts[i]) {
+                    // Swap
+                    uint256 tempCount = tempCounts[i];
+                    string memory tempUrl = tempUrls[i];
+                    tempCounts[i] = tempCounts[j];
+                    tempUrls[i] = tempUrls[j];
+                    tempCounts[j] = tempCount;
+                    tempUrls[j] = tempUrl;
+                }
+            }
+        }
+        
+        urls = new string[](foundCount);
+        counts = new uint256[](foundCount);
+        
+        for (uint256 i = 0; i < foundCount; i++) {
+            urls[i] = tempUrls[i];
+            counts[i] = tempCounts[i];
+        }
     }
     
     /**

@@ -85,10 +85,10 @@ export class EventDecoder {
     // Create event signature
     const signature = `${eventFragment.name}(${eventFragment.inputs.map(input => input.type).join(',')})`;
     
-    // This would normally use Keccak256, for now return mock hash
-    return "0x" + signature.split('').map(c => 
-      c.charCodeAt(0).toString(16)
-    ).join('').padStart(64, '0').slice(0, 64);
+    // Use SHA256 for Neo events (different from Ethereum's Keccak256)
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(signature).digest('hex');
+    return '0x' + hash;
   }
 
   private encodeIndexedParameter(value: any, type: string): string {
@@ -110,7 +110,10 @@ export class EventDecoder {
           return this.padHex(value || '', 64);
         }
         
-        // For other types, hash the value (simplified)
+        // For other types, encode appropriately
+        if (typeof value === 'object') {
+          return this.encodeComplexType(value, input.type);
+        }
         return this.hashValue(String(value));
     }
   }
@@ -140,9 +143,11 @@ export class EventDecoder {
       
       case 'string':
         // For dynamic types, this would be more complex
-        // Simplified encoding for now
-        const hexString = Buffer.from(String(value), 'utf8').toString('hex');
-        return this.padHex(hexString, 64);
+        // Proper string encoding with length prefix
+        const stringBytes = Buffer.from(String(value), 'utf8');
+        const lengthHex = stringBytes.length.toString(16).padStart(64, '0');
+        const dataHex = stringBytes.toString('hex').padEnd(64, '0');
+        return '0x' + lengthHex + dataHex;
       
       default:
         if (type.startsWith('uint') || type.startsWith('int')) {
@@ -166,10 +171,36 @@ export class EventDecoder {
   }
 
   private hashValue(value: string): string {
-    // This would normally use Keccak256
-    // For now, return a mock hash based on the value
-    return "0x" + value.split('').map(c => 
-      c.charCodeAt(0).toString(16)
-    ).join('').padStart(64, '0').slice(0, 64);
+    // Use SHA256 for Neo compatibility
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(value).digest('hex');
+    return '0x' + hash;
+  }
+
+  /**
+   * Encode complex types (arrays, structs)
+   */
+  private encodeComplexType(value: any, type: string): string {
+    if (type.endsWith('[]')) {
+      // Array type
+      const baseType = type.slice(0, -2);
+      if (Array.isArray(value)) {
+        const encodedItems = value.map(item => 
+          this.encodeComplexType(item, baseType)
+        );
+        return '0x' + encodedItems.join('').replace(/0x/g, '');
+      }
+    } else if (type.startsWith('tuple')) {
+      // Struct/tuple type
+      if (typeof value === 'object' && value !== null) {
+        const encodedFields = Object.values(value).map(field => 
+          this.padHex(String(field), 64)
+        );
+        return '0x' + encodedFields.join('').replace(/0x/g, '');
+      }
+    }
+    
+    // Fallback to hash
+    return this.hashValue(JSON.stringify(value));
   }
 }

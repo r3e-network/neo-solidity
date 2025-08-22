@@ -133,9 +133,36 @@ export class CompilerCLI {
   async install(version?: string): Promise<void> {
     debug(`Installing compiler version: ${version || 'latest'}`);
     
-    // This would download and install the specified compiler version
-    // For now, this is a placeholder
-    throw new Error("Compiler installation not yet implemented");
+    if (!version || version === 'latest') {
+      version = await this.getLatestVersion();
+    }
+
+    if (!this.isValidVersion(version)) {
+      throw new Error(`Invalid version format: ${version}`);
+    }
+
+    const compilerDir = path.join(process.cwd(), '.neo-solidity', 'compilers');
+    const compilerPath = path.join(compilerDir, `neo-solc-${version}`);
+    
+    // Check if already installed
+    try {
+      await fs.access(compilerPath);
+      debug(`Compiler version ${version} already installed`);
+      return;
+    } catch {
+      // Not installed, continue with installation
+    }
+
+    await fs.mkdir(compilerDir, { recursive: true });
+    
+    try {
+      const downloadUrl = this.getDownloadUrl(version);
+      await this.downloadCompiler(downloadUrl, compilerPath);
+      await fs.chmod(compilerPath, 0o755);
+      debug(`Successfully installed compiler version ${version}`);
+    } catch (error) {
+      throw new Error(`Failed to install compiler version ${version}: ${error}`);
+    }
   }
 
   /**
@@ -146,13 +173,27 @@ export class CompilerCLI {
     current: boolean;
     prerelease: boolean;
   }>> {
-    // This would fetch available versions from releases
-    // For now, return mock data
-    return [
-      { version: "0.1.0", current: true, prerelease: false },
-      { version: "0.1.0-beta.1", current: false, prerelease: true },
-      { version: "0.0.9", current: false, prerelease: false }
-    ];
+    try {
+      const response = await fetch('https://api.github.com/repos/neo-project/neo-solidity/releases');
+      if (!response.ok) {
+        throw new Error(`GitHub API request failed: ${response.statusText}`);
+      }
+      
+      const releases = await response.json();
+      const currentVersion = await this.getCurrentVersion();
+      
+      return releases.map((release: any) => ({
+        version: release.tag_name.replace(/^v/, ''),
+        current: release.tag_name.replace(/^v/, '') === currentVersion,
+        prerelease: release.prerelease
+      })).sort((a: any, b: any) => {
+        // Sort by version number (newest first)
+        return this.compareVersions(b.version, a.version);
+      });
+    } catch (error) {
+      debug('Failed to fetch versions from GitHub, falling back to local versions');
+      return await this.getLocalVersions();
+    }
   }
 
   /**
@@ -207,20 +248,25 @@ export class CompilerCLI {
 
     const sourceFiles = await this.resolveSourceFiles(files);
     
-    // Mock analysis results
-    const analysis = {
-      gasAnalysis: options.gasReport ? [
-        { contract: "Token", method: "transfer", gas: 21000 },
-        { contract: "Token", method: "approve", gas: 15000 }
-      ] : undefined,
-      sizeAnalysis: options.sizeReport ? [
-        { contract: "Token", size: 1024, limit: 24576 }
-      ] : undefined,
-      recommendations: [
-        "Consider using uint256 instead of uint8 for gas efficiency",
-        "Pack struct members to save storage slots"
-      ]
+    // Compile contracts first to get bytecode
+    const sources = await this.readSourceFiles(sourceFiles);
+    const config = this.buildCompilerConfig({ optimize: true });
+    const output = await this.executeCompilation(sources, config);
+    
+    const analysis: any = {
+      recommendations: []
     };
+    
+    if (options.gasReport) {
+      analysis.gasAnalysis = await this.analyzeGasUsage(output);
+    }
+    
+    if (options.sizeReport) {
+      analysis.sizeAnalysis = await this.analyzeContractSizes(output);
+    }
+    
+    // Generate recommendations based on analysis
+    analysis.recommendations = this.generateOptimizationRecommendations(output, analysis);
 
     return analysis;
   }
@@ -251,12 +297,12 @@ export class CompilerCLI {
     try {
       const content = await fs.readFile(filePath, "utf-8");
       
-      // This would recursively resolve and inline imports
-      // For now, return the original content with a header
+      const flattened = await this.flattenRecursively(filePath, new Set());
       return `// SPDX-License-Identifier: UNLICENSED
+// File: ${filePath}
 // Flattened by solc-neo
 
-${content}`;
+${flattened}`;
     } catch (error) {
       throw new Error(`Failed to flatten ${filePath}: ${error}`);
     }
@@ -278,12 +324,28 @@ ${content}`;
     debug(`Verifying contract at ${options.address}`);
 
     try {
-      // This would submit verification to the appropriate explorer
-      // For now, return mock success
-      return {
-        success: true,
-        explorerUrl: `https://explorer.neo.org/contract/${options.address}`
+      const explorerConfig = this.getExplorerConfig(options.network);
+      if (!explorerConfig) {
+        throw new Error(`Unsupported network: ${options.network}`);
+      }
+      
+      const verificationPayload = {
+        address: options.address,
+        sourceCode: options.source,
+        constructorArguments: options.constructorArgs || '',
+        compilerVersion: await this.getCurrentVersion()
       };
+      
+      const response = await this.submitVerification(explorerConfig, verificationPayload);
+      
+      if (response.success) {
+        return {
+          success: true,
+          explorerUrl: `${explorerConfig.baseUrl}/contract/${options.address}`
+        };
+      } else {
+        throw new Error(response.error || 'Verification failed');
+      }
     } catch (error) {
       return {
         success: false,
@@ -473,12 +535,26 @@ ${content}`;
     solidity: string;
     neovm: string;
   } {
-    // Mock version parsing
-    return {
-      compiler: "0.1.0",
-      solidity: "0.8.19",
-      neovm: "3.6.0"
-    };
+    const lines = output.split('\n');
+    let compiler = 'unknown';
+    let solidity = 'unknown';
+    let neovm = 'unknown';
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.includes('neo-solidity')) {
+        const match = trimmed.match(/neo-solidity[:\s]+([\d\.\w-]+)/);
+        if (match) compiler = match[1];
+      } else if (trimmed.includes('solidity')) {
+        const match = trimmed.match(/solidity[:\s]+([\d\.\w-]+)/);
+        if (match) solidity = match[1];
+      } else if (trimmed.includes('neo-vm') || trimmed.includes('neovm')) {
+        const match = trimmed.match(/neo-?vm[:\s]+([\d\.\w-]+)/);
+        if (match) neovm = match[1];
+      }
+    }
+    
+    return { compiler, solidity, neovm };
   }
 
   private countContracts(output: CompilationOutput): number {
@@ -529,7 +605,343 @@ ${content}`;
   }
 
   private displayAnalysisCSV(analysis: any): void {
-    // CSV output implementation
-    console.log("Analysis CSV output not yet implemented");
+    if (analysis.gasAnalysis) {
+      console.log('Contract,Method,Gas Cost');
+      analysis.gasAnalysis.forEach((item: any) => {
+        console.log(`${item.contract},${item.method},${item.gas}`);
+      });
+    }
+    
+    if (analysis.sizeAnalysis) {
+      console.log('\nContract,Size (bytes),Limit (bytes),Percentage');
+      analysis.sizeAnalysis.forEach((item: any) => {
+        const percentage = ((item.size / item.limit) * 100).toFixed(2);
+        console.log(`${item.contract},${item.size},${item.limit},${percentage}%`);
+      });
+    }
+    
+    if (analysis.recommendations.length > 0) {
+      console.log('\nRecommendations');
+      analysis.recommendations.forEach((rec: string) => {
+        console.log(`"${rec}"`);
+      });
+    }
+  }
+
+  private async getLatestVersion(): Promise<string> {
+    try {
+      const response = await fetch('https://api.github.com/repos/neo-project/neo-solidity/releases/latest');
+      if (!response.ok) {
+        throw new Error('Failed to fetch latest version');
+      }
+      const release = await response.json();
+      return release.tag_name.replace(/^v/, '');
+    } catch (error) {
+      debug('Failed to fetch latest version, using default');
+      return '0.1.0';
+    }
+  }
+
+  private isValidVersion(version: string): boolean {
+    return /^\d+\.\d+\.\d+(-[\w\.]+)?$/.test(version);
+  }
+
+  private getDownloadUrl(version: string): string {
+    const platform = process.platform;
+    const arch = process.arch;
+    const ext = platform === 'win32' ? '.exe' : '';
+    return `https://github.com/neo-project/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+  }
+
+  private async downloadCompiler(url: string, outputPath: string): Promise<void> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.statusText}`);
+    }
+    
+    const buffer = await response.arrayBuffer();
+    await fs.writeFile(outputPath, Buffer.from(buffer));
+  }
+
+  private async getCurrentVersion(): Promise<string> {
+    try {
+      const versionInfo = await this.getVersion();
+      return versionInfo.compiler;
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  private compareVersions(a: string, b: string): number {
+    const parseVersion = (v: string) => v.split('.').map(Number);
+    const versionA = parseVersion(a);
+    const versionB = parseVersion(b);
+    
+    for (let i = 0; i < Math.max(versionA.length, versionB.length); i++) {
+      const partA = versionA[i] || 0;
+      const partB = versionB[i] || 0;
+      if (partA !== partB) {
+        return partA - partB;
+      }
+    }
+    return 0;
+  }
+
+  private async getLocalVersions(): Promise<Array<{
+    version: string;
+    current: boolean;
+    prerelease: boolean;
+  }>> {
+    const compilerDir = path.join(process.cwd(), '.neo-solidity', 'compilers');
+    try {
+      const files = await fs.readdir(compilerDir);
+      const currentVersion = await this.getCurrentVersion();
+      
+      return files
+        .filter(file => file.startsWith('neo-solc-'))
+        .map(file => {
+          const version = file.replace('neo-solc-', '');
+          return {
+            version,
+            current: version === currentVersion,
+            prerelease: version.includes('-')
+          };
+        });
+    } catch {
+      return [];
+    }
+  }
+
+  private async analyzeGasUsage(output: CompilationOutput): Promise<any[]> {
+    const gasAnalysis: any[] = [];
+    
+    for (const fileName of Object.keys(output.contracts)) {
+      for (const contractName of Object.keys(output.contracts[fileName])) {
+        const contract = output.contracts[fileName][contractName];
+        if (contract.abi) {
+          for (const item of contract.abi) {
+            if (item.type === 'function' && item.stateMutability !== 'view' && item.stateMutability !== 'pure') {
+              // Estimate gas based on function complexity
+              const gasEstimate = this.estimateGasCost(item);
+              gasAnalysis.push({
+                contract: contractName,
+                method: item.name,
+                gas: gasEstimate
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    return gasAnalysis;
+  }
+
+  private async analyzeContractSizes(output: CompilationOutput): Promise<any[]> {
+    const sizeAnalysis: any[] = [];
+    const NEO_CONTRACT_SIZE_LIMIT = 1024 * 1024; // 1MB limit for Neo contracts
+    
+    for (const fileName of Object.keys(output.contracts)) {
+      for (const contractName of Object.keys(output.contracts[fileName])) {
+        const contract = output.contracts[fileName][contractName];
+        if (contract.evm?.bytecode?.object) {
+          const bytecodeSize = contract.evm.bytecode.object.length / 2; // Convert hex to bytes
+          sizeAnalysis.push({
+            contract: contractName,
+            size: bytecodeSize,
+            limit: NEO_CONTRACT_SIZE_LIMIT
+          });
+        }
+      }
+    }
+    
+    return sizeAnalysis;
+  }
+
+  private generateOptimizationRecommendations(output: CompilationOutput, analysis: any): string[] {
+    const recommendations: string[] = [];
+    
+    // Size-based recommendations
+    if (analysis.sizeAnalysis) {
+      for (const item of analysis.sizeAnalysis) {
+        const percentage = (item.size / item.limit) * 100;
+        if (percentage > 90) {
+          recommendations.push(`Contract ${item.contract} is ${percentage.toFixed(1)}% of size limit. Consider splitting into multiple contracts.`);
+        } else if (percentage > 70) {
+          recommendations.push(`Contract ${item.contract} is large (${percentage.toFixed(1)}% of limit). Consider optimization.`);
+        }
+      }
+    }
+    
+    // Gas-based recommendations
+    if (analysis.gasAnalysis) {
+      const highGasFunctions = analysis.gasAnalysis.filter((item: any) => item.gas > 100000);
+      for (const func of highGasFunctions) {
+        recommendations.push(`Function ${func.contract}.${func.method} has high gas cost (${func.gas}). Consider optimization.`);
+      }
+    }
+    
+    // Static analysis recommendations
+    for (const fileName of Object.keys(output.contracts)) {
+      for (const contractName of Object.keys(output.contracts[fileName])) {
+        const contract = output.contracts[fileName][contractName];
+        if (contract.abi) {
+          recommendations.push(...this.analyzeContractStructure(contract.abi, contractName));
+        }
+      }
+    }
+    
+    return recommendations;
+  }
+
+  private estimateGasCost(abiItem: any): number {
+    let baseCost = 21000; // Base transaction cost
+    
+    // Add cost based on input parameters
+    if (abiItem.inputs) {
+      baseCost += abiItem.inputs.length * 1000;
+    }
+    
+    // Estimate based on function name patterns
+    const name = abiItem.name.toLowerCase();
+    if (name.includes('transfer') || name.includes('send')) {
+      baseCost += 5000;
+    }
+    if (name.includes('approve')) {
+      baseCost += 3000;
+    }
+    if (name.includes('mint') || name.includes('burn')) {
+      baseCost += 10000;
+    }
+    
+    return baseCost;
+  }
+
+  private analyzeContractStructure(abi: any[], contractName: string): string[] {
+    const recommendations: string[] = [];
+    
+    const functions = abi.filter(item => item.type === 'function');
+    const events = abi.filter(item => item.type === 'event');
+    
+    if (functions.length > 20) {
+      recommendations.push(`Contract ${contractName} has many functions (${functions.length}). Consider using proxy pattern or splitting functionality.`);
+    }
+    
+    if (events.length === 0) {
+      recommendations.push(`Contract ${contractName} has no events. Consider adding events for better tracking and debugging.`);
+    }
+    
+    // Check for missing view functions
+    const viewFunctions = functions.filter(f => f.stateMutability === 'view' || f.stateMutability === 'pure');
+    if (viewFunctions.length === 0 && functions.length > 0) {
+      recommendations.push(`Contract ${contractName} has no view functions. Consider adding getter functions for better transparency.`);
+    }
+    
+    return recommendations;
+  }
+
+  private async flattenRecursively(filePath: string, processed: Set<string>): Promise<string> {
+    if (processed.has(filePath)) {
+      return ''; // Avoid circular dependencies
+    }
+    
+    processed.add(filePath);
+    
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const lines = content.split('\n');
+      const result: string[] = [];
+      
+      for (const line of lines) {
+        const importMatch = line.match(/^import\s+[^"']*["']([^"']+)["'];?/);
+        if (importMatch) {
+          const importPath = importMatch[1];
+          let resolvedPath: string;
+          
+          if (importPath.startsWith('.')) {
+            // Relative import
+            resolvedPath = path.resolve(path.dirname(filePath), importPath);
+          } else {
+            // Try to resolve from node_modules or other standard locations
+            resolvedPath = await this.resolveImport(importPath, filePath);
+          }
+          
+          if (resolvedPath.endsWith('.sol')) {
+            try {
+              const importedContent = await this.flattenRecursively(resolvedPath, processed);
+              if (importedContent.trim()) {
+                result.push(`// File: ${resolvedPath}`);
+                result.push(importedContent);
+                result.push('');
+              }
+            } catch (error) {
+              result.push(`// Failed to import: ${importPath} - ${error}`);
+            }
+          }
+        } else {
+          result.push(line);
+        }
+      }
+      
+      return result.join('\n');
+    } catch (error) {
+      throw new Error(`Failed to read file ${filePath}: ${error}`);
+    }
+  }
+
+  private async resolveImport(importPath: string, fromFile: string): Promise<string> {
+    const possiblePaths = [
+      path.resolve(path.dirname(fromFile), importPath),
+      path.resolve(path.dirname(fromFile), importPath + '.sol'),
+      path.resolve(process.cwd(), 'node_modules', importPath),
+      path.resolve(process.cwd(), 'contracts', importPath),
+      path.resolve(process.cwd(), 'src', importPath)
+    ];
+    
+    for (const possiblePath of possiblePaths) {
+      try {
+        await fs.access(possiblePath);
+        return possiblePath;
+      } catch {
+        continue;
+      }
+    }
+    
+    throw new Error(`Could not resolve import: ${importPath}`);
+  }
+
+  private getExplorerConfig(network: string): { baseUrl: string; apiKey?: string } | null {
+    const configs: Record<string, { baseUrl: string; apiKey?: string }> = {
+      'mainnet': { baseUrl: 'https://explorer.neo.org' },
+      'testnet': { baseUrl: 'https://testnet.neo.org' },
+      'private': { baseUrl: 'http://localhost:4000' }
+    };
+    
+    return configs[network] || null;
+  }
+
+  private async submitVerification(
+    explorerConfig: { baseUrl: string; apiKey?: string },
+    payload: any
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${explorerConfig.baseUrl}/api/verify-contract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(explorerConfig.apiKey && { 'Authorization': `Bearer ${explorerConfig.apiKey}` })
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      
+      const result = await response.json();
+      return { success: result.success, error: result.error };
+    } catch (error) {
+      return { success: false, error: `Network error: ${error}` };
+    }
   }
 }
