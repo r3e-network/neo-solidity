@@ -403,51 +403,90 @@ library Storage {
     }
     
     /**
-     * @dev Compress storage value
+     * @dev Compress storage value using RLE compression
      */
     function compress(bytes memory data) internal pure returns (bytes memory) {
-        // Simple compression for demonstration
-        // In production, would use more sophisticated compression
-        if (data.length < 32) {
-            return data;
+        if (data.length < 4) {
+            return data; // Too small to compress effectively
         }
         
-        // Remove trailing zeros
-        uint256 length = data.length;
-        while (length > 0 && data[length - 1] == 0) {
-            length--;
-        }
+        // Run-length encoding compression
+        bytes memory compressed = new bytes(data.length * 2); // Worst case size
+        uint256 compressedIndex = 0;
+        uint256 i = 0;
         
-        if (length < data.length) {
-            bytes memory compressed = new bytes(length);
-            for (uint256 i = 0; i < length; i++) {
-                compressed[i] = data[i];
+        while (i < data.length) {
+            bytes1 currentByte = data[i];
+            uint256 runLength = 1;
+            
+            // Count consecutive identical bytes
+            while (i + runLength < data.length && data[i + runLength] == currentByte && runLength < 255) {
+                runLength++;
             }
-            return compressed;
+            
+            // Store run-length encoded data
+            if (runLength >= 4 || currentByte == 0x00) {
+                // Use RLE for runs of 4+ or zeros
+                compressed[compressedIndex++] = 0xFF; // Escape byte
+                compressed[compressedIndex++] = bytes1(uint8(runLength));
+                compressed[compressedIndex++] = currentByte;
+            } else {
+                // Store literal bytes
+                for (uint256 j = 0; j < runLength; j++) {
+                    compressed[compressedIndex++] = currentByte;
+                }
+            }
+            
+            i += runLength;
         }
         
-        return data;
+        // Resize to actual compressed size
+        bytes memory result = new bytes(compressedIndex);
+        for (uint256 k = 0; k < compressedIndex; k++) {
+            result[k] = compressed[k];
+        }
+        
+        return result;
     }
     
     /**
-     * @dev Decompress storage value
+     * @dev Decompress RLE-compressed storage value
      */
-    function decompress(bytes memory compressedData, uint256 originalLength) 
-        internal 
-        pure 
-        returns (bytes memory) 
-    {
-        if (compressedData.length >= originalLength) {
+    function decompress(bytes memory compressedData) internal pure returns (bytes memory) {
+        if (compressedData.length == 0) {
             return compressedData;
         }
         
-        bytes memory decompressed = new bytes(originalLength);
-        for (uint256 i = 0; i < compressedData.length; i++) {
-            decompressed[i] = compressedData[i];
-        }
-        // Remaining bytes are already zero
+        // Estimate maximum decompressed size
+        bytes memory decompressed = new bytes(compressedData.length * 255); // Worst case
+        uint256 decompressedIndex = 0;
+        uint256 i = 0;
         
-        return decompressed;
+        while (i < compressedData.length) {
+            if (compressedData[i] == 0xFF && i + 2 < compressedData.length) {
+                // RLE sequence
+                uint256 runLength = uint8(compressedData[i + 1]);
+                bytes1 value = compressedData[i + 2];
+                
+                for (uint256 j = 0; j < runLength; j++) {
+                    decompressed[decompressedIndex++] = value;
+                }
+                
+                i += 3;
+            } else {
+                // Literal byte
+                decompressed[decompressedIndex++] = compressedData[i];
+                i++;
+            }
+        }
+        
+        // Resize to actual decompressed size
+        bytes memory result = new bytes(decompressedIndex);
+        for (uint256 k = 0; k < decompressedIndex; k++) {
+            result[k] = decompressed[k];
+        }
+        
+        return result;
     }
     
     // ========== Advanced Storage Patterns ==========

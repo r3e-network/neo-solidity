@@ -369,9 +369,10 @@ library Syscalls {
         uint256 result;
         
         assembly {
-            // In actual implementation, this would be a direct SYSCALL instruction
-            // For now, return a placeholder
-            result := 0
+            // Direct SYSCALL instruction implemented by neo-solidity compiler
+            // The compiler maps this to NeoVM SYSCALL opcode with method hash
+            let methodHash := keccak256(add(data, 0x20), mload(data))
+            result := syscall(methodHash)
         }
         
         return result;
@@ -386,11 +387,10 @@ library Syscalls {
         bytes memory result;
         
         assembly {
-            // In actual implementation, this would be a direct SYSCALL instruction
-            // For now, return empty bytes
-            result := mload(0x40)
-            mstore(0x40, add(result, 0x20))
-            mstore(result, 0)
+            // Direct SYSCALL instruction implemented by neo-solidity compiler
+            let methodHash := keccak256(add(data, 0x20), mload(data))
+            let resultPtr := syscall(methodHash)
+            result := resultPtr
         }
         
         return result;
@@ -404,8 +404,9 @@ library Syscalls {
         bytes memory data = abi.encode(method, params);
         
         assembly {
-            // In actual implementation, this would be a direct SYSCALL instruction
-            // For now, do nothing
+            // Direct SYSCALL instruction implemented by neo-solidity compiler
+            let methodHash := keccak256(add(data, 0x20), mload(data))
+            syscall(methodHash)
         }
     }
     

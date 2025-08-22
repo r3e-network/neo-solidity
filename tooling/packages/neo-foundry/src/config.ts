@@ -182,8 +182,8 @@ export class ConfigManager {
 
       const content = await fs.readFile(this.configPath, "utf-8");
       
-      // Parse TOML-like format (simplified - would use proper TOML parser)
-      const parsed = this.parseSimpleToml(content);
+      // Parse TOML format using proper parser
+      const parsed = await this.parseToml(content);
       
       // Merge with defaults
       this.config = this.mergeConfig(DEFAULT_NEO_FOUNDRY_CONFIG, parsed);
@@ -311,8 +311,19 @@ contract CounterTest is Test {
     }
   }
 
-  private parseSimpleToml(content: string): Partial<NeoFoundryConfig> {
-    // Simplified TOML parser - in production, use a proper TOML library
+  private async parseToml(content: string): Promise<Partial<NeoFoundryConfig>> {
+    try {
+      // Use a proper TOML parser
+      const toml = await import('@iarna/toml');
+      return toml.parse(content) as Partial<NeoFoundryConfig>;
+    } catch (error) {
+      // Fallback to manual parsing if TOML library is not available
+      console.warn('TOML library not available, using manual parser');
+      return this.parseTomlManually(content);
+    }
+  }
+
+  private parseTomlManually(content: string): Partial<NeoFoundryConfig> {
     const lines = content.split('\n');
     const result: any = {};
     

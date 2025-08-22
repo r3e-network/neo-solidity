@@ -224,9 +224,25 @@ export class NeoSolidityCompiler {
    * Parse version output from compiler
    */
   private parseVersionOutput(output: string): string[] {
-    // This would parse the actual version output from neo-solc
-    // For now, return a default version
-    return ["0.1.0"];
+    const versions: string[] = [];
+    const lines = output.split('\n');
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Look for version patterns like "neo-solidity: 0.1.0"
+      const versionMatch = trimmed.match(/neo-solidity[:\s]+([\d\.\w-]+)/);
+      if (versionMatch) {
+        versions.push(versionMatch[1]);
+      }
+      
+      // Also look for supported Solidity versions
+      const solidityMatch = trimmed.match(/solidity[:\s]+([\d\.\w-]+)/);
+      if (solidityMatch) {
+        versions.push(`solidity-${solidityMatch[1]}`);
+      }
+    }
+    
+    return versions.length > 0 ? versions : ['0.1.0'];
   }
 
   /**
@@ -235,8 +251,146 @@ export class NeoSolidityCompiler {
   async downloadCompiler(version: string): Promise<void> {
     debug(`Downloading Neo-Solidity compiler version ${version}`);
     
-    // Implementation would download the specified compiler version
-    // For now, this is a placeholder
-    throw new Error("Compiler download not yet implemented");
+    if (!this.isValidVersion(version)) {
+      throw new Error(`Invalid version format: ${version}`);
+    }
+    
+    const compilerDir = path.join(this.paths.cache, 'compilers');
+    const compilerPath = path.join(compilerDir, `neo-solc-${version}`);
+    
+    // Check if already downloaded
+    try {
+      await fs.access(compilerPath);
+      debug(`Compiler version ${version} already exists`);
+      return;
+    } catch {
+      // Not downloaded, continue
+    }
+    
+    await fs.mkdir(compilerDir, { recursive: true });
+    
+    try {
+      const downloadUrl = this.getDownloadUrl(version);
+      debug(`Downloading from: ${downloadUrl}`);
+      
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+      
+      const buffer = await response.arrayBuffer();
+      await fs.writeFile(compilerPath, Buffer.from(buffer));
+      await fs.chmod(compilerPath, 0o755);
+      
+      debug(`Successfully downloaded compiler version ${version}`);
+    } catch (error) {
+      throw new Error(`Failed to download compiler version ${version}: ${error}`);
+    }
+  }
+
+  /**
+   * Validate version format
+   */
+  private isValidVersion(version: string): boolean {
+    return /^\d+\.\d+\.\d+(-[\w\.]+)?$/.test(version) || version === 'latest';
+  }
+
+  /**
+   * Get download URL for compiler version
+   */
+  private getDownloadUrl(version: string): string {
+    const platform = process.platform;
+    const arch = process.arch;
+    const ext = platform === 'win32' ? '.exe' : '';
+    
+    if (version === 'latest') {
+      return `https://github.com/neo-project/neo-solidity/releases/latest/download/neo-solc-${platform}-${arch}${ext}`;
+    } else {
+      return `https://github.com/neo-project/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+    }
+  }
+
+  /**
+   * Get current compiler version
+   */
+  async getCurrentVersion(): Promise<string> {
+    try {
+      const compilerPath = this.getCompilerPath();
+      
+      return new Promise((resolve, reject) => {
+        const child = spawn(compilerPath, ['--version'], {
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        let stdout = '';
+        child.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        child.on('close', (code) => {
+          if (code === 0) {
+            const versions = this.parseVersionOutput(stdout);
+            resolve(versions[0] || 'unknown');
+          } else {
+            reject(new Error('Failed to get current version'));
+          }
+        });
+      });
+    } catch (error) {
+      debug(`Failed to get current version: ${error}`);
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Check if compiler is installed and available
+   */
+  async isCompilerAvailable(): Promise<boolean> {
+    try {
+      await this.getCurrentVersion();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get compilation statistics
+   */
+  getCompilationStats(output: CompilationOutput): {
+    contractCount: number;
+    errorCount: number;
+    warningCount: number;
+    totalSize: number;
+  } {
+    let contractCount = 0;
+    let totalSize = 0;
+    let errorCount = 0;
+    let warningCount = 0;
+
+    // Count contracts and calculate total size
+    for (const fileName of Object.keys(output.contracts)) {
+      for (const contractName of Object.keys(output.contracts[fileName])) {
+        contractCount++;
+        const contract = output.contracts[fileName][contractName];
+        if (contract.neo?.nef) {
+          // Estimate size from NEF bytecode
+          totalSize += contract.neo.nef.length / 2; // Convert hex to bytes
+        }
+      }
+    }
+
+    // Count errors and warnings
+    if (output.errors) {
+      errorCount = output.errors.filter(e => e.severity === 'error').length;
+      warningCount = output.errors.filter(e => e.severity === 'warning').length;
+    }
+
+    return {
+      contractCount,
+      errorCount,
+      warningCount,
+      totalSize
+    };
   }
 }

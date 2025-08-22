@@ -469,9 +469,21 @@ contract NEP17 is INEP17, Framework {
      * @dev Get token holders count (expensive operation)
      */
     function getHoldersCount() public view returns (uint256) {
-        // This would require iterating through storage
-        // Implementation depends on how balances are stored
-        return 0; // Placeholder
+        // Use storage iterator to count all balance entries
+        Storage.Iterator memory iterator = Storage.find(abi.encode("balance"));
+        uint256 count = 0;
+        
+        while (iterator.next() && count < 10000) { // Limit to prevent gas exhaustion
+            bytes memory balance = iterator.value();
+            if (balance.length > 0) {
+                uint256 amount = abi.decode(balance, (uint256));
+                if (amount > 0) {
+                    count++;
+                }
+            }
+        }
+        
+        return count;
     }
     
     /**
@@ -643,30 +655,93 @@ contract NEP17 is INEP17, Framework {
         string memory oracleUrl,
         string memory condition
     ) public whenTransfersEnabled validReceiver(to) validAmount(amount) {
-        // Lock tokens temporarily
+        // Escrow tokens in contract until condition is met
         _transfer(msg.sender, address(this), amount, "");
         
-        // Create oracle request
+        // Create oracle request with callback
         bytes memory userData = abi.encode(msg.sender, to, amount, condition);
+        bytes32 requestId = keccak256(abi.encode(msg.sender, to, amount, block.timestamp));
         
-        // Request oracle data (this would trigger external oracle)
-        Runtime.notify("OracleRequest", abi.encode(oracleUrl, condition, userData));
+        // Store pending transfer
+        Storage.put(
+            abi.encode("conditional_transfer", requestId),
+            userData
+        );
         
-        // Note: Actual oracle integration would require callback mechanism
+        // Make oracle request via syscall
+        Syscalls.oracleRequest(oracleUrl, condition, "conditionalTransferCallback", userData, 10000000);
+        
+        Runtime.notify("ConditionalTransferCreated", abi.encode(requestId, msg.sender, to, amount));
+    }
+    
+    /**
+     * @dev Oracle callback for conditional transfers
+     */
+    function conditionalTransferCallback(
+        uint256 requestId,
+        uint256 code,
+        bytes calldata result,
+        bytes calldata userData
+    ) external {
+        require(msg.sender == address(this), "NEP17: unauthorized callback");
+        
+        if (code == 0) {
+            // Parse oracle result to determine if condition is met
+            bool conditionMet = abi.decode(result, (bool));
+            
+            if (conditionMet) {
+                (address from, address to, uint256 amount,) = abi.decode(userData, (address, address, uint256, string));
+                
+                // Execute transfer
+                _transfer(address(this), to, amount, "");
+                
+                Runtime.notify("ConditionalTransferExecuted", abi.encode(from, to, amount));
+            } else {
+                // Return tokens to sender
+                (address from,, uint256 amount,) = abi.decode(userData, (address, address, uint256, string));
+                _transfer(address(this), from, amount, "");
+                
+                Runtime.notify("ConditionalTransferFailed", abi.encode(from, amount));
+            }
+        }
     }
     
     /**
      * @dev Get all balances (expensive operation, use carefully)
      */
     function getAllBalances() public view returns (address[] memory accounts, uint256[] memory balances) {
-        // This would require iterating through all storage entries
-        // Implementation would depend on storage layout
+        // Use storage iterator to get all balance entries
+        Storage.Iterator memory iterator = Storage.find(abi.encode("balance"));
         
-        // Placeholder implementation
-        accounts = new address[](1);
-        balances = new uint256[](1);
-        accounts[0] = owner();
-        balances[0] = _balances[owner()];
+        // Temporary arrays with maximum size
+        address[] memory tempAccounts = new address[](1000);
+        uint256[] memory tempBalances = new uint256[](1000);
+        uint256 count = 0;
+        
+        while (iterator.next() && count < 1000) {
+            bytes memory balanceData = iterator.value();
+            if (balanceData.length > 0) {
+                uint256 balance = abi.decode(balanceData, (uint256));
+                if (balance > 0) {
+                    // Extract address from key
+                    bytes memory key = iterator.currentKey;
+                    address account = abi.decode(key, (address));
+                    
+                    tempAccounts[count] = account;
+                    tempBalances[count] = balance;
+                    count++;
+                }
+            }
+        }
+        
+        // Resize arrays to actual count
+        accounts = new address[](count);
+        balances = new uint256[](count);
+        
+        for (uint256 i = 0; i < count; i++) {
+            accounts[i] = tempAccounts[i];
+            balances[i] = tempBalances[i];
+        }
     }
     
     /**

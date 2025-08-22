@@ -724,9 +724,8 @@ contract GovernanceToken {
      * @dev Get proposal hash
      */
     function getProposalHash(uint256 proposalId) public view returns (bytes32) {
-        // This would need to be implemented based on how proposals are stored
-        // For now, we'll use a simple mapping approach
-        return bytes32(proposalId);
+        // Generate deterministic hash from proposal ID and contract address
+        return keccak256(abi.encode(address(this), proposalId, "PROPOSAL"));
     }
     
     // Admin Functions

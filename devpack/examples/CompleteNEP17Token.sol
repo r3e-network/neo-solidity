@@ -623,9 +623,24 @@ contract CompleteNEP17Token is NEP17 {
         totalProposals = _proposalCounter;
         minimumTokensForProposal = totalSupply() / 100; // 1% of total supply
         
-        // Count active and executed proposals (simplified)
-        activeProposals = 0;
-        executedProposals = 0;
+        // Count active and executed proposals by iterating through storage
+        Storage.Iterator memory iterator = Storage.find(abi.encode("proposal"));
+        
+        while (iterator.next()) {
+            bytes memory proposalData = iterator.value();
+            if (proposalData.length > 0) {
+                (, , , , uint256 endTime, , , bool executed) = abi.decode(
+                    proposalData, 
+                    (bytes32, address, string, bytes, uint256, uint256, uint256, bool)
+                );
+                
+                if (!executed && block.timestamp <= endTime) {
+                    activeProposals++;
+                } else if (executed) {
+                    executedProposals++;
+                }
+            }
+        }
     }
     
     /**

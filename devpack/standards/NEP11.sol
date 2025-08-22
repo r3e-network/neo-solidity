@@ -717,9 +717,21 @@ contract NEP11 is INEP11, Framework {
      * @dev Get unique holders count (expensive operation)
      */
     function _getUniqueHolders() private view returns (uint256) {
-        // This would require iterating through all tokens
-        // Simplified implementation for demonstration
-        return _totalSupply > 0 ? 1 : 0;
+        // Use storage to track unique holders efficiently
+        Storage.Iterator memory iterator = Storage.find(abi.encode("holder"));
+        uint256 count = 0;
+        
+        while (iterator.next() && count < 10000) {
+            bytes memory holderData = iterator.value();
+            if (holderData.length > 0) {
+                uint256 tokenCount = abi.decode(holderData, (uint256));
+                if (tokenCount > 0) {
+                    count++;
+                }
+            }
+        }
+        
+        return count;
     }
     
     // ========== Utility Functions ==========

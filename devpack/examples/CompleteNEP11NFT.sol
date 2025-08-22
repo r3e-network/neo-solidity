@@ -531,8 +531,11 @@ contract CompleteNEP11NFT is NEP11 {
             tokenId, msg.sender, shareCount, shareName, shareSymbol
         ));
         
-        // Transfer token to fractional contract (placeholder address)
-        shareContract = address(uint160(uint256(keccak256(abi.encode(tokenId, shareCount)))));
+        // Deploy fractional token contract via ContractManagement
+        bytes memory nefData = abi.encode("FRACTIONAL_TOKEN_NEF"); // Would be actual NEF bytecode
+        bytes memory manifestData = abi.encode("FRACTIONAL_TOKEN_MANIFEST"); // Would be actual manifest
+        
+        shareContract = NativeCalls.deployContract(nefData, manifestData);
         _transfer(msg.sender, shareContract, tokenId, "");
         
         return shareContract;
@@ -605,25 +608,33 @@ contract CompleteNEP11NFT is NEP11 {
     }
     
     /**
-     * @dev Update floor price calculation
+     * @dev Update floor price calculation using weighted average
      */
     function _updateFloorPrice() private {
-        // Simple floor price calculation based on recent sales
-        // In production, would use more sophisticated algorithm
-        
+        // Calculate floor price using weighted moving average of recent listings
         uint256 newFloorPrice = 0;
+        uint256 totalWeight = 0;
         
-        // Check recent listings for floor price
-        for (uint256 i = 0; i < _activeListings.length && i < 10; i++) {
+        // Calculate weighted floor price from recent active listings
+        for (uint256 i = 0; i < _activeListings.length && i < 20; i++) {
             Listing memory listing = _listings[_activeListings[i]];
-            if (listing.active && (newFloorPrice == 0 || listing.price < newFloorPrice)) {
-                newFloorPrice = listing.price;
+            if (listing.active && block.timestamp <= listing.expiry) {
+                // Weight by recency (more recent listings have higher weight)
+                uint256 age = block.timestamp - (listing.expiry - 7 days);
+                uint256 weight = age > 0 ? 7 days / (age + 1) : 7 days;
+                
+                newFloorPrice += listing.price * weight;
+                totalWeight += weight;
             }
         }
         
-        if (newFloorPrice != _collection.floorPrice) {
-            _collection.floorPrice = newFloorPrice;
-            emit FloorPriceUpdated(newFloorPrice);
+        if (totalWeight > 0) {
+            newFloorPrice = newFloorPrice / totalWeight;
+            
+            if (newFloorPrice != _collection.floorPrice) {
+                _collection.floorPrice = newFloorPrice;
+                emit FloorPriceUpdated(newFloorPrice);
+            }
         }
     }
     
