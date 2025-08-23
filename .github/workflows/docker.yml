@@ -1,0 +1,236 @@
+name: Docker Build & Deploy
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: r3e-network/neo-solidity
+
+jobs:
+  # ================================
+  # Docker Build & Test
+  # ================================
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix=commit-
+    
+    - name: Create Dockerfile
+      run: |
+        cat > Dockerfile << 'EOF'
+        # Multi-stage build for Neo Solidity Compiler
+        FROM rust:1.75 AS rust-builder
+        
+        WORKDIR /app
+        COPY Cargo.toml Cargo.lock ./
+        COPY src/ ./src/
+        
+        # Build optimized release
+        RUN cargo build --release
+        
+        FROM mcr.microsoft.com/dotnet/sdk:6.0 AS dotnet-builder
+        
+        WORKDIR /app
+        COPY src/Neo.Sol.Runtime/ ./
+        
+        # Build runtime library
+        RUN dotnet build --configuration Release
+        
+        FROM node:18-alpine AS node-builder
+        
+        WORKDIR /app
+        COPY tooling/ ./
+        
+        # Build tooling
+        RUN npm ci && npm run build
+        
+        # Final runtime image
+        FROM ubuntu:22.04
+        
+        # Install runtime dependencies
+        RUN apt-get update && apt-get install -y \
+            ca-certificates \
+            curl \
+            jq \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Install .NET runtime
+        RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 6.0 --runtime dotnet
+        ENV PATH="/root/.dotnet:$PATH"
+        
+        # Install Node.js
+        RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+            && apt-get install -y nodejs
+        
+        # Copy built artifacts
+        COPY --from=rust-builder /app/target/release/neo-solc /usr/local/bin/neo-solc
+        COPY --from=dotnet-builder /app/bin/Release/ /opt/neo-solidity/runtime/
+        COPY --from=node-builder /app/dist/ /opt/neo-solidity/tooling/
+        
+        # Copy project files
+        COPY devpack/ /opt/neo-solidity/devpack/
+        COPY examples/ /opt/neo-solidity/examples/
+        COPY *.md /opt/neo-solidity/docs/
+        
+        # Create entrypoint script
+        RUN echo '#!/bin/bash' > /usr/local/bin/entrypoint.sh \
+            && echo 'if [ "$1" = "neo-solc" ]; then' >> /usr/local/bin/entrypoint.sh \
+            && echo '  shift' >> /usr/local/bin/entrypoint.sh \
+            && echo '  exec neo-solc "$@"' >> /usr/local/bin/entrypoint.sh \
+            && echo 'else' >> /usr/local/bin/entrypoint.sh \
+            && echo '  exec "$@"' >> /usr/local/bin/entrypoint.sh \
+            && echo 'fi' >> /usr/local/bin/entrypoint.sh \
+            && chmod +x /usr/local/bin/entrypoint.sh
+        
+        # Set working directory
+        WORKDIR /workspace
+        
+        # Labels
+        LABEL org.opencontainers.image.title="Neo Solidity Compiler"
+        LABEL org.opencontainers.image.description="Complete Solidity-to-NeoVM compilation system"
+        LABEL org.opencontainers.image.vendor="R3E Network"
+        LABEL org.opencontainers.image.authors="Jimmy <jimmy@r3e.network>"
+        LABEL org.opencontainers.image.source="https://github.com/r3e-network/neo-solidity"
+        LABEL org.opencontainers.image.licenses="MIT"
+        
+        ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+        CMD ["neo-solc", "--help"]
+        EOF
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Test Docker image
+      run: |
+        # Test the built image
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest neo-solc --version
+        
+        # Test compilation in Docker
+        echo 'contract Test { uint256 public value; }' > DockerTest.sol
+        docker run --rm -v $(pwd):/workspace ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest neo-solc DockerTest.sol -o DockerTest
+        
+        # Verify outputs
+        test -f DockerTest.nef || exit 1
+        test -f DockerTest.manifest.json || exit 1
+        
+        echo "✅ Docker image validation passed"
+
+  # ================================
+  # Development Environment
+  # ================================
+  dev-environment:
+    name: Development Environment Setup
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Create development Docker image
+      run: |
+        cat > Dockerfile.dev << 'EOF'
+        FROM ubuntu:22.04
+        
+        # Install development dependencies
+        RUN apt-get update && apt-get install -y \
+            curl \
+            git \
+            build-essential \
+            pkg-config \
+            libssl-dev \
+            jq \
+            vim \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Install Rust
+        RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        ENV PATH="/root/.cargo/bin:$PATH"
+        
+        # Install .NET
+        RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 6.0
+        ENV PATH="/root/.dotnet:$PATH"
+        
+        # Install Node.js
+        RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+            && apt-get install -y nodejs
+        
+        # Install Go
+        RUN curl -L https://go.dev/dl/go1.21.0.linux-amd64.tar.gz | tar -C /usr/local -xz
+        ENV PATH="/usr/local/go/bin:$PATH"
+        
+        # Set working directory
+        WORKDIR /workspace
+        
+        # Create development script
+        RUN echo '#!/bin/bash' > /usr/local/bin/dev-setup \
+            && echo 'echo "🚀 Neo Solidity Development Environment"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "Repository: https://github.com/r3e-network/neo-solidity"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "Author: Jimmy <jimmy@r3e.network>"' >> /usr/local/bin/dev-setup \
+            && echo 'echo ""' >> /usr/local/bin/dev-setup \
+            && echo 'echo "Available commands:"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "  cargo build --release    # Build Rust compiler"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "  dotnet build            # Build C# runtime"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "  npm install && npm run build  # Build tooling"' >> /usr/local/bin/dev-setup \
+            && echo 'echo "  make test-all           # Run all tests"' >> /usr/local/bin/dev-setup \
+            && chmod +x /usr/local/bin/dev-setup
+        
+        CMD ["/usr/local/bin/dev-setup"]
+        EOF
+    
+    - name: Build development image
+      run: |
+        docker build -f Dockerfile.dev -t neo-solidity-dev:latest .
+        
+        # Test development environment
+        docker run --rm neo-solidity-dev:latest
+    
+    - name: Tag development image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        docker tag neo-solidity-dev:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+    
+    - name: Push development image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
