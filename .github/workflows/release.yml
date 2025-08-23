@@ -74,12 +74,12 @@ jobs:
     
     - name: Create GitHub release
       id: create_release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
-        release_name: Neo Solidity Compiler ${{ github.ref_name }}
+        name: Neo Solidity Compiler ${{ github.ref_name }}
         body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
         draft: false
         prerelease: false
@@ -113,7 +113,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.75.0
       with:
         targets: ${{ matrix.target }}
     
@@ -158,24 +158,15 @@ jobs:
         fi
     
     - name: Upload binary to release
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./${{ matrix.name }}
-        asset_name: ${{ matrix.name }}
-        asset_content_type: application/octet-stream
+        files: |
+          ./${{ matrix.name }}
+          ./${{ matrix.name }}.sha256
     
-    - name: Upload checksum to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./${{ matrix.name }}.sha256
-        asset_name: ${{ matrix.name }}.sha256
-        asset_content_type: text/plain
 
   # ================================
   # Package Devpack
@@ -215,14 +206,12 @@ jobs:
         cd ..
     
     - name: Upload devpack to release
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./neo-solidity-devpack-complete.tar.gz
-        asset_name: neo-solidity-devpack-complete.tar.gz
-        asset_content_type: application/gzip
+        files: ./neo-solidity-devpack-complete.tar.gz
 
   # ================================
   # Package Examples
@@ -237,7 +226,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Install Rust for compilation testing
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.75.0
     
     - name: Build compiler
       run: cargo build --release
@@ -293,14 +282,12 @@ jobs:
         tar -czf neo-solidity-examples.tar.gz examples-dist/
     
     - name: Upload examples to release
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./neo-solidity-examples.tar.gz
-        asset_name: neo-solidity-examples.tar.gz
-        asset_content_type: application/gzip
+        files: ./neo-solidity-examples.tar.gz
 
   # ================================
   # Post-Release Validation
@@ -345,7 +332,7 @@ jobs:
         cat validation_report.md
     
     - name: Upload validation report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: release-validation
         path: validation_report.md
