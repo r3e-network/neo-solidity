@@ -1,0 +1,6 @@
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.csproj.AssemblyReference.cache
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.GeneratedMSBuildEditorConfig.editorconfig
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.AssemblyInfoInputs.cache
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.AssemblyInfo.cs
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.csproj.CoreCompileInputs.cache
+/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/Release/net8.0/Neo.Sol.Runtime.sourcelink.json
