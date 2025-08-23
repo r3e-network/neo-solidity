@@ -33,7 +33,7 @@
     "rpc"
   ],
   "dependencies": {
-    "@neo-solidity/types": "workspace:*",
+    "@neo-solidity/types": "^0.1.0",
     "ethers": "^6.9.0",
     "axios": "^1.6.0",
     "debug": "^4.3.4"

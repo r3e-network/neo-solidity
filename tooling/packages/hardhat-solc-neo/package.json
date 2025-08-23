@@ -33,7 +33,7 @@
     "neovm"
   ],
   "dependencies": {
-    "@neo-solidity/types": "workspace:*",
+    "@neo-solidity/types": "^0.1.0",
     "hardhat": "^2.19.0",
     "ethers": "^6.9.0",
     "fs-extra": "^11.2.0",
