@@ -47,7 +47,7 @@ jobs:
     - name: Run npm audit
       run: |
         cd tooling
-        npm ci
+        npm install
         
         echo "=== Node.js Dependency Security Audit ===" >> ../security_report.md
         echo "" >> ../security_report.md
@@ -134,7 +134,7 @@ jobs:
     - name: Run TypeScript security analysis
       run: |
         cd tooling
-        npm ci
+        npm install
         
         echo "## TypeScript Code Analysis" >> ../static_analysis.md
         
