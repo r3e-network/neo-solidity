@@ -1,6 +1,5 @@
 use clap::{Arg, Command};
 use std::fs;
-use std::path::PathBuf;
 
 fn main() {
     let matches = Command::new("neo-solc")
