@@ -30,7 +30,7 @@ jobs:
         npm install -g jsdoc
     
     - name: Setup Rust for docs
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.75.0
     
     - name: Setup .NET for docs
       uses: actions/setup-dotnet@v3
@@ -342,7 +342,7 @@ neo-cli contract deploy MyContract.nef MyContract.manifest.json</code></pre>
         cat docs_quality.md
     
     - name: Upload documentation quality report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: documentation-quality-report
         path: docs_quality.md
