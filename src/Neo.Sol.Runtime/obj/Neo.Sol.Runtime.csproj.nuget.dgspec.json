@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "restore": {
+    "/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj": {}
+  },
+  "projects": {
+    "/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj",
+        "projectName": "Neo.Sol.Runtime",
+        "projectPath": "/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj",
+        "packagesPath": "/home/neo/.nuget/packages/",
+        "outputPath": "/home/neo/git/neo-solidity/src/Neo.Sol.Runtime/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/neo/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "BouncyCastle.Cryptography": {
+              "target": "Package",
+              "version": "[2.2.1, )"
+            },
+            "Neo": {
+              "target": "Package",
+              "version": "[3.7.0, )"
+            },
+            "System.Numerics.Vectors": {
+              "target": "Package",
+              "version": "[4.5.0, )"
+            },
+            "System.Security.Cryptography.Algorithms": {
+              "target": "Package",
+              "version": "[4.3.1, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/neo/.dotnet/sdk/9.0.301/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
