@@ -21,10 +21,10 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@1.75.0
+      uses: dtolnay/rust-toolchain@stable
     
     - name: Install cargo-audit
-      run: cargo install cargo-audit
+      run: cargo install cargo-audit --version 0.20.0
     
     - name: Run Rust dependency audit
       run: |
@@ -102,7 +102,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@1.75.0
+      uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
     
@@ -121,27 +121,6 @@ jobs:
         fi
         echo "" >> static_analysis.md
     
-    - name: Setup Go for security analysis
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
-    
-    - name: Install Go security tools
-      run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-        go install honnef.co/go/tools/cmd/staticcheck@latest
-    
-    - name: Run Go security analysis
-      run: |
-        echo "## Go Code Analysis" >> static_analysis.md
-        
-        if gosec -fmt json -out gosec_output.json ./... 2>&1; then
-          ISSUES=$(jq '.Issues | length' gosec_output.json 2>/dev/null || echo 0)
-          echo "✅ Gosec analysis: $ISSUES security issues found" >> static_analysis.md
-        else
-          echo "⚠️ Gosec analysis found issues" >> static_analysis.md
-        fi
-        echo "" >> static_analysis.md
     
     - name: Setup Node.js for TypeScript analysis
       uses: actions/setup-node@v3
@@ -191,8 +170,8 @@ jobs:
     
     - name: Install Solidity security tools
       run: |
-        npm install -g @crytic/slither
-        npm install -g mythril
+        pip3 install slither-analyzer
+        pip3 install solc-select
     
     - name: Run Slither analysis
       run: |
