@@ -22,24 +22,30 @@ impl CodeGenerator {
             config: config.clone(),
         }
     }
-    
+
     pub fn generate(&mut self, ast: &AstNode) -> Result<CompilationResult, CompilerError> {
         let mut bytecode = Vec::new();
         let mut functions = Vec::new();
         let mut events = Vec::new();
         let mut estimated_gas = 0;
-        
+
         // Generate bytecode from AST
-        self.generate_node(ast, &mut bytecode, &mut functions, &mut events, &mut estimated_gas)?;
-        
+        self.generate_node(
+            ast,
+            &mut bytecode,
+            &mut functions,
+            &mut events,
+            &mut estimated_gas,
+        )?;
+
         // Add contract initialization
         bytecode.insert(0, 0x0C); // PUSHDATA1
         bytecode.insert(1, 0x04); // Length
         bytecode.extend_from_slice(b"init"); // Initialization marker
-        
+
         // Add final return
         bytecode.push(0x40); // RET
-        
+
         let abi = serde_json::json!({
             "functions": [
                 {
@@ -49,7 +55,7 @@ impl CodeGenerator {
                     "stateMutability": "view"
                 },
                 {
-                    "name": "setValue", 
+                    "name": "setValue",
                     "inputs": [{"type": "uint256", "name": "_value"}],
                     "outputs": [],
                     "stateMutability": "nonpayable"
@@ -62,7 +68,7 @@ impl CodeGenerator {
                 }
             ]
         });
-        
+
         let manifest = serde_json::json!({
             "name": "TestContract",
             "groups": [],
@@ -100,11 +106,11 @@ impl CodeGenerator {
                 "Version": "1.0.0"
             }
         });
-        
+
         let assembly = self.generate_assembly_representation(&bytecode);
         let source_map = self.generate_source_map(ast);
         let ast_node_count = self.count_ast_nodes(ast);
-        
+
         Ok(CompilationResult {
             bytecode,
             assembly,
@@ -119,7 +125,7 @@ impl CodeGenerator {
             }),
         })
     }
-    
+
     fn generate_node(
         &mut self,
         node: &AstNode,
@@ -134,23 +140,28 @@ impl CodeGenerator {
                     self.generate_node(stmt, bytecode, functions, events, estimated_gas)?;
                 }
             }
-            AstNodeType::Function { name, params, returns, body } => {
+            AstNodeType::Function {
+                name,
+                params,
+                returns,
+                body,
+            } => {
                 functions.push(name.clone());
-                
+
                 // Function entry
                 bytecode.push(0x0C); // PUSHDATA1
                 bytecode.push(name.len() as u8);
                 bytecode.extend_from_slice(name.as_bytes());
-                
+
                 // Generate function body
                 self.generate_node(body, bytecode, functions, events, estimated_gas)?;
-                
+
                 *estimated_gas += 50; // Function call overhead
             }
             AstNodeType::Assignment { targets, value } => {
                 // Generate value expression
                 self.generate_node(value, bytecode, functions, events, estimated_gas)?;
-                
+
                 // Store to variables (simplified to stack operations)
                 for target in targets {
                     bytecode.push(0x0C); // PUSHDATA1
@@ -158,7 +169,7 @@ impl CodeGenerator {
                     bytecode.extend_from_slice(target.as_bytes());
                     bytecode.push(0x51); // PUSH1 for variable storage
                 }
-                
+
                 *estimated_gas += targets.len() as u64 * 10;
             }
             AstNodeType::FunctionCall { name, arguments } => {
@@ -166,7 +177,7 @@ impl CodeGenerator {
                 for arg in arguments {
                     self.generate_node(arg, bytecode, functions, events, estimated_gas)?;
                 }
-                
+
                 // Generate function call based on built-in type
                 match name.as_str() {
                     "add" => {
@@ -227,12 +238,12 @@ impl CodeGenerator {
                     } else {
                         value.as_bytes().to_vec()
                     };
-                    
+
                     bytecode.push(0x0C); // PUSHDATA1
                     bytecode.push(data.len() as u8);
                     bytecode.extend_from_slice(&data);
                 }
-                
+
                 *estimated_gas += 3;
             }
             AstNodeType::Identifier { name } => {
@@ -240,42 +251,46 @@ impl CodeGenerator {
                 bytecode.push(0x0C); // PUSHDATA1
                 bytecode.push(name.len() as u8);
                 bytecode.extend_from_slice(name.as_bytes());
-                
+
                 *estimated_gas += 3;
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 // Generate condition
                 self.generate_node(condition, bytecode, functions, events, estimated_gas)?;
-                
+
                 // JMPIFNOT to else/end
                 bytecode.push(0x23); // JMPIFNOT
                 let else_jump_pos = bytecode.len();
                 bytecode.push(0x00); // Placeholder for jump offset
-                
+
                 // Generate then branch
                 self.generate_node(then_branch, bytecode, functions, events, estimated_gas)?;
-                
+
                 if else_branch.is_some() {
                     // JMP to end
                     bytecode.push(0x22); // JMP
                     let end_jump_pos = bytecode.len();
                     bytecode.push(0x00); // Placeholder
-                    
+
                     // Update else jump offset
                     bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos - 1) as u8;
-                    
+
                     // Generate else branch
                     if let Some(else_stmt) = else_branch {
                         self.generate_node(else_stmt, bytecode, functions, events, estimated_gas)?;
                     }
-                    
+
                     // Update end jump offset
                     bytecode[end_jump_pos] = (bytecode.len() - end_jump_pos - 1) as u8;
                 } else {
                     // Update else jump offset to end
                     bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos - 1) as u8;
                 }
-                
+
                 *estimated_gas += 10;
             }
             _ => {
@@ -283,14 +298,14 @@ impl CodeGenerator {
                 *estimated_gas += 1;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn generate_assembly_representation(&self, bytecode: &[u8]) -> String {
         let mut assembly = String::new();
         let mut i = 0;
-        
+
         while i < bytecode.len() {
             match bytecode[i] {
                 0x50..=0x60 => {
@@ -348,25 +363,25 @@ impl CodeGenerator {
                 }
             }
         }
-        
+
         assembly
     }
-    
+
     fn generate_source_map(&self, ast: &AstNode) -> String {
         let mut source_map = String::new();
-        
+
         self.visit_ast_for_source_map(ast, &mut source_map, 0);
-        
+
         source_map
     }
-    
+
     fn visit_ast_for_source_map(&self, node: &AstNode, source_map: &mut String, offset: usize) {
         if !source_map.is_empty() {
             source_map.push(';');
         }
-        
+
         source_map.push_str(&format!("{}:{}:{}", offset, node.line, node.column));
-        
+
         // Recursively visit child nodes
         match &node.node_type {
             AstNodeType::Object { statements } | AstNodeType::Block { statements } => {
@@ -377,10 +392,10 @@ impl CodeGenerator {
             _ => {}
         }
     }
-    
+
     fn count_ast_nodes(&self, node: &AstNode) -> usize {
         let mut count = 1;
-        
+
         match &node.node_type {
             AstNodeType::Object { statements } | AstNodeType::Block { statements } => {
                 for stmt in statements {
@@ -390,7 +405,11 @@ impl CodeGenerator {
             AstNodeType::Function { body, .. } => {
                 count += self.count_ast_nodes(body);
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 count += self.count_ast_nodes(condition);
                 count += self.count_ast_nodes(then_branch);
                 if let Some(else_stmt) = else_branch {
@@ -399,7 +418,7 @@ impl CodeGenerator {
             }
             _ => {}
         }
-        
+
         count
     }
 }

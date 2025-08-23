@@ -1,6 +1,8 @@
+use neo_solidity::compiler::{codegen::*, lexer::*, optimizer::*, parser::*, semantic::*};
+use neo_solidity::runtime::{
+    AbiEncoder, CryptoLib, EventManager, EvmMemoryManager, EvmRuntime, StorageManager,
+};
 use std::collections::HashMap;
-use neo_solidity::compiler::{lexer::*, parser::*, semantic::*, codegen::*, optimizer::*};
-use neo_solidity::runtime::{EvmRuntime, EvmMemoryManager, StorageManager, AbiEncoder, CryptoLib, EventManager};
 
 #[cfg(test)]
 mod lexer_tests {
@@ -11,7 +13,7 @@ mod lexer_tests {
         let input = "{ let x := add(1, 2) }";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens.len(), 11);
         assert_eq!(tokens[0].token_type, TokenType::LeftBrace);
         assert_eq!(tokens[1].token_type, TokenType::Let);
@@ -31,7 +33,7 @@ mod lexer_tests {
         let input = "0x42 123 0b1010";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].value, "0x42");
         assert_eq!(tokens[1].value, "123");
@@ -43,7 +45,7 @@ mod lexer_tests {
         let input = r#""hello world" "test\"quote""#;
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].value, "\"hello world\"");
         assert_eq!(tokens[1].value, "\"test\\\"quote\"");
@@ -54,7 +56,7 @@ mod lexer_tests {
         let input = "add sub mul div mod";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens.len(), 5);
         for token in &tokens {
             assert_eq!(token.token_type, TokenType::BuiltinFunction);
@@ -70,7 +72,7 @@ mod lexer_tests {
         "#;
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         // Comments should be filtered out
         assert_eq!(tokens.len(), 8); // let x := 1 let y := 2
     }
@@ -80,7 +82,7 @@ mod lexer_tests {
         let input = "let @ invalid";
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
-        
+
         assert!(result.is_err());
     }
 
@@ -89,7 +91,7 @@ mod lexer_tests {
         let input = "let\nx\n:=\n1";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens[0].line, 1);
         assert_eq!(tokens[1].line, 2);
         assert_eq!(tokens[2].line, 3);
@@ -101,7 +103,7 @@ mod lexer_tests {
         let input = ":= + - * / % < > <= >= == != & | ^ ~ << >>";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens.len(), 17);
         assert_eq!(tokens[0].token_type, TokenType::Assignment);
         assert_eq!(tokens[1].token_type, TokenType::Plus);
@@ -114,7 +116,7 @@ mod lexer_tests {
         let input = "let if for switch case default leave break continue function";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens[0].token_type, TokenType::Let);
         assert_eq!(tokens[1].token_type, TokenType::If);
         assert_eq!(tokens[2].token_type, TokenType::For);
@@ -143,7 +145,7 @@ mod parser_tests {
     fn test_simple_block() {
         let input = "{ let x := 1 }";
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
             AstNodeType::Object { statements, .. } => {
                 assert_eq!(statements.len(), 1);
@@ -162,12 +164,17 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
             AstNodeType::Object { statements, .. } => {
                 assert_eq!(statements.len(), 1);
                 match &statements[0].node_type {
-                    AstNodeType::Function { name, params, returns, .. } => {
+                    AstNodeType::Function {
+                        name,
+                        params,
+                        returns,
+                        ..
+                    } => {
                         assert_eq!(name, "add");
                         assert_eq!(params.len(), 2);
                         assert_eq!(returns.len(), 1);
@@ -189,18 +196,20 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
-            AstNodeType::Object { statements, .. } => {
-                match &statements[0].node_type {
-                    AstNodeType::If { condition, then_branch, else_branch } => {
-                        assert!(condition.node_type.is_function_call());
-                        assert!(then_branch.node_type.is_block());
-                        assert!(else_branch.is_none());
-                    }
-                    _ => panic!("Expected If node"),
+            AstNodeType::Object { statements, .. } => match &statements[0].node_type {
+                AstNodeType::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    assert!(condition.node_type.is_function_call());
+                    assert!(then_branch.node_type.is_block());
+                    assert!(else_branch.is_none());
                 }
-            }
+                _ => panic!("Expected If node"),
+            },
             _ => panic!("Expected Object node"),
         }
     }
@@ -215,19 +224,22 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
-            AstNodeType::Object { statements, .. } => {
-                match &statements[0].node_type {
-                    AstNodeType::For { init, condition, update, body } => {
-                        assert!(init.is_some());
-                        assert!(condition.node_type.is_function_call());
-                        assert!(update.is_some());
-                        assert!(body.node_type.is_block());
-                    }
-                    _ => panic!("Expected For node"),
+            AstNodeType::Object { statements, .. } => match &statements[0].node_type {
+                AstNodeType::For {
+                    init,
+                    condition,
+                    update,
+                    body,
+                } => {
+                    assert!(init.is_some());
+                    assert!(condition.node_type.is_function_call());
+                    assert!(update.is_some());
+                    assert!(body.node_type.is_block());
                 }
-            }
+                _ => panic!("Expected For node"),
+            },
             _ => panic!("Expected Object node"),
         }
     }
@@ -243,18 +255,20 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
-            AstNodeType::Object { statements, .. } => {
-                match &statements[0].node_type {
-                    AstNodeType::Switch { expression, cases, default } => {
-                        assert!(expression.node_type.is_identifier());
-                        assert_eq!(cases.len(), 2);
-                        assert!(default.is_some());
-                    }
-                    _ => panic!("Expected Switch node"),
+            AstNodeType::Object { statements, .. } => match &statements[0].node_type {
+                AstNodeType::Switch {
+                    expression,
+                    cases,
+                    default,
+                } => {
+                    assert!(expression.node_type.is_identifier());
+                    assert_eq!(cases.len(), 2);
+                    assert!(default.is_some());
                 }
-            }
+                _ => panic!("Expected Switch node"),
+            },
             _ => panic!("Expected Object node"),
         }
     }
@@ -263,14 +277,14 @@ mod parser_tests {
     fn test_function_call() {
         let input = "{ let result := add(mul(x, y), z) }";
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
             AstNodeType::Object { statements, .. } => {
                 match &statements[0].node_type {
                     AstNodeType::Assignment { targets, value } => {
                         assert_eq!(targets.len(), 1);
                         assert!(value.node_type.is_function_call());
-                        
+
                         match &value.node_type {
                             AstNodeType::FunctionCall { name, arguments } => {
                                 assert_eq!(name, "add");
@@ -292,19 +306,17 @@ mod parser_tests {
     fn test_variable_assignment() {
         let input = "{ let x, y := f() }";
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
-            AstNodeType::Object { statements, .. } => {
-                match &statements[0].node_type {
-                    AstNodeType::Assignment { targets, value } => {
-                        assert_eq!(targets.len(), 2);
-                        assert_eq!(targets[0], "x");
-                        assert_eq!(targets[1], "y");
-                        assert!(value.node_type.is_function_call());
-                    }
-                    _ => panic!("Expected Assignment node"),
+            AstNodeType::Object { statements, .. } => match &statements[0].node_type {
+                AstNodeType::Assignment { targets, value } => {
+                    assert_eq!(targets.len(), 2);
+                    assert_eq!(targets[0], "x");
+                    assert_eq!(targets[1], "y");
+                    assert!(value.node_type.is_function_call());
                 }
-            }
+                _ => panic!("Expected Assignment node"),
+            },
             _ => panic!("Expected Object node"),
         }
     }
@@ -323,7 +335,7 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
             AstNodeType::Object { statements, .. } => {
                 assert_eq!(statements.len(), 2);
@@ -344,7 +356,7 @@ mod parser_tests {
     fn test_complex_expression() {
         let input = "{ let result := add(mul(div(x, y), mod(z, w)), sub(a, b)) }";
         let ast = parse_yul(input).unwrap();
-        
+
         // Should parse without errors
         assert!(matches!(ast.node_type, AstNodeType::Object { .. }));
     }
@@ -518,7 +530,7 @@ mod codegen_tests {
         let tokens = lexer.tokenize()?;
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()?;
-        
+
         let config = crate::CompilerConfig::default();
         let mut codegen = CodeGenerator::new(&config);
         codegen.generate(&ast)
@@ -528,7 +540,7 @@ mod codegen_tests {
     fn test_simple_arithmetic() {
         let input = "{ let x := add(1, 2) }";
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 0);
     }
@@ -544,7 +556,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         assert!(!result.assembly.is_empty());
         assert!(result.abi.as_object().unwrap().contains_key("functions"));
@@ -564,7 +576,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         // Should contain jump instructions
         assert!(result.assembly.contains("JMP") || result.assembly.contains("JMPIF"));
@@ -581,7 +593,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 50); // Loops should have higher gas cost
     }
@@ -598,7 +610,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         // Should contain conditional jumps
         assert!(result.assembly.contains("JMPIF") || result.assembly.contains("JMP"));
@@ -613,7 +625,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
     }
 
@@ -626,7 +638,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
     }
 
@@ -643,11 +655,11 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         let abi = result.abi.as_object().unwrap();
         let functions = abi["functions"].as_array().unwrap();
         assert_eq!(functions.len(), 2);
-        
+
         let transfer_func = &functions[0];
         assert_eq!(transfer_func["name"], "transfer");
         assert_eq!(transfer_func["inputs"].as_array().unwrap().len(), 2);
@@ -666,7 +678,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(result.estimated_gas > 10000); // Should be expensive
     }
 
@@ -680,7 +692,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.source_map.is_empty());
         // Source map should contain position mappings
         assert!(result.source_map.contains(";"));
@@ -696,7 +708,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         let debug_info = result.debug_info.as_object().unwrap();
         assert!(debug_info.contains_key("functions"));
         assert!(debug_info.contains_key("variables"));
@@ -726,7 +738,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 2).unwrap();
-        
+
         // Constants should be folded
         // This is a simplified test - in reality we'd check the actual AST structure
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
@@ -742,7 +754,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 3).unwrap();
-        
+
         // Dead code should be eliminated at level 3
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
     }
@@ -759,7 +771,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 3).unwrap();
-        
+
         // Small functions should be inlined
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
     }
@@ -772,12 +784,12 @@ mod optimizer_tests {
             let y := mul(x, 0)  // Should become 0
         }
         "#;
-        
+
         let opt0 = optimize_yul(input, 0).unwrap();
         let opt1 = optimize_yul(input, 1).unwrap();
         let opt2 = optimize_yul(input, 2).unwrap();
         let opt3 = optimize_yul(input, 3).unwrap();
-        
+
         // Higher optimization levels should produce different results
         // This is a structural test - actual optimization effects would be tested differently
         assert!(matches!(opt0.node_type, AstNodeType::Object { .. }));
@@ -795,7 +807,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 3).unwrap();
-        
+
         // Common subexpressions should be eliminated
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
     }
@@ -810,7 +822,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 3).unwrap();
-        
+
         // Loop invariants should be moved outside the loop
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
     }
@@ -827,9 +839,9 @@ mod optimizer_tests {
         let original_tokens = original_lexer.tokenize().unwrap();
         let original_parser = Parser::new(original_tokens);
         let original_ast = original_parser.parse().unwrap();
-        
+
         let optimized = optimize_yul(input, 0).unwrap();
-        
+
         // At level 0, AST should be mostly unchanged
         // (This is a simplified test - would need deep comparison in practice)
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
@@ -843,23 +855,23 @@ mod runtime_tests {
     #[test]
     fn test_memory_manager() {
         let mut memory = EvmMemoryManager::new();
-        
+
         // Test basic allocation
         let ptr = memory.allocate(32).unwrap();
         assert_eq!(ptr, 0);
-        
+
         let ptr2 = memory.allocate(64).unwrap();
         assert_eq!(ptr2, 32);
-        
+
         // Test memory operations
         memory.store_word(ptr, &[1u8; 32]).unwrap();
         let data = memory.load_word(ptr).unwrap();
         assert_eq!(data[0], 1);
-        
+
         // Test memory expansion
         let large_ptr = memory.allocate(1024 * 1024).unwrap(); // 1MB
         assert!(large_ptr > ptr2);
-        
+
         // Test memory statistics
         let stats = memory.get_statistics();
         assert!(stats.total_allocated > 0);
@@ -869,25 +881,25 @@ mod runtime_tests {
     #[test]
     fn test_storage_manager() {
         let mut storage = StorageManager::new();
-        
+
         // Test basic storage operations
         let key = [1u8; 32];
         let value = [42u8; 32];
-        
+
         storage.store(&key, &value).unwrap();
         let retrieved = storage.load(&key).unwrap();
         assert_eq!(retrieved, value);
-        
+
         // Test mapping storage
         let mapping_slot = [0u8; 32];
         let mapping_key = [1u8; 32];
         let mapping_value = [123u8; 32];
-        
+
         let storage_key = storage.calculate_mapping_key(&mapping_slot, &mapping_key);
         storage.store(&storage_key, &mapping_value).unwrap();
         let retrieved = storage.load(&storage_key).unwrap();
         assert_eq!(retrieved, mapping_value);
-        
+
         // Test storage statistics
         let stats = storage.get_statistics();
         assert!(stats.total_reads > 0);
@@ -897,29 +909,29 @@ mod runtime_tests {
     #[test]
     fn test_abi_encoder() {
         let encoder = AbiEncoder::new();
-        
+
         // Test uint256 encoding
         let value = 42u64;
         let encoded = encoder.encode_uint256(value);
         assert_eq!(encoded.len(), 32);
-        
+
         let decoded = encoder.decode_uint256(&encoded).unwrap();
         assert_eq!(decoded, value as u128);
-        
+
         // Test string encoding
         let test_string = "Hello, World!";
         let encoded = encoder.encode_string(test_string);
         let decoded = encoder.decode_string(&encoded).unwrap();
         assert_eq!(decoded, test_string);
-        
+
         // Test address encoding
         let address = [1u8; 20];
         let encoded = encoder.encode_address(&address);
         assert_eq!(encoded.len(), 32);
-        
+
         let decoded = encoder.decode_address(&encoded).unwrap();
         assert_eq!(decoded[12..], address);
-        
+
         // Test function selector calculation
         let signature = "transfer(address,uint256)";
         let selector = encoder.calculate_function_selector(signature).unwrap();
@@ -929,19 +941,19 @@ mod runtime_tests {
     #[test]
     fn test_crypto_lib() {
         let crypto = CryptoLib::new();
-        
+
         // Test keccak256
         let data = b"test data";
         let hash = crypto.keccak256(data);
         assert_eq!(hash.len(), 32);
-        
+
         // Test sha256
         let sha_hash = crypto.sha256(data);
         assert_eq!(sha_hash.len(), 32);
-        
+
         // Hashes should be different
         assert_ne!(hash, sha_hash);
-        
+
         // Test determinism
         let hash2 = crypto.keccak256(data);
         assert_eq!(hash, hash2);
@@ -950,22 +962,22 @@ mod runtime_tests {
     #[test]
     fn test_event_manager() {
         let mut event_manager = EventManager::new();
-        
+
         // Test event emission
         let topics = vec![
             [1u8; 32], // Event signature
             [2u8; 32], // Indexed parameter
         ];
         let data = vec![42u8, 43u8, 44u8];
-        
+
         event_manager.emit_event(topics, data.clone()).unwrap();
-        
+
         // Test event retrieval
         let events = event_manager.get_events(0).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].topics.len(), 2);
         assert_eq!(events[0].data, data);
-        
+
         // Test event filtering
         let filter = EventFilter {
             topics: vec![Some([1u8; 32])],
@@ -978,32 +990,32 @@ mod runtime_tests {
     #[test]
     fn test_runtime_integration() {
         let runtime = EvmRuntime::new();
-        
+
         // Test basic operations
         let result = runtime.add(10, 20);
         assert_eq!(result, 30);
-        
+
         let result = runtime.mul(6, 7);
         assert_eq!(result, 42);
-        
+
         // Test memory operations
         runtime.mstore(0, &[1u8; 32]).unwrap();
         let data = runtime.mload(0).unwrap();
         assert_eq!(data[31], 1); // Big-endian
-        
+
         // Test storage operations
         runtime.sstore(&[1u8; 32], &[42u8; 32]).unwrap();
         let value = runtime.sload(&[1u8; 32]).unwrap();
         assert_eq!(value[31], 42);
-        
+
         // Test gas operations
         let gas = runtime.gas();
         assert!(gas > 0);
-        
+
         // Test address operations
         let address = runtime.address();
         assert_eq!(address.len(), 20);
-        
+
         // Test balance operations
         let balance = runtime.balance(&address);
         assert!(balance >= 0);
@@ -1012,17 +1024,15 @@ mod runtime_tests {
     #[test]
     fn test_error_handling() {
         let runtime = EvmRuntime::new();
-        
+
         // Test division by zero
-        let result = std::panic::catch_unwind(|| {
-            runtime.div(10, 0)
-        });
+        let result = std::panic::catch_unwind(|| runtime.div(10, 0));
         assert!(result.is_err());
-        
+
         // Test invalid memory access
         let result = runtime.mload(u32::MAX as usize);
         assert!(result.is_err());
-        
+
         // Test invalid storage key
         let invalid_key = [0u8; 31]; // Wrong size
         let result = runtime.sload(&invalid_key);
@@ -1032,14 +1042,14 @@ mod runtime_tests {
     #[test]
     fn test_performance_characteristics() {
         let runtime = EvmRuntime::new();
-        
+
         // Test memory allocation performance
         let start = std::time::Instant::now();
         for i in 0..1000 {
             runtime.mstore(i * 32, &[i as u8; 32]).unwrap();
         }
         let memory_time = start.elapsed();
-        
+
         // Test storage operations performance
         let start = std::time::Instant::now();
         for i in 0..100 {
@@ -1048,10 +1058,10 @@ mod runtime_tests {
             runtime.sstore(&key, &value).unwrap();
         }
         let storage_time = start.elapsed();
-        
+
         // Memory should be faster than storage
         assert!(memory_time < storage_time);
-        
+
         // Both should complete within reasonable time
         assert!(memory_time.as_millis() < 1000);
         assert!(storage_time.as_millis() < 5000);
@@ -1066,16 +1076,16 @@ mod integration_tests {
         // Full compilation pipeline
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize()?;
-        
+
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()?;
-        
+
         let mut semantic_analyzer = SemanticAnalyzer::new();
         let _semantic_result = semantic_analyzer.analyze(&ast)?;
-        
+
         let mut optimizer = Optimizer::new(2);
         let optimized_ast = optimizer.optimize(ast)?;
-        
+
         let config = crate::CompilerConfig::default();
         let mut code_generator = CodeGenerator::new(&config);
         code_generator.generate(&optimized_ast)
@@ -1141,11 +1151,11 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 0);
-        
+
         // Check ABI generation
         let abi = result.abi.as_object().unwrap();
         let functions = abi["functions"].as_array().unwrap();
@@ -1182,7 +1192,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 100); // Complex computation should cost gas
@@ -1217,7 +1227,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         // Memory operations should generate appropriate bytecode
@@ -1241,7 +1251,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         // Should handle revert cases
@@ -1261,7 +1271,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         // Optimized code should be smaller and more efficient
@@ -1327,11 +1337,11 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.bytecode.len() > 100); // Should be a substantial contract
-        
+
         // Check that all functions are in ABI
         let abi = result.abi.as_object().unwrap();
         let functions = abi["functions"].as_array().unwrap();
@@ -1364,7 +1374,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         // Should handle edge cases without errors
@@ -1382,7 +1392,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let cheap_input = r#"
         {
             function cheap_function() -> result {
@@ -1390,10 +1400,10 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let expensive_result = full_compile_test(expensive_input).unwrap();
         let cheap_result = full_compile_test(cheap_input).unwrap();
-        
+
         // Expensive function should cost significantly more gas
         assert!(expensive_result.estimated_gas > cheap_result.estimated_gas * 10);
     }
@@ -1411,13 +1421,15 @@ mod benchmark_tests {
             function large_function() {
                 let x := 1
                 let y := 2
-        "#.repeat(1000) + "}".repeat(1000).as_str();
-        
+        "#
+        .repeat(1000)
+            + "}".repeat(1000).as_str();
+
         let start = Instant::now();
         let mut lexer = Lexer::new(&large_input);
         let tokens = lexer.tokenize().unwrap();
         let duration = start.elapsed();
-        
+
         println!("Lexer processed {} tokens in {:?}", tokens.len(), duration);
         assert!(duration.as_millis() < 1000); // Should complete within 1 second
     }
@@ -1436,14 +1448,14 @@ mod benchmark_tests {
             }
         }
         "#;
-        
+
         let start = Instant::now();
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let _ast = parser.parse().unwrap();
         let duration = start.elapsed();
-        
+
         println!("Parser completed in {:?}", duration);
         assert!(duration.as_millis() < 100);
     }
@@ -1462,15 +1474,15 @@ mod benchmark_tests {
             }
         }
         "#;
-        
+
         let start = Instant::now();
         let result = full_compile_test(input).unwrap();
         let duration = start.elapsed();
-        
+
         println!("Full compilation completed in {:?}", duration);
         println!("Generated {} bytes of bytecode", result.bytecode.len());
         println!("Estimated gas: {}", result.estimated_gas);
-        
+
         assert!(duration.as_millis() < 5000); // Should complete within 5 seconds
         assert!(!result.bytecode.is_empty());
     }
@@ -1478,14 +1490,14 @@ mod benchmark_tests {
     #[test]
     fn benchmark_runtime_performance() {
         let runtime = EvmRuntime::new();
-        
+
         // Benchmark memory operations
         let start = Instant::now();
         for i in 0..10000 {
             runtime.mstore(i * 32, &[i as u8; 32]).unwrap();
         }
         let memory_duration = start.elapsed();
-        
+
         // Benchmark storage operations
         let start = Instant::now();
         for i in 0..1000 {
@@ -1494,7 +1506,7 @@ mod benchmark_tests {
             runtime.sstore(&key, &value).unwrap();
         }
         let storage_duration = start.elapsed();
-        
+
         // Benchmark arithmetic operations
         let start = Instant::now();
         let mut result = 0u64;
@@ -1502,11 +1514,11 @@ mod benchmark_tests {
             result = runtime.add(result, i);
         }
         let arithmetic_duration = start.elapsed();
-        
+
         println!("Memory operations: {:?}", memory_duration);
         println!("Storage operations: {:?}", storage_duration);
         println!("Arithmetic operations: {:?}", arithmetic_duration);
-        
+
         // Performance assertions
         assert!(memory_duration.as_millis() < 1000);
         assert!(storage_duration.as_millis() < 5000);
@@ -1518,7 +1530,7 @@ mod benchmark_tests {
         let tokens = lexer.tokenize()?;
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()?;
-        
+
         let config = crate::CompilerConfig::default();
         let mut code_generator = CodeGenerator::new(&config);
         code_generator.generate(&ast)
