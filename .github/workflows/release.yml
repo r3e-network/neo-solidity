@@ -113,7 +113,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@1.75.0
+      uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
     
@@ -226,7 +226,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Install Rust for compilation testing
-      uses: dtolnay/rust-toolchain@1.75.0
+      uses: dtolnay/rust-toolchain@stable
     
     - name: Build compiler
       run: cargo build --release

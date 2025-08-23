@@ -30,7 +30,7 @@ jobs:
         npm install -g jsdoc
     
     - name: Setup Rust for docs
-      uses: dtolnay/rust-toolchain@1.75.0
+      uses: dtolnay/rust-toolchain@stable
     
     - name: Setup .NET for docs
       uses: actions/setup-dotnet@v3
