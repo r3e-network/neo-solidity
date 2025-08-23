@@ -58,7 +58,7 @@ impl Optimizer {
     }
 
     fn fold_constants_recursive(&mut self, node: AstNode) -> AstNode {
-        let optimized_node = match node.node_type {
+        match node.node_type {
             AstNodeType::FunctionCall { name, arguments } => {
                 // Fold constant arithmetic operations
                 if let Some(result) = self.evaluate_constant_expression(&name, &arguments) {
@@ -116,9 +116,7 @@ impl Optimizer {
                 }
             }
             _ => node, // Return unchanged for other node types
-        };
-
-        optimized_node
+        }
     }
 
     fn evaluate_constant_expression(&self, name: &str, arguments: &[AstNode]) -> Option<u64> {
@@ -147,8 +145,8 @@ impl Optimizer {
 
     fn extract_constant(&self, node: &AstNode) -> Option<u64> {
         if let AstNodeType::Literal { value } = &node.node_type {
-            if value.starts_with("0x") {
-                u64::from_str_radix(&value[2..], 16).ok()
+            if let Some(stripped) = value.strip_prefix("0x") {
+                u64::from_str_radix(stripped, 16).ok()
             } else {
                 value.parse::<u64>().ok()
             }
@@ -161,7 +159,7 @@ impl Optimizer {
         Ok(self.eliminate_dead_code_recursive(ast, false))
     }
 
-    fn eliminate_dead_code_recursive(&mut self, node: AstNode, after_return: bool) -> AstNode {
+    fn eliminate_dead_code_recursive(&mut self, node: AstNode, _after_return: bool) -> AstNode {
         match node.node_type {
             AstNodeType::Object { statements } => {
                 let mut optimized_statements = Vec::new();

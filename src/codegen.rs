@@ -13,13 +13,13 @@ pub struct CompilationResult {
 }
 
 pub struct CodeGenerator {
-    config: CompilerConfig,
+    _config: CompilerConfig,
 }
 
 impl CodeGenerator {
     pub fn new(config: &CompilerConfig) -> Self {
         Self {
-            config: config.clone(),
+            _config: config.clone(),
         }
     }
 
@@ -126,6 +126,7 @@ impl CodeGenerator {
         })
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn generate_node(
         &mut self,
         node: &AstNode,
@@ -142,8 +143,8 @@ impl CodeGenerator {
             }
             AstNodeType::Function {
                 name,
-                params,
-                returns,
+                params: _,
+                returns: _,
                 body,
             } => {
                 functions.push(name.clone());
@@ -233,8 +234,8 @@ impl CodeGenerator {
                     }
                 } else {
                     // String or hex literal
-                    let data = if value.starts_with("0x") {
-                        hex::decode(&value[2..]).unwrap_or_else(|_| value.as_bytes().to_vec())
+                    let data = if let Some(stripped) = value.strip_prefix("0x") {
+                        hex::decode(stripped).unwrap_or_else(|_| value.as_bytes().to_vec())
                     } else {
                         value.as_bytes().to_vec()
                     };
@@ -375,6 +376,7 @@ impl CodeGenerator {
         source_map
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn visit_ast_for_source_map(&self, node: &AstNode, source_map: &mut String, offset: usize) {
         if !source_map.is_empty() {
             source_map.push(';');
@@ -393,6 +395,7 @@ impl CodeGenerator {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn count_ast_nodes(&self, node: &AstNode) -> usize {
         let mut count = 1;
 

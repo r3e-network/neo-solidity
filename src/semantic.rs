@@ -37,6 +37,12 @@ pub struct PerformanceMetrics {
 
 pub struct SemanticAnalyzer;
 
+impl Default for SemanticAnalyzer {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl SemanticAnalyzer {
     pub fn new() -> Self {
         Self
@@ -243,6 +249,7 @@ impl SemanticAnalyzer {
         self.visit_node_recursive(node, visitor, 0);
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn visit_node_recursive<F>(&self, node: &AstNode, visitor: &mut F, depth: u32)
     where
         F: FnMut(&AstNode, u32),
