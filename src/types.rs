@@ -18,12 +18,12 @@ pub struct CompilerConfig {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputFormat {
-    Nef,        // Neo Executable Format (.nef)
-    Manifest,   // Neo Manifest (.manifest.json)
-    Complete,   // Both .nef and .manifest.json
-    Assembly,   // Human-readable assembly
-    Json,       // Complete JSON with all outputs
-    DebugInfo,  // Debug information
+    Nef,       // Neo Executable Format (.nef)
+    Manifest,  // Neo Manifest (.manifest.json)
+    Complete,  // Both .nef and .manifest.json
+    Assembly,  // Human-readable assembly
+    Json,      // Complete JSON with all outputs
+    DebugInfo, // Debug information
 }
 
 #[derive(Debug, Clone, PartialEq)]

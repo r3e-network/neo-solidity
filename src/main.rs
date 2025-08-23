@@ -50,16 +50,17 @@ fn main() {
         .get_matches();
 
     let input_file = matches.get_one::<String>("input").unwrap();
-    let output_prefix = matches.get_one::<String>("output")
+    let output_prefix = matches
+        .get_one::<String>("output")
         .map(|s| s.as_str())
         .unwrap_or_else(|| {
             // Default output prefix is input filename without extension
             Path::new(input_file).file_stem().unwrap().to_str().unwrap()
         });
-    
+
     let format = matches.get_one::<String>("format").unwrap();
     let verbose = matches.get_flag("verbose");
-    
+
     if verbose {
         println!("Neo Solidity Compiler v1.0.0");
         println!("Input: {}", input_file);
@@ -82,9 +83,12 @@ fn main() {
 
     // Generate production Neo N3 bytecode based on input analysis
     let contract_bytecode = generate_contract_bytecode(&input_content, verbose);
-    
+
     if verbose {
-        println!("Generated {} bytes of NeoVM bytecode", contract_bytecode.len());
+        println!(
+            "Generated {} bytes of NeoVM bytecode",
+            contract_bytecode.len()
+        );
     }
 
     // Generate outputs based on format
@@ -110,10 +114,10 @@ fn main() {
         "complete" => {
             let nef_path = format!("{}.nef", output_prefix);
             let manifest_path = format!("{}.manifest.json", output_prefix);
-            
+
             write_nef_file(&nef_path, &contract_bytecode);
             write_manifest_file(&manifest_path, input_file);
-            
+
             println!("✅ Contract files generated:");
             println!("   📄 {}", nef_path);
             println!("   📄 {}", manifest_path);
@@ -131,43 +135,46 @@ fn main() {
             println!("✅ Compilation completed for format: {}", format);
         }
     }
-    
+
     println!("🎉 Neo Solidity compilation successful!");
-    println!("📝 Ready for deployment with: neo-cli contract deploy {}.nef {}.manifest.json", output_prefix, output_prefix);
+    println!(
+        "📝 Ready for deployment with: neo-cli contract deploy {}.nef {}.manifest.json",
+        output_prefix, output_prefix
+    );
 }
 
 fn write_nef_file(path: &str, bytecode: &[u8]) {
     let mut nef_data = Vec::new();
-    
+
     // NEF3 magic number (4 bytes)
     nef_data.extend_from_slice(&0x3346454E_u32.to_le_bytes()); // "NEF3"
-    
+
     // Compiler identifier (64 bytes)
     let mut compiler = [0u8; 64];
     let compiler_str = b"neo-solidity-1.0.0-jimmy@r3e.network";
     let copy_len = std::cmp::min(compiler_str.len(), 64);
     compiler[..copy_len].copy_from_slice(&compiler_str[..copy_len]);
     nef_data.extend_from_slice(&compiler);
-    
+
     // Version (16 bytes: major.minor.build.revision)
     nef_data.extend_from_slice(&1_u32.to_le_bytes()); // Major
     nef_data.extend_from_slice(&0_u32.to_le_bytes()); // Minor
-    nef_data.extend_from_slice(&0_u32.to_le_bytes()); // Build  
+    nef_data.extend_from_slice(&0_u32.to_le_bytes()); // Build
     nef_data.extend_from_slice(&0_u32.to_le_bytes()); // Revision
-    
+
     // Reserved (4 bytes)
     nef_data.extend_from_slice(&0_u32.to_le_bytes());
-    
+
     // Script length (4 bytes)
     nef_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
-    
+
     // Script data
     nef_data.extend_from_slice(bytecode);
-    
+
     // Checksum (4 bytes)
     let checksum = calculate_checksum(&nef_data);
     nef_data.extend_from_slice(&checksum.to_le_bytes());
-    
+
     fs::write(path, nef_data).expect("Failed to write NEF file");
 }
 
@@ -177,7 +184,7 @@ fn write_manifest_file(path: &str, contract_name: &str) {
         .unwrap()
         .to_str()
         .unwrap();
-    
+
     let manifest = serde_json::json!({
         "name": contract_name,
         "groups": [],
@@ -210,7 +217,7 @@ fn write_manifest_file(path: &str, contract_name: &str) {
                     "name": "ValueChanged",
                     "parameters": [
                         {
-                            "name": "newValue", 
+                            "name": "newValue",
                             "type": "Integer"
                         }
                     ]
@@ -232,8 +239,9 @@ fn write_manifest_file(path: &str, contract_name: &str) {
             "Repository": "https://github.com/r3e-network/neo-solidity"
         }
     });
-    
-    let manifest_json = serde_json::to_string_pretty(&manifest).expect("Failed to serialize manifest");
+
+    let manifest_json =
+        serde_json::to_string_pretty(&manifest).expect("Failed to serialize manifest");
     fs::write(path, manifest_json).expect("Failed to write manifest file");
 }
 
@@ -243,14 +251,14 @@ fn write_json_file(path: &str, bytecode: &[u8], contract_name: &str) {
         .unwrap()
         .to_str()
         .unwrap();
-    
+
     let json_output = serde_json::json!({
         "contract": contract_name,
         "compiler": "neo-solidity-1.0.0",
         "author": "Jimmy <jimmy@r3e.network>",
         "nef": {
             "magic": "NEF3",
-            "compiler": "neo-solidity-1.0.0-jimmy@r3e.network", 
+            "compiler": "neo-solidity-1.0.0-jimmy@r3e.network",
             "version": "1.0.0.0",
             "script": hex::encode(bytecode)
         },
@@ -264,7 +272,7 @@ fn write_json_file(path: &str, bytecode: &[u8], contract_name: &str) {
                         "returntype": "Integer"
                     },
                     {
-                        "name": "setValue", 
+                        "name": "setValue",
                         "parameters": [{"name": "_value", "type": "Integer"}],
                         "returntype": "Void"
                     }
@@ -291,7 +299,7 @@ fn write_json_file(path: &str, bytecode: &[u8], contract_name: &str) {
             "command": format!("neo-cli contract deploy {}.nef {}.manifest.json", contract_name, contract_name)
         }
     });
-    
+
     let json_str = serde_json::to_string_pretty(&json_output).expect("Failed to serialize JSON");
     fs::write(path, json_str).expect("Failed to write JSON file");
 }
@@ -313,60 +321,60 @@ use std::path::Path;
 fn generate_contract_bytecode(source_code: &str, verbose: bool) -> Vec<u8> {
     // Analyze source code to generate appropriate bytecode
     let mut bytecode = Vec::new();
-    
+
     // Contract initialization
     bytecode.extend_from_slice(&[
         0x0C, 0x04, 0x69, 0x6E, 0x69, 0x74, // PUSHDATA1 "init"
-        0x41, 0x9b, 0xf6, 0x67, 0xce,       // SYSCALL System.Storage.Put
+        0x41, 0x9b, 0xf6, 0x67, 0xce, // SYSCALL System.Storage.Put
     ]);
-    
+
     // Analyze source for functions and generate appropriate opcodes
     if source_code.contains("function transfer") || source_code.contains("function balanceOf") {
         // ERC20/NEP-17 token bytecode
         bytecode.extend_from_slice(&[
             // Transfer function implementation
             0x0C, 0x08, 0x74, 0x72, 0x61, 0x6E, 0x73, 0x66, 0x65, 0x72, // PUSHDATA1 "transfer"
-            0x41, 0x62, 0x7D, 0x5B, 0x52,                                 // SYSCALL System.Contract.Call
-            
-            // BalanceOf function implementation  
-            0x0C, 0x09, 0x62, 0x61, 0x6C, 0x61, 0x6E, 0x63, 0x65, 0x4F, 0x66, // PUSHDATA1 "balanceOf"
-            0x41, 0x9B, 0xF6, 0x67, 0xCE,                                       // SYSCALL System.Storage.Get
+            0x41, 0x62, 0x7D, 0x5B, 0x52, // SYSCALL System.Contract.Call
+            // BalanceOf function implementation
+            0x0C, 0x09, 0x62, 0x61, 0x6C, 0x61, 0x6E, 0x63, 0x65, 0x4F,
+            0x66, // PUSHDATA1 "balanceOf"
+            0x41, 0x9B, 0xF6, 0x67, 0xCE, // SYSCALL System.Storage.Get
         ]);
     }
-    
+
     if source_code.contains("function mint") || source_code.contains("function burn") {
         // Minting/burning functionality
         bytecode.extend_from_slice(&[
             0x0C, 0x04, 0x6D, 0x69, 0x6E, 0x74, // PUSHDATA1 "mint"
-            0x41, 0x9B, 0xF6, 0x67, 0xCE,       // SYSCALL System.Storage.Put
+            0x41, 0x9B, 0xF6, 0x67, 0xCE, // SYSCALL System.Storage.Put
         ]);
     }
-    
+
     if source_code.contains("function ownerOf") || source_code.contains("function tokenURI") {
         // NFT functionality
         bytecode.extend_from_slice(&[
             0x0C, 0x07, 0x6F, 0x77, 0x6E, 0x65, 0x72, 0x4F, 0x66, // PUSHDATA1 "ownerOf"
-            0x41, 0x9B, 0xF6, 0x67, 0xCE,                           // SYSCALL System.Storage.Get
+            0x41, 0x9B, 0xF6, 0x67, 0xCE, // SYSCALL System.Storage.Get
         ]);
     }
-    
+
     if source_code.contains("oracle") || source_code.contains("request") {
         // Oracle functionality
         bytecode.extend_from_slice(&[
             0x0C, 0x07, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, // PUSHDATA1 "request"
-            0x41, 0xEB, 0x4D, 0x35, 0x19,                           // SYSCALL Oracle.Request
+            0x41, 0xEB, 0x4D, 0x35, 0x19, // SYSCALL Oracle.Request
         ]);
     }
-    
+
     // Event emission for any contract
     bytecode.extend_from_slice(&[
-        0x0C, 0x06, 0x6E, 0x6F, 0x74, 0x69, 0x66, 0x79, // PUSHDATA1 "notify"  
-        0x41, 0x9A, 0x8C, 0x2C, 0x85,                     // SYSCALL System.Runtime.Notify
+        0x0C, 0x06, 0x6E, 0x6F, 0x74, 0x69, 0x66, 0x79, // PUSHDATA1 "notify"
+        0x41, 0x9A, 0x8C, 0x2C, 0x85, // SYSCALL System.Runtime.Notify
     ]);
-    
+
     // Contract return
     bytecode.push(0x40); // RET
-    
+
     if verbose {
         println!("Generated bytecode with {} instructions", bytecode.len());
         if source_code.contains("NEP17") || source_code.contains("ERC20") {
@@ -379,6 +387,6 @@ fn generate_contract_bytecode(source_code: &str, verbose: bool) -> Vec<u8> {
             println!("  ✓ Oracle integration detected");
         }
     }
-    
+
     bytecode
 }
