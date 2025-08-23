@@ -159,7 +159,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd tooling
-        npm ci
+        npm install
     
     - name: Run TypeScript compilation
       run: |
@@ -223,7 +223,7 @@ jobs:
     - name: Run npm security audit
       run: |
         cd tooling
-        npm ci
+        npm install
         npm audit --audit-level high
     
     - name: Solidity security analysis
@@ -414,7 +414,7 @@ jobs:
         
         echo "Building TypeScript tooling..."
         cd tooling
-        npm ci
+        npm install
         npm run build
         cd ..
         

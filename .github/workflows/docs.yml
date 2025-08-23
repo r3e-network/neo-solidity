@@ -50,7 +50,7 @@ jobs:
       run: |
         echo "Generating TypeScript API documentation..."
         cd tooling
-        npm ci
+        npm install
         
         # Generate TypeScript docs
         npx typedoc --out ../docs/api/typescript src/
