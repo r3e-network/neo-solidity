@@ -10,7 +10,7 @@ use num_bigint::BigInt;
 use solang_parser::pt::{
     Expression, HexLiteral as PtHexLiteral, Statement, StringLiteral as PtStringLiteral,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub struct Module {
@@ -79,6 +79,14 @@ pub enum Instruction {
         key_types: Vec<ValueType>,
     },
     LoadRuntimeValue(RuntimeValue),
+    CallFunction {
+        name: String,
+        arg_count: usize,
+    },
+    CallBuiltin {
+        builtin: BuiltinCall,
+        arg_count: usize,
+    },
     EmitEvent {
         event_index: usize,
     },
@@ -136,6 +144,12 @@ pub enum BinaryOperator {
     Ne,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuiltinCall {
+    RuntimeNotify,
+    RuntimeCheckWitness,
+}
+
 impl Module {
     pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<String>> {
         let state_variables: Vec<StateVariable> = metadata
@@ -163,6 +177,12 @@ impl Module {
             .map(|state| state.ty.clone())
             .collect();
 
+        let function_names: HashSet<String> = metadata
+            .methods
+            .iter()
+            .map(|function| function.name.clone())
+            .collect();
+
         let mut functions = Vec::new();
         let mut errors = Vec::new();
         for function in &metadata.methods {
@@ -171,6 +191,7 @@ impl Module {
                 &state_index_map,
                 &state_types,
                 &event_index_map,
+                &function_names,
             ) {
                 Ok(func) => functions.push(func),
                 Err(mut function_errors) => errors.append(&mut function_errors),
@@ -195,6 +216,7 @@ impl Function {
         state_index_map: &HashMap<String, usize>,
         state_types: &[ValueType],
         event_index_map: &HashMap<String, usize>,
+        function_names: &HashSet<String>,
     ) -> Result<Self, Vec<String>> {
         let parameters: Vec<ValueType> = metadata
             .parameters
@@ -215,6 +237,7 @@ impl Function {
             state_index_map,
             state_types,
             event_index_map,
+            function_names,
         );
 
         let mut instructions: Vec<Instruction> = Vec::new();
@@ -393,6 +416,7 @@ struct LoweringContext<'a> {
     state_index_map: &'a HashMap<String, usize>,
     state_types: &'a [ValueType],
     event_index_map: &'a HashMap<String, usize>,
+    function_names: &'a HashSet<String>,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
     errors: Vec<String>,
@@ -405,6 +429,7 @@ impl<'a> LoweringContext<'a> {
         state_index_map: &'a HashMap<String, usize>,
         state_types: &'a [ValueType],
         event_index_map: &'a HashMap<String, usize>,
+        function_names: &'a HashSet<String>,
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
@@ -412,6 +437,7 @@ impl<'a> LoweringContext<'a> {
             state_index_map,
             state_types,
             event_index_map,
+            function_names,
             label_counter: 0,
             loop_stack: Vec::new(),
             errors: Vec::new(),
@@ -503,6 +529,19 @@ fn resolve_mapping_access<'a>(
             _ => return None,
         }
     }
+}
+
+fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
+    if let Expression::MemberAccess(_, inner, member) = expr {
+        if let Expression::Variable(base) = inner.as_ref() {
+            match (base.name.as_str(), member.name.as_str()) {
+                ("Runtime", "notify") => return Some(BuiltinCall::RuntimeNotify),
+                ("Runtime", "checkWitness") => return Some(BuiltinCall::RuntimeCheckWitness),
+                _ => {}
+            }
+        }
+    }
+    None
 }
 
 fn lower_statement(
@@ -820,6 +859,70 @@ fn lower_expression(
                 success
             } else {
                 ctx.record_error("array subscript expression is not supported");
+                false
+            }
+        }
+        Expression::FunctionCall(_, func, args) => {
+            if let Some(builtin) = resolve_builtin_call(func.as_ref()) {
+                let expected_args = match builtin {
+                    BuiltinCall::RuntimeNotify => 2,
+                    BuiltinCall::RuntimeCheckWitness => 1,
+                };
+
+                if args.len() != expected_args {
+                    ctx.record_error(format!(
+                        "builtin call requires {} argument(s), got {}",
+                        expected_args,
+                        args.len()
+                    ));
+                    return false;
+                }
+
+                let mut success = true;
+                for arg in args {
+                    if !lower_expression(arg, ctx, instructions) {
+                        success = false;
+                    }
+                }
+
+                if success {
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin,
+                        arg_count: args.len(),
+                    });
+                }
+                success
+            } else if let Expression::Variable(identifier) = func.as_ref() {
+                if identifier.name == "require" {
+                    ctx.record_error("require() cannot be used as an expression");
+                    return false;
+                }
+
+                if !ctx.function_names.contains(&identifier.name) {
+                    ctx.record_error(format!(
+                        "function '{}' is not defined in this contract",
+                        identifier.name
+                    ));
+                    return false;
+                }
+
+                let mut success = true;
+                for arg in args {
+                    if !lower_expression(arg, ctx, instructions) {
+                        success = false;
+                    }
+                }
+
+                if success {
+                    instructions.push(Instruction::CallFunction {
+                        name: identifier.name.clone(),
+                        arg_count: args.len(),
+                    });
+                }
+
+                success
+            } else {
+                ctx.record_error("only direct function calls are supported");
                 false
             }
         }

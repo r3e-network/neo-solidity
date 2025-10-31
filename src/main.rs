@@ -261,6 +261,11 @@ fn write_json_file(
     fs::write(path, json_str).expect("Failed to write JSON file");
 }
 
+struct CallPatch {
+    position: usize,
+    target: String,
+}
+
 fn generate_contract_bytecode(
     metadata: &mut ContractMetadata,
     ir_module: &ir::Module,
@@ -273,6 +278,7 @@ fn generate_contract_bytecode(
         .collect();
 
     let mut bytecode = Vec::new();
+    let mut call_fixups: Vec<CallPatch> = Vec::new();
 
     for method in metadata.methods.iter_mut() {
         if matches!(method.kind, FunctionKind::Constructor) {
@@ -307,7 +313,37 @@ fn generate_contract_bytecode(
             );
         }
 
-        emit_ir_function(&mut bytecode, ir_function, ir_module, method);
+        let (function_bytes, patches) = emit_ir_function(ir_function, ir_module, method);
+        let base_position = bytecode.len();
+        bytecode.extend_from_slice(&function_bytes);
+
+        for patch in patches {
+            call_fixups.push(CallPatch {
+                position: base_position + patch.position,
+                target: patch.target,
+            });
+        }
+    }
+
+    let offset_map: HashMap<String, u32> = metadata
+        .methods
+        .iter()
+        .filter(|method| !matches!(method.kind, FunctionKind::Constructor))
+        .map(|method| (method.name.clone(), method.offset))
+        .collect();
+
+    for fixup in call_fixups {
+        if let Some(target_offset) = offset_map.get(&fixup.target) {
+            let bytes = target_offset.to_le_bytes();
+            if fixup.position + 4 <= bytecode.len() {
+                bytecode[fixup.position..fixup.position + 4].copy_from_slice(&bytes);
+            }
+        } else {
+            eprintln!(
+                "warning: unresolved call target '{}' (offset unavailable)",
+                fixup.target
+            );
+        }
     }
 
     if bytecode.is_empty() {
@@ -318,11 +354,10 @@ fn generate_contract_bytecode(
 }
 
 fn emit_ir_function(
-    bytecode: &mut Vec<u8>,
     function: &ir::Function,
     module: &ir::Module,
     method: &FunctionMetadata,
-) {
+) -> (Vec<u8>, Vec<CallPatch>) {
     use std::collections::HashMap;
 
     let mut local = Vec::new();
@@ -334,6 +369,7 @@ fn emit_ir_function(
     }
     let mut label_offsets: HashMap<usize, u32> = HashMap::new();
     let mut jump_patches: Vec<(usize, usize)> = Vec::new();
+    let mut call_patches: Vec<CallPatch> = Vec::new();
 
     for block in &function.basic_blocks {
         for instruction in &block.instructions {
@@ -363,6 +399,18 @@ fn emit_ir_function(
                 } => emit_store_mapping(&mut local, module, *state_index, key_types),
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value)
+                }
+                ir::Instruction::CallBuiltin { builtin, .. } => {
+                    emit_builtin_call(&mut local, builtin);
+                }
+                ir::Instruction::CallFunction { name, .. } => {
+                    local.push(0x2B); // CALL
+                    let patch_pos = local.len();
+                    local.extend_from_slice(&[0, 0, 0, 0]);
+                    call_patches.push(CallPatch {
+                        position: patch_pos,
+                        target: name.clone(),
+                    });
                 }
                 ir::Instruction::EmitEvent { event_index } => {
                     emit_event(&mut local, module, *event_index)
@@ -397,7 +445,7 @@ fn emit_ir_function(
         local[position..position + 4].copy_from_slice(&target_offset.to_le_bytes());
     }
 
-    bytecode.extend(local);
+    (local, call_patches)
 }
 
 fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
@@ -566,6 +614,15 @@ fn emit_load_runtime_value(bytecode: &mut Vec<u8>, value: &ir::RuntimeValue) {
     match value {
         ir::RuntimeValue::MsgSender => emit_syscall(bytecode, "System.Runtime.CallingScriptHash"),
         ir::RuntimeValue::BlockTimestamp => emit_syscall(bytecode, "System.Runtime.GetTime"),
+    }
+}
+
+fn emit_builtin_call(bytecode: &mut Vec<u8>, builtin: &ir::BuiltinCall) {
+    match builtin {
+        ir::BuiltinCall::RuntimeNotify => emit_syscall(bytecode, "System.Runtime.Notify"),
+        ir::BuiltinCall::RuntimeCheckWitness => {
+            emit_syscall(bytecode, "System.Runtime.CheckWitness")
+        }
     }
 }
 
