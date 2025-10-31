@@ -807,6 +807,69 @@ fn lower_assignment(
     ctx.record_error(format!("assignment target '{:?}' is not supported", lhs));
 }
 
+fn lower_compound_assignment(
+    lhs: &Expression,
+    rhs: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    op: BinaryOperator,
+) -> bool {
+    let mut load_lhs = Vec::new();
+
+    if !lower_expression(lhs, ctx, &mut load_lhs) {
+        return false;
+    }
+
+    if let Some(mapping) = resolve_mapping_access(lhs, ctx) {
+        let mut key_instrs = Vec::new();
+        for key_expr in mapping.key_expressions.iter().rev() {
+            if !lower_expression(key_expr, ctx, &mut key_instrs) {
+                ctx.record_error("failed to lower mapping key in compound assignment");
+                return false;
+            }
+        }
+
+        if !lower_expression(rhs, ctx, instructions) {
+            return false;
+        }
+
+        instructions.append(&mut load_lhs.clone());
+        instructions.push(Instruction::BinaryOp(op));
+        instructions.append(&mut key_instrs);
+        instructions.push(Instruction::StoreMappingElement {
+            state_index: mapping.state_index,
+            key_types: mapping.key_types.clone(),
+        });
+        return true;
+    }
+
+    if let Expression::Variable(identifier) = lhs {
+        let store_instr = if let Some(local) = ctx.resolve_local(&identifier.name) {
+            Instruction::StoreLocal(local)
+        } else if let Some(state) = ctx.state_index_map.get(&identifier.name) {
+            Instruction::StoreState(*state)
+        } else {
+            ctx.record_error(format!(
+                "compound assignment target '{}' is not supported",
+                identifier.name
+            ));
+            return false;
+        };
+
+        if !lower_expression(rhs, ctx, instructions) {
+            return false;
+        }
+
+        instructions.append(&mut load_lhs);
+        instructions.push(Instruction::BinaryOp(op));
+        instructions.push(store_instr);
+        return true;
+    }
+
+    ctx.record_error("unsupported compound assignment target");
+    false
+}
+
 fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     if let Expression::FunctionCall(_, func, _args) = expr {
         if let Expression::Variable(identifier) = func.as_ref() {
@@ -917,6 +980,12 @@ fn lower_expression(
         }
         Expression::Modulo(_, left, right) => {
             lower_binary_expr(left, right, ctx, instructions, BinaryOperator::Mod)
+        }
+        Expression::AssignAdd(_, lhs, rhs) => {
+            lower_compound_assignment(lhs, rhs, ctx, instructions, BinaryOperator::Add)
+        }
+        Expression::AssignSubtract(_, lhs, rhs) => {
+            lower_compound_assignment(lhs, rhs, ctx, instructions, BinaryOperator::Sub)
         }
         Expression::Not(_, inner) => {
             if lower_expression(inner, ctx, instructions) {
