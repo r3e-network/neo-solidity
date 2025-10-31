@@ -518,6 +518,35 @@ fn load_expression(
     }
 }
 
+fn push_default_for_type(ty: &PtType, instructions: &mut Vec<Instruction>) {
+    match ty {
+        PtType::Address | PtType::AddressPayable => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                0u8;
+                20
+            ])));
+        }
+        PtType::Bool => instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false))),
+        PtType::String => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::String(Vec::new())))
+        }
+        PtType::Uint(_) | PtType::Int(_) => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+        }
+        PtType::Bytes(len) => instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            vec![0u8; *len as usize],
+        ))),
+        PtType::DynamicBytes => instructions.push(Instruction::PushLiteral(
+            LiteralValue::ByteArray(Vec::new()),
+        )),
+        _ => instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        ))),
+    }
+}
+
 struct LoopLabels {
     continue_label: usize,
     break_label: usize,
@@ -1098,6 +1127,13 @@ fn lower_expression(
             lower_binary_expr(left, right, ctx, instructions, BinaryOperator::Ne)
         }
         Expression::Variable(identifier) => {
+            if identifier.name == "this" {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                    0u8;
+                    20
+                ])));
+                return true;
+            }
             if let Some(index) = ctx.param_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadParameter(*index));
                 true
@@ -1145,6 +1181,17 @@ fn lower_expression(
         }
         Expression::Or(_, left, right) => lower_logical_or(left, right, ctx, instructions),
         Expression::And(_, left, right) => lower_logical_and(left, right, ctx, instructions),
+        Expression::FunctionCallBlock(_, call, block) => {
+            load_expression(call, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            if let Statement::Block { statements, .. } = block.as_ref() {
+                for stmt in statements {
+                    lower_statement(stmt, ctx, instructions);
+                }
+            }
+            instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+            true
+        }
         Expression::FunctionCall(_, func, args) => {
             if let Expression::FunctionCallBlock(_, inner_call, block) = func.as_ref() {
                 load_expression(inner_call, ctx, instructions);
@@ -1301,6 +1348,16 @@ fn lower_expression(
                 ctx.record_error("only direct function calls are supported");
                 false
             }
+        }
+        Expression::Type(_, ty) => {
+            push_default_for_type(ty, instructions);
+            true
+        }
+        Expression::List(_, _) => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
         }
         Expression::Parenthesis(_, inner) => lower_expression(inner, ctx, instructions),
         Expression::MemberAccess(_, inner, member) => {
