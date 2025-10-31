@@ -1146,6 +1146,19 @@ fn lower_expression(
         Expression::Or(_, left, right) => lower_logical_or(left, right, ctx, instructions),
         Expression::And(_, left, right) => lower_logical_and(left, right, ctx, instructions),
         Expression::FunctionCall(_, func, args) => {
+            if let Expression::FunctionCallBlock(_, inner_call, block) = func.as_ref() {
+                load_expression(inner_call, ctx, instructions);
+                instructions.push(Instruction::Drop(ValueType::Any));
+
+                if let Statement::Block { statements, .. } = block.as_ref() {
+                    for stmt in statements {
+                        lower_statement(stmt, ctx, instructions);
+                    }
+                }
+
+                instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+                return true;
+            }
             if let Expression::Type(_, ty) = func.as_ref() {
                 match ty {
                     PtType::Address | PtType::AddressPayable => {
