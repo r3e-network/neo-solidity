@@ -782,6 +782,62 @@ fn lower_require(
     instructions.push(Instruction::Label(ok_label));
 }
 
+fn lower_logical_or(
+    left: &Expression,
+    right: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let false_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    if !lower_expression(left, ctx, instructions) {
+        return false;
+    }
+
+    instructions.push(Instruction::JumpIf {
+        target: false_label,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(false_label));
+
+    if !lower_expression(right, ctx, instructions) {
+        return false;
+    }
+
+    instructions.push(Instruction::Label(end_label));
+    true
+}
+
+fn lower_logical_and(
+    left: &Expression,
+    right: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let false_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    if !lower_expression(left, ctx, instructions) {
+        return false;
+    }
+
+    instructions.push(Instruction::JumpIf {
+        target: false_label,
+    });
+
+    if !lower_expression(right, ctx, instructions) {
+        return false;
+    }
+
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(false_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
+    instructions.push(Instruction::Label(end_label));
+    true
+}
+
 fn lower_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,
@@ -862,6 +918,8 @@ fn lower_expression(
                 false
             }
         }
+        Expression::Or(_, left, right) => lower_logical_or(left, right, ctx, instructions),
+        Expression::And(_, left, right) => lower_logical_and(left, right, ctx, instructions),
         Expression::FunctionCall(_, func, args) => {
             if let Some(builtin) = resolve_builtin_call(func.as_ref()) {
                 let expected_args = match builtin {
