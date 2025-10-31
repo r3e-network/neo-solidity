@@ -1296,9 +1296,11 @@ fn lower_expression(
                 }
 
                 let mut success = true;
-                for arg in args {
-                    if !lower_expression(arg, ctx, instructions) {
-                        success = false;
+                if !matches!(builtin, BuiltinCall::TypeOf) {
+                    for arg in args {
+                        if !lower_expression(arg, ctx, instructions) {
+                            success = false;
+                        }
                     }
                 }
 
