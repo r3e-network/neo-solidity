@@ -3,7 +3,7 @@
 //! Provides bridge between EVM semantics and NeoVM execution environment.
 
 use super::{RuntimeConfig, RuntimeError, ExecutionResult, RuntimeException, ExceptionType,
-           StateChange, LogEntry, StackFrame, execution, state, storage};
+           StateChange, StackFrame, execution, state, storage};
 use super::types::StackItem;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -47,6 +47,9 @@ pub enum VMBridgeError {
     
     #[error("Bridge error: {message}")]
     BridgeError { message: String },
+
+    #[error("Invalid argument count: expected {expected}, got {got}")]
+    InvalidArguments { expected: usize, got: usize },
 }
 
 impl VMBridge {
@@ -67,12 +70,12 @@ impl VMBridge {
     pub fn execute(
         &mut self,
         context: &mut execution::ExecutionContext,
-        state: &mut state::StateManager,
+        _state: &mut state::StateManager,
         storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<ExecutionResult, RuntimeError> {
         let mut state_changes = Vec::new();
-        let mut logs = Vec::new();
+        let logs = Vec::new();
         let mut stack_trace = Vec::new();
 
         loop {
@@ -773,33 +776,31 @@ impl VMBridge {
 
     // System call handlers
 
-    fn syscall_keccak256(_bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    fn syscall_keccak256(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 1 {
-            return Err(VMBridgeError::SystemCallFailed {
-                name: "keccak256".to_string(),
-                message: "Expected 1 argument".to_string(),
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 1,
+                got: args.len(),
             });
         }
 
-        use sha3::{Digest, Keccak256};
-        
-        let input = args[0].to_bytes();
-        let hash = Keccak256::digest(&input);
-        
+        let input = extract_bytes(&args[0])?;
+        let hash = bridge.keccak256(&input);
+
         Ok(vec![StackItem::ByteArray(hash.to_vec())])
     }
 
     fn syscall_sha256(_bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 1 {
-            return Err(VMBridgeError::SystemCallFailed {
-                name: "sha256".to_string(),
-                message: "Expected 1 argument".to_string(),
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 1,
+                got: args.len(),
             });
         }
 
         use sha2::{Digest, Sha256};
         
-        let input = args[0].to_bytes();
+        let input = extract_bytes(&args[0])?;
         let hash = Sha256::digest(&input);
         
         Ok(vec![StackItem::ByteArray(hash.to_vec())])
@@ -818,53 +819,62 @@ impl VMBridge {
         let v = extract_integer(&args[1])? as u8;
         let r = extract_bytes(&args[2])?;
         let s = extract_bytes(&args[3])?;
-        
-        // Perform ECDSA recovery using secp256k1
-        use secp256k1::{Secp256k1, Message, RecoverableSignature, RecoveryId};
-        
+
+        if hash.len() < 32 || r.len() != 32 || s.len() != 32 {
+            return Err(VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: "Invalid hash or signature length".to_string(),
+            });
+        }
+
+        use secp256k1::{Secp256k1, Message};
+        use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
+
         let secp = Secp256k1::new();
-        
-        // Create message from hash
-        let message = Message::from_slice(&hash[..32])
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+        let message = Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
+            name: "ecrecover".to_string(),
+            message: format!("Invalid hash: {}", e),
+        })?;
+
+        let rec_id = match v {
+            27 | 28 => RecoveryId::from_i32((v - 27) as i32).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
-                message: format!("Invalid hash: {}", e),
-            })?;
-        
-        // Create recoverable signature
-        let recovery_id = RecoveryId::from_i32((v - 27) as i32)
-            .map_err(|e| VMBridgeError::SystemCallFailed {
-                name: "ecrecover".to_string(),
-                message: format!("Invalid recovery ID: {}", e),
-            })?;
-        
+                message: format!("Invalid recovery id: {}", e),
+            })?,
+            _ => {
+                return Err(VMBridgeError::SystemCallFailed {
+                    name: "ecrecover".to_string(),
+                    message: "Recovery id must be 27 or 28".to_string(),
+                })
+            }
+        };
+
         let mut sig_bytes = [0u8; 64];
         sig_bytes[..32].copy_from_slice(&r[..32]);
         sig_bytes[32..].copy_from_slice(&s[..32]);
-        
-        let sig = RecoverableSignature::from_compact(&sig_bytes, recovery_id)
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+
+        let signature = RecoverableSignature::from_compact(&sig_bytes, rec_id).map_err(|e| {
+            VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
                 message: format!("Invalid signature: {}", e),
-            })?;
-        
-        // Recover public key
-        let public_key = secp.recover_ecdsa(&message, &sig)
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+            }
+        })?;
+
+        let public_key = secp.recover_ecdsa(&message, &signature).map_err(|e| {
+            VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
                 message: format!("Recovery failed: {}", e),
-            })?;
-        
-        // Convert public key to Ethereum address
+            }
+        })?;
+
         let pub_bytes = public_key.serialize_uncompressed();
-        let hash = bridge.keccak256(&pub_bytes[1..]); // Skip 0x04 prefix
-        let address = &hash[12..]; // Last 20 bytes
-        
-        Ok(vec![StackItem::ByteArray(address.to_vec())])
+        let hash = bridge.keccak256(&pub_bytes[1..]); // remove prefix byte
+        let address = hash[12..].to_vec(); // last 20 bytes
+
+        Ok(vec![StackItem::ByteArray(address)])
     }
 
-    fn syscall_verify(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
-        // Complete ECDSA signature verification implementation
+    fn syscall_verify(_bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 3 {
             return Err(VMBridgeError::InvalidArguments {
                 expected: 3,
@@ -875,9 +885,17 @@ impl VMBridge {
         let hash = extract_bytes(&args[0])?;
         let signature = extract_bytes(&args[1])?;
         let public_key = extract_bytes(&args[2])?;
-        
-        use secp256k1::{Secp256k1, Message, Signature, PublicKey};
-        
+
+        if hash.len() < 32 || signature.len() != 64 {
+            return Err(VMBridgeError::SystemCallFailed {
+                name: "verify".to_string(),
+                message: "Invalid hash or signature length".to_string(),
+            });
+        }
+
+        use secp256k1::{Secp256k1, Message, PublicKey};
+        use secp256k1::ecdsa::Signature;
+
         let secp = Secp256k1::new();
         
         // Create message from hash
@@ -906,8 +924,13 @@ impl VMBridge {
         
         Ok(vec![StackItem::Boolean(verification_result)])
     }
-            message: "Not implemented".to_string(),
-        })
+
+    fn keccak256(&self, data: &[u8]) -> [u8; 32] {
+        use sha3::{Digest, Keccak256};
+        let hash = Keccak256::digest(data);
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&hash);
+        out
     }
 
     // Arithmetic operations on stack items
@@ -1034,15 +1057,58 @@ impl VMBridge {
         Ok(StackItem::Boolean(result))
     }
 
-    fn get_modified_accounts(&self, storage: &storage::StorageManager) -> Vec<String> {
+    fn get_modified_accounts(&self, _storage: &storage::StorageManager) -> Vec<String> {
         // Get all accounts with pending changes
         // This is a simplified implementation
         vec!["0x0000000000000000000000000000000000000000".to_string()]
     }
 
-    fn extract_return_data(&self, _context: &execution::ExecutionContext) -> Result<Vec<u8>, RuntimeError> {
+fn extract_return_data(&self, _context: &execution::ExecutionContext) -> Result<Vec<u8>, RuntimeError> {
         // Extract return data from execution context
         // For now, return empty data
         Ok(Vec::new())
     }
+}
+
+fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
+    Ok(match item {
+        StackItem::ByteArray(bytes) => bytes.clone(),
+        StackItem::UnsignedInteger(value) => value.to_be_bytes().to_vec(),
+        StackItem::Integer(value) => {
+            if *value < 0 {
+                return Err(VMBridgeError::StackOperationFailed {
+                    message: "Negative integers not supported for byte extraction".to_string(),
+                });
+            }
+            (*value as u64).to_be_bytes().to_vec()
+        }
+        StackItem::Boolean(flag) => vec![if *flag { 1 } else { 0 }],
+        StackItem::Null => Vec::new(),
+    })
+}
+
+fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
+    Ok(match item {
+        StackItem::UnsignedInteger(value) => *value as u128,
+        StackItem::Integer(value) => {
+            if *value < 0 {
+                return Err(VMBridgeError::StackOperationFailed {
+                    message: "Negative integers not supported here".to_string(),
+                });
+            }
+            *value as u128
+        }
+        StackItem::ByteArray(bytes) => {
+            if bytes.is_empty() {
+                0
+            } else {
+                let mut padded = [0u8; 16];
+                let copy_len = bytes.len().min(16);
+                padded[16 - copy_len..].copy_from_slice(&bytes[bytes.len() - copy_len..]);
+                u128::from_be_bytes(padded)
+            }
+        }
+        StackItem::Boolean(flag) => if *flag { 1 } else { 0 },
+        StackItem::Null => 0,
+    })
 }

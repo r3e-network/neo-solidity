@@ -217,6 +217,39 @@ impl ExecutionContext {
         Ok(())
     }
 
+    /// Return the length of the calldata buffer
+    pub fn input_size(&self) -> usize {
+        self.input_data.len()
+    }
+
+    /// Read a slice of calldata, zero-padding when the requested range exceeds the buffer
+    pub fn read_input_slice(&self, offset: usize, length: usize) -> Vec<u8> {
+        let mut buffer = vec![0u8; length];
+        if offset >= self.input_data.len() {
+            return buffer;
+        }
+
+        let available = (offset + length).min(self.input_data.len());
+        let copy_len = available.saturating_sub(offset);
+        buffer[..copy_len].copy_from_slice(&self.input_data[offset..offset + copy_len]);
+        buffer
+    }
+
+    /// Copy calldata into linear memory, expanding memory as required
+    pub fn copy_input_to_memory(
+        &mut self,
+        memory_offset: usize,
+        input_offset: usize,
+        length: usize,
+    ) -> Result<(), RuntimeError> {
+        if length == 0 {
+            return Ok(());
+        }
+
+        let data = self.read_input_slice(input_offset, length);
+        self.write_memory(memory_offset, &data)
+    }
+
     /// Call function
     pub fn call_function(&mut self, address: u32, function_name: Option<String>) -> Result<(), RuntimeError> {
         if self.call_stack.len() >= 1024 { // Call stack limit
@@ -674,8 +707,8 @@ impl ExecutionContext {
     fn get_instruction_gas_cost(&self, opcode: u8) -> u64 {
         match opcode {
             // Push operations
-            0x00..=0x0F => 1,     // PUSHINT variants
-            0x0C..=0x0D => 2,     // PUSHDATA variants (base cost)
+            0x0C | 0x0D => 2,     // PUSHDATA variants (base cost)
+            0x00..=0x0B | 0x0E..=0x0F => 1, // PUSHINT variants
             0x10..=0x20 => 1,     // PUSH0-PUSH16, PUSHM1
             
             // Flow control
@@ -683,7 +716,7 @@ impl ExecutionContext {
             0x22..=0x28 => 2,     // Jump instructions
             
             // Stack operations
-            0x39..=0x47 => 2,     // Stack manipulation
+            0x39..=0x3F | 0x41..=0x47 => 2, // Stack manipulation (excluding 0x40)
             
             // Arithmetic
             0x90..=0x94 => 4,     // Basic arithmetic

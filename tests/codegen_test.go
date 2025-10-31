@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"math/big"
 	"strings"
 	"testing"
@@ -52,33 +53,36 @@ func TestCodeGeneratorBasicGeneration(t *testing.T) {
 				}
 				return nil
 			},
-		},
-		{
-			name: "variable declaration",
-			source: `object "Test" {
-				code {
-					let x := 42
-				}
-			}`,
-			validate: func(contract *NeoContract) error {
-				if len(contract.Runtime) == 0 {
-					t.Error("Expected instructions for variable declaration")
-				}
-				// Should have a PUSH instruction for the value 42
-				found := false
-				for _, instr := range contract.Runtime {
-					if instr.Opcode == PUSHDATA1 || instr.Opcode == PUSHINT8 {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Error("Expected PUSH instruction for literal value")
-				}
-				return nil
-			},
-		},
-	}
+        },
+        {
+            name: "variable declaration",
+            source: `object "Test" {
+                code {
+                    let x := 42
+                }
+            }`,
+            validate: func(contract *NeoContract) error {
+                if len(contract.Runtime) == 0 {
+                    t.Error("Expected instructions for variable declaration")
+                }
+                // Should have a PUSH instruction for the value 42
+                found := false
+                for _, instr := range contract.Runtime {
+                    if instr.Opcode == PUSHDATA1 || instr.Opcode == PUSHINT8 {
+                        found = true
+                        break
+                    }
+                }
+                if !found {
+                    t.Error("Expected PUSH instruction for literal value")
+                }
+                // Methods list should be populated with offsets if functions exist
+                // In this example there are no functions; ensure it doesn't panic
+                _ = contract.Methods
+                return nil
+            },
+        },
+    }
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -109,6 +113,32 @@ func TestCodeGeneratorBasicGeneration(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFunctionOffsets ensures function offsets are collected into contract.Methods
+func TestFunctionOffsets(t *testing.T) {
+    source := `object "Test" { code { function foo() { } function bar() { } } }`
+    parser := NewYulParser()
+    ast, err := parser.Parse(source)
+    if err != nil {
+        t.Fatalf("Parse failed: %v", err)
+    }
+    context := &CompilerContext{
+        SourceMap:      make(map[string]string),
+        SymbolTable:    NewSymbolTable(),
+        TypeTable:      NewTypeTable(),
+        LabelCounter:   0,
+        ErrorCollector: NewErrorCollector(),
+        Metadata:       NewCompilationMetadata(),
+    }
+    generator := NewCodeGenerator(context)
+    contract, err := generator.Generate(ast)
+    if err != nil {
+        t.Fatalf("Code generation failed: %v", err)
+    }
+    if len(contract.Methods) == 0 {
+        t.Error("Expected contract.Methods to include function entries")
+    }
 }
 
 // TestCodeGeneratorArithmetic tests arithmetic operation generation
@@ -306,6 +336,79 @@ func TestCodeGeneratorControlFlow(t *testing.T) {
 	}
 }
 
+// TestNativeCallBalance ensures balance(address) lowers to System.Contract.Call with proper scaffolding
+func TestNativeCallBalance(t *testing.T) {
+    source := `object "Test" { code { balance(0x11223344556677889900aabbccddeeff00112233) } }`
+
+    parser := NewYulParser()
+    ast, err := parser.Parse(source)
+    if err != nil {
+        t.Fatalf("Parse failed: %v", err)
+    }
+
+    context := &CompilerContext{
+        SourceMap:      make(map[string]string),
+        SymbolTable:    NewSymbolTable(),
+        TypeTable:      NewTypeTable(),
+        LabelCounter:   0,
+        ErrorCollector: NewErrorCollector(),
+        Metadata:       NewCompilationMetadata(),
+    }
+    generator := NewCodeGenerator(context)
+    contract, err := generator.Generate(ast)
+    if err != nil {
+        t.Fatalf("Code generation failed: %v", err)
+    }
+
+    // Expect a SYSCALL to System.Contract.Call
+    found := false
+    for _, instr := range contract.Runtime {
+        if instr.Opcode == SYSCALL && strings.Contains(instr.Comment, "System.Contract.Call") {
+            found = true
+            break
+        }
+    }
+    if !found {
+        t.Error("Expected SYSCALL System.Contract.Call for balance(native) lowering")
+    }
+}
+
+// TestMemoryPlaceholders ensures msize() lowers to a zero push until memory model is implemented
+func TestMemoryPlaceholders(t *testing.T) {
+    source := `object "Test" { code { msize() } }`
+    parser := NewYulParser()
+    ast, err := parser.Parse(source)
+    if err != nil {
+        t.Fatalf("Parse failed: %v", err)
+    }
+
+    context := &CompilerContext{
+        SourceMap:      make(map[string]string),
+        SymbolTable:    NewSymbolTable(),
+        TypeTable:      NewTypeTable(),
+        LabelCounter:   0,
+        ErrorCollector: NewErrorCollector(),
+        Metadata:       NewCompilationMetadata(),
+    }
+    generator := NewCodeGenerator(context)
+    contract, err := generator.Generate(ast)
+    if err != nil {
+        t.Fatalf("Code generation failed: %v", err)
+    }
+
+    // Expect a PUSH0 due to placeholder
+    hasPush0 := false
+    for _, instr := range contract.Runtime {
+        if instr.Opcode == PUSH0 {
+            hasPush0 = true
+            break
+        }
+    }
+    if !hasPush0 {
+        t.Error("Expected PUSH0 for msize placeholder")
+    }
+}
+
 // TestCodeGeneratorBuiltins tests built-in function translation
 func TestCodeGeneratorBuiltins(t *testing.T) {
 	tests := []struct {
@@ -400,15 +503,13 @@ func TestCodeGeneratorBuiltins(t *testing.T) {
 			}
 
 			if test.expectedSys != "" {
-				// Check for syscall
+				// Check for syscall by matching interop ID bytes
+				expectedID := computeInteropID(test.expectedSys)
 				found := false
 				for _, instr := range contract.Runtime {
-					if instr.Opcode == SYSCALL {
-						syscallName := string(instr.Operand)
-						if syscallName == test.expectedSys {
-							found = true
-							break
-						}
+					if instr.Opcode == SYSCALL && bytes.Equal(instr.Operand, expectedID) {
+						found = true
+						break
 					}
 				}
 				if !found {
@@ -721,8 +822,7 @@ func TestCodeGeneratorComplexContract(t *testing.T) {
 	for _, instr := range contract.Runtime {
 		switch instr.Opcode {
 		case SYSCALL:
-			syscallName := string(instr.Operand)
-			if strings.Contains(syscallName, "Storage") {
+			if strings.Contains(instr.Comment, "Storage") {
 				hasStorageOps = true
 			}
 		case ADD, SUB, LT:

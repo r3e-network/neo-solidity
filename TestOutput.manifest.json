@@ -1,0 +1,25 @@
+{
+  "abi": {
+    "events": [],
+    "methods": []
+  },
+  "extra": {
+    "Author": "Jimmy <jimmy@r3e.network>",
+    "Compiler": "neo-solidity-1.0.0",
+    "Description": "Solidity contract 'AdvancedNEP17Token' compiled to NeoVM",
+    "Version": "1.0.0.0"
+  },
+  "features": {
+    "storage": false
+  },
+  "groups": [],
+  "name": "AdvancedNEP17Token",
+  "permissions": [
+    {
+      "contract": "*",
+      "methods": "*"
+    }
+  ],
+  "supportedstandards": [],
+  "trusts": []
+}

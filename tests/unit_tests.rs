@@ -1,4 +1,7 @@
-use neo_solidity::{codegen::*, lexer::*, optimizer::*, parser::*, semantic::*, CompilerError, CompilerConfig};
+use neo_solidity::{
+    codegen::*, lexer::*, optimizer::*, parser::*, semantic::*, storage_key::*, CompilerConfig,
+    CompilerError,
+};
 
 #[cfg(test)]
 mod lexer_tests {
@@ -9,7 +12,7 @@ mod lexer_tests {
         let input = "{ let x := add(1, 2) }";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert!(!tokens.is_empty());
         // Basic validation that tokenization works
     }
@@ -19,7 +22,7 @@ mod lexer_tests {
         let input = "0x42 123 0b1010";
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert!(tokens.len() >= 3);
         // Basic validation that number parsing works
     }
@@ -29,7 +32,7 @@ mod lexer_tests {
         let input = r#""hello world" "test\"quote""#;
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert!(tokens.len() >= 2);
         // Basic validation that string parsing works
     }
@@ -50,7 +53,7 @@ mod parser_tests {
     fn test_simple_block() {
         let input = "{ let x := 1 }";
         let ast = parse_yul(input).unwrap();
-        
+
         match ast.node_type {
             AstNodeType::Object { statements: _ } => {
                 // Object parsed successfully
@@ -69,7 +72,7 @@ mod parser_tests {
         }
         "#;
         let ast = parse_yul(input);
-        assert!(ast.is_ok());
+        assert!(ast.is_ok(), "parser error: {:?}", ast.err());
     }
 }
 
@@ -126,7 +129,7 @@ mod codegen_tests {
         let tokens = lexer.tokenize()?;
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()?;
-        
+
         let config = CompilerConfig::default();
         let mut codegen = CodeGenerator::new(&config);
         codegen.generate(&ast)
@@ -136,7 +139,7 @@ mod codegen_tests {
     fn test_simple_arithmetic() {
         let input = "{ let x := add(1, 2) }";
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 0);
     }
@@ -152,7 +155,7 @@ mod codegen_tests {
         }
         "#;
         let result = compile_yul(input).unwrap();
-        
+
         assert!(!result.bytecode.is_empty());
         assert!(!result.assembly.is_empty());
     }
@@ -181,7 +184,7 @@ mod optimizer_tests {
         }
         "#;
         let optimized = optimize_yul(input, 2).unwrap();
-        
+
         // Constants should be processed
         assert!(matches!(optimized.node_type, AstNodeType::Object { .. }));
     }
@@ -194,12 +197,12 @@ mod optimizer_tests {
             let y := mul(x, 0)
         }
         "#;
-        
+
         let opt0 = optimize_yul(input, 0).unwrap();
         let opt1 = optimize_yul(input, 1).unwrap();
         let opt2 = optimize_yul(input, 2).unwrap();
         let opt3 = optimize_yul(input, 3).unwrap();
-        
+
         // All optimization levels should work
         assert!(matches!(opt0.node_type, AstNodeType::Object { .. }));
         assert!(matches!(opt1.node_type, AstNodeType::Object { .. }));
@@ -217,7 +220,7 @@ mod integration_tests {
         let tokens = lexer.tokenize()?;
         let mut parser = Parser::new(tokens);
         let ast = parser.parse()?;
-        
+
         let config = CompilerConfig::default();
         let mut code_generator = CodeGenerator::new(&config);
         code_generator.generate(&ast)
@@ -245,7 +248,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 0);
@@ -272,7 +275,7 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas > 100);
@@ -291,9 +294,75 @@ mod integration_tests {
             }
         }
         "#;
-        
+
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas < 1000);
+    }
+}
+
+#[cfg(test)]
+mod storage_key_tests {
+    use super::*;
+    use num_bigint::BigInt;
+
+    #[test]
+    fn test_compute_state_slot_deterministic() {
+        let slot_a = compute_state_slot("balances");
+        let slot_b = compute_state_slot("balances");
+        let slot_c = compute_state_slot("allowances");
+
+        assert_eq!(slot_a.len(), 32);
+        assert_eq!(slot_a, slot_b);
+        assert_ne!(slot_a, slot_c);
+    }
+
+    #[test]
+    fn test_derive_mapping_slot_changes_with_key() {
+        let base_slot = compute_state_slot("balances");
+
+        let key_a = KeyFragment::address(vec![0x11; 20]);
+        let key_b = KeyFragment::address(vec![0x22; 20]);
+
+        let slot_a = derive_mapping_slot(&base_slot, &[key_a.clone()]);
+        let slot_b = derive_mapping_slot(&base_slot, &[key_b]);
+
+        assert_eq!(slot_a.len(), 32);
+        assert_eq!(slot_b.len(), 32);
+        assert_ne!(slot_a, slot_b);
+    }
+
+    #[test]
+    fn test_derive_mapping_slot_multiple_fragments() {
+        let base_slot = compute_state_slot("allowances");
+        let owner = KeyFragment::address(vec![0xAA; 20]);
+        let spender = KeyFragment::address(vec![0xBB; 20]);
+        let amount = KeyFragment::integer(BigInt::from(42), 256, false);
+
+        let slot = derive_mapping_slot(&base_slot, &[owner, spender, amount]);
+        assert_eq!(slot.len(), 32);
+
+        let different = derive_mapping_slot(
+            &base_slot,
+            &[
+                KeyFragment::address(vec![0xAA; 20]),
+                KeyFragment::address(vec![0xCC; 20]),
+                KeyFragment::integer(BigInt::from(42), 256, false),
+            ],
+        );
+
+        assert_ne!(slot, different);
+    }
+
+    #[test]
+    fn test_integer_encoding_sign() {
+        let base_slot = compute_state_slot("signedMapping");
+        let positive = KeyFragment::integer(BigInt::from(5), 256, true);
+        let negative = KeyFragment::integer(BigInt::from(-5), 256, true);
+
+        let slot_pos = derive_mapping_slot(&base_slot, &[positive]);
+        let slot_neg = derive_mapping_slot(&base_slot, &[negative]);
+
+        assert_ne!(slot_pos, slot_neg);
     }
 }

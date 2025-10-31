@@ -1,20 +1,27 @@
 package main
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 )
 
+// Known native contract script hashes (big-endian hex string)
+const (
+	GasScriptHashHex = "d2a4cff31913016155e38e474a2c06d08be276cf" // GAS
+)
+
 // CodeGenerator translates normalized Yul IR into NeoVM bytecode
 type CodeGenerator struct {
-	context          *CompilerContext
-	instructions     []NeoInstruction
-	labelMap         map[string]int
-	pendingLabels    []PendingLabel
-	stackTracker     *StackTracker
-	functionTable    map[string]*FunctionInfo
-	currentFunction  string
+	context           *CompilerContext
+	instructions      []NeoInstruction
+	labelMap          map[string]int
+	pendingLabels     []PendingLabel
+	stackTracker      *StackTracker
+	functionTable     map[string]*FunctionInfo
+	currentFunction   string
 	exceptionHandlers []ExceptionHandler
 }
 
@@ -34,13 +41,13 @@ type StackTracker struct {
 
 // FunctionInfo contains metadata about compiled functions
 type FunctionInfo struct {
-	Name         string
-	StartOffset  int
-	EndOffset    int
-	Parameters   int
-	Returns      int
-	LocalVars    int
-	MaxStack     int
+	Name        string
+	StartOffset int
+	EndOffset   int
+	Parameters  int
+	Returns     int
+	LocalVars   int
+	MaxStack    int
 }
 
 // NewCodeGenerator creates a new code generator instance
@@ -95,6 +102,18 @@ func (g *CodeGenerator) Generate(ast *YulAST) (*NeoContract, error) {
 	// Set final instruction sequences
 	contract.Runtime = g.instructions
 	contract.EntryPoints = g.labelMap
+
+	// Populate methods with computed offsets from function table
+	for name, info := range g.functionTable {
+		contract.Methods = append(contract.Methods, &ContractMethod{
+			Name:       name,
+			Offset:     info.StartOffset,
+			Parameters: []MethodParameter{},
+			Returns:    []MethodParameter{},
+			Safe:       false,
+			Payable:    false,
+		})
+	}
 
 	return contract, nil
 }
@@ -244,26 +263,26 @@ func (g *CodeGenerator) generateSwitch(stmt *YulSwitch) error {
 	}
 
 	endLabel := g.createUniqueLabel("switch_end")
-	
+
 	// Generate case comparisons and jumps
 	for _, caseStmt := range stmt.Cases {
 		// Duplicate switch value for comparison
 		g.emitInstruction(NewStackInstruction(DUP, 0), stmt.Location)
-		
+
 		// Push case value
 		err = g.generateLiteral(&caseStmt.Value)
 		if err != nil {
 			return err
 		}
-		
+
 		// Compare
 		g.emitInstruction(NewArithmeticInstruction(EQUAL), stmt.Location)
-		
+
 		// Jump to case body if equal
 		caseLabel := g.createUniqueLabel("case_" + caseStmt.Value.Value)
 		g.emitInstruction(NewControlFlowInstruction(JMPIF, 0), stmt.Location)
 		g.addPendingLabel(caseLabel, len(g.instructions)-1)
-		
+
 		// Generate case body (will be placed later)
 		defer func(c *YulCase, label string) {
 			g.markLabel(label)
@@ -338,7 +357,7 @@ func (g *CodeGenerator) generateFunctionDef(stmt *YulFunctionDef) error {
 	// Mark function entry point
 	functionLabel := "func_" + stmt.Name
 	g.markLabel(functionLabel)
-	
+
 	startOffset := len(g.instructions)
 	g.currentFunction = stmt.Name
 
@@ -448,16 +467,13 @@ func (g *CodeGenerator) generateBuiltinCall(name string, argCount int, location 
 
 	// Memory operations (mapped to NeoVM syscalls)
 	case "mload":
-		g.emitInstruction(NewSyscallInstruction("System.Storage.Get"), location)
+		g.emitMemoryLoad(location)
 	case "mstore":
-		g.emitInstruction(NewSyscallInstruction("System.Storage.Put"), location)
+		g.emitMemoryStore(location, false)
 	case "mstore8":
-		// Store single byte - convert to full storage operation
-		g.emitInstruction(NewSyscallInstruction("System.Storage.Put"), location)
+		g.emitMemoryStore(location, true)
 	case "msize":
-		// Return current memory size - approximate with storage context
-		g.emitInstruction(NewSyscallInstruction("System.Storage.GetContext"), location)
-		g.emitInstruction(NewSyscallInstruction("System.Storage.GetReadOnlyContext"), location)
+		g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)
 
 	// Storage operations
 	case "sload":
@@ -465,25 +481,27 @@ func (g *CodeGenerator) generateBuiltinCall(name string, argCount int, location 
 	case "sstore":
 		g.emitInstruction(NewSyscallInstruction("System.Storage.Put"), location)
 
-	// Call data operations
+		// Call data operations
 	case "calldataload":
-		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetArgument"), location)
+		g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)
 	case "calldatasize":
-		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetArgumentCount"), location)
+		g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)
 	case "calldatacopy":
-		// Approximate with multiple argument loads
-		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetArgument"), location)
+		g.emitInstruction(NewStackInstruction(DROP, 0), location)
+		g.emitInstruction(NewStackInstruction(DROP, 0), location)
+		g.emitInstruction(NewStackInstruction(DROP, 0), location)
 
 	// Environment operations
 	case "caller":
 		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetCallingScriptHash"), location)
 	case "callvalue":
-		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetInvocationCounter"), location)
+		// Neo doesn’t have EVM msg.value. Placeholder returns 0.
+		g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)
 	case "address":
 		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetExecutingScriptHash"), location)
 	case "balance":
-		g.emitInstruction(NewSyscallInstruction("System.Runtime.GetExecutingScriptHash"), location)
-		g.emitInstruction(NewSyscallInstruction("Neo.Native.GAS.balanceOf"), location)
+		// args on stack: [account]
+		g.emitGASBalanceOf(location)
 
 	// Control flow operations
 	case "revert":
@@ -576,12 +594,12 @@ func (g *CodeGenerator) generateLeave(stmt *YulLeave) error {
 func (g *CodeGenerator) emitInstruction(instr NeoInstruction, location SourcePosition) {
 	instr.SourceRef = &location
 	g.instructions = append(g.instructions, instr)
-	
+
 	// Update stack tracking
 	g.stackTracker.stackMap[len(g.instructions)-1] = g.stackTracker.currentDepth
 	g.stackTracker.currentDepth -= instr.StackPop
 	g.stackTracker.currentDepth += instr.StackPush
-	
+
 	if g.stackTracker.currentDepth > g.stackTracker.maxDepth {
 		g.stackTracker.maxDepth = g.stackTracker.currentDepth
 	}
@@ -609,12 +627,10 @@ func (g *CodeGenerator) resolveLabels() error {
 		if targetOffset, exists := g.labelMap[pending.Name]; exists {
 			// Update instruction operand with target address
 			instr := &g.instructions[pending.InstructionIndex]
-			if len(instr.Operand) >= 4 {
-				instr.Operand[0] = byte(targetOffset)
-				instr.Operand[1] = byte(targetOffset >> 8)
-				instr.Operand[2] = byte(targetOffset >> 16)
-				instr.Operand[3] = byte(targetOffset >> 24)
+			if len(instr.Operand) < 4 {
+				instr.Operand = append(instr.Operand, make([]byte, 4-len(instr.Operand))...)
 			}
+			binary.LittleEndian.PutUint32(instr.Operand[:4], uint32(targetOffset))
 		} else {
 			return fmt.Errorf("undefined label: %s", pending.Name)
 		}
@@ -633,7 +649,7 @@ func (g *CodeGenerator) isBuiltinFunction(name string) bool {
 		"revert", "return", "stop", "keccak256", "sha256",
 		"log0", "log1", "log2", "log3", "log4",
 	}
-	
+
 	for _, builtin := range builtins {
 		if name == builtin {
 			return true
@@ -645,27 +661,39 @@ func (g *CodeGenerator) isBuiltinFunction(name string) bool {
 func (g *CodeGenerator) emitDivisionByZeroCheck(location SourcePosition) {
 	// Duplicate divisor for check
 	g.emitInstruction(NewStackInstruction(DUP, 0), location)
-	
+
 	// Check if zero
 	g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)
 	g.emitInstruction(NewArithmeticInstruction(EQUAL), location)
-	
+
 	// Jump to error if zero
 	errorLabel := g.createUniqueLabel("div_zero_error")
 	g.emitInstruction(NewControlFlowInstruction(JMPIF, 0), location)
 	g.addPendingLabel(errorLabel, len(g.instructions)-1)
-	
+
 	// Continue normally
 	continueLabel := g.createUniqueLabel("div_continue")
 	g.emitInstruction(NewControlFlowInstruction(JMP, 0), location)
 	g.addPendingLabel(continueLabel, len(g.instructions)-1)
-	
+
 	// Error handling
 	g.markLabel(errorLabel)
 	g.emitInstruction(NewControlFlowInstruction(ABORT, 0), location)
-	
+
 	// Continue point
 	g.markLabel(continueLabel)
+}
+
+func (g *CodeGenerator) emitMemoryLoad(location SourcePosition) {
+	g.emitInstruction(NewSyscallInstruction("System.Storage.GetContext"), location)
+	g.emitInstruction(NewSyscallInstruction("System.Storage.Get"), location)
+}
+
+func (g *CodeGenerator) emitMemoryStore(location SourcePosition, singleByte bool) {
+	g.emitInstruction(NewSyscallInstruction("System.Storage.GetContext"), location)
+	g.emitInstruction(NewStackInstruction(ROT, 0), location)
+	g.emitInstruction(NewStackInstruction(SWAP, 0), location)
+	g.emitInstruction(NewSyscallInstruction("System.Storage.Put"), location)
 }
 
 // GetCompilationStats returns compilation statistics
@@ -674,4 +702,46 @@ func (g *CodeGenerator) GetCompilationStats() CompilationStats {
 		CompiledSizeBytes: len(g.instructions) * 4, // Approximate
 		FunctionsCompiled: len(g.functionTable),
 	}
+}
+
+// -------- Native Contract Helpers --------
+
+// emitGASBalanceOf builds a System.Contract.Call to GAS.balanceOf(account).
+// Stack pre: [account]
+// Stack post: [result]
+func (g *CodeGenerator) emitGASBalanceOf(location SourcePosition) {
+	// Build params array [account]
+	g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(1)), location)                               // [account, 1]
+	g.emitInstruction(NeoInstruction{Opcode: NEWARRAY, StackPop: 1, StackPush: 1, GasCost: 4}, location) // [account, arr]
+	g.emitInstruction(NewStackInstruction(SWAP, 0), location)                                            // [arr, account]
+	g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0)), location)                               // [arr, account, 0]
+	g.emitInstruction(NewStackInstruction(SWAP, 0), location)                                            // [arr, 0, account]
+	g.emitInstruction(NeoInstruction{Opcode: SETITEM, StackPop: 3, StackPush: 0, GasCost: 8}, location)  // [arr]
+
+	// Push flags (CallFlags.All = 0x0F as placeholder)
+	g.emitInstruction(NewPushInstruction(CreateNeoVMInteger(0x0F)), location) // [arr, flags]
+
+	// Push method name
+	g.emitInstruction(NewPushInstruction(CreateNeoVMByteString("balanceOf")), location) // [arr, flags, method]
+
+	// Push GAS script hash as little-endian bytes
+	gasLE := mustReverseHex(GasScriptHashHex)
+	g.emitInstruction(NewPushInstruction(CreateNeoVMByteString(gasLE)), location) // [arr, flags, method, shash]
+
+	// SYSCALL System.Contract.Call consumes: scriptHash, method, flags, args
+	g.emitInstruction(NewSyscallInstruction("System.Contract.Call"), location)
+}
+
+// mustReverseHex decodes a hex-encoded big-endian string and returns little-endian bytes.
+func mustReverseHex(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		// Fallback to empty to avoid panic in codegen context
+		return []byte{}
+	}
+	// reverse in place
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+	return b
 }

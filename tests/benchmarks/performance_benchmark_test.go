@@ -247,15 +247,15 @@ func simulateNeoVMExecution(instructions []NeoInstruction) time.Duration {
 
 		// System calls (expensive, 100-1000 cycles)
 		case SYSCALL:
-			syscallName := string(instr.Operand)
+			methodInfo := instr.Comment
 			switch {
-			case strings.Contains(syscallName, "Storage.Get"):
+			case strings.Contains(methodInfo, "System.Storage.Get"):
 				totalCycles += 200
-			case strings.Contains(syscallName, "Storage.Put"):
+			case strings.Contains(methodInfo, "System.Storage.Put"):
 				totalCycles += 1000
-			case strings.Contains(syscallName, "Crypto"):
+			case strings.Contains(methodInfo, "Crypto"):
 				totalCycles += 500
-			case strings.Contains(syscallName, "Runtime"):
+			case strings.Contains(methodInfo, "Runtime"):
 				totalCycles += 100
 			default:
 				totalCycles += 300

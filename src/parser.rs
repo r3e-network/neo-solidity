@@ -227,7 +227,7 @@ impl Parser {
         if self.is_at_end() {
             false
         } else {
-            &self.current_token().unwrap().token_type == token_type
+            matches!(self.tokens.get(self.position), Some(token) if &token.token_type == token_type)
         }
     }
 
@@ -253,10 +253,12 @@ impl Parser {
     }
 
     fn consume_identifier(&mut self) -> Result<String, CompilerError> {
-        if let TokenType::Identifier = self.current_token()?.token_type {
-            Ok(self.advance()?.value.clone())
-        } else {
-            Err(CompilerError::ParseError("Expected identifier".to_string()))
+        match &self.current_token()?.token_type {
+            TokenType::Identifier | TokenType::BuiltinFunction => Ok(self.advance()?.value.clone()),
+            other => Err(CompilerError::ParseError(format!(
+                "Expected identifier, found {:?}",
+                other
+            ))),
         }
     }
 
@@ -271,15 +273,13 @@ impl Parser {
             CompilerError::ParseError("Expected statement after if condition".to_string())
         })?);
 
-        let else_branch =
-            if self.check(&TokenType::Identifier) && self.current_token()?.value == "else" {
-                self.advance()?;
-                Some(Box::new(self.parse_statement()?.ok_or_else(|| {
-                    CompilerError::ParseError("Expected statement after else".to_string())
-                })?))
-            } else {
-                None
-            };
+        let else_branch = if self.match_token(&TokenType::Else)? {
+            Some(Box::new(self.parse_statement()?.ok_or_else(|| {
+                CompilerError::ParseError("Expected statement after else".to_string())
+            })?))
+        } else {
+            None
+        };
 
         Ok(Some(AstNode {
             node_type: AstNodeType::If {
@@ -397,9 +397,7 @@ impl Parser {
 
         // Parse return parameters
         let mut returns = Vec::new();
-        if self.check(&TokenType::Identifier) && self.current_token()?.value == "->" {
-            self.advance()?; // consume "->"
-
+        if self.match_token(&TokenType::Arrow)? {
             returns.push(self.consume_identifier()?);
             while self.match_token(&TokenType::Comma)? {
                 returns.push(self.consume_identifier()?);

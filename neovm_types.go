@@ -1,10 +1,35 @@
 package main
 
 import (
-	"encoding/hex"
-	"fmt"
-	"math/big"
+    "crypto/sha256"
+    "encoding/binary"
+    "encoding/hex"
+    "fmt"
+    "math/big"
 )
+
+// syscallSig defines stack effects for known syscalls: pops, pushes
+var syscallSig = map[string]struct{ pop, push int }{
+    // Storage
+    "System.Storage.Get":               {pop: 2, push: 1}, // context, key -> value
+    "System.Storage.Put":               {pop: 3, push: 0}, // context, key, value
+    "System.Storage.Delete":            {pop: 2, push: 0},
+    "System.Storage.GetContext":        {pop: 0, push: 1},
+    "System.Storage.GetReadOnlyContext":{pop: 0, push: 1},
+    // Runtime
+    "System.Runtime.GetCallingScriptHash":   {pop: 0, push: 1},
+    "System.Runtime.GetEntryScriptHash":     {pop: 0, push: 1},
+    "System.Runtime.GetExecutingScriptHash": {pop: 0, push: 1},
+    "System.Runtime.GetInvocationCounter":   {pop: 0, push: 1},
+    "System.Runtime.Log":                    {pop: 1, push: 0}, // string
+    "System.Runtime.Notify":                 {pop: 1, push: 0}, // any[]
+    // Crypto
+    "Neo.Crypto.Sha256":      {pop: 1, push: 1},
+    "Neo.Crypto.RIPEMD160":   {pop: 1, push: 1},
+    "Neo.Crypto.Keccak256":   {pop: 1, push: 1},
+    // Contract
+    "System.Contract.Call":   {pop: 4, push: 1}, // scriptHash, method, flags, params[] -> result
+}
 
 // NeoVM instruction set and data structures for code generation
 
@@ -25,121 +50,114 @@ type NeoOpcode byte
 
 // NeoVM instruction set constants
 const (
-	// Stack operations
-	PUSH0    NeoOpcode = 0x10
-	PUSH1    NeoOpcode = 0x11
-	PUSH2    NeoOpcode = 0x12
-	PUSH3    NeoOpcode = 0x13
-	PUSH4    NeoOpcode = 0x14
-	PUSH5    NeoOpcode = 0x15
-	PUSH6    NeoOpcode = 0x16
-	PUSH7    NeoOpcode = 0x17
-	PUSH8    NeoOpcode = 0x18
-	PUSH9    NeoOpcode = 0x19
-	PUSH10   NeoOpcode = 0x1A
-	PUSH11   NeoOpcode = 0x1B
-	PUSH12   NeoOpcode = 0x1C
-	PUSH13   NeoOpcode = 0x1D
-	PUSH14   NeoOpcode = 0x1E
-	PUSH15   NeoOpcode = 0x1F
-	PUSH16   NeoOpcode = 0x20
-
+	// Push / constant instructions
 	PUSHINT8   NeoOpcode = 0x00
 	PUSHINT16  NeoOpcode = 0x01
 	PUSHINT32  NeoOpcode = 0x02
 	PUSHINT64  NeoOpcode = 0x03
 	PUSHINT128 NeoOpcode = 0x04
 	PUSHINT256 NeoOpcode = 0x05
-
-	PUSHDATA1 NeoOpcode = 0x0C
-	PUSHDATA2 NeoOpcode = 0x0D
-	PUSHDATA4 NeoOpcode = 0x0E
+	PUSHA      NeoOpcode = 0x0A
+	PUSHNULL   NeoOpcode = 0x0B
+	PUSHDATA1  NeoOpcode = 0x0C
+	PUSHDATA2  NeoOpcode = 0x0D
+	PUSHDATA4  NeoOpcode = 0x0E
+	PUSHM1     NeoOpcode = 0x0F
+	PUSH0      NeoOpcode = 0x10
+	PUSH1      NeoOpcode = 0x11
+	PUSH2      NeoOpcode = 0x12
+	PUSH3      NeoOpcode = 0x13
+	PUSH4      NeoOpcode = 0x14
+	PUSH5      NeoOpcode = 0x15
+	PUSH6      NeoOpcode = 0x16
+	PUSH7      NeoOpcode = 0x17
+	PUSH8      NeoOpcode = 0x18
+	PUSH9      NeoOpcode = 0x19
+	PUSH10     NeoOpcode = 0x1A
+	PUSH11     NeoOpcode = 0x1B
+	PUSH12     NeoOpcode = 0x1C
+	PUSH13     NeoOpcode = 0x1D
+	PUSH14     NeoOpcode = 0x1E
+	PUSH15     NeoOpcode = 0x1F
+	PUSH16     NeoOpcode = 0x20
 
 	// Stack manipulation
-	DUP   NeoOpcode = 0x21
-	SWAP  NeoOpcode = 0x23
-	ROT   NeoOpcode = 0x24
-	ROLL  NeoOpcode = 0x25
-	PICK  NeoOpcode = 0x26
-	TUCK  NeoOpcode = 0x27
-	DROP  NeoOpcode = 0x28
-	NIP   NeoOpcode = 0x29
-	XDROP NeoOpcode = 0x2A
-	CLEAR NeoOpcode = 0x2B
-	DEPTH NeoOpcode = 0x2C
+	DEPTH NeoOpcode = 0x43
+	DROP  NeoOpcode = 0x45
+	NIP   NeoOpcode = 0x46
+	XDROP NeoOpcode = 0x48
+	CLEAR NeoOpcode = 0x49
+	DUP   NeoOpcode = 0x4A
+	PICK  NeoOpcode = 0x4D
+	TUCK  NeoOpcode = 0x4E
+	SWAP  NeoOpcode = 0x50
+	ROT   NeoOpcode = 0x51
+	ROLL  NeoOpcode = 0x52
 
 	// Arithmetic
-	ADD    NeoOpcode = 0x9F
-	SUB    NeoOpcode = 0xA0
-	MUL    NeoOpcode = 0xA1
-	DIV    NeoOpcode = 0xA2
-	MOD    NeoOpcode = 0xA3
-	SHL    NeoOpcode = 0xA8
-	SHR    NeoOpcode = 0xA9
-	NOT    NeoOpcode = 0xAA
-	BOOLAND NeoOpcode = 0xAB
-	BOOLOR  NeoOpcode = 0xAC
-	NUMEQUAL  NeoOpcode = 0xAD
-	NUMNOTEQUAL NeoOpcode = 0xAE
-	LT     NeoOpcode = 0xAF
-	LE     NeoOpcode = 0xB0
-	GT     NeoOpcode = 0xB1
-	GE     NeoOpcode = 0xB2
-	MIN    NeoOpcode = 0xB3
-	MAX    NeoOpcode = 0xB4
-	WITHIN NeoOpcode = 0xB5
+	ADD         NeoOpcode = 0x95
+	SUB         NeoOpcode = 0x96
+	MUL         NeoOpcode = 0x97
+	DIV         NeoOpcode = 0x98
+	MOD         NeoOpcode = 0x99
+	SHL         NeoOpcode = 0x9E
+	SHR         NeoOpcode = 0x9F
+	NOT         NeoOpcode = 0xA0
+	BOOLAND     NeoOpcode = 0xA1
+	BOOLOR      NeoOpcode = 0xA2
+	NUMEQUAL    NeoOpcode = 0xA3
+	NUMNOTEQUAL NeoOpcode = 0xA4
+	LT          NeoOpcode = 0xA5
+	LE          NeoOpcode = 0xA6
+	GT          NeoOpcode = 0xA7
+	GE          NeoOpcode = 0xA8
+	MIN         NeoOpcode = 0xA9
+	MAX         NeoOpcode = 0xAA
+	WITHIN      NeoOpcode = 0xAB
 
-	// Bitwise
-	AND NeoOpcode = 0xA4
-	OR  NeoOpcode = 0xA5
-	XOR NeoOpcode = 0xA6
-	EQUAL NeoOpcode = 0x97
-	NOTEQUAL NeoOpcode = 0x98
+	// Aliases for higher-level operations
+	AND      NeoOpcode = BOOLAND
+	OR       NeoOpcode = BOOLOR
+	XOR      NeoOpcode = NUMNOTEQUAL // Placeholder until dedicated XOR opcode is exposed
+	EQUAL    NeoOpcode = NUMEQUAL
+	NOTEQUAL NeoOpcode = NUMNOTEQUAL
 
 	// Control flow
-	NOP     NeoOpcode = 0x21
-	JMP     NeoOpcode = 0x22
-	JMPIF   NeoOpcode = 0x23
-	JMPIFNOT NeoOpcode = 0x24
-	JMPEQ   NeoOpcode = 0x25
-	JMPNE   NeoOpcode = 0x26
-	JMPGT   NeoOpcode = 0x27
-	JMPGE   NeoOpcode = 0x28
-	JMPLT   NeoOpcode = 0x29
-	JMPLE   NeoOpcode = 0x2A
-	CALL    NeoOpcode = 0x2B
-	CALLA   NeoOpcode = 0x2C
-	CALLT   NeoOpcode = 0x2D
-	ABORT   NeoOpcode = 0x2E
-	ASSERT  NeoOpcode = 0x2F
-	THROW   NeoOpcode = 0x3A
-	TRY     NeoOpcode = 0x3B
+	NOP        NeoOpcode = 0x21
+	JMP        NeoOpcode = 0x22
+	JMPIF      NeoOpcode = 0x23
+	JMPIFNOT   NeoOpcode = 0x24
+	CALL       NeoOpcode = 0x2B
+	CALLA      NeoOpcode = 0x2C
+	CALLT      NeoOpcode = 0x2D
+	ABORT      NeoOpcode = 0x2E
+	ASSERT     NeoOpcode = 0x2F
+	RET        NeoOpcode = 0x40
+	SYSCALL    NeoOpcode = 0x41
+	THROW      NeoOpcode = 0x3A
+	TRY        NeoOpcode = 0x3B
 	TRYFINALLY NeoOpcode = 0x3C
-	ENDTRY  NeoOpcode = 0x3D
+	ENDTRY     NeoOpcode = 0x3D
 	ENDFINALLY NeoOpcode = 0x3E
-	RET     NeoOpcode = 0x40
 
 	// Array and buffer operations
+	PICKITEM  NeoOpcode = 0xC2
+	SETITEM   NeoOpcode = 0xC3
 	NEWARRAY  NeoOpcode = 0xC5
-	NEWSTRUCT NeoOpcode = 0xC6
-	NEWMAP    NeoOpcode = 0xC8
-	APPEND    NeoOpcode = 0xC9
-	REVERSE   NeoOpcode = 0xCA
-	REMOVE    NeoOpcode = 0xCB
-	HASKEY    NeoOpcode = 0xCC
-	KEYS      NeoOpcode = 0xCD
-	VALUES    NeoOpcode = 0xCE
-	PICKITEM  NeoOpcode = 0xCF
-	SETITEM   NeoOpcode = 0xD0
-	SIZE      NeoOpcode = 0xD1
+	NEWSTRUCT NeoOpcode = 0xC8
+	NEWMAP    NeoOpcode = 0xC9
+	SIZE      NeoOpcode = 0xCA
+	HASKEY    NeoOpcode = 0xCB
+	KEYS      NeoOpcode = 0xCC
+	VALUES    NeoOpcode = 0xCD
+	APPEND    NeoOpcode = 0xD0
+	REMOVE    NeoOpcode = 0xD3
 
 	// Type operations
 	ISNULL   NeoOpcode = 0xD8
 	ISTYPE   NeoOpcode = 0xD9
 	CONVERT  NeoOpcode = 0xDB
 
-	// System calls
-	SYSCALL NeoOpcode = 0x41
 )
 
 // NeoVMStackItem represents different types of items on the NeoVM stack
@@ -446,15 +464,26 @@ type ExceptionHandler struct {
 func NewPushInstruction(value NeoVMStackItem) NeoInstruction {
 	data := value.ToBytes()
 	opcode := PUSHDATA1
-	
-	// Optimize for small integers
+
+	// Optimize for small integers that have dedicated opcodes in Neo N3
 	if value.Type() == IntegerType {
 		if intVal, ok := value.(*NeoVMInteger); ok {
 			if intVal.Value.IsInt64() {
 				val := intVal.Value.Int64()
-				if val >= 0 && val <= 16 {
+				switch {
+				case val == -1:
 					return NeoInstruction{
-						Opcode:    NeoOpcode(0x10 + val), // PUSH0-PUSH16
+						Opcode:    PUSHM1,
+						Operand:   nil,
+						Size:      1,
+						StackPop:  0,
+						StackPush: 1,
+						GasCost:   1,
+					}
+				case val >= 0 && val <= 16:
+					op := NeoOpcode(byte(PUSH0) + byte(val))
+					return NeoInstruction{
+						Opcode:    op,
 						Operand:   nil,
 						Size:      1,
 						StackPop:  0,
@@ -465,7 +494,7 @@ func NewPushInstruction(value NeoVMStackItem) NeoInstruction {
 			}
 		}
 	}
-	
+
 	// Determine appropriate PUSH instruction based on data size
 	if len(data) <= 255 {
 		opcode = PUSHDATA1
@@ -524,37 +553,38 @@ func NewArithmeticInstruction(op NeoOpcode) NeoInstruction {
 }
 
 func NewControlFlowInstruction(op NeoOpcode, target int) NeoInstruction {
-	var operand []byte
-	var stackPop int
-	var gasCost int64
-	
+	var (
+		operand  []byte
+		stackPop int
+		gasCost  int64 = 1
+	)
+
 	switch op {
 	case JMP:
 		stackPop = 0
-		gasCost = 2
+		gasCost = 3
 	case JMPIF, JMPIFNOT:
 		stackPop = 1
-		gasCost = 2
-	case CALL, CALLA:
+		gasCost = 3
+	case CALL, CALLA, CALLT:
 		stackPop = 0
-		gasCost = 512
+		gasCost = 10
 	case RET:
 		stackPop = 0
-		gasCost = 0
-	default:
+		gasCost = 1
+	case ABORT:
 		stackPop = 0
 		gasCost = 1
 	}
-	
-	// Encode target address (4 bytes for NeoVM)
-	if target != 0 {
+
+	switch op {
+	case JMP, JMPIF, JMPIFNOT, CALL, CALLA, CALLT, TRY, TRYFINALLY, ENDTRY, ENDFINALLY:
 		operand = make([]byte, 4)
-		operand[0] = byte(target)
-		operand[1] = byte(target >> 8)
-		operand[2] = byte(target >> 16)
-		operand[3] = byte(target >> 24)
+		if target != 0 {
+			binary.LittleEndian.PutUint32(operand, uint32(target))
+		}
 	}
-	
+
 	return NeoInstruction{
 		Opcode:    op,
 		Operand:   operand,
@@ -619,17 +649,25 @@ func NewStackInstruction(op NeoOpcode, depth int) NeoInstruction {
 }
 
 func NewSyscallInstruction(method string) NeoInstruction {
-	methodBytes := []byte(method)
-	
-	return NeoInstruction{
-		Opcode:    SYSCALL,
-		Operand:   methodBytes,
-		Size:      1 + len(methodBytes),
-		StackPop:  0, // Variable based on syscall
-		StackPush: 0, // Variable based on syscall  
-		GasCost:   1024, // Base syscall cost
-		Comment:   fmt.Sprintf("SYSCALL %s", method),
-	}
+    // Neo N3 interop ID: first 4 bytes of SHA-256(method), little-endian order
+    sum := sha256.Sum256([]byte(method))
+    interopID := make([]byte, 4)
+    // Copy little-endian 4-byte prefix as-is
+    copy(interopID, sum[:4])
+
+    // For clarity, compute the uint32 value (unused but documents intent)
+    _ = binary.LittleEndian.Uint32(interopID)
+
+    sig := syscallSig[method]
+    return NeoInstruction{
+        Opcode:    SYSCALL,
+        Operand:   interopID,
+        Size:      1 + len(interopID),
+        StackPop:  sig.pop,
+        StackPush: sig.push,
+        GasCost:   1024, // Base syscall cost
+        Comment:   fmt.Sprintf("SYSCALL %s", method),
+    }
 }
 
 // Helper functions
@@ -647,93 +685,97 @@ func getSizeByteCount(opcode NeoOpcode) int {
 }
 
 // OpcodeMnemonic returns the string representation of an opcode
+var opcodeNames = map[NeoOpcode]string{
+	PUSHINT8:   "PUSHINT8",
+	PUSHINT16:  "PUSHINT16",
+	PUSHINT32:  "PUSHINT32",
+	PUSHINT64:  "PUSHINT64",
+	PUSHINT128: "PUSHINT128",
+	PUSHINT256: "PUSHINT256",
+	PUSHDATA1:  "PUSHDATA1",
+	PUSHDATA2:  "PUSHDATA2",
+	PUSHDATA4:  "PUSHDATA4",
+	PUSHM1:     "PUSHM1",
+	PUSH0:      "PUSH0",
+	PUSH1:      "PUSH1",
+	PUSH2:      "PUSH2",
+	PUSH3:      "PUSH3",
+	PUSH4:      "PUSH4",
+	PUSH5:      "PUSH5",
+	PUSH6:      "PUSH6",
+	PUSH7:      "PUSH7",
+	PUSH8:      "PUSH8",
+	PUSH9:      "PUSH9",
+	PUSH10:     "PUSH10",
+	PUSH11:     "PUSH11",
+	PUSH12:     "PUSH12",
+	PUSH13:     "PUSH13",
+	PUSH14:     "PUSH14",
+	PUSH15:     "PUSH15",
+	PUSH16:     "PUSH16",
+	DEPTH:      "DEPTH",
+	DROP:       "DROP",
+	NIP:        "NIP",
+	XDROP:      "XDROP",
+	CLEAR:      "CLEAR",
+	DUP:        "DUP",
+	PICK:       "PICK",
+	TUCK:       "TUCK",
+	SWAP:       "SWAP",
+	ROT:        "ROT",
+	ROLL:       "ROLL",
+	ADD:        "ADD",
+	SUB:        "SUB",
+	MUL:        "MUL",
+	DIV:        "DIV",
+	MOD:        "MOD",
+	SHL:        "SHL",
+	SHR:        "SHR",
+	NOT:        "NOT",
+	BOOLAND:    "BOOLAND",
+	BOOLOR:     "BOOLOR",
+	NUMEQUAL:   "NUMEQUAL",
+	NUMNOTEQUAL:"NUMNOTEQUAL",
+	LT:         "LT",
+	LE:         "LE",
+	GT:         "GT",
+	GE:         "GE",
+	MIN:        "MIN",
+	MAX:        "MAX",
+	WITHIN:     "WITHIN",
+	JMP:        "JMP",
+	JMPIF:      "JMPIF",
+	JMPIFNOT:   "JMPIFNOT",
+	CALL:       "CALL",
+	RET:        "RET",
+	SYSCALL:    "SYSCALL",
+	NEWARRAY:   "NEWARRAY",
+	NEWSTRUCT:  "NEWSTRUCT",
+	NEWMAP:     "NEWMAP",
+	APPEND:     "APPEND",
+	REMOVE:     "REMOVE",
+	HASKEY:     "HASKEY",
+	KEYS:       "KEYS",
+	VALUES:     "VALUES",
+	PICKITEM:   "PICKITEM",
+	SETITEM:    "SETITEM",
+	SIZE:       "SIZE",
+	ISNULL:     "ISNULL",
+	ISTYPE:     "ISTYPE",
+	CONVERT:    "CONVERT",
+	ABORT:      "ABORT",
+	ASSERT:     "ASSERT",
+	THROW:      "THROW",
+	TRY:        "TRY",
+	ENDTRY:     "ENDTRY",
+	ENDFINALLY: "ENDFINALLY",
+}
+
 func OpcodeMnemonic(op NeoOpcode) string {
-	switch op {
-	case PUSH0: return "PUSH0"
-	case PUSH1: return "PUSH1"
-	case PUSH2: return "PUSH2"
-	case PUSH3: return "PUSH3"
-	case PUSH4: return "PUSH4"
-	case PUSH5: return "PUSH5"
-	case PUSH6: return "PUSH6"
-	case PUSH7: return "PUSH7"
-	case PUSH8: return "PUSH8"
-	case PUSH9: return "PUSH9"
-	case PUSH10: return "PUSH10"
-	case PUSH11: return "PUSH11"
-	case PUSH12: return "PUSH12"
-	case PUSH13: return "PUSH13"
-	case PUSH14: return "PUSH14"
-	case PUSH15: return "PUSH15"
-	case PUSH16: return "PUSH16"
-	case PUSHDATA1: return "PUSHDATA1"
-	case PUSHDATA2: return "PUSHDATA2"
-	case PUSHDATA4: return "PUSHDATA4"
-	case DUP: return "DUP"
-	case SWAP: return "SWAP"
-	case ROT: return "ROT"
-	case ROLL: return "ROLL"
-	case PICK: return "PICK"
-	case TUCK: return "TUCK"
-	case DROP: return "DROP"
-	case NIP: return "NIP"
-	case XDROP: return "XDROP"
-	case CLEAR: return "CLEAR"
-	case DEPTH: return "DEPTH"
-	case ADD: return "ADD"
-	case SUB: return "SUB"
-	case MUL: return "MUL"
-	case DIV: return "DIV"
-	case MOD: return "MOD"
-	case SHL: return "SHL"
-	case SHR: return "SHR"
-	case NOT: return "NOT"
-	case BOOLAND: return "BOOLAND"
-	case BOOLOR: return "BOOLOR"
-	case NUMEQUAL: return "NUMEQUAL"
-	case NUMNOTEQUAL: return "NUMNOTEQUAL"
-	case LT: return "LT"
-	case LE: return "LE"
-	case GT: return "GT"
-	case GE: return "GE"
-	case MIN: return "MIN"
-	case MAX: return "MAX"
-	case WITHIN: return "WITHIN"
-	case AND: return "AND"
-	case OR: return "OR"
-	case XOR: return "XOR"
-	case EQUAL: return "EQUAL"
-	case NOTEQUAL: return "NOTEQUAL"
-	case JMP: return "JMP"
-	case JMPIF: return "JMPIF"
-	case JMPIFNOT: return "JMPIFNOT"
-	case CALL: return "CALL"
-	case RET: return "RET"
-	case SYSCALL: return "SYSCALL"
-	case NEWARRAY: return "NEWARRAY"
-	case NEWSTRUCT: return "NEWSTRUCT"
-	case NEWMAP: return "NEWMAP"
-	case APPEND: return "APPEND"
-	case REVERSE: return "REVERSE"
-	case REMOVE: return "REMOVE"
-	case HASKEY: return "HASKEY"
-	case KEYS: return "KEYS"
-	case VALUES: return "VALUES"
-	case PICKITEM: return "PICKITEM"
-	case SETITEM: return "SETITEM"
-	case SIZE: return "SIZE"
-	case ISNULL: return "ISNULL"
-	case ISTYPE: return "ISTYPE"
-	case CONVERT: return "CONVERT"
-	case ABORT: return "ABORT"
-	case ASSERT: return "ASSERT"
-	case THROW: return "THROW"
-	case TRY: return "TRY"
-	case ENDTRY: return "ENDTRY"
-	case ENDFINALLY: return "ENDFINALLY"
-	default:
-		return fmt.Sprintf("UNKNOWN(0x%02X)", byte(op))
+	if name, ok := opcodeNames[op]; ok {
+		return name
 	}
+	return fmt.Sprintf("UNKNOWN(0x%02X)", byte(op))
 }
 
 // CreateNeoVMInteger creates a NeoVM integer from various input types

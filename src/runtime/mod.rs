@@ -211,7 +211,7 @@ impl NeoRuntime {
     }
 
     /// Get storage value for account and key
-    pub fn get_storage(&self, account: &str, key: &[u8]) -> Result<Option<Vec<u8>>, RuntimeError> {
+    pub fn get_storage(&mut self, account: &str, key: &[u8]) -> Result<Option<Vec<u8>>, RuntimeError> {
         self.storage_manager.get(account, key)
             .map_err(|e| RuntimeError::StorageError { message: e.to_string() })
     }

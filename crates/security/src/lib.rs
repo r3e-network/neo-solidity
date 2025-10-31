@@ -19,12 +19,15 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use tracing::{info, warn, error};
+use neo_solidity::solidity::{self, FunctionKind};
+use regex::Regex;
 
 /// Main security analyzer for Neo Solidity contracts
 pub struct SecurityAnalyzer {
     config: SecurityConfig,
     vulnerability_db: vulnerability_db::VulnerabilityDatabase,
     findings: Vec<SecurityFinding>,
+    analysis_stats: AnalysisStats,
 }
 
 /// Security analysis configuration
@@ -261,6 +264,16 @@ pub struct SecurityMetrics {
     pub analysis_duration_ms: u64,
 }
 
+#[derive(Debug, Default, Clone)]
+struct AnalysisStats {
+    lines_of_code: u32,
+    functions: u32,
+    external_calls: u32,
+    state_variables: u32,
+    cyclomatic_complexity: f64,
+    tests_detected: u32,
+}
+
 /// Compliance status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplianceStatus {
@@ -287,6 +300,7 @@ impl SecurityAnalyzer {
             config,
             vulnerability_db,
             findings: Vec::new(),
+            analysis_stats: AnalysisStats::default(),
         })
     }
 
@@ -296,6 +310,7 @@ impl SecurityAnalyzer {
         
         let start_time = std::time::Instant::now();
         self.findings.clear();
+        self.update_basic_stats(contract_source);
 
         // Static code analysis
         if self.config.enable_static_analysis {
@@ -416,15 +431,64 @@ impl SecurityAnalyzer {
 
     /// Generate security metrics
     fn generate_metrics(&self, analysis_duration: u64) -> SecurityMetrics {
+        let test_coverage = if self.analysis_stats.functions == 0 {
+            0.0
+        } else {
+            let covered = self
+                .analysis_stats
+                .tests_detected
+                .min(self.analysis_stats.functions);
+            (covered as f64 / self.analysis_stats.functions as f64) * 100.0
+        };
+
         SecurityMetrics {
-            lines_of_code: 0, // TODO: Calculate from source
-            functions_analyzed: 0, // TODO: Count from AST
-            external_calls: 0, // TODO: Count external calls
-            state_variables: 0, // TODO: Count state variables
-            complexity_score: 0.0, // TODO: Calculate complexity
-            test_coverage: 0.0, // TODO: Calculate coverage
+            lines_of_code: self.analysis_stats.lines_of_code,
+            functions_analyzed: self.analysis_stats.functions,
+            external_calls: self.analysis_stats.external_calls,
+            state_variables: self.analysis_stats.state_variables,
+            complexity_score: self.analysis_stats.cyclomatic_complexity,
+            test_coverage,
             analysis_duration_ms: analysis_duration,
         }
+    }
+
+    fn update_basic_stats(&mut self, contract_source: &str) {
+        let mut stats = AnalysisStats::default();
+
+        stats.lines_of_code = contract_source
+            .lines()
+            .filter(|line| {
+                let trimmed = line.trim();
+                !trimmed.is_empty() && !trimmed.starts_with("//")
+            })
+            .count() as u32;
+
+        if let Ok(metadata) = solidity::analyse_source(contract_source) {
+            stats.functions = metadata
+                .methods
+                .iter()
+                .filter(|method| matches!(method.kind, FunctionKind::Regular))
+                .count() as u32;
+            stats.state_variables = metadata.state_variables.len() as u32;
+        }
+
+        let external_call_regex = Regex::new(r"(?i)\.call\s*\(|call\{").unwrap();
+        stats.external_calls = external_call_regex
+            .find_iter(contract_source)
+            .count() as u32;
+
+        let control_flow_regex = Regex::new(r"(?i)\b(if|for|while|do|switch|case)\b").unwrap();
+        let control_flow_count = control_flow_regex
+            .find_iter(contract_source)
+            .count() as f64;
+        stats.cyclomatic_complexity = 1.0 + control_flow_count;
+
+        let test_hint_regex = Regex::new(r"(?i)\btest").unwrap();
+        stats.tests_detected = test_hint_regex
+            .find_iter(contract_source)
+            .count() as u32;
+
+        self.analysis_stats = stats;
     }
 
     /// Check compliance with security standards

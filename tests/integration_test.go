@@ -220,7 +220,7 @@ func TestIntegrationERC20Contract(t *testing.T) {
 		case ADD, SUB, MUL, DIV, MOD:
 			hasArithmetic = true
 		case SYSCALL:
-			if strings.Contains(string(instr.Operand), "Storage") {
+			if strings.Contains(instr.Comment, "Storage") {
 				hasStorage = true
 			}
 		case JMPIF, JMPIFNOT, JMP:

@@ -1,6 +1,8 @@
 use crate::error::CompilerError;
 use crate::parser::{AstNode, AstNodeType};
 use crate::types::CompilerConfig;
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 
 pub struct CompilationResult {
     pub bytecode: Vec<u8>,
@@ -46,63 +48,79 @@ impl CodeGenerator {
         // Add final return
         bytecode.push(0x40); // RET
 
-        let abi = serde_json::json!({
-            "functions": [
-                {
-                    "name": "getValue",
+        let mut unique_functions = Vec::new();
+        let mut seen_funcs = HashSet::new();
+        for name in &functions {
+            if seen_funcs.insert(name.clone()) {
+                unique_functions.push(name.clone());
+            }
+        }
+
+        let abi_functions: Vec<_> = unique_functions
+            .iter()
+            .map(|name| {
+                serde_json::json!({
+                    "name": name,
                     "inputs": [],
-                    "outputs": [{"type": "uint256"}],
-                    "stateMutability": "view"
-                },
-                {
-                    "name": "setValue",
-                    "inputs": [{"type": "uint256", "name": "_value"}],
                     "outputs": [],
                     "stateMutability": "nonpayable"
-                }
-            ],
-            "events": [
-                {
-                    "name": "ValueChanged",
-                    "inputs": [{"type": "uint256", "name": "newValue", "indexed": false}]
-                }
-            ]
+                })
+            })
+            .collect();
+
+        let abi_events: Vec<_> = events
+            .iter()
+            .map(|name| {
+                serde_json::json!({
+                    "name": name,
+                    "inputs": []
+                })
+            })
+            .collect();
+
+        let abi = serde_json::json!({
+            "functions": abi_functions,
+            "events": abi_events,
         });
 
+        let manifest_methods: Vec<_> = unique_functions
+            .iter()
+            .enumerate()
+            .map(|(idx, name)| {
+                serde_json::json!({
+                    "name": name,
+                    "offset": (idx * 16) as u32,
+                    "parameters": [],
+                    "returntype": "Any",
+                    "safe": false
+                })
+            })
+            .collect();
+
+        let manifest_events: Vec<_> = events
+            .iter()
+            .map(|name| {
+                serde_json::json!({
+                    "name": name,
+                    "parameters": []
+                })
+            })
+            .collect();
+
         let manifest = serde_json::json!({
-            "name": "TestContract",
+            "name": "GeneratedContract",
             "groups": [],
             "features": {},
             "supportedstandards": [],
             "abi": {
-                "methods": [
-                    {
-                        "name": "getValue",
-                        "offset": 0,
-                        "parameters": [],
-                        "returntype": "Integer",
-                        "safe": true
-                    },
-                    {
-                        "name": "setValue",
-                        "offset": 10,
-                        "parameters": [{"name": "_value", "type": "Integer"}],
-                        "returntype": "Void",
-                        "safe": false
-                    }
-                ],
-                "events": [
-                    {
-                        "name": "ValueChanged",
-                        "parameters": [{"name": "newValue", "type": "Integer"}]
-                    }
-                ]
+                "methods": manifest_methods,
+                "events": manifest_events,
             },
             "permissions": [{"contract": "*", "methods": "*"}],
             "trusts": [],
             "extra": {
                 "Author": "Jimmy <jimmy@r3e.network>",
-                "Description": "Test contract compiled with neo-solidity",
+                "Description": "Contract compiled from Yul source",
                 "Version": "1.0.0"
             }
         });
@@ -199,17 +217,17 @@ impl CodeGenerator {
                     }
                     "keccak256" => {
                         bytecode.push(0x41); // SYSCALL
-                        bytecode.extend_from_slice(&[0x1F, 0x98, 0x7E, 0x4C]); // SHA256 hash
+                        bytecode.extend_from_slice(&interop_id_bytes("Neo.Crypto.Keccak256"));
                         *estimated_gas += 30;
                     }
                     "sstore" => {
                         bytecode.push(0x41); // SYSCALL
-                        bytecode.extend_from_slice(&[0x9B, 0xF6, 0x67, 0xCE]); // System.Storage.Put
+                        bytecode.extend_from_slice(&interop_id_bytes("System.Storage.Put"));
                         *estimated_gas += 20000;
                     }
                     "sload" => {
                         bytecode.push(0x41); // SYSCALL
-                        bytecode.extend_from_slice(&[0x9B, 0xF6, 0x67, 0xCE]); // System.Storage.Get
+                        bytecode.extend_from_slice(&interop_id_bytes("System.Storage.Get"));
                         *estimated_gas += 800;
                     }
                     _ => {
@@ -218,7 +236,7 @@ impl CodeGenerator {
                         bytecode.push(name.len() as u8);
                         bytecode.extend_from_slice(name.as_bytes());
                         bytecode.push(0x41); // SYSCALL
-                        bytecode.extend_from_slice(&[0x62, 0x7D, 0x5B, 0x52]); // System.Contract.Call
+                        bytecode.extend_from_slice(&interop_id_bytes("System.Contract.Call"));
                         *estimated_gas += 1000;
                     }
                 }
@@ -423,5 +441,38 @@ impl CodeGenerator {
         }
 
         count
+    }
+}
+
+// Compute Neo N3 interop ID (first 4 bytes of SHA-256 of method name, little-endian order)
+fn interop_id_bytes(name: &str) -> [u8; 4] {
+    let mut hasher = Sha256::new();
+    hasher.update(name.as_bytes());
+    let digest = hasher.finalize();
+    [digest[0], digest[1], digest[2], digest[3]]
+}
+
+#[cfg(test)]
+mod interop_tests {
+    use super::interop_id_bytes;
+
+    #[test]
+    fn test_interop_ids() {
+        assert_eq!(
+            interop_id_bytes("System.Contract.Call"),
+            [0x62, 0x7D, 0x5B, 0x52]
+        );
+        assert_eq!(
+            interop_id_bytes("System.Storage.Put"),
+            [0xE6, 0x3F, 0x18, 0x84]
+        );
+        assert_eq!(
+            interop_id_bytes("System.Storage.Get"),
+            [0x92, 0x5D, 0xE8, 0x31]
+        );
+        assert_eq!(
+            interop_id_bytes("Neo.Crypto.Keccak256"),
+            [0xDC, 0xB1, 0x21, 0xE0]
+        );
     }
 }

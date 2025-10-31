@@ -16,12 +16,14 @@ pub enum TokenType {
     RightParen,
     Let,
     Assignment,
+    Arrow,
     Identifier,
     Literal,
     Comma,
     Plus,
     Minus,
     If,
+    Else,
     For,
     Switch,
     Case,
@@ -88,8 +90,14 @@ impl Lexer {
                     self.advance();
                 }
                 '-' => {
-                    tokens.push(self.make_token(TokenType::Minus, "-"));
-                    self.advance();
+                    if self.peek() == '>' {
+                        tokens.push(self.make_token(TokenType::Arrow, "->"));
+                        self.advance();
+                        self.advance();
+                    } else {
+                        tokens.push(self.make_token(TokenType::Minus, "-"));
+                        self.advance();
+                    }
                 }
                 ':' if self.peek() == '=' => {
                     tokens.push(self.make_token(TokenType::Assignment, ":="));
@@ -252,6 +260,7 @@ impl Lexer {
             "let" => TokenType::Let,
             "if" => TokenType::If,
             "for" => TokenType::For,
+            "else" => TokenType::Else,
             "switch" => TokenType::Switch,
             "case" => TokenType::Case,
             "default" => TokenType::Default,

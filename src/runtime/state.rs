@@ -79,6 +79,7 @@ impl StateManager {
     pub fn set_balance(&mut self, address: &str, balance: u64) -> Result<(), RuntimeError> {
         let old_balance = self.get_balance(address)?;
         
+        let created_at = self.current_timestamp();
         let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
             AccountState {
                 address: address.to_string(),
@@ -87,7 +88,7 @@ impl StateManager {
                 code: None,
                 code_hash: None,
                 storage_root: None,
-                created_at: self.current_timestamp(),
+                created_at,
             }
         });
 
@@ -116,6 +117,7 @@ impl StateManager {
     pub fn set_nonce(&mut self, address: &str, nonce: u64) -> Result<(), RuntimeError> {
         let old_nonce = self.get_nonce(address)?;
         
+        let created_at = self.current_timestamp();
         let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
             AccountState {
                 address: address.to_string(),
@@ -124,7 +126,7 @@ impl StateManager {
                 code: None,
                 code_hash: None,
                 storage_root: None,
-                created_at: self.current_timestamp(),
+                created_at,
             }
         });
 
@@ -153,6 +155,9 @@ impl StateManager {
     pub fn set_code(&mut self, address: &str, code: &[u8]) -> Result<(), RuntimeError> {
         let old_code = self.get_code(address).map(|c| c.to_vec());
         
+        let created_at = self.current_timestamp();
+        let code_hash = self.calculate_hash(code);
+
         let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
             AccountState {
                 address: address.to_string(),
@@ -161,12 +166,9 @@ impl StateManager {
                 code: None,
                 code_hash: None,
                 storage_root: None,
-                created_at: self.current_timestamp(),
+                created_at,
             }
         });
-
-        // Calculate code hash
-        let code_hash = self.calculate_hash(code);
         account.code = Some(code.to_vec());
         account.code_hash = Some(code_hash);
 
