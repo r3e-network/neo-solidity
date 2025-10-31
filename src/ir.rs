@@ -1395,29 +1395,32 @@ fn lower_expression(
                     return false;
                 }
 
-                if !ctx.function_names.contains(&identifier.name) {
-                    ctx.record_error(format!(
-                        "function '{}' is not defined in this contract",
-                        identifier.name
-                    ));
-                    return false;
-                }
-
-                let mut success = true;
-                for arg in args {
-                    if !lower_expression(arg, ctx, instructions) {
-                        success = false;
+                if ctx.function_names.contains(&identifier.name) {
+                    let mut success = true;
+                    for arg in args {
+                        if !lower_expression(arg, ctx, instructions) {
+                            success = false;
+                        }
                     }
+
+                    if success {
+                        instructions.push(Instruction::CallFunction {
+                            name: identifier.name.clone(),
+                            arg_count: args.len(),
+                        });
+                    }
+
+                    return success;
                 }
 
-                if success {
-                    instructions.push(Instruction::CallFunction {
-                        name: identifier.name.clone(),
-                        arg_count: args.len(),
-                    });
+                for arg in args {
+                    load_expression(arg, ctx, instructions);
+                    instructions.push(Instruction::Drop(ValueType::Any));
                 }
-
-                success
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
+                true
             } else {
                 for arg in args {
                     load_expression(arg, ctx, instructions);
