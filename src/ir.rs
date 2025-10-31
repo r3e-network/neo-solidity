@@ -859,6 +859,15 @@ fn lower_expression(
         Expression::Modulo(_, left, right) => {
             lower_binary_expr(left, right, ctx, instructions, BinaryOperator::Mod)
         }
+        Expression::Not(_, inner) => {
+            if lower_expression(inner, ctx, instructions) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+                true
+            } else {
+                false
+            }
+        }
         Expression::Less(_, left, right) => {
             lower_binary_expr(left, right, ctx, instructions, BinaryOperator::Lt)
         }
