@@ -1144,6 +1144,14 @@ fn lower_expression(
         Expression::PostDecrement(_, inner) => lower_post_inc_dec(inner, ctx, instructions, false),
         Expression::PreIncrement(_, inner) => lower_pre_inc_dec(inner, ctx, instructions, true),
         Expression::PreDecrement(_, inner) => lower_pre_inc_dec(inner, ctx, instructions, false),
+        Expression::Delete(_, target) => {
+            load_expression(target, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
+        }
         Expression::Not(_, inner) => {
             if lower_expression(inner, ctx, instructions) {
                 instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
