@@ -726,6 +726,12 @@ fn lower_statement(
             lower_emit(call, ctx, instructions);
             false
         }
+        Statement::Try(_, expr, _, _) => {
+            if lower_expression(expr, ctx, instructions) {
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+            false
+        }
         Statement::Break(_) => {
             if let Some(label) = ctx.break_target() {
                 instructions.push(Instruction::Jump { target: label });
