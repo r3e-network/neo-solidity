@@ -10,8 +10,8 @@ use num_bigint::BigInt;
 use num_traits::{One, Zero};
 use sha3::{Digest, Keccak256};
 use solang_parser::pt::{
-    Expression, HexLiteral as PtHexLiteral, Statement, StringLiteral as PtStringLiteral,
-    Type as PtType,
+    Expression, HexLiteral as PtHexLiteral, Statement, StorageLocation as PtStorageLocation,
+    StringLiteral as PtStringLiteral, Type as PtType,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -84,6 +84,18 @@ pub enum Instruction {
         state_index: usize,
         key_types: Vec<ValueType>,
     },
+    LoadStructField {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_key: [u8; 32],
+        field_type: ValueType,
+    },
+    StoreStructField {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_key: [u8; 32],
+        field_type: ValueType,
+    },
     LoadRuntimeValue(RuntimeValue),
     GetSize,
     CallFunction {
@@ -133,7 +145,18 @@ pub enum ValueType {
         key: Box<ValueType>,
         value: Box<ValueType>,
     },
+    Struct {
+        name: String,
+        fields: Vec<StructField>,
+    },
     Any,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructField {
+    pub name: String,
+    pub ty: ValueType,
+    pub key: [u8; 32],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,6 +278,18 @@ impl Function {
         );
 
         let mut instructions: Vec<Instruction> = Vec::new();
+        let mut return_slots: Vec<Option<usize>> = Vec::new();
+        for (ret_param, value_type) in metadata.return_parameters.iter().zip(returns.iter()) {
+            if let Some(name) = &ret_param.name {
+                let slot = ctx.allocate_local(name.clone());
+                if push_default_for_value_type(value_type, &mut instructions) {
+                    instructions.push(Instruction::StoreLocal(slot));
+                }
+                return_slots.push(Some(slot));
+            } else {
+                return_slots.push(None);
+            }
+        }
         let mut returned = false;
 
         if let Some(body) = &metadata.body {
@@ -267,13 +302,28 @@ impl Function {
         }
 
         if !returned {
-            if matches!(metadata.kind, MetadataFunctionKind::Constructor) {
-                instructions.push(Instruction::ReturnVoid);
-            } else if let Some(ret_ty) = returns.first() {
-                instructions.push(Instruction::ReturnDefault(ret_ty.clone()));
-            } else {
-                instructions.push(Instruction::ReturnVoid);
-            }
+            match metadata.kind {
+                MetadataFunctionKind::Constructor => instructions.push(Instruction::ReturnVoid),
+                _ if returns.is_empty() => instructions.push(Instruction::ReturnVoid),
+                _ => {
+                    if return_slots.is_empty() {
+                        if let Some(ret_ty) = returns.first() {
+                            instructions.push(Instruction::ReturnDefault(ret_ty.clone()));
+                        } else {
+                            instructions.push(Instruction::ReturnVoid);
+                        }
+                    } else {
+                        for (slot, value_type) in return_slots.iter().zip(returns.iter()) {
+                            if let Some(index) = slot {
+                                instructions.push(Instruction::LoadLocal(*index));
+                            } else {
+                                push_default_for_value_type(value_type, &mut instructions);
+                            }
+                        }
+                        instructions.push(Instruction::Return);
+                    }
+                }
+            };
         }
 
         Ok(Self {
@@ -340,6 +390,17 @@ impl ValueType {
                 key: Box::new(ValueType::from_neotype(key.as_ref())),
                 value: Box::new(ValueType::from_neotype(value.as_ref())),
             },
+            crate::type_system::NeoType::Struct { name, fields } => ValueType::Struct {
+                name: name.clone(),
+                fields: fields
+                    .iter()
+                    .map(|field| StructField {
+                        name: field.name.clone(),
+                        ty: ValueType::from_neotype(field.ty.as_ref()),
+                        key: compute_state_slot(&format!("{}::{}", name, field.name)),
+                    })
+                    .collect(),
+            },
             crate::type_system::NeoType::Any => ValueType::Any,
         }
     }
@@ -405,6 +466,14 @@ fn decode_hex_bytes(value: &str) -> Option<Vec<u8>> {
     }
 }
 
+fn is_likely_type_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(ch) if ch.is_uppercase() => true,
+        _ => name.contains("::") || name.contains('.'),
+    }
+}
+
 fn parse_decimal_bigint(value: &str) -> Option<BigInt> {
     let sanitized: String = value.chars().filter(|c| *c != '_').collect();
     BigInt::parse_bytes(sanitized.as_bytes(), 10)
@@ -432,7 +501,9 @@ struct LoweringContext<'a> {
     state_types: &'a [ValueType],
     event_index_map: &'a HashMap<String, usize>,
     function_names: &'a HashSet<String>,
-    local_index_map: HashMap<String, usize>,
+    local_index_map: HashMap<String, Vec<usize>>,
+    scope_stack: Vec<Vec<String>>,
+    storage_aliases: HashMap<String, StorageReference>,
     local_count: u16,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
@@ -456,6 +527,8 @@ impl<'a> LoweringContext<'a> {
             event_index_map,
             function_names,
             local_index_map: HashMap::new(),
+            scope_stack: vec![Vec::new()],
+            storage_aliases: HashMap::new(),
             local_count: 0,
             label_counter: 0,
             loop_stack: Vec::new(),
@@ -501,12 +574,17 @@ impl<'a> LoweringContext<'a> {
     fn allocate_local(&mut self, name: String) -> usize {
         let index = self.local_count as usize;
         self.local_count = self.local_count.checked_add(1).unwrap_or(self.local_count);
-        self.local_index_map.insert(name, index);
+        if let Some(scope) = self.scope_stack.last_mut() {
+            scope.push(name.clone());
+        }
+        self.local_index_map.entry(name).or_default().push(index);
         index
     }
 
     fn resolve_local(&self, name: &str) -> Option<usize> {
-        self.local_index_map.get(name).copied()
+        self.local_index_map
+            .get(name)
+            .and_then(|stack| stack.last().copied())
     }
 
     fn ensure_local(&mut self, name: &str) -> usize {
@@ -515,6 +593,38 @@ impl<'a> LoweringContext<'a> {
         } else {
             self.allocate_local(name.to_string())
         }
+    }
+
+    fn enter_scope(&mut self) {
+        self.scope_stack.push(Vec::new());
+    }
+
+    fn exit_scope(&mut self) {
+        if let Some(names) = self.scope_stack.pop() {
+            for name in names {
+                if let Some(stack) = self.local_index_map.get_mut(&name) {
+                    stack.pop();
+                    if stack.is_empty() {
+                        self.local_index_map.remove(&name);
+                    }
+                }
+                self.storage_aliases.remove(&name);
+            }
+        }
+    }
+
+    fn is_local_in_current_scope(&self, name: &str) -> bool {
+        self.scope_stack
+            .last()
+            .map_or(false, |scope| scope.iter().any(|existing| existing == name))
+    }
+
+    fn set_storage_alias(&mut self, name: String, alias: StorageReference) {
+        self.storage_aliases.insert(name, alias);
+    }
+
+    fn storage_alias(&self, name: &str) -> Option<&StorageReference> {
+        self.storage_aliases.get(name)
     }
 }
 
@@ -558,6 +668,51 @@ fn push_default_for_type(ty: &PtType, instructions: &mut Vec<Instruction>) {
     }
 }
 
+fn push_default_for_value_type(
+    value_type: &ValueType,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    match value_type {
+        ValueType::Integer { .. } => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
+        }
+        ValueType::Boolean => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
+            true
+        }
+        ValueType::String => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::String(Vec::new())));
+            true
+        }
+        ValueType::Address => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                0u8;
+                20
+            ])));
+            true
+        }
+        ValueType::ByteArray { fixed_len } => {
+            let bytes = fixed_len
+                .map(|len| vec![0u8; len as usize])
+                .unwrap_or_else(Vec::new);
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
+            true
+        }
+        ValueType::Array(_)
+        | ValueType::Mapping { .. }
+        | ValueType::Struct { .. }
+        | ValueType::Any => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
+        }
+    }
+}
+
 struct LoopLabels {
     continue_label: usize,
     break_label: usize,
@@ -567,6 +722,128 @@ struct MappingAccess<'a> {
     state_index: usize,
     key_expressions: Vec<&'a Expression>,
     key_types: Vec<ValueType>,
+    value_type: ValueType,
+}
+
+#[derive(Clone)]
+struct StorageReference {
+    state_index: usize,
+    key_expressions: Vec<Expression>,
+    key_types: Vec<ValueType>,
+    value_type: ValueType,
+    field_path: Vec<StorageReferenceField>,
+}
+
+#[derive(Clone)]
+struct StorageReferenceField {
+    key: [u8; 32],
+    ty: ValueType,
+}
+
+impl MappingAccess<'_> {
+    fn to_storage_reference(&self) -> StorageReference {
+        StorageReference {
+            state_index: self.state_index,
+            key_expressions: self
+                .key_expressions
+                .iter()
+                .map(|expr| (*expr).clone())
+                .collect(),
+            key_types: self.key_types.clone(),
+            value_type: self.value_type.clone(),
+            field_path: Vec::new(),
+        }
+    }
+}
+
+fn resolve_storage_reference(
+    expression: &Expression,
+    ctx: &LoweringContext,
+) -> Option<StorageReference> {
+    if let Some(mapping) = resolve_mapping_access(expression, ctx) {
+        return Some(mapping.to_storage_reference());
+    }
+
+    match expression {
+        Expression::Variable(identifier) => ctx.storage_alias(&identifier.name).cloned(),
+        Expression::MemberAccess(_, inner, member) => {
+            let mut base = resolve_storage_reference(inner, ctx)?;
+            let field = find_struct_field(&base.value_type, &member.name)?;
+            base.field_path.push(StorageReferenceField {
+                key: field.key,
+                ty: field.ty.clone(),
+            });
+            base.value_type = field.ty.clone();
+            Some(base)
+        }
+        _ => None,
+    }
+}
+
+fn emit_storage_load(
+    reference: &StorageReference,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let mut success = true;
+    for expr in reference.key_expressions.iter().rev() {
+        if !lower_expression(expr, ctx, instructions) {
+            success = false;
+        }
+    }
+
+    if !success {
+        return false;
+    }
+
+    if let Some(field) = reference.field_path.last() {
+        instructions.push(Instruction::LoadStructField {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_key: field.key,
+            field_type: field.ty.clone(),
+        });
+    } else {
+        instructions.push(Instruction::LoadMappingElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+        });
+    }
+
+    true
+}
+
+fn emit_storage_store(
+    reference: &StorageReference,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let mut success = true;
+    for expr in reference.key_expressions.iter().rev() {
+        if !lower_expression(expr, ctx, instructions) {
+            success = false;
+        }
+    }
+
+    if !success {
+        return false;
+    }
+
+    if let Some(field) = reference.field_path.last() {
+        instructions.push(Instruction::StoreStructField {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_key: field.key,
+            field_type: field.ty.clone(),
+        });
+    } else {
+        instructions.push(Instruction::StoreMappingElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+        });
+    }
+
+    true
 }
 
 fn resolve_mapping_access<'a>(
@@ -602,6 +879,7 @@ fn resolve_mapping_access<'a>(
                     state_index,
                     key_expressions: keys,
                     key_types,
+                    value_type: current_type,
                 });
             }
             _ => return None,
@@ -642,12 +920,16 @@ fn lower_statement(
 ) -> bool {
     match statement {
         Statement::Block { statements, .. } => {
+            ctx.enter_scope();
+            let mut returned = false;
             for stmt in statements {
                 if lower_statement(stmt, ctx, instructions) {
-                    return true;
+                    returned = true;
+                    break;
                 }
             }
-            false
+            ctx.exit_scope();
+            returned
         }
         Statement::If(_, condition, then_stmt, else_stmt) => {
             let else_label = ctx.next_label();
@@ -708,6 +990,7 @@ fn lower_statement(
             false
         }
         Statement::For(_, init, condition, post, body) => {
+            ctx.enter_scope();
             if let Some(init_stmt) = init.as_deref() {
                 lower_statement(init_stmt, ctx, instructions);
             }
@@ -740,6 +1023,7 @@ fn lower_statement(
                 target: condition_label,
             });
             instructions.push(Instruction::Label(end_label));
+            ctx.exit_scope();
             false
         }
         Statement::Expression(_, expr) => {
@@ -762,15 +1046,23 @@ fn lower_statement(
         }
         Statement::VariableDefinition(_, decl, init) => {
             if let Some(ident) = &decl.name {
-                if ctx.resolve_local(&ident.name).is_some() {
+                if ctx.is_local_in_current_scope(&ident.name) {
                     ctx.record_error(format!("local variable '{}' redeclared", ident.name));
                 } else {
                     let slot = ctx.allocate_local(ident.name.clone());
+                    let is_storage_reference =
+                        matches!(decl.storage, Some(PtStorageLocation::Storage(_)));
                     if let Some(initializer) = init {
-                        if lower_expression(initializer, ctx, instructions) {
+                        if is_storage_reference {
+                            if let Some(reference) = resolve_storage_reference(initializer, ctx) {
+                                ctx.set_storage_alias(ident.name.clone(), reference);
+                            } else if lower_expression(initializer, ctx, instructions) {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                        } else if lower_expression(initializer, ctx, instructions) {
                             instructions.push(Instruction::StoreLocal(slot));
                         }
-                    } else {
+                    } else if !is_storage_reference {
                         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                             BigInt::from(0u8),
                         )));
@@ -835,22 +1127,55 @@ fn lower_assignment(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
-    if let Some(mapping) = resolve_mapping_access(lhs, ctx) {
-        let mut success = lower_expression(rhs, ctx, instructions);
+    if let Expression::Variable(identifier) = lhs {
+        if ctx.storage_alias(&identifier.name).is_some() {
+            if let Some(source_reference) = resolve_storage_reference(rhs, ctx) {
+                ctx.set_storage_alias(identifier.name.clone(), source_reference);
+                return;
+            }
+        }
+    }
 
-        for key_expr in mapping.key_expressions.iter().rev() {
-            if !lower_expression(key_expr, ctx, instructions) {
-                success = false;
+    if let Some(reference) = resolve_storage_reference(lhs, ctx) {
+        if let ValueType::Struct { name, fields } = &reference.value_type {
+            if let Expression::NamedFunctionCall(_, func, args) = rhs {
+                if let Expression::Variable(identifier) = func.as_ref() {
+                    if identifier.name.eq_ignore_ascii_case(name) {
+                        for field in fields {
+                            let mut field_reference = reference.clone();
+                            field_reference.field_path.push(StorageReferenceField {
+                                key: field.key,
+                                ty: field.ty.clone(),
+                            });
+                            field_reference.value_type = field.ty.clone();
+
+                            let success = if let Some(arg) =
+                                args.iter().find(|arg| arg.name.name == field.name)
+                            {
+                                lower_expression(&arg.expr, ctx, instructions)
+                            } else {
+                                push_default_for_value_type(&field.ty, instructions)
+                            };
+
+                            if success && !emit_storage_store(&field_reference, ctx, instructions) {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                        }
+
+                        return;
+                    }
+                }
             }
         }
 
+        let success = lower_expression(rhs, ctx, instructions);
         if success {
-            instructions.push(Instruction::StoreMappingElement {
-                state_index: mapping.state_index,
-                key_types: mapping.key_types.clone(),
-            });
+            if !emit_storage_store(&reference, ctx, instructions) {
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+        } else {
+            instructions.push(Instruction::Drop(ValueType::Any));
         }
-
         return;
     }
 
@@ -900,6 +1225,13 @@ fn lower_assignment(
     }
 
     ctx.record_error(format!("assignment target '{:?}' is not supported", lhs));
+}
+
+fn find_struct_field<'a>(value_type: &'a ValueType, field_name: &str) -> Option<&'a StructField> {
+    match value_type {
+        ValueType::Struct { fields, .. } => fields.iter().find(|field| field.name == field_name),
+        _ => None,
+    }
 }
 
 fn lower_compound_assignment(
@@ -1187,6 +1519,15 @@ fn lower_expression(
                 ])));
                 return true;
             }
+            if identifier.name == "block" || identifier.name == "msg" {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
+                return true;
+            }
+            if let Some(alias) = ctx.storage_alias(&identifier.name).cloned() {
+                return emit_storage_load(&alias, ctx, instructions);
+            }
             if let Some(index) = ctx.param_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadParameter(*index));
                 true
@@ -1195,6 +1536,11 @@ fn lower_expression(
                 true
             } else if let Some(index) = ctx.state_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadState(*index));
+                true
+            } else if is_likely_type_name(&identifier.name) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
                 true
             } else {
                 ctx.record_error(format!(
@@ -1243,6 +1589,20 @@ fn lower_expression(
                 }
             }
             instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+            true
+        }
+        Expression::NamedFunctionCall(_, func, args) => {
+            if !matches!(func.as_ref(), Expression::Variable(_)) {
+                load_expression(func, ctx, instructions);
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+            for arg in args {
+                load_expression(&arg.expr, ctx, instructions);
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             true
         }
         Expression::FunctionCall(_, func, args) => {
@@ -1458,6 +1818,19 @@ fn lower_expression(
             )));
             true
         }
+        Expression::ConditionalOperator(_, condition, then_expr, else_expr) => {
+            if lower_expression(condition, ctx, instructions) {
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+            load_expression(then_expr, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            load_expression(else_expr, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
+        }
         Expression::Parenthesis(_, inner) => lower_expression(inner, ctx, instructions),
         Expression::MemberAccess(_, inner, member) => {
             match member.name.as_str() {
@@ -1513,6 +1886,10 @@ fn lower_expression(
                     }
                 }
                 _ => {}
+            }
+
+            if let Some(reference) = resolve_storage_reference(expr, ctx) {
+                return emit_storage_load(&reference, ctx, instructions);
             }
 
             load_expression(inner, ctx, instructions);

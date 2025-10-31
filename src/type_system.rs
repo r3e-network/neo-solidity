@@ -3,6 +3,18 @@
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructFieldMetadata {
+    pub name: String,
+    pub ty: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructTypeMetadata {
+    pub name: String,
+    pub fields: Vec<StructFieldMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NeoType {
     Integer {
         signed: bool,
@@ -19,7 +31,17 @@ pub enum NeoType {
         key: Box<NeoType>,
         value: Box<NeoType>,
     },
+    Struct {
+        name: String,
+        fields: Vec<StructFieldType>,
+    },
     Any,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructFieldType {
+    pub name: String,
+    pub ty: Box<NeoType>,
 }
 
 #[derive(Debug, Error)]
@@ -29,8 +51,8 @@ pub enum TypeParseError {
 }
 
 impl NeoType {
-    pub fn from_solidity(ty: &str) -> Result<Self, TypeParseError> {
-        let ty = ty.trim();
+    pub fn from_solidity(ty: &str, structs: &[StructTypeMetadata]) -> Result<Self, TypeParseError> {
+        let ty = strip_data_location(ty);
         let lower = ty.to_ascii_lowercase();
 
         if let Some(rest) = lower.strip_prefix("uint") {
@@ -72,19 +94,54 @@ impl NeoType {
 
         if lower.ends_with("[]") {
             let inner = &ty[..ty.len() - 2];
-            let element = NeoType::from_solidity(inner)?;
+            let element = NeoType::from_solidity(inner, structs)?;
             return Ok(NeoType::Array(Box::new(element)));
         }
 
         if lower.starts_with("mapping") {
-            return parse_mapping_type(ty);
+            return parse_mapping_type(ty, structs);
         }
 
-        Err(TypeParseError::Unsupported(ty.to_string()))
+        if let Some(struct_meta) = lookup_struct(ty, structs) {
+            let mut fields = Vec::new();
+            for field in &struct_meta.fields {
+                let field_type = NeoType::from_solidity(&field.ty, structs)?;
+                fields.push(StructFieldType {
+                    name: field.name.clone(),
+                    ty: Box::new(field_type),
+                });
+            }
+            return Ok(NeoType::Struct {
+                name: struct_meta.name.clone(),
+                fields,
+            });
+        }
+
+        Ok(NeoType::Any)
     }
 }
 
-fn parse_mapping_type(ty: &str) -> Result<NeoType, TypeParseError> {
+fn strip_data_location(ty: &str) -> &str {
+    let mut trimmed = ty.trim();
+    for suffix in [" storage", " memory", " calldata"] {
+        if let Some(stripped) = trimmed.strip_suffix(suffix) {
+            trimmed = stripped.trim_end();
+        }
+    }
+    trimmed
+}
+
+fn lookup_struct<'a>(
+    ty: &str,
+    structs: &'a [StructTypeMetadata],
+) -> Option<&'a StructTypeMetadata> {
+    structs.iter().find(|s| {
+        s.name
+            .eq_ignore_ascii_case(ty.trim_start_matches("struct ").trim())
+    })
+}
+
+fn parse_mapping_type(ty: &str, structs: &[StructTypeMetadata]) -> Result<NeoType, TypeParseError> {
     // Expect "mapping(<key> => <value>)"
     let after_keyword = ty
         .trim_start()
@@ -151,11 +208,67 @@ fn parse_mapping_type(ty: &str) -> Result<NeoType, TypeParseError> {
         return Err(TypeParseError::Unsupported(ty.to_string()));
     }
 
-    let key = NeoType::from_solidity(key_str)?;
-    let value = NeoType::from_solidity(value_str)?;
+    let key = NeoType::from_solidity(key_str, structs)?;
+    let value = NeoType::from_solidity(value_str, structs)?;
 
     Ok(NeoType::Mapping {
         key: Box::new(key),
         value: Box::new(value),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn struct_meta(name: &str, fields: &[(&str, &str)]) -> StructTypeMetadata {
+        StructTypeMetadata {
+            name: name.to_string(),
+            fields: fields
+                .iter()
+                .map(|(fname, fty)| StructFieldMetadata {
+                    name: fname.to_string(),
+                    ty: fty.to_string(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn parses_simple_struct_type() {
+        let structs = vec![struct_meta("Point", &[("x", "uint256"), ("y", "uint256")])];
+
+        let ty = NeoType::from_solidity("Point", &structs).expect("struct type");
+        match ty {
+            NeoType::Struct { name, fields } => {
+                assert_eq!(name, "Point");
+                assert_eq!(fields.len(), 2);
+                assert_eq!(fields[0].name, "x");
+                assert!(matches!(
+                    *fields[0].ty,
+                    NeoType::Integer {
+                        signed: false,
+                        bits: 256
+                    }
+                ));
+            }
+            other => panic!("expected struct type, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn strips_data_location_suffixes() {
+        let structs = vec![struct_meta("Point", &[("x", "uint256")])];
+        let ty = NeoType::from_solidity("Point storage", &structs).expect("struct storage type");
+        assert!(matches!(ty, NeoType::Struct { .. }));
+
+        let mapping = NeoType::from_solidity("mapping(address => Point memory)", &structs)
+            .expect("mapping with struct value");
+        match mapping {
+            NeoType::Mapping { value, .. } => {
+                assert!(matches!(*value, NeoType::Struct { .. }));
+            }
+            other => panic!("expected mapping type, got {:?}", other),
+        }
+    }
 }

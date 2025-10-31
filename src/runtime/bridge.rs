@@ -4,8 +4,8 @@
 
 use super::types::StackItem;
 use super::{
-    execution, state, storage, ExceptionType, ExecutionResult, RuntimeConfig, RuntimeError,
-    RuntimeException, StackFrame, StateChange,
+    execution, state, storage, ExceptionType, ExecutionMetadata, ExecutionResult, RuntimeConfig,
+    RuntimeError, RuntimeException, StackFrame, StateChange,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -16,6 +16,7 @@ pub struct VMBridge {
     config: RuntimeConfig,
     instruction_mapping: HashMap<u8, InstructionHandler>,
     system_calls: HashMap<String, SystemCall>,
+    contract_account: String,
 }
 
 /// Instruction handler function type
@@ -65,6 +66,7 @@ impl VMBridge {
             config: config.clone(),
             instruction_mapping: HashMap::new(),
             system_calls: HashMap::new(),
+            contract_account: config.contract_account.clone(),
         };
 
         bridge.initialize_instruction_mapping();
@@ -80,6 +82,8 @@ impl VMBridge {
         storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<ExecutionResult, RuntimeError> {
+        context.bind_storage(&self.contract_account, storage)?;
+
         let mut state_changes = Vec::new();
         let logs = Vec::new();
         let mut stack_trace = Vec::new();
@@ -87,7 +91,7 @@ impl VMBridge {
         loop {
             // Check gas limit
             if gas.out_of_gas() {
-                return Ok(ExecutionResult {
+                let result = ExecutionResult {
                     success: false,
                     return_data: Vec::new(),
                     gas_used: gas.used(),
@@ -101,15 +105,18 @@ impl VMBridge {
                     state_changes,
                     logs,
                     stack_trace: Some(stack_trace),
-                });
+                    metadata: ExecutionMetadata::default(),
+                };
+                context.unbind_storage();
+                return Ok(result);
             }
 
             // Execute single step
             match context.step() {
                 Ok(step_result) => {
                     if step_result.halted {
-                        // Commit pending storage changes
-                        for account in self.get_modified_accounts(storage) {
+                        let modified_accounts = self.apply_storage_overlay(context, storage)?;
+                        for account in modified_accounts {
                             let changes = storage.commit(&account)?;
                             for change in changes {
                                 state_changes.push(StateChange {
@@ -122,7 +129,7 @@ impl VMBridge {
                             }
                         }
 
-                        return Ok(ExecutionResult {
+                        let result = ExecutionResult {
                             success: true,
                             return_data: self.extract_return_data(context)?,
                             gas_used: gas.used(),
@@ -131,7 +138,10 @@ impl VMBridge {
                             state_changes,
                             logs,
                             stack_trace: None,
-                        });
+                            metadata: ExecutionMetadata::default(),
+                        };
+                        context.unbind_storage();
+                        return Ok(result);
                     }
 
                     // Add to stack trace if debugging enabled
@@ -146,12 +156,7 @@ impl VMBridge {
                     }
                 }
                 Err(e) => {
-                    // Rollback pending changes on error
-                    for account in self.get_modified_accounts(storage) {
-                        storage.rollback(&account)?;
-                    }
-
-                    return Ok(ExecutionResult {
+                    let result = ExecutionResult {
                         success: false,
                         return_data: Vec::new(),
                         gas_used: gas.used(),
@@ -165,7 +170,10 @@ impl VMBridge {
                         state_changes,
                         logs,
                         stack_trace: Some(stack_trace),
-                    });
+                        metadata: ExecutionMetadata::default(),
+                    };
+                    context.unbind_storage();
+                    return Ok(result);
                 }
             }
         }
@@ -253,6 +261,24 @@ impl VMBridge {
     }
 
     // Instruction handlers
+
+    fn apply_storage_overlay(
+        &self,
+        context: &mut execution::ExecutionContext,
+        storage: &mut storage::StorageManager,
+    ) -> Result<Vec<String>, RuntimeError> {
+        if let Some((account, entries)) = context.drain_dirty_storage_overlay() {
+            for (key, value) in entries {
+                match value {
+                    Some(bytes) => storage.set(&account, &key, &bytes)?,
+                    None => storage.delete(&account, &key)?,
+                }
+            }
+            Ok(vec![account])
+        } else {
+            Ok(Vec::new())
+        }
+    }
 
     fn handle_add(
         _bridge: &mut VMBridge,
@@ -1207,12 +1233,6 @@ impl VMBridge {
             _ => false,
         };
         Ok(StackItem::Boolean(result))
-    }
-
-    fn get_modified_accounts(&self, _storage: &storage::StorageManager) -> Vec<String> {
-        // Get all accounts with pending changes
-        // This is a simplified implementation
-        vec!["0x0000000000000000000000000000000000000000".to_string()]
     }
 
     fn extract_return_data(

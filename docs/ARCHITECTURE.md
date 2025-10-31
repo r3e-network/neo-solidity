@@ -123,6 +123,17 @@ Deployment Outputs (.nef, .manifest.json, optional debug bundle)
 8. Replace devpack libraries with spec-accurate bindings.
 9. Stand up comprehensive tests/CI, including VM execution harness.
 
+## Runtime Metadata Overrides
+The runtime exposes an `ExecutionOverrides` helper alongside
+`NeoRuntime::execute_with_overrides`. Tests or embedding applications can supply
+per-execution block height, timestamp, and calling-script hash without mutating
+global state. After each run the overrides are cleared and the context falls
+back to the deterministic defaults from `RuntimeConfig`, which keeps the CLI
+and other integrations predictable while still allowing VM-level simulations of
+chain metadata. `ExecutionResult` now carries an `ExecutionMetadata` payload so
+callers can inspect the effective values that were in play for a given
+invocation.
+
 ## Tooling & Dependencies
 - `solang` crate (GPLv3) — confirm license compatibility or consider invoking
   external solc with JSON outputs if required.

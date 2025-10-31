@@ -70,6 +70,15 @@ neo-solc contract.sol -f nef -o contract.nef
 neo-solc contract.sol -f manifest -o contract.manifest.json
 ```
 
+### **Runtime Metadata Overrides**
+
+The embedded Neo runtime exposes an `ExecutionOverrides` struct so you can inject
+deterministic execution metadata (block height, timestamp, calling script hash)
+for a single invocation. Callers can use `NeoRuntime::execute_with_overrides`
+and inspect the resulting `ExecutionMetadata` payload carried by
+`ExecutionResult` to verify how a test run interacted with the simulated chain
+environment.
+
 ### **Example Contract**
 
 ```solidity

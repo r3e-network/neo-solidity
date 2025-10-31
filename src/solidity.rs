@@ -1,8 +1,10 @@
 use crate::frontend::{
     parse_source, ContractIR, ContractKind, EventIR, FunctionIR, MutabilityKind, ParameterIR,
-    StateVariableIR, VisibilityKind,
+    StateVariableIR, StructIR, VisibilityKind,
 };
-use crate::type_system::NeoType;
+use crate::type_system::{
+    NeoType, StructFieldMetadata as NeoStructFieldMetadata, StructTypeMetadata,
+};
 use sha3::{Digest, Keccak256};
 use solang_parser::pt::{CatchClause, Expression, FunctionTy, Statement};
 use thiserror::Error;
@@ -22,6 +24,7 @@ pub struct ContractMetadata {
     pub events: Vec<EventMetadata>,
     pub uses_storage: bool,
     pub state_variables: Vec<StateVariableMetadata>,
+    pub structs: Vec<StructMetadata>,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +78,18 @@ pub struct StateVariableMetadata {
     pub has_initializer: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct StructMetadata {
+    pub name: String,
+    pub fields: Vec<StructFieldMetadata>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructFieldMetadata {
+    pub name: String,
+    pub ty: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateMutability {
     Pure,
@@ -120,18 +135,22 @@ pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
 }
 
 fn convert_contract(contract: ContractIR) -> ContractMetadata {
+    let structs: Vec<StructMetadata> = contract.structs.into_iter().map(convert_struct).collect();
+
+    let struct_type_info = structs_to_type_metadata(&structs);
+
     let methods = contract
         .functions
         .into_iter()
         .filter(|function| matches!(function.ty, FunctionTy::Function | FunctionTy::Constructor))
-        .map(convert_function)
+        .map(|function| convert_function(function, &struct_type_info))
         .collect();
 
     let events = contract.events.into_iter().map(convert_event).collect();
     let state_variables: Vec<StateVariableMetadata> = contract
         .state_variables
         .into_iter()
-        .map(convert_state_variable)
+        .map(|var| convert_state_variable(var, &struct_type_info))
         .collect();
 
     ContractMetadata {
@@ -140,20 +159,21 @@ fn convert_contract(contract: ContractIR) -> ContractMetadata {
         events,
         uses_storage: !state_variables.is_empty(),
         state_variables,
+        structs,
     }
 }
 
-fn convert_function(function: FunctionIR) -> FunctionMetadata {
+fn convert_function(function: FunctionIR, struct_types: &[StructTypeMetadata]) -> FunctionMetadata {
     let parameters: Vec<ParameterMetadata> = function
         .parameters
         .into_iter()
-        .map(convert_parameter)
+        .map(|param| convert_parameter(param, struct_types))
         .collect();
 
     let return_parameters = function
         .returns
         .into_iter()
-        .map(convert_parameter)
+        .map(|param| convert_parameter(param, struct_types))
         .collect();
 
     let param_signatures: Vec<String> = parameters
@@ -199,9 +219,12 @@ fn convert_event(event: EventIR) -> EventMetadata {
     }
 }
 
-fn convert_state_variable(var: StateVariableIR) -> StateVariableMetadata {
+fn convert_state_variable(
+    var: StateVariableIR,
+    struct_types: &[StructTypeMetadata],
+) -> StateVariableMetadata {
     let ty = var.ty;
-    let neo_type = NeoType::from_solidity(&ty).ok();
+    let neo_type = NeoType::from_solidity(&ty, struct_types).ok();
     StateVariableMetadata {
         name: var.name,
         ty,
@@ -213,15 +236,48 @@ fn convert_state_variable(var: StateVariableIR) -> StateVariableMetadata {
     }
 }
 
-fn convert_parameter(param: ParameterIR) -> ParameterMetadata {
+fn convert_parameter(param: ParameterIR, struct_types: &[StructTypeMetadata]) -> ParameterMetadata {
     let ty = param.ty;
-    let neo_type = NeoType::from_solidity(&ty).ok();
+    let neo_type = NeoType::from_solidity(&ty, struct_types).ok();
     ParameterMetadata {
         name: param.name,
         ty,
         neo_type,
         storage: param.storage,
     }
+}
+
+fn convert_struct(ir: StructIR) -> StructMetadata {
+    let fields = ir
+        .fields
+        .into_iter()
+        .map(|field| StructFieldMetadata {
+            name: field.name,
+            ty: field.ty,
+        })
+        .collect();
+
+    StructMetadata {
+        name: ir.name,
+        fields,
+    }
+}
+
+fn structs_to_type_metadata(structs: &[StructMetadata]) -> Vec<StructTypeMetadata> {
+    structs
+        .iter()
+        .map(|s| StructTypeMetadata {
+            name: s.name.clone(),
+            fields: s
+                .fields
+                .iter()
+                .map(|f| NeoStructFieldMetadata {
+                    name: f.name.clone(),
+                    ty: f.ty.clone(),
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 pub fn extract_return_expression(body: &Option<Statement>) -> Option<Expression> {

@@ -400,6 +400,20 @@ fn emit_ir_function(
                     state_index,
                     key_types,
                 } => emit_store_mapping(&mut local, module, *state_index, key_types),
+                ir::Instruction::LoadStructField {
+                    state_index,
+                    key_types,
+                    field_key,
+                    ..
+                } => emit_load_struct_field(&mut local, module, *state_index, key_types, field_key),
+                ir::Instruction::StoreStructField {
+                    state_index,
+                    key_types,
+                    field_key,
+                    ..
+                } => {
+                    emit_store_struct_field(&mut local, module, *state_index, key_types, field_key)
+                }
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value)
                 }
@@ -468,6 +482,7 @@ fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
         }
         ValueType::Array(_) => bytecode.push(0xC4),
         ValueType::Mapping { .. } => bytecode.push(0x0B),
+        ValueType::Struct { .. } => bytecode.push(0x0B),
         ValueType::Any => bytecode.push(0x0B),
     }
 }
@@ -609,6 +624,20 @@ fn emit_mapping_slot(
     }
 }
 
+fn emit_struct_field_slot(
+    bytecode: &mut Vec<u8>,
+    module: &ir::Module,
+    state_index: usize,
+    key_types: &[ValueType],
+    field_key: &[u8; 32],
+) {
+    emit_mapping_slot(bytecode, module, state_index, key_types);
+    push_data(bytecode, field_key);
+    bytecode.push(0x50); // swap slot and field key bytes
+    bytecode.push(0x8B); // concatenate
+    emit_syscall(bytecode, "System.Crypto.SHA256");
+}
+
 fn emit_load_mapping(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
@@ -628,6 +657,33 @@ fn emit_store_mapping(
     key_types: &[ValueType],
 ) {
     emit_mapping_slot(bytecode, module, state_index, key_types);
+    emit_syscall(bytecode, "System.Storage.GetContext");
+    bytecode.push(0x50); // swap slot and context -> [value, context, slot]
+    bytecode.push(0x51); // ROT -> [context, slot, value]
+    emit_syscall(bytecode, "System.Storage.Put");
+}
+
+fn emit_load_struct_field(
+    bytecode: &mut Vec<u8>,
+    module: &ir::Module,
+    state_index: usize,
+    key_types: &[ValueType],
+    field_key: &[u8; 32],
+) {
+    emit_struct_field_slot(bytecode, module, state_index, key_types, field_key);
+    emit_syscall(bytecode, "System.Storage.GetContext");
+    bytecode.push(0x50); // swap context and slot
+    emit_syscall(bytecode, "System.Storage.Get");
+}
+
+fn emit_store_struct_field(
+    bytecode: &mut Vec<u8>,
+    module: &ir::Module,
+    state_index: usize,
+    key_types: &[ValueType],
+    field_key: &[u8; 32],
+) {
+    emit_struct_field_slot(bytecode, module, state_index, key_types, field_key);
     emit_syscall(bytecode, "System.Storage.GetContext");
     bytecode.push(0x50); // swap slot and context -> [value, context, slot]
     bytecode.push(0x51); // ROT -> [context, slot, value]

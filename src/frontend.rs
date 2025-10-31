@@ -9,7 +9,8 @@ use solang_parser::{
     pt::{
         ContractDefinition, ContractPart, ContractTy, EventDefinition, FunctionAttribute,
         FunctionDefinition, FunctionTy, Identifier, Mutability, ParameterList, SourceUnitPart,
-        Statement, StorageLocation, VariableAttribute, VariableDefinition, Visibility,
+        Statement, StorageLocation, StructDefinition, VariableAttribute, VariableDefinition,
+        Visibility,
     },
 };
 use thiserror::Error;
@@ -30,6 +31,7 @@ pub struct ContractIR {
     pub functions: Vec<FunctionIR>,
     pub events: Vec<EventIR>,
     pub state_variables: Vec<StateVariableIR>,
+    pub structs: Vec<StructIR>,
 }
 
 /// Classification of contract kinds.
@@ -104,6 +106,18 @@ pub struct StateVariableIR {
     pub has_initializer: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct StructIR {
+    pub name: String,
+    pub fields: Vec<StructFieldIR>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructFieldIR {
+    pub name: String,
+    pub ty: String,
+}
+
 /// Parse Solidity source into [`ContractIR`] values.
 pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     let (source_unit, _) = parse(source, 0)
@@ -137,6 +151,7 @@ fn convert_contract(contract: ContractDefinition) -> ContractIR {
     let mut functions = Vec::new();
     let mut events = Vec::new();
     let mut state_variables = Vec::new();
+    let mut structs = Vec::new();
 
     for part in contract.parts.into_iter() {
         match part {
@@ -145,6 +160,7 @@ fn convert_contract(contract: ContractDefinition) -> ContractIR {
             ContractPart::VariableDefinition(def) => {
                 state_variables.push(convert_state_variable(*def))
             }
+            ContractPart::StructDefinition(def) => structs.push(convert_struct(*def)),
             _ => {}
         }
     }
@@ -155,6 +171,7 @@ fn convert_contract(contract: ContractDefinition) -> ContractIR {
         functions,
         events,
         state_variables,
+        structs,
     }
 }
 
@@ -296,6 +313,28 @@ fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {
         visibility,
         has_initializer: def.initializer.is_some(),
     }
+}
+
+fn convert_struct(def: StructDefinition) -> StructIR {
+    let name = def
+        .name
+        .as_ref()
+        .map(|id| id.name.clone())
+        .unwrap_or_else(|| "Struct".to_string());
+
+    let fields = def
+        .fields
+        .into_iter()
+        .filter_map(|field| {
+            let field_name = field.name.map(|id| id.name)?;
+            Some(StructFieldIR {
+                name: field_name,
+                ty: format!("{}", field.ty),
+            })
+        })
+        .collect();
+
+    StructIR { name, fields }
 }
 
 fn format_diagnostics(source: &str, diagnostics: &[Diagnostic]) -> String {

@@ -3,7 +3,8 @@
 This note captures the first-phase implementation plan for supporting Solidity
 `mapping` access inside the Neo Solidity compiler. It is intentionally scoped to
 what is required to compile the NEP‑11/17/24 sample contracts; follow-up work
-will extend support to dynamic arrays and struct fields.
+will extend support to dynamic arrays (struct fields are now wired through the
+same lowering path).
 
 ### 1. Frontend Metadata
 - Teach `convert_state_variable` to recognise `mapping(<K> => <V>)`. Record a new
@@ -20,6 +21,8 @@ will extend support to dynamic arrays and struct fields.
   - `Instruction::StoreMapping { state_index: usize, keys: Vec<ValueType> }`
   - `Instruction::AddressOfMapping { state_index: usize, keys: Vec<ValueType> }`
     (needed for compound assignment patterns)
+  - `Instruction::LoadStructField { state_index, key_types, field_key, field_type }`
+  - `Instruction::StoreStructField { state_index, key_types, field_key, field_type }`
 - When lowering `Expression::ArraySubscript`, build the key vector by walking up
   the nested subscripts.
 
@@ -34,8 +37,8 @@ will extend support to dynamic arrays and struct fields.
      `System.Crypto.SHA256`.
 
 ### 4. Code Generation Hooks
-- Extend `emit_ir_function` to translate the new mapping instructions to the
-  runtime sequence.
+- Extend `emit_ir_function` to translate the new mapping and struct-field
+  instructions to the runtime sequence.
 - Define helper entry points inside codegen:
   - `emit_serialize_key(bytecode, key_type)`: consumes the key value on the
     stack and leaves a canonical `ByteArray` representing the key.
@@ -79,8 +82,8 @@ will extend support to dynamic arrays and struct fields.
 
 ### 5. Validation & Diagnostics
 - Update `validate_contract` to accept mapping variables and parameters.
-- For now, warn when the value type is itself a struct or dynamic array (not yet
-  supported).
+- For now, warn when the value type is itself a dynamic array (struct values are
+  handled via `LoadStructField`/`StoreStructField`).
 
 ### 6. Testing Strategy
 - Unit tests:

@@ -9,6 +9,7 @@ pub mod state;
 pub mod storage;
 pub mod types;
 
+use hex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -34,6 +35,7 @@ pub struct ExecutionResult {
     pub state_changes: Vec<StateChange>,
     pub logs: Vec<LogEntry>,
     pub stack_trace: Option<Vec<StackFrame>>,
+    pub metadata: ExecutionMetadata,
 }
 
 /// Runtime exception information
@@ -97,6 +99,22 @@ pub struct StackFrame {
     pub local_variables: HashMap<String, types::StackItem>,
 }
 
+/// Optional metadata overrides for a single execution
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExecutionOverrides {
+    pub block_height: Option<u64>,
+    pub timestamp: Option<u64>,
+    pub caller_account: Option<String>,
+}
+
+/// Metadata captured from the execution environment
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ExecutionMetadata {
+    pub block_height: Option<u64>,
+    pub timestamp: Option<u64>,
+    pub caller_account: Option<String>,
+}
+
 /// Runtime configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeConfig {
@@ -108,6 +126,9 @@ pub struct RuntimeConfig {
     pub enable_tracing: bool,
     pub strict_mode: bool,
     pub neo_version: String,
+    pub contract_account: String,
+    pub default_block_height: u64,
+    pub default_timestamp: u64,
 }
 
 /// Runtime errors
@@ -139,6 +160,46 @@ pub enum RuntimeError {
 }
 
 impl NeoRuntime {
+    /// Override block height for the next execution.
+    pub fn override_block_height(&mut self, height: u64) {
+        self.execution_context.override_block_height(height);
+    }
+
+    /// Override timestamp for the next execution.
+    pub fn override_timestamp(&mut self, timestamp: u64) {
+        self.execution_context.override_timestamp(timestamp);
+    }
+
+    /// Override caller script hash for the next execution.
+    pub fn override_caller_account(&mut self, account: &str) -> Result<(), RuntimeError> {
+        self.execution_context.override_caller_account(account)
+    }
+
+    /// Execute bytecode with optional metadata overrides applied to this invocation.
+    pub fn execute_with_overrides(
+        &mut self,
+        bytecode: &[u8],
+        input: &[u8],
+        overrides: &ExecutionOverrides,
+    ) -> Result<ExecutionResult, RuntimeError> {
+        if let Some(height) = overrides.block_height {
+            self.override_block_height(height);
+        }
+
+        if let Some(timestamp) = overrides.timestamp {
+            self.override_timestamp(timestamp);
+        }
+
+        if let Some(account) = overrides.caller_account.as_deref() {
+            if let Err(err) = self.override_caller_account(account) {
+                self.execution_context.clear_pending_overrides();
+                return Err(err);
+            }
+        }
+
+        self.execute(bytecode, input)
+    }
+
     /// Create new runtime instance
     pub fn new(config: RuntimeConfig) -> Result<Self, RuntimeError> {
         Ok(Self {
@@ -148,6 +209,21 @@ impl NeoRuntime {
             vm_bridge: bridge::VMBridge::new(&config)?,
             gas_tracker: execution::GasTracker::new(config.gas_limit),
         })
+    }
+
+    fn capture_metadata(&self) -> ExecutionMetadata {
+        let block_height = self.execution_context.block_height();
+        let timestamp = self.execution_context.timestamp();
+        let caller_account = self
+            .execution_context
+            .caller_account()
+            .map(|bytes| format!("0x{}", hex::encode(bytes)));
+
+        ExecutionMetadata {
+            block_height,
+            timestamp,
+            caller_account,
+        }
     }
 
     /// Execute bytecode with given input
@@ -170,6 +246,8 @@ impl NeoRuntime {
             &mut self.gas_tracker,
         )?;
 
+        let mut result = result;
+        result.metadata = self.capture_metadata();
         Ok(result)
     }
 
@@ -384,6 +462,9 @@ impl Default for RuntimeConfig {
             enable_tracing: false,
             strict_mode: true,
             neo_version: "3.5.0".to_string(),
+            contract_account: "0x0000000000000000000000000000000000000000".to_string(),
+            default_block_height: 0,
+            default_timestamp: 0,
         }
     }
 }
@@ -428,6 +509,26 @@ impl ExecutionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hex;
+    use sha2::{Digest, Sha256};
+
+    fn metadata_script() -> Vec<u8> {
+        let syscalls = [
+            "System.Blockchain.GetHeight",
+            "System.Runtime.GetTime",
+            "System.Runtime.CallingScriptHash",
+        ];
+        let mut script = Vec::with_capacity(syscalls.len() * 5 + 1);
+        for name in syscalls {
+            script.push(0x41);
+            let mut hasher = Sha256::new();
+            hasher.update(name.as_bytes());
+            let digest = hasher.finalize();
+            script.extend_from_slice(&[digest[0], digest[1], digest[2], digest[3]]);
+        }
+        script.push(0x40); // RET
+        script
+    }
 
     #[test]
     fn test_runtime_creation() {
@@ -473,6 +574,7 @@ mod tests {
             state_changes: vec![],
             logs: vec![],
             stack_trace: None,
+            metadata: ExecutionMetadata::default(),
         };
 
         assert!(result.is_success());
@@ -529,5 +631,93 @@ mod tests {
         // Get balance
         let retrieved = runtime.get_balance(account).unwrap();
         assert_eq!(retrieved, balance);
+    }
+
+    #[test]
+    fn test_runtime_metadata_overrides_apply_once() {
+        let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+        let overrides = ExecutionOverrides {
+            block_height: Some(42),
+            timestamp: Some(1_337),
+            caller_account: Some("0x0102030405060708090a0102030405060708090a".to_string()),
+        };
+
+        let script = metadata_script();
+        let result = runtime
+            .execute_with_overrides(&script, &[], &overrides)
+            .expect("execution");
+        assert!(result.success);
+
+        assert_eq!(result.metadata.block_height, Some(42));
+        assert_eq!(result.metadata.timestamp, Some(1_337));
+        assert_eq!(
+            result.metadata.caller_account.as_deref(),
+            Some("0x0102030405060708090a0102030405060708090a")
+        );
+
+        assert!(runtime.execution_context.pending_block_height().is_none());
+        assert!(runtime.execution_context.pending_timestamp().is_none());
+        assert!(runtime.execution_context.pending_caller_account().is_none());
+
+        assert_eq!(runtime.execution_context.block_height(), Some(42));
+        assert_eq!(runtime.execution_context.timestamp(), Some(1_337));
+
+        let expected = hex::decode("0102030405060708090a0102030405060708090a").expect("valid hex");
+        assert_eq!(
+            runtime.execution_context.caller_account(),
+            Some(expected.as_slice())
+        );
+
+        // Next execution without overrides should fall back to defaults.
+        let second = runtime
+            .execute_with_overrides(&metadata_script(), &[], &ExecutionOverrides::default())
+            .expect("second execution");
+
+        assert_eq!(runtime.execution_context.block_height(), Some(0));
+        assert_eq!(runtime.execution_context.timestamp(), Some(0));
+        assert_eq!(
+            runtime.execution_context.caller_account(),
+            Some(runtime.execution_context.default_account_bytes())
+        );
+
+        assert_eq!(second.metadata.block_height, Some(0));
+        assert_eq!(second.metadata.timestamp, Some(0));
+        let expected_default = format!(
+            "0x{}",
+            hex::encode(runtime.execution_context.default_account_bytes())
+        );
+        assert_eq!(
+            second.metadata.caller_account.as_deref(),
+            Some(expected_default.as_str())
+        );
+    }
+
+    #[test]
+    fn test_override_caller_account_rejects_invalid_hex() {
+        let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+        let err = runtime
+            .override_caller_account("0x123")
+            .expect_err("should reject odd-length hex");
+        assert!(matches!(err, RuntimeError::ConfigurationError { .. }));
+        assert!(runtime.execution_context.pending_caller_account().is_none());
+    }
+
+    #[test]
+    fn test_execute_with_overrides_rejects_invalid_metadata() {
+        let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+        let overrides = ExecutionOverrides {
+            block_height: Some(77),
+            timestamp: Some(555),
+            caller_account: Some("0x123".to_string()),
+        };
+
+        let err = runtime
+            .execute_with_overrides(&[], &[], &overrides)
+            .expect_err("invalid caller should error");
+        assert!(matches!(err, RuntimeError::ConfigurationError { .. }));
+
+        assert!(runtime.execution_context.pending_block_height().is_none());
+        assert!(runtime.execution_context.pending_timestamp().is_none());
+        assert!(runtime.execution_context.pending_caller_account().is_none());
     }
 }

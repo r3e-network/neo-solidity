@@ -2,8 +2,10 @@
 //!
 //! Provides execution context and gas tracking for Neo runtime.
 
-use super::{RuntimeConfig, RuntimeError};
+use super::{storage, RuntimeConfig, RuntimeError};
+use hex;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 
 /// Execution context for runtime operations
@@ -21,6 +23,20 @@ pub struct ExecutionContext {
     breakpoints: HashSet<u32>,
     instruction_count: u64,
     max_stack_depth: u32,
+    storage_overlay: HashMap<Vec<u8>, OverlayEntry>,
+    storage_account: Option<String>,
+    storage_host: Option<*mut storage::StorageManager>,
+    default_account: String,
+    default_account_bytes: Vec<u8>,
+    caller_account: Option<Vec<u8>>,
+    block_height: Option<u64>,
+    default_block_height: u64,
+    timestamp: Option<u64>,
+    default_timestamp: u64,
+    invocation_counter: u64,
+    pending_caller_account: Option<Vec<u8>>,
+    pending_block_height: Option<u64>,
+    pending_timestamp: Option<u64>,
 }
 
 /// Stack item in execution context
@@ -70,9 +86,31 @@ pub struct MemoryChange {
     pub new_value: u8,
 }
 
+#[derive(Debug, Clone)]
+struct OverlayEntry {
+    value: Option<Vec<u8>>,
+    dirty: bool,
+}
+
+const SYS_STORAGE_GET_CONTEXT: [u8; 4] = [155, 246, 103, 206];
+const SYS_STORAGE_GET: [u8; 4] = [146, 93, 232, 49];
+const SYS_STORAGE_PUT: [u8; 4] = [230, 63, 24, 132];
+const SYS_CRYPTO_SHA256: [u8; 4] = [48, 86, 191, 186];
+const SYS_BLOCKCHAIN_GET_HEIGHT: [u8; 4] = [126, 245, 114, 31];
+const SYS_RUNTIME_GET_TIME: [u8; 4] = [183, 195, 136, 3];
+const SYS_RUNTIME_CALLING_SCRIPT_HASH: [u8; 4] = [241, 144, 111, 97];
+const SYS_RUNTIME_GET_INVOCATION_COUNTER: [u8; 4] = [132, 39, 17, 67];
+
+type StorageOverlayEntries = Vec<(Vec<u8>, Option<Vec<u8>>)>;
+
 impl ExecutionContext {
     /// Create new execution context
     pub fn new(config: &RuntimeConfig) -> Result<Self, RuntimeError> {
+        let default_account = Self::normalize_account(&config.contract_account)?;
+        let default_account_bytes = Self::account_string_to_bytes(&default_account)?;
+        let default_block_height = config.default_block_height;
+        let default_timestamp = config.default_timestamp;
+
         Ok(Self {
             bytecode: Vec::new(),
             input_data: Vec::new(),
@@ -86,6 +124,20 @@ impl ExecutionContext {
             breakpoints: HashSet::new(),
             instruction_count: 0,
             max_stack_depth: 0,
+            storage_overlay: HashMap::new(),
+            storage_account: Some(default_account.clone()),
+            storage_host: None,
+            default_account,
+            default_account_bytes,
+            caller_account: None,
+            block_height: Some(default_block_height),
+            default_block_height,
+            timestamp: Some(default_timestamp),
+            default_timestamp,
+            invocation_counter: 0,
+            pending_caller_account: None,
+            pending_block_height: None,
+            pending_timestamp: None,
         })
     }
 
@@ -98,7 +150,45 @@ impl ExecutionContext {
         self.call_stack.clear();
         self.gas_used = 0;
         self.instruction_count = 0;
+        self.storage_overlay.clear();
+        self.storage_account = Some(self.default_account.clone());
+        self.storage_host = None;
+        self.caller_account = self.pending_caller_account.take();
+        self.block_height = self
+            .pending_block_height
+            .take()
+            .or(Some(self.default_block_height));
+        self.timestamp = self
+            .pending_timestamp
+            .take()
+            .or(Some(self.default_timestamp));
+        self.invocation_counter = 0;
         Ok(())
+    }
+
+    /// Override the block height for the next execution.
+    pub fn override_block_height(&mut self, height: u64) {
+        self.pending_block_height = Some(height);
+    }
+
+    /// Override the timestamp for the next execution.
+    pub fn override_timestamp(&mut self, timestamp: u64) {
+        self.pending_timestamp = Some(timestamp);
+    }
+
+    /// Override the calling script hash for the next execution.
+    pub fn override_caller_account(&mut self, account: &str) -> Result<(), RuntimeError> {
+        let normalized = Self::normalize_account(account)?;
+        let bytes = Self::account_string_to_bytes(&normalized)?;
+        self.pending_caller_account = Some(bytes);
+        Ok(())
+    }
+
+    /// Clear any pending metadata overrides before the next execution.
+    pub fn clear_pending_overrides(&mut self) {
+        self.pending_block_height = None;
+        self.pending_timestamp = None;
+        self.pending_caller_account = None;
     }
 
     /// Get gas limit
@@ -109,6 +199,41 @@ impl ExecutionContext {
     /// Get instruction count
     pub fn instruction_count(&self) -> u64 {
         self.instruction_count
+    }
+
+    /// Get pending block height override, if any.
+    pub fn pending_block_height(&self) -> Option<u64> {
+        self.pending_block_height
+    }
+
+    /// Get pending timestamp override, if any.
+    pub fn pending_timestamp(&self) -> Option<u64> {
+        self.pending_timestamp
+    }
+
+    /// Get pending caller account override bytes, if any.
+    pub fn pending_caller_account(&self) -> Option<&[u8]> {
+        self.pending_caller_account.as_deref()
+    }
+
+    /// Get the active block height for the current execution.
+    pub fn block_height(&self) -> Option<u64> {
+        self.block_height
+    }
+
+    /// Get the active timestamp for the current execution.
+    pub fn timestamp(&self) -> Option<u64> {
+        self.timestamp
+    }
+
+    /// Get the active caller account for the current execution.
+    pub fn caller_account(&self) -> Option<&[u8]> {
+        self.caller_account.as_deref()
+    }
+
+    /// Get the default account bytes configured for this context.
+    pub fn default_account_bytes(&self) -> &[u8] {
+        &self.default_account_bytes
     }
 
     /// Get maximum stack depth
@@ -455,6 +580,96 @@ impl ExecutionContext {
                 self.push_stack(top)?;
                 self.instruction_pointer += 1;
             }
+            0x41 => {
+                if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "SYSCALL: insufficient bytecode".to_string(),
+                    });
+                }
+
+                let mut syscall_id = [0u8; 4];
+                syscall_id.copy_from_slice(
+                    &self.bytecode[self.instruction_pointer as usize + 1
+                        ..self.instruction_pointer as usize + 5],
+                );
+
+                match syscall_id {
+                    SYS_STORAGE_GET_CONTEXT => {
+                        self.push_stack(StackItem::ByteArray(Vec::new()))?;
+                    }
+                    SYS_STORAGE_GET => {
+                        let slot_item = self.pop_stack()?;
+                        let _context = self.pop_stack()?; // ignored
+                        let key = Self::stack_item_to_bytes(slot_item);
+
+                        let value = if let Some(entry) = self.storage_overlay.get(&key) {
+                            entry.value.clone().unwrap_or_default()
+                        } else {
+                            let fetched = self.fetch_storage_value(&key)?;
+                            let bytes = fetched.clone().unwrap_or_default();
+                            self.storage_overlay.insert(
+                                key.clone(),
+                                OverlayEntry {
+                                    value: fetched,
+                                    dirty: false,
+                                },
+                            );
+                            bytes
+                        };
+
+                        self.push_stack(StackItem::ByteArray(value))?;
+                    }
+                    SYS_STORAGE_PUT => {
+                        let value_item = self.pop_stack()?;
+                        let _context = self.pop_stack()?; // ignored
+                        let slot_item = self.pop_stack()?;
+
+                        let key = Self::stack_item_to_bytes(slot_item);
+                        let value = Self::stack_item_to_bytes(value_item);
+
+                        let entry = self.storage_overlay.entry(key.clone()).or_insert_with(|| {
+                            OverlayEntry {
+                                value: None,
+                                dirty: false,
+                            }
+                        });
+                        entry.value = if value.is_empty() { None } else { Some(value) };
+                        entry.dirty = true;
+                    }
+                    SYS_BLOCKCHAIN_GET_HEIGHT => {
+                        let height = *self.block_height.get_or_insert(self.default_block_height);
+                        self.push_stack(StackItem::UnsignedInteger(height))?;
+                    }
+                    SYS_RUNTIME_GET_TIME => {
+                        let timestamp = *self.timestamp.get_or_insert(self.default_timestamp);
+                        self.push_stack(StackItem::UnsignedInteger(timestamp))?;
+                    }
+                    SYS_RUNTIME_CALLING_SCRIPT_HASH => {
+                        if self.caller_account.is_none() {
+                            self.caller_account = Some(self.default_account_bytes.clone());
+                            self.storage_account = Some(self.default_account.clone());
+                        }
+                        let bytes = self
+                            .caller_account
+                            .clone()
+                            .unwrap_or_else(|| self.default_account_bytes.clone());
+                        self.push_stack(StackItem::ByteArray(bytes))?;
+                    }
+                    SYS_RUNTIME_GET_INVOCATION_COUNTER => {
+                        self.invocation_counter += 1;
+                        self.push_stack(StackItem::UnsignedInteger(self.invocation_counter))?;
+                    }
+                    SYS_CRYPTO_SHA256 => {
+                        let data = self.pop_stack()?;
+                        let bytes = Self::stack_item_to_bytes(data);
+                        let digest = Sha256::digest(&bytes);
+                        self.push_stack(StackItem::ByteArray(digest[..].to_vec()))?;
+                    }
+                    _ => {}
+                }
+
+                self.instruction_pointer += 5;
+            }
             0x42 => {
                 // SWAP
                 let top = self.pop_stack()?;
@@ -681,6 +896,80 @@ impl ExecutionContext {
                 }
             }
             _ => Ok(false),
+        }
+    }
+
+    fn stack_item_to_bytes(item: StackItem) -> Vec<u8> {
+        match item {
+            StackItem::ByteArray(bytes) => bytes,
+            StackItem::Integer(value) => value.to_le_bytes().to_vec(),
+            StackItem::UnsignedInteger(value) => value.to_le_bytes().to_vec(),
+            StackItem::Boolean(value) => vec![value as u8],
+            StackItem::Null => Vec::new(),
+        }
+    }
+
+    fn normalize_account(account: &str) -> Result<String, RuntimeError> {
+        let trimmed = account.trim();
+        let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+        if without_prefix.len() % 2 != 0 {
+            return Err(RuntimeError::ConfigurationError {
+                message: "contract account hex string has odd length".to_string(),
+            });
+        }
+        let lower = without_prefix.to_ascii_lowercase();
+        Ok(format!("0x{}", lower))
+    }
+
+    fn account_string_to_bytes(account: &str) -> Result<Vec<u8>, RuntimeError> {
+        let normalized = Self::normalize_account(account)?;
+        let hex_part = normalized.trim_start_matches("0x");
+        hex::decode(hex_part).map_err(|e| RuntimeError::ConfigurationError {
+            message: format!("invalid contract account: {}", e),
+        })
+    }
+
+    pub fn bind_storage(
+        &mut self,
+        account: &str,
+        storage: &mut storage::StorageManager,
+    ) -> Result<(), RuntimeError> {
+        let normalized = Self::normalize_account(account)?;
+        self.storage_account = Some(normalized);
+        self.storage_host = Some(storage as *mut _);
+        self.storage_overlay.clear();
+        Ok(())
+    }
+
+    pub fn unbind_storage(&mut self) {
+        self.storage_host = None;
+        self.storage_account = Some(self.default_account.clone());
+        self.storage_overlay.clear();
+    }
+
+    pub fn drain_dirty_storage_overlay(&mut self) -> Option<(String, StorageOverlayEntries)> {
+        let account = self.storage_account.clone()?;
+        let mut entries = Vec::new();
+        for (key, entry) in self.storage_overlay.drain() {
+            if entry.dirty {
+                entries.push((key, entry.value));
+            }
+        }
+
+        if entries.is_empty() {
+            None
+        } else {
+            Some((account, entries))
+        }
+    }
+
+    fn fetch_storage_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, RuntimeError> {
+        match (self.storage_host, self.storage_account.as_ref()) {
+            (Some(ptr), Some(account)) => {
+                let storage = unsafe { &mut *ptr };
+                storage.get(account, key)
+            }
+            _ => Ok(None),
         }
     }
 
