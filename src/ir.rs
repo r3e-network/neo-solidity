@@ -870,6 +870,54 @@ fn lower_compound_assignment(
     false
 }
 
+fn lower_post_inc_dec(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    increment: bool,
+) -> bool {
+    let mut original = Vec::new();
+    if !lower_expression(expr, ctx, &mut original) {
+        return false;
+    }
+
+    instructions.append(&mut original.clone());
+
+    let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
+    let op = if increment {
+        BinaryOperator::Add
+    } else {
+        BinaryOperator::Sub
+    };
+
+    if !lower_compound_assignment(expr, &one, ctx, instructions, op) {
+        return false;
+    }
+
+    instructions.extend(original);
+    true
+}
+
+fn lower_pre_inc_dec(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    increment: bool,
+) -> bool {
+    let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
+    let op = if increment {
+        BinaryOperator::Add
+    } else {
+        BinaryOperator::Sub
+    };
+
+    if !lower_compound_assignment(expr, &one, ctx, instructions, op) {
+        return false;
+    }
+
+    lower_expression(expr, ctx, instructions)
+}
+
 fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     if let Expression::FunctionCall(_, func, _args) = expr {
         if let Expression::Variable(identifier) = func.as_ref() {
@@ -987,6 +1035,10 @@ fn lower_expression(
         Expression::AssignSubtract(_, lhs, rhs) => {
             lower_compound_assignment(lhs, rhs, ctx, instructions, BinaryOperator::Sub)
         }
+        Expression::PostIncrement(_, inner) => lower_post_inc_dec(inner, ctx, instructions, true),
+        Expression::PostDecrement(_, inner) => lower_post_inc_dec(inner, ctx, instructions, false),
+        Expression::PreIncrement(_, inner) => lower_pre_inc_dec(inner, ctx, instructions, true),
+        Expression::PreDecrement(_, inner) => lower_pre_inc_dec(inner, ctx, instructions, false),
         Expression::Not(_, inner) => {
             if lower_expression(inner, ctx, instructions) {
                 instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
