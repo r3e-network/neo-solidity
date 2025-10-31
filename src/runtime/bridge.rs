@@ -1,10 +1,12 @@
 //! VM Bridge Module
-//! 
+//!
 //! Provides bridge between EVM semantics and NeoVM execution environment.
 
-use super::{RuntimeConfig, RuntimeError, ExecutionResult, RuntimeException, ExceptionType,
-           StateChange, StackFrame, execution, state, storage};
 use super::types::StackItem;
+use super::{
+    execution, state, storage, ExceptionType, ExecutionResult, RuntimeConfig, RuntimeError,
+    RuntimeException, StackFrame, StateChange,
+};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -17,9 +19,13 @@ pub struct VMBridge {
 }
 
 /// Instruction handler function type
-type InstructionHandler = fn(&mut VMBridge, &mut execution::ExecutionContext, 
-                           &mut state::StateManager, &mut storage::StorageManager,
-                           &mut execution::GasTracker) -> Result<(), VMBridgeError>;
+type InstructionHandler = fn(
+    &mut VMBridge,
+    &mut execution::ExecutionContext,
+    &mut state::StateManager,
+    &mut storage::StorageManager,
+    &mut execution::GasTracker,
+) -> Result<(), VMBridgeError>;
 
 /// System call function type
 type SystemCall = fn(&mut VMBridge, &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError>;
@@ -29,22 +35,22 @@ type SystemCall = fn(&mut VMBridge, &[StackItem]) -> Result<Vec<StackItem>, VMBr
 pub enum VMBridgeError {
     #[error("Instruction not supported: {opcode:#04x}")]
     UnsupportedInstruction { opcode: u8 },
-    
+
     #[error("System call failed: {name} - {message}")]
     SystemCallFailed { name: String, message: String },
-    
+
     #[error("Stack operation failed: {message}")]
     StackOperationFailed { message: String },
-    
+
     #[error("Memory operation failed: {message}")]
     MemoryOperationFailed { message: String },
-    
+
     #[error("Storage operation failed: {message}")]
     StorageOperationFailed { message: String },
-    
+
     #[error("State operation failed: {message}")]
     StateOperationFailed { message: String },
-    
+
     #[error("Bridge error: {message}")]
     BridgeError { message: String },
 
@@ -60,7 +66,7 @@ impl VMBridge {
             instruction_mapping: HashMap::new(),
             system_calls: HashMap::new(),
         };
-        
+
         bridge.initialize_instruction_mapping();
         bridge.initialize_system_calls();
         Ok(bridge)
@@ -138,7 +144,7 @@ impl VMBridge {
                             local_variables: HashMap::new(),
                         });
                     }
-                },
+                }
                 Err(e) => {
                     // Rollback pending changes on error
                     for account in self.get_modified_accounts(storage) {
@@ -182,7 +188,11 @@ impl VMBridge {
     }
 
     /// Call system function
-    pub fn call_system_function(&mut self, name: &str, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    pub fn call_system_function(
+        &mut self,
+        name: &str,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
         if let Some(syscall) = self.system_calls.get(name) {
             syscall(self, args)
         } else {
@@ -232,10 +242,14 @@ impl VMBridge {
     }
 
     fn initialize_system_calls(&mut self) {
-        self.system_calls.insert("keccak256".to_string(), Self::syscall_keccak256);
-        self.system_calls.insert("sha256".to_string(), Self::syscall_sha256);
-        self.system_calls.insert("ecrecover".to_string(), Self::syscall_ecrecover);
-        self.system_calls.insert("verify".to_string(), Self::syscall_verify);
+        self.system_calls
+            .insert("keccak256".to_string(), Self::syscall_keccak256);
+        self.system_calls
+            .insert("sha256".to_string(), Self::syscall_sha256);
+        self.system_calls
+            .insert("ecrecover".to_string(), Self::syscall_ecrecover);
+        self.system_calls
+            .insert("verify".to_string(), Self::syscall_verify);
     }
 
     // Instruction handlers
@@ -247,21 +261,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("ADD", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("ADD", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::add_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -273,21 +294,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("SUB", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("SUB", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::sub_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -299,21 +327,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MUL", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("MUL", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::mul_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -325,21 +360,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("DIV", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("DIV", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::div_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -351,21 +393,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MOD", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("MOD", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::mod_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -377,21 +426,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("LT", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("LT", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::lt_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -403,21 +459,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("GT", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("GT", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::gt_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -429,21 +492,28 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("EQ", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("EQ", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let result = Self::eq_stack_items(a, b)?;
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -455,13 +525,16 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("PUSH", Some(1)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("PUSH", Some(1))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        context.push_stack(StackItem::UnsignedInteger(0)).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(StackItem::UnsignedInteger(0))
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -473,13 +546,16 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("PUSH", Some(1)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("PUSH", Some(1))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        context.push_stack(StackItem::UnsignedInteger(1)).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(StackItem::UnsignedInteger(1))
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -491,13 +567,16 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("DROP", Some(2)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("DROP", Some(2))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -509,17 +588,23 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("DUP", Some(2)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("DUP", Some(2))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let item = context.peek_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?.clone();
+        let item = context
+            .peek_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?
+            .clone();
 
-        context.push_stack(item).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(item)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -531,23 +616,32 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("SWAP", Some(2)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("SWAP", Some(2))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let a = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let b = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
-        context.push_stack(a).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        context.push_stack(b).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(a)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        context
+            .push_stack(b)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -603,31 +697,41 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MLOAD", Some(3)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("MLOAD", Some(3))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let address = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let address = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         // Convert address to usize
         let addr = match address {
             StackItem::UnsignedInteger(a) => a as usize,
             StackItem::Integer(a) => a as usize,
-            _ => return Err(VMBridgeError::MemoryOperationFailed {
-                message: "Invalid memory address".to_string(),
-            }),
+            _ => {
+                return Err(VMBridgeError::MemoryOperationFailed {
+                    message: "Invalid memory address".to_string(),
+                })
+            }
         };
 
         // Read 32 bytes from memory
-        let data = context.read_memory(addr, 32).map_err(|e| VMBridgeError::MemoryOperationFailed {
-            message: e.to_string(),
-        })?;
+        let data =
+            context
+                .read_memory(addr, 32)
+                .map_err(|e| VMBridgeError::MemoryOperationFailed {
+                    message: e.to_string(),
+                })?;
 
-        context.push_stack(StackItem::ByteArray(data.to_vec())).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(StackItem::ByteArray(data.to_vec()))
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -639,31 +743,40 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MSTORE", Some(3)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("MSTORE", Some(3))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let value = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let address = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let value = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let address = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let addr = match address {
             StackItem::UnsignedInteger(a) => a as usize,
             StackItem::Integer(a) => a as usize,
-            _ => return Err(VMBridgeError::MemoryOperationFailed {
-                message: "Invalid memory address".to_string(),
-            }),
+            _ => {
+                return Err(VMBridgeError::MemoryOperationFailed {
+                    message: "Invalid memory address".to_string(),
+                })
+            }
         };
 
         let data = value.to_bytes();
         let mut padded_data = data;
         padded_data.resize(32, 0); // Pad to 32 bytes
 
-        context.write_memory(addr, &padded_data).map_err(|e| VMBridgeError::MemoryOperationFailed {
-            message: e.to_string(),
+        context.write_memory(addr, &padded_data).map_err(|e| {
+            VMBridgeError::MemoryOperationFailed {
+                message: e.to_string(),
+            }
         })?;
 
         Ok(())
@@ -676,34 +789,43 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MSTORE8", Some(3)).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("MSTORE8", Some(3))
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let value = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let address = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let value = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let address = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let addr = match address {
             StackItem::UnsignedInteger(a) => a as usize,
             StackItem::Integer(a) => a as usize,
-            _ => return Err(VMBridgeError::MemoryOperationFailed {
-                message: "Invalid memory address".to_string(),
-            }),
+            _ => {
+                return Err(VMBridgeError::MemoryOperationFailed {
+                    message: "Invalid memory address".to_string(),
+                })
+            }
         };
 
         let byte_value = match value {
             StackItem::UnsignedInteger(v) => (v & 0xFF) as u8,
             StackItem::Integer(v) => (v & 0xFF) as u8,
-            StackItem::ByteArray(bytes) => bytes.get(0).copied().unwrap_or(0),
+            StackItem::ByteArray(bytes) => bytes.first().copied().unwrap_or(0),
             _ => 0,
         };
 
-        context.write_memory(addr, &[byte_value]).map_err(|e| VMBridgeError::MemoryOperationFailed {
-            message: e.to_string(),
+        context.write_memory(addr, &[byte_value]).map_err(|e| {
+            VMBridgeError::MemoryOperationFailed {
+                message: e.to_string(),
+            }
         })?;
 
         Ok(())
@@ -716,21 +838,26 @@ impl VMBridge {
         storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("SLOAD", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("SLOAD", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let key = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let key = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         // For now, use a default account address
         // In a real implementation, this would come from the execution context
         let account = "0x0000000000000000000000000000000000000000";
         let key_bytes = key.to_bytes();
 
-        let value = storage.get(account, &key_bytes).map_err(|e| VMBridgeError::StorageOperationFailed {
-            message: e.to_string(),
+        let value = storage.get(account, &key_bytes).map_err(|e| {
+            VMBridgeError::StorageOperationFailed {
+                message: e.to_string(),
+            }
         })?;
 
         let result = match value {
@@ -738,9 +865,11 @@ impl VMBridge {
             None => StackItem::UnsignedInteger(0),
         };
 
-        context.push_stack(result).map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
@@ -752,31 +881,41 @@ impl VMBridge {
         storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("SSTORE", None).map_err(|e| VMBridgeError::BridgeError {
-            message: e.to_string(),
-        })?;
+        gas.consume_gas("SSTORE", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
 
-        let value = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
-        let key = context.pop_stack().map_err(|e| VMBridgeError::StackOperationFailed {
-            message: e.to_string(),
-        })?;
+        let value = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let key = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
 
         let account = "0x0000000000000000000000000000000000000000";
         let key_bytes = key.to_bytes();
         let value_bytes = value.to_bytes();
 
-        storage.set(account, &key_bytes, &value_bytes).map_err(|e| VMBridgeError::StorageOperationFailed {
-            message: e.to_string(),
-        })?;
+        storage
+            .set(account, &key_bytes, &value_bytes)
+            .map_err(|e| VMBridgeError::StorageOperationFailed {
+                message: e.to_string(),
+            })?;
 
         Ok(())
     }
 
     // System call handlers
 
-    fn syscall_keccak256(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    fn syscall_keccak256(
+        bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 1 {
             return Err(VMBridgeError::InvalidArguments {
                 expected: 1,
@@ -790,7 +929,10 @@ impl VMBridge {
         Ok(vec![StackItem::ByteArray(hash.to_vec())])
     }
 
-    fn syscall_sha256(_bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    fn syscall_sha256(
+        _bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 1 {
             return Err(VMBridgeError::InvalidArguments {
                 expected: 1,
@@ -799,14 +941,17 @@ impl VMBridge {
         }
 
         use sha2::{Digest, Sha256};
-        
+
         let input = extract_bytes(&args[0])?;
         let hash = Sha256::digest(&input);
-        
+
         Ok(vec![StackItem::ByteArray(hash.to_vec())])
     }
 
-    fn syscall_ecrecover(bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    fn syscall_ecrecover(
+        bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
         // Complete ECDSA signature recovery implementation
         if args.len() != 4 {
             return Err(VMBridgeError::InvalidArguments {
@@ -814,7 +959,7 @@ impl VMBridge {
                 got: args.len(),
             });
         }
-        
+
         let hash = extract_bytes(&args[0])?;
         let v = extract_integer(&args[1])? as u8;
         let r = extract_bytes(&args[2])?;
@@ -827,19 +972,22 @@ impl VMBridge {
             });
         }
 
-        use secp256k1::{Secp256k1, Message};
         use secp256k1::ecdsa::{RecoverableSignature, RecoveryId};
+        use secp256k1::{Message, Secp256k1};
 
         let secp = Secp256k1::new();
-        let message = Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
-            name: "ecrecover".to_string(),
-            message: format!("Invalid hash: {}", e),
-        })?;
+        let message =
+            Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
+                name: "ecrecover".to_string(),
+                message: format!("Invalid hash: {}", e),
+            })?;
 
         let rec_id = match v {
-            27 | 28 => RecoveryId::from_i32((v - 27) as i32).map_err(|e| VMBridgeError::SystemCallFailed {
-                name: "ecrecover".to_string(),
-                message: format!("Invalid recovery id: {}", e),
+            27 | 28 => RecoveryId::from_i32((v - 27) as i32).map_err(|e| {
+                VMBridgeError::SystemCallFailed {
+                    name: "ecrecover".to_string(),
+                    message: format!("Invalid recovery id: {}", e),
+                }
             })?,
             _ => {
                 return Err(VMBridgeError::SystemCallFailed {
@@ -874,14 +1022,17 @@ impl VMBridge {
         Ok(vec![StackItem::ByteArray(address)])
     }
 
-    fn syscall_verify(_bridge: &mut VMBridge, args: &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError> {
+    fn syscall_verify(
+        _bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
         if args.len() != 3 {
             return Err(VMBridgeError::InvalidArguments {
                 expected: 3,
                 got: args.len(),
             });
         }
-        
+
         let hash = extract_bytes(&args[0])?;
         let signature = extract_bytes(&args[1])?;
         let public_key = extract_bytes(&args[2])?;
@@ -893,35 +1044,36 @@ impl VMBridge {
             });
         }
 
-        use secp256k1::{Secp256k1, Message, PublicKey};
         use secp256k1::ecdsa::Signature;
+        use secp256k1::{Message, PublicKey, Secp256k1};
 
         let secp = Secp256k1::new();
-        
+
         // Create message from hash
-        let message = Message::from_slice(&hash[..32])
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+        let message =
+            Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
                 message: format!("Invalid hash: {}", e),
             })?;
-        
+
         // Parse signature
-        let sig = Signature::from_compact(&signature[..64])
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+        let sig = Signature::from_compact(&signature[..64]).map_err(|e| {
+            VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
                 message: format!("Invalid signature: {}", e),
-            })?;
-        
+            }
+        })?;
+
         // Parse public key
-        let pubkey = PublicKey::from_slice(&public_key)
-            .map_err(|e| VMBridgeError::SystemCallFailed {
+        let pubkey =
+            PublicKey::from_slice(&public_key).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
                 message: format!("Invalid public key: {}", e),
             })?;
-        
+
         // Verify signature
         let verification_result = secp.verify_ecdsa(&message, &sig, &pubkey).is_ok();
-        
+
         Ok(vec![StackItem::Boolean(verification_result)])
     }
 
@@ -939,16 +1091,16 @@ impl VMBridge {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_add(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_add(y)))
-            },
+            }
             (StackItem::Integer(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::Integer(x.wrapping_add(y as i64)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_add(y as u64)))
-            },
+            }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for ADD".to_string(),
             }),
@@ -959,10 +1111,10 @@ impl VMBridge {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_sub(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_sub(y)))
-            },
+            }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for SUB".to_string(),
             }),
@@ -973,10 +1125,10 @@ impl VMBridge {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_mul(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_mul(y)))
-            },
+            }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for MUL".to_string(),
             }),
@@ -991,14 +1143,14 @@ impl VMBridge {
                 } else {
                     Ok(StackItem::Integer(x / y))
                 }
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
                     Ok(StackItem::UnsignedInteger(0))
                 } else {
                     Ok(StackItem::UnsignedInteger(x / y))
                 }
-            },
+            }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for DIV".to_string(),
             }),
@@ -1013,14 +1165,14 @@ impl VMBridge {
                 } else {
                     Ok(StackItem::Integer(x % y))
                 }
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
                     Ok(StackItem::UnsignedInteger(0))
                 } else {
                     Ok(StackItem::UnsignedInteger(x % y))
                 }
-            },
+            }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for MOD".to_string(),
             }),
@@ -1063,7 +1215,10 @@ impl VMBridge {
         vec!["0x0000000000000000000000000000000000000000".to_string()]
     }
 
-fn extract_return_data(&self, _context: &execution::ExecutionContext) -> Result<Vec<u8>, RuntimeError> {
+    fn extract_return_data(
+        &self,
+        _context: &execution::ExecutionContext,
+    ) -> Result<Vec<u8>, RuntimeError> {
         // Extract return data from execution context
         // For now, return empty data
         Ok(Vec::new())
@@ -1108,7 +1263,13 @@ fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
                 u128::from_be_bytes(padded)
             }
         }
-        StackItem::Boolean(flag) => if *flag { 1 } else { 0 },
+        StackItem::Boolean(flag) => {
+            if *flag {
+                1
+            } else {
+                0
+            }
+        }
         StackItem::Null => 0,
     })
 }

@@ -41,10 +41,7 @@ pub fn build_nef(script: &[u8], compiler: &str, version: (u32, u32, u32, u32)) -
 }
 
 fn pack_version((major, minor, build, revision): (u32, u32, u32, u32)) -> u32 {
-    ((major & 0xFF) << 24)
-        | ((minor & 0xFF) << 16)
-        | ((build & 0xFF) << 8)
-        | (revision & 0xFF)
+    ((major & 0xFF) << 24) | ((minor & 0xFF) << 16) | ((build & 0xFF) << 8) | (revision & 0xFF)
 }
 
 fn write_varint(buffer: &mut Vec<u8>, value: u32) {
@@ -63,6 +60,6 @@ fn write_varint(buffer: &mut Vec<u8>, value: u32) {
 
 fn calculate_checksum(payload: &[u8]) -> u32 {
     let first = Sha256::digest(payload);
-    let second = Sha256::digest(&first);
+    let second = Sha256::digest(first);
     u32::from_le_bytes(second[..4].try_into().expect("checksum slice"))
 }

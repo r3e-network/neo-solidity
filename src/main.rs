@@ -356,21 +356,11 @@ fn emit_ir_function(
                 ir::Instruction::LoadMappingElement {
                     state_index,
                     key_types,
-                } => emit_load_mapping(
-                    &mut local,
-                    module,
-                    *state_index,
-                    key_types,
-                ),
+                } => emit_load_mapping(&mut local, module, *state_index, key_types),
                 ir::Instruction::StoreMappingElement {
                     state_index,
                     key_types,
-                } => emit_store_mapping(
-                    &mut local,
-                    module,
-                    *state_index,
-                    key_types,
-                ),
+                } => emit_store_mapping(&mut local, module, *state_index, key_types),
                 ir::Instruction::EmitEvent { event_index } => {
                     emit_event(&mut local, module, *event_index)
                 }

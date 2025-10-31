@@ -4,11 +4,16 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NeoType {
-    Integer { signed: bool, bits: u16 },
+    Integer {
+        signed: bool,
+        bits: u16,
+    },
     Boolean,
     String,
     Address,
-    ByteArray { fixed_len: Option<u16> },
+    ByteArray {
+        fixed_len: Option<u16>,
+    },
     Array(Box<NeoType>),
     Mapping {
         key: Box<NeoType>,
@@ -28,16 +33,16 @@ impl NeoType {
         let ty = ty.trim();
         let lower = ty.to_ascii_lowercase();
 
-        if lower.starts_with("uint") {
-            let bits = lower[4..].parse::<u16>().unwrap_or(256);
+        if let Some(rest) = lower.strip_prefix("uint") {
+            let bits = rest.parse::<u16>().unwrap_or(256);
             return Ok(NeoType::Integer {
                 signed: false,
                 bits,
             });
         }
 
-        if lower.starts_with("int") {
-            let bits = lower[3..].parse::<u16>().unwrap_or(256);
+        if let Some(rest) = lower.strip_prefix("int") {
+            let bits = rest.parse::<u16>().unwrap_or(256);
             return Ok(NeoType::Integer { signed: true, bits });
         }
 

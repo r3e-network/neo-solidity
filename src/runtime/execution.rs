@@ -1,5 +1,5 @@
 //! Execution Context Module
-//! 
+//!
 //! Provides execution context and gas tracking for Neo runtime.
 
 use super::{RuntimeConfig, RuntimeError};
@@ -155,7 +155,7 @@ impl ExecutionContext {
 
         // Execute instruction (simplified)
         self.execute_instruction(opcode)?;
-        
+
         self.instruction_count += 1;
         self.max_stack_depth = self.max_stack_depth.max(self.stack.len() as u32);
 
@@ -171,8 +171,11 @@ impl ExecutionContext {
 
     /// Push value onto stack
     pub fn push_stack(&mut self, item: StackItem) -> Result<(), RuntimeError> {
-        if self.stack.len() >= 2048 { // NeoVM stack limit
-            return Err(RuntimeError::StackOverflow { depth: self.stack.len() as u32 });
+        if self.stack.len() >= 2048 {
+            // NeoVM stack limit
+            return Err(RuntimeError::StackOverflow {
+                depth: self.stack.len() as u32,
+            });
         }
         self.stack.push(item);
         Ok(())
@@ -251,8 +254,13 @@ impl ExecutionContext {
     }
 
     /// Call function
-    pub fn call_function(&mut self, address: u32, function_name: Option<String>) -> Result<(), RuntimeError> {
-        if self.call_stack.len() >= 1024 { // Call stack limit
+    pub fn call_function(
+        &mut self,
+        address: u32,
+        function_name: Option<String>,
+    ) -> Result<(), RuntimeError> {
+        if self.call_stack.len() >= 1024 {
+            // Call stack limit
             return Err(RuntimeError::ExecutionError {
                 message: "Call stack overflow".to_string(),
             });
@@ -299,7 +307,8 @@ impl ExecutionContext {
         // Complete NeoVM instruction execution
         match opcode {
             // Push operations (0x00-0x4F)
-            0x00 => { // PUSHINT8
+            0x00 => {
+                // PUSHINT8
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHINT8: insufficient bytecode".to_string(),
@@ -308,43 +317,50 @@ impl ExecutionContext {
                 let value = self.bytecode[self.instruction_pointer as usize + 1] as i8 as i64;
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 2;
-            },
-            0x01 => { // PUSHINT16
+            }
+            0x01 => {
+                // PUSHINT16
                 if self.instruction_pointer + 2 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHINT16: insufficient bytecode".to_string(),
                     });
                 }
-                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 3];
+                let bytes = &self.bytecode
+                    [self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 3];
                 let value = i16::from_le_bytes([bytes[0], bytes[1]]) as i64;
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 3;
-            },
-            0x02 => { // PUSHINT32
+            }
+            0x02 => {
+                // PUSHINT32
                 if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHINT32: insufficient bytecode".to_string(),
                     });
                 }
-                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 5];
+                let bytes = &self.bytecode
+                    [self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 5];
                 let value = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as i64;
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 5;
-            },
-            0x03 => { // PUSHINT64
+            }
+            0x03 => {
+                // PUSHINT64
                 if self.instruction_pointer + 8 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHINT64: insufficient bytecode".to_string(),
                     });
                 }
-                let bytes = &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 9];
+                let bytes = &self.bytecode
+                    [self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 9];
                 let mut array = [0u8; 8];
                 array.copy_from_slice(bytes);
                 let value = i64::from_le_bytes(array);
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 9;
-            },
-            0x0C => { // PUSHDATA1
+            }
+            0x0C => {
+                // PUSHDATA1
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHDATA1: insufficient bytecode for length".to_string(),
@@ -356,29 +372,36 @@ impl ExecutionContext {
                         message: "PUSHDATA1: insufficient bytecode for data".to_string(),
                     });
                 }
-                let data = self.bytecode[self.instruction_pointer as usize + 2..self.instruction_pointer as usize + 2 + length].to_vec();
+                let data = self.bytecode[self.instruction_pointer as usize + 2
+                    ..self.instruction_pointer as usize + 2 + length]
+                    .to_vec();
                 self.push_stack(StackItem::ByteArray(data))?;
                 self.instruction_pointer += 2 + length as u32;
-            },
-            0x10 => { // PUSHM1
+            }
+            0x10 => {
+                // PUSHM1
                 self.push_stack(StackItem::Integer(-1))?;
                 self.instruction_pointer += 1;
-            },
-            0x11 => { // PUSH0
+            }
+            0x11 => {
+                // PUSH0
                 self.push_stack(StackItem::Integer(0))?;
                 self.instruction_pointer += 1;
-            },
-            0x12..=0x20 => { // PUSH1-PUSH16
+            }
+            0x12..=0x20 => {
+                // PUSH1-PUSH16
                 let value = (opcode - 0x11) as i64;
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 1;
-            },
-            
+            }
+
             // Flow control operations (0x21-0x38)
-            0x21 => { // NOP
+            0x21 => {
+                // NOP
                 self.instruction_pointer += 1;
-            },
-            0x22 => { // JMP
+            }
+            0x22 => {
+                // JMP
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
                         message: "JMP: insufficient bytecode for offset".to_string(),
@@ -392,8 +415,9 @@ impl ExecutionContext {
                     });
                 }
                 self.instruction_pointer = new_ip;
-            },
-            0x23 => { // JMPIF
+            }
+            0x23 => {
+                // JMPIF
                 let condition = self.pop_stack()?;
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -412,110 +436,125 @@ impl ExecutionContext {
                 } else {
                     self.instruction_pointer += 2;
                 }
-            },
-            
+            }
+
             // Stack operations (0x39-0x4F)
-            0x39 => { // DEPTH
+            0x39 => {
+                // DEPTH
                 self.push_stack(StackItem::Integer(self.stack.len() as i64))?;
                 self.instruction_pointer += 1;
-            },
-            0x3A => { // DROP
+            }
+            0x3A => {
+                // DROP
                 self.pop_stack()?;
                 self.instruction_pointer += 1;
-            },
-            0x3E => { // DUP
+            }
+            0x3E => {
+                // DUP
                 let top = self.peek_stack()?.clone();
                 self.push_stack(top)?;
                 self.instruction_pointer += 1;
-            },
-            0x42 => { // SWAP
+            }
+            0x42 => {
+                // SWAP
                 let top = self.pop_stack()?;
                 let second = self.pop_stack()?;
                 self.push_stack(top)?;
                 self.push_stack(second)?;
                 self.instruction_pointer += 1;
-            },
-            
+            }
+
             // Arithmetic (0x90-0x9F)
-            0x90 => { // ADD
+            0x90 => {
+                // ADD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.add_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
-            },
-            0x91 => { // SUB
+            }
+            0x91 => {
+                // SUB
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.sub_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
-            },
-            0x92 => { // MUL
+            }
+            0x92 => {
+                // MUL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.mul_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
-            },
-            0x93 => { // DIV
+            }
+            0x93 => {
+                // DIV
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.div_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
-            },
-            0x94 => { // MOD
+            }
+            0x94 => {
+                // MOD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.mod_stack_items(a, b)?;
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
-            },
-            
+            }
+
             // Comparison operations
-            0x87 => { // EQUAL
+            0x87 => {
+                // EQUAL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.stack_items_equal(&a, &b)?;
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
-            },
-            0x9F => { // LT
+            }
+            0x9F => {
+                // LT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.less_than(&a, &b)?;
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
-            },
-            0xA1 => { // GT
+            }
+            0xA1 => {
+                // GT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
                 let result = self.greater_than(&a, &b)?;
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
-            },
-            
+            }
+
             // Control flow
-            0x40 => { // RET
+            0x40 => {
+                // RET
                 if self.call_stack.is_empty() {
                     // End of execution
                     self.instruction_pointer = self.bytecode.len() as u32;
                 } else {
                     self.return_from_function()?;
                 }
-            },
-            0x66 => { // THROW
+            }
+            0x66 => {
+                // THROW
                 return Err(RuntimeError::ExecutionError {
                     message: "THROW instruction executed".to_string(),
                 });
-            },
-            0x67 => { // ABORT
+            }
+            0x67 => {
+                // ABORT
                 return Err(RuntimeError::ExecutionError {
                     message: "ABORT instruction executed".to_string(),
                 });
-            },
-            
+            }
+
             _ => {
                 return Err(RuntimeError::ExecutionError {
                     message: format!("Unsupported opcode: 0x{:02X}", opcode),
@@ -525,7 +564,7 @@ impl ExecutionContext {
 
         // Consume gas after successful execution
         self.gas_used += gas_cost;
-        
+
         Ok(())
     }
 
@@ -533,10 +572,10 @@ impl ExecutionContext {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_add(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_add(y)))
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for ADD".to_string(),
             }),
@@ -547,30 +586,30 @@ impl ExecutionContext {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_sub(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_sub(y)))
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for SUB".to_string(),
             }),
         }
     }
-    
+
     fn mul_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_mul(y)))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 Ok(StackItem::UnsignedInteger(x.wrapping_mul(y)))
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for MUL".to_string(),
             }),
         }
     }
-    
+
     fn div_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
@@ -580,7 +619,7 @@ impl ExecutionContext {
                     });
                 }
                 Ok(StackItem::Integer(x / y))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
                     return Err(RuntimeError::ExecutionError {
@@ -588,13 +627,13 @@ impl ExecutionContext {
                     });
                 }
                 Ok(StackItem::UnsignedInteger(x / y))
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for DIV".to_string(),
             }),
         }
     }
-    
+
     fn mod_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
@@ -604,7 +643,7 @@ impl ExecutionContext {
                     });
                 }
                 Ok(StackItem::Integer(x % y))
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
                     return Err(RuntimeError::ExecutionError {
@@ -612,13 +651,13 @@ impl ExecutionContext {
                     });
                 }
                 Ok(StackItem::UnsignedInteger(x % y))
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for MOD".to_string(),
             }),
         }
     }
-    
+
     fn stack_items_equal(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x == y),
@@ -633,18 +672,18 @@ impl ExecutionContext {
                 } else {
                     Ok(*x as u64 == *y)
                 }
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
                 if *y < 0 {
                     Ok(false)
                 } else {
                     Ok(*x == *y as u64)
                 }
-            },
+            }
             _ => Ok(false),
         }
     }
-    
+
     fn less_than(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x < y),
@@ -655,20 +694,20 @@ impl ExecutionContext {
                 } else {
                     Ok((*x as u64) < *y)
                 }
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
                 if *y < 0 {
                     Ok(false)
                 } else {
                     Ok(*x < (*y as u64))
                 }
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for comparison".to_string(),
             }),
         }
     }
-    
+
     fn greater_than(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x > y),
@@ -679,14 +718,14 @@ impl ExecutionContext {
                 } else {
                     Ok((*x as u64) > *y)
                 }
-            },
+            }
             (StackItem::UnsignedInteger(x), StackItem::Integer(y)) => {
                 if *y < 0 {
                     Ok(true)
                 } else {
                     Ok(*x > (*y as u64))
                 }
-            },
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for comparison".to_string(),
             }),
@@ -707,31 +746,31 @@ impl ExecutionContext {
     fn get_instruction_gas_cost(&self, opcode: u8) -> u64 {
         match opcode {
             // Push operations
-            0x0C | 0x0D => 2,     // PUSHDATA variants (base cost)
+            0x0C | 0x0D => 2,               // PUSHDATA variants (base cost)
             0x00..=0x0B | 0x0E..=0x0F => 1, // PUSHINT variants
-            0x10..=0x20 => 1,     // PUSH0-PUSH16, PUSHM1
-            
+            0x10..=0x20 => 1,               // PUSH0-PUSH16, PUSHM1
+
             // Flow control
-            0x21 => 1,            // NOP
-            0x22..=0x28 => 2,     // Jump instructions
-            
+            0x21 => 1,        // NOP
+            0x22..=0x28 => 2, // Jump instructions
+
             // Stack operations
             0x39..=0x3F | 0x41..=0x47 => 2, // Stack manipulation (excluding 0x40)
-            
+
             // Arithmetic
-            0x90..=0x94 => 4,     // Basic arithmetic
-            0x95 => 8,            // POW (expensive)
-            0x96 => 6,            // SQRT
-            
+            0x90..=0x94 => 4, // Basic arithmetic
+            0x95 => 8,        // POW (expensive)
+            0x96 => 6,        // SQRT
+
             // Comparison operations
-            0x87..=0x88 => 3,     // EQUAL, NOTEQUAL
-            0x9F..=0xA2 => 3,     // LT, LE, GT, GE
-            
+            0x87..=0x88 => 3, // EQUAL, NOTEQUAL
+            0x9F..=0xA2 => 3, // LT, LE, GT, GE
+
             // Control flow
-            0x40 => 0,            // RET
-            0x66..=0x67 => 1,     // THROW, ABORT
-            
-            _ => 1,               // Default cost
+            0x40 => 0,        // RET
+            0x66..=0x67 => 1, // THROW, ABORT
+
+            _ => 1, // Default cost
         }
     }
 }
@@ -765,10 +804,12 @@ impl GasTracker {
     }
 
     /// Consume gas for operation
-    pub fn consume_gas(&mut self, operation: &str, amount: Option<u64>) -> Result<(), RuntimeError> {
-        let cost = amount.unwrap_or_else(|| {
-            *self.operation_costs.get(operation).unwrap_or(&1)
-        });
+    pub fn consume_gas(
+        &mut self,
+        operation: &str,
+        amount: Option<u64>,
+    ) -> Result<(), RuntimeError> {
+        let cost = amount.unwrap_or_else(|| *self.operation_costs.get(operation).unwrap_or(&1));
 
         if self.used + cost > self.limit {
             return Err(RuntimeError::OutOfGas {

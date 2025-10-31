@@ -10,11 +10,11 @@ pub mod lexer;
 pub mod neo;
 pub mod optimizer;
 pub mod parser;
+pub mod runtime;
 pub mod semantic;
 pub mod semantic_model;
 pub mod solidity;
 pub mod storage_key;
-pub mod runtime;
 pub mod type_system;
 pub mod types;
 

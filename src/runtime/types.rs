@@ -1,5 +1,5 @@
 //! Runtime Types Module
-//! 
+//!
 //! Common types and utilities for Neo runtime operations.
 
 pub use super::execution::StackItem;
@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 /// Re-export commonly used types
 pub use super::{
-    ExecutionResult, RuntimeException, ExceptionType, StateChange, StateChangeType,
-    LogEntry, StackFrame, RuntimeConfig, RuntimeError, RuntimeStatistics
+    ExceptionType, ExecutionResult, LogEntry, RuntimeConfig, RuntimeError, RuntimeException,
+    RuntimeStatistics, StackFrame, StateChange, StateChangeType,
 };
 
 /// Value type for runtime operations
@@ -63,11 +63,11 @@ impl RuntimeValue {
             RuntimeValue::Array(_) => {
                 // Serialize as JSON for now
                 serde_json::to_vec(self).unwrap_or_default()
-            },
+            }
             RuntimeValue::Map(_) => {
                 // Serialize as JSON for now
                 serde_json::to_vec(self).unwrap_or_default()
-            },
+            }
         }
     }
 
@@ -238,12 +238,12 @@ impl Gas {
     }
 
     /// Add gas amounts
-    pub fn add(self, other: Gas) -> Gas {
+    pub fn saturating_add(self, other: Gas) -> Gas {
         Gas(self.0.saturating_add(other.0))
     }
 
     /// Subtract gas amounts
-    pub fn sub(self, other: Gas) -> Gas {
+    pub fn saturating_sub(self, other: Gas) -> Gas {
         Gas(self.0.saturating_sub(other.0))
     }
 
@@ -265,12 +265,12 @@ impl Balance {
     }
 
     /// Add balances
-    pub fn add(self, other: Balance) -> Balance {
+    pub fn saturating_add(self, other: Balance) -> Balance {
         Balance(self.0.saturating_add(other.0))
     }
 
     /// Subtract balances
-    pub fn sub(self, other: Balance) -> Result<Balance, &'static str> {
+    pub fn checked_sub(self, other: Balance) -> Result<Balance, &'static str> {
         if self.0 >= other.0 {
             Ok(Balance(self.0 - other.0))
         } else {
@@ -332,7 +332,7 @@ impl Timestamp {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()
+                .as_secs(),
         )
     }
 
@@ -448,7 +448,7 @@ mod tests {
         let value = RuntimeValue::UnsignedInteger(42);
         let bytes = value.to_bytes();
         let restored = RuntimeValue::from_bytes(&bytes);
-        
+
         assert_eq!(value, restored);
         assert!(value.is_truthy());
         assert_eq!(value.type_name(), "unsigned_integer");
@@ -458,11 +458,12 @@ mod tests {
     fn test_address_creation() {
         let addr1 = Address::new("0x1234567890123456789012345678901234567890".to_string()).unwrap();
         let addr2 = Address::new("1234567890123456789012345678901234567890".to_string()).unwrap();
-        
+
         assert_eq!(addr1.as_str(), addr2.as_str());
         assert!(!addr1.is_zero());
-        
-        let zero_addr = Address::new("0x0000000000000000000000000000000000000000".to_string()).unwrap();
+
+        let zero_addr =
+            Address::new("0x0000000000000000000000000000000000000000".to_string()).unwrap();
         assert!(zero_addr.is_zero());
     }
 
@@ -470,13 +471,13 @@ mod tests {
     fn test_gas_operations() {
         let gas1 = Gas::new(1000);
         let gas2 = Gas::new(500);
-        
-        let sum = gas1.add(gas2);
+
+        let sum = gas1.saturating_add(gas2);
         assert_eq!(sum.amount(), 1500);
-        
-        let diff = gas1.sub(gas2);
+
+        let diff = gas1.saturating_sub(gas2);
         assert_eq!(diff.amount(), 500);
-        
+
         assert!(gas1.sufficient_for(gas2));
         assert!(!gas2.sufficient_for(gas1));
     }
@@ -485,17 +486,17 @@ mod tests {
     fn test_balance_operations() {
         let balance1 = Balance::new(1000);
         let balance2 = Balance::new(300);
-        
-        let sum = balance1.add(balance2);
+
+        let sum = balance1.saturating_add(balance2);
         assert_eq!(sum.amount(), 1300);
-        
-        let diff = balance1.sub(balance2).unwrap();
+
+        let diff = balance1.checked_sub(balance2).unwrap();
         assert_eq!(diff.amount(), 700);
-        
-        assert!(balance2.sub(balance1).is_err());
-        
+
+        assert!(balance2.checked_sub(balance1).is_err());
+
         assert!(balance1.sufficient_for(balance2));
-        assert!(!Balance::new(0).is_zero() == false);
+        assert!(Balance::new(0).is_zero());
     }
 
     #[test]
@@ -503,10 +504,10 @@ mod tests {
         let block = BlockNumber::new(100);
         let next = block.next();
         let prev = next.prev().unwrap();
-        
+
         assert_eq!(next.number(), 101);
         assert_eq!(prev.number(), 100);
-        
+
         let genesis = BlockNumber::new(0);
         assert!(genesis.prev().is_none());
     }
@@ -516,7 +517,7 @@ mod tests {
         let now = Timestamp::now();
         let future = now.add_seconds(3600);
         let past = now.sub_seconds(1800);
-        
+
         assert!(future.timestamp() > now.timestamp());
         assert!(past.timestamp() < now.timestamp());
     }
@@ -539,7 +540,7 @@ mod tests {
         let value = RuntimeValue::Integer(42);
         let stack_item = value.to_stack_item();
         let restored = RuntimeValue::from_stack_item(&stack_item);
-        
+
         assert_eq!(value, restored);
     }
 
@@ -547,10 +548,10 @@ mod tests {
     fn test_hash_types() {
         let tx_hash = TransactionHash::new("0xabcdef1234567890".to_string());
         let block_hash = BlockHash::new("0xfedcba0987654321".to_string());
-        
+
         assert_eq!(tx_hash.as_str(), "0xabcdef1234567890");
         assert_eq!(block_hash.as_str(), "0xfedcba0987654321");
-        
+
         let bytes = tx_hash.to_bytes();
         let restored = TransactionHash::from_bytes(&bytes);
         assert_eq!(tx_hash.as_str(), restored.as_str());

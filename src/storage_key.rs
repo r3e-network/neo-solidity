@@ -18,7 +18,11 @@ pub enum KeyFragment {
 
 impl KeyFragment {
     pub fn integer(value: BigInt, bits: u16, signed: bool) -> Self {
-        Self::Integer { value, bits, signed }
+        Self::Integer {
+            value,
+            bits,
+            signed,
+        }
     }
 
     pub fn boolean(value: bool) -> Self {

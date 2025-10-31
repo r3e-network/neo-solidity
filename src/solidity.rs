@@ -565,11 +565,7 @@ fn check_return_statements(
 }
 
 fn canonical_param_type(ty: &str) -> String {
-    ty.trim()
-        .split_whitespace()
-        .next()
-        .unwrap_or_default()
-        .to_string()
+    ty.split_whitespace().next().unwrap_or_default().to_string()
 }
 
 fn compute_function_selector(name: &str, param_types: &[String]) -> [u8; 4] {

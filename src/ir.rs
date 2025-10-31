@@ -72,9 +72,15 @@ pub enum Instruction {
         state_index: usize,
         key_types: Vec<ValueType>,
     },
-    EmitEvent { event_index: usize },
-    Jump { target: usize },
-    JumpIf { target: usize },
+    EmitEvent {
+        event_index: usize,
+    },
+    Jump {
+        target: usize,
+    },
+    JumpIf {
+        target: usize,
+    },
     Label(usize),
     Abort,
 }
@@ -90,11 +96,16 @@ pub enum LiteralValue {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueType {
-    Integer { signed: bool, bits: u16 },
+    Integer {
+        signed: bool,
+        bits: u16,
+    },
     Boolean,
     String,
     Address,
-    ByteArray { fixed_len: Option<u16> },
+    ByteArray {
+        fixed_len: Option<u16>,
+    },
     Array(Box<ValueType>),
     Mapping {
         key: Box<ValueType>,
@@ -203,7 +214,7 @@ impl Function {
         let mut returned = false;
 
         if let Some(body) = &metadata.body {
-            returned = lower_statement(body, &mut ctx, &returns, &mut instructions);
+            returned = lower_statement(body, &mut ctx, &mut instructions);
         }
 
         let LoweringContext { errors, .. } = ctx;
@@ -490,13 +501,12 @@ fn resolve_mapping_access<'a>(
 fn lower_statement(
     statement: &Statement,
     ctx: &mut LoweringContext,
-    returns: &[ValueType],
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     match statement {
         Statement::Block { statements, .. } => {
             for stmt in statements {
-                if lower_statement(stmt, ctx, returns, instructions) {
+                if lower_statement(stmt, ctx, instructions) {
                     return true;
                 }
             }
@@ -513,12 +523,12 @@ fn lower_statement(
             lower_expression(condition, ctx, instructions);
             instructions.push(Instruction::JumpIf { target: else_label });
 
-            let then_returns = lower_statement(then_stmt, ctx, returns, instructions);
+            let then_returns = lower_statement(then_stmt, ctx, instructions);
 
             if let Some(else_stmt) = else_stmt {
                 instructions.push(Instruction::Jump { target: end_label });
                 instructions.push(Instruction::Label(else_label));
-                let else_returns = lower_statement(else_stmt, ctx, returns, instructions);
+                let else_returns = lower_statement(else_stmt, ctx, instructions);
                 instructions.push(Instruction::Label(end_label));
                 then_returns && else_returns
             } else {
@@ -534,7 +544,7 @@ fn lower_statement(
             lower_expression(condition, ctx, instructions);
             instructions.push(Instruction::JumpIf { target: end_label });
             ctx.push_loop(start_label, end_label);
-            lower_statement(body, ctx, returns, instructions);
+            lower_statement(body, ctx, instructions);
             ctx.pop_loop();
             instructions.push(Instruction::Jump {
                 target: start_label,
@@ -549,7 +559,7 @@ fn lower_statement(
 
             instructions.push(Instruction::Label(start_label));
             ctx.push_loop(condition_label, end_label);
-            lower_statement(body, ctx, returns, instructions);
+            lower_statement(body, ctx, instructions);
             ctx.pop_loop();
             instructions.push(Instruction::Label(condition_label));
             lower_expression(condition, ctx, instructions);
@@ -562,7 +572,7 @@ fn lower_statement(
         }
         Statement::For(_, init, condition, post, body) => {
             if let Some(init_stmt) = init.as_deref() {
-                lower_statement(init_stmt, ctx, returns, instructions);
+                lower_statement(init_stmt, ctx, instructions);
             }
 
             let condition_label = ctx.next_label();
@@ -578,7 +588,7 @@ fn lower_statement(
 
             if let Some(body_stmt) = body.as_deref() {
                 ctx.push_loop(post_label, end_label);
-                lower_statement(body_stmt, ctx, returns, instructions);
+                lower_statement(body_stmt, ctx, instructions);
                 ctx.pop_loop();
             }
 
@@ -679,17 +689,10 @@ fn lower_assignment(
         }
     }
 
-    ctx.record_error(format!(
-        "assignment target '{:?}' is not supported",
-        lhs
-    ));
+    ctx.record_error(format!("assignment target '{:?}' is not supported", lhs));
 }
 
-fn lower_emit(
-    expr: &Expression,
-    ctx: &mut LoweringContext,
-    instructions: &mut Vec<Instruction>,
-) {
+fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     if let Expression::FunctionCall(_, func, _args) = expr {
         if let Expression::Variable(identifier) = func.as_ref() {
             if let Some(index) = ctx.event_index_map.get(&identifier.name) {

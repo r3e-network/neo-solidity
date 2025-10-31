@@ -1,5 +1,5 @@
 //! State Management Module
-//! 
+//!
 //! Manages account states, balances, and transaction state for Neo runtime.
 
 use super::{RuntimeConfig, RuntimeError, StateChange, StateChangeType};
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// State manager for account and contract states
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StateManager {
     accounts: HashMap<String, AccountState>,
     snapshots: Vec<StateSnapshot>,
@@ -70,7 +70,9 @@ impl StateManager {
 
     /// Get account balance
     pub fn get_balance(&self, address: &str) -> Result<u64, RuntimeError> {
-        Ok(self.accounts.get(address)
+        Ok(self
+            .accounts
+            .get(address)
             .map(|account| account.balance)
             .unwrap_or(0))
     }
@@ -78,10 +80,12 @@ impl StateManager {
     /// Set account balance
     pub fn set_balance(&mut self, address: &str, balance: u64) -> Result<(), RuntimeError> {
         let old_balance = self.get_balance(address)?;
-        
+
         let created_at = self.current_timestamp();
-        let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
-            AccountState {
+        let account = self
+            .accounts
+            .entry(address.to_string())
+            .or_insert_with(|| AccountState {
                 address: address.to_string(),
                 balance: 0,
                 nonce: 0,
@@ -89,8 +93,7 @@ impl StateManager {
                 code_hash: None,
                 storage_root: None,
                 created_at,
-            }
-        });
+            });
 
         account.balance = balance;
 
@@ -108,7 +111,9 @@ impl StateManager {
 
     /// Get account nonce
     pub fn get_nonce(&self, address: &str) -> Result<u64, RuntimeError> {
-        Ok(self.accounts.get(address)
+        Ok(self
+            .accounts
+            .get(address)
             .map(|account| account.nonce)
             .unwrap_or(0))
     }
@@ -116,10 +121,12 @@ impl StateManager {
     /// Set account nonce
     pub fn set_nonce(&mut self, address: &str, nonce: u64) -> Result<(), RuntimeError> {
         let old_nonce = self.get_nonce(address)?;
-        
+
         let created_at = self.current_timestamp();
-        let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
-            AccountState {
+        let account = self
+            .accounts
+            .entry(address.to_string())
+            .or_insert_with(|| AccountState {
                 address: address.to_string(),
                 balance: 0,
                 nonce: 0,
@@ -127,8 +134,7 @@ impl StateManager {
                 code_hash: None,
                 storage_root: None,
                 created_at,
-            }
-        });
+            });
 
         account.nonce = nonce;
 
@@ -146,7 +152,8 @@ impl StateManager {
 
     /// Get contract code
     pub fn get_code(&self, address: &str) -> Option<&[u8]> {
-        self.accounts.get(address)
+        self.accounts
+            .get(address)
             .and_then(|account| account.code.as_ref())
             .map(|code| code.as_slice())
     }
@@ -154,12 +161,14 @@ impl StateManager {
     /// Set contract code
     pub fn set_code(&mut self, address: &str, code: &[u8]) -> Result<(), RuntimeError> {
         let old_code = self.get_code(address).map(|c| c.to_vec());
-        
+
         let created_at = self.current_timestamp();
         let code_hash = self.calculate_hash(code);
 
-        let account = self.accounts.entry(address.to_string()).or_insert_with(|| {
-            AccountState {
+        let account = self
+            .accounts
+            .entry(address.to_string())
+            .or_insert_with(|| AccountState {
                 address: address.to_string(),
                 balance: 0,
                 nonce: 0,
@@ -167,8 +176,7 @@ impl StateManager {
                 code_hash: None,
                 storage_root: None,
                 created_at,
-            }
-        });
+            });
         account.code = Some(code.to_vec());
         account.code_hash = Some(code_hash);
 
@@ -185,7 +193,11 @@ impl StateManager {
     }
 
     /// Create new account
-    pub fn create_account(&mut self, address: &str, initial_balance: u64) -> Result<(), RuntimeError> {
+    pub fn create_account(
+        &mut self,
+        address: &str,
+        initial_balance: u64,
+    ) -> Result<(), RuntimeError> {
         if self.accounts.contains_key(address) {
             return Err(RuntimeError::StateError {
                 message: format!("Account {} already exists", address),
@@ -320,11 +332,11 @@ impl StateManager {
         if batch.atomic {
             // Create snapshot for rollback
             let snapshot_id = self.create_snapshot("Batch execution".to_string());
-            
+
             // Execute all changes
             for change in &batch.changes {
                 match self.apply_change(change) {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(e) => {
                         // Rollback on error
                         if let Some(snapshot) = self.snapshots.get(snapshot_id as usize) {
@@ -385,42 +397,38 @@ impl StateManager {
     fn apply_change(&mut self, change: &StateChange) -> Result<(), RuntimeError> {
         match change.change_type {
             StateChangeType::BalanceChange => {
-                let new_balance = u64::from_le_bytes(
-                    change.new_value.as_slice().try_into()
-                        .map_err(|_| RuntimeError::StateError {
+                let new_balance =
+                    u64::from_le_bytes(change.new_value.as_slice().try_into().map_err(|_| {
+                        RuntimeError::StateError {
                             message: "Invalid balance format".to_string(),
-                        })?
-                );
+                        }
+                    })?);
                 self.set_balance(&change.account, new_balance)
-            },
+            }
             StateChangeType::NonceChange => {
-                let new_nonce = u64::from_le_bytes(
-                    change.new_value.as_slice().try_into()
-                        .map_err(|_| RuntimeError::StateError {
+                let new_nonce =
+                    u64::from_le_bytes(change.new_value.as_slice().try_into().map_err(|_| {
+                        RuntimeError::StateError {
                             message: "Invalid nonce format".to_string(),
-                        })?
-                );
+                        }
+                    })?);
                 self.set_nonce(&change.account, new_nonce)
-            },
-            StateChangeType::CodeChange => {
-                self.set_code(&change.account, &change.new_value)
-            },
+            }
+            StateChangeType::CodeChange => self.set_code(&change.account, &change.new_value),
             StateChangeType::AccountCreation => {
-                let initial_balance = u64::from_le_bytes(
-                    change.new_value.as_slice().try_into()
-                        .map_err(|_| RuntimeError::StateError {
+                let initial_balance =
+                    u64::from_le_bytes(change.new_value.as_slice().try_into().map_err(|_| {
+                        RuntimeError::StateError {
                             message: "Invalid balance format".to_string(),
-                        })?
-                );
+                        }
+                    })?);
                 self.create_account(&change.account, initial_balance)
-            },
-            StateChangeType::AccountDeletion => {
-                self.delete_account(&change.account)
-            },
+            }
+            StateChangeType::AccountDeletion => self.delete_account(&change.account),
             StateChangeType::StorageChange => {
                 // Storage changes are handled by storage manager
                 Ok(())
-            },
+            }
         }
     }
 
@@ -449,17 +457,6 @@ pub struct StateStatistics {
     pub snapshots_count: usize,
 }
 
-impl Default for StateManager {
-    fn default() -> Self {
-        Self {
-            accounts: HashMap::new(),
-            snapshots: Vec::new(),
-            change_log: Vec::new(),
-            change_count: 0,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -469,12 +466,12 @@ mod tests {
     fn test_account_creation() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let address = "0x1234567890123456789012345678901234567890";
         let balance = 1000u64;
-        
+
         assert!(!state_manager.account_exists(address));
-        
+
         let result = state_manager.create_account(address, balance);
         assert!(result.is_ok());
         assert!(state_manager.account_exists(address));
@@ -485,14 +482,14 @@ mod tests {
     fn test_balance_operations() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let address = "0x1234567890123456789012345678901234567890";
-        
+
         // Set balance for non-existent account (should create it)
         let result = state_manager.set_balance(address, 500);
         assert!(result.is_ok());
         assert_eq!(state_manager.get_balance(address).unwrap(), 500);
-        
+
         // Update balance
         let result = state_manager.set_balance(address, 1000);
         assert!(result.is_ok());
@@ -503,18 +500,18 @@ mod tests {
     fn test_transfer() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let from = "0x1111111111111111111111111111111111111111";
         let to = "0x2222222222222222222222222222222222222222";
-        
+
         // Set up accounts
         state_manager.create_account(from, 1000).unwrap();
         state_manager.create_account(to, 0).unwrap();
-        
+
         // Transfer
         let result = state_manager.transfer(from, to, 300);
         assert!(result.is_ok());
-        
+
         assert_eq!(state_manager.get_balance(from).unwrap(), 700);
         assert_eq!(state_manager.get_balance(to).unwrap(), 300);
     }
@@ -523,17 +520,17 @@ mod tests {
     fn test_insufficient_balance_transfer() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let from = "0x1111111111111111111111111111111111111111";
         let to = "0x2222222222222222222222222222222222222222";
-        
+
         state_manager.create_account(from, 100).unwrap();
         state_manager.create_account(to, 0).unwrap();
-        
+
         // Try to transfer more than balance
         let result = state_manager.transfer(from, to, 200);
         assert!(result.is_err());
-        
+
         // Balances should remain unchanged
         assert_eq!(state_manager.get_balance(from).unwrap(), 100);
         assert_eq!(state_manager.get_balance(to).unwrap(), 0);
@@ -543,25 +540,25 @@ mod tests {
     fn test_snapshots() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let address = "0x1234567890123456789012345678901234567890";
-        
+
         // Initial state
         state_manager.create_account(address, 1000).unwrap();
-        
+
         // Create snapshot
         let snapshot_id = state_manager.create_snapshot("Initial state".to_string());
-        
+
         // Modify state
         state_manager.set_balance(address, 2000).unwrap();
         assert_eq!(state_manager.get_balance(address).unwrap(), 2000);
-        
+
         // Restore snapshot
         if let Some(snapshot) = state_manager.snapshots.get(snapshot_id as usize) {
             let result = state_manager.restore_snapshot(snapshot.clone());
             assert!(result.is_ok());
         }
-        
+
         // State should be restored
         assert_eq!(state_manager.get_balance(address).unwrap(), 1000);
     }
@@ -570,18 +567,18 @@ mod tests {
     fn test_code_operations() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         let address = "0x1234567890123456789012345678901234567890";
         let code = vec![0x60, 0x01, 0x60, 0x02, 0x01]; // Simple bytecode
-        
+
         // Set code
         let result = state_manager.set_code(address, &code);
         assert!(result.is_ok());
-        
+
         // Get code
         let retrieved_code = state_manager.get_code(address);
         assert_eq!(retrieved_code, Some(code.as_slice()));
-        
+
         // Check account was created
         assert!(state_manager.account_exists(address));
         let account = state_manager.get_account(address).unwrap();
@@ -592,14 +589,20 @@ mod tests {
     fn test_state_statistics() {
         let config = RuntimeConfig::default();
         let mut state_manager = StateManager::new(&config).unwrap();
-        
+
         // Create some accounts
-        state_manager.create_account("0x1111111111111111111111111111111111111111", 1000).unwrap();
-        state_manager.create_account("0x2222222222222222222222222222222222222222", 2000).unwrap();
-        
+        state_manager
+            .create_account("0x1111111111111111111111111111111111111111", 1000)
+            .unwrap();
+        state_manager
+            .create_account("0x2222222222222222222222222222222222222222", 2000)
+            .unwrap();
+
         // Set code for one account (make it a contract)
-        state_manager.set_code("0x1111111111111111111111111111111111111111", &[0x60, 0x01]).unwrap();
-        
+        state_manager
+            .set_code("0x1111111111111111111111111111111111111111", &[0x60, 0x01])
+            .unwrap();
+
         let stats = state_manager.get_statistics();
         assert_eq!(stats.total_accounts, 2);
         assert_eq!(stats.total_balance, 3000);
