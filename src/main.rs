@@ -358,13 +358,14 @@ fn emit_ir_function(
     module: &ir::Module,
     method: &FunctionMetadata,
 ) -> (Vec<u8>, Vec<CallPatch>) {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, convert::TryFrom};
 
     let mut local = Vec::new();
     let arg_count = method.parameters.len() as u8;
-    if arg_count > 0 {
+    let local_count = u8::try_from(function.local_count).unwrap_or(u8::MAX);
+    if local_count > 0 || arg_count > 0 {
         local.push(0x57); // INITSLOT
-        local.push(0); // locals
+        local.push(local_count);
         local.push(arg_count);
     }
     let mut label_offsets: HashMap<usize, u32> = HashMap::new();
@@ -389,6 +390,8 @@ fn emit_ir_function(
                 }
                 ir::Instruction::LoadState(index) => emit_load_state(&mut local, module, *index),
                 ir::Instruction::StoreState(index) => emit_store_state(&mut local, module, *index),
+                ir::Instruction::LoadLocal(index) => emit_load_local(&mut local, *index),
+                ir::Instruction::StoreLocal(index) => emit_store_local(&mut local, *index),
                 ir::Instruction::LoadMappingElement {
                     state_index,
                     key_types,
@@ -400,6 +403,7 @@ fn emit_ir_function(
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value)
                 }
+                ir::Instruction::GetSize => local.push(0x5A),
                 ir::Instruction::CallBuiltin { builtin, .. } => {
                     emit_builtin_call(&mut local, builtin);
                 }
@@ -474,6 +478,26 @@ fn emit_load_parameter(bytecode: &mut Vec<u8>, _method: &FunctionMetadata, index
     } else {
         bytecode.push(0x7F); // LDARG
         bytecode.push(index as u8);
+    }
+}
+
+fn emit_load_local(bytecode: &mut Vec<u8>, index: usize) {
+    match index {
+        0..=6 => bytecode.push(0x68 + index as u8),
+        _ => {
+            bytecode.push(0x6F); // LDLOC
+            bytecode.push(index as u8);
+        }
+    }
+}
+
+fn emit_store_local(bytecode: &mut Vec<u8>, index: usize) {
+    match index {
+        0..=6 => bytecode.push(0x70 + index as u8),
+        _ => {
+            bytecode.push(0x77); // STLOC
+            bytecode.push(index as u8);
+        }
     }
 }
 

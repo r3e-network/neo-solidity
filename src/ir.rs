@@ -7,8 +7,10 @@ use crate::solidity::{
 use crate::storage_key::compute_state_slot;
 use hex::decode as hex_decode;
 use num_bigint::BigInt;
+use num_traits::One;
 use solang_parser::pt::{
     Expression, HexLiteral as PtHexLiteral, Statement, StringLiteral as PtStringLiteral,
+    Type as PtType,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -26,6 +28,7 @@ pub struct Function {
     pub parameters: Vec<ValueType>,
     pub returns: Vec<ValueType>,
     pub basic_blocks: Vec<BasicBlock>,
+    pub local_count: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +73,8 @@ pub enum Instruction {
     BinaryOp(BinaryOperator),
     LoadState(usize),
     StoreState(usize),
+    LoadLocal(usize),
+    StoreLocal(usize),
     LoadMappingElement {
         state_index: usize,
         key_types: Vec<ValueType>,
@@ -79,6 +84,7 @@ pub enum Instruction {
         key_types: Vec<ValueType>,
     },
     LoadRuntimeValue(RuntimeValue),
+    GetSize,
     CallFunction {
         name: String,
         arg_count: usize,
@@ -247,9 +253,9 @@ impl Function {
             returned = lower_statement(body, &mut ctx, &mut instructions);
         }
 
-        let LoweringContext { errors, .. } = ctx;
-        if !errors.is_empty() {
-            return Err(errors);
+        let local_count = ctx.local_count;
+        if !ctx.errors.is_empty() {
+            return Err(ctx.errors);
         }
 
         if !returned {
@@ -271,6 +277,7 @@ impl Function {
             parameters,
             returns,
             basic_blocks: vec![BasicBlock { instructions }],
+            local_count,
         })
     }
 }
@@ -417,6 +424,8 @@ struct LoweringContext<'a> {
     state_types: &'a [ValueType],
     event_index_map: &'a HashMap<String, usize>,
     function_names: &'a HashSet<String>,
+    local_index_map: HashMap<String, usize>,
+    local_count: u16,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
     errors: Vec<String>,
@@ -438,6 +447,8 @@ impl<'a> LoweringContext<'a> {
             state_types,
             event_index_map,
             function_names,
+            local_index_map: HashMap::new(),
+            local_count: 0,
             label_counter: 0,
             loop_stack: Vec::new(),
             errors: Vec::new(),
@@ -477,6 +488,17 @@ impl<'a> LoweringContext<'a> {
 
     fn state_type(&self, index: usize) -> Option<&ValueType> {
         self.state_types.get(index)
+    }
+
+    fn allocate_local(&mut self, name: String) -> usize {
+        let index = self.local_count as usize;
+        self.local_count = self.local_count.checked_add(1).unwrap_or(self.local_count);
+        self.local_index_map.insert(name, index);
+        index
+    }
+
+    fn resolve_local(&self, name: &str) -> Option<usize> {
+        self.local_index_map.get(name).copied()
     }
 }
 
@@ -669,6 +691,28 @@ fn lower_statement(
             }
             false
         }
+        Statement::VariableDefinition(_, decl, init) => {
+            if let Some(ident) = &decl.name {
+                if ctx.resolve_local(&ident.name).is_some() {
+                    ctx.record_error(format!("local variable '{}' redeclared", ident.name));
+                } else {
+                    let slot = ctx.allocate_local(ident.name.clone());
+                    if let Some(initializer) = init {
+                        if lower_expression(initializer, ctx, instructions) {
+                            instructions.push(Instruction::StoreLocal(slot));
+                        }
+                    } else {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(0u8),
+                        )));
+                        instructions.push(Instruction::StoreLocal(slot));
+                    }
+                }
+            } else {
+                ctx.record_error("variable declaration missing identifier");
+            }
+            false
+        }
         Statement::Emit(_, call) => {
             lower_emit(call, ctx, instructions);
             false
@@ -737,6 +781,12 @@ fn lower_assignment(
     }
 
     if let Expression::Variable(identifier) = lhs {
+        if let Some(index) = ctx.resolve_local(&identifier.name) {
+            if lower_expression(rhs, ctx, instructions) {
+                instructions.push(Instruction::StoreLocal(index));
+            }
+            return;
+        }
         if let Some(index) = ctx.state_index_map.get(&identifier.name) {
             if lower_expression(rhs, ctx, instructions) {
                 instructions.push(Instruction::StoreState(*index));
@@ -890,6 +940,9 @@ fn lower_expression(
             if let Some(index) = ctx.param_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadParameter(*index));
                 true
+            } else if let Some(index) = ctx.resolve_local(&identifier.name) {
+                instructions.push(Instruction::LoadLocal(index));
+                true
             } else if let Some(index) = ctx.state_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadState(*index));
                 true
@@ -995,25 +1048,67 @@ fn lower_expression(
         }
         Expression::Parenthesis(_, inner) => lower_expression(inner, ctx, instructions),
         Expression::MemberAccess(_, inner, member) => {
-            if let Expression::Variable(base) = inner.as_ref() {
-                match (base.name.as_str(), member.name.as_str()) {
-                    ("msg", "sender") => {
-                        instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
-                        return true;
-                    }
-                    ("block", "timestamp") => {
-                        instructions
-                            .push(Instruction::LoadRuntimeValue(RuntimeValue::BlockTimestamp));
-                        return true;
-                    }
-                    _ => {
-                        ctx.record_error(format!(
-                            "unsupported member access '{}.{}'",
-                            base.name, member.name
-                        ));
-                        return false;
+            match member.name.as_str() {
+                "sender" => {
+                    if let Expression::Variable(base) = inner.as_ref() {
+                        if base.name == "msg" {
+                            instructions
+                                .push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
+                            return true;
+                        }
                     }
                 }
+                "timestamp" => {
+                    if let Expression::Variable(base) = inner.as_ref() {
+                        if base.name == "block" {
+                            instructions
+                                .push(Instruction::LoadRuntimeValue(RuntimeValue::BlockTimestamp));
+                            return true;
+                        }
+                    }
+                }
+                "length" => {
+                    if lower_expression(inner, ctx, instructions) {
+                        instructions.push(Instruction::GetSize);
+                        return true;
+                    }
+                    return false;
+                }
+                "code" => {
+                    if lower_expression(inner, ctx, instructions) {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                        instructions
+                            .push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
+                        return true;
+                    }
+                    return false;
+                }
+                "max" => {
+                    if let Expression::Type(_, PtType::Uint(bits)) = inner.as_ref() {
+                        let mut value = BigInt::one();
+                        value <<= *bits as usize;
+                        value -= BigInt::one();
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+
+            if let Expression::Variable(base) = inner.as_ref() {
+                ctx.record_error(format!(
+                    "unsupported member access '{}.{}'",
+                    base.name, member.name
+                ));
+                return false;
+            }
+
+            if let Expression::Type(_, _) = inner.as_ref() {
+                ctx.record_error(format!(
+                    "unsupported member access on type expression '.{}'",
+                    member.name
+                ));
+                return false;
             }
 
             ctx.record_error("unsupported member access");
