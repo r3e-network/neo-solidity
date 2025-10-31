@@ -361,6 +361,9 @@ fn emit_ir_function(
                     state_index,
                     key_types,
                 } => emit_store_mapping(&mut local, module, *state_index, key_types),
+                ir::Instruction::LoadRuntimeValue(value) => {
+                    emit_load_runtime_value(&mut local, value)
+                }
                 ir::Instruction::EmitEvent { event_index } => {
                     emit_event(&mut local, module, *event_index)
                 }
@@ -557,6 +560,13 @@ fn emit_store_mapping(
     bytecode.push(0x50); // swap slot and context -> [value, context, slot]
     bytecode.push(0x51); // ROT -> [context, slot, value]
     emit_syscall(bytecode, "System.Storage.Put");
+}
+
+fn emit_load_runtime_value(bytecode: &mut Vec<u8>, value: &ir::RuntimeValue) {
+    match value {
+        ir::RuntimeValue::MsgSender => emit_syscall(bytecode, "System.Runtime.CallingScriptHash"),
+        ir::RuntimeValue::BlockTimestamp => emit_syscall(bytecode, "System.Runtime.GetTime"),
+    }
 }
 
 fn emit_event(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {

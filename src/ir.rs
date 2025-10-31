@@ -54,6 +54,12 @@ pub struct BasicBlock {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuntimeValue {
+    MsgSender,
+    BlockTimestamp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     Drop(ValueType),
     LoadParameter(usize),
@@ -72,6 +78,7 @@ pub enum Instruction {
         state_index: usize,
         key_types: Vec<ValueType>,
     },
+    LoadRuntimeValue(RuntimeValue),
     EmitEvent {
         event_index: usize,
     },
@@ -608,6 +615,16 @@ fn lower_statement(
         Statement::Expression(_, expr) => {
             if let Expression::Assign(_, lhs, rhs) = expr {
                 lower_assignment(lhs, rhs, ctx, instructions);
+            } else if let Expression::FunctionCall(_, func, args) = expr {
+                if let Expression::Variable(identifier) = func.as_ref() {
+                    if identifier.name == "require" {
+                        lower_require(args, ctx, instructions);
+                        return false;
+                    }
+                }
+                if lower_expression(expr, ctx, instructions) {
+                    instructions.push(Instruction::Drop(ValueType::Any));
+                }
             } else if lower_expression(expr, ctx, instructions) {
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
@@ -707,6 +724,25 @@ fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut V
     ctx.record_error("event emission is only supported for direct event invocations");
 }
 
+fn lower_require(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    if args.is_empty() {
+        ctx.record_error("require() expects at least one argument");
+        return;
+    }
+
+    let ok_label = ctx.next_label();
+    if lower_expression(&args[0], ctx, instructions) {
+        instructions.push(Instruction::JumpIf { target: ok_label });
+    }
+
+    instructions.push(Instruction::Abort);
+    instructions.push(Instruction::Label(ok_label));
+}
+
 fn lower_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,
@@ -788,6 +824,31 @@ fn lower_expression(
             }
         }
         Expression::Parenthesis(_, inner) => lower_expression(inner, ctx, instructions),
+        Expression::MemberAccess(_, inner, member) => {
+            if let Expression::Variable(base) = inner.as_ref() {
+                match (base.name.as_str(), member.name.as_str()) {
+                    ("msg", "sender") => {
+                        instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
+                        return true;
+                    }
+                    ("block", "timestamp") => {
+                        instructions
+                            .push(Instruction::LoadRuntimeValue(RuntimeValue::BlockTimestamp));
+                        return true;
+                    }
+                    _ => {
+                        ctx.record_error(format!(
+                            "unsupported member access '{}.{}'",
+                            base.name, member.name
+                        ));
+                        return false;
+                    }
+                }
+            }
+
+            ctx.record_error("unsupported member access");
+            false
+        }
         _ => {
             if let Some(literal) = literal_from_expression(expr) {
                 instructions.push(Instruction::PushLiteral(literal));
