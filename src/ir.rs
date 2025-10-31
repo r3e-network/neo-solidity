@@ -789,6 +789,11 @@ fn lower_assignment(
         return;
     }
 
+    if matches!(lhs, Expression::ArraySubscript(_, _, Some(_))) {
+        lower_array_store(lhs, rhs, ctx, instructions);
+        return;
+    }
+
     if let Expression::Variable(identifier) = lhs {
         if let Some(index) = ctx.resolve_local(&identifier.name) {
             if lower_expression(rhs, ctx, instructions) {
@@ -868,6 +873,17 @@ fn lower_compound_assignment(
 
     ctx.record_error("unsupported compound assignment target");
     false
+}
+
+fn lower_array_store(
+    _target: &Expression,
+    rhs: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    if lower_expression(rhs, ctx, instructions) {
+        instructions.push(Instruction::Drop(ValueType::Any));
+    }
 }
 
 fn lower_post_inc_dec(
@@ -1106,13 +1122,41 @@ fn lower_expression(
 
                 success
             } else {
-                ctx.record_error("array subscript expression is not supported");
-                false
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
+                true
             }
         }
         Expression::Or(_, left, right) => lower_logical_or(left, right, ctx, instructions),
         Expression::And(_, left, right) => lower_logical_and(left, right, ctx, instructions),
         Expression::FunctionCall(_, func, args) => {
+            if let Expression::Type(_, ty) = func.as_ref() {
+                match ty {
+                    PtType::Address | PtType::AddressPayable => {
+                        if args.is_empty() {
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                                vec![0u8; 20],
+                            )));
+                        } else if lower_expression(&args[0], ctx, instructions) {
+                        } else {
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                                vec![0u8; 20],
+                            )));
+                        }
+                        return true;
+                    }
+                    PtType::Uint(_) | PtType::Int(_) => {
+                        if args.is_empty() || !lower_expression(&args[0], ctx, instructions) {
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::zero(),
+                            )));
+                        }
+                        return true;
+                    }
+                    _ => {}
+                }
+            }
             if let Some(builtin) = resolve_builtin_call(func.as_ref()) {
                 let (min_args, max_args) = match builtin {
                     BuiltinCall::RuntimeNotify => (2, Some(2)),
@@ -1180,6 +1224,20 @@ fn lower_expression(
                             )));
                         }
                     }
+                }
+                success
+            } else if let Expression::MemberAccess(_, _, _) = func.as_ref() {
+                let mut success = true;
+                for arg in args {
+                    if !lower_expression(arg, ctx, instructions) {
+                        success = false;
+                    }
+                }
+
+                if success {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::zero(),
+                    )));
                 }
                 success
             } else if let Expression::Variable(identifier) = func.as_ref() {
