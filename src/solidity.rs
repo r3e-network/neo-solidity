@@ -248,7 +248,7 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     use std::collections::HashSet;
 
     let mut diagnostics = Vec::new();
-    let mut names = HashSet::new();
+    let mut signatures = HashSet::new();
     let mut constructor_count = 0usize;
 
     for function in &metadata.methods {
@@ -263,10 +263,17 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
                 }
             }
             FunctionKind::Regular => {
-                if !names.insert(function.name.clone()) {
+                let param_signature: Vec<String> = function
+                    .parameters
+                    .iter()
+                    .map(|param| canonical_param_type(&param.ty))
+                    .collect();
+                let signature = format!("{}({})", function.name, param_signature.join(","));
+
+                if !signatures.insert(signature.clone()) {
                     diagnostics.push(Diagnostic {
                         severity: DiagnosticSeverity::Error,
-                        message: format!("duplicate function '{}'", function.name),
+                        message: format!("duplicate function signature '{}'", signature),
                     });
                 }
             }

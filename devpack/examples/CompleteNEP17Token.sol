@@ -454,7 +454,7 @@ contract CompleteNEP17Token is NEP17 {
         require(block.timestamp >= executeTime, "CompleteNEP17: not yet time to execute");
         
         // Delete scheduled transfer
-        Storage.delete(abi.encode("scheduled_transfer", scheduleId));
+        Storage.remove(abi.encode("scheduled_transfer", scheduleId));
         
         // Execute transfer
         _transfer(address(this), to, amount, data);

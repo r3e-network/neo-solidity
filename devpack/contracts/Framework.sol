@@ -214,7 +214,7 @@ contract Framework {
     }
     
     function deleteStorageValue(bytes calldata key) public onlyOwner {
-        Storage.delete(key);
+        Storage.remove(key);
     }
     
     /**
@@ -334,7 +334,7 @@ contract Framework {
         
         for (uint256 i = 0; i < keys.length; i++) {
             if (isDelete[i]) {
-                Storage.delete(keys[i]);
+                Storage.remove(keys[i]);
             } else {
                 Storage.put(keys[i], values[i]);
             }

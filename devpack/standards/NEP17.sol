@@ -610,7 +610,7 @@ contract NEP17 is INEP17, Framework {
         require(msg.sender == to, "NEP17: only recipient can claim");
         
         // Delete timelock
-        Storage.delete(abi.encode("timelock", timelockId));
+        Storage.remove(abi.encode("timelock", timelockId));
         
         // Transfer tokens
         _transfer(address(this), to, amount, "");

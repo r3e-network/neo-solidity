@@ -102,9 +102,9 @@ library Storage {
     }
     
     /**
-     * @dev Delete value by key
+     * @dev Remove value by key
      */
-    function delete(bytes memory key) internal {
+    function remove(bytes memory key) internal {
         require(_config.initialized, "Storage: not initialized");
         
         Syscalls.StorageContext memory context = getContext();
@@ -231,7 +231,7 @@ library Storage {
         require(keys.length <= 100, "Storage: too many operations");
         
         for (uint256 i = 0; i < keys.length; i++) {
-            delete(keys[i]);
+            remove(keys[i]);
         }
         
         emit BatchStorageOperation(keys.length, 0);
