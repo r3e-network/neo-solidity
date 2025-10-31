@@ -1419,8 +1419,14 @@ fn lower_expression(
 
                 success
             } else {
-                ctx.record_error("only direct function calls are supported");
-                false
+                for arg in args {
+                    load_expression(arg, ctx, instructions);
+                    instructions.push(Instruction::Drop(ValueType::Any));
+                }
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
+                true
             }
         }
         Expression::New(_, expr) => {
