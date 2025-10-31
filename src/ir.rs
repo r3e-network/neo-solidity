@@ -891,6 +891,12 @@ fn lower_assignment(
             }
             return;
         }
+
+        let index = ctx.ensure_local(&identifier.name);
+        if lower_expression(rhs, ctx, instructions) {
+            instructions.push(Instruction::StoreLocal(index));
+        }
+        return;
     }
 
     ctx.record_error(format!("assignment target '{:?}' is not supported", lhs));
