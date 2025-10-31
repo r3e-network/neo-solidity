@@ -649,6 +649,7 @@ fn emit_builtin_call(bytecode: &mut Vec<u8>, builtin: &ir::BuiltinCall) {
         }
         ir::BuiltinCall::Keccak256
         | ir::BuiltinCall::StorageFind
+        | ir::BuiltinCall::TypeOf
         | ir::BuiltinCall::AbiEncode
         | ir::BuiltinCall::AbiEncodePacked
         | ir::BuiltinCall::AbiEncodeWithSignature

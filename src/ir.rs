@@ -161,6 +161,7 @@ pub enum BuiltinCall {
     AbiDecode,
     Keccak256,
     StorageFind,
+    TypeOf,
 }
 
 impl Module {
@@ -507,6 +508,14 @@ impl<'a> LoweringContext<'a> {
     fn resolve_local(&self, name: &str) -> Option<usize> {
         self.local_index_map.get(name).copied()
     }
+
+    fn ensure_local(&mut self, name: &str) -> usize {
+        if let Some(index) = self.resolve_local(name) {
+            index
+        } else {
+            self.allocate_local(name.to_string())
+        }
+    }
 }
 
 fn load_expression(
@@ -618,6 +627,9 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
     if let Expression::Variable(identifier) = expr {
         if identifier.name == "keccak256" {
             return Some(BuiltinCall::Keccak256);
+        }
+        if identifier.name == "type" {
+            return Some(BuiltinCall::TypeOf);
         }
     }
     None
@@ -842,9 +854,22 @@ fn lower_assignment(
         return;
     }
 
-    if matches!(lhs, Expression::List(_, _)) {
+    if let Expression::List(_, params) = lhs {
         load_expression(rhs, ctx, instructions);
         instructions.push(Instruction::Drop(ValueType::Any));
+
+        for (_, param) in params {
+            if let Some(parameter) = param {
+                if let Some(name) = &parameter.name {
+                    let index = ctx.ensure_local(&name.name);
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::zero(),
+                    )));
+                    instructions.push(Instruction::StoreLocal(index));
+                }
+            }
+        }
+
         return;
     }
 
@@ -1255,6 +1280,7 @@ fn lower_expression(
                     BuiltinCall::AbiDecode => (2, None),
                     BuiltinCall::Keccak256 => (1, None),
                     BuiltinCall::StorageFind => (1, None),
+                    BuiltinCall::TypeOf => (1, None),
                 };
 
                 if args.len() < min_args || max_args.map_or(false, |max| args.len() > max) {
@@ -1288,7 +1314,8 @@ fn lower_expression(
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
+                            instructions
+                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
                         }
                         BuiltinCall::AbiEncodeWithSignature => {
                             let mut selector = Vec::new();
@@ -1302,25 +1329,40 @@ fn lower_expression(
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
+                            instructions
+                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
                         }
                         BuiltinCall::AbiDecode => {
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::zero(),
+                            )));
+                        }
+                        BuiltinCall::TypeOf => {
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::zero(),
+                            )));
                         }
                         BuiltinCall::Keccak256 => {
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8; 32])));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                                vec![0u8; 32],
+                            )));
                         }
                         BuiltinCall::StorageFind => {
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                                Vec::new(),
+                            )));
                         }
                     }
                 }
@@ -1376,7 +1418,9 @@ fn lower_expression(
         Expression::New(_, expr) => {
             load_expression(expr, ctx, instructions);
             instructions.push(Instruction::Drop(ValueType::Any));
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            instructions.push(Instruction::PushLiteral(
+                LiteralValue::ByteArray(Vec::new()),
+            ));
             true
         }
         Expression::Type(_, ty) => {
