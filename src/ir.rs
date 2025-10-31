@@ -507,6 +507,17 @@ impl<'a> LoweringContext<'a> {
     }
 }
 
+fn load_expression(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let mut tmp = Vec::new();
+    if lower_expression(expr, ctx, &mut tmp) {
+        instructions.append(&mut tmp);
+    }
+}
+
 struct LoopLabels {
     continue_label: usize,
     break_label: usize,
@@ -727,9 +738,8 @@ fn lower_statement(
             false
         }
         Statement::Try(_, expr, _, _) => {
-            if lower_expression(expr, ctx, instructions) {
-                instructions.push(Instruction::Drop(ValueType::Any));
-            }
+            load_expression(expr, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
             false
         }
         Statement::Break(_) => {
@@ -887,9 +897,8 @@ fn lower_array_store(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
-    if lower_expression(rhs, ctx, instructions) {
-        instructions.push(Instruction::Drop(ValueType::Any));
-    }
+    load_expression(rhs, ctx, instructions);
+    instructions.push(Instruction::Drop(ValueType::Any));
 }
 
 fn lower_post_inc_dec(
@@ -1323,6 +1332,14 @@ fn lower_expression(
                         value <<= *bits as usize;
                         value -= BigInt::one();
                         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
+                        return true;
+                    }
+                }
+                "interfaceId" => {
+                    if let Expression::Type(_, _) = inner.as_ref() {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+                            0, 0, 0, 0,
+                        ])));
                         return true;
                     }
                 }
