@@ -647,6 +647,10 @@ fn emit_builtin_call(bytecode: &mut Vec<u8>, builtin: &ir::BuiltinCall) {
         ir::BuiltinCall::RuntimeCheckWitness => {
             emit_syscall(bytecode, "System.Runtime.CheckWitness")
         }
+        ir::BuiltinCall::AbiEncode
+        | ir::BuiltinCall::AbiEncodePacked
+        | ir::BuiltinCall::AbiEncodeWithSignature
+        | ir::BuiltinCall::AbiDecode => {}
     }
 }
 

@@ -7,7 +7,8 @@ use crate::solidity::{
 use crate::storage_key::compute_state_slot;
 use hex::decode as hex_decode;
 use num_bigint::BigInt;
-use num_traits::One;
+use num_traits::{One, Zero};
+use sha3::{Digest, Keccak256};
 use solang_parser::pt::{
     Expression, HexLiteral as PtHexLiteral, Statement, StringLiteral as PtStringLiteral,
     Type as PtType,
@@ -154,6 +155,10 @@ pub enum BinaryOperator {
 pub enum BuiltinCall {
     RuntimeNotify,
     RuntimeCheckWitness,
+    AbiEncode,
+    AbiEncodePacked,
+    AbiEncodeWithSignature,
+    AbiDecode,
 }
 
 impl Module {
@@ -559,6 +564,10 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
             match (base.name.as_str(), member.name.as_str()) {
                 ("Runtime", "notify") => return Some(BuiltinCall::RuntimeNotify),
                 ("Runtime", "checkWitness") => return Some(BuiltinCall::RuntimeCheckWitness),
+                ("abi", "encode") => return Some(BuiltinCall::AbiEncode),
+                ("abi", "encodePacked") => return Some(BuiltinCall::AbiEncodePacked),
+                ("abi", "encodeWithSignature") => return Some(BuiltinCall::AbiEncodeWithSignature),
+                ("abi", "decode") => return Some(BuiltinCall::AbiDecode),
                 _ => {}
             }
         }
@@ -984,15 +993,21 @@ fn lower_expression(
         Expression::And(_, left, right) => lower_logical_and(left, right, ctx, instructions),
         Expression::FunctionCall(_, func, args) => {
             if let Some(builtin) = resolve_builtin_call(func.as_ref()) {
-                let expected_args = match builtin {
-                    BuiltinCall::RuntimeNotify => 2,
-                    BuiltinCall::RuntimeCheckWitness => 1,
+                let (min_args, max_args) = match builtin {
+                    BuiltinCall::RuntimeNotify => (2, Some(2)),
+                    BuiltinCall::RuntimeCheckWitness => (1, Some(1)),
+                    BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked => (1, None),
+                    BuiltinCall::AbiEncodeWithSignature => (1, None),
+                    BuiltinCall::AbiDecode => (2, None),
                 };
 
-                if args.len() != expected_args {
+                if args.len() < min_args || max_args.map_or(false, |max| args.len() > max) {
                     ctx.record_error(format!(
-                        "builtin call requires {} argument(s), got {}",
-                        expected_args,
+                        "builtin call requires between {} and {} argument(s), got {}",
+                        min_args,
+                        max_args
+                            .map(|v| v.to_string())
+                            .unwrap_or_else(|| "∞".to_string()),
                         args.len()
                     ));
                     return false;
@@ -1006,10 +1021,44 @@ fn lower_expression(
                 }
 
                 if success {
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin,
-                        arg_count: args.len(),
-                    });
+                    match builtin {
+                        BuiltinCall::RuntimeNotify | BuiltinCall::RuntimeCheckWitness => {
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin,
+                                arg_count: args.len(),
+                            });
+                        }
+                        BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked => {
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions
+                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
+                        }
+                        BuiltinCall::AbiEncodeWithSignature => {
+                            let mut selector = Vec::new();
+                            if let Some(Expression::StringLiteral(parts)) = args.first() {
+                                let bytes = string_literal_bytes(parts);
+                                let mut hasher = Keccak256::new();
+                                hasher.update(&bytes);
+                                let digest = hasher.finalize();
+                                selector.extend_from_slice(&digest[..4]);
+                            }
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions
+                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
+                        }
+                        BuiltinCall::AbiDecode => {
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::zero(),
+                            )));
+                        }
+                    }
                 }
                 success
             } else if let Expression::Variable(identifier) = func.as_ref() {
