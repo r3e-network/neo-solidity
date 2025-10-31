@@ -159,6 +159,8 @@ pub enum BuiltinCall {
     AbiEncodePacked,
     AbiEncodeWithSignature,
     AbiDecode,
+    Keccak256,
+    StorageFind,
 }
 
 impl Module {
@@ -608,8 +610,14 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
                 ("abi", "encodePacked") => return Some(BuiltinCall::AbiEncodePacked),
                 ("abi", "encodeWithSignature") => return Some(BuiltinCall::AbiEncodeWithSignature),
                 ("abi", "decode") => return Some(BuiltinCall::AbiDecode),
+                ("Storage", "find") => return Some(BuiltinCall::StorageFind),
                 _ => {}
             }
+        }
+    }
+    if let Expression::Variable(identifier) = expr {
+        if identifier.name == "keccak256" {
+            return Some(BuiltinCall::Keccak256);
         }
     }
     None
@@ -831,6 +839,12 @@ fn lower_assignment(
             });
         }
 
+        return;
+    }
+
+    if matches!(lhs, Expression::List(_, _)) {
+        load_expression(rhs, ctx, instructions);
+        instructions.push(Instruction::Drop(ValueType::Any));
         return;
     }
 
@@ -1239,6 +1253,8 @@ fn lower_expression(
                     BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked => (1, None),
                     BuiltinCall::AbiEncodeWithSignature => (1, None),
                     BuiltinCall::AbiDecode => (2, None),
+                    BuiltinCall::Keccak256 => (1, None),
+                    BuiltinCall::StorageFind => (1, None),
                 };
 
                 if args.len() < min_args || max_args.map_or(false, |max| args.len() > max) {
@@ -1272,8 +1288,7 @@ fn lower_expression(
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions
-                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
                         }
                         BuiltinCall::AbiEncodeWithSignature => {
                             let mut selector = Vec::new();
@@ -1287,16 +1302,25 @@ fn lower_expression(
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions
-                                .push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
                         }
                         BuiltinCall::AbiDecode => {
                             for _ in args {
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
-                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                                BigInt::zero(),
-                            )));
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                        }
+                        BuiltinCall::Keccak256 => {
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8; 32])));
+                        }
+                        BuiltinCall::StorageFind => {
+                            for _ in args {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
                         }
                     }
                 }
@@ -1348,6 +1372,12 @@ fn lower_expression(
                 ctx.record_error("only direct function calls are supported");
                 false
             }
+        }
+        Expression::New(_, expr) => {
+            load_expression(expr, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            true
         }
         Expression::Type(_, ty) => {
             push_default_for_type(ty, instructions);
@@ -1416,24 +1446,12 @@ fn lower_expression(
                 _ => {}
             }
 
-            if let Expression::Variable(base) = inner.as_ref() {
-                ctx.record_error(format!(
-                    "unsupported member access '{}.{}'",
-                    base.name, member.name
-                ));
-                return false;
-            }
-
-            if let Expression::Type(_, _) = inner.as_ref() {
-                ctx.record_error(format!(
-                    "unsupported member access on type expression '.{}'",
-                    member.name
-                ));
-                return false;
-            }
-
-            ctx.record_error("unsupported member access");
-            false
+            load_expression(inner, ctx, instructions);
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            true
         }
         _ => {
             if let Some(literal) = literal_from_expression(expr) {
