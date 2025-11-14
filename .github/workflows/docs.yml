@@ -178,14 +178,14 @@ jobs:
                 <div class="card">
                     <h3>🚀 Quick Start</h3>
                     <pre><code># Install Neo Solidity Compiler
-curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64 -o neo-solc
-chmod +x neo-solc
+                    curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64 -o neo-solc
+                    chmod +x neo-solc
 
-# Compile Solidity to Neo N3
-./neo-solc MyContract.sol -o MyContract
+                    # Compile Solidity to Neo N3
+                    ./neo-solc MyContract.sol -o MyContract
 
-# Deploy to Neo blockchain
-neo-cli contract deploy MyContract.nef MyContract.manifest.json</code></pre>
+                    # Deploy to Neo blockchain
+                    neo-cli contract deploy MyContract.nef MyContract.manifest.json</code></pre>
                 </div>
                 
                 <div class="card">
