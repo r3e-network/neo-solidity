@@ -1,5 +1,6 @@
 # Multi-stage build for Neo Solidity Compiler
-FROM rust:1.75 AS rust-builder
+# Use a recent Rust toolchain so Cargo understands lockfile format v4
+FROM rust:1.83 AS rust-builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
