@@ -9,6 +9,8 @@
 
 > **⚡ Enable Solidity developers to build on Neo blockchain with full EVM compatibility**
 
+> ⚠️ **Project Status (Nov 2025):** Much of this repository still reflects the *intended* final state rather than what currently ships. The TypeScript packages now document their placeholder status (see `tooling/README.md` and each package README). Until the roadmap items land, treat the code as experimental scaffolding.
+
 Neo Solidity Compiler is a comprehensive, production-ready system that allows Solidity smart contracts to run seamlessly on the Neo N3 blockchain. It provides complete EVM semantic emulation while leveraging Neo's unique performance and security features.
 
 ## 🎯 **Key Features**
