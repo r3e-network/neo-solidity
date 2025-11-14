@@ -1,10 +1,12 @@
 # Neo-Solidity Comprehensive Development Tooling
 
-A complete, production-ready toolchain for Neo-Solidity development featuring Hardhat and Foundry integration, advanced debugging, performance profiling, and seamless ABI compatibility.
+A complete toolchain under active development for Neo-Solidity. Several packages remain experimental—review the status table below before adopting any component in production.
 
-> **Production-Ready** • **Comprehensive Testing** • **Advanced Debugging** • **Performance Optimization** • **Complete Documentation**
-
-This toolkit provides everything needed for professional Neo-Solidity development with complete Hardhat and Foundry integration, advanced tooling, and comprehensive testing.
+> ⚠️ **Current Status (Aug 2024)**  
+> - `@neo-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; deployment/test/gas tasks are **not implemented**.  
+> - `@neo-solidity/hardhat-neo-deployer`: placeholder; `neo-deploy`/`neo-deploy-batch` emit mock data and do **not** submit transactions.  
+> - `@neo-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): CLI scaffolding only; commands print placeholder messages.  
+> - `@neo-solidity/abi-router`, `@neo-solidity/cli-tools`: prototypes still missing full ABI coverage and verified deployments.
 
 ## 🏗️ Architecture Overview
 
@@ -27,14 +29,16 @@ Neo-Solidity Tooling Ecosystem
 
 ## 🚀 Quick Start
 
-### 1. Hardhat Setup
+### 1. Hardhat Setup (compile only)
 
 ```bash
-npm install --save-dev @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-solidity/hardhat-solc-neo
+# Optional (EXPERIMENTAL): @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-solidity/hardhat-neo-deployer
 
 # hardhat.config.ts
 import "@neo-solidity/hardhat-solc-neo";
-import "@neo-solidity/hardhat-neo-deployer";
+// import "@neo-solidity/hardhat-neo-deployer"; // deployment plugin still WIP
 
 export default {
   neoSolc: {
@@ -58,11 +62,10 @@ export default {
 # Compile contracts
 npx hardhat neo-compile
 
-# Deploy contracts  
-npx hardhat neo-deploy --contract Token --args '["TokenName", "TKN", 18]'
+# Deployment commands from @neo-solidity/hardhat-neo-deployer currently emit placeholder data.
 ```
 
-### 2. Foundry Setup
+### 2. Foundry Setup (scaffolding only)
 
 ```bash
 npm install -g @neo-solidity/neo-foundry
@@ -82,7 +85,7 @@ gas_cost_model = "hybrid"
 storage_optimization = true
 event_optimization = true
 
-# Build and test
+# Build and test (currently print placeholder output)
 neo-forge build
 neo-forge test
 ```
@@ -117,35 +120,42 @@ Shared TypeScript interfaces and type definitions for all tooling packages.
 - `NeoRpcProvider` - RPC interface
 
 #### `@neo-solidity/abi-router` 
-ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts.
+ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. It currently supports static ABIs, best-effort event scanning, and deployments when you provide the Neo compiler’s NEF + manifest output yourself.
 
-**Features:**
-- Ethereum-style contract interaction
-- Automatic ABI encoding/decoding
-- Event filtering and subscription
-- Gas estimation compatibility
-- Transaction receipt formatting
+**Current capabilities / caveats:**
+- ✅ Ethereum-style contract interaction (call/send/estimate).
+- ✅ `AbiRouter.deployContract({ nef, manifest }, abi)` when you pass in the compiler artifacts manually.
+- ✅ Basic event filtering (linear scan via RPC application logs).
+- ⚠️ No automatic artifact registry or dynamic ABI decoding yet.
+- ⚠️ Large block ranges can be slow because filtering is sequential.
 
 ```typescript
+import { readFileSync } from 'fs';
 import { AbiRouter } from '@neo-solidity/abi-router';
 
 const router = new AbiRouter(neoRpcProvider);
-const contract = router.createContract(address, abi, signer);
+const artifacts = { nef: readFileSync('Token.nef', 'hex'), manifest: require('./Token.manifest.json') };
 
-// Ethereum-compatible interface
-const result = await contract.transfer(recipient, amount);
+// Deploy a NEF/manifest pair compiled by neo-solc
+const deployed = await router.deployContract(artifacts, abi);
+
+// Wrap an existing Neo contract with Ethereum-style methods
+const contract = router.createContract(deployed.address, abi, signer);
+await contract.transfer(recipient, amount);
 const balance = await contract.balanceOf(account);
 ```
 
 ### Hardhat Integration
 
 #### `@neo-solidity/hardhat-solc-neo`
-Hardhat plugin for compiling Solidity to NeoVM bytecode.
+Hardhat plugin for compiling Solidity to NeoVM bytecode. The runtime extension only exposes `hre.neoSolc.compiler` and `hre.neoSolc.artifacts`; other helpers were removed until a real Neo RPC workflow exists.
 
-**Tasks:**
+**Tasks (currently supported):**
 - `neo-compile` - Compile contracts
 - `neo-clean` - Clean build artifacts  
-- `neo-verify` - Verify contracts
+- `neo-verify` - Update local deployment metadata after you verify off-chain
+
+> ⚠️ Former deployment/test/gas tasks were removed because they never submitted valid Neo transactions. Use native Neo tooling for deployment until a dedicated Neo deploy plugin is completed.
 
 **Configuration:**
 ```typescript
@@ -160,43 +170,36 @@ neoSolc: {
 ```
 
 #### `@neo-solidity/hardhat-neo-deployer`
-Hardhat plugin for deploying and interacting with Neo contracts.
+Experimental Hardhat plugin intended for deploying and interacting with Neo contracts. The current implementation still returns mock addresses/transactions and does **not** submit transactions to a Neo RPC node.
 
-**Tasks:**
-- `neo-deploy` - Deploy single contract
-- `neo-deploy-batch` - Deploy multiple contracts
-- `neo-accounts` - Manage deployment accounts
-- `neo-network` - Network information
+**Status**
+- `neo-deploy`, `neo-deploy-batch`, `neo-deploy-estimate`: stub commands only.  
+- Account/network helpers log information but are not wired to real signing flows.  
 
-**Features:**
-- Multi-network deployment
-- Account management
-- Gas estimation
-- Transaction verification
-- Deployment artifacts
+Use this package only if you plan to finish the deployment pipeline (script generation, signing, broadcasting) yourself.
 
 ### Foundry Integration
 
 #### `@neo-solidity/neo-foundry`
-Complete Foundry-compatible development environment for Neo.
+Prototype Foundry-compatible tooling for Neo. `neo-forge`, `neo-cast`, and `neo-anvil` currently emit placeholder output and should be considered scaffolding.
 
 **Tools:**
-- `neo-forge` - Build and test framework
-- `neo-cast` - Contract interaction tool
-- `neo-anvil` - Local Neo blockchain
+- `neo-forge` - Build/test CLI (prints stub messages today)
+- `neo-cast` - Contract interaction tool (WIP)
+- `neo-anvil` - Local Neo blockchain stub
 
 **Commands:**
 ```bash
-# Build system
+# Build system (WIP)
 neo-forge build --watch
 neo-forge test --gas-report
 neo-forge clean
 
-# Contract interaction
+# Contract interaction (WIP)
 neo-cast call 0x123... balanceOf 0xabc...
 neo-cast send 0x123... transfer 0xdef... 100
 
-# Local blockchain
+# Local blockchain (WIP)
 neo-anvil --port 40332 --accounts 10
 ```
 

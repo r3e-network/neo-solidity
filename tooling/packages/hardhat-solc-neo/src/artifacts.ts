@@ -1,4 +1,4 @@
-import { promises as fs } from "fs";
+import { promises as fs, Dirent } from "fs";
 import path from "path";
 import { 
   BuildArtifact, 
@@ -47,7 +47,10 @@ export class ArtifactManager implements IArtifactManager {
     debug(`Getting build artifact for ${contractName}`);
     
     try {
-      const artifactPath = path.join(this.config.buildDir, `${contractName}.json`);
+      const artifactPath = await this.resolveBuildArtifactPath(contractName);
+      if (!artifactPath) {
+        return null;
+      }
       const content = await fs.readFile(artifactPath, "utf-8");
       return JSON.parse(content);
     } catch (error) {
@@ -68,9 +71,10 @@ export class ArtifactManager implements IArtifactManager {
     debug(`Saving build artifact for ${artifact.contractName}`);
     
     try {
-      await fs.mkdir(this.config.buildDir, { recursive: true });
+      const sourceDir = this.getSourceArtifactDir(artifact.sourceName, artifact.contractName);
+      await fs.mkdir(sourceDir, { recursive: true });
       
-      const artifactPath = path.join(this.config.buildDir, `${artifact.contractName}.json`);
+      const artifactPath = path.join(sourceDir, `${artifact.contractName}.json`);
       await fs.writeFile(artifactPath, JSON.stringify(artifact, null, 2));
       
       debug(`Build artifact saved to ${artifactPath}`);
@@ -92,11 +96,14 @@ export class ArtifactManager implements IArtifactManager {
       const files = await this.getArtifactFiles(this.config.buildDir);
       const artifacts: BuildArtifact[] = [];
       
-      for (const file of files) {
-        if (file.endsWith(".json")) {
-          const content = await fs.readFile(path.join(this.config.buildDir, file), "utf-8");
-          artifacts.push(JSON.parse(content));
+      for (const relativePath of files) {
+        if (!relativePath.endsWith(".json")) {
+          continue;
         }
+
+        const fullPath = path.join(this.config.buildDir, relativePath);
+        const content = await fs.readFile(fullPath, "utf-8");
+        artifacts.push(JSON.parse(content));
       }
       
       return artifacts;
@@ -454,14 +461,7 @@ export class ArtifactManager implements IArtifactManager {
   // Helper methods
 
   private async getArtifactFiles(dir: string): Promise<string[]> {
-    try {
-      return await fs.readdir(dir);
-    } catch (error) {
-      if ((error as any).code === "ENOENT") {
-        return [];
-      }
-      throw error;
-    }
+    return this.collectArtifactFiles(dir, "");
   }
 
   private async getDirectories(dir: string): Promise<string[]> {
@@ -487,6 +487,15 @@ export class ArtifactManager implements IArtifactManager {
     }
   }
 
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      const stat = await fs.stat(filePath);
+      return stat.isFile();
+    } catch {
+      return false;
+    }
+  }
+
   private async removeDirectory(dir: string): Promise<void> {
     try {
       await fs.rm(dir, { recursive: true, force: true });
@@ -495,6 +504,103 @@ export class ArtifactManager implements IArtifactManager {
         throw error;
       }
     }
+  }
+
+  private async resolveBuildArtifactPath(contractIdentifier: string): Promise<string | null> {
+    let sourceQualifier: string | null = null;
+    let simpleName = contractIdentifier;
+
+    const colonIndex = contractIdentifier.indexOf(":");
+    if (colonIndex !== -1) {
+      sourceQualifier = this.normalizeSourceIdentifier(contractIdentifier.slice(0, colonIndex));
+      simpleName = contractIdentifier.slice(colonIndex + 1);
+    }
+
+    if (sourceQualifier) {
+      const sourceDir = this.getSourceArtifactDir(sourceQualifier, simpleName);
+      const fqPath = path.join(sourceDir, `${simpleName}.json`);
+      if (await this.fileExists(fqPath)) {
+        return fqPath;
+      }
+      return null;
+    }
+
+    const flatPath = path.join(this.config.buildDir, `${simpleName}.json`);
+    if (await this.fileExists(flatPath)) {
+      return flatPath;
+    }
+
+    const files = await this.getArtifactFiles(this.config.buildDir);
+    const matches = files.filter(file => path.basename(file) === `${simpleName}.json`);
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    if (matches.length > 1) {
+      const matchList = matches.map(match => ` • ${match}`).join("\n");
+      throw new HardhatPluginError(
+        "@neo-solidity/hardhat-solc-neo",
+        `Multiple artifacts match '${simpleName}'. Use fully qualified name (source:contract).\n${matchList}`
+      );
+    }
+
+    return path.join(this.config.buildDir, matches[0]);
+  }
+
+  private getSourceArtifactDir(sourceName: string | undefined, fallback: string): string {
+    const normalized = sourceName ? this.normalizeSourceIdentifier(sourceName) : fallback;
+    const segments = this.normalizeSourceSegments(normalized);
+    if (segments.length === 0) {
+      return this.config.buildDir;
+    }
+    return path.join(this.config.buildDir, ...segments);
+  }
+
+  private normalizeSourceIdentifier(sourceName: string): string {
+    let normalized = sourceName.replace(/\\/g, "/");
+    if (normalized.startsWith("./")) {
+      normalized = normalized.slice(2);
+    }
+    if (normalized.toLowerCase().startsWith("contracts/")) {
+      normalized = normalized.slice("contracts/".length);
+    }
+    return normalized;
+  }
+
+  private normalizeSourceSegments(sourceName: string): string[] {
+    return sourceName
+      .replace(/\\/g, "/")
+      .split("/")
+      .map(segment => segment.trim())
+      .filter(segment => segment.length > 0 && segment !== "." && segment !== "..");
+  }
+
+  private async collectArtifactFiles(root: string, relative: string): Promise<string[]> {
+    const fullPath = relative ? path.join(root, relative) : root;
+    let entries: Dirent[];
+
+    try {
+      entries = await fs.readdir(fullPath, { withFileTypes: true });
+    } catch (error) {
+      if ((error as any).code === "ENOENT") {
+        return [];
+      }
+      throw error;
+    }
+
+    const files: string[] = [];
+    for (const entry of entries) {
+      const entryRelative = relative ? path.join(relative, entry.name) : entry.name;
+      if (entry.isDirectory()) {
+        const nested = await this.collectArtifactFiles(root, entryRelative);
+        files.push(...nested);
+      } else {
+        files.push(entryRelative);
+      }
+    }
+
+    return files;
   }
 
   /**

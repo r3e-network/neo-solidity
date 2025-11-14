@@ -1,3 +1,5 @@
+import type { ContractManifest } from "@neo-solidity/types";
+
 // Re-export types for convenience
 export * from "@neo-solidity/types";
 
@@ -166,6 +168,14 @@ export interface DeploymentResult {
   transactionHash: string;
   contract: any;
   receipt: TransactionReceipt;
+}
+
+/**
+ * Minimal NEF + manifest payload required to deploy a Neo contract.
+ */
+export interface NeoDeploymentArtifacts {
+  nef: string;
+  manifest: ContractManifest | Record<string, any>;
 }
 
 /**

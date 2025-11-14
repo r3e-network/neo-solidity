@@ -28,6 +28,9 @@ export interface NeoRpcProvider {
   /** Send raw transaction */
   sendRawTransaction(signedTransaction: string): Promise<SendResult>;
   
+  /** Send structured transaction */
+  sendTransaction(transaction: any): Promise<SendResult>;
+  
   /** Get balance for address */
   getBalance(address: string): Promise<Balance[]>;
   

@@ -1,4 +1,5 @@
 import { NeoRpcProvider } from "@neo-solidity/types";
+import { NeoDeploymentArtifacts } from "./types";
 import Debug from "debug";
 
 const debug = Debug("neo-solidity:transaction-builder");
@@ -59,7 +60,7 @@ export class TransactionBuilder {
    * Deploy contract
    */
   async deployContract(
-    bytecode: string,
+    artifacts: NeoDeploymentArtifacts,
     constructorArgs: any[] = [],
     options: {
       gasLimit?: string;
@@ -70,10 +71,17 @@ export class TransactionBuilder {
     debug("Building contract deployment transaction");
 
     try {
+      if (!artifacts?.nef || !artifacts?.manifest) {
+        throw new Error("Both NEF script and manifest are required for deployment.");
+      }
+
+      // Constructor arguments are not yet supported in the Neo deployment script.
+      void constructorArgs;
+
       // Deploy contract to Neo blockchain
       const deploymentTx = await this.buildDeploymentTransaction({
-        nef: bytecode.nef,
-        manifest: bytecode.manifest,
+        nef: artifacts.nef,
+        manifest: artifacts.manifest,
         gasLimit: options.gasLimit ? BigInt(options.gasLimit) : BigInt('50000000'),
         gasPrice: options.gasPrice ? BigInt(options.gasPrice) : BigInt('1000')
       });

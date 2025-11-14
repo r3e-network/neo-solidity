@@ -15,6 +15,7 @@ import { RpcAdapter } from "./rpc-adapter";
 import { TransactionBuilder } from "./transaction-builder";
 import { EventDecoder } from "./event-decoder";
 import { ContractWrapper } from "./contract-wrapper";
+import { NeoDeploymentArtifacts } from "./types";
 import Debug from "debug";
 
 const debug = Debug("neo-solidity:abi-router");
@@ -68,7 +69,7 @@ export class AbiRouter {
    * Deploy contract with Ethereum-compatible interface
    */
   async deployContract(
-    bytecode: string,
+    artifacts: NeoDeploymentArtifacts,
     abi: any[],
     constructorArgs: any[] = [],
     options: {
@@ -82,7 +83,7 @@ export class AbiRouter {
     try {
       // Deploy contract using transaction builder
       const deployment = await this.transactionBuilder.deployContract(
-        bytecode,
+        artifacts,
         constructorArgs,
         options
       );
@@ -111,7 +112,7 @@ export class AbiRouter {
     ]);
 
     const fragment = typeof functionFragment === "string"
-      ? iface.getFunction(functionFragment.split('(')[0])!
+      ? iface.getFunction(functionFragment)!
       : functionFragment;
 
     return iface.encodeFunctionData(fragment, args);
@@ -133,7 +134,7 @@ export class AbiRouter {
     ]);
 
     const fragment = typeof functionFragment === "string"
-      ? iface.getFunction(functionFragment.split('(')[0])!
+      ? iface.getFunction(functionFragment)!
       : functionFragment;
 
     return iface.decodeFunctionResult(fragment, data);
@@ -155,7 +156,7 @@ export class AbiRouter {
     ]);
 
     const fragment = typeof eventFragment === "string"
-      ? iface.getEvent(eventFragment.split('(')[0])!
+      ? iface.getEvent(eventFragment)!
       : eventFragment;
 
     return iface.encodeFilterTopics(fragment, values);
@@ -177,7 +178,7 @@ export class AbiRouter {
         : eventFragment
     ]);
 
-    return iface.parseLog({ data, topics })!;
+    return iface.parseLog({ data, topics });
   }
 
   /**
@@ -230,9 +231,8 @@ export class AbiRouter {
    */
   getFunctionSelector(signature: string): string {
     const iface = new Interface([`function ${signature}`]);
-    const functionName = signature.split('(')[0];
-    const fragment = iface.getFunction(functionName)!;
-    return iface.getFunction(fragment.name)!.selector;
+    const fragment = iface.getFunction(signature)!;
+    return fragment.selector;
   }
 
   /**
@@ -240,9 +240,8 @@ export class AbiRouter {
    */
   getEventTopicHash(signature: string): string {
     const iface = new Interface([`event ${signature}`]);
-    const eventName = signature.split('(')[0];
-    const fragment = iface.getEvent(eventName)!;
-    return iface.getEvent(fragment.name)!.topicHash;
+    const fragment = iface.getEvent(signature)!;
+    return fragment.topicHash;
   }
 
   // Private methods

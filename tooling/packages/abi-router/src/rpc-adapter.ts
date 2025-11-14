@@ -147,6 +147,13 @@ export class RpcAdapter {
     debug(`Getting events ${eventName} from ${contractAddress}`);
 
     try {
+      const filter = {
+        address: contractAddress,
+        topics: eventName ? [this.getEventTopicHash(eventName), eventName] : undefined,
+        fromBlock,
+        toBlock
+      };
+
       const events = await this.fetchEventsFromNeo(filter);
       return events.map(event => this.convertNeoEventToEthLog(event));
     } catch (error) {
@@ -254,26 +261,6 @@ export class RpcAdapter {
 
   // Private methods
 
-  private addressToScriptHash(address: string): string {
-    // Convert Ethereum-style address to Neo script hash
-    if (address.startsWith('0x')) {
-      return address.toLowerCase();
-    }
-    
-    // If it's already a Neo address, convert to script hash format
-    try {
-      const scriptHash = this.addressToScriptHash(address);
-      return scriptHash;
-    } catch {
-      // If conversion fails, try to extract from the address
-      const cleanAddress = address.replace(/^0x/, '');
-      if (cleanAddress.length === 40) {
-        return '0x' + cleanAddress.toLowerCase();
-      }
-      throw new Error(`Invalid address format: ${address}`);
-    }
-  }
-
   private convertArgsToNeoParams(args: any[]): any[] {
     return args.map(arg => {
       if (typeof arg === 'object' && arg !== null && arg.type) {
@@ -341,7 +328,7 @@ export class RpcAdapter {
       address: notification.contract,
       topics: [
         // First topic is event signature hash
-        this.getEventTopicHash(notification.eventName),
+        this.getEventTopicHash(notification.eventname || notification.eventName),
         // Additional topics from indexed parameters would go here
       ],
       data: this.encodeLogData(notification.state),
@@ -353,10 +340,11 @@ export class RpcAdapter {
   }
 
   private getEventTopicHash(eventName: string): string {
+    const name = eventName || "UnknownEvent";
     // For Neo events, we use a different hashing approach than Ethereum's Keccak256
     // We'll use SHA256 which is available in Neo
     const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(eventName).digest('hex');
+    const hash = crypto.createHash('sha256').update(name).digest('hex');
     return '0x' + hash;
   }
 
@@ -393,8 +381,8 @@ export class RpcAdapter {
     const events: any[] = [];
     
     try {
-      const fromBlock = this.parseBlockTag(filter.fromBlock || 'earliest');
-      const toBlock = this.parseBlockTag(filter.toBlock || 'latest');
+      const fromBlock = await this.resolveBlockTag(filter.fromBlock ?? 'earliest');
+      const toBlock = await this.resolveBlockTag(filter.toBlock ?? 'latest');
       
       // Get application logs for the block range
       for (let blockHeight = fromBlock; blockHeight <= toBlock; blockHeight++) {
@@ -434,7 +422,7 @@ export class RpcAdapter {
       
       // Filter by topics (event names)
       if (filter.topics && filter.topics.length > 0) {
-        const eventName = notification.eventname;
+        const eventName = notification.eventname || notification.eventName;
         const eventHash = this.getEventTopicHash(eventName);
         
         // Check if any topic matches
@@ -458,7 +446,7 @@ export class RpcAdapter {
     return {
       address: this.scriptHashToAddress(notification.contract),
       topics: [
-        this.getEventTopicHash(notification.eventname),
+        this.getEventTopicHash(notification.eventname || notification.eventName),
         // Additional topics would be extracted from notification.state
       ],
       data: this.encodeLogData(notification.state || []),
@@ -474,25 +462,34 @@ export class RpcAdapter {
   /**
    * Parse block tag to block number
    */
-  private parseBlockTag(blockTag: string | number): number {
+  private async resolveBlockTag(blockTag: string | number): Promise<number> {
     if (typeof blockTag === 'number') {
       return blockTag;
     }
     
-    switch (blockTag) {
-      case 'earliest':
-        return 0;
-      case 'latest':
-        // Would get latest block number from RPC
-        return 999999999; // Large number as placeholder
-      case 'pending':
-        return 999999999;
-      default:
-        if (blockTag.startsWith('0x')) {
-          return parseInt(blockTag, 16);
+    if (typeof blockTag === 'string') {
+      switch (blockTag) {
+        case 'earliest':
+          return 0;
+        case 'latest':
+        case 'pending': {
+          try {
+            const count = await this.rpcProvider.getBlockCount();
+            return Math.max(0, count - 1);
+          } catch (error) {
+            debug(`Failed to resolve ${blockTag} block tag: ${error}`);
+            return 0;
+          }
         }
-        return parseInt(blockTag, 10);
+        default:
+          if (blockTag.startsWith('0x')) {
+            return parseInt(blockTag, 16);
+          }
+          return parseInt(blockTag, 10);
+      }
     }
+
+    return 0;
   }
 
   /**

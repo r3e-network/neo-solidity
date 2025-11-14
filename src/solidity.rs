@@ -117,21 +117,36 @@ pub struct Diagnostic {
 }
 
 pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
-    let mut contracts = parse_source(source)?;
+    let mut contracts = analyse_all_sources(source)?;
+    Ok(contracts.swap_remove(0))
+}
 
-    if let Some(index) = contracts.iter().position(|contract| {
-        matches!(
+pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, SolidityError> {
+    let mut primary = Vec::new();
+    let mut fallback = Vec::new();
+
+    for contract in parse_source(source)? {
+        if matches!(
             contract.kind,
             ContractKind::Contract | ContractKind::AbstractContract
-        )
-    }) {
-        let selected = contracts.swap_remove(index);
-        Ok(convert_contract(selected))
-    } else if let Some(selected) = contracts.pop() {
-        Ok(convert_contract(selected))
-    } else {
-        Err(SolidityError::NoContracts)
+        ) {
+            primary.push(contract);
+        } else {
+            fallback.push(contract);
+        }
     }
+
+    let mut selected = if !primary.is_empty() {
+        primary
+    } else {
+        fallback
+    };
+
+    if selected.is_empty() {
+        return Err(SolidityError::NoContracts);
+    }
+
+    Ok(selected.drain(..).map(convert_contract).collect())
 }
 
 fn convert_contract(contract: ContractIR) -> ContractMetadata {

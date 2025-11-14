@@ -1,37 +1,16 @@
-import { extendConfig, extendEnvironment, task, types, subtask } from "hardhat/config";
+import { extendConfig, extendEnvironment } from "hardhat/config";
 import { lazyObject } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
-import { 
-  NeoHardhatConfig, 
-  CompilationResult,
-  DeploymentOptions,
-  DeploymentResult,
-  TestResult,
-  DebugSession,
-  GasReport,
-  VerificationData
-} from "@neo-solidity/types";
+import { NeoHardhatConfig } from "@neo-solidity/types";
 
-// Import all tasks and subtasks
+// Import supported tasks
 import "./tasks/compile";
 import "./tasks/clean";
 import "./tasks/verify-contract";
-import "./tasks/deploy";
-import "./tasks/test";
-import "./tasks/debug";
-import "./tasks/gas-report";
-import "./tasks/analyze";
-import "./tasks/optimize";
 
 // Import core components
 import { NeoSolidityCompiler } from "./compiler";
 import { ArtifactManager } from "./artifacts";
-import { DebugManager } from "./debug";
-import { GasProfiler } from "./profiler";
-import { DeploymentManager } from "./deployment";
-import { NetworkManager } from "./network";
-import { SourceMapGenerator } from "./sourcemap";
-import { OptimizationEngine } from "./optimizer";
 
 // Configuration extension
 declare module "hardhat/types/config" {
@@ -50,12 +29,6 @@ declare module "hardhat/types/runtime" {
     neoSolc: {
       compiler: NeoSolidityCompiler;
       artifacts: ArtifactManager;
-      debugger: DebugManager;
-      profiler: GasProfiler;
-      deployer: DeploymentManager;
-      network: NetworkManager;
-      sourcemap: SourceMapGenerator;
-      optimizer: OptimizationEngine;
     };
   }
 }
@@ -160,22 +133,10 @@ extendConfig(
 extendEnvironment((hre: HardhatRuntimeEnvironment) => {
   hre.neoSolc = lazyObject(() => ({
     compiler: new NeoSolidityCompiler(hre.config.neoSolc, hre.config.paths),
-    artifacts: new ArtifactManager(hre.config.paths.artifacts),
-    debugger: new DebugManager(hre.config.neoSolc),
-    profiler: new GasProfiler(hre.config.neoSolc),
-    deployer: new DeploymentManager(hre.config.neoSolc, hre.network),
-    network: new NetworkManager(hre.config.neoSolc.networks),
-    sourcemap: new SourceMapGenerator(),
-    optimizer: new OptimizationEngine(hre.config.neoSolc)
+    artifacts: new ArtifactManager(hre.config.paths.artifacts)
   }));
 });
 
 export * from "./compiler";
 export * from "./artifacts";
-export * from "./debug";
-export * from "./profiler";
-export * from "./deployment";
-export * from "./network";
-export * from "./sourcemap";
-export * from "./optimizer";
 export * from "./types";

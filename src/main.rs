@@ -1,14 +1,15 @@
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use neo_solidity::ir::{self, LiteralValue, ValueType};
 use neo_solidity::neo::build_nef;
 use neo_solidity::semantic_model::build_semantic_model;
 use neo_solidity::solidity::{
-    analyse_source, validate_contract, ContractMetadata, DiagnosticSeverity, FunctionKind,
-    FunctionMetadata,
+    analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, FunctionKind,
+    FunctionMetadata, StateMutability,
 };
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
-use serde_json::json;
+use serde::Deserialize;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -18,16 +19,59 @@ const COMPILER_ID: &str = "neo-solidity-1.0.0";
 const COMPILER_EMAIL: &str = "Jimmy <jimmy@r3e.network>";
 const VERSION: (u32, u32, u32, u32) = (1, 0, 0, 0);
 
+#[derive(Clone)]
+struct CompilationArtifacts {
+    metadata: ContractMetadata,
+    bytecode: Vec<u8>,
+    manifest: Value,
+    warnings: Vec<neo_solidity::solidity::Diagnostic>,
+}
+
+#[derive(Deserialize)]
+struct StandardJsonInput {
+    language: String,
+    sources: HashMap<String, StandardJsonSource>,
+    #[serde(default)]
+    settings: Value,
+}
+
+#[derive(Deserialize)]
+struct StandardJsonSource {
+    content: Option<String>,
+    urls: Option<Vec<String>>,
+}
+
+enum CompileError {
+    Diagnostics(Vec<neo_solidity::solidity::Diagnostic>),
+    Semantic(Vec<neo_solidity::solidity::Diagnostic>),
+    Ir(Vec<String>),
+    Message(String),
+}
+
 fn main() {
     let matches = Command::new("neo-solc")
         .version("1.0.0")
         .author(COMPILER_EMAIL)
         .about("Compiles Solidity to Neo N3 smart contracts (.nef + .manifest.json)")
         .arg(
-            Arg::new("input")
+            Arg::new("source")
                 .help("Input Solidity file")
-                .required(true)
+                .required_unless_present("standard-json")
                 .index(1),
+        )
+        .arg(
+            Arg::new("standard-json")
+                .long("standard-json")
+                .help("Use Solidity standard JSON input/output mode")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("standard-json-input")
+                .long("input")
+                .value_name("FILE")
+                .help("Path to standard JSON input file")
+                .num_args(1)
+                .requires("standard-json"),
         )
         .arg(
             Arg::new("output")
@@ -65,7 +109,22 @@ fn main() {
         )
         .get_matches();
 
-    let input_file = matches.get_one::<String>("input").unwrap();
+    let use_standard_json = matches.get_flag("standard-json");
+    if use_standard_json {
+        let input_path = matches
+            .get_one::<String>("standard-json-input")
+            .expect("Standard JSON input file is required");
+        let output_path = matches.get_one::<String>("output").map(|s| s.as_str());
+        if let Err(err) = process_standard_json(input_path, output_path) {
+            eprintln!("{err}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    let input_file = matches
+        .get_one::<String>("source")
+        .expect("Input Solidity file is required");
     let output_prefix = matches
         .get_one::<String>("output")
         .map(|s| s.as_str())
@@ -98,56 +157,261 @@ fn main() {
         println!("Read {} bytes from input file", input_content.len());
     }
 
-    let mut metadata = match analyse_source(&input_content) {
-        Ok(metadata) => metadata,
-        Err(err) => {
-            eprintln!("Solidity analysis error: {err}");
-            std::process::exit(1);
-        }
-    };
-
-    let diagnostics = validate_contract(&metadata);
-    let mut has_error = false;
-    for diagnostic in &diagnostics {
-        match diagnostic.severity {
-            DiagnosticSeverity::Warning => {
-                eprintln!("warning: {}", diagnostic.message);
-            }
-            DiagnosticSeverity::Error => {
-                eprintln!("error: {}", diagnostic.message);
-                has_error = true;
-            }
-        }
-    }
-
-    if has_error {
-        std::process::exit(1);
-    }
-
-    let _semantic_model = match build_semantic_model(&metadata) {
-        Ok(model) => model,
-        Err(diags) => {
+    let artifacts = match compile_contracts(&input_content, verbose) {
+        Ok(list) => list,
+        Err(CompileError::Diagnostics(diags)) | Err(CompileError::Semantic(diags)) => {
             for diag in diags {
                 match diag.severity {
                     DiagnosticSeverity::Warning => eprintln!("warning: {}", diag.message),
-                    DiagnosticSeverity::Error => {
-                        eprintln!("error: {}", diag.message);
-                    }
+                    DiagnosticSeverity::Error => eprintln!("error: {}", diag.message),
                 }
             }
             std::process::exit(1);
         }
-    };
-
-    let ir_module = match ir::Module::from_contract(&metadata) {
-        Ok(module) => module,
-        Err(errors) => {
+        Err(CompileError::Ir(errors)) => {
             for error in errors {
                 eprintln!("error: {}", error);
             }
             std::process::exit(1);
         }
+        Err(CompileError::Message(message)) => {
+            eprintln!("error: {}", message);
+            std::process::exit(1);
+        }
     };
+
+    if artifacts.is_empty() {
+        eprintln!("error: No contracts were found in the input file.");
+        std::process::exit(1);
+    }
+
+    if artifacts.len() > 1 {
+        println!(
+            "(info) detected {} contracts – outputs are suffixed with their contract names",
+            artifacts.len()
+        );
+    }
+
+    for artifact in &artifacts {
+        for warning in &artifact.warnings {
+            eprintln!("warning ({}): {}", artifact.metadata.name, warning.message);
+        }
+    }
+
+    for (index, artifact) in artifacts.iter().enumerate() {
+        let prefix = contract_output_prefix(
+            output_prefix,
+            &artifact.metadata.name,
+            index,
+            artifacts.len(),
+        );
+
+        match format.as_str() {
+            "nef" => {
+                let nef_path = if prefix.ends_with(".nef") {
+                    prefix.clone()
+                } else {
+                    format!("{prefix}.nef")
+                };
+                write_nef_file(&nef_path, &artifact.bytecode);
+                println!(
+                    "✅ [{}] NEF file generated: {nef_path}",
+                    artifact.metadata.name
+                );
+            }
+            "manifest" => {
+                let manifest_path = if prefix.ends_with(".manifest.json") {
+                    prefix.clone()
+                } else {
+                    format!("{prefix}.manifest.json")
+                };
+                write_manifest_file(&manifest_path, &artifact.manifest);
+                println!(
+                    "✅ [{}] Manifest file generated: {manifest_path}",
+                    artifact.metadata.name
+                );
+            }
+            "complete" => {
+                let nef_path = format!("{prefix}.nef");
+                let manifest_path = format!("{prefix}.manifest.json");
+                write_nef_file(&nef_path, &artifact.bytecode);
+                write_manifest_file(&manifest_path, &artifact.manifest);
+                println!(
+                    "✅ [{}] Contract files generated:\n   📄 {nef_path}\n   📄 {manifest_path}",
+                    artifact.metadata.name
+                );
+            }
+            "json" => {
+                let json_path = if prefix.ends_with(".json") {
+                    prefix.clone()
+                } else {
+                    format!("{prefix}.json")
+                };
+                write_json_file(
+                    &json_path,
+                    &artifact.bytecode,
+                    &artifact.manifest,
+                    &artifact.metadata,
+                );
+                println!(
+                    "✅ [{}] JSON file generated: {json_path}",
+                    artifact.metadata.name
+                );
+            }
+            "assembly" => {
+                println!("Assembly output is not yet implemented.");
+            }
+            other => {
+                println!("Unsupported format: {other}");
+            }
+        }
+    }
+
+    println!("🎉 Neo Solidity compilation completed");
+}
+
+fn process_standard_json(input_path: &str, output_path: Option<&str>) -> Result<(), String> {
+    let input_content = fs::read_to_string(input_path)
+        .map_err(|err| format!("Failed to read input file: {err}"))?;
+    let request: StandardJsonInput = serde_json::from_str(&input_content)
+        .map_err(|err| format!("Failed to parse standard JSON input: {err}"))?;
+
+    if request.sources.is_empty() {
+        return Err("Standard JSON input must contain at least one source".to_string());
+    }
+
+    if !request.language.trim().is_empty() && request.language.to_ascii_lowercase() != "solidity" {
+        return Err(format!(
+            "Unsupported language '{}' in standard JSON input",
+            request.language
+        ));
+    }
+
+    let mut contracts_output = serde_json::Map::new();
+    let mut sources_output = serde_json::Map::new();
+    let mut errors: Vec<Value> = Vec::new();
+
+    for (index, (file_name, source)) in request.sources.iter().enumerate() {
+        sources_output.insert(file_name.clone(), json!({ "id": index as u32 }));
+        let Some(content) = source.content.as_ref() else {
+            let mut message = format!(
+                "Source '{file_name}' is missing inline content; URL imports are not supported."
+            );
+            if let Some(urls) = &source.urls {
+                if let Some(first_url) = urls.first() {
+                    message.push_str(&format!(" First URL provided: '{first_url}'."));
+                }
+            }
+            errors.push(json!({
+                "component": "neo-solidity",
+                "severity": "error",
+                "type": "MissingSourceContent",
+                "sourceLocation": { "file": file_name },
+                "formattedMessage": message,
+                "message": message,
+            }));
+            continue;
+        };
+
+        match compile_contracts(content, false) {
+            Ok(artifacts) => {
+                if artifacts.is_empty() {
+                    errors.push(json!({
+                        "component": "neo-solidity",
+                        "severity": "error",
+                        "type": "NoContracts",
+                        "sourceLocation": { "file": file_name },
+                        "formattedMessage": format!("No contracts found in {file_name}"),
+                        "message": format!("No contracts found in {file_name}"),
+                    }));
+                    continue;
+                }
+
+                let per_file_value = contracts_output
+                    .entry(file_name.clone())
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                let per_file = per_file_value
+                    .as_object_mut()
+                    .expect("per-file entry should be an object");
+
+                for artifact in artifacts {
+                    let abi_entries = build_standard_abi(&artifact.metadata);
+                    let compiled_contract = build_compiled_contract_value(
+                        file_name,
+                        &artifact,
+                        &abi_entries,
+                        &request.settings,
+                    );
+                    per_file.insert(artifact.metadata.name.clone(), compiled_contract);
+
+                    for warning in &artifact.warnings {
+                        errors.push(diagnostic_to_standard_error(warning, file_name));
+                    }
+                }
+            }
+            Err(err) => {
+                errors.extend(err.into_errors(file_name));
+            }
+        }
+    }
+
+    let mut output = serde_json::Map::new();
+    output.insert("contracts".into(), Value::Object(contracts_output));
+    output.insert("sources".into(), Value::Object(sources_output));
+    if !errors.is_empty() {
+        output.insert("errors".into(), Value::Array(errors));
+    }
+
+    let serialized = serde_json::to_string_pretty(&Value::Object(output))
+        .map_err(|err| format!("Failed to serialise standard JSON output: {err}"))?;
+    if let Some(path) = output_path {
+        fs::write(path, serialized)
+            .map_err(|err| format!("Failed to write standard JSON output: {err}"))?;
+    } else {
+        println!("{serialized}");
+    }
+
+    Ok(())
+}
+
+fn compile_contracts(
+    source: &str,
+    verbose: bool,
+) -> Result<Vec<CompilationArtifacts>, CompileError> {
+    let metadatas =
+        analyse_all_sources(source).map_err(|err| CompileError::Message(err.to_string()))?;
+
+    let mut outputs = Vec::new();
+    for metadata in metadatas {
+        outputs.push(compile_metadata(metadata, verbose)?);
+    }
+
+    Ok(outputs)
+}
+
+fn compile_metadata(
+    mut metadata: ContractMetadata,
+    verbose: bool,
+) -> Result<CompilationArtifacts, CompileError> {
+    let diagnostics = validate_contract(&metadata);
+    let mut errors = Vec::new();
+    let mut warnings = Vec::new();
+    for diagnostic in diagnostics {
+        match diagnostic.severity {
+            DiagnosticSeverity::Warning => warnings.push(diagnostic),
+            DiagnosticSeverity::Error => errors.push(diagnostic),
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(CompileError::Diagnostics(errors));
+    }
+
+    if let Err(diags) = build_semantic_model(&metadata) {
+        return Err(CompileError::Semantic(diags));
+    }
+
+    let ir_module = ir::Module::from_contract(&metadata).map_err(CompileError::Ir)?;
 
     if verbose {
         println!(
@@ -169,61 +433,312 @@ fn main() {
         }
     }
 
-    let contract_bytecode = generate_contract_bytecode(&mut metadata, &ir_module, verbose);
-
-    if verbose {
-        println!(
-            "Generated {} bytes of NeoVM bytecode",
-            contract_bytecode.len()
-        );
-    }
-
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, verbose);
     let manifest = build_manifest(&metadata);
 
-    match format.as_str() {
-        "nef" => {
-            let nef_path = if output_prefix.ends_with(".nef") {
-                output_prefix.to_string()
-            } else {
-                format!("{}.nef", output_prefix)
-            };
-            write_nef_file(&nef_path, &contract_bytecode);
-            println!("✅ NEF file generated: {nef_path}");
+    Ok(CompilationArtifacts {
+        metadata,
+        bytecode,
+        manifest,
+        warnings,
+    })
+}
+
+impl CompileError {
+    fn into_errors(self, file: &str) -> Vec<Value> {
+        match self {
+            CompileError::Diagnostics(diags) | CompileError::Semantic(diags) => diags
+                .into_iter()
+                .map(|diag| diagnostic_to_standard_error(&diag, file))
+                .collect(),
+            CompileError::Ir(errors) => errors
+                .into_iter()
+                .map(|message| {
+                    json!({
+                        "component": "neo-solidity",
+                        "severity": "error",
+                        "type": "IrGeneration",
+                        "sourceLocation": { "file": file },
+                        "formattedMessage": message,
+                        "message": message,
+                    })
+                })
+                .collect(),
+            CompileError::Message(message) => vec![json!({
+                "component": "neo-solidity",
+                "severity": "error",
+                "type": "Generic",
+                "sourceLocation": { "file": file },
+                "formattedMessage": message,
+                "message": message,
+            })],
         }
-        "manifest" => {
-            let manifest_path = if output_prefix.ends_with(".manifest.json") {
-                output_prefix.to_string()
-            } else {
-                format!("{}.manifest.json", output_prefix)
-            };
-            write_manifest_file(&manifest_path, &manifest);
-            println!("✅ Manifest file generated: {manifest_path}");
-        }
-        "complete" => {
-            let nef_path = format!("{}.nef", output_prefix);
-            let manifest_path = format!("{}.manifest.json", output_prefix);
-            write_nef_file(&nef_path, &contract_bytecode);
-            write_manifest_file(&manifest_path, &manifest);
-            println!("✅ Contract files generated:\n   📄 {nef_path}\n   📄 {manifest_path}");
-        }
-        "json" => {
-            let json_path = if output_prefix.ends_with(".json") {
-                output_prefix.to_string()
-            } else {
-                format!("{}.json", output_prefix)
-            };
-            write_json_file(&json_path, &contract_bytecode, &manifest, &metadata);
-            println!("✅ JSON file generated: {json_path}");
-        }
-        "assembly" => {
-            println!("Assembly output is not yet implemented.");
-        }
-        other => {
-            println!("Unsupported format: {other}");
+    }
+}
+
+fn diagnostic_to_standard_error(
+    diagnostic: &neo_solidity::solidity::Diagnostic,
+    file: &str,
+) -> Value {
+    let severity = match diagnostic.severity {
+        DiagnosticSeverity::Warning => "warning",
+        DiagnosticSeverity::Error => "error",
+    };
+
+    json!({
+        "component": "neo-solidity",
+        "severity": severity,
+        "type": "Validation",
+        "sourceLocation": { "file": file },
+        "formattedMessage": diagnostic.message,
+        "message": diagnostic.message,
+    })
+}
+
+fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
+    let mut abi_entries = Vec::new();
+
+    for method in &metadata.methods {
+        let inputs: Vec<Value> = method
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                json!({
+                    "name": parameter.name.clone().unwrap_or_else(|| format!("arg{index}")),
+                    "type": parameter.ty,
+                    "internalType": parameter.ty,
+                })
+            })
+            .collect();
+
+        let outputs: Vec<Value> = method
+            .return_parameters
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                json!({
+                    "name": parameter.name.clone().unwrap_or_else(|| format!("ret{index}")),
+                    "type": parameter.ty,
+                    "internalType": parameter.ty,
+                })
+            })
+            .collect();
+
+        match method.kind {
+            FunctionKind::Constructor => {
+                abi_entries.push(json!({
+                    "type": "constructor",
+                    "inputs": inputs,
+                    "stateMutability": state_mutability_label(method.state_mutability),
+                }));
+            }
+            FunctionKind::Regular => {
+                abi_entries.push(json!({
+                    "type": "function",
+                    "name": method.name,
+                    "inputs": inputs,
+                    "outputs": outputs,
+                    "stateMutability": state_mutability_label(method.state_mutability),
+                }));
+            }
         }
     }
 
-    println!("🎉 Neo Solidity compilation completed");
+    for event in &metadata.events {
+        let inputs: Vec<Value> = event
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                json!({
+                    "name": parameter.name.clone().unwrap_or_else(|| format!("param{index}")),
+                    "type": parameter.ty,
+                    "indexed": parameter.indexed,
+                })
+            })
+            .collect();
+
+        abi_entries.push(json!({
+            "type": "event",
+            "name": event.name,
+            "inputs": inputs,
+            "anonymous": false,
+        }));
+    }
+
+    abi_entries
+}
+
+fn build_compiled_contract_value(
+    file_name: &str,
+    artifact: &CompilationArtifacts,
+    abi_entries: &[Value],
+    settings: &Value,
+) -> Value {
+    let script_hex = hex::encode(&artifact.bytecode);
+    let bytecode_object = format!("0x{script_hex}");
+    let metadata_blob =
+        build_metadata_blob(&artifact.metadata.name, abi_entries, file_name, settings);
+
+    let storage_map = build_storage_map(&artifact.metadata);
+    let manifest = artifact.manifest.clone();
+    let nef_bytes = build_nef(&artifact.bytecode, COMPILER_ID, VERSION);
+    let checksum = if nef_bytes.len() >= 4 {
+        hex::encode(&nef_bytes[nef_bytes.len() - 4..])
+    } else {
+        "00000000".to_string()
+    };
+    let nef_image = hex::encode(nef_bytes);
+
+    json!({
+        "abi": abi_entries,
+        "metadata": metadata_blob,
+        "evm": {
+            "bytecode": {
+                "object": bytecode_object,
+                "opcodes": "",
+                "sourceMap": "",
+                "linkReferences": {}
+            },
+            "deployedBytecode": {
+                "object": bytecode_object,
+                "opcodes": "",
+                "sourceMap": "",
+                "linkReferences": {}
+            },
+            "methodIdentifiers": {}
+        },
+        "neo": {
+            "nef": {
+                "magic": "NEF3",
+                "compiler": COMPILER_ID,
+                "source": file_name,
+                "tokens": [],
+                "script": script_hex,
+                "image": nef_image,
+                "checksum": checksum,
+            },
+            "manifest": manifest,
+            "storageMap": storage_map,
+            "gasEstimates": {
+                "creation": zero_gas_estimate_value(),
+                "functions": Value::Object(serde_json::Map::new())
+            }
+        }
+    })
+}
+
+fn build_metadata_blob(
+    contract_name: &str,
+    abi_entries: &[Value],
+    file_name: &str,
+    settings: &Value,
+) -> String {
+    let metadata = json!({
+        "compiler": {
+            "name": COMPILER_ID,
+            "version": format!("{}.{}.{}.{}", VERSION.0, VERSION.1, VERSION.2, VERSION.3)
+        },
+        "language": "Solidity",
+        "output": {
+            "abi": abi_entries,
+            "contractName": contract_name,
+        },
+        "settings": settings,
+        "sources": {
+            file_name: {
+                "keccak256": "",
+                "urls": []
+            }
+        },
+        "version": 1
+    });
+
+    serde_json::to_string(&metadata).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn build_storage_map(metadata: &ContractMetadata) -> Value {
+    let mut entries = serde_json::Map::new();
+    for (slot, variable) in metadata.state_variables.iter().enumerate() {
+        let name = variable
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("slot_{slot}"));
+        entries.insert(
+            name,
+            json!({
+                "slot": slot,
+                "type": variable.ty,
+                "description": variable.visibility.clone().unwrap_or_default(),
+            }),
+        );
+    }
+    Value::Object(entries)
+}
+
+fn zero_gas_estimate_value() -> Value {
+    json!({
+        "gas": "0",
+        "systemFee": "0",
+        "networkFee": "0",
+    })
+}
+
+fn state_mutability_label(state: StateMutability) -> &'static str {
+    match state {
+        StateMutability::Pure => "pure",
+        StateMutability::View => "view",
+        StateMutability::Payable => "payable",
+        StateMutability::NonPayable => "nonpayable",
+    }
+}
+
+fn contract_output_prefix(base: &str, contract_name: &str, index: usize, total: usize) -> String {
+    if total <= 1 {
+        return base.to_string();
+    }
+
+    let sanitized = sanitize_contract_name(contract_name).unwrap_or_else(|| {
+        if total <= 1 {
+            "contract".to_string()
+        } else {
+            format!("contract{index}")
+        }
+    });
+
+    let (stem, ext) = split_extension(base);
+    if ext.is_empty() {
+        format!("{stem}-{sanitized}")
+    } else {
+        format!("{stem}-{sanitized}{ext}")
+    }
+}
+
+fn sanitize_contract_name(name: &str) -> Option<String> {
+    let filtered: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+
+    if filtered.trim_matches('_').is_empty() {
+        None
+    } else {
+        Some(filtered.trim_matches('_').to_string())
+    }
+}
+
+fn split_extension(path: &str) -> (String, String) {
+    match path.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() => (stem.to_string(), format!(".{ext}")),
+        _ => (path.to_string(), String::new()),
+    }
 }
 
 fn write_nef_file(path: &str, script: &[u8]) {
@@ -884,6 +1399,7 @@ fn detect_supported_standards(methods: &[FunctionMetadata]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use neo_solidity::solidity::analyse_source;
 
     #[test]
     fn mapping_code_generation_emits_storage_ops() {
