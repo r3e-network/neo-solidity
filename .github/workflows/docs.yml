@@ -49,11 +49,7 @@ jobs:
     - name: Generate TypeScript documentation
       run: |
         echo "Generating TypeScript API documentation..."
-        cd tooling
-        npm install
-        
-        # Generate TypeScript docs
-        npx typedoc --out ../docs/api/typescript src/
+        bash scripts/generate_ts_docs.sh
     
     - name: Generate C# documentation
       run: |
