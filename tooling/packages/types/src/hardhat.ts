@@ -1,5 +1,5 @@
-import { HardhatRuntimeEnvironment, TaskArguments } from 'hardhat/types';
-import { CompilerConfig, ArtifactData, NetworkConfig } from './index';
+import type { HardhatRuntimeEnvironment, TaskArguments, NetworkConfig } from 'hardhat/types';
+import type { NeoSolidityConfig, CompilationError } from './compiler';
 
 export interface NeoHardhatConfig {
   solidity: {
@@ -39,7 +39,9 @@ export interface NeoHardhatConfig {
   };
 }
 
-export interface NeoNetworkConfig extends NetworkConfig {
+type CompilerConfig = NeoSolidityConfig;
+
+export type NeoNetworkConfig = NetworkConfig & {
   magic: number;
   addressVersion: number;
   rpc: {
@@ -58,7 +60,7 @@ export interface NeoNetworkConfig extends NetworkConfig {
   blockGasLimit: string;
   hardfork?: string;
   chainId?: number;
-}
+};
 
 export interface NeoHardhatTask {
   name: string;
@@ -117,19 +119,6 @@ export interface CompilationResult {
   sourceMaps: {
     bytecode: string;
     deployedBytecode: string;
-  };
-}
-
-export interface CompilationError {
-  severity: 'error' | 'warning' | 'info';
-  type: string;
-  component: string;
-  message: string;
-  formattedMessage: string;
-  sourceLocation?: {
-    file: string;
-    start: number;
-    end: number;
   };
 }
 

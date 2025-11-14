@@ -1,5 +1,3 @@
-import { BigNumber } from 'ethers';
-
 /**
  * Neo RPC provider interface
  */
@@ -176,14 +174,14 @@ export interface WitnessCondition {
   /** Condition type */
   type: 'Boolean' | 'Not' | 'And' | 'Or' | 'ScriptHash' | 'Group' | 'CalledByEntry' | 'CalledByContract' | 'CalledByGroup';
   
-  /** Expression (for Boolean) */
-  expression?: boolean;
+  /** Boolean value (for Boolean condition) */
+  booleanExpression?: boolean;
   
   /** Expressions (for And/Or) */
   expressions?: WitnessCondition[];
   
-  /** Expression (for Not) */
-  expression?: WitnessCondition;
+  /** Nested condition (for Not) */
+  nestedExpression?: WitnessCondition;
   
   /** Hash (for ScriptHash/Group/CalledByContract/CalledByGroup) */
   hash?: string;

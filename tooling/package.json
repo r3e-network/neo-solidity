@@ -4,6 +4,7 @@
   "description": "Comprehensive developer tooling for Neo-Solidity ecosystem",
   "private": true,
   "type": "module",
+  "packageManager": "npm@11.6.0",
   "workspaces": [
     "packages/*"
   ],
