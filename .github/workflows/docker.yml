@@ -57,13 +57,15 @@ jobs:
         cache-from: type=gha
     
     - name: Test Docker image
+      env:
+        IMAGE_UNDER_TEST: neo-solidity:test
       run: |
         # Test the built image
-        docker run --rm neo-solidity:test neo-solc --version
+        docker run --rm "$IMAGE_UNDER_TEST" neo-solc --version
         
         # Test compilation in Docker
         echo 'contract Test { uint256 public value; }' > DockerTest.sol
-        docker run --rm -v $(pwd):/workspace neo-solidity:test neo-solc DockerTest.sol -o DockerTest
+        docker run --rm -v "$(pwd)":/workspace "$IMAGE_UNDER_TEST" neo-solc DockerTest.sol -o DockerTest
         
         # Verify outputs
         test -f DockerTest.nef || exit 1
