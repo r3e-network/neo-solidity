@@ -54,14 +54,7 @@ jobs:
     - name: Generate C# documentation
       run: |
         echo "Generating C# API documentation..."
-        cd src/Neo.Sol.Runtime
-        
-        # Generate XML documentation
-        dotnet build --configuration Release /p:GenerateDocumentationFile=true
-        
-        # Create docs structure
-        mkdir -p ../../docs/api/csharp
-        find . -name "*.xml" -exec cp {} ../../docs/api/csharp/ \; 2>/dev/null || true
+        bash scripts/generate_cs_docs.sh
     
     - name: Create documentation index
       run: |

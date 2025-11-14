@@ -7,3 +7,7 @@ tooling/**/dist/
 tooling/**/.turbo/
 tooling/**/tsconfig.tsbuildinfo
 docs/api/
+bin/
+obj/
+**/bin/
+**/obj/
