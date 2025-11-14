@@ -1,4 +1,4 @@
-import { extendConfig, extendEnvironment, task } from "hardhat/config";
+import { extendConfig, extendEnvironment } from "hardhat/config";
 import { lazyObject } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoNetworkConfig, NeoAccount } from "@neo-solidity/types";

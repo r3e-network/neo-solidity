@@ -10,6 +10,7 @@ import { NeoRpcClient } from "./rpc-client";
 import { AccountManager } from "./account-manager";
 import chalk from "chalk";
 import Debug from "debug";
+import { BigNumber } from "@ethersproject/bignumber";
 
 const debug = Debug("hardhat:neo-deployer:deployer");
 
@@ -137,10 +138,10 @@ export class NeoDeployer {
     constructorArgs: any[] = []
   ): Promise<{ systemFee: string; networkFee: string }> {
     debug(`Estimating deployment gas for ${contractName}`);
+    debug(`Constructor args supplied: ${constructorArgs.length}`);
     
     try {
       const artifact = await this.getBuildArtifact(contractName);
-      const factory = this.createContractFactory(artifact);
       
       // This would actually estimate gas by calling the RPC
       // For now, return estimated values based on contract size
@@ -176,29 +177,29 @@ export class NeoDeployer {
   }
 
   private createContractFactory(artifact: BuildArtifact): ContractFactory {
-    return {
+    const factory: ContractFactory = {
       bytecode: artifact.contract.evm.bytecode.object,
       abi: artifact.contract.abi,
       manifest: artifact.contract.neo.manifest,
       
       deploy: async (...args: any[]): Promise<ContractDeployment> => {
-        return this.executeDeployment(this, args, {});
+        const deployConfig = this.getDeploymentConfig({ constructorArgs: args });
+        return this.executeDeployment(factory, args, deployConfig);
       },
       
       estimateDeployGas: async (...args: any[]) => {
         const estimate = await this.estimateDeploymentGas(artifact.contractName, args);
-        return {
-          systemFee: BigInt(estimate.systemFee),
-          networkFee: BigInt(estimate.networkFee)
-        };
+        return BigNumber.from(estimate.systemFee).add(estimate.networkFee);
       },
       
-      getDeploymentData: (...args: any[]): string => {
+      getDeploymentData: (): string => {
         // This would generate the deployment script
         // For now, return the NEF script
         return artifact.contract.neo.nef.script;
       }
     };
+
+    return factory;
   }
 
   private createContractInstance(artifact: BuildArtifact, address: string): NeoContract {
@@ -223,6 +224,7 @@ export class NeoDeployer {
         
         invoke: async (...args: any[]) => {
           // This would create and send a transaction
+          void args;
           throw new Error("Transaction invocation not yet implemented");
         },
         
@@ -232,7 +234,7 @@ export class NeoDeployer {
             method.name,
             args
           );
-          return BigInt(result.gasConsumed);
+          return BigNumber.from(result?.gasConsumed ?? "0");
         }
       };
     }
@@ -273,21 +275,29 @@ export class NeoDeployer {
   }
 
   private async executeDeployment(
-    factory: ContractFactory | NeoDeployer,
+    factory: ContractFactory,
     constructorArgs: any[],
     config: DeploymentConfig
   ): Promise<ContractDeployment> {
+    debug(
+      `Simulating deployment using bytecode length ${factory.bytecode.length} with ${constructorArgs.length} constructor args`
+    );
+
     // This would actually deploy the contract
     // For now, return a mock deployment
     const mockAddress = this.generateMockAddress();
     const mockScriptHash = this.addressToScriptHash(mockAddress);
+    const gasPrice = BigNumber.from(config.gasPrice || "1000");
+    const systemFee = BigNumber.from("4000000");
+    const networkFee = BigNumber.from("1000000");
+    const totalGas = systemFee.add(networkFee);
     
     return {
       address: mockAddress,
       scriptHash: mockScriptHash,
       transactionHash: this.generateMockHash(),
       blockNumber: Date.now() % 1000000,
-      gasUsed: BigInt("5000000"),
+      gasUsed: totalGas,
       receipt: {
         transactionHash: this.generateMockHash(),
         blockNumber: Date.now() % 1000000,
@@ -295,16 +305,16 @@ export class NeoDeployer {
         transactionIndex: 0,
         from: config.from,
         contractAddress: mockAddress,
-        gasUsed: BigInt("5000000"),
-        effectiveGasPrice: BigInt(config.gasPrice || "1000"),
+        gasUsed: totalGas,
+        effectiveGasPrice: gasPrice,
         status: "success",
         events: [],
         neo: {
           vmState: "HALT",
           stack: [],
           notifications: [],
-          systemFee: BigInt("4000000"),
-          networkFee: BigInt("1000000")
+          systemFee,
+          networkFee
         }
       },
       contract: {} as NeoContract // Would be filled in actual implementation
@@ -317,6 +327,7 @@ export class NeoDeployer {
   ): Promise<void> {
     // This would save the deployment artifact
     // Implementation depends on artifact manager integration
+    void config;
     debug(`Saving deployment artifact for contract at ${deployment.address}`);
   }
 
@@ -325,13 +336,15 @@ export class NeoDeployer {
   private addressToScriptHash(address: string): string {
     // This would convert Neo address to script hash
     // For now, return a mock script hash
-    return "0x" + "a".repeat(40);
+    const suffix = address.slice(-8).padStart(8, '0');
+    return "0x" + suffix.repeat(5);
   }
 
   private calculateEventHash(name: string, parameters: any[]): string {
     // This would calculate the event topic hash
     // For now, return a mock hash
-    return "0x" + "b".repeat(64);
+    const paramCount = parameters.length.toString(16).padStart(4, '0');
+    return "0x" + (name.length.toString(16) + paramCount).padEnd(64, 'b');
   }
 
   private generateMockAddress(): string {

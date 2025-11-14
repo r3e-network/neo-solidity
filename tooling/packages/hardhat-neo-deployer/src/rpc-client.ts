@@ -1,19 +1,19 @@
 import axios, { AxiosInstance } from "axios";
-import { 
-  NeoRpcProvider,
-  NeoBlock,
-  NeoTransaction,
-  ContractState,
-  InvokeResult,
-  SendResult,
-  Balance,
-  ApplicationLog,
-  NeoNetworkConfig
-} from "@neo-solidity/types";
+import type { rpcTypes } from "@neo-solidity/types";
+import { NeoNetworkConfig } from "@neo-solidity/types";
 import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
 
 const debug = Debug("hardhat:neo-deployer:rpc");
+
+type NeoRpcProvider = rpcTypes.NeoRpcProvider;
+type NeoBlock = rpcTypes.NeoBlock;
+type NeoTransaction = rpcTypes.NeoTransaction;
+type ContractState = rpcTypes.ContractState;
+type InvokeResult = rpcTypes.InvokeResult;
+type SendResult = rpcTypes.SendResult;
+type Balance = rpcTypes.Balance;
+type ApplicationLog = rpcTypes.ApplicationLog;
 
 /**
  * Neo RPC client implementation
@@ -102,6 +102,13 @@ export class NeoRpcClient implements NeoRpcProvider {
    */
   async sendRawTransaction(signedTransaction: string): Promise<SendResult> {
     return this.call('sendrawtransaction', [signedTransaction]);
+  }
+
+  /**
+   * Send structured transaction (placeholder implementation)
+   */
+  async sendTransaction(transaction: any): Promise<SendResult> {
+    return this.call('sendtransaction', [transaction]);
   }
 
   /**
@@ -274,7 +281,7 @@ export class NeoRpcClient implements NeoRpcProvider {
    * Get NEP-11 transfers
    */
   async getNep11Transfers(address: string, startTime?: number, endTime?: number): Promise<any> {
-    const params = [address];
+    const params: Array<string | number> = [address];
     if (startTime !== undefined) params.push(startTime);
     if (endTime !== undefined) params.push(endTime);
     return this.call('getnep11transfers', params);
@@ -284,7 +291,7 @@ export class NeoRpcClient implements NeoRpcProvider {
    * Get NEP-17 transfers
    */
   async getNep17Transfers(address: string, startTime?: number, endTime?: number): Promise<any> {
-    const params = [address];
+    const params: Array<string | number> = [address];
     if (startTime !== undefined) params.push(startTime);
     if (endTime !== undefined) params.push(endTime);
     return this.call('getnep17transfers', params);

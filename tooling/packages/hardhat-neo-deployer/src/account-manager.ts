@@ -245,9 +245,11 @@ export class AccountManager {
   }
 
   private derivePublicKey(privateKey: string): string {
-    // This would derive the public key from private key using Neo cryptography
-    // For now, return a mock public key
-    return "03" + "a".repeat(62);
+    // This would derive the public key from private key using Neo cryptography.
+    // For now, create a deterministic mock value derived from the input so the
+    // parameter is actually consumed (keeps TypeScript happy in strict mode).
+    const normalized = privateKey.replace(/^0x/, '').padEnd(64, '0');
+    return "03" + normalized.slice(0, 62);
   }
 
   private generateMockAddress(): string {

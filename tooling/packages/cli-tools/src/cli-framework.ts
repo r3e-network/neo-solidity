@@ -362,32 +362,37 @@ class ConsoleLogger implements CLILogger {
 
   info(message: string): void {
     if (this.shouldLog('info')) {
-      console.log(this.colors ? chalk.blue('ℹ'), message : `[INFO] ${message}`);
+      const prefix = this.colors ? chalk.blue('ℹ') : '[INFO]';
+      console.log(prefix, message);
     }
   }
 
   warn(message: string): void {
     if (this.shouldLog('warn')) {
-      console.warn(this.colors ? chalk.yellow('⚠'), message : `[WARN] ${message}`);
+      const prefix = this.colors ? chalk.yellow('⚠') : '[WARN]';
+      console.warn(prefix, message);
     }
   }
 
   error(message: string | Error): void {
     if (this.shouldLog('error')) {
       const msg = message instanceof Error ? message.message : message;
-      console.error(this.colors ? chalk.red('✖'), msg : `[ERROR] ${msg}`);
+      const prefix = this.colors ? chalk.red('✖') : '[ERROR]';
+      console.error(prefix, msg);
     }
   }
 
   success(message: string): void {
     if (this.shouldLog('info')) {
-      console.log(this.colors ? chalk.green('✓'), message : `[SUCCESS] ${message}`);
+      const prefix = this.colors ? chalk.green('✓') : '[SUCCESS]';
+      console.log(prefix, message);
     }
   }
 
   debug(message: string): void {
     if (this.shouldLog('debug')) {
-      console.log(this.colors ? chalk.gray('🔍'), message : `[DEBUG] ${message}`);
+      const prefix = this.colors ? chalk.gray('🔍') : '[DEBUG]';
+      console.log(prefix, message);
     }
   }
 
