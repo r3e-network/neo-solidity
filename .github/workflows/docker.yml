@@ -47,6 +47,29 @@ jobs:
           type=semver,pattern={{major}}
           type=sha,prefix=commit-
     
+    - name: Build test image (linux/amd64)
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        load: true
+        tags: neo-solidity:test
+        cache-from: type=gha
+    
+    - name: Test Docker image
+      run: |
+        # Test the built image
+        docker run --rm neo-solidity:test neo-solc --version
+        
+        # Test compilation in Docker
+        echo 'contract Test { uint256 public value; }' > DockerTest.sol
+        docker run --rm -v $(pwd):/workspace neo-solidity:test neo-solc DockerTest.sol -o DockerTest
+        
+        # Verify outputs
+        test -f DockerTest.nef || exit 1
+        test -f DockerTest.manifest.json || exit 1
+        
+        echo "✅ Docker image validation passed"
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -58,21 +81,6 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-    
-    - name: Test Docker image
-      run: |
-        # Test the built image
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest neo-solc --version
-        
-        # Test compilation in Docker
-        echo 'contract Test { uint256 public value; }' > DockerTest.sol
-        docker run --rm -v $(pwd):/workspace ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest neo-solc DockerTest.sol -o DockerTest
-        
-        # Verify outputs
-        test -f DockerTest.nef || exit 1
-        test -f DockerTest.manifest.json || exit 1
-        
-        echo "✅ Docker image validation passed"
 
   # ================================
   # Development Environment
