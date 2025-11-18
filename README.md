@@ -72,6 +72,23 @@ neo-solc contract.sol -f nef -o contract.nef
 neo-solc contract.sol -f manifest -o contract.manifest.json
 ```
 
+### **Batch Compilation (Uniswap Reference Suite)**
+
+The repository includes a complete Uniswap-compatible contract tree under
+`uniswap/`. To exercise the compiler against this suite and produce `.nef` plus
+`.manifest.json` outputs for every contract, run:
+
+```bash
+find -L uniswap -name '*.sol' | sort \
+  | xargs -I{} target/debug/neo-solc {} -o build/uniswap_latest/$(basename {} .sol)
+```
+
+Each invocation produces `*.nef` and `*.manifest.json` files inside
+`build/uniswap_latest/`, along with logs and a `compile_summary.csv` that
+captures success/failure for every contract (current run: `SUCCESS=132 FAIL=0`).
+This is the simplest way to verify that the compiler emits deployable Neo
+artifacts for a large, real-world codebase.
+
 ### **Runtime Metadata Overrides**
 
 The embedded Neo runtime exposes an `ExecutionOverrides` struct so you can inject

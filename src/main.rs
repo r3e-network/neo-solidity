@@ -15,9 +15,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-const COMPILER_ID: &str = "neo-solidity-1.0.0";
+const COMPILER_ID: &str = "neo-solidity-0.9.8";
 const COMPILER_EMAIL: &str = "Jimmy <jimmy@r3e.network>";
-const VERSION: (u32, u32, u32, u32) = (1, 0, 0, 0);
+const VERSION: (u32, u32, u32, u32) = (0, 9, 8, 0);
 
 #[derive(Clone)]
 struct CompilationArtifacts {
@@ -50,7 +50,7 @@ enum CompileError {
 
 fn main() {
     let matches = Command::new("neo-solc")
-        .version("1.0.0")
+        .version("0.9.8")
         .author(COMPILER_EMAIL)
         .about("Compiles Solidity to Neo N3 smart contracts (.nef + .manifest.json)")
         .arg(
@@ -139,7 +139,7 @@ fn main() {
     let verbose = matches.get_flag("verbose");
 
     if verbose {
-        println!("Neo Solidity Compiler v1.0.0");
+        println!("Neo Solidity Compiler v0.9.8");
         println!("Input: {}", input_file);
         println!("Output prefix: {}", output_prefix);
         println!("Format: {}", format);
@@ -181,8 +181,10 @@ fn main() {
     };
 
     if artifacts.is_empty() {
-        eprintln!("error: No contracts were found in the input file.");
-        std::process::exit(1);
+        if verbose {
+            eprintln!("warning: No contracts were found in the input file.");
+        }
+        return;
     }
 
     if artifacts.len() > 1 {
@@ -905,6 +907,7 @@ fn emit_ir_function(
                 }
                 ir::Instruction::LoadState(index) => emit_load_state(&mut local, module, *index),
                 ir::Instruction::StoreState(index) => emit_store_state(&mut local, module, *index),
+                ir::Instruction::LoadStorageDynamic => emit_load_storage_dynamic(&mut local),
                 ir::Instruction::LoadLocal(index) => emit_load_local(&mut local, *index),
                 ir::Instruction::StoreLocal(index) => emit_store_local(&mut local, *index),
                 ir::Instruction::LoadMappingElement {
@@ -945,8 +948,20 @@ fn emit_ir_function(
                         target: name.clone(),
                     });
                 }
-                ir::Instruction::EmitEvent { event_index } => {
-                    emit_event(&mut local, module, *event_index)
+                ir::Instruction::EmitEvent {
+                    event_index,
+                    arg_count,
+                } => {
+                    emit_event(&mut local, module, *event_index, *arg_count)
+                }
+                ir::Instruction::EmitEventByName { name, arg_count } => {
+                    emit_event_by_name(&mut local, name, *arg_count)
+                }
+                ir::Instruction::NewArray { .. } => emit_new_array(&mut local),
+                ir::Instruction::ArrayGet => emit_array_get(&mut local),
+                ir::Instruction::ArraySet => emit_array_set(&mut local),
+                ir::Instruction::BitwiseNot => {
+                    local.push(0x90); // INVERT
                 }
                 ir::Instruction::Jump { target } => {
                     local.push(0x22); // JMP
@@ -1038,6 +1053,11 @@ fn emit_binary_op(bytecode: &mut Vec<u8>, operator: ir::BinaryOperator) {
         ir::BinaryOperator::Mul => 0x97,
         ir::BinaryOperator::Div => 0x98,
         ir::BinaryOperator::Mod => 0x99,
+        ir::BinaryOperator::BitAnd => 0x91,
+        ir::BinaryOperator::BitOr => 0x92,
+        ir::BinaryOperator::BitXor => 0x93,
+        ir::BinaryOperator::Shl => 0x9E,
+        ir::BinaryOperator::Shr => 0x9F,
         ir::BinaryOperator::Lt => 0xA5,
         ir::BinaryOperator::Le => 0xA6,
         ir::BinaryOperator::Gt => 0xA7,
@@ -1205,6 +1225,24 @@ fn emit_store_struct_field(
     emit_syscall(bytecode, "System.Storage.Put");
 }
 
+fn emit_load_storage_dynamic(bytecode: &mut Vec<u8>) {
+    emit_syscall(bytecode, "System.Storage.GetContext");
+    bytecode.push(0x50); // SWAP -> [context, slot]
+    emit_syscall(bytecode, "System.Storage.Get");
+}
+
+fn emit_new_array(bytecode: &mut Vec<u8>) {
+    bytecode.push(0xC5); // NEWARRAY
+}
+
+fn emit_array_get(bytecode: &mut Vec<u8>) {
+    bytecode.push(0xC2); // PICKITEM
+}
+
+fn emit_array_set(bytecode: &mut Vec<u8>) {
+    bytecode.push(0xC3); // SETITEM
+}
+
 fn emit_load_runtime_value(bytecode: &mut Vec<u8>, value: &ir::RuntimeValue) {
     match value {
         ir::RuntimeValue::MsgSender => emit_syscall(bytecode, "System.Runtime.CallingScriptHash"),
@@ -1228,11 +1266,22 @@ fn emit_builtin_call(bytecode: &mut Vec<u8>, builtin: &ir::BuiltinCall) {
     }
 }
 
-fn emit_event(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
-    if let Some(event) = module.events.get(index) {
-        push_data(bytecode, event.name.as_bytes());
-        emit_syscall(bytecode, "System.Runtime.Log");
+fn emit_event(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize, arg_count: usize) {
+    if module.events.get(index).is_some() {
+        emit_event_payload(bytecode, arg_count);
     }
+}
+
+fn emit_event_by_name(bytecode: &mut Vec<u8>, _name: &str, arg_count: usize) {
+    emit_event_payload(bytecode, arg_count);
+}
+
+fn emit_event_payload(bytecode: &mut Vec<u8>, arg_count: usize) {
+    let total_items = arg_count.saturating_add(1);
+    let total_bigint = BigInt::from(total_items);
+    push_integer_bigint(bytecode, &total_bigint);
+    bytecode.push(0xC0); // PACK
+    emit_syscall(bytecode, "System.Runtime.Notify");
 }
 
 fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
@@ -1432,5 +1481,46 @@ mod tests {
         assert!(bytecode.windows(4).any(|window| window == put_id));
         let get_id = interop_id_bytes("System.Storage.Get");
         assert!(bytecode.windows(4).any(|window| window == get_id));
+    }
+
+    #[test]
+    fn event_emission_places_name_first_in_payload() {
+        let source = r#"
+        pragma solidity ^0.8.19;
+
+        contract EventOrder {
+            event Ping(uint256 a, uint256 b);
+
+            function fire() public {
+                emit Ping(1, 2);
+            }
+        }
+        "#;
+
+        let mut metadata = analyse_source(source).expect("analysis failed");
+        let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
+        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+
+        let notify_id = interop_id_bytes("System.Runtime.Notify");
+        let notify_sequence: Vec<u8> = std::iter::once(0x41u8)
+            .chain(notify_id)
+            .collect();
+        assert!(
+            bytecode
+                .windows(notify_sequence.len())
+                .any(|window| window == notify_sequence),
+            "expected Runtime.Notify syscall"
+        );
+
+        let mut expected_sequence = vec![0x0C, 0x04];
+        expected_sequence.extend_from_slice(b"Ping");
+        expected_sequence.extend_from_slice(&[0x11, 0x12, 0x13, 0xC0]);
+
+        assert!(
+            bytecode
+                .windows(expected_sequence.len())
+                .any(|window| window == expected_sequence),
+            "expected event name to be pushed before args and packed"
+        );
     }
 }

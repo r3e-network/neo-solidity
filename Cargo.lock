@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "neo-solidity"
-version = "1.0.0"
+version = "0.9.8"
 dependencies = [
  "anyhow",
  "clap",

@@ -746,15 +746,16 @@ impl VMBridge {
         };
 
         // Read 32 bytes from memory
-        let data =
-            context
+        let data = {
+            let slice = context
                 .read_memory(addr, 32)
                 .map_err(|e| VMBridgeError::MemoryOperationFailed {
                     message: e.to_string(),
                 })?;
-
+            slice.to_vec()
+        };
         context
-            .push_stack(StackItem::ByteArray(data.to_vec()))
+            .push_stack(StackItem::ByteArray(data))
             .map_err(|e| VMBridgeError::StackOperationFailed {
                 message: e.to_string(),
             })?;
@@ -1237,11 +1238,9 @@ impl VMBridge {
 
     fn extract_return_data(
         &self,
-        _context: &execution::ExecutionContext,
+        context: &execution::ExecutionContext,
     ) -> Result<Vec<u8>, RuntimeError> {
-        // Extract return data from execution context
-        // For now, return empty data
-        Ok(Vec::new())
+        Ok(context.return_data().to_vec())
     }
 }
 

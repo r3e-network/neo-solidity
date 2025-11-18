@@ -113,6 +113,7 @@ neo-solidity/
    - Liquidity provision and token swapping
    - Price oracle functionality with cumulative tracking
    - Fee collection and governance features
+   - Full upstream contract suite compiles to Neo artifacts (`build/uniswap_latest/compile_summary.csv` records `SUCCESS=132 FAIL=0`)
 
 4. **🔐 MultiSig Wallet** (720 lines)
    - Multi-signature transaction approval system

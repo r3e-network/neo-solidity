@@ -212,6 +212,63 @@ mod optimizer_tests {
 }
 
 #[cfg(test)]
+mod runtime_tests {
+    use neo_solidity::runtime::execution::ExecutionContext;
+    use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+    use sha3::{Digest, Keccak256};
+
+    #[test]
+    fn linear_memory_zero_extends_and_hashes() {
+        let mut ctx =
+            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+
+        ctx.write_memory(4, &[0xAA, 0xBB]).expect("memory write");
+        let snapshot = ctx.read_memory(0, 8).expect("memory read").to_vec();
+        assert_eq!(snapshot[4], 0xAA);
+        assert_eq!(snapshot[5], 0xBB);
+        assert_eq!(ctx.memory_size(), 8);
+
+        let hash = ctx.keccak_memory_slice(0, 8).expect("keccak hash");
+        let mut reference = Keccak256::new();
+        reference.update(&snapshot);
+        assert_eq!(hash.as_slice(), reference.finalize().as_slice());
+    }
+
+    #[test]
+    fn calldata_helpers_load_and_copy() {
+        let mut ctx =
+            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+        ctx.initialize(&[], &[1, 2, 3, 4, 5, 6])
+            .expect("context init");
+
+        let word = ctx.calldataload_word(2);
+        assert_eq!(&word[..4], &[3, 4, 5, 6]);
+
+        ctx.calldatacopy(0, 1, 3).expect("calldata copy");
+        assert_eq!(ctx.read_memory(0, 3).expect("memory slice"), &[2, 3, 4]);
+    }
+
+    #[test]
+    fn returndatacopy_moves_bytes_into_memory() {
+        let mut ctx =
+            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+        ctx.set_return_data(vec![10, 20, 30, 40]);
+        ctx.returndatacopy(5, 1, 2).expect("returndatacopy");
+        assert_eq!(ctx.returndatasize(), 4);
+        assert_eq!(ctx.read_memory(5, 2).expect("memory slice"), &[20, 30]);
+    }
+
+    #[test]
+    fn runtime_captures_return_payload() {
+        let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+        let script = vec![0x0C, 0x03, b'f', b'o', b'o', 0x40];
+        let result = runtime.execute(&script, &[]).expect("execution");
+        assert!(result.is_success());
+        assert_eq!(result.return_data, b"foo");
+    }
+}
+
+#[cfg(test)]
 mod integration_tests {
     use super::*;
 
@@ -298,6 +355,227 @@ mod integration_tests {
         let result = full_compile_test(input).unwrap();
         assert!(!result.bytecode.is_empty());
         assert!(result.estimated_gas < 1000);
+    }
+}
+
+#[cfg(test)]
+mod ir_tests {
+    use neo_solidity::ir::Module;
+    use neo_solidity::solidity::analyse_source;
+    use neo_solidity::ir::Instruction;
+
+    #[test]
+    fn lowers_single_slot_extsload_assembly() {
+        let source = r#"
+        contract Extsload {
+            function extsload(bytes32 slot) external view returns (bytes32) {
+                assembly {
+                    mstore(0, sload(slot))
+                    return(0, 0x20)
+                }
+            }
+        }
+        "#;
+
+        let metadata = analyse_source(source).expect("analysis failed");
+        let module = Module::from_contract(&metadata).expect("IR lowering failed");
+        let function = module
+            .functions
+            .iter()
+            .find(|f| f.name == "extsload")
+            .expect("function not found");
+        let mut has_dynamic_sload = false;
+        let mut has_return = false;
+        for bb in &function.basic_blocks {
+            for instr in &bb.instructions {
+                use neo_solidity::ir::Instruction;
+                match instr {
+                    Instruction::LoadStorageDynamic => has_dynamic_sload = true,
+                    Instruction::Return => has_return = true,
+                    _ => {}
+                }
+            }
+        }
+        assert!(has_dynamic_sload, "expected LoadStorageDynamic instruction");
+        assert!(has_return, "expected Return instruction");
+    }
+
+    #[test]
+    fn lowers_range_extsload_assembly() {
+        let source = r#"
+        contract ExtsloadRange {
+            function extsload(bytes32 startSlot, uint256 nSlots) external view returns (bytes32[] memory) {
+                assembly {
+                    let memptr := mload(0x40)
+                    let start := memptr
+                    let length := shl(5, nSlots)
+                    mstore(memptr, 0x20)
+                    mstore(add(memptr, 0x20), nSlots)
+                    memptr := add(memptr, 0x40)
+                    let end := add(memptr, length)
+                    for {} 1 {} {
+                        mstore(memptr, sload(startSlot))
+                        memptr := add(memptr, 0x20)
+                        startSlot := add(startSlot, 1)
+                        if iszero(lt(memptr, end)) { break }
+                    }
+                    return(start, sub(end, start))
+                }
+            }
+        }
+        "#;
+
+        let metadata = analyse_source(source).expect("analysis failed");
+        let module = Module::from_contract(&metadata).expect("IR lowering failed");
+        let function = module
+            .functions
+            .iter()
+            .find(|f| f.name == "extsload")
+            .expect("function not found");
+
+        let mut has_array_init = false;
+        let mut has_loop = false;
+
+        for bb in &function.basic_blocks {
+            for instr in &bb.instructions {
+                use neo_solidity::ir::Instruction;
+                match instr {
+                    Instruction::NewArray { .. } => has_array_init = true,
+                    Instruction::Label(_) => has_loop = true,
+                    _ => {}
+                }
+            }
+        }
+
+        assert!(has_array_init, "expected NewArray instruction");
+        assert!(has_loop, "expected loop labels in instructions");
+    }
+
+    #[test]
+    fn lowers_array_literal_and_slice() {
+        let source = r#"
+        contract ArrayOps {
+            function literal() external pure returns (uint256[] memory out) {
+                out = [1, 2, 3];
+            }
+
+            function slice(uint256[] memory input) external pure returns (uint256[] memory) {
+                return input[1:3];
+            }
+        }
+        "#;
+
+        let metadata = analyse_source(source).expect("analysis failed");
+        let module = Module::from_contract(&metadata).expect("IR lowering failed");
+
+        let literal_fn = module.functions.iter().find(|f| f.name == "literal").unwrap();
+        assert!(
+            literal_fn
+                .basic_blocks
+                .iter()
+                .flat_map(|bb| &bb.instructions)
+                .any(|i| matches!(i, Instruction::NewArray { .. })),
+            "literal should allocate an array"
+        );
+
+        let slice_fn = module.functions.iter().find(|f| f.name == "slice").unwrap();
+        let mut has_slice_copy = false;
+        for instr in slice_fn.basic_blocks.iter().flat_map(|bb| &bb.instructions) {
+            if matches!(instr, Instruction::ArrayGet) {
+                has_slice_copy = true;
+                break;
+            }
+        }
+        assert!(has_slice_copy, "slice lowering should copy elements");
+    }
+
+    #[test]
+    fn extload_overloads_have_unique_function_entries() {
+        let source = r#"
+        contract ExtsloadMulti {
+            function extsload(bytes32 slot) external view returns (bytes32) {
+                assembly {
+                    mstore(0, sload(slot))
+                    return(0, 0x20)
+                }
+            }
+
+            function extsload(bytes32 startSlot, uint256 nSlots) external view returns (bytes32[] memory) {
+                assembly {
+                    let memptr := mload(0x40)
+                    let start := memptr
+                    let length := shl(5, nSlots)
+                    mstore(memptr, 0x20)
+                    mstore(add(memptr, 0x20), nSlots)
+                    memptr := add(memptr, 0x40)
+                    let end := add(memptr, length)
+                    for {} 1 {} {
+                        mstore(memptr, sload(startSlot))
+                        memptr := add(memptr, 0x20)
+                        startSlot := add(startSlot, 1)
+                        if iszero(lt(memptr, end)) { break }
+                    }
+                    return(start, sub(end, start))
+                }
+            }
+        }
+        "#;
+
+        let metadata = analyse_source(source).expect("analysis failed");
+        let module = Module::from_contract(&metadata).expect("IR lowering failed");
+        let names: Vec<_> = module.functions.iter().map(|f| f.name.clone()).collect();
+        assert!(
+            names.iter().any(|name| name == "extsload"),
+            "expected function named 'extsload'"
+        );
+    }
+
+    #[test]
+    fn extload_multi_parameter_names() {
+        let source = r#"
+        contract ExtsloadMulti {
+            function extsload(bytes32 slot) external view returns (bytes32) {
+                assembly {
+                    mstore(0, sload(slot))
+                    return(0, 0x20)
+                }
+            }
+
+            function extsload(bytes32 startSlot, uint256 nSlots) external view returns (bytes32[] memory) {
+                assembly {
+                    let memptr := mload(0x40)
+                    let start := memptr
+                    let length := shl(5, nSlots)
+                    mstore(memptr, 0x20)
+                    mstore(add(memptr, 0x20), nSlots)
+                    memptr := add(memptr, 0x40)
+                    let end := add(memptr, length)
+                    for {} 1 {} {
+                        mstore(memptr, sload(startSlot))
+                        memptr := add(memptr, 0x20)
+                        startSlot := add(startSlot, 1)
+                        if iszero(lt(memptr, end)) { break }
+                    }
+                    return(start, sub(end, start))
+                }
+            }
+        }
+        "#;
+
+        let metadata = analyse_source(source).expect("analysis failed");
+        let range_method = metadata
+            .methods
+            .iter()
+            .find(|m| m.name == "extsload" && m.parameters.len() == 2)
+            .expect("range overload not found");
+
+        let names: Vec<_> = range_method
+            .parameters
+            .iter()
+            .map(|p| p.name.clone())
+            .collect();
+        assert_eq!(names[0].as_deref(), Some("startSlot"));
+        assert_eq!(names[1].as_deref(), Some("nSlots"));
     }
 }
 

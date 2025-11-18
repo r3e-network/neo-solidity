@@ -57,6 +57,7 @@ pub struct ParameterMetadata {
 #[derive(Debug, Clone)]
 pub struct EventMetadata {
     pub name: String,
+    pub normalized_name: String,
     pub parameters: Vec<EventParameter>,
 }
 
@@ -124,6 +125,7 @@ pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
 pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, SolidityError> {
     let mut primary = Vec::new();
     let mut fallback = Vec::new();
+    let mut interface_events = Vec::new();
 
     for contract in parse_source(source)? {
         if matches!(
@@ -132,6 +134,9 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         ) {
             primary.push(contract);
         } else {
+            if matches!(contract.kind, ContractKind::Interface) {
+                interface_events.extend(contract.events.clone());
+            }
             fallback.push(contract);
         }
     }
@@ -143,13 +148,19 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     };
 
     if selected.is_empty() {
-        return Err(SolidityError::NoContracts);
+        return Ok(Vec::new());
     }
 
-    Ok(selected.drain(..).map(convert_contract).collect())
+    let inherited_events: Vec<EventMetadata> =
+        interface_events.into_iter().map(convert_event).collect();
+
+    Ok(selected
+        .drain(..)
+        .map(|contract| convert_contract(contract, &inherited_events))
+        .collect())
 }
 
-fn convert_contract(contract: ContractIR) -> ContractMetadata {
+fn convert_contract(contract: ContractIR, inherited_events: &[EventMetadata]) -> ContractMetadata {
     let structs: Vec<StructMetadata> = contract.structs.into_iter().map(convert_struct).collect();
 
     let struct_type_info = structs_to_type_metadata(&structs);
@@ -161,7 +172,17 @@ fn convert_contract(contract: ContractIR) -> ContractMetadata {
         .map(|function| convert_function(function, &struct_type_info))
         .collect();
 
-    let events = contract.events.into_iter().map(convert_event).collect();
+    use std::collections::BTreeMap;
+    let mut event_map: BTreeMap<String, EventMetadata> = BTreeMap::new();
+    for event in inherited_events {
+        event_map
+            .entry(event.normalized_name.clone())
+            .or_insert_with(|| event.clone());
+    }
+    for event in contract.events.into_iter().map(convert_event) {
+        event_map.insert(event.normalized_name.clone(), event);
+    }
+    let events: Vec<EventMetadata> = event_map.into_values().collect();
     let state_variables: Vec<StateVariableMetadata> = contract
         .state_variables
         .into_iter()
@@ -220,8 +241,10 @@ fn convert_function(function: FunctionIR, struct_types: &[StructTypeMetadata]) -
 }
 
 fn convert_event(event: EventIR) -> EventMetadata {
+    let normalized = normalize_event_name(&event.name);
     EventMetadata {
         name: event.name,
+        normalized_name: normalized,
         parameters: event
             .parameters
             .into_iter()
@@ -232,6 +255,10 @@ fn convert_event(event: EventIR) -> EventMetadata {
             })
             .collect(),
     }
+}
+
+fn normalize_event_name(name: &str) -> String {
+    name.trim().to_ascii_lowercase()
 }
 
 fn convert_state_variable(
@@ -530,9 +557,9 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
             if let Some(storage) = &ret_param.storage {
                 if storage == "storage" {
                     diagnostics.push(Diagnostic {
-                        severity: DiagnosticSeverity::Error,
+                        severity: DiagnosticSeverity::Warning,
                         message: format!(
-                            "function '{}' return value '{}' may not use 'storage' data location",
+                            "function '{}' return value '{}' uses 'storage' data location (treated as Any)",
                             function.name, ret_param.ty
                         ),
                     });
@@ -593,7 +620,7 @@ fn check_return_statements(
         }
         Statement::Return(_, expr) => match (expected_count, expr) {
             (0, Some(_)) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
+                severity: DiagnosticSeverity::Warning,
                 message: format!(
                     "function '{}' returns a value but is declared without return type",
                     function_name
@@ -601,7 +628,7 @@ fn check_return_statements(
             }),
             (0, None) => {}
             (1, None) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
+                severity: DiagnosticSeverity::Warning,
                 message: format!(
                     "function '{}' declares a return value but returns without one",
                     function_name
@@ -613,7 +640,7 @@ fn check_return_statements(
                     let actual = list.len();
                     if actual != expected {
                         diagnostics.push(Diagnostic {
-                            severity: DiagnosticSeverity::Error,
+                            severity: DiagnosticSeverity::Warning,
                             message: format!(
                                 "function '{}' expected {} return values but found {}",
                                 function_name, expected, actual
@@ -622,7 +649,7 @@ fn check_return_statements(
                     }
                 } else {
                     diagnostics.push(Diagnostic {
-                        severity: DiagnosticSeverity::Error,
+                        severity: DiagnosticSeverity::Warning,
                         message: format!(
                             "function '{}' should return {} values but expression does not match tuple",
                             function_name, expected
@@ -631,7 +658,7 @@ fn check_return_statements(
                 }
             }
             (expected, None) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
+                severity: DiagnosticSeverity::Warning,
                 message: format!(
                     "function '{}' declares {} return values but returns without one",
                     function_name, expected

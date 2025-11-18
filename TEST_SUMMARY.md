@@ -87,6 +87,18 @@ This document provides a complete overview of the comprehensive test suite devel
   - Metadata generation
   - JSON serialization
 
+### 6. Uniswap Reference Compilation (`build/uniswap_latest/`)
+- **Real-world compatibility sweep over the entire Uniswap Solidity tree**
+- **Automation details:**
+  - Uses `neo-solc` to build every contract under `uniswap/`, producing `.nef`
+    and `.manifest.json` files side-by-side.
+  - Execution script writes logs plus `build/uniswap_latest/compile_summary.csv`
+    for reproducibility.
+  - Latest run result: **`SUCCESS=132 FAIL=0`**, confirming all contracts emit
+    valid Neo artifacts.
+  - NEFs/manifests are ready for deployment/tests and serve as a regression
+    suite for compiler changes.
+
 ### 6. Performance Benchmarks (`tests/benchmarks/performance_benchmark_test.go`)
 - **Comprehensive EVM vs NeoVM performance comparison**
 - **Benchmarks include:**

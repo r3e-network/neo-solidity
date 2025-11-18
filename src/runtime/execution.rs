@@ -6,6 +6,7 @@ use super::{storage, RuntimeConfig, RuntimeError};
 use hex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use sha3::Keccak256;
 use std::collections::{HashMap, HashSet};
 
 /// Execution context for runtime operations
@@ -18,6 +19,8 @@ pub struct ExecutionContext {
     instruction_pointer: u32,
     stack: Vec<StackItem>,
     memory: Vec<u8>,
+    memory_limit: usize,
+    return_data: Vec<u8>,
     call_stack: Vec<CallFrame>,
     debugging_enabled: bool,
     breakpoints: HashSet<u32>,
@@ -118,7 +121,9 @@ impl ExecutionContext {
             gas_used: 0,
             instruction_pointer: 0,
             stack: Vec::new(),
-            memory: vec![0; 1024], // Initial memory size
+            memory: Vec::new(),
+            memory_limit: config.memory_limit,
+            return_data: Vec::new(),
             call_stack: Vec::new(),
             debugging_enabled: config.enable_debugging,
             breakpoints: HashSet::new(),
@@ -147,6 +152,8 @@ impl ExecutionContext {
         self.input_data = input.to_vec();
         self.instruction_pointer = 0;
         self.stack.clear();
+        self.memory.clear();
+        self.return_data.clear();
         self.call_stack.clear();
         self.gas_used = 0;
         self.instruction_count = 0;
@@ -325,23 +332,55 @@ impl ExecutionContext {
         self.stack.len()
     }
 
-    /// Read from memory
-    pub fn read_memory(&self, address: usize, length: usize) -> Result<&[u8], RuntimeError> {
-        if address + length > self.memory.len() {
+    /// Read from memory, expanding zero-initialized regions as needed
+    pub fn read_memory(&mut self, address: usize, length: usize) -> Result<&[u8], RuntimeError> {
+        if length == 0 {
+            if address > self.memory_limit {
+                return Err(RuntimeError::ExecutionError {
+                    message: "Memory access exceeds configured limit".to_string(),
+                });
+            }
+            return Ok(&[]);
+        }
+
+        let required = address
+            .checked_add(length)
+            .ok_or(RuntimeError::ExecutionError {
+                message: "Memory access overflow".to_string(),
+            })?;
+        if required > self.memory_limit {
             return Err(RuntimeError::ExecutionError {
-                message: "Memory access out of bounds".to_string(),
+                message: "Memory access exceeds configured limit".to_string(),
             });
         }
-        Ok(&self.memory[address..address + length])
+
+        if required > self.memory.len() {
+            self.memory.resize(required, 0);
+        }
+        Ok(&self.memory[address..required])
     }
 
     /// Write to memory
     pub fn write_memory(&mut self, address: usize, data: &[u8]) -> Result<(), RuntimeError> {
-        if address + data.len() > self.memory.len() {
-            // Expand memory if needed
-            self.memory.resize(address + data.len(), 0);
+        if data.is_empty() {
+            return Ok(());
         }
-        self.memory[address..address + data.len()].copy_from_slice(data);
+
+        let required = address
+            .checked_add(data.len())
+            .ok_or(RuntimeError::ExecutionError {
+                message: "Memory write overflow".to_string(),
+            })?;
+        if required > self.memory_limit {
+            return Err(RuntimeError::ExecutionError {
+                message: "Memory write exceeds configured limit".to_string(),
+            });
+        }
+
+        if required > self.memory.len() {
+            self.memory.resize(required, 0);
+        }
+        self.memory[address..required].copy_from_slice(data);
         Ok(())
     }
 
@@ -376,6 +415,97 @@ impl ExecutionContext {
 
         let data = self.read_input_slice(input_offset, length);
         self.write_memory(memory_offset, &data)
+    }
+
+    /// Current size of the linear memory buffer
+    pub fn memory_size(&self) -> usize {
+        self.memory.len()
+    }
+
+    /// Size of the calldata buffer
+    pub fn calldatasize(&self) -> usize {
+        self.input_data.len()
+    }
+
+    /// Load a 32-byte word from calldata starting at `offset`
+    pub fn calldataload_word(&self, offset: usize) -> [u8; 32] {
+        let data = self.read_input_slice(offset, 32);
+        let mut word = [0u8; 32];
+        word.copy_from_slice(&data);
+        word
+    }
+
+    /// Copy calldata into linear memory
+    pub fn calldatacopy(
+        &mut self,
+        memory_offset: usize,
+        data_offset: usize,
+        length: usize,
+    ) -> Result<(), RuntimeError> {
+        if length == 0 {
+            return Ok(());
+        }
+        let data = self.read_input_slice(data_offset, length);
+        self.write_memory(memory_offset, &data)
+    }
+
+    /// Compute the Keccak-256 hash over a memory slice
+    pub fn keccak_memory_slice(
+        &mut self,
+        offset: usize,
+        length: usize,
+    ) -> Result<[u8; 32], RuntimeError> {
+        use sha3::Digest as KeccakDigest;
+
+        let slice = self.read_memory(offset, length)?;
+        let mut hasher = Keccak256::new();
+        KeccakDigest::update(&mut hasher, slice);
+        let digest = hasher.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest);
+        Ok(out)
+    }
+
+    /// Size of the last return buffer
+    pub fn returndatasize(&self) -> usize {
+        self.return_data.len()
+    }
+
+    /// Copy bytes from the last return buffer into memory
+    pub fn returndatacopy(
+        &mut self,
+        memory_offset: usize,
+        return_offset: usize,
+        length: usize,
+    ) -> Result<(), RuntimeError> {
+        if length == 0 {
+            return Ok(());
+        }
+
+        let end = return_offset
+            .checked_add(length)
+            .ok_or(RuntimeError::ExecutionError {
+                message: "Return data copy overflow".to_string(),
+            })?;
+
+        if end > self.return_data.len() {
+            return Err(RuntimeError::ExecutionError {
+                message: "Return data access out of bounds".to_string(),
+            });
+        }
+
+        let slice = self.return_data[return_offset..end].to_vec();
+        self.write_memory(memory_offset, &slice)
+    }
+
+    /// Replace the current return buffer
+    pub fn set_return_data(&mut self, data: Vec<u8>) {
+        self.return_data = data;
+    }
+
+    /// Access the return buffer
+    pub fn return_data(&self) -> &[u8] {
+        &self.return_data
     }
 
     /// Call function
@@ -580,6 +710,53 @@ impl ExecutionContext {
                 self.push_stack(top)?;
                 self.instruction_pointer += 1;
             }
+            0x90 => {
+                // INVERT
+                let value = self.pop_stack()?;
+                let result = self.bitwise_not(value)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
+            0x91 => {
+                // AND
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.bitwise_and(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
+            0x92 => {
+                // OR
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.bitwise_or(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
+            0x93 => {
+                // XOR
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.bitwise_xor(a, b)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
+            0x9E => {
+                // SHL
+                let shift = self.pop_stack()?;
+                let value = self.pop_stack()?;
+                let result = self.shift_left(value, shift)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
+            0x9F => {
+                // SHR
+                let shift = self.pop_stack()?;
+                let value = self.pop_stack()?;
+                let result = self.shift_right(value, shift)?;
+                self.push_stack(result)?;
+                self.instruction_pointer += 1;
+            }
             0x41 => {
                 if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -679,8 +856,8 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
             }
 
-            // Arithmetic (0x90-0x9F)
-            0x90 => {
+            // Arithmetic (0x95-0x99)
+            0x95 => {
                 // ADD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -688,7 +865,7 @@ impl ExecutionContext {
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             }
-            0x91 => {
+            0x96 => {
                 // SUB
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -696,7 +873,7 @@ impl ExecutionContext {
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             }
-            0x92 => {
+            0x97 => {
                 // MUL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -704,7 +881,7 @@ impl ExecutionContext {
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             }
-            0x93 => {
+            0x98 => {
                 // DIV
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -712,7 +889,7 @@ impl ExecutionContext {
                 self.push_stack(result)?;
                 self.instruction_pointer += 1;
             }
-            0x94 => {
+            0x99 => {
                 // MOD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -722,7 +899,7 @@ impl ExecutionContext {
             }
 
             // Comparison operations
-            0x87 => {
+            0xA3 => {
                 // EQUAL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -730,7 +907,15 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
             }
-            0x9F => {
+            0xA4 => {
+                // NOT EQUAL
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let result = self.stack_items_equal(&a, &b)?;
+                self.push_stack(StackItem::Boolean(!result))?;
+                self.instruction_pointer += 1;
+            }
+            0xA5 => {
                 // LT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -738,7 +923,16 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
             }
-            0xA1 => {
+            0xA6 => {
+                // LE
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let lt = self.less_than(&a, &b)?;
+                let eq = self.stack_items_equal(&a, &b)?;
+                self.push_stack(StackItem::Boolean(lt || eq))?;
+                self.instruction_pointer += 1;
+            }
+            0xA7 => {
                 // GT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -746,17 +940,30 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Boolean(result))?;
                 self.instruction_pointer += 1;
             }
-
-            // Control flow
-            0x40 => {
-                // RET
-                if self.call_stack.is_empty() {
-                    // End of execution
-                    self.instruction_pointer = self.bytecode.len() as u32;
-                } else {
-                    self.return_from_function()?;
-                }
+            0xA8 => {
+                // GE
+                let b = self.pop_stack()?;
+                let a = self.pop_stack()?;
+                let gt = self.greater_than(&a, &b)?;
+                let eq = self.stack_items_equal(&a, &b)?;
+                self.push_stack(StackItem::Boolean(gt || eq))?;
+                self.instruction_pointer += 1;
             }
+
+        // Control flow
+        0x40 => {
+            // RET
+            if self.call_stack.is_empty() {
+                if let Some(item) = self.stack.last() {
+                    self.return_data = Self::stack_item_to_bytes(item.clone());
+                } else {
+                    self.return_data.clear();
+                }
+                self.instruction_pointer = self.bytecode.len() as u32;
+            } else {
+                self.return_from_function()?;
+            }
+        }
             0x66 => {
                 // THROW
                 return Err(RuntimeError::ExecutionError {
@@ -869,6 +1076,92 @@ impl ExecutionContext {
             }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for MOD".to_string(),
+            }),
+        }
+    }
+
+    fn bitwise_not(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(!v)),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(!v)),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for bitwise NOT".to_string(),
+            }),
+        }
+    }
+
+    fn bitwise_and(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x & y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x & y))
+            }
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for bitwise AND".to_string(),
+            }),
+        }
+    }
+
+    fn bitwise_or(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x | y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x | y))
+            }
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for bitwise OR".to_string(),
+            }),
+        }
+    }
+
+    fn bitwise_xor(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x ^ y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x ^ y))
+            }
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for bitwise XOR".to_string(),
+            }),
+        }
+    }
+
+    fn shift_left(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
+        let amount = self.extract_shift_amount(shift)?;
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shl(amount))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shl(amount))),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for shift left".to_string(),
+            }),
+        }
+    }
+
+    fn shift_right(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
+        let amount = self.extract_shift_amount(shift)?;
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shr(amount))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shr(amount))),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operands for shift right".to_string(),
+            }),
+        }
+    }
+
+    fn extract_shift_amount(&self, item: StackItem) -> Result<u32, RuntimeError> {
+        match item {
+            StackItem::Integer(v) => {
+                if v < 0 {
+                    Err(RuntimeError::ExecutionError {
+                        message: "Shift amount must be non-negative".to_string(),
+                    })
+                } else {
+                    Ok((v as u64).min(63) as u32)
+                }
+            }
+            StackItem::UnsignedInteger(v) => Ok((v.min(63)) as u32),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid shift amount".to_string(),
             }),
         }
     }
@@ -1025,8 +1318,14 @@ impl ExecutionContext {
         match opcode {
             0x10 => "PUSH0".to_string(),
             0x11 => "PUSH1".to_string(),
+            0x90 => "INVERT".to_string(),
+            0x91 => "AND".to_string(),
+            0x92 => "OR".to_string(),
+            0x93 => "XOR".to_string(),
             0x95 => "ADD".to_string(),
             0x96 => "SUB".to_string(),
+            0x9E => "SHL".to_string(),
+            0x9F => "SHR".to_string(),
             0x40 => "RET".to_string(),
             _ => format!("UNKNOWN_{:02X}", opcode),
         }
@@ -1046,14 +1345,21 @@ impl ExecutionContext {
             // Stack operations
             0x39..=0x3F | 0x41..=0x47 => 2, // Stack manipulation (excluding 0x40)
 
+            // Bitwise operations
+            0x90..=0x93 => 3,
+
             // Arithmetic
-            0x90..=0x94 => 4, // Basic arithmetic
+            0x94 => 4,        // Reserved/unary operations
             0x95 => 8,        // POW (expensive)
             0x96 => 6,        // SQRT
+            0x97..=0x99 => 4,  // Remaining arithmetic
+
+            // Shift operations
+            0x9E..=0x9F => 3,
 
             // Comparison operations
             0x87..=0x88 => 3, // EQUAL, NOTEQUAL
-            0x9F..=0xA2 => 3, // LT, LE, GT, GE
+            0xA5..=0xA8 => 3, // LT, LE, GT, GE
 
             // Control flow
             0x40 => 0,        // RET
