@@ -1,0 +1,71 @@
+\contentsline {section}{\numberline {1}Scope and Purpose}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Objectives}{3}{subsection.1.1}%
+\contentsline {section}{\numberline {2}References and Terminology}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Normative References}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Terminology}{3}{subsection.2.2}%
+\contentsline {section}{\numberline {3}System Objectives and Constraints}{4}{section.3}%
+\contentsline {section}{\numberline {4}Architectural Overview}{4}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Stage Contracts}{5}{subsection.4.1}%
+\contentsline {section}{\numberline {5}Component Specifications}{5}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Frontend Integration}{5}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Canonical IR and Normalizer}{5}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Semantic Analysis}{6}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Optimization Engine}{6}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}NeoVM Code Generator}{6}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Runtime Manager and Artifact Builder}{6}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Tooling Surfaces}{7}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Hardhat Integration Example}{7}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Foundry Integration Notes}{7}{subsection.5.9}%
+\contentsline {subsection}{\numberline {5.10}DevPack Interface Summary}{8}{subsection.5.10}%
+\contentsline {subsection}{\numberline {5.11}DevPack API Details}{8}{subsection.5.11}%
+\contentsline {section}{\numberline {6}End-to-End Compilation Detail}{9}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Solidity Source to Canonical IR}{9}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Yul-to-NeoVM Conversion Rules}{9}{subsection.6.2}%
+\contentsline {paragraph}{General Conventions}{9}{section*.2}%
+\contentsline {paragraph}{Specific Conversion Rules}{11}{section*.3}%
+\contentsline {subsection}{\numberline {6.3}Opcode Category Mapping}{14}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Lowering Algorithms (Pseudo-code)}{15}{subsection.6.4}%
+\contentsline {paragraph}{Mapping Load}{15}{section*.4}%
+\contentsline {paragraph}{Conditional Lowering}{15}{section*.5}%
+\contentsline {paragraph}{Switch Lowering}{15}{section*.6}%
+\contentsline {paragraph}{ABI Dispatcher Skeleton}{15}{section*.7}%
+\contentsline {subsection}{\numberline {6.5}NEF Assembly Workflow}{16}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Manifest Generation Workflow}{16}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}NEF Binary Layout}{17}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}NEF Script Hex Example}{17}{subsection.6.8}%
+\contentsline {subsection}{\numberline {6.9}Manifest Schema Reference}{17}{subsection.6.9}%
+\contentsline {subsection}{\numberline {6.10}Mapping Detail Reference}{17}{subsection.6.10}%
+\contentsline {section}{\numberline {7}Data and Metadata Structures}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Compiler Configuration and Context}{18}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Diagnostic Contracts}{19}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Control Flow, State Management, and Runtime Coordination}{19}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Compiler State Machine}{19}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Runtime Layering}{20}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Execution Overrides}{20}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Optimization and Analysis Strategy}{21}{section.9}%
+\contentsline {section}{\numberline {10}Artifact Production and Interfaces}{21}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Artifact Catalog}{21}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Manifest Construction Rules}{21}{subsection.10.2}%
+\contentsline {section}{\numberline {11}Storage and Mapping Design}{22}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Mapping and Indexed Storage Lowering}{22}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Memory Layout Assumptions}{22}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Storage Slot Hashing Diagram}{22}{subsection.11.3}%
+\contentsline {section}{\numberline {12}Diagnostics, Security, and Quality Attributes}{23}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Diagnostic Strategy}{23}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Security Considerations}{23}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Security Posture and Monitoring}{23}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Telemetry and Metrics Export}{23}{subsection.12.4}%
+\contentsline {section}{\numberline {13}Validation and Compliance}{24}{section.13}%
+\contentsline {subsection}{\numberline {13.1}Test Strategy}{24}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Test Matrix and Coverage Goals}{25}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Continuous Integration Flow}{25}{subsection.13.3}%
+\contentsline {subsection}{\numberline {13.4}CI Artifact Summary}{26}{subsection.13.4}%
+\contentsline {subsection}{\numberline {13.5}CI Command Summary}{26}{subsection.13.5}%
+\contentsline {subsection}{\numberline {13.6}Sample CI Pipeline}{26}{subsection.13.6}%
+\contentsline {subsection}{\numberline {13.7}Compile Summary Artifact}{27}{subsection.13.7}%
+\contentsline {subsection}{\numberline {13.8}Traceability Matrix}{27}{subsection.13.8}%
+\contentsline {section}{\numberline {14}Assumptions and Future Work}{27}{section.14}%
+\contentsline {subsection}{\numberline {14.1}Planned Enhancements}{28}{subsection.14.1}%
+\contentsline {subsection}{\numberline {14.2}Cross-Chain Compatibility Considerations}{28}{subsection.14.2}%
+\contentsline {subsection}{\numberline {14.3}Roadmap Milestones}{28}{subsection.14.3}%
+\contentsline {section}{\numberline {15}Conclusion}{29}{section.15}%
