@@ -540,6 +540,10 @@ fn push_data(bytecode: &mut Vec<u8>, data: &[u8]) {
 pub(crate) mod tests {
     use super::*;
     use neo_solidity::solidity::analyse_source;
+    use neo_solidity::{
+        frontend::VisibilityKind,
+        solidity::{FunctionKind, FunctionMetadata, StateMutability},
+    };
 
     #[test]
     fn mapping_code_generation_emits_storage_ops() {
@@ -611,5 +615,37 @@ pub(crate) mod tests {
                 .any(|window| window == expected_sequence),
             "expected event name to be pushed before args and packed"
         );
+    }
+
+    #[test]
+    fn empty_contract_emits_ret_instruction() {
+        // No functions other than constructors -> should produce a single RET (0x40)
+        let mut metadata = ContractMetadata {
+            name: "Empty".to_string(),
+            methods: vec![FunctionMetadata {
+                name: "constructor".to_string(),
+                kind: FunctionKind::Constructor,
+                parameters: vec![],
+                return_parameters: vec![],
+                state_mutability: StateMutability::NonPayable,
+                visibility: VisibilityKind::Public,
+                offset: 0,
+                body: None,
+                selector: [0u8; 4],
+            }],
+            events: vec![],
+            uses_storage: false,
+            state_variables: vec![],
+            structs: vec![],
+        };
+
+        let ir_module = ir::Module {
+            functions: vec![],
+            state_variables: vec![],
+            events: vec![],
+        };
+
+        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+        assert_eq!(bytecode, vec![0x40], "should emit a lone RET");
     }
 }
