@@ -209,7 +209,8 @@ jobs:
         test -f README.md || exit 1
         test -f CONTRIBUTING.md || exit 1
         test -f devpack/DEVPACK_GUIDE.md || exit 1
-        test -f DEPLOYMENT_VALIDATION.md || exit 1
+        # Archived docs live under docs/archive after cleanup
+        test -d docs/archive || exit 1
         
         echo "✅ Documentation structure validated"
     
