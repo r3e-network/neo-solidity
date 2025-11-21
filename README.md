@@ -2,6 +2,10 @@
 
 **A Complete Production-Ready Solidity-to-NeoVM Compilation System**
 
+<p align="center">
+  <img src="docs/assets/neo-solidity-logo.svg" alt="Neo Solidity Compiler logo" width="240">
+</p>
+
 [![Build Status](https://github.com/r3e-network/neo-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-solidity/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://rustup.rs)
