@@ -1,4 +1,5 @@
 use super::*;
+use sha3::{Digest, Keccak256};
 use std::fs;
 use tempfile::tempdir;
 

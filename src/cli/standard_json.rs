@@ -1,8 +1,6 @@
 use super::{compile_contracts, CompilationArtifacts, COMPILER_ID, VERSION};
 use neo_solidity::neo::build_nef;
-use neo_solidity::solidity::{
-    ContractMetadata, DiagnosticSeverity, FunctionKind, StateMutability,
-};
+use neo_solidity::solidity::{ContractMetadata, DiagnosticSeverity, FunctionKind, StateMutability};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha3::{Digest, Keccak256};
