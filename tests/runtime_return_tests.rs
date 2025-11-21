@@ -9,7 +9,11 @@ fn ret_without_value_clears_return_data() {
     let step = ctx.step().expect("step RET");
     assert_eq!(step.opcode, "RET");
     assert!(ctx.return_data().is_empty(), "return data should be empty");
-    assert_eq!(step.instruction_pointer as usize, 1, "instruction pointer should advance to end");
+    assert_eq!(
+        step.instruction_pointer as usize,
+        1,
+        "instruction pointer should advance to end"
+    );
 }
 
 #[test]
@@ -23,5 +27,9 @@ fn ret_with_value_uses_top_of_stack() {
 
     let expected = (1i64).to_le_bytes().to_vec();
     assert_eq!(ctx.return_data(), expected, "RET should use top-of-stack bytes");
-    assert_eq!(step.instruction_pointer as usize, 2, "instruction pointer should advance beyond bytecode");
+    assert_eq!(
+        step.instruction_pointer as usize,
+        2,
+        "instruction pointer should advance beyond bytecode"
+    );
 }
