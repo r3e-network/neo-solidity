@@ -950,20 +950,20 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
             }
 
-        // Control flow
-        0x40 => {
-            // RET
-            if self.call_stack.is_empty() {
-                if let Some(item) = self.stack.last() {
-                    self.return_data = Self::stack_item_to_bytes(item.clone());
+            // Control flow
+            0x40 => {
+                // RET
+                if self.call_stack.is_empty() {
+                    if let Some(item) = self.stack.last() {
+                        self.return_data = Self::stack_item_to_bytes(item.clone());
+                    } else {
+                        self.return_data.clear();
+                    }
+                    self.instruction_pointer = self.bytecode.len() as u32;
                 } else {
-                    self.return_data.clear();
+                    self.return_from_function()?;
                 }
-                self.instruction_pointer = self.bytecode.len() as u32;
-            } else {
-                self.return_from_function()?;
             }
-        }
             0x66 => {
                 // THROW
                 return Err(RuntimeError::ExecutionError {
@@ -1352,7 +1352,7 @@ impl ExecutionContext {
             0x94 => 4,        // Reserved/unary operations
             0x95 => 8,        // POW (expensive)
             0x96 => 6,        // SQRT
-            0x97..=0x99 => 4,  // Remaining arithmetic
+            0x97..=0x99 => 4, // Remaining arithmetic
 
             // Shift operations
             0x9E..=0x9F => 3,
