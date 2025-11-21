@@ -219,8 +219,7 @@ mod runtime_tests {
 
     #[test]
     fn linear_memory_zero_extends_and_hashes() {
-        let mut ctx =
-            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+        let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
 
         ctx.write_memory(4, &[0xAA, 0xBB]).expect("memory write");
         let snapshot = ctx.read_memory(0, 8).expect("memory read").to_vec();
@@ -236,8 +235,7 @@ mod runtime_tests {
 
     #[test]
     fn calldata_helpers_load_and_copy() {
-        let mut ctx =
-            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+        let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
         ctx.initialize(&[], &[1, 2, 3, 4, 5, 6])
             .expect("context init");
 
@@ -250,8 +248,7 @@ mod runtime_tests {
 
     #[test]
     fn returndatacopy_moves_bytes_into_memory() {
-        let mut ctx =
-            ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
+        let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("execution context");
         ctx.set_return_data(vec![10, 20, 30, 40]);
         ctx.returndatacopy(5, 1, 2).expect("returndatacopy");
         assert_eq!(ctx.returndatasize(), 4);
@@ -360,9 +357,9 @@ mod integration_tests {
 
 #[cfg(test)]
 mod ir_tests {
+    use neo_solidity::ir::Instruction;
     use neo_solidity::ir::Module;
     use neo_solidity::solidity::analyse_source;
-    use neo_solidity::ir::Instruction;
 
     #[test]
     fn lowers_single_slot_extsload_assembly() {
@@ -468,7 +465,11 @@ mod ir_tests {
         let metadata = analyse_source(source).expect("analysis failed");
         let module = Module::from_contract(&metadata).expect("IR lowering failed");
 
-        let literal_fn = module.functions.iter().find(|f| f.name == "literal").unwrap();
+        let literal_fn = module
+            .functions
+            .iter()
+            .find(|f| f.name == "literal")
+            .unwrap();
         assert!(
             literal_fn
                 .basic_blocks
