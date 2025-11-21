@@ -1,0 +1,25 @@
+use neo_solidity::runtime::execution::ExecutionContext;
+use neo_solidity::runtime::RuntimeConfig;
+
+#[test]
+fn stack_push_overflow_errors_after_limit() {
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    // Push up to the NeoVM stack depth limit (2048)
+    for _ in 0..2048 {
+        ctx.push_stack(neo_solidity::runtime::execution::StackItem::Integer(1))
+            .expect("push within limit");
+    }
+    let overflow = ctx.push_stack(neo_solidity::runtime::execution::StackItem::Integer(2));
+    assert!(overflow.is_err(), "pushing past stack limit should error");
+}
+
+#[test]
+fn read_memory_out_of_bounds_fails() {
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.initialize(&[], &[]).expect("init");
+    let err = ctx.read_memory(10, 1).expect_err("oob read should fail");
+    assert!(
+        format!("{err}").to_ascii_lowercase().contains("memory"),
+        "expected memory error, got: {err}"
+    );
+}
