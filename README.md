@@ -1,6 +1,4 @@
-# Neo Solidity Compiler 
-
-**A Complete Production-Ready Solidity-to-NeoVM Compilation System**
+# Neo Solidity Compiler
 
 <p align="center">
   <img src="docs/assets/neo-solidity-logo.svg" alt="Neo Solidity Compiler logo" width="240">
@@ -11,42 +9,21 @@
 [![Rust Version](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://rustup.rs)
 [![Neo Version](https://img.shields.io/badge/neo-N3%203.0+-green.svg)](https://neo.org)
 
-> **⚡ Enable Solidity developers to build on Neo blockchain with full EVM compatibility**
+**Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
 
-> ⚠️ **Project Status (Nov 2025):** Much of this repository still reflects the *intended* final state rather than what currently ships. The TypeScript packages now document their placeholder status (see `tooling/README.md` and each package README). Until the roadmap items land, treat the code as experimental scaffolding.
+> **Status:** Actively developed. Some tooling packages remain experimental—see individual READMEs under `tooling/`.
 
-Neo Solidity Compiler is a comprehensive, production-ready system that allows Solidity smart contracts to run seamlessly on the Neo N3 blockchain. It provides complete EVM semantic emulation while leveraging Neo's unique performance and security features.
+## 🎯 At a Glance
 
-## 🎯 **Key Features**
+- **Solidity → NeoVM**: Compile Solidity 0.8.x to Neo N3 (`.nef` + `.manifest.json`).
+- **EVM semantics**: ABI-compatible selectors and metadata; NEP standard detection (NEP-11/17/24).
+- **Optimized output**: Multi-level optimizer, Neo-specific lowering, manifest generation.
+- **Tooling friendly**: CLI first, with patterns for Hardhat/Foundry adapters.
+- **Quality-focused**: Extensive unit/integration/runtime tests, clear diagnostics.
 
-### **🔥 Core Capabilities**
-- **Complete Solidity Support**: Source-level compatibility with Solidity 0.8.x syntax and semantics
-- **EVM Semantic Emulation**: Full ABI compatibility with existing Ethereum tooling
-- **Neo N3 Integration**: Native deployment and execution on Neo blockchain
-- **Multi-Target Support**: Supports NeoVM versions 3.0 through 3.5+
-- **Production Ready**: Extensively tested with 400+ unit tests and comprehensive integration tests
+## 🚀 Quick Start
 
-### **⚡ Performance & Optimization**
-- **4-Level Optimization**: From basic (-O0) to aggressive optimization (-O3)
-- **Advanced Passes**: Dead code elimination, constant folding, function inlining
-- **Gas Optimization**: Intelligent gas estimation and cost reduction
-- **Neo-Specific Tuning**: Optimized for Neo's unique VM characteristics
-
-### **🛠️ Developer Experience**
-- **Complete Toolchain**: CLI compiler, Hardhat plugins, Foundry integration
-- **Rich Debugging**: Source maps, breakpoints, step-by-step execution
-- **Comprehensive Errors**: Detailed error messages with suggestions
-- **Neo N3 Native**: Generates .nef and .manifest.json files for direct deployment
-
-### **🔒 Security & Quality**
-- **Security Analysis**: Automated vulnerability detection
-- **Fuzzing Support**: Property-based testing and mutation testing
-- **Static Analysis**: Complexity metrics, performance analysis
-- **Audit Ready**: Comprehensive test coverage and documentation
-
-## 🚀 **Quick Start**
-
-### **Installation**
+### Installation
 
 ```bash
 # Install from source
@@ -59,7 +36,7 @@ curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo
 chmod +x neo-solc
 ```
 
-### **Basic Usage**
+### Basic Usage
 
 ```bash
 # Compile Solidity to Neo N3 contract (generates .nef + .manifest.json)
@@ -76,7 +53,7 @@ neo-solc contract.sol -f nef -o contract.nef
 neo-solc contract.sol -f manifest -o contract.manifest.json
 ```
 
-### **Batch Compilation (Uniswap Reference Suite)**
+### Batch Compilation (Reference Suite)
 
 The repository includes a complete Uniswap-compatible contract tree under
 `uniswap/`. To exercise the compiler against this suite and produce `.nef` plus
@@ -93,7 +70,7 @@ captures success/failure for every contract (current run: `SUCCESS=132 FAIL=0`).
 This is the simplest way to verify that the compiler emits deployable Neo
 artifacts for a large, real-world codebase.
 
-### **Runtime Metadata Overrides**
+### Runtime Metadata Overrides
 
 The embedded Neo runtime exposes an `ExecutionOverrides` struct so you can inject
 deterministic execution metadata (block height, timestamp, calling script hash)
@@ -102,7 +79,7 @@ and inspect the resulting `ExecutionMetadata` payload carried by
 `ExecutionResult` to verify how a test run interacted with the simulated chain
 environment.
 
-### **Example Contract**
+### Example Contract
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -219,9 +196,9 @@ make setup-hooks
 make dev
 ```
 
-### **💻 CLI Reference**
+### CLI Reference
 
-#### **Basic Commands**
+#### Basic Commands
 
 ```bash
 # Compile with default settings (generates .nef + .manifest.json)
@@ -242,7 +219,7 @@ neo-solc contract.sol -f manifest     # Only .manifest.json
 neo-solc contract.sol -f complete     # Both files (default)
 ```
 
-#### **Advanced Options**
+#### Advanced Options
 
 ```bash
 # Security analysis mode
@@ -264,7 +241,7 @@ neo-solc contract.sol --validate
 neo-solc contract.sol -v --debug
 ```
 
-#### **Batch Operations**
+#### Batch Operations
 
 ```bash
 # Compile multiple files
@@ -277,9 +254,9 @@ neo-solc contracts/Token.sol -o build/Token
 neo-solc contracts/*.sol -O3 -o build/
 ```
 
-### **🔗 Integration Guide**
+### Integration Guide
 
-#### **Hardhat Integration**
+#### Hardhat Integration
 
 ```javascript
 // hardhat.config.js
@@ -317,7 +294,7 @@ npx hardhat neo-deploy --network neo_testnet --contract SimpleToken
 npx hardhat neo-verify --network neo_testnet
 ```
 
-#### **Foundry Integration**
+#### Foundry Integration
 
 ```bash
 # Install Neo Foundry
@@ -337,7 +314,7 @@ neo-forge test
 neo-cast deploy SimpleToken --constructor-args 1000000
 ```
 
-#### **Direct Integration**
+#### Direct Integration
 
 ```javascript
 const { NeoSolidityCompiler } = require('@neo-solidity/core');
@@ -354,9 +331,9 @@ console.log('ABI:', result.abi);
 console.log('Gas estimate:', result.estimatedGas);
 ```
 
-### **🧪 Testing Framework**
+### Testing Framework
 
-#### **Unit Testing**
+#### Unit Testing
 
 ```bash
 # Run all tests
@@ -372,7 +349,7 @@ cargo test -- --nocapture
 cargo test --release benchmark_tests
 ```
 
-#### **Integration Testing**
+#### Integration Testing
 
 ```bash
 # Full compilation pipeline tests
@@ -386,7 +363,7 @@ cargo test --test defi_integration
 make test-platforms
 ```
 
-#### **Property-Based Testing**
+#### Property-Based Testing
 
 ```bash
 # Fuzzing tests for robustness

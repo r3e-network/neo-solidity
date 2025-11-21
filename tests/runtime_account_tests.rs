@@ -14,6 +14,7 @@ fn normalize_account_accepts_prefixed() {
 fn normalize_account_rejects_short_address() {
     let cfg = RuntimeConfig::default();
     let mut ctx = ExecutionContext::new(&cfg).expect("ctx");
-    let result = ctx.override_caller_account("0x1234");
+    // Odd-length hex should fail normalization/decoding
+    let result = ctx.override_caller_account("0x123");
     assert!(result.is_err(), "expected invalid address to error");
 }
