@@ -344,3 +344,37 @@ fn standard_json_reports_no_contracts() {
     assert_eq!(errors[0]["type"], Value::String("NoContracts".into()));
     assert_eq!(errors[0]["severity"], Value::String("error".into()));
 }
+
+#[test]
+fn sanitize_contract_name_handles_invalid_chars() {
+    assert_eq!(
+        sanitize_contract_name("My Contract!").as_deref(),
+        Some("My_Contract")
+    );
+    assert_eq!(
+        sanitize_contract_name("___invalid***").as_deref(),
+        Some("invalid")
+    );
+    assert_eq!(
+        sanitize_contract_name("token-1").as_deref(),
+        Some("token-1")
+    );
+}
+
+#[test]
+fn solidity_types_map_to_manifest_types() {
+    assert_eq!(solidity_to_manifest_type("uint256"), "Integer");
+    assert_eq!(solidity_to_manifest_type("int8"), "Integer");
+    assert_eq!(solidity_to_manifest_type("bool"), "Boolean");
+    assert_eq!(solidity_to_manifest_type("address"), "Hash160");
+    assert_eq!(solidity_to_manifest_type("bytes32"), "ByteArray");
+    assert_eq!(solidity_to_manifest_type("string"), "String");
+    assert_eq!(solidity_to_manifest_type("uint256[]"), "Integer");
+    assert_eq!(solidity_to_manifest_type("customStruct"), "Any");
+}
+
+#[test]
+fn hex_prefixed_is_idempotent() {
+    assert_eq!(hex_prefixed("deadbeef"), "0xdeadbeef");
+    assert_eq!(hex_prefixed("0xdeadbeef"), "0xdeadbeef");
+}
