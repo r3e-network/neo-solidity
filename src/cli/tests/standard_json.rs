@@ -378,3 +378,20 @@ fn hex_prefixed_is_idempotent() {
     assert_eq!(hex_prefixed("deadbeef"), "0xdeadbeef");
     assert_eq!(hex_prefixed("0xdeadbeef"), "0xdeadbeef");
 }
+
+#[test]
+fn metadata_blob_defaults_keccak_to_empty_hash() {
+    let blob = build_metadata_blob(
+        "Sample",
+        &[],
+        "Sample.sol",
+        &json!({"optimizer": {"enabled": true}}),
+        None,
+    );
+    let value: Value = serde_json::from_str(&blob).expect("metadata json");
+    assert_eq!(
+        value["sources"]["Sample.sol"]["keccak256"],
+        Value::String(String::new()),
+        "keccak field should be empty string when not provided"
+    );
+}

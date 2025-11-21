@@ -191,6 +191,41 @@ fn contract_output_prefix_sanitizes_and_indexes() {
 }
 
 #[test]
+fn standards_not_detected_when_incomplete() {
+    // Missing balanceOf should not trigger NEP-17
+    let methods = vec![
+        FunctionMetadata {
+            name: "transfer".to_string(),
+            kind: FunctionKind::Regular,
+            parameters: vec![],
+            return_parameters: vec![],
+            state_mutability: StateMutability::NonPayable,
+            visibility: VisibilityKind::Public,
+            offset: 0,
+            body: None,
+            selector: [0u8; 4],
+        },
+        FunctionMetadata {
+            name: "totalSupply".to_string(),
+            kind: FunctionKind::Regular,
+            parameters: vec![],
+            return_parameters: vec![],
+            state_mutability: StateMutability::View,
+            visibility: VisibilityKind::Public,
+            offset: 0,
+            body: None,
+            selector: [0u8; 4],
+        },
+    ];
+
+    let standards = detect_supported_standards(&methods);
+    assert!(
+        standards.is_empty(),
+        "incomplete method sets should not advertise standards"
+    );
+}
+
+#[test]
 fn storage_map_assigns_slots_and_names() {
     let metadata = ContractMetadata {
         name: "StorageExample".to_string(),
