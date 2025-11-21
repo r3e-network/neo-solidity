@@ -2,6 +2,7 @@ use super::*;
 use sha3::{Digest, Keccak256};
 use std::fs;
 use tempfile::tempdir;
+use neo_solidity::solidity::StateMutability;
 
 pub fn parse_manifest(path: &str) -> Value {
     let content = std::fs::read_to_string(path).expect("manifest should be readable");
@@ -393,5 +394,16 @@ fn metadata_blob_defaults_keccak_to_empty_hash() {
         value["sources"]["Sample.sol"]["keccak256"],
         Value::String(String::new()),
         "keccak field should be empty string when not provided"
+    );
+}
+
+#[test]
+fn state_mutability_label_maps_all_variants() {
+    assert_eq!(state_mutability_label(StateMutability::Pure), "pure");
+    assert_eq!(state_mutability_label(StateMutability::View), "view");
+    assert_eq!(state_mutability_label(StateMutability::Payable), "payable");
+    assert_eq!(
+        state_mutability_label(StateMutability::NonPayable),
+        "nonpayable"
     );
 }
