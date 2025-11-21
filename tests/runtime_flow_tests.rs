@@ -44,3 +44,21 @@ fn jmpif_jumps_forward_when_true() {
     let ret = ctx.step().expect("ret");
     assert!(ret.halted, "RET should halt execution");
 }
+
+#[test]
+fn jmpifnot_jumps_when_false() {
+    // PUSH0 (false), JMPIFNOT +1 -> skip NOP and land on RET
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
+    let code = [0x11, 0x24, 0x01, 0x21, 0x40];
+    ctx.initialize(&code, &[]).expect("init");
+
+    ctx.step().expect("push0");
+    let step = ctx.step().expect("jmpifnot");
+    assert_eq!(
+        step.instruction_pointer as usize,
+        4,
+        "JMPIFNOT should skip to RET when condition is false"
+    );
+    let ret = ctx.step().expect("ret");
+    assert!(ret.halted, "RET should halt execution");
+}
