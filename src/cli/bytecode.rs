@@ -648,4 +648,109 @@ pub(crate) mod tests {
         let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
         assert_eq!(bytecode, vec![0x40], "should emit a lone RET");
     }
+
+    #[test]
+    fn call_fixups_patch_offsets() {
+        let mut metadata = ContractMetadata {
+            name: "Callers".to_string(),
+            methods: vec![
+                FunctionMetadata {
+                    name: "foo".to_string(),
+                    kind: FunctionKind::Regular,
+                    parameters: vec![],
+                    return_parameters: vec![],
+                    state_mutability: StateMutability::View,
+                    visibility: VisibilityKind::Public,
+                    offset: 0,
+                    body: None,
+                    selector: [0u8; 4],
+                },
+                FunctionMetadata {
+                    name: "bar".to_string(),
+                    kind: FunctionKind::Regular,
+                    parameters: vec![],
+                    return_parameters: vec![],
+                    state_mutability: StateMutability::View,
+                    visibility: VisibilityKind::Public,
+                    offset: 0,
+                    body: None,
+                    selector: [0u8; 4],
+                },
+            ],
+            events: vec![],
+            uses_storage: false,
+            state_variables: vec![],
+            structs: vec![],
+        };
+
+        let mut module = ir::Module {
+            functions: vec![],
+            state_variables: vec![],
+            events: vec![],
+        };
+
+        module.functions.push(ir::Function {
+            name: "foo".to_string(),
+            kind: ir::FunctionKind::Regular,
+            parameters: vec![],
+            returns: vec![],
+            basic_blocks: vec![ir::BasicBlock {
+                instructions: vec![
+                    ir::Instruction::CallFunction {
+                        name: "bar".to_string(),
+                        arg_count: 0,
+                    },
+                    ir::Instruction::ReturnVoid,
+                ],
+            }],
+            local_count: 0,
+        });
+        module.functions.push(ir::Function {
+            name: "bar".to_string(),
+            kind: ir::FunctionKind::Regular,
+            parameters: vec![],
+            returns: vec![],
+            basic_blocks: vec![ir::BasicBlock {
+                instructions: vec![ir::Instruction::ReturnVoid],
+            }],
+            local_count: 0,
+        });
+
+        let bytecode = generate_contract_bytecode(&mut metadata, &module, false);
+
+        let foo_offset = metadata
+            .methods
+            .iter()
+            .find(|m| m.name == "foo")
+            .map(|m| m.offset)
+            .unwrap();
+        assert_eq!(foo_offset, 0, "foo should start at offset 0");
+
+        let bar_offset = metadata
+            .methods
+            .iter()
+            .find(|m| m.name == "bar")
+            .map(|m| m.offset)
+            .unwrap();
+        assert!(
+            bar_offset > 0,
+            "bar should be placed after foo in bytecode sequence"
+        );
+
+        // Locate CALL opcode and patched offset (little endian immediately following)
+        let call_pos = bytecode
+            .iter()
+            .position(|b| *b == 0x2B)
+            .expect("CALL opcode should be present");
+        let patched = u32::from_le_bytes([
+            bytecode[call_pos + 1],
+            bytecode[call_pos + 2],
+            bytecode[call_pos + 3],
+            bytecode[call_pos + 4],
+        ]);
+        assert_eq!(
+            patched, bar_offset,
+            "CALL target should be patched with bar's offset"
+        );
+    }
 }
