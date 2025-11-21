@@ -148,3 +148,42 @@ fn supported_standards_flags_nep17() {
         "NEP-17 should still be detected with extra methods"
     );
 }
+
+#[test]
+fn supported_standards_flags_nep24() {
+    let build_method = |name: &str| FunctionMetadata {
+        name: name.to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![],
+        return_parameters: vec![],
+        state_mutability: StateMutability::View,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+    };
+
+    let methods = vec![
+        build_method("symbol"),
+        build_method("decimals"),
+        build_method("tokenSupply"),
+    ];
+    let standards = detect_supported_standards(&methods);
+    assert!(
+        standards.iter().any(|s| s == "NEP-24"),
+        "expected NEP-24 standard to be detected"
+    );
+}
+
+#[test]
+fn contract_output_prefix_sanitizes_and_indexes() {
+    // Single contract preserves base name
+    assert_eq!(
+        contract_output_prefix("out.nef", "MyContract", 0, 1),
+        "out.nef"
+    );
+
+    // Multiple contracts append sanitized name and keep extension
+    let prefixed = contract_output_prefix("bundle.nef", "My Contract!", 1, 3);
+    assert_eq!(prefixed, "bundle-My_Contract.nef");
+}
