@@ -23,3 +23,23 @@ fn read_memory_out_of_bounds_fails() {
         "expected memory error, got: {err}"
     );
 }
+
+#[test]
+fn pop_on_empty_stack_errors() {
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    let result = ctx.pop_stack();
+    assert!(result.is_err(), "pop on empty stack should error");
+}
+
+#[test]
+fn returndatacopy_bounds_checked() {
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.set_return_data(vec![1, 2, 3]);
+    let err = ctx
+        .returndatacopy(0, 2, 5)
+        .expect_err("copy beyond buffer should fail");
+    assert!(
+        format!("{err}").to_ascii_lowercase().contains("out of bounds"),
+        "unexpected error: {err}"
+    );
+}
