@@ -423,7 +423,6 @@ impl ValueType {
         }
     }
 
-
     fn from_parameter(param: &ParameterMetadata) -> Self {
         match &param.neo_type {
             Some(neo_type) => ValueType::from_neotype(neo_type),
@@ -1465,7 +1464,8 @@ fn lower_array_store(
 ) {
     if let Expression::ArraySubscript(_, array, Some(index)) = target {
         let checkpoint = instructions.len();
-        if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions) {
+        if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions)
+        {
             if lower_expression(rhs, ctx, instructions) {
                 instructions.push(Instruction::ArraySet);
                 return;
@@ -1605,10 +1605,14 @@ fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     instructions.push(Instruction::LoadParameter(count_index));
     instructions.push(Instruction::StoreLocal(count_local));
 
-    let array_element_type = ValueType::ByteArray { fixed_len: Some(32) };
+    let array_element_type = ValueType::ByteArray {
+        fixed_len: Some(32),
+    };
     let array_value_type = ValueType::Array(Box::new(array_element_type.clone()));
-    let array_local =
-        ctx.allocate_local("__extsload_array".to_string(), Some(array_value_type.clone()));
+    let array_local = ctx.allocate_local(
+        "__extsload_array".to_string(),
+        Some(array_value_type.clone()),
+    );
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::NewArray {
         element_type: array_element_type,
@@ -1616,7 +1620,9 @@ fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     instructions.push(Instruction::StoreLocal(array_local));
 
     let index_local = ctx.allocate_local("__extsload_index".to_string(), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(index_local));
 
     let value_local = ctx.allocate_local("__extsload_value".to_string(), None);
@@ -1640,12 +1646,16 @@ fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(index_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(1u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(1u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(index_local));
 
     instructions.push(Instruction::LoadLocal(start_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(1u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(1u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(start_local));
 
@@ -1686,7 +1696,9 @@ fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     instructions.push(Instruction::StoreLocal(array_local));
 
     let index_local = ctx.allocate_local("__extsload_index".to_string(), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(index_local));
 
     let value_local = ctx.allocate_local("__extsload_value".to_string(), None);
@@ -1712,7 +1724,9 @@ fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(index_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(1u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(1u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(index_local));
 
@@ -1898,9 +1912,10 @@ fn lower_expression(
             }
         }
         Expression::Power(_, left, right) => {
-            if let (Some(LiteralValue::Integer(base)), Some(LiteralValue::Integer(exp_lit))) =
-                (literal_from_expression(left), literal_from_expression(right))
-            {
+            if let (Some(LiteralValue::Integer(base)), Some(LiteralValue::Integer(exp_lit))) = (
+                literal_from_expression(left),
+                literal_from_expression(right),
+            ) {
                 if let Some(exp) = exp_lit.to_u32() {
                     let mut result = BigInt::one();
                     for _ in 0..exp {
@@ -1925,7 +1940,9 @@ fn lower_expression(
             }
             instructions.push(Instruction::StoreLocal(exp_local));
 
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::one(),
+            )));
             instructions.push(Instruction::StoreLocal(result_local));
 
             let loop_label = ctx.next_label();
@@ -1935,14 +1952,20 @@ fn lower_expression(
 
             instructions.push(Instruction::Label(loop_label));
             instructions.push(Instruction::LoadLocal(exp_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
             instructions.push(Instruction::JumpIf { target: end_label });
 
             instructions.push(Instruction::LoadLocal(exp_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::one(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
             instructions.push(Instruction::JumpIf { target: mul_label });
             instructions.push(Instruction::Jump {
@@ -1962,7 +1985,9 @@ fn lower_expression(
             instructions.push(Instruction::StoreLocal(base_local));
 
             instructions.push(Instruction::LoadLocal(exp_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::one(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Shr));
             instructions.push(Instruction::StoreLocal(exp_local));
 
@@ -2040,7 +2065,9 @@ fn lower_expression(
             }
         }
         Expression::ArraySubscript(_, _, None) => {
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            instructions.push(Instruction::PushLiteral(
+                LiteralValue::ByteArray(Vec::new()),
+            ));
             true
         }
         Expression::ArraySubscript(_, array, Some(index)) => {
@@ -2084,7 +2111,9 @@ fn lower_expression(
                     return false;
                 }
             } else {
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
             }
             instructions.push(Instruction::StoreLocal(start_local));
 
@@ -2103,7 +2132,9 @@ fn lower_expression(
             let clamp_start_label = ctx.next_label();
             let clamp_start_done = ctx.next_label();
             instructions.push(Instruction::LoadLocal(start_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
             instructions.push(Instruction::JumpIf {
                 target: clamp_start_label,
@@ -2112,7 +2143,9 @@ fn lower_expression(
                 target: clamp_start_done,
             });
             instructions.push(Instruction::Label(clamp_start_label));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::StoreLocal(start_local));
             instructions.push(Instruction::Label(clamp_start_done));
 
@@ -2147,26 +2180,32 @@ fn lower_expression(
             let clamp_label = ctx.next_label();
             let clamp_done = ctx.next_label();
             instructions.push(Instruction::LoadLocal(len_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-            instructions.push(Instruction::JumpIf { target: clamp_label });
+            instructions.push(Instruction::JumpIf {
+                target: clamp_label,
+            });
             instructions.push(Instruction::Jump { target: clamp_done });
             instructions.push(Instruction::Label(clamp_label));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::StoreLocal(len_local));
             instructions.push(Instruction::Label(clamp_done));
 
-            let element_type =
-                infer_array_element_type(array, ctx).unwrap_or(ValueType::Any);
+            let element_type = infer_array_element_type(array, ctx).unwrap_or(ValueType::Any);
             let slice_array_type = ValueType::Array(Box::new(element_type.clone()));
-            let out_local =
-                ctx.allocate_local("__slice_out".to_string(), Some(slice_array_type));
+            let out_local = ctx.allocate_local("__slice_out".to_string(), Some(slice_array_type));
             instructions.push(Instruction::LoadLocal(len_local));
             instructions.push(Instruction::NewArray { element_type });
             instructions.push(Instruction::StoreLocal(out_local));
 
             let idx_local = ctx.allocate_local("__slice_index".to_string(), None);
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::StoreLocal(idx_local));
 
             let loop_label = ctx.next_label();
@@ -2188,7 +2227,9 @@ fn lower_expression(
             instructions.push(Instruction::ArraySet);
 
             instructions.push(Instruction::LoadLocal(idx_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(1u8))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(1u8),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
             instructions.push(Instruction::StoreLocal(idx_local));
 
@@ -2206,16 +2247,14 @@ fn lower_expression(
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                 BigInt::from(elements.len()),
             )));
-            instructions.push(Instruction::NewArray {
-                element_type,
-            });
+            instructions.push(Instruction::NewArray { element_type });
             instructions.push(Instruction::StoreLocal(array_local));
 
             for (index, element) in elements.iter().enumerate() {
                 instructions.push(Instruction::LoadLocal(array_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                    index as u64,
-                ))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(index as u64),
+                )));
                 if !lower_expression(element, ctx, instructions) {
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                         BigInt::zero(),
@@ -2576,73 +2615,4 @@ fn lower_binary_expr(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use solang_parser::pt::Identifier;
-
-    #[test]
-    fn lower_emit_pushes_event_name_before_args() {
-        let state_index_map = HashMap::new();
-        let event_index_map = HashMap::new();
-        let function_names = HashSet::new();
-        let state_types: Vec<ValueType> = Vec::new();
-
-        let mut ctx = LoweringContext::new(
-            "test_emit",
-            HashMap::new(),
-            &[],
-            &state_index_map,
-            &state_types,
-            &event_index_map,
-            &function_names,
-        );
-
-        let expr = Expression::FunctionCall(
-            Default::default(),
-            Box::new(Expression::Variable(Identifier {
-                loc: Default::default(),
-                name: "MyEvent".to_string(),
-            })),
-            vec![
-                Expression::NumberLiteral(
-                    Default::default(),
-                    "1".to_string(),
-                    "".to_string(),
-                    None,
-                ),
-                Expression::NumberLiteral(
-                    Default::default(),
-                    "2".to_string(),
-                    "".to_string(),
-                    None,
-                ),
-            ],
-        );
-
-        let mut instructions = Vec::new();
-        lower_emit(&expr, &mut ctx, &mut instructions);
-
-        assert!(
-            ctx.errors.is_empty(),
-            "lowering produced errors: {:?}",
-            ctx.errors
-        );
-        assert!(
-            matches!(
-                instructions.first(),
-                Some(Instruction::PushLiteral(LiteralValue::String(bytes)))
-                    if bytes == b"MyEvent"
-            ),
-            "expected event name literal to be pushed first, got {:?}",
-            instructions.first()
-        );
-        assert!(
-            instructions.iter().any(|instr| matches!(
-                instr,
-                Instruction::EmitEventByName { name, arg_count }
-                    if name == "MyEvent" && *arg_count == 2
-            )),
-            "expected EmitEventByName at the end of lowering"
-        );
-    }
-}
+mod tests;
