@@ -375,7 +375,12 @@ fn solidity_types_map_to_manifest_types() {
     assert_eq!(solidity_to_manifest_type("address"), "Hash160");
     assert_eq!(solidity_to_manifest_type("bytes32"), "ByteArray");
     assert_eq!(solidity_to_manifest_type("string"), "String");
-    assert_eq!(solidity_to_manifest_type("uint256[]"), "Integer");
+    // Arrays should correctly return "Array" regardless of element type
+    assert_eq!(solidity_to_manifest_type("uint256[]"), "Array");
+    assert_eq!(solidity_to_manifest_type("address[]"), "Array");
+    assert_eq!(solidity_to_manifest_type("bool[]"), "Array");
+    // Mappings should return "Map"
+    assert_eq!(solidity_to_manifest_type("mapping(address => uint256)"), "Map");
     assert_eq!(solidity_to_manifest_type("customStruct"), "Any");
 }
 

@@ -1,7 +1,8 @@
 use super::*;
 use neo_solidity::frontend::VisibilityKind;
 use neo_solidity::solidity::{
-    EventMetadata, EventParameter, ParameterMetadata, StateMutability, StateVariableMetadata,
+    EventMetadata, EventParameter, NatspecDoc, ParameterMetadata, StateMutability,
+    StateVariableMetadata,
 };
 use neo_solidity::type_system::NeoType;
 use sha3::{Digest, Keccak256};
@@ -37,11 +38,13 @@ fn method_identifiers_include_selectors() {
             offset: 0,
             body: None,
             selector: selector_bytes,
+            documentation: NatspecDoc::default(),
         }],
         events: vec![],
         uses_storage: false,
         state_variables: vec![],
         structs: vec![],
+        documentation: NatspecDoc::default(),
     };
 
     let identifiers = build_method_identifiers(&metadata);
@@ -98,11 +101,15 @@ fn supported_standards_flags_nep17() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        documentation: NatspecDoc::default(),
     };
 
+    // NEP-17 requires all 5 methods: symbol, decimals, totalSupply, balanceOf, transfer
     let mut methods = vec![
         build_method("balanceOf"),
         build_method("totalSupply"),
+        build_method("symbol"),
+        build_method("decimals"),
         FunctionMetadata {
             name: "transfer".to_string(),
             kind: FunctionKind::Regular,
@@ -134,19 +141,21 @@ fn supported_standards_flags_nep17() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            documentation: NatspecDoc::default(),
         },
     ];
 
     let standards = detect_supported_standards(&methods);
     assert!(
         standards.iter().any(|s| s == "NEP-17"),
-        "expected NEP-17 standard to be detected"
+        "expected NEP-17 standard to be detected with all required methods"
     );
 
-    methods.push(build_method("symbol"));
-    let standards_with_symbol = detect_supported_standards(&methods);
+    // Adding extra methods should not affect detection
+    methods.push(build_method("approve"));
+    let standards_with_extra = detect_supported_standards(&methods);
     assert!(
-        standards_with_symbol.iter().any(|s| s == "NEP-17"),
+        standards_with_extra.iter().any(|s| s == "NEP-17"),
         "NEP-17 should still be detected with extra methods"
     );
 }
@@ -163,12 +172,11 @@ fn supported_standards_flags_nep24() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        documentation: NatspecDoc::default(),
     };
 
     let methods = vec![
-        build_method("symbol"),
-        build_method("decimals"),
-        build_method("tokenSupply"),
+        build_method("tokenUri"),
     ];
     let standards = detect_supported_standards(&methods);
     assert!(
@@ -204,6 +212,7 @@ fn standards_not_detected_when_incomplete() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            documentation: NatspecDoc::default(),
         },
         FunctionMetadata {
             name: "totalSupply".to_string(),
@@ -215,6 +224,7 @@ fn standards_not_detected_when_incomplete() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            documentation: NatspecDoc::default(),
         },
     ];
 
@@ -262,6 +272,7 @@ fn storage_map_assigns_slots_and_names() {
                 has_initializer: false,
             },
         ],
+        documentation: NatspecDoc::default(),
     };
 
     let map = build_storage_map(&metadata);
@@ -305,6 +316,7 @@ fn standard_abi_includes_constructor_and_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        documentation: NatspecDoc::default(),
     };
 
     let regular = FunctionMetadata {
@@ -330,6 +342,7 @@ fn standard_abi_includes_constructor_and_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        documentation: NatspecDoc::default(),
     };
 
     let metadata = ContractMetadata {
@@ -354,6 +367,7 @@ fn standard_abi_includes_constructor_and_event() {
         uses_storage: true,
         state_variables: vec![],
         structs: vec![],
+        documentation: NatspecDoc::default(),
     };
 
     let abi = build_standard_abi(&metadata);

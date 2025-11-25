@@ -1,6 +1,6 @@
 use crate::frontend::{
-    parse_source, ContractIR, ContractKind, EventIR, FunctionIR, MutabilityKind, ParameterIR,
-    StateVariableIR, StructIR, VisibilityKind,
+    parse_source, ContractIR, ContractKind, EventIR, FunctionIR, MutabilityKind, NatspecDocIR,
+    ParameterIR, StateVariableIR, StructIR, VisibilityKind,
 };
 use crate::type_system::{
     NeoType, StructFieldMetadata as NeoStructFieldMetadata, StructTypeMetadata,
@@ -17,6 +17,39 @@ pub enum SolidityError {
     NoContracts,
 }
 
+/// Natspec documentation extracted from Solidity source comments
+#[derive(Debug, Clone, Default)]
+pub struct NatspecDoc {
+    /// @title - Contract title
+    pub title: Option<String>,
+    /// @author - Contract/function author
+    pub author: Option<String>,
+    /// @notice - Human-readable description for end users
+    pub notice: Option<String>,
+    /// @dev - Technical details for developers
+    pub dev: Option<String>,
+    /// @param descriptions - key is parameter name, value is description
+    pub params: Vec<(String, String)>,
+    /// @return descriptions
+    pub returns: Vec<String>,
+    /// @custom tags
+    pub custom: Vec<(String, String)>,
+}
+
+impl From<NatspecDocIR> for NatspecDoc {
+    fn from(ir: NatspecDocIR) -> Self {
+        NatspecDoc {
+            title: ir.title,
+            author: ir.author,
+            notice: ir.notice,
+            dev: ir.dev,
+            params: ir.params,
+            returns: ir.returns,
+            custom: ir.custom,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ContractMetadata {
     pub name: String,
@@ -25,6 +58,8 @@ pub struct ContractMetadata {
     pub uses_storage: bool,
     pub state_variables: Vec<StateVariableMetadata>,
     pub structs: Vec<StructMetadata>,
+    /// Natspec documentation for the contract
+    pub documentation: NatspecDoc,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +73,8 @@ pub struct FunctionMetadata {
     pub offset: u32,
     pub body: Option<Statement>,
     pub selector: [u8; 4],
+    /// Natspec documentation for the function
+    pub documentation: NatspecDoc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,6 +233,7 @@ fn convert_contract(contract: ContractIR, inherited_events: &[EventMetadata]) ->
         uses_storage: !state_variables.is_empty(),
         state_variables,
         structs,
+        documentation: contract.doc.into(),
     }
 }
 
@@ -237,6 +275,7 @@ fn convert_function(function: FunctionIR, struct_types: &[StructTypeMetadata]) -
         offset: 0,
         body: function.body,
         selector,
+        documentation: function.doc.into(),
     }
 }
 

@@ -450,23 +450,64 @@ pub(crate) fn sanitize_contract_name(name: &str) -> Option<String> {
 
 pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
     let ty = solidity_type.trim().to_ascii_lowercase();
-    if ty.starts_with("uint") || ty.starts_with("int") {
-        "Integer"
-    } else if ty == "bool" {
-        "Boolean"
-    } else if ty == "string" {
-        "String"
-    } else if ty == "address" || ty == "bytes20" || ty == "hash160" {
-        "Hash160"
-    } else if ty == "bytes" || ty.starts_with("bytes") {
-        "ByteArray"
-    } else if ty.ends_with("[]") {
-        "Array"
-    } else if ty == "void" || ty.is_empty() {
-        "Void"
-    } else {
-        "Any"
+
+    // Array types must be checked FIRST (before checking base types)
+    // This ensures uint256[] returns "Array" not "Integer"
+    if ty.ends_with("[]") {
+        return "Array";
     }
+
+    // Mapping types
+    if ty.starts_with("mapping") {
+        return "Map";
+    }
+
+    // Integer types (uint8-256, int8-256)
+    if ty.starts_with("uint") || ty.starts_with("int") {
+        return "Integer";
+    }
+
+    // Boolean
+    if ty == "bool" || ty == "boolean" {
+        return "Boolean";
+    }
+
+    // String
+    if ty == "string" {
+        return "String";
+    }
+
+    // Address types (Neo uses Hash160 for 20-byte addresses)
+    if ty == "address" || ty == "bytes20" || ty == "hash160" {
+        return "Hash160";
+    }
+
+    // Fixed-size byte arrays (bytes1-32)
+    if ty == "bytes" {
+        return "ByteArray";
+    }
+    if ty.starts_with("bytes") {
+        // bytes1, bytes2, ..., bytes32 are fixed-size
+        if let Some(size_str) = ty.strip_prefix("bytes") {
+            if size_str.parse::<u8>().is_ok() {
+                return "ByteArray";
+            }
+        }
+        return "ByteArray";
+    }
+
+    // Hash types
+    if ty == "bytes32" || ty == "hash256" {
+        return "Hash256";
+    }
+
+    // Void/empty return type
+    if ty == "void" || ty.is_empty() {
+        return "Void";
+    }
+
+    // Struct and other complex types
+    "Any"
 }
 
 pub(crate) fn keccak256_hex(input: &str) -> String {

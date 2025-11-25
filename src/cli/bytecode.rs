@@ -1,5 +1,8 @@
 use neo_solidity::ir::{self, LiteralValue, ValueType};
 use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata};
+
+#[cfg(test)]
+use neo_solidity::solidity::NatspecDoc;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 use sha2::{Digest, Sha256};
@@ -637,11 +640,13 @@ pub(crate) mod tests {
                 offset: 0,
                 body: None,
                 selector: [0u8; 4],
+                documentation: NatspecDoc::default(),
             }],
             events: vec![],
             uses_storage: false,
             state_variables: vec![],
             structs: vec![],
+            documentation: NatspecDoc::default(),
         };
 
         let ir_module = ir::Module {
@@ -669,6 +674,7 @@ pub(crate) mod tests {
                     offset: 0,
                     body: None,
                     selector: [0u8; 4],
+                    documentation: NatspecDoc::default(),
                 },
                 FunctionMetadata {
                     name: "bar".to_string(),
@@ -680,12 +686,14 @@ pub(crate) mod tests {
                     offset: 0,
                     body: None,
                     selector: [0u8; 4],
+                    documentation: NatspecDoc::default(),
                 },
             ],
             events: vec![],
             uses_storage: false,
             state_variables: vec![],
             structs: vec![],
+            documentation: NatspecDoc::default(),
         };
 
         let mut module = ir::Module {

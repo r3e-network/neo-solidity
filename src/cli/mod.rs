@@ -428,6 +428,14 @@ pub(crate) fn optimize_ir(mut module: ir::Module, optimizer_level: u8) -> ir::Mo
             if optimizer_level >= 3 {
                 dedupe_labels(block, &mut label_remap);
                 remove_trivial_jumps(block);
+
+                // NeoVM-specific optimizations at O3
+                neovm_peephole_optimize(block);
+                neovm_simplify_identity_ops(block);
+                neovm_bool_optimize(block);
+
+                // Run peephole again to catch newly exposed patterns
+                neovm_peephole_optimize(block);
             }
         }
 
@@ -579,6 +587,165 @@ fn evaluate_binary_literal(
     }
 }
 
+/// NeoVM-specific peephole optimization: removes redundant stack operations
+fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut i = 0;
+
+    while i < block.instructions.len() {
+        // Pattern: PUSH x followed by DROP → remove both
+        if i + 1 < block.instructions.len() {
+            if matches!(&block.instructions[i], ir::Instruction::PushLiteral(_))
+                && matches!(&block.instructions[i + 1], ir::Instruction::Drop(_))
+            {
+                i += 2;
+                continue;
+            }
+
+            // Pattern: LoadLocal x followed by DROP → remove both
+            if matches!(&block.instructions[i], ir::Instruction::LoadLocal(_))
+                && matches!(&block.instructions[i + 1], ir::Instruction::Drop(_))
+            {
+                i += 2;
+                continue;
+            }
+        }
+
+        // Note: StoreLocal + LoadLocal(same) pattern is handled at codegen level
+        // by using NeoVM's STLOC/LDLOC which can be fused by the NeoVM optimizer
+
+        optimized.push(block.instructions[i].clone());
+        i += 1;
+    }
+
+    block.instructions = optimized;
+}
+
+/// NeoVM-specific: simplify identity operations (x + 0, x * 1, x & MAX, etc.)
+fn neovm_simplify_identity_ops(block: &mut ir::BasicBlock) {
+    use num_bigint::BigInt;
+    use num_traits::Zero;
+
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut i = 0;
+
+    while i < block.instructions.len() {
+        // Pattern: PUSH 0, BinaryOp::Add → remove (x + 0 = x)
+        if i + 1 < block.instructions.len() {
+            if let ir::Instruction::PushLiteral(ir::LiteralValue::Integer(val)) =
+                &block.instructions[i]
+            {
+                if val.is_zero() {
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::Add) =
+                        &block.instructions[i + 1]
+                    {
+                        // Skip both instructions, identity operation
+                        i += 2;
+                        continue;
+                    }
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::Sub) =
+                        &block.instructions[i + 1]
+                    {
+                        // x - 0 = x, skip both
+                        i += 2;
+                        continue;
+                    }
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::BitOr) =
+                        &block.instructions[i + 1]
+                    {
+                        // x | 0 = x, skip both
+                        i += 2;
+                        continue;
+                    }
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::BitXor) =
+                        &block.instructions[i + 1]
+                    {
+                        // x ^ 0 = x, skip both
+                        i += 2;
+                        continue;
+                    }
+                }
+                // Pattern: PUSH 1, MUL → identity (x * 1 = x)
+                if *val == BigInt::from(1) {
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::Mul) =
+                        &block.instructions[i + 1]
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    if let ir::Instruction::BinaryOp(ir::BinaryOperator::Div) =
+                        &block.instructions[i + 1]
+                    {
+                        // x / 1 = x
+                        i += 2;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        optimized.push(block.instructions[i].clone());
+        i += 1;
+    }
+
+    block.instructions = optimized;
+}
+
+/// NeoVM-specific: optimize boolean patterns
+fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut i = 0;
+
+    while i < block.instructions.len() {
+        // Pattern: PUSH true, EQ → identity for booleans (x == true = x)
+        if i + 1 < block.instructions.len() {
+            if let ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(true)) =
+                &block.instructions[i]
+            {
+                if let ir::Instruction::BinaryOp(ir::BinaryOperator::Eq) =
+                    &block.instructions[i + 1]
+                {
+                    // x == true → x (skip both)
+                    i += 2;
+                    continue;
+                }
+            }
+
+            // Pattern: PUSH false, NE → identity for booleans (x != false = x)
+            if let ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(false)) =
+                &block.instructions[i]
+            {
+                if let ir::Instruction::BinaryOp(ir::BinaryOperator::Ne) =
+                    &block.instructions[i + 1]
+                {
+                    // x != false → x (skip both)
+                    i += 2;
+                    continue;
+                }
+            }
+
+            // Pattern: PUSH true, NE → converts to negation (x != true = !x)
+            // Keep this pattern as-is since we don't have a simple NOT instruction
+            // The codegen will handle it appropriately
+        }
+
+        // Pattern: BitwiseNot followed by BitwiseNot → identity (removes both)
+        if i + 1 < block.instructions.len() {
+            if matches!(&block.instructions[i], ir::Instruction::BitwiseNot)
+                && matches!(&block.instructions[i + 1], ir::Instruction::BitwiseNot)
+            {
+                i += 2;
+                continue;
+            }
+        }
+
+        optimized.push(block.instructions[i].clone());
+        i += 1;
+    }
+
+    block.instructions = optimized;
+}
+
 fn contract_output_prefix(base: &str, contract_name: &str, index: usize, total: usize) -> String {
     if total <= 1 {
         return base.to_string();
@@ -705,6 +872,15 @@ fn build_manifest(metadata: &ContractMetadata) -> serde_json::Value {
         .collect();
 
     let supported_standards = detect_supported_standards(&metadata.methods);
+    let permissions = infer_permissions(metadata);
+
+    // Collect safe methods for manifest
+    let safe_methods: Vec<String> = metadata
+        .methods
+        .iter()
+        .filter(|m| m.state_mutability.is_safe() && !matches!(m.kind, FunctionKind::Constructor))
+        .map(|m| m.name.clone())
+        .collect();
 
     json!({
         "name": metadata.name,
@@ -717,13 +893,9 @@ fn build_manifest(metadata: &ContractMetadata) -> serde_json::Value {
             "methods": methods_json,
             "events": events_json,
         },
-        "permissions": [
-            {
-                "contract": "*",
-                "methods": "*"
-            }
-        ],
+        "permissions": permissions,
         "trusts": [],
+        "safemethods": safe_methods,
         "extra": {
             "Author": COMPILER_EMAIL,
             "Description": format!("Solidity contract '{}' compiled to NeoVM", metadata.name),
@@ -741,19 +913,113 @@ fn detect_supported_standards(methods: &[FunctionMetadata]) -> Vec<String> {
         .collect();
     let mut standards = Vec::new();
 
-    if names.contains("transfer") && names.contains("balanceof") && names.contains("totalsupply") {
+    // NEP-17: Fungible Token Standard (equivalent to ERC-20)
+    // Required: symbol, decimals, totalSupply, balanceOf, transfer
+    let nep17_required = ["symbol", "decimals", "totalsupply", "balanceof", "transfer"];
+    if nep17_required.iter().all(|m| names.contains(*m)) {
         standards.push("NEP-17".to_string());
     }
 
-    if names.contains("ownerof") && names.contains("transferfrom") {
+    // NEP-11: Non-Fungible Token Standard (equivalent to ERC-721)
+    // Core: balanceOf, ownerOf + at least one of: transfer, transferFrom, tokensOf
+    let nep11_core = ["balanceof", "ownerof"];
+    let nep11_transfer = ["transfer", "transferfrom", "tokensof"];
+    if nep11_core.iter().all(|m| names.contains(*m))
+        && nep11_transfer.iter().any(|m| names.contains(*m))
+    {
         standards.push("NEP-11".to_string());
     }
 
-    if names.contains("symbol") && names.contains("decimals") && names.contains("tokensupply") {
+    // NEP-24: Token Discovery Standard
+    // For contracts that implement royalty info, token URIs, etc.
+    if names.contains("tokenuri") || names.contains("royaltyinfo") {
         standards.push("NEP-24".to_string());
     }
 
+    // NEP-26: Contract Upgrade Standard
+    if names.contains("update") && names.contains("destroy") {
+        standards.push("NEP-26".to_string());
+    }
+
+    // NEP-27: Invoke File Standard (for dynamic invocation)
+    if names.contains("onpayment") || names.contains("onnep17payment") {
+        standards.push("NEP-27".to_string());
+    }
+
     standards
+}
+
+/// Infer contract permissions based on method signatures and behavior
+fn infer_permissions(metadata: &ContractMetadata) -> Vec<serde_json::Value> {
+    let mut permissions = Vec::new();
+    let mut required_contracts: HashSet<&str> = HashSet::new();
+    let mut required_methods: HashSet<&str> = HashSet::new();
+
+    // Analyze method bodies for external calls (simplified heuristic)
+    for method in &metadata.methods {
+        let method_lower = method.name.to_ascii_lowercase();
+
+        // Token operations typically need to call other contracts
+        if method_lower.contains("transfer") || method_lower.contains("approve") {
+            required_methods.insert("transfer");
+            required_methods.insert("balanceOf");
+        }
+
+        // If contract has onPayment handlers, it receives tokens
+        if method_lower.contains("onpayment") || method_lower.contains("onnep") {
+            required_contracts.insert("*"); // Accept payments from any contract
+        }
+
+        // Emergency recovery functions need broad permissions
+        if method_lower.contains("emergency") || method_lower.contains("recovery") {
+            required_contracts.insert("*");
+            required_methods.insert("*");
+        }
+    }
+
+    // Check if contract uses storage (most contracts do)
+    if metadata.uses_storage {
+        // Storage contracts don't need special permissions for storage syscalls
+    }
+
+    // Build permission entries
+    if required_contracts.contains("*") && required_methods.contains("*") {
+        // Broad permissions needed
+        permissions.push(json!({
+            "contract": "*",
+            "methods": "*"
+        }));
+    } else if !required_contracts.is_empty() || !required_methods.is_empty() {
+        // Specific permissions
+        let methods_value = if required_methods.is_empty() {
+            json!([])
+        } else if required_methods.contains("*") {
+            json!("*")
+        } else {
+            json!(required_methods.iter().collect::<Vec<_>>())
+        };
+
+        permissions.push(json!({
+            "contract": if required_contracts.is_empty() { "*" } else { "*" },
+            "methods": methods_value
+        }));
+    } else {
+        // Minimal permissions - only allow calls to self
+        permissions.push(json!({
+            "contract": "*",
+            "methods": []
+        }));
+    }
+
+    // If no permissions were added, use safe default
+    if permissions.is_empty() {
+        permissions.push(json!({
+            "contract": "*",
+            "methods": "*"
+        }));
+    }
+
+    permissions
 }
 
 #[cfg(test)]

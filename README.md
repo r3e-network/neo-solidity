@@ -801,6 +801,41 @@ We've included complete, production-ready implementations of popular contract pa
 - Timelock integration
 - Advanced governance features
 
+#### **💾 [Simple Storage](./examples/SimpleStorage.sol)** (170 lines)
+- Basic storage read/write operations
+- Key-value mapping storage
+- Owner access control
+- Increment/decrement functions
+- Ideal for learning NeoVM storage
+
+#### **🔒 [Escrow](./examples/Escrow.sol)** (280 lines)
+- Secure fund escrow service
+- Time-locked releases
+- Multi-party dispute resolution
+- Arbiter-based conflict handling
+- Fee collection system
+
+#### **🎰 [Lottery](./examples/Lottery.sol)** (320 lines)
+- Multi-round lottery system
+- Ticket purchase and tracking
+- Pseudo-random winner selection
+- Prize pool management
+- Operator fee collection
+
+#### **📈 [Staking](./examples/Staking.sol)** (310 lines)
+- Token staking with rewards
+- Configurable lock periods
+- APY calculation
+- Emergency withdraw function
+- Reward distribution tracking
+
+#### **🏷️ [Name Service](./examples/NameService.sol)** (350 lines)
+- Decentralized name registration
+- Address resolution
+- Text record storage
+- Name transfer and renewal
+- Similar to ENS for Neo N3
+
 ### **Usage Examples**
 
 ```bash
