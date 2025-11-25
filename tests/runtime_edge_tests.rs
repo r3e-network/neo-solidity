@@ -39,7 +39,9 @@ fn returndatacopy_bounds_checked() {
         .returndatacopy(0, 2, 5)
         .expect_err("copy beyond buffer should fail");
     assert!(
-        format!("{err}").to_ascii_lowercase().contains("out of bounds"),
+        format!("{err}")
+            .to_ascii_lowercase()
+            .contains("out of bounds"),
         "unexpected error: {err}"
     );
 }

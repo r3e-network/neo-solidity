@@ -70,14 +70,23 @@ captures success/failure for every contract (current run: `SUCCESS=132 FAIL=0`).
 This is the simplest way to verify that the compiler emits deployable Neo
 artifacts for a large, real-world codebase.
 
-### Runtime Metadata Overrides
+### Runtime Semantics & Metadata
 
-The embedded Neo runtime exposes an `ExecutionOverrides` struct so you can inject
-deterministic execution metadata (block height, timestamp, calling script hash)
-for a single invocation. Callers can use `NeoRuntime::execute_with_overrides`
-and inspect the resulting `ExecutionMetadata` payload carried by
-`ExecutionResult` to verify how a test run interacted with the simulated chain
-environment.
+- **Execution overrides**: `ExecutionOverrides` lets you inject deterministic
+  block height, timestamp, and calling script hash for a single invocation.
+  Use `NeoRuntime::execute_with_overrides` and inspect `ExecutionMetadata` on
+  `ExecutionResult`.
+- **Iterator handles**: `Storage.Find` returns real iterator tokens; `Iterator.Next`,
+  `Iterator.Value`, and `Iterator.Dispose` operate on handles and respect overlay
+  storage changes.
+- **Syscall gas hints**: The embedded runtime uses per-syscall gas hints
+  (storage/crypto/runtime/oracle/contract) to better mirror Neo N3 pricing.
+- **Contract registry**: A lightweight in-memory ContractManagement surface
+  supports `Deploy`, `Update`, and `GetContract`, tracking NEF/manifest bytes and
+  update counters for native contract calls.
+
+For a detailed runtime surface (opcodes, syscalls, native contracts, iterator
+semantics, gas hints), see `docs/RUNTIME_SPEC.md`.
 
 ### Example Contract
 

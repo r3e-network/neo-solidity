@@ -120,8 +120,16 @@ impl RuntimeValue {
             RuntimeValue::Integer(i) => StackItem::Integer(*i),
             RuntimeValue::UnsignedInteger(u) => StackItem::UnsignedInteger(*u),
             RuntimeValue::ByteString(bytes) => StackItem::ByteArray(bytes.clone()),
-            RuntimeValue::Array(_) => StackItem::ByteArray(self.to_bytes()),
-            RuntimeValue::Map(_) => StackItem::ByteArray(self.to_bytes()),
+            RuntimeValue::Array(values) => {
+                StackItem::Array(values.iter().map(|v| v.to_stack_item()).collect())
+            }
+            RuntimeValue::Map(entries) => {
+                let mut map = std::collections::HashMap::new();
+                for (k, v) in entries {
+                    map.insert(k.clone().into_bytes(), v.to_stack_item());
+                }
+                StackItem::Map(map)
+            }
         }
     }
 
@@ -133,6 +141,17 @@ impl RuntimeValue {
             StackItem::Integer(i) => RuntimeValue::Integer(*i),
             StackItem::UnsignedInteger(u) => RuntimeValue::UnsignedInteger(*u),
             StackItem::ByteArray(bytes) => RuntimeValue::ByteString(bytes.clone()),
+            StackItem::Array(items) => {
+                RuntimeValue::Array(items.iter().map(RuntimeValue::from_stack_item).collect())
+            }
+            StackItem::Map(map) => {
+                let mut converted = std::collections::HashMap::new();
+                for (k, v) in map {
+                    let key = String::from_utf8_lossy(k).to_string();
+                    converted.insert(key, RuntimeValue::from_stack_item(v));
+                }
+                RuntimeValue::Map(converted)
+            }
         }
     }
 }

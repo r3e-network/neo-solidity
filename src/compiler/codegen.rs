@@ -7,6 +7,8 @@ use super::parser::{YulAST, YulItem, YulFunction, YulBlock, YulStatement, YulExp
                      YulVariableDeclaration, YulAssignment, YulIf, YulSwitch, YulForLoop,
                      YulFunctionCall, YulIdentifier, YulLiteral, LiteralKind, SourceLocation};
 use super::{CompilerOptions, NeoVMVersion, AbiEntry, AbiType, AbiParameter, StateMutability};
+use crate::codegen::interop_id_bytes;
+use crate::runtime::spec;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, BTreeMap};
 use thiserror::Error;
@@ -162,23 +164,35 @@ mod opcodes {
     // Control flow
     pub const NOP: u8 = 0x21;
     pub const JMP: u8 = 0x22;
-    pub const JMPIF: u8 = 0x23;
-    pub const JMPIFNOT: u8 = 0x24;
-    pub const JMPEQ: u8 = 0x25;
-    pub const JMPNE: u8 = 0x26;
-    pub const JMPGT: u8 = 0x27;
-    pub const JMPLT: u8 = 0x28;
-    pub const JMPGE: u8 = 0x29;
-    pub const JMPLE: u8 = 0x2A;
-    pub const CALL: u8 = 0x2B;
-    pub const CALLA: u8 = 0x2C;
-    pub const CALLT: u8 = 0x2D;
-    pub const ABORT: u8 = 0x2E;
-    pub const ASSERT: u8 = 0x2F;
+    pub const JMP_L: u8 = 0x23;
+    pub const JMPIF: u8 = 0x24;
+    pub const JMPIF_L: u8 = 0x25;
+    pub const JMPIFNOT: u8 = 0x26;
+    pub const JMPIFNOT_L: u8 = 0x27;
+    pub const JMPEQ: u8 = 0x28;
+    pub const JMPEQ_L: u8 = 0x29;
+    pub const JMPNE: u8 = 0x2A;
+    pub const JMPNE_L: u8 = 0x2B;
+    pub const JMPGT: u8 = 0x2C;
+    pub const JMPGT_L: u8 = 0x2D;
+    pub const JMPGE: u8 = 0x2E;
+    pub const JMPGE_L: u8 = 0x2F;
+    pub const JMPLT: u8 = 0x30;
+    pub const JMPLT_L: u8 = 0x31;
+    pub const JMPLE: u8 = 0x32;
+    pub const JMPLE_L: u8 = 0x33;
+    pub const CALL: u8 = 0x34;
+    pub const CALL_L: u8 = 0x35;
+    pub const CALLA: u8 = 0x36;
+    pub const CALLT: u8 = 0x37;
+    pub const ABORT: u8 = 0x38;
+    pub const ASSERT: u8 = 0x39;
     pub const THROW: u8 = 0x3A;
     pub const TRY: u8 = 0x3B;
-    pub const ENDTRY: u8 = 0x3C;
-    pub const ENDFINALLY: u8 = 0x3D;
+    pub const TRY_L: u8 = 0x3C;
+    pub const ENDTRY: u8 = 0x3D;
+    pub const ENDTRY_L: u8 = 0x3E;
+    pub const ENDFINALLY: u8 = 0x3F;
     pub const RET: u8 = 0x40;
     pub const SYSCALL: u8 = 0x41;
 
@@ -251,67 +265,63 @@ mod opcodes {
     pub const STARG6: u8 = 0x86;
     pub const STARG: u8 = 0x87;
 
-    // Arithmetic
-    pub const SIGN: u8 = 0x90;
-    pub const ABS: u8 = 0x91;
-    pub const NEGATE: u8 = 0x92;
-    pub const INC: u8 = 0x93;
-    pub const DEC: u8 = 0x94;
-    pub const ADD: u8 = 0x95;
-    pub const SUB: u8 = 0x96;
-    pub const MUL: u8 = 0x97;
-    pub const DIV: u8 = 0x98;
-    pub const MOD: u8 = 0x99;
-    pub const POW: u8 = 0x9A;
-    pub const SQRT: u8 = 0x9B;
-    pub const MODMUL: u8 = 0x9C;
-    pub const MODPOW: u8 = 0x9D;
-    pub const SHL: u8 = 0x9E;
-    pub const SHR: u8 = 0x9F;
-    pub const NOT: u8 = 0xA0;
-    pub const BOOLAND: u8 = 0xA1;
-    pub const BOOLOR: u8 = 0xA2;
-    pub const NUMEQUAL: u8 = 0xA3;
-    pub const NUMNOTEQUAL: u8 = 0xA4;
-    pub const LT: u8 = 0xA5;
-    pub const LE: u8 = 0xA6;
-    pub const GT: u8 = 0xA7;
-    pub const GE: u8 = 0xA8;
-    pub const MIN: u8 = 0xA9;
-    pub const MAX: u8 = 0xAA;
-    pub const WITHIN: u8 = 0xAB;
-
-    // Crypto
-    pub const SHA256: u8 = 0xB0;
-    pub const HASH160: u8 = 0xB1;
-    pub const HASH256: u8 = 0xB2;
-    pub const CHECKSIG: u8 = 0xB3;
-    pub const VERIFY: u8 = 0xB4;
-    pub const CHECKMULTISIG: u8 = 0xB5;
+    // Arithmetic / numeric
+    pub const SIGN: u8 = 0x99;
+    pub const ABS: u8 = 0x9A;
+    pub const NEGATE: u8 = 0x9B;
+    pub const INC: u8 = 0x9C;
+    pub const DEC: u8 = 0x9D;
+    pub const ADD: u8 = 0x9E;
+    pub const SUB: u8 = 0x9F;
+    pub const MUL: u8 = 0xA0;
+    pub const DIV: u8 = 0xA1;
+    pub const MOD: u8 = 0xA2;
+    pub const POW: u8 = 0xA3;
+    pub const SQRT: u8 = 0xA4;
+    pub const MODMUL: u8 = 0xA5;
+    pub const MODPOW: u8 = 0xA6;
+    pub const SHL: u8 = 0xA8;
+    pub const SHR: u8 = 0xA9;
+    pub const NOT: u8 = 0xAA;
+    pub const BOOLAND: u8 = 0xAB;
+    pub const BOOLOR: u8 = 0xAC;
+    pub const NZ: u8 = 0xB1;
+    pub const NUMEQUAL: u8 = 0xB3;
+    pub const NUMNOTEQUAL: u8 = 0xB4;
+    pub const LT: u8 = 0xB5;
+    pub const LE: u8 = 0xB6;
+    pub const GT: u8 = 0xB7;
+    pub const GE: u8 = 0xB8;
+    pub const MIN: u8 = 0xB9;
+    pub const MAX: u8 = 0xBA;
+    pub const WITHIN: u8 = 0xBB;
+    pub const EQUAL: u8 = 0x97;
+    pub const NOTEQUAL: u8 = 0x98;
 
     // Array/Buffer
+    pub const NEWBUFFER: u8 = 0x88;
+    pub const MEMCPY: u8 = 0x89;
+    pub const PACKMAP: u8 = 0xBE;
+    pub const PACKSTRUCT: u8 = 0xBF;
     pub const PACK: u8 = 0xC0;
     pub const UNPACK: u8 = 0xC1;
-    pub const PICKITEM: u8 = 0xC2;
-    pub const SETITEM: u8 = 0xC3;
-    pub const NEWARRAY0: u8 = 0xC4;
-    pub const NEWARRAY: u8 = 0xC5;
-    pub const NEWARRAY_T: u8 = 0xC6;
-    pub const NEWSTRUCT0: u8 = 0xC7;
-    pub const NEWSTRUCT: u8 = 0xC8;
-    pub const NEWMAP: u8 = 0xC9;
+    pub const NEWARRAY0: u8 = 0xC2;
+    pub const NEWARRAY: u8 = 0xC3;
+    pub const NEWARRAY_T: u8 = 0xC4;
+    pub const NEWSTRUCT0: u8 = 0xC5;
+    pub const NEWSTRUCT: u8 = 0xC6;
+    pub const NEWMAP: u8 = 0xC8;
     pub const SIZE: u8 = 0xCA;
     pub const HASKEY: u8 = 0xCB;
     pub const KEYS: u8 = 0xCC;
     pub const VALUES: u8 = 0xCD;
-    pub const PICKITEM0: u8 = 0xCE;
-    pub const PICKITEM1: u8 = 0xCF;
-    pub const APPEND: u8 = 0xD0;
-    pub const SETITEM0: u8 = 0xD1;
-    pub const SETITEM1: u8 = 0xD2;
-    pub const REMOVE: u8 = 0xD3;
-    pub const CLEARITEMS: u8 = 0xD4;
-    pub const POPITEM: u8 = 0xD5;
+    pub const PICKITEM: u8 = 0xCE;
+    pub const APPEND: u8 = 0xCF;
+    pub const SETITEM: u8 = 0xD0;
+    pub const REVERSEITEMS: u8 = 0xD1;
+    pub const REMOVE: u8 = 0xD2;
+    pub const CLEARITEMS: u8 = 0xD3;
+    pub const POPITEM: u8 = 0xD4;
 
     // Types
     pub const ISNULL: u8 = 0xD8;
@@ -325,6 +335,8 @@ mod opcodes {
     pub const PUSHINT64: u8 = 0x03;
     pub const PUSHINT128: u8 = 0x04;
     pub const PUSHINT256: u8 = 0x05;
+    pub const PUSHT: u8 = 0x08;
+    pub const PUSHF: u8 = 0x09;
     pub const PUSHA: u8 = 0x0A;
     pub const PUSHNULL: u8 = 0x0B;
     pub const PUSHDATA1: u8 = 0x0C;
@@ -1068,8 +1080,8 @@ impl NeoVMCodeGenerator {
             ("and", vec![self.make_instruction(opcodes::BOOLAND, "BOOLAND", 2, 1, 3)]),
             ("or", vec![self.make_instruction(opcodes::BOOLOR, "BOOLOR", 2, 1, 3)]),
             ("not", vec![self.make_instruction(opcodes::NOT, "NOT", 1, 1, 2)]),
-            ("keccak256", vec![self.make_instruction(opcodes::HASH256, "HASH256", 1, 1, 200)]),
-            ("sha256", vec![self.make_instruction(opcodes::SHA256, "SHA256", 1, 1, 200)]),
+            ("keccak256", vec![self.make_syscall_instruction("System.Crypto.Keccak256", 1, 1, 10)]),
+            ("sha256", vec![self.make_syscall_instruction("System.Crypto.SHA256", 1, 1, 10)]),
         ];
 
         for (name, instructions) in mappings.iter() {
@@ -1089,61 +1101,126 @@ impl NeoVMCodeGenerator {
         }
     }
 
+    fn make_syscall_instruction(
+        &self,
+        syscall: &str,
+        pops: u8,
+        pushes: u8,
+        gas: u64,
+    ) -> Instruction {
+        let id = interop_id_bytes(syscall);
+        Instruction {
+            opcode: opcodes::SYSCALL,
+            name: "SYSCALL".to_string(),
+            operands: vec![Operand::Bytes(id.to_vec())],
+            stack_effect: StackEffect { pops, pushes },
+            gas_cost: gas,
+            description: format!("Syscall: {}", syscall),
+        }
+    }
+
     /// Get opcode name for debugging
     fn opcode_name(&self, opcode: u8) -> String {
-        match opcode {
-            opcodes::NOP => "NOP".to_string(),
-            opcodes::JMP => "JMP".to_string(),
-            opcodes::JMPIF => "JMPIF".to_string(),
-            opcodes::JMPIFNOT => "JMPIFNOT".to_string(),
-            opcodes::CALL => "CALL".to_string(),
-            opcodes::RET => "RET".to_string(),
-            opcodes::ADD => "ADD".to_string(),
-            opcodes::SUB => "SUB".to_string(),
-            opcodes::MUL => "MUL".to_string(),
-            opcodes::DIV => "DIV".to_string(),
-            opcodes::PUSH0 => "PUSH0".to_string(),
-            opcodes::PUSH1 => "PUSH1".to_string(),
-            _ => format!("UNKNOWN_{:#04x}", opcode),
+        if let Some(name) = spec::opcode_name(opcode) {
+            name.to_string()
+        } else {
+            format!("UNKNOWN_{:#04x}", opcode)
         }
     }
 
     /// Get stack effect for opcode
     fn get_stack_effect(&self, opcode: u8) -> StackEffect {
+        // Heuristic stack effects sufficient for tracking during codegen.
         match opcode {
-            opcodes::NOP => StackEffect { pops: 0, pushes: 0 },
-            opcodes::JMP => StackEffect { pops: 0, pushes: 0 },
-            opcodes::JMPIF => StackEffect { pops: 1, pushes: 0 },
-            opcodes::JMPIFNOT => StackEffect { pops: 1, pushes: 0 },
-            opcodes::CALL => StackEffect { pops: 0, pushes: 0 }, // Varies by function
-            opcodes::RET => StackEffect { pops: 0, pushes: 0 },
-            opcodes::ADD => StackEffect { pops: 2, pushes: 1 },
-            opcodes::SUB => StackEffect { pops: 2, pushes: 1 },
-            opcodes::MUL => StackEffect { pops: 2, pushes: 1 },
-            opcodes::DIV => StackEffect { pops: 2, pushes: 1 },
-            opcodes::PUSH0..=opcodes::PUSH16 => StackEffect { pops: 0, pushes: 1 },
-            opcodes::DROP => StackEffect { pops: 1, pushes: 0 },
-            opcodes::DUP => StackEffect { pops: 1, pushes: 2 },
-            opcodes::SWAP => StackEffect { pops: 2, pushes: 2 },
-            _ => StackEffect { pops: 0, pushes: 0 }, // Default
+            // Control flow
+            opcodes::JMP | opcodes::JMPIF | opcodes::JMPIFNOT | opcodes::JMPEQ | opcodes::JMPNE
+            | opcodes::JMPGT | opcodes::JMPLT | opcodes::JMPGE | opcodes::JMPLE | opcodes::TRY
+            | opcodes::ENDTRY | opcodes::ENDFINALLY | opcodes::NOP | opcodes::RET
+            | opcodes::ABORT | opcodes::ASSERT | opcodes::THROW | opcodes::CALL
+            | opcodes::CALLA | opcodes::CALLT => StackEffect { pops: 0, pushes: 0 },
+            // Stack ops
+            opcodes::DROP | opcodes::NIP | opcodes::XDROP | opcodes::CLEAR => {
+                StackEffect { pops: 1, pushes: 0 }
+            }
+            opcodes::DUP | opcodes::OVER | opcodes::PICK | opcodes::TUCK | opcodes::REVERSE3
+            | opcodes::REVERSE4 | opcodes::REVERSEN => StackEffect { pops: 1, pushes: 2 },
+            opcodes::SWAP | opcodes::ROT | opcodes::ROLL => StackEffect { pops: 2, pushes: 2 },
+            // Slot ops
+            opcodes::LDLOC0..=opcodes::LDLOC | opcodes::LDARG0..=opcodes::LDARG
+            | opcodes::LDSFLD0..=opcodes::LDSFLD => StackEffect { pops: 0, pushes: 1 },
+            opcodes::STLOC0..=opcodes::STLOC
+            | opcodes::STARG0..=opcodes::STARG
+            | opcodes::STSFLD0..=opcodes::STSFLD => StackEffect { pops: 1, pushes: 0 },
+            opcodes::INITSLOT | opcodes::INITSSLOT => StackEffect { pops: 0, pushes: 0 },
+            // Arithmetic / logic
+            opcodes::ADD
+            | opcodes::SUB
+            | opcodes::MUL
+            | opcodes::DIV
+            | opcodes::MOD
+            | opcodes::POW
+            | opcodes::SQRT
+            | opcodes::MODMUL
+            | opcodes::MODPOW
+            | opcodes::SHL
+            | opcodes::SHR
+            | opcodes::NUMEQUAL
+            | opcodes::NUMNOTEQUAL
+            | opcodes::LT
+            | opcodes::LE
+            | opcodes::GT
+            | opcodes::GE
+            | opcodes::MIN
+            | opcodes::MAX
+            | opcodes::WITHIN
+            | opcodes::BOOLAND
+            | opcodes::BOOLOR
+            | opcodes::NOT => StackEffect { pops: 2, pushes: 1 },
+            opcodes::SIGN | opcodes::ABS | opcodes::NEGATE | opcodes::INC | opcodes::DEC => {
+                StackEffect { pops: 1, pushes: 1 }
+            }
+            opcodes::NZ => StackEffect { pops: 1, pushes: 1 },
+            // Array/collection
+            opcodes::PACK | opcodes::PACKMAP | opcodes::PACKSTRUCT => {
+                StackEffect { pops: 0, pushes: 1 }
+            } // count is encoded separately
+            opcodes::UNPACK => StackEffect { pops: 1, pushes: 0 },
+            opcodes::PICKITEM => StackEffect { pops: 2, pushes: 1 },
+            opcodes::SETITEM => StackEffect { pops: 3, pushes: 1 },
+            opcodes::NEWARRAY0 | opcodes::NEWSTRUCT0 | opcodes::NEWMAP => {
+                StackEffect { pops: 0, pushes: 1 }
+            }
+            opcodes::NEWARRAY | opcodes::NEWARRAY_T | opcodes::NEWSTRUCT | opcodes::NEWBUFFER => {
+                StackEffect { pops: 1, pushes: 1 }
+            }
+            opcodes::SIZE | opcodes::HASKEY | opcodes::KEYS | opcodes::VALUES => {
+                StackEffect { pops: 1, pushes: 1 }
+            }
+            opcodes::APPEND | opcodes::REMOVE | opcodes::CLEARITEMS => {
+                StackEffect { pops: 2, pushes: 1 }
+            }
+            opcodes::POPITEM => StackEffect { pops: 1, pushes: 1 },
+            // Type ops
+            opcodes::ISNULL | opcodes::ISTYPE | opcodes::CONVERT => {
+                StackEffect { pops: 1, pushes: 1 }
+            }
+            // Pushes
+            opcodes::PUSHINT8..=opcodes::PUSHINT256
+            | opcodes::PUSHA
+            | opcodes::PUSHT
+            | opcodes::PUSHF
+            | opcodes::PUSHNULL
+            | opcodes::PUSHDATA1
+            | opcodes::PUSHDATA2
+            | opcodes::PUSHDATA4
+            | opcodes::PUSHM1..=opcodes::PUSH16 => StackEffect { pops: 0, pushes: 1 },
+            _ => StackEffect { pops: 0, pushes: 0 },
         }
     }
 
     /// Get gas cost for opcode
     fn get_gas_cost(&self, opcode: u8) -> u64 {
-        match opcode {
-            opcodes::NOP => 1,
-            opcodes::JMP | opcodes::JMPIF | opcodes::JMPIFNOT => 2,
-            opcodes::CALL => 512,
-            opcodes::RET => 0,
-            opcodes::ADD | opcodes::SUB => 3,
-            opcodes::MUL | opcodes::DIV | opcodes::MOD => 5,
-            opcodes::PUSH0..=opcodes::PUSH16 => 1,
-            opcodes::PUSHDATA1 | opcodes::PUSHDATA2 | opcodes::PUSHDATA4 => 4,
-            opcodes::DROP | opcodes::DUP | opcodes::SWAP => 2,
-            opcodes::SHA256 | opcodes::HASH256 => 200,
-            _ => 1, // Default cost
-        }
+        spec::opcode_gas(opcode).unwrap_or(1)
     }
 }
 

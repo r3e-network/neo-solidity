@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn example_contract_compiles_and_manifest_is_populated() {
     let source = include_str!("../../../examples/TestContract.sol");
-    let artifacts = compile_contracts(source, false).expect("compilation failed");
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
 
     let artifact = &artifacts[0];
@@ -24,8 +24,8 @@ fn example_contract_compiles_and_manifest_is_populated() {
     assert!(
         get_value
             .get("safe")
-        .and_then(Value::as_bool)
-        .unwrap_or(false),
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         "view function should be marked safe"
     );
 }
@@ -33,7 +33,7 @@ fn example_contract_compiles_and_manifest_is_populated() {
 #[test]
 fn counter_example_compiles_and_has_events() {
     let source = include_str!("../../../examples/new/Counter.sol");
-    let artifacts = compile_contracts(source, false).expect("compilation failed");
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
 
     let artifact = &artifacts[0];
@@ -50,9 +50,7 @@ fn counter_example_compiles_and_has_events() {
         "getter should be present in manifest"
     );
 
-    let events = manifest["abi"]["events"]
-        .as_array()
-        .expect("events array");
+    let events = manifest["abi"]["events"].as_array().expect("events array");
     let event_names: Vec<_> = events
         .iter()
         .filter_map(|e| e.get("name").and_then(Value::as_str))
@@ -66,7 +64,7 @@ fn counter_example_compiles_and_has_events() {
 #[test]
 fn nft_example_advertises_nep11() {
     let source = include_str!("../../../examples/new/NFT.sol");
-    let artifacts = compile_contracts(source, false).expect("compilation failed");
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
     let artifact = &artifacts[0];
     assert_eq!(artifact.metadata.name, "SimpleNFT");
@@ -97,7 +95,7 @@ fn nft_example_advertises_nep11() {
 #[test]
 fn vault_example_compiles_and_exposes_balances() {
     let source = include_str!("../../../examples/new/Vault.sol");
-    let artifacts = compile_contracts(source, false).expect("compilation failed");
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
     let artifact = &artifacts[0];
     assert_eq!(artifact.metadata.name, "Vault");

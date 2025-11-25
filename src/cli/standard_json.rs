@@ -1,4 +1,5 @@
 use super::{compile_contracts, CompilationArtifacts, COMPILER_ID, VERSION};
+use neo_solidity::frontend::parse_source;
 use neo_solidity::neo::build_nef;
 use neo_solidity::solidity::{ContractMetadata, DiagnosticSeverity, FunctionKind, StateMutability};
 use serde::Deserialize;
@@ -24,6 +25,7 @@ pub(crate) struct StandardJsonSource {
 pub(crate) fn process_standard_json(
     input_path: &str,
     output_path: Option<&str>,
+    optimizer_level: u8,
 ) -> Result<(), String> {
     let input_content = fs::read_to_string(input_path)
         .map_err(|err| format!("Failed to read input file: {err}"))?;
@@ -41,9 +43,15 @@ pub(crate) fn process_standard_json(
         ));
     }
 
+    let mut optimizer_level = optimizer_level.min(3);
+    optimizer_level = read_optimizer_level(&request.settings).unwrap_or(optimizer_level);
     let mut contracts_output = Map::new();
     let mut sources_output = Map::new();
     let mut errors: Vec<Value> = Vec::new();
+    if let Some(warning) = unsupported_settings_warning(&request.settings) {
+        errors.push(warning);
+    }
+    let mut ordered_sources: Vec<(String, String, String)> = Vec::new();
 
     for (index, (file_name, source)) in request.sources.iter().enumerate() {
         sources_output.insert(file_name.clone(), json!({ "id": index as u32 }));
@@ -68,17 +76,31 @@ pub(crate) fn process_standard_json(
         };
 
         let keccak_hex = keccak256_hex(content);
+        let keccak_prefixed = hex_prefixed(&keccak_hex);
         sources_output.insert(
             file_name.clone(),
             json!({
                 "id": index as u32,
-                "keccak256": hex_prefixed(&keccak_hex),
+                "keccak256": keccak_prefixed,
             }),
         );
 
-        match compile_contracts(content, false) {
+        ordered_sources.push((file_name.clone(), content.clone(), keccak_prefixed));
+    }
+
+    if !ordered_sources.is_empty() {
+        let combined_source = ordered_sources
+            .iter()
+            .map(|(_, content, _)| content.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        let contract_file_map = build_contract_file_map(&ordered_sources);
+
+        match compile_contracts(&combined_source, false, optimizer_level) {
             Ok(artifacts) => {
                 if artifacts.is_empty() {
+                    let file_name = &ordered_sources[0].0;
                     errors.push(json!({
                         "component": "neo-solidity",
                         "severity": "error",
@@ -87,34 +109,48 @@ pub(crate) fn process_standard_json(
                         "formattedMessage": format!("No contracts found in {file_name}"),
                         "message": format!("No contracts found in {file_name}"),
                     }));
-                    continue;
-                }
+                } else {
+                    for artifact in artifacts {
+                        let target_file = contract_file_map
+                            .get(&artifact.metadata.name)
+                            .cloned()
+                            .unwrap_or_else(|| ordered_sources[0].0.clone());
 
-                let per_file_value = contracts_output
-                    .entry(file_name.clone())
-                    .or_insert_with(|| Value::Object(Map::new()));
-                let per_file = per_file_value
-                    .as_object_mut()
-                    .expect("per-file entry should be an object");
+                        let source_keccak = ordered_sources
+                            .iter()
+                            .find(|(name, _, _)| *name == target_file)
+                            .map(|(_, _, keccak)| keccak.as_str());
 
-                for artifact in artifacts {
-                    let abi_entries = build_standard_abi(&artifact.metadata);
-                    let compiled_contract = build_compiled_contract_value(
-                        file_name,
-                        &artifact,
-                        &abi_entries,
-                        &request.settings,
-                        Some(&hex_prefixed(&keccak_hex)),
-                    );
-                    per_file.insert(artifact.metadata.name.clone(), compiled_contract);
+                        let abi_entries = build_standard_abi(&artifact.metadata);
+                        let compiled_contract = build_compiled_contract_value(
+                            &target_file,
+                            &artifact,
+                            &abi_entries,
+                            &request.settings,
+                            source_keccak,
+                        );
 
-                    for warning in &artifact.warnings {
-                        errors.push(diagnostic_to_standard_error(warning, file_name));
+                        let per_file_value = contracts_output
+                            .entry(target_file.clone())
+                            .or_insert_with(|| Value::Object(Map::new()));
+                        let per_file = per_file_value
+                            .as_object_mut()
+                            .expect("per-file entry should be an object");
+
+                        per_file.insert(artifact.metadata.name.clone(), compiled_contract);
+
+                        for warning in &artifact.warnings {
+                            errors.push(diagnostic_to_standard_error(warning, &target_file));
+                        }
                     }
                 }
             }
             Err(err) => {
-                errors.extend(err.into_errors(file_name));
+                let file_hint = ordered_sources
+                    .first()
+                    .map(|(name, _, _)| name.as_str())
+                    .unwrap_or("unknown");
+                errors.extend(err.into_errors(file_hint));
             }
         }
     }
@@ -450,4 +486,83 @@ pub(crate) fn hex_prefixed(value: &str) -> String {
 
 fn canonical_param_type(ty: &str) -> String {
     ty.split_whitespace().next().unwrap_or_default().to_string()
+}
+
+fn build_contract_file_map(sources: &[(String, String, String)]) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+
+    for (file_name, content, _) in sources {
+        if let Ok(contracts) = parse_source(content) {
+            for contract in contracts {
+                map.entry(contract.name.clone())
+                    .or_insert_with(|| file_name.clone());
+            }
+        }
+    }
+
+    map
+}
+
+fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
+    let unsupported_keys: Vec<_> = match settings {
+        Value::Null => return None,
+        Value::Object(map) if map.is_empty() => return None,
+        Value::Object(map) => map
+            .keys()
+            .filter(|k| k.as_str() != "optimizer")
+            .cloned()
+            .collect(),
+        _ => vec!["<non-object settings>".to_string()],
+    };
+
+    if unsupported_keys.is_empty() {
+        None
+    } else {
+        Some(json!({
+            "component": "neo-solidity",
+            "severity": "warning",
+            "type": "UnsupportedSettings",
+            "formattedMessage": format!(
+                "Standard JSON settings contain unsupported keys: {:?}",
+                unsupported_keys
+            ),
+            "message": "Standard JSON settings are present but not fully supported; unsupported keys were ignored.",
+        }))
+    }
+}
+
+fn read_optimizer_level(settings: &Value) -> Option<u8> {
+    let optimizer = match settings {
+        Value::Object(map) => map.get("optimizer"),
+        _ => None,
+    };
+
+    match optimizer {
+        Some(Value::Bool(enabled)) => {
+            if *enabled {
+                Some(3)
+            } else {
+                Some(0)
+            }
+        }
+        Some(Value::Object(opt_map)) => {
+            if let Some(Value::Bool(enabled)) = opt_map.get("enabled") {
+                if !enabled {
+                    return Some(0);
+                }
+            }
+            if let Some(Value::Number(level_num)) = opt_map.get("level") {
+                if let Some(level) = level_num.as_u64() {
+                    return Some((level as u8).min(3));
+                }
+            }
+            if let Some(Value::Number(runs)) = opt_map.get("runs") {
+                if let Some(runs_val) = runs.as_u64() {
+                    return Some(if runs_val > 200 { 3 } else { 2 });
+                }
+            }
+            Some(3)
+        }
+        _ => None,
+    }
 }

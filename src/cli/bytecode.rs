@@ -15,12 +15,17 @@ pub(crate) fn generate_contract_bytecode(
     metadata: &mut ContractMetadata,
     ir_module: &ir::Module,
     verbose: bool,
+    optimizer_level: u8,
 ) -> Vec<u8> {
     let function_map: HashMap<_, _> = ir_module
         .functions
         .iter()
         .map(|function| (function.name.as_str(), function))
         .collect();
+
+    if verbose {
+        println!("  • Using optimizer level {}", optimizer_level.min(3));
+    }
 
     let mut bytecode = Vec::new();
     let mut call_fixups: Vec<CallPatch> = Vec::new();
@@ -163,12 +168,12 @@ fn emit_ir_function(
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value)
                 }
-                ir::Instruction::GetSize => local.push(0x5A),
+                ir::Instruction::GetSize => local.push(0xCA),
                 ir::Instruction::CallBuiltin { builtin, .. } => {
                     emit_builtin_call(&mut local, builtin);
                 }
                 ir::Instruction::CallFunction { name, .. } => {
-                    local.push(0x2B); // CALL
+                    local.push(0x34); // CALL
                     let patch_pos = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     call_patches.push(CallPatch {
@@ -196,7 +201,7 @@ fn emit_ir_function(
                     jump_patches.push((position, *target));
                 }
                 ir::Instruction::JumpIf { target } => {
-                    local.push(0x24); // JMPIFNOT
+                    local.push(0x26); // JMPIFNOT
                     let position = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     jump_patches.push((position, *target));
@@ -205,7 +210,7 @@ fn emit_ir_function(
                     label_offsets.insert(*label, local.len() as u32);
                 }
                 ir::Instruction::Abort => {
-                    local.push(0x2E); // ABORT
+                    local.push(0x38); // ABORT
                 }
             }
         }
@@ -236,10 +241,10 @@ fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
                 push_data(bytecode, &[]);
             }
         }
-        ValueType::Array(_) => bytecode.push(0xC4),
-        ValueType::Mapping { .. } => bytecode.push(0x0B),
-        ValueType::Struct { .. } => bytecode.push(0x0B),
-        ValueType::Any => bytecode.push(0x0B),
+        ValueType::Array(_) => bytecode.push(0xC2), // NEWARRAY0
+        ValueType::Mapping { .. } => bytecode.push(0xC8), // NEWMAP
+        ValueType::Struct { .. } => bytecode.push(0xC5), // NEWSTRUCT0
+        ValueType::Any => bytecode.push(0x0B), // NULL
     }
 }
 
@@ -274,22 +279,22 @@ fn emit_store_local(bytecode: &mut Vec<u8>, index: usize) {
 
 fn emit_binary_op(bytecode: &mut Vec<u8>, operator: ir::BinaryOperator) {
     let opcode = match operator {
-        ir::BinaryOperator::Add => 0x95,
-        ir::BinaryOperator::Sub => 0x96,
-        ir::BinaryOperator::Mul => 0x97,
-        ir::BinaryOperator::Div => 0x98,
-        ir::BinaryOperator::Mod => 0x99,
+        ir::BinaryOperator::Add => 0x9E,
+        ir::BinaryOperator::Sub => 0x9F,
+        ir::BinaryOperator::Mul => 0xA0,
+        ir::BinaryOperator::Div => 0xA1,
+        ir::BinaryOperator::Mod => 0xA2,
         ir::BinaryOperator::BitAnd => 0x91,
         ir::BinaryOperator::BitOr => 0x92,
         ir::BinaryOperator::BitXor => 0x93,
-        ir::BinaryOperator::Shl => 0x9E,
-        ir::BinaryOperator::Shr => 0x9F,
-        ir::BinaryOperator::Lt => 0xA5,
-        ir::BinaryOperator::Le => 0xA6,
-        ir::BinaryOperator::Gt => 0xA7,
-        ir::BinaryOperator::Ge => 0xA8,
-        ir::BinaryOperator::Eq => 0xA3,
-        ir::BinaryOperator::Ne => 0xA4,
+        ir::BinaryOperator::Shl => 0xA8,
+        ir::BinaryOperator::Shr => 0xA9,
+        ir::BinaryOperator::Lt => 0xB5,
+        ir::BinaryOperator::Le => 0xB6,
+        ir::BinaryOperator::Gt => 0xB7,
+        ir::BinaryOperator::Ge => 0xB8,
+        ir::BinaryOperator::Eq => 0x97,
+        ir::BinaryOperator::Ne => 0x98,
     };
     bytecode.push(opcode);
 }
@@ -458,15 +463,15 @@ fn emit_load_storage_dynamic(bytecode: &mut Vec<u8>) {
 }
 
 fn emit_new_array(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xC5); // NEWARRAY
+    bytecode.push(0xC3); // NEWARRAY
 }
 
 fn emit_array_get(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xC2); // PICKITEM
+    bytecode.push(0xCE); // PICKITEM
 }
 
 fn emit_array_set(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xC3); // SETITEM
+    bytecode.push(0xD0); // SETITEM
 }
 
 fn emit_load_runtime_value(bytecode: &mut Vec<u8>, value: &ir::RuntimeValue) {
@@ -565,7 +570,7 @@ pub(crate) mod tests {
 
         let mut metadata = analyse_source(source).expect("analysis failed");
         let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
-        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2);
 
         assert!(!bytecode.is_empty());
 
@@ -594,7 +599,7 @@ pub(crate) mod tests {
 
         let mut metadata = analyse_source(source).expect("analysis failed");
         let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
-        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2);
 
         let notify_id = interop_id_bytes("System.Runtime.Notify");
         let notify_sequence: Vec<u8> = std::iter::once(0x41u8).chain(notify_id).collect();
@@ -645,7 +650,7 @@ pub(crate) mod tests {
             events: vec![],
         };
 
-        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+        let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2);
         assert_eq!(bytecode, vec![0x40], "should emit a lone RET");
     }
 
@@ -716,7 +721,7 @@ pub(crate) mod tests {
             local_count: 0,
         });
 
-        let bytecode = generate_contract_bytecode(&mut metadata, &module, false);
+        let bytecode = generate_contract_bytecode(&mut metadata, &module, false, 2);
 
         let foo_offset = metadata
             .methods
@@ -740,7 +745,7 @@ pub(crate) mod tests {
         // Locate CALL opcode and patched offset (little endian immediately following)
         let call_pos = bytecode
             .iter()
-            .position(|b| *b == 0x2B)
+            .position(|b| *b == 0x34)
             .expect("CALL opcode should be present");
         let patched = u32::from_le_bytes([
             bytecode[call_pos + 1],

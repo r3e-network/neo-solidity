@@ -1,8 +1,8 @@
 use super::*;
+use neo_solidity::solidity::StateMutability;
 use sha3::{Digest, Keccak256};
 use std::fs;
 use tempfile::tempdir;
-use neo_solidity::solidity::StateMutability;
 
 pub fn parse_manifest(path: &str) -> Value {
     let content = std::fs::read_to_string(path).expect("manifest should be readable");
@@ -40,6 +40,7 @@ fn standard_json_includes_keccak_and_identifiers() {
     process_standard_json(
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
+        2,
     )
     .expect("standard-json processing should succeed");
 
@@ -113,6 +114,7 @@ fn standard_json_handles_multiple_sources() {
     process_standard_json(
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
+        2,
     )
     .expect("standard-json processing should succeed");
 
@@ -202,6 +204,7 @@ fn standard_json_handles_multiple_contracts_per_source() {
     process_standard_json(
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
+        2,
     )
     .expect("standard-json processing should succeed");
 
@@ -267,6 +270,7 @@ fn standard_json_reports_missing_content_error() {
     process_standard_json(
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
+        2,
     )
     .expect("standard-json processing should surface errors but not fail");
 
@@ -301,7 +305,7 @@ fn standard_json_rejects_non_solidity_language() {
     )
     .expect("write input");
 
-    let result = process_standard_json(input_path.to_str().unwrap(), None);
+    let result = process_standard_json(input_path.to_str().unwrap(), None, 2);
     assert!(
         result
             .err()
@@ -333,6 +337,7 @@ fn standard_json_reports_no_contracts() {
     process_standard_json(
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
+        2,
     )
     .expect("standard-json processing should surface errors but not fail");
 
@@ -405,5 +410,44 @@ fn state_mutability_label_maps_all_variants() {
     assert_eq!(
         state_mutability_label(StateMutability::NonPayable),
         "nonpayable"
+    );
+}
+
+#[test]
+fn standard_json_reports_unsupported_settings_warning() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "C.sol": { "content": "contract C { function f() public {} }" }
+        },
+        "settings": { "metadata": { "bytecodeHash": "ipfs" } }
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().unwrap_or(&Vec::new()).clone();
+    assert!(
+        errors
+            .iter()
+            .any(|err| err["type"] == "UnsupportedSettings"),
+        "expected UnsupportedSettings warning when unsupported settings are present"
     );
 }

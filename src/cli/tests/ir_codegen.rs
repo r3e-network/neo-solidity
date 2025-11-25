@@ -21,7 +21,7 @@ fn mapping_code_generation_emits_storage_ops() {
 
     let mut metadata = analyse_source(source).expect("analysis failed");
     let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
-    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2);
 
     assert!(!bytecode.is_empty());
 
@@ -50,7 +50,7 @@ fn event_emission_places_name_first_in_payload() {
 
     let mut metadata = analyse_source(source).expect("analysis failed");
     let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
-    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false);
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2);
 
     let notify_id = interop_id_bytes("System.Runtime.Notify");
     let notify_sequence: Vec<u8> = std::iter::once(0x41u8).chain(notify_id).collect();

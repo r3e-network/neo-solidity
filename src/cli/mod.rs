@@ -6,6 +6,7 @@ use neo_solidity::solidity::{
     analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, FunctionKind,
     FunctionMetadata,
 };
+use num_traits::{ToPrimitive, Zero};
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::fs;
@@ -105,7 +106,13 @@ pub fn run() {
             .get_one::<String>("standard-json-input")
             .expect("Standard JSON input file is required");
         let output_path = matches.get_one::<String>("output").map(|s| s.as_str());
-        if let Err(err) = process_standard_json(input_path, output_path) {
+        let optimizer_level = matches
+            .get_one::<String>("optimize")
+            .and_then(|s| s.parse::<u8>().ok())
+            .unwrap_or(2)
+            .min(3);
+
+        if let Err(err) = process_standard_json(input_path, output_path, optimizer_level) {
             eprintln!("{err}");
             std::process::exit(1);
         }
@@ -126,6 +133,11 @@ pub fn run() {
         });
 
     let format = matches.get_one::<String>("format").unwrap();
+    let optimizer_level = matches
+        .get_one::<String>("optimize")
+        .and_then(|s| s.parse::<u8>().ok())
+        .unwrap_or(2)
+        .min(3);
     let verbose = matches.get_flag("verbose");
 
     if verbose {
@@ -147,7 +159,7 @@ pub fn run() {
         println!("Read {} bytes from input file", input_content.len());
     }
 
-    let artifacts = match compile_contracts(&input_content, verbose) {
+    let artifacts = match compile_contracts(&input_content, verbose, optimizer_level) {
         Ok(list) => list,
         Err(CompileError::Diagnostics(diags)) | Err(CompileError::Semantic(diags)) => {
             for diag in diags {
@@ -265,22 +277,23 @@ pub fn run() {
 fn compile_contracts(
     source: &str,
     verbose: bool,
+    optimizer_level: u8,
 ) -> Result<Vec<CompilationArtifacts>, CompileError> {
     let metadatas =
         analyse_all_sources(source).map_err(|err| CompileError::Message(err.to_string()))?;
 
-    let mut outputs = Vec::new();
-    for metadata in metadatas {
-        outputs.push(compile_metadata(metadata, verbose)?);
-    }
-
-    Ok(outputs)
+    metadatas
+        .into_iter()
+        .map(|metadata| compile_metadata(metadata, verbose, optimizer_level))
+        .collect()
 }
 
 fn compile_metadata(
     mut metadata: ContractMetadata,
     verbose: bool,
+    optimizer_level: u8,
 ) -> Result<CompilationArtifacts, CompileError> {
+    let optimizer_level = optimizer_level.min(3);
     let diagnostics = validate_contract(&metadata);
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
@@ -300,6 +313,7 @@ fn compile_metadata(
     }
 
     let ir_module = ir::Module::from_contract(&metadata).map_err(CompileError::Ir)?;
+    let ir_module = optimize_ir(ir_module, optimizer_level);
 
     if verbose {
         println!(
@@ -321,7 +335,9 @@ fn compile_metadata(
         }
     }
 
-    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, verbose);
+    // TODO: thread optimizer_level into IR/codegen when available.
+    let _ = optimizer_level;
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, verbose, optimizer_level);
     let manifest = build_manifest(&metadata);
 
     Ok(CompilationArtifacts {
@@ -361,6 +377,205 @@ impl CompileError {
                 "message": message,
             })],
         }
+    }
+}
+
+/// IR optimization hook. Currently performs simple control-flow cleanup to drop
+/// instructions that appear after a terminal return in a basic block.
+pub(crate) fn optimize_ir(mut module: ir::Module, optimizer_level: u8) -> ir::Module {
+    if optimizer_level == 0 {
+        return module;
+    }
+
+    for function in &mut module.functions {
+        let mut label_remap = std::collections::HashMap::new();
+
+        for block in &mut function.basic_blocks {
+            let mut trimmed = Vec::with_capacity(block.instructions.len());
+            let mut terminated = false;
+
+            for instr in block.instructions.drain(..) {
+                if terminated {
+                    // Preserve labels so jump targets remain addressable, drop other ops.
+                    if matches!(instr, ir::Instruction::Label(_)) {
+                        trimmed.push(instr);
+                        terminated = false; // New label can be targeted, resume collection
+                    }
+                    continue;
+                }
+
+                match instr {
+                    ir::Instruction::Return
+                    | ir::Instruction::ReturnVoid
+                    | ir::Instruction::ReturnDefault(_) => {
+                        trimmed.push(instr);
+                        terminated = true;
+                    }
+                    ir::Instruction::Jump { .. } => {
+                        trimmed.push(instr);
+                        terminated = true;
+                    }
+                    other => trimmed.push(other),
+                }
+            }
+
+            block.instructions = trimmed;
+
+            if optimizer_level >= 2 {
+                fold_constant_binary_ops(block);
+            }
+
+            if optimizer_level >= 3 {
+                dedupe_labels(block, &mut label_remap);
+                remove_trivial_jumps(block);
+            }
+        }
+
+        if optimizer_level >= 3 && !label_remap.is_empty() {
+            retarget_jumps(&mut function.basic_blocks, &label_remap);
+        }
+    }
+
+    module
+}
+
+fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut i = 0;
+
+    while i < block.instructions.len() {
+        if i + 2 < block.instructions.len() {
+            if let (
+                ir::Instruction::PushLiteral(lhs),
+                ir::Instruction::PushLiteral(rhs),
+                ir::Instruction::BinaryOp(op),
+            ) = (
+                &block.instructions[i],
+                &block.instructions[i + 1],
+                &block.instructions[i + 2],
+            ) {
+                if let Some(result) = evaluate_binary_literal(lhs, rhs, *op) {
+                    optimized.push(ir::Instruction::PushLiteral(result));
+                    i += 3;
+                    continue;
+                }
+            }
+        }
+
+        optimized.push(block.instructions[i].clone());
+        i += 1;
+    }
+
+    block.instructions = optimized;
+}
+
+fn remove_trivial_jumps(block: &mut ir::BasicBlock) {
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut iter = block.instructions.iter();
+    while let Some(instr) = iter.next() {
+        if let ir::Instruction::Jump { target } = instr {
+            if let Some(ir::Instruction::Label(id)) = iter.clone().next() {
+                if id == target {
+                    // Skip the jump; fallthrough reaches the label
+                    continue;
+                }
+            }
+        }
+        optimized.push(instr.clone());
+    }
+    block.instructions = optimized;
+}
+
+fn dedupe_labels(block: &mut ir::BasicBlock, remap: &mut std::collections::HashMap<usize, usize>) {
+    let mut optimized = Vec::with_capacity(block.instructions.len());
+    let mut last_label: Option<usize> = None;
+
+    for instr in block.instructions.drain(..) {
+        match instr {
+            ir::Instruction::Label(id) => {
+                if let Some(prev) = last_label {
+                    remap.insert(id, prev);
+                    continue;
+                } else {
+                    last_label = Some(id);
+                    optimized.push(ir::Instruction::Label(id));
+                }
+            }
+            other => {
+                last_label = None;
+                optimized.push(other);
+            }
+        }
+    }
+
+    block.instructions = optimized;
+}
+
+fn retarget_jumps(blocks: &mut [ir::BasicBlock], remap: &std::collections::HashMap<usize, usize>) {
+    for block in blocks {
+        for instr in &mut block.instructions {
+            match instr {
+                ir::Instruction::Jump { target } | ir::Instruction::JumpIf { target } => {
+                    if let Some(canonical) = remap.get(target) {
+                        *target = *canonical;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn evaluate_binary_literal(
+    lhs: &ir::LiteralValue,
+    rhs: &ir::LiteralValue,
+    op: ir::BinaryOperator,
+) -> Option<ir::LiteralValue> {
+    use ir::LiteralValue::*;
+
+    match (lhs, rhs) {
+        (Integer(a), Integer(b)) => match op {
+            ir::BinaryOperator::Add => Some(Integer(a + b)),
+            ir::BinaryOperator::Sub => Some(Integer(a - b)),
+            ir::BinaryOperator::Mul => Some(Integer(a * b)),
+            ir::BinaryOperator::Div => {
+                if b.is_zero() {
+                    None
+                } else {
+                    Some(Integer(a / b))
+                }
+            }
+            ir::BinaryOperator::Mod => {
+                if b.is_zero() {
+                    None
+                } else {
+                    Some(Integer(a % b))
+                }
+            }
+            ir::BinaryOperator::BitAnd => Some(Integer(a & b)),
+            ir::BinaryOperator::BitOr => Some(Integer(a | b)),
+            ir::BinaryOperator::BitXor => Some(Integer(a ^ b)),
+            ir::BinaryOperator::Shl => {
+                let shift = b.to_u64()?;
+                Some(Integer(a << shift))
+            }
+            ir::BinaryOperator::Shr => {
+                let shift = b.to_u64()?;
+                Some(Integer(a >> shift))
+            }
+            ir::BinaryOperator::Lt => Some(Boolean(a < b)),
+            ir::BinaryOperator::Le => Some(Boolean(a <= b)),
+            ir::BinaryOperator::Gt => Some(Boolean(a > b)),
+            ir::BinaryOperator::Ge => Some(Boolean(a >= b)),
+            ir::BinaryOperator::Eq => Some(Boolean(a == b)),
+            ir::BinaryOperator::Ne => Some(Boolean(a != b)),
+        },
+        (Boolean(a), Boolean(b)) => match op {
+            ir::BinaryOperator::Eq => Some(Boolean(a == b)),
+            ir::BinaryOperator::Ne => Some(Boolean(a != b)),
+            _ => None,
+        },
+        _ => None,
     }
 }
 

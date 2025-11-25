@@ -85,11 +85,12 @@ impl VMBridge {
         context.bind_storage(&self.contract_account, storage)?;
 
         let mut state_changes = Vec::new();
-        let logs = Vec::new();
         let mut stack_trace = Vec::new();
 
         loop {
-            // Check gas limit
+            gas.sync_from_execution(context.gas_used());
+
+            // Check gas limit using execution context accounting
             if gas.out_of_gas() {
                 let result = ExecutionResult {
                     success: false,
@@ -103,7 +104,7 @@ impl VMBridge {
                         stack_trace: stack_trace.clone(),
                     }),
                     state_changes,
-                    logs,
+                    logs: context.logs().to_vec(),
                     stack_trace: Some(stack_trace),
                     metadata: ExecutionMetadata::default(),
                 };
@@ -114,6 +115,8 @@ impl VMBridge {
             // Execute single step
             match context.step() {
                 Ok(step_result) => {
+                    gas.sync_from_execution(context.gas_used());
+
                     if step_result.halted {
                         let modified_accounts = self.apply_storage_overlay(context, storage)?;
                         for account in modified_accounts {
@@ -129,6 +132,8 @@ impl VMBridge {
                             }
                         }
 
+                        gas.sync_from_execution(context.gas_used());
+
                         let result = ExecutionResult {
                             success: true,
                             return_data: self.extract_return_data(context)?,
@@ -136,7 +141,7 @@ impl VMBridge {
                             gas_limit: gas.limit(),
                             exception: None,
                             state_changes,
-                            logs,
+                            logs: context.logs().to_vec(),
                             stack_trace: None,
                             metadata: ExecutionMetadata::default(),
                         };
@@ -155,7 +160,31 @@ impl VMBridge {
                         });
                     }
                 }
+                Err(RuntimeError::OutOfGas { .. }) => {
+                    gas.sync_from_execution(context.gas_used());
+
+                    let result = ExecutionResult {
+                        success: false,
+                        return_data: Vec::new(),
+                        gas_used: gas.used(),
+                        gas_limit: gas.limit(),
+                        exception: Some(RuntimeException {
+                            exception_type: ExceptionType::OutOfGas,
+                            message: "Execution ran out of gas".to_string(),
+                            instruction_pointer: Some(context.instruction_count() as u32),
+                            stack_trace: stack_trace.clone(),
+                        }),
+                        state_changes,
+                        logs: context.logs().to_vec(),
+                        stack_trace: Some(stack_trace),
+                        metadata: ExecutionMetadata::default(),
+                    };
+                    context.unbind_storage();
+                    return Ok(result);
+                }
                 Err(e) => {
+                    gas.sync_from_execution(context.gas_used());
+
                     let result = ExecutionResult {
                         success: false,
                         return_data: Vec::new(),
@@ -168,7 +197,7 @@ impl VMBridge {
                             stack_trace: stack_trace.clone(),
                         }),
                         state_changes,
-                        logs,
+                        logs: context.logs().to_vec(),
                         stack_trace: Some(stack_trace),
                         metadata: ExecutionMetadata::default(),
                     };
@@ -214,17 +243,28 @@ impl VMBridge {
     // Private helper methods
 
     fn initialize_instruction_mapping(&mut self) {
-        // Arithmetic instructions
-        self.instruction_mapping.insert(0x95, Self::handle_add);
-        self.instruction_mapping.insert(0x96, Self::handle_sub);
-        self.instruction_mapping.insert(0x97, Self::handle_mul);
-        self.instruction_mapping.insert(0x98, Self::handle_div);
-        self.instruction_mapping.insert(0x99, Self::handle_mod);
+        // Arithmetic instructions (aligned to spec)
+        self.instruction_mapping.insert(0x9E, Self::handle_add);
+        self.instruction_mapping.insert(0x9F, Self::handle_sub);
+        self.instruction_mapping.insert(0xA0, Self::handle_mul);
+        self.instruction_mapping.insert(0xA1, Self::handle_div);
+        self.instruction_mapping.insert(0xA2, Self::handle_mod);
+        self.instruction_mapping.insert(0xA5, Self::handle_modmul);
+        self.instruction_mapping.insert(0xA6, Self::handle_modpow);
+        self.instruction_mapping.insert(0xA8, Self::handle_shl);
+        self.instruction_mapping.insert(0xA9, Self::handle_shr);
+        self.instruction_mapping.insert(0x91, Self::handle_and);
+        self.instruction_mapping.insert(0x92, Self::handle_or);
+        self.instruction_mapping.insert(0x93, Self::handle_xor);
 
         // Comparison instructions
-        self.instruction_mapping.insert(0xA5, Self::handle_lt);
-        self.instruction_mapping.insert(0xA7, Self::handle_gt);
-        self.instruction_mapping.insert(0xA3, Self::handle_eq);
+        self.instruction_mapping.insert(0xB5, Self::handle_lt);
+        self.instruction_mapping.insert(0xB7, Self::handle_gt);
+        // Support both deep equality and numeric equality opcodes
+        self.instruction_mapping.insert(0x97, Self::handle_eq);
+        self.instruction_mapping.insert(0x98, Self::handle_ne);
+        self.instruction_mapping.insert(0xB3, Self::handle_eq);
+        self.instruction_mapping.insert(0xB4, Self::handle_ne);
 
         // Stack instructions
         self.instruction_mapping.insert(0x10, Self::handle_push0);
@@ -236,8 +276,10 @@ impl VMBridge {
         // Control flow
         self.instruction_mapping.insert(0x40, Self::handle_ret);
         self.instruction_mapping.insert(0x22, Self::handle_jmp);
-        self.instruction_mapping.insert(0x23, Self::handle_jmpif);
-        self.instruction_mapping.insert(0x24, Self::handle_jmpifnot);
+        self.instruction_mapping.insert(0x24, Self::handle_jmpif);
+        self.instruction_mapping.insert(0x26, Self::handle_jmpifnot);
+        self.instruction_mapping.insert(0x25, Self::handle_jmpif); // long variant
+        self.instruction_mapping.insert(0x27, Self::handle_jmpifnot); // long variant
 
         // Memory operations (EVM compatibility)
         self.instruction_mapping.insert(0x51, Self::handle_mload);
@@ -445,6 +487,80 @@ impl VMBridge {
         Ok(())
     }
 
+    fn handle_modmul(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("MODMUL", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let modulus = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::modmul_stack_items(a, b, modulus)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
+    fn handle_modpow(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("MODPOW", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let modulus = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let exponent = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let base = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::modpow_stack_items(base, exponent, modulus)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
     fn handle_lt(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
@@ -511,6 +627,102 @@ impl VMBridge {
         Ok(())
     }
 
+    fn handle_and(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("AND", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::and_stack_items(a, b)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
+    fn handle_or(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("OR", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::or_stack_items(a, b)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
+    fn handle_xor(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("XOR", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::xor_stack_items(a, b)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
     fn handle_eq(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
@@ -541,6 +753,107 @@ impl VMBridge {
                 message: e.to_string(),
             })?;
 
+        Ok(())
+    }
+
+    fn handle_ne(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("NE", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let b = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let a = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::eq_stack_items(a, b)?;
+        let inverted = match result {
+            StackItem::Boolean(flag) => StackItem::Boolean(!flag),
+            other => other,
+        };
+        context
+            .push_stack(inverted)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        Ok(())
+    }
+
+    fn handle_shl(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("SHL", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let shift = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let value = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::shift_left_value(value, shift)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        Ok(())
+    }
+
+    fn handle_shr(
+        _bridge: &mut VMBridge,
+        context: &mut execution::ExecutionContext,
+        _state: &mut state::StateManager,
+        _storage: &mut storage::StorageManager,
+        gas: &mut execution::GasTracker,
+    ) -> Result<(), VMBridgeError> {
+        gas.consume_gas("SHR", None)
+            .map_err(|e| VMBridgeError::BridgeError {
+                message: e.to_string(),
+            })?;
+
+        let shift = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+        let value = context
+            .pop_stack()
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
+
+        let result = Self::shift_right_value(value, shift)?;
+        context
+            .push_stack(result)
+            .map_err(|e| VMBridgeError::StackOperationFailed {
+                message: e.to_string(),
+            })?;
         Ok(())
     }
 
@@ -747,11 +1060,11 @@ impl VMBridge {
 
         // Read 32 bytes from memory
         let data = {
-            let slice = context
-                .read_memory(addr, 32)
-                .map_err(|e| VMBridgeError::MemoryOperationFailed {
+            let slice = context.read_memory(addr, 32).map_err(|e| {
+                VMBridgeError::MemoryOperationFailed {
                     message: e.to_string(),
-                })?;
+                }
+            })?;
             slice.to_vec()
         };
         context
@@ -1206,6 +1519,83 @@ impl VMBridge {
         }
     }
 
+    fn modmul_stack_items(
+        a: StackItem,
+        b: StackItem,
+        modulus: StackItem,
+    ) -> Result<StackItem, VMBridgeError> {
+        let (a_int, b_int, m_int) = match (a, b, modulus) {
+            (
+                StackItem::UnsignedInteger(x),
+                StackItem::UnsignedInteger(y),
+                StackItem::UnsignedInteger(m),
+            ) => (x as u128, y as u128, m as u128),
+            (StackItem::Integer(x), StackItem::Integer(y), StackItem::Integer(m)) => {
+                if x < 0 || y < 0 || m <= 0 {
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "MODMUL expects non-negative operands".to_string(),
+                    });
+                }
+                (x as u128, y as u128, m as u128)
+            }
+            _ => {
+                return Err(VMBridgeError::StackOperationFailed {
+                    message: "Invalid operands for MODMUL".to_string(),
+                })
+            }
+        };
+
+        if m_int == 0 {
+            return Ok(StackItem::UnsignedInteger(0));
+        }
+        let result = ((a_int % m_int) * (b_int % m_int)) % m_int;
+        Ok(StackItem::UnsignedInteger(result as u64))
+    }
+
+    fn modpow_stack_items(
+        base: StackItem,
+        exponent: StackItem,
+        modulus: StackItem,
+    ) -> Result<StackItem, VMBridgeError> {
+        let (mut base, exp, modulus) = match (base, exponent, modulus) {
+            (
+                StackItem::UnsignedInteger(b),
+                StackItem::UnsignedInteger(e),
+                StackItem::UnsignedInteger(m),
+            ) => (b as u128, e as u128, m as u128),
+            (StackItem::Integer(b), StackItem::Integer(e), StackItem::Integer(m)) => {
+                if b < 0 || e < 0 || m <= 0 {
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "MODPOW expects non-negative operands".to_string(),
+                    });
+                }
+                (b as u128, e as u128, m as u128)
+            }
+            _ => {
+                return Err(VMBridgeError::StackOperationFailed {
+                    message: "Invalid operands for MODPOW".to_string(),
+                })
+            }
+        };
+
+        if modulus == 0 {
+            return Ok(StackItem::UnsignedInteger(0));
+        }
+
+        base %= modulus;
+        let mut result: u128 = 1;
+        let mut exp_mut = exp;
+        while exp_mut > 0 {
+            if exp_mut & 1 == 1 {
+                result = (result * base) % modulus;
+            }
+            base = (base * base) % modulus;
+            exp_mut >>= 1;
+        }
+
+        Ok(StackItem::UnsignedInteger(result as u64))
+    }
+
     fn lt_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         let result = match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => x < y,
@@ -1236,6 +1626,82 @@ impl VMBridge {
         Ok(StackItem::Boolean(result))
     }
 
+    fn and_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x & y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x & y))
+            }
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid operands for AND".to_string(),
+            }),
+        }
+    }
+
+    fn or_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x | y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x | y))
+            }
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid operands for OR".to_string(),
+            }),
+        }
+    }
+
+    fn xor_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+        match (a, b) {
+            (StackItem::Integer(x), StackItem::Integer(y)) => Ok(StackItem::Integer(x ^ y)),
+            (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
+                Ok(StackItem::UnsignedInteger(x ^ y))
+            }
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid operands for XOR".to_string(),
+            }),
+        }
+    }
+
+    fn shift_left_value(value: StackItem, shift: StackItem) -> Result<StackItem, VMBridgeError> {
+        let amount = Self::extract_shift_amount(shift)?;
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shl(amount))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shl(amount))),
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid operands for SHL".to_string(),
+            }),
+        }
+    }
+
+    fn shift_right_value(value: StackItem, shift: StackItem) -> Result<StackItem, VMBridgeError> {
+        let amount = Self::extract_shift_amount(shift)?;
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shr(amount))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shr(amount))),
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid operands for SHR".to_string(),
+            }),
+        }
+    }
+
+    fn extract_shift_amount(item: StackItem) -> Result<u32, VMBridgeError> {
+        match item {
+            StackItem::Integer(v) => {
+                if v < 0 {
+                    Err(VMBridgeError::BridgeError {
+                        message: "Shift amount must be non-negative".to_string(),
+                    })
+                } else {
+                    Ok((v as u64).min(63) as u32)
+                }
+            }
+            StackItem::UnsignedInteger(v) => Ok((v.min(63)) as u32),
+            _ => Err(VMBridgeError::BridgeError {
+                message: "Invalid shift amount".to_string(),
+            }),
+        }
+    }
+
     fn extract_return_data(
         &self,
         context: &execution::ExecutionContext,
@@ -1255,6 +1721,16 @@ fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
                 });
             }
             (*value as u64).to_be_bytes().to_vec()
+        }
+        StackItem::Array(_) => {
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "Cannot extract bytes from array stack item".to_string(),
+            })
+        }
+        StackItem::Map(_) => {
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "Cannot extract bytes from map".to_string(),
+            })
         }
         StackItem::Boolean(flag) => vec![if *flag { 1 } else { 0 }],
         StackItem::Null => Vec::new(),
@@ -1281,6 +1757,16 @@ fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
                 padded[16 - copy_len..].copy_from_slice(&bytes[bytes.len() - copy_len..]);
                 u128::from_be_bytes(padded)
             }
+        }
+        StackItem::Array(_) => {
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "Arrays not supported for integer extraction".to_string(),
+            });
+        }
+        StackItem::Map(_) => {
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "Maps not supported for integer extraction".to_string(),
+            });
         }
         StackItem::Boolean(flag) => {
             if *flag {

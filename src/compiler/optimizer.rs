@@ -7,8 +7,20 @@ use super::parser::{YulAST, YulItem, YulFunction, YulBlock, YulStatement, YulExp
                      YulVariableDeclaration, YulAssignment, YulIf, YulSwitch, YulForLoop,
                      YulFunctionCall, YulIdentifier, YulLiteral, LiteralKind, YulType};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
+
+// Helper trait for downcasting boxed passes
+trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: 'static> AsAny for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
 
 /// Optimizer for Yul AST
 #[derive(Debug)]
@@ -19,7 +31,7 @@ pub struct Optimizer {
 }
 
 /// Optimization pass trait
-pub trait OptimizationPass: std::fmt::Debug {
+pub trait OptimizationPass: std::fmt::Debug + AsAny {
     /// Get pass name
     fn name(&self) -> &str;
     
@@ -106,7 +118,7 @@ impl Optimizer {
     /// Create optimizer with specified level
     pub fn new(level: u8) -> Self {
         let mut optimizer = Self {
-            level,
+            level: level.min(3),
             passes: Vec::new(),
             statistics: OptimizationStatistics {
                 passes_run: 0,
@@ -118,7 +130,7 @@ impl Optimizer {
                 optimization_time_ms: 0,
             },
         };
-        
+
         optimizer.initialize_passes();
         optimizer
     }
@@ -232,24 +244,6 @@ impl Optimizer {
     }
 }
 
-// Add trait for downcasting
-trait AsAny {
-    fn as_any(&self) -> &dyn std::any::Any;
-}
-
-impl<T: 'static> AsAny for T {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl OptimizationPass for dyn OptimizationPass {
-    fn name(&self) -> &str { self.name() }
-    fn description(&self) -> &str { self.description() }
-    fn apply(&mut self, ast: &mut YulAST) -> Result<bool, OptimizationError> { self.apply(ast) }
-    fn should_run(&self, level: u8) -> bool { self.should_run(level) }
-}
-
 impl ConstantFoldingPass {
     fn new() -> Self {
         Self { folded_count: 0 }
@@ -257,6 +251,10 @@ impl ConstantFoldingPass {
 }
 
 impl OptimizationPass for ConstantFoldingPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "ConstantFolding"
     }
@@ -441,6 +439,10 @@ impl DeadCodeEliminationPass {
 }
 
 impl OptimizationPass for DeadCodeEliminationPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "DeadCodeElimination"
     }
@@ -545,6 +547,10 @@ impl FunctionInliningPass {
 }
 
 impl OptimizationPass for FunctionInliningPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "FunctionInlining"
     }
@@ -574,6 +580,10 @@ impl CommonSubexpressionEliminationPass {
 }
 
 impl OptimizationPass for CommonSubexpressionEliminationPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "CommonSubexpressionElimination"
     }
@@ -599,6 +609,10 @@ impl LoopOptimizationPass {
 }
 
 impl OptimizationPass for LoopOptimizationPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "LoopOptimization"
     }
@@ -624,6 +638,10 @@ impl StackOptimizationPass {
 }
 
 impl OptimizationPass for StackOptimizationPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "StackOptimization"
     }
@@ -649,6 +667,10 @@ impl NeoVMOptimizationPass {
 }
 
 impl OptimizationPass for NeoVMOptimizationPass {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn name(&self) -> &str {
         "NeoVMOptimization"
     }
