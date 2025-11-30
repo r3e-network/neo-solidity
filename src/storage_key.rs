@@ -237,8 +237,8 @@ mod tests {
     fn test_derive_mapping_slot_deterministic() {
         let base = compute_state_slot("balances");
         let key = KeyFragment::address(vec![0x01; 20]);
-        let slot1 = derive_mapping_slot(&base, &[key.clone()]);
-        let slot2 = derive_mapping_slot(&base, &[key]);
+        let slot1 = derive_mapping_slot(&base, std::slice::from_ref(&key));
+        let slot2 = derive_mapping_slot(&base, std::slice::from_ref(&key));
         assert_eq!(slot1, slot2);
     }
 
@@ -293,7 +293,7 @@ mod tests {
         let base = compute_state_slot("data");
         let slot = derive_mapping_slot(&base, &[]);
         // With no fragments, should just hash the base slot
-        let expected = Sha256::digest(&base);
+        let expected = Sha256::digest(base);
         assert_eq!(slot[..], expected[..]);
     }
 
@@ -412,8 +412,8 @@ mod tests {
         let base2 = compute_state_slot("allowances");
         let key = KeyFragment::address(vec![0x01; 20]);
 
-        let slot1 = derive_mapping_slot(&base1, &[key.clone()]);
-        let slot2 = derive_mapping_slot(&base2, &[key]);
+        let slot1 = derive_mapping_slot(&base1, std::slice::from_ref(&key));
+        let slot2 = derive_mapping_slot(&base2, std::slice::from_ref(&key));
 
         assert_ne!(slot1, slot2);
     }

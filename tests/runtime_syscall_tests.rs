@@ -60,7 +60,7 @@ fn get_random_returns_deterministic_hash() {
     while !ctx.step().expect("step").halted {}
 
     // Deterministic hash of invocation counter (0 on first)
-    let expected = sha2::Sha256::digest(&0u64.to_le_bytes());
+    let expected = sha2::Sha256::digest(0u64.to_le_bytes());
     assert_eq!(ctx.return_data(), expected.to_vec());
 }
 
@@ -86,7 +86,7 @@ fn checksig_returns_true() {
     let secp = Secp256k1::signing_only();
     let sk = SecretKey::from_slice(&[1u8; 32]).expect("sk");
     let pk = secp256k1::PublicKey::from_secret_key(&secp, &sk);
-    let msg = Message::from_slice(&sha2::Sha256::digest(&[])).expect("msg");
+    let msg = Message::from_slice(&sha2::Sha256::digest([])).expect("msg");
     let sig = secp.sign_ecdsa(&msg, &sk);
     let sig_bytes = sig.serialize_compact();
     let pub_bytes = pk.serialize();
@@ -119,7 +119,7 @@ fn checkmultisig_stub_returns_true() {
     let secp = Secp256k1::signing_only();
     let sk = SecretKey::from_slice(&[1u8; 32]).expect("sk");
     let pk = secp256k1::PublicKey::from_secret_key(&secp, &sk);
-    let msg = Message::from_slice(&sha2::Sha256::digest(&[])).expect("msg");
+    let msg = Message::from_slice(&sha2::Sha256::digest([])).expect("msg");
     let sig = secp.sign_ecdsa(&msg, &sk);
     let sig_bytes = sig.serialize_compact();
     let pub_bytes = pk.serialize();
@@ -178,8 +178,10 @@ fn get_network_returns_zero() {
     code.extend_from_slice(&[197, 251, 160, 224]);
     code.push(0x40);
 
-    let mut config = RuntimeConfig::default();
-    config.network_magic = 0x12345678;
+    let config = RuntimeConfig {
+        network_magic: 0x12345678,
+        ..Default::default()
+    };
     let mut ctx = ExecutionContext::new(&config).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}

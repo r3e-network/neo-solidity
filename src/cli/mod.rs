@@ -784,13 +784,12 @@ fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
         }
 
         // Pattern: BitwiseNot followed by BitwiseNot → identity (removes both)
-        if i + 1 < block.instructions.len() {
-            if matches!(&block.instructions[i], ir::Instruction::BitwiseNot)
-                && matches!(&block.instructions[i + 1], ir::Instruction::BitwiseNot)
-            {
-                i += 2;
-                continue;
-            }
+        if i + 1 < block.instructions.len()
+            && matches!(&block.instructions[i], ir::Instruction::BitwiseNot)
+            && matches!(&block.instructions[i + 1], ir::Instruction::BitwiseNot)
+        {
+            i += 2;
+            continue;
         }
 
         optimized.push(block.instructions[i].clone());
@@ -1083,7 +1082,7 @@ fn infer_permissions(metadata: &ContractMetadata) -> Vec<serde_json::Value> {
     };
 
     vec![json!({
-        "contract": if required_contracts.is_empty() { "*" } else { "*" },
+        "contract": "*",
         "methods": methods_value
     })]
 }

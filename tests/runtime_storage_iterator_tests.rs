@@ -1,7 +1,6 @@
 use neo_solidity::runtime::execution::ExecutionContext;
 use neo_solidity::runtime::storage::StorageManager;
 use neo_solidity::runtime::RuntimeConfig;
-use serde_json;
 
 #[test]
 fn storage_find_respects_prefix_and_overlay() {
@@ -49,7 +48,7 @@ fn storage_find_respects_prefix_and_overlay() {
     let entry: Vec<serde_json::Value> =
         serde_json::from_slice(result).expect("iterator value json");
     let key_bytes = entry
-        .get(0)
+        .first()
         .and_then(|k| k.get("ByteArray"))
         .and_then(|b| b.as_array())
         .cloned()

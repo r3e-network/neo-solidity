@@ -603,8 +603,8 @@ mod storage_key_tests {
         let key_a = KeyFragment::address(vec![0x11; 20]);
         let key_b = KeyFragment::address(vec![0x22; 20]);
 
-        let slot_a = derive_mapping_slot(&base_slot, &[key_a.clone()]);
-        let slot_b = derive_mapping_slot(&base_slot, &[key_b]);
+        let slot_a = derive_mapping_slot(&base_slot, std::slice::from_ref(&key_a));
+        let slot_b = derive_mapping_slot(&base_slot, std::slice::from_ref(&key_b));
 
         assert_eq!(slot_a.len(), 32);
         assert_eq!(slot_b.len(), 32);

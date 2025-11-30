@@ -37,7 +37,7 @@ pub(crate) fn process_standard_json(
         return Err("Standard JSON input must contain at least one source".to_string());
     }
 
-    if !request.language.trim().is_empty() && request.language.to_ascii_lowercase() != "solidity" {
+    if !request.language.trim().is_empty() && !request.language.eq_ignore_ascii_case("solidity") {
         return Err(format!(
             "Unsupported language '{}' in standard JSON input",
             request.language

@@ -12,7 +12,7 @@ fn hash160_matches_ripemd_sha256() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
-    let expected = Ripemd160::digest(&Sha256::digest(b"data"));
+    let expected = Ripemd160::digest(Sha256::digest(b"data"));
     assert_eq!(ctx.return_data(), expected.to_vec());
 }
 
@@ -26,7 +26,7 @@ fn hash256_double_sha256() {
     while !ctx.step().expect("step").halted {}
     let expected = {
         let first = Sha256::digest(b"abc");
-        Sha256::digest(&first)
+        Sha256::digest(first)
     };
     assert_eq!(ctx.return_data(), expected.to_vec());
 }

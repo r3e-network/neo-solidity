@@ -79,7 +79,7 @@ fn jmp_accepts_wide_offsets() {
     let mut code = vec![0x22];
     code.extend_from_slice(&target.to_le_bytes());
     let padding = target as usize - 5;
-    code.extend(std::iter::repeat(0x21).take(padding)); // fill with NOPs
+    code.extend(std::iter::repeat_n(0x21, padding)); // fill with NOPs
     code.push(0x40); // RET at jump target
 
     ctx.initialize(&code, &[]).expect("init");
