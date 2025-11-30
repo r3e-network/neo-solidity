@@ -749,6 +749,20 @@ make publish
 | **Testing Suite** | ✅ Production | 100% | Complete | Comprehensive |
 | **Documentation** | ✅ Production | N/A | 95% Complete | N/A |
 
+### **⚠️ Known Limitations**
+
+While the compiler is production-ready for most use cases, please note:
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Gas Accounting** | Approximate | Per-syscall gas hints; opcode-level fees ~80% accurate |
+| **Iterator Streaming** | Partial | `Storage.Find` returns handles; streaming not fully implemented |
+| **Cryptographic Syscalls** | Stubs | `CheckWitness`, `GetRandom` return mock values in embedded runtime |
+| **Oracle Integration** | Stub | Oracle syscalls not connected to real oracle service |
+| **Conformance Tests** | In Progress | No official NeoVM test vector validation yet |
+
+**Recommendation:** For MainNet deployment, thoroughly test your contracts on Neo N3 TestNet first.
+
 ### **🚀 Roadmap**
 
 #### **Phase 1: Core Stability (Q1 2024)** ✅
