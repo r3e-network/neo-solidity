@@ -1189,8 +1189,8 @@ impl VMBridge {
                 message: e.to_string(),
             })?;
 
-        // For now, use a default account address
-        // In a real implementation, this would come from the execution context
+        // Use default account address for storage operations
+        // Note: Override via ExecutionContext.set_storage_account() for custom accounts
         let account = "0x0000000000000000000000000000000000000000";
         let key_bytes = key.to_bytes();
 

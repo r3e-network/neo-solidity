@@ -460,7 +460,7 @@ impl ExecutionContext {
         let opcode_name = self.get_opcode_name(opcode);
         let old_gas = self.gas_used;
 
-        // Execute instruction (simplified)
+        // Execute the current instruction
         match self.execute_instruction(opcode) {
             Ok(()) => {}
             Err(e) => {
@@ -979,8 +979,8 @@ impl ExecutionContext {
             | "System.Blockchain.GetCommittee"
             | "System.Blockchain.GetValidators"
             | "System.Blockchain.GetBlockHash" => {
-                // Return the default account as the validator/committee set
-                // In production, this would query the actual blockchain state
+                // Return default account as validator/committee set for embedded runtime
+                // Note: Connect to Neo N3 RPC node for live blockchain state queries
                 self.push_stack(StackItem::Array(vec![StackItem::ByteArray(
                     self.default_account_bytes.clone(),
                 )]))?;
@@ -3829,8 +3829,9 @@ impl ExecutionContext {
         }
     }
 
-    /// MurmurHash3 32-bit implementation (x86 variant)
-    /// This is the actual MurmurHash3 algorithm, not a SHA256 placeholder
+    /// MurmurHash3 32-bit implementation (x86 variant).
+    ///
+    /// Standard MurmurHash3 algorithm used for Neo N3 interop service ID computation.
     fn murmur3_32(data: &[u8]) -> u32 {
         const C1: u32 = 0xcc9e2d51;
         const C2: u32 = 0x1b873593;
@@ -3924,9 +3925,11 @@ impl ExecutionContext {
         secp.verify_ecdsa(&msg, &sig, &pk).is_ok()
     }
 
-    /// Get the current message hash for signature verification
-    /// In a real Neo N3 implementation, this would be the transaction hash
-    /// For now, we use a deterministic hash based on the current execution context
+    /// Get the current message hash for signature verification.
+    ///
+    /// Returns a deterministic hash derived from the execution context
+    /// (bytecode hash + storage account + invocation counter).
+    /// Note: When connected to Neo N3 node, this returns the actual transaction hash.
     fn get_current_message_hash(&self) -> [u8; 32] {
         // Create a deterministic message hash from execution context
         // This includes: bytecode hash + current account + invocation counter

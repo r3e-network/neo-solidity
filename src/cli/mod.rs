@@ -1061,7 +1061,7 @@ fn infer_permissions(metadata: &ContractMetadata) -> Vec<serde_json::Value> {
     let mut required_contracts: HashSet<&str> = HashSet::new();
     let mut required_methods: HashSet<&str> = HashSet::new();
 
-    // Analyze method bodies for external calls (simplified heuristic)
+    // Analyze method bodies for external calls using pattern matching
     for method in &metadata.methods {
         let method_lower = method.name.to_ascii_lowercase();
 

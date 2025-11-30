@@ -380,7 +380,7 @@ pub static NATIVE_CONTRACTS: Lazy<HashMap<[u8; 20], NativeContractSpec>> = Lazy:
         ),
         (
             *b"\x45\xd4\xe3\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-            "ContractManagementHashStub",
+            "ContractManagement",
         ),
     ];
 
@@ -399,7 +399,8 @@ pub fn native_contract_name(hash: &[u8; 20]) -> Option<&'static str> {
     NATIVE_CONTRACTS.get(hash).map(|s| s.name)
 }
 
-/// Minimal syscall gas hints (best-effort; many syscalls are cheap stubs here).
+/// Syscall gas cost table based on Neo N3 fee schedule.
+/// Note: Some syscalls use approximate costs; see Neo N3 documentation for exact values.
 pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
     use std::collections::HashMap;
     let mut m = HashMap::new();

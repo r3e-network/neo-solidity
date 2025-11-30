@@ -32,8 +32,8 @@ fn hash256_double_sha256() {
 }
 
 #[test]
-fn checksig_stub_returns_true() {
-    // Use 33-byte compressed secp256k1 pubkey and dummy DER sig to satisfy parser; expect false (verification fail) but should not panic
+fn checksig_returns_boolean_result() {
+    // Use 33-byte compressed secp256k1 pubkey and test DER signature to verify syscall execution
     let mut code = vec![0x0C, 0x21];
     code.extend_from_slice(&[2u8; 33]);
     // DER sig with correct length prefix (0x44 = 68 bytes)

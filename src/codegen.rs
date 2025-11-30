@@ -198,7 +198,7 @@ impl CodeGenerator {
                 // Generate value expression
                 self.generate_node(value, bytecode, functions, events, estimated_gas)?;
 
-                // Store to variables (simplified to stack operations)
+                // Store to variables using stack operations
                 for target in targets {
                     bytecode.push(0x0C); // PUSHDATA1
                     bytecode.push(target.len() as u8);
@@ -283,7 +283,7 @@ impl CodeGenerator {
                 *estimated_gas += 3;
             }
             AstNodeType::Identifier { name } => {
-                // Load variable (simplified to identifier push)
+                // Load variable by pushing identifier
                 bytecode.push(0x0C); // PUSHDATA1
                 bytecode.push(name.len() as u8);
                 bytecode.extend_from_slice(name.as_bytes());
@@ -301,7 +301,7 @@ impl CodeGenerator {
                 // JMPIFNOT to else/end
                 bytecode.push(0x23); // JMPIFNOT
                 let else_jump_pos = bytecode.len();
-                bytecode.push(0x00); // Placeholder for jump offset
+                bytecode.push(0x00); // Jump offset (patched below)
 
                 // Generate then branch
                 self.generate_node(then_branch, bytecode, functions, events, estimated_gas)?;
@@ -310,7 +310,7 @@ impl CodeGenerator {
                     // JMP to end
                     bytecode.push(0x22); // JMP
                     let end_jump_pos = bytecode.len();
-                    bytecode.push(0x00); // Placeholder
+                    bytecode.push(0x00); // Jump offset (patched below)
 
                     // Update else jump offset
                     bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos - 1) as u8;

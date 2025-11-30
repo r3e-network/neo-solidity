@@ -79,7 +79,7 @@ pub struct FunctionIR {
     pub doc: NatspecDocIR,
 }
 
-/// Simplified function mutability classification.
+/// Function mutability classification based on Solidity state mutability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MutabilityKind {
     Pure,

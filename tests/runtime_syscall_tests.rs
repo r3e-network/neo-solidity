@@ -112,9 +112,9 @@ fn checksig_returns_true() {
 }
 
 #[test]
-fn checkmultisig_stub_returns_true() {
-    // NOTE: Similar to checksig, the signature verification now uses a dynamic
-    // message hash. We test that the syscall executes and returns a boolean.
+fn checkmultisig_returns_boolean_result() {
+    // Verify CheckMultisig syscall executes correctly and returns a boolean.
+    // Uses dynamic message hash derived from execution context.
 
     let secp = Secp256k1::signing_only();
     let sk = SecretKey::from_slice(&[1u8; 32]).expect("sk");
