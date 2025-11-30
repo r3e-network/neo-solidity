@@ -885,7 +885,11 @@ pub(crate) mod tests {
         // Short byte array
         bytecode.clear();
         push_literal_value(&mut bytecode, &LiteralValue::ByteArray(vec![0xAB, 0xCD]));
-        assert_eq!(bytecode, vec![0x0C, 0x02, 0xAB, 0xCD], "PUSHDATA1 with bytes");
+        assert_eq!(
+            bytecode,
+            vec![0x0C, 0x02, 0xAB, 0xCD],
+            "PUSHDATA1 with bytes"
+        );
     }
 
     #[test]
@@ -917,7 +921,13 @@ pub(crate) mod tests {
     fn append_default_value_handles_all_types() {
         // Integer
         let mut bytecode = Vec::new();
-        append_default_value(&mut bytecode, &ValueType::Integer { signed: false, bits: 256 });
+        append_default_value(
+            &mut bytecode,
+            &ValueType::Integer {
+                signed: false,
+                bits: 256,
+            },
+        );
         assert_eq!(bytecode, vec![0x10], "default integer is 0");
 
         // Boolean
@@ -927,15 +937,24 @@ pub(crate) mod tests {
 
         // Array
         bytecode.clear();
-        append_default_value(&mut bytecode, &ValueType::Array(Box::new(ValueType::Boolean)));
+        append_default_value(
+            &mut bytecode,
+            &ValueType::Array(Box::new(ValueType::Boolean)),
+        );
         assert_eq!(bytecode, vec![0xC2], "NEWARRAY0");
 
         // Mapping
         bytecode.clear();
-        append_default_value(&mut bytecode, &ValueType::Mapping {
-            key: Box::new(ValueType::Address),
-            value: Box::new(ValueType::Integer { signed: false, bits: 256 }),
-        });
+        append_default_value(
+            &mut bytecode,
+            &ValueType::Mapping {
+                key: Box::new(ValueType::Address),
+                value: Box::new(ValueType::Integer {
+                    signed: false,
+                    bits: 256,
+                }),
+            },
+        );
         assert_eq!(bytecode, vec![0xC8], "NEWMAP");
 
         // Any
