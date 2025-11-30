@@ -1,3 +1,29 @@
+//! Neo Solidity CLI Module
+//!
+//! Command-line interface for the Neo Solidity compiler. This module provides
+//! the main entry point for compiling Solidity contracts to NeoVM bytecode.
+//!
+//! # Features
+//!
+//! - Single file and multi-file compilation
+//! - Standard JSON input/output (Solidity compiler compatible)
+//! - NEF (Neo Executable Format) generation
+//! - Manifest generation for Neo N3 deployment
+//! - Multiple optimization levels (0-3)
+//! - Verbose output and debugging options
+//!
+//! # Submodules
+//!
+//! - [`bytecode`] - NeoVM bytecode generation from IR
+//! - [`standard_json`] - Standard JSON compilation interface
+//!
+//! # Usage
+//!
+//! ```bash
+//! neo-solc input.sol -o output/
+//! neo-solc --standard-json < input.json > output.json
+//! ```
+
 use clap::{Arg, ArgAction, Command};
 use neo_solidity::ir;
 use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};

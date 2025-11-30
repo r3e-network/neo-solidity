@@ -1,3 +1,27 @@
+//! Standard JSON Compilation Interface
+//!
+//! Implements the Solidity compiler standard JSON input/output format for
+//! compatibility with existing tooling (Hardhat, Foundry, etc.).
+//!
+//! # Input Format
+//!
+//! ```json
+//! {
+//!   "language": "Solidity",
+//!   "sources": {
+//!     "Contract.sol": { "content": "..." }
+//!   },
+//!   "settings": {
+//!     "optimizer": { "enabled": true, "runs": 200 }
+//!   }
+//! }
+//! ```
+//!
+//! # Output Format
+//!
+//! Returns compiled contracts with bytecode, ABI, and metadata in JSON format
+//! compatible with standard Solidity compiler output.
+
 use super::{compile_contracts, CompilationArtifacts, COMPILER_ID, VERSION};
 use neo_solidity::frontend::parse_source;
 use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};

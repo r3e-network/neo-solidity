@@ -1,3 +1,16 @@
+//! Neo N3 Manifest Generation Module
+//!
+//! Generates the contract manifest required for Neo N3 deployment. The manifest
+//! describes the contract's ABI, permissions, and supported standards.
+//!
+//! # Manifest Contents
+//!
+//! - Contract name and supported standards (NEP-17, NEP-11, etc.)
+//! - Method signatures with parameter types and return types
+//! - Event definitions
+//! - Required permissions for cross-contract calls
+//! - Storage and payable feature flags
+
 use super::{standard_json, COMPILER_EMAIL, COMPILER_ID, VERSION};
 use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata, StateMutability};
 use serde_json::json;

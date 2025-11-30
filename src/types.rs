@@ -1,3 +1,14 @@
+//! Compiler Configuration Types
+//!
+//! This module defines configuration structures for the Neo Solidity compiler,
+//! including input/output settings, optimization levels, and output formats.
+//!
+//! # Key Types
+//!
+//! - [`CompilerConfig`] - Main configuration for compilation
+//! - [`OutputFormat`] - Supported output formats (NEF, JSON, etc.)
+//! - [`GasModel`] - Gas calculation model selection
+
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]

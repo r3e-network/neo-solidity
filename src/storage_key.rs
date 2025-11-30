@@ -1,3 +1,21 @@
+//! Storage Key Computation Module
+//!
+//! Computes deterministic storage keys for Neo N3 smart contract state variables.
+//! This module implements the storage slot derivation algorithm compatible with
+//! Neo N3's storage model.
+//!
+//! # Key Derivation
+//!
+//! Storage keys are derived using SHA-256 hashing:
+//! - Simple variables: `SHA256(variable_name)`
+//! - Mappings: `SHA256(base_slot || encoded_key1 || encoded_key2 || ...)`
+//!
+//! # Key Types
+//!
+//! - [`KeyFragment`] - Represents a single mapping key (integer, address, bytes, etc.)
+//! - [`compute_state_slot`] - Computes base slot for a state variable
+//! - [`derive_mapping_slot`] - Derives slot for nested mapping access
+
 use num_bigint::BigInt;
 use num_traits::Signed;
 use sha2::{Digest, Sha256};
