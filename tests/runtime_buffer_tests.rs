@@ -77,14 +77,14 @@ fn newbuffer_allocates_zeroed_bytes() {
 fn memcpy_copies_slice_into_destination() {
     // dst = NEWBUFFER(4), dst_off=1, src="abcd", src_off=0, count=2 => MEMCPY -> RET
     let code = [
-        0x14,       // push 4
-        0x88,       // NEWBUFFER -> [dst]
-        0x11,       // dst_offset = 1
+        0x14, // push 4
+        0x88, // NEWBUFFER -> [dst]
+        0x11, // dst_offset = 1
         0x0C, 0x04, b'a', b'b', b'c', b'd', // src bytes
-        0x10,       // src_offset = 0
-        0x12,       // count = 2
-        0x89,       // MEMCPY
-        0x40,       // RET
+        0x10, // src_offset = 0
+        0x12, // count = 2
+        0x89, // MEMCPY
+        0x40, // RET
     ];
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");

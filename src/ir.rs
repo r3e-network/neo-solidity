@@ -569,14 +569,6 @@ fn decode_hex_bytes(value: &str) -> Option<Vec<u8>> {
     }
 }
 
-fn is_likely_type_name(name: &str) -> bool {
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(ch) if ch.is_uppercase() => true,
-        _ => name.contains("::") || name.contains('.'),
-    }
-}
-
 fn parse_decimal_bigint(value: &str) -> Option<BigInt> {
     let sanitized: String = value.chars().filter(|c| *c != '_').collect();
     BigInt::parse_bytes(sanitized.as_bytes(), 10)
@@ -764,7 +756,7 @@ impl<'a> LoweringContext<'a> {
     fn is_local_in_current_scope(&self, name: &str) -> bool {
         self.scope_stack
             .last()
-            .map_or(false, |scope| scope.iter().any(|existing| existing == name))
+            .is_some_and(|scope| scope.iter().any(|existing| existing == name))
     }
 
     fn set_storage_alias(&mut self, name: String, alias: StorageReference) {
@@ -1232,11 +1224,8 @@ fn lower_statement(
             false
         }
         Statement::Assembly { .. } => {
-            if lower_special_assembly(ctx, instructions) {
-                false
-            } else {
-                false
-            }
+            lower_special_assembly(ctx, instructions);
+            false
         }
         Statement::Try(_, expr, _, _) => {
             load_expression(expr, ctx, instructions);
@@ -1464,12 +1453,12 @@ fn lower_array_store(
 ) {
     if let Expression::ArraySubscript(_, array, Some(index)) = target {
         let checkpoint = instructions.len();
-        if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions)
+        if lower_expression(array, ctx, instructions)
+            && lower_expression(index, ctx, instructions)
+            && lower_expression(rhs, ctx, instructions)
         {
-            if lower_expression(rhs, ctx, instructions) {
-                instructions.push(Instruction::ArraySet);
-                return;
-            }
+            instructions.push(Instruction::ArraySet);
+            return;
         }
         instructions.truncate(checkpoint);
     }
@@ -1484,13 +1473,18 @@ fn lower_post_inc_dec(
     instructions: &mut Vec<Instruction>,
     increment: bool,
 ) -> bool {
-    let mut original = Vec::new();
-    if !lower_expression(expr, ctx, &mut original) {
+    // Post-increment/decrement semantics:
+    // 1. Load the original value (this will be the result)
+    // 2. Perform the increment/decrement and store back
+    // 3. The original value remains on the stack as the expression result
+
+    // Step 1: Load original value onto stack (this is the return value)
+    if !lower_expression(expr, ctx, instructions) {
         return false;
     }
 
-    instructions.append(&mut original.clone());
-
+    // Step 2: Perform compound assignment (x = x + 1 or x = x - 1)
+    // This modifies the variable but we don't need its result on stack
     let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
     let op = if increment {
         BinaryOperator::Add
@@ -1502,7 +1496,8 @@ fn lower_post_inc_dec(
         return false;
     }
 
-    instructions.extend(original);
+    // The original value loaded in Step 1 is already on the stack as the result
+    // Do NOT load the value again - that was the bug!
     true
 }
 
@@ -2052,12 +2047,8 @@ fn lower_expression(
             } else if let Some(index) = ctx.state_index_map.get(&identifier.name) {
                 instructions.push(Instruction::LoadState(*index));
                 true
-            } else if is_likely_type_name(&identifier.name) {
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                    BigInt::zero(),
-                )));
-                true
             } else {
+                // Unknown identifier - push zero as fallback (covers type names and undefined vars)
                 instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                     BigInt::zero(),
                 )));
@@ -2087,15 +2078,13 @@ fn lower_expression(
                 }
 
                 success
+            } else if lower_expression(array, ctx, instructions)
+                && lower_expression(index, ctx, instructions)
+            {
+                instructions.push(Instruction::ArrayGet);
+                true
             } else {
-                if lower_expression(array, ctx, instructions)
-                    && lower_expression(index, ctx, instructions)
-                {
-                    instructions.push(Instruction::ArrayGet);
-                    true
-                } else {
-                    false
-                }
+                false
             }
         }
         Expression::ArraySlice(_, array, start, end) => {
@@ -2345,7 +2334,7 @@ fn lower_expression(
                     BuiltinCall::TypeOf => (1, None),
                 };
 
-                if args.len() < min_args || max_args.map_or(false, |max| args.len() > max) {
+                if args.len() < min_args || max_args.is_some_and(|max| args.len() > max) {
                     ctx.record_error(format!(
                         "builtin call requires between {} and {} argument(s), got {}",
                         min_args,
@@ -2507,16 +2496,42 @@ fn lower_expression(
             true
         }
         Expression::ConditionalOperator(_, condition, then_expr, else_expr) => {
-            if lower_expression(condition, ctx, instructions) {
-                instructions.push(Instruction::Drop(ValueType::Any));
+            // Ternary operator: condition ? then_expr : else_expr
+            // Semantics: evaluate condition, then evaluate ONLY one branch based on result
+
+            // Generate unique labels for this ternary expression
+            let else_label = ctx.next_label();
+            let end_label = ctx.next_label();
+
+            // Step 1: Evaluate condition
+            if !lower_expression(condition, ctx, instructions) {
+                return false;
             }
-            load_expression(then_expr, ctx, instructions);
-            instructions.push(Instruction::Drop(ValueType::Any));
-            load_expression(else_expr, ctx, instructions);
-            instructions.push(Instruction::Drop(ValueType::Any));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::zero(),
-            )));
+
+            // Step 2: Jump to else branch if condition is false (zero)
+            // Note: JumpIf jumps when condition is TRUE, so we need to negate
+            // We use a NOT + JumpIf pattern, or we can use the existing JumpIf
+            // which jumps on non-zero. For "jump if zero", we negate first.
+            instructions.push(Instruction::BitwiseNot); // NOT: 0 -> -1 (truthy), non-zero -> 0
+            instructions.push(Instruction::JumpIf { target: else_label });
+
+            // Step 3: Evaluate then branch (condition was true/non-zero)
+            if !lower_expression(then_expr, ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::Jump { target: end_label });
+
+            // Step 4: Else branch label
+            instructions.push(Instruction::Label(else_label));
+
+            // Step 5: Evaluate else branch (condition was false/zero)
+            if !lower_expression(else_expr, ctx, instructions) {
+                return false;
+            }
+
+            // Step 6: End label - result is on stack from whichever branch executed
+            instructions.push(Instruction::Label(end_label));
+
             true
         }
         Expression::Parenthesis(_, inner) => lower_expression(inner, ctx, instructions),

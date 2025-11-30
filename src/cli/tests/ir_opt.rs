@@ -2,6 +2,7 @@ use super::*;
 use neo_solidity::ir::{
     BasicBlock, Function, FunctionKind as IrFunctionKind, Instruction, Module, ValueType,
 };
+use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata, NatspecDoc};
 
 #[test]
 fn optimize_ir_trims_unreachable_instructions() {
@@ -203,6 +204,66 @@ fn deduped_labels_retarget_jumps_across_blocks() {
 }
 
 #[test]
+fn bytecode_peephole_reduces_size_at_o3() {
+    let mut metadata = ContractMetadata {
+        name: "Peephole".to_string(),
+        methods: vec![FunctionMetadata {
+            name: "foo".to_string(),
+            kind: FunctionKind::Regular,
+            parameters: vec![],
+            return_parameters: vec![],
+            state_mutability: neo_solidity::solidity::StateMutability::NonPayable,
+            visibility: neo_solidity::frontend::VisibilityKind::Public,
+            offset: 0,
+            body: None,
+            selector: [0u8; 4],
+            documentation: NatspecDoc::default(),
+        }],
+        events: vec![],
+        uses_storage: false,
+        state_variables: vec![],
+        structs: vec![],
+        documentation: NatspecDoc::default(),
+    };
+
+    let module = Module {
+        functions: vec![Function {
+            name: "foo".to_string(),
+            kind: IrFunctionKind::Regular,
+            parameters: vec![],
+            returns: vec![],
+            basic_blocks: vec![BasicBlock {
+                instructions: vec![
+                    Instruction::PushLiteral(neo_solidity::ir::LiteralValue::Boolean(true)),
+                    Instruction::Drop(ValueType::Boolean),
+                    Instruction::Return,
+                ],
+            }],
+            local_count: 0,
+        }],
+        state_variables: vec![],
+        events: vec![],
+    };
+
+    let bytecode_o0 = generate_contract_bytecode(&mut metadata.clone(), &module, false, 0);
+    let bytecode_o3 = generate_contract_bytecode(&mut metadata, &module, false, 3);
+
+    assert!(
+        bytecode_o3.len() <= bytecode_o0.len(),
+        "peephole optimizer should not grow bytecode at O3 (O0={}, O3={})",
+        bytecode_o0.len(),
+        bytecode_o3.len()
+    );
+
+    // O3 output should not contain redundant RET RET
+    let double_ret = bytecode_o3.windows(2).any(|w| w[0] == 0x40 && w[1] == 0x40);
+    assert!(
+        !double_ret,
+        "peephole optimizer should collapse duplicate RET instructions"
+    );
+}
+
+#[test]
 fn removes_trivial_jump_to_next_label() {
     let module = Module {
         functions: vec![Function {
@@ -247,7 +308,10 @@ fn neovm_peephole_removes_push_drop() {
             basic_blocks: vec![BasicBlock {
                 instructions: vec![
                     Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(42))),
-                    Instruction::Drop(ValueType::Integer { signed: false, bits: 256 }),
+                    Instruction::Drop(ValueType::Integer {
+                        signed: false,
+                        bits: 256,
+                    }),
                     Instruction::ReturnVoid,
                 ],
             }],
@@ -275,7 +339,10 @@ fn neovm_peephole_removes_load_local_drop() {
             basic_blocks: vec![BasicBlock {
                 instructions: vec![
                     Instruction::LoadLocal(0),
-                    Instruction::Drop(ValueType::Integer { signed: false, bits: 256 }),
+                    Instruction::Drop(ValueType::Integer {
+                        signed: false,
+                        bits: 256,
+                    }),
                     Instruction::ReturnVoid,
                 ],
             }],

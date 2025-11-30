@@ -1,6 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 use neo_solidity::ir;
-use neo_solidity::neo::build_nef;
+use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};
 use neo_solidity::semantic_model::build_semantic_model;
 use neo_solidity::solidity::{
     analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, FunctionKind,
@@ -98,6 +98,25 @@ pub fn run() {
                 .help("Verbose output")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("nef-source")
+                .long("nef-source")
+                .value_name("STRING")
+                .help("Value to embed in the NEF 'source' field (defaults to canonical input path)")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("json-errors")
+                .long("json-errors")
+                .help("Emit compiler errors as JSON lines on stderr")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("json-warnings")
+                .long("json-warnings")
+                .help("Emit compiler warnings as JSON lines on stderr")
+                .action(clap::ArgAction::SetTrue),
+        )
         .get_matches();
 
     let use_standard_json = matches.get_flag("standard-json");
@@ -111,8 +130,11 @@ pub fn run() {
             .and_then(|s| s.parse::<u8>().ok())
             .unwrap_or(2)
             .min(3);
+        let nef_source = matches.get_one::<String>("nef-source").map(|s| s.as_str());
 
-        if let Err(err) = process_standard_json(input_path, output_path, optimizer_level) {
+        if let Err(err) =
+            process_standard_json(input_path, output_path, optimizer_level, nef_source)
+        {
             eprintln!("{err}");
             std::process::exit(1);
         }
@@ -139,6 +161,9 @@ pub fn run() {
         .unwrap_or(2)
         .min(3);
     let verbose = matches.get_flag("verbose");
+    let nef_source_override = matches.get_one::<String>("nef-source").map(|s| s.as_str());
+    let json_errors = matches.get_flag("json-errors");
+    let json_warnings = matches.get_flag("json-warnings");
 
     if verbose {
         println!("Neo Solidity Compiler v0.9.8");
@@ -164,20 +189,32 @@ pub fn run() {
         Err(CompileError::Diagnostics(diags)) | Err(CompileError::Semantic(diags)) => {
             for diag in diags {
                 match diag.severity {
-                    DiagnosticSeverity::Warning => eprintln!("warning: {}", diag.message),
-                    DiagnosticSeverity::Error => eprintln!("error: {}", diag.message),
+                    DiagnosticSeverity::Warning => emit_warning(
+                        &diag.message,
+                        None,
+                        json_warnings,
+                        Some(standard_json::infer_validation_code(
+                            &diag.message,
+                            diag.severity,
+                        )),
+                    ),
+                    DiagnosticSeverity::Error => emit_error(
+                        &diag.message,
+                        standard_json::infer_validation_code(&diag.message, diag.severity),
+                        json_errors,
+                    ),
                 }
             }
             std::process::exit(1);
         }
         Err(CompileError::Ir(errors)) => {
             for error in errors {
-                eprintln!("error: {}", error);
+                emit_error(&error, "IR_GENERATION_ERROR", json_errors);
             }
             std::process::exit(1);
         }
         Err(CompileError::Message(message)) => {
-            eprintln!("error: {}", message);
+            emit_error(&message, "GENERIC_ERROR", json_errors);
             std::process::exit(1);
         }
     };
@@ -198,7 +235,15 @@ pub fn run() {
 
     for artifact in &artifacts {
         for warning in &artifact.warnings {
-            eprintln!("warning ({}): {}", artifact.metadata.name, warning.message);
+            emit_warning(
+                &warning.message,
+                Some(&artifact.metadata.name),
+                json_warnings,
+                Some(standard_json::infer_validation_code(
+                    &warning.message,
+                    warning.severity,
+                )),
+            );
         }
     }
 
@@ -217,7 +262,12 @@ pub fn run() {
                 } else {
                     format!("{prefix}.nef")
                 };
-                write_nef_file(&nef_path, &artifact.bytecode);
+                write_nef_file(
+                    &nef_path,
+                    &artifact.bytecode,
+                    nef_source_override.unwrap_or(input_file),
+                    json_warnings,
+                );
                 println!(
                     "✅ [{}] NEF file generated: {nef_path}",
                     artifact.metadata.name
@@ -238,7 +288,12 @@ pub fn run() {
             "complete" => {
                 let nef_path = format!("{prefix}.nef");
                 let manifest_path = format!("{prefix}.manifest.json");
-                write_nef_file(&nef_path, &artifact.bytecode);
+                write_nef_file(
+                    &nef_path,
+                    &artifact.bytecode,
+                    nef_source_override.unwrap_or(input_file),
+                    json_warnings,
+                );
                 write_manifest_file(&manifest_path, &artifact.manifest);
                 println!(
                     "✅ [{}] Contract files generated:\n   📄 {nef_path}\n   📄 {manifest_path}",
@@ -335,8 +390,7 @@ fn compile_metadata(
         }
     }
 
-    // TODO: thread optimizer_level into IR/codegen when available.
-    let _ = optimizer_level;
+    // Pass optimizer_level to bytecode generation for optimization passes
     let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, verbose, optimizer_level);
     let manifest = build_manifest(&metadata);
 
@@ -774,8 +828,28 @@ fn split_extension(path: &str) -> (String, String) {
     }
 }
 
-fn write_nef_file(path: &str, script: &[u8]) {
-    let nef = build_nef(script, COMPILER_ID, VERSION);
+fn write_nef_file(path: &str, script: &[u8], source: &str, json_warnings: bool) {
+    // Canonicalize paths when they look like local files; leave URLs/overrides intact.
+    let resolved_source = if source.contains("://") {
+        source.to_string()
+    } else {
+        std::path::Path::new(source)
+            .canonicalize()
+            .ok()
+            .and_then(|p| p.to_str().map(str::to_string))
+            .unwrap_or_else(|| source.to_string())
+    };
+
+    let (clamped, truncated) = clamp_nef_source_with_flag(&resolved_source);
+    if truncated {
+        let msg = format!(
+            "NEF source exceeds {} bytes and was truncated",
+            NEF_SOURCE_MAX_BYTES
+        );
+        emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
+    }
+
+    let nef = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), &[]);
     fs::write(path, nef).expect("Failed to write NEF file");
 }
 
@@ -810,6 +884,13 @@ fn write_json_file(
 }
 
 fn build_manifest(metadata: &ContractMetadata) -> serde_json::Value {
+    let is_payable = metadata.methods.iter().any(|m| {
+        matches!(
+            m.state_mutability,
+            neo_solidity::solidity::StateMutability::Payable
+        )
+    });
+
     let methods_json: Vec<_> = metadata
         .methods
         .iter()
@@ -887,6 +968,7 @@ fn build_manifest(metadata: &ContractMetadata) -> serde_json::Value {
         "groups": [],
         "features": {
             "storage": metadata.uses_storage,
+            "payable": is_payable,
         },
         "supportedstandards": supported_standards,
         "abi": {
@@ -951,7 +1033,6 @@ fn detect_supported_standards(methods: &[FunctionMetadata]) -> Vec<String> {
 
 /// Infer contract permissions based on method signatures and behavior
 fn infer_permissions(metadata: &ContractMetadata) -> Vec<serde_json::Value> {
-    let mut permissions = Vec::new();
     let mut required_contracts: HashSet<&str> = HashSet::new();
     let mut required_methods: HashSet<&str> = HashSet::new();
 
@@ -982,44 +1063,67 @@ fn infer_permissions(metadata: &ContractMetadata) -> Vec<serde_json::Value> {
         // Storage contracts don't need special permissions for storage syscalls
     }
 
-    // Build permission entries
+    if required_contracts.is_empty() && required_methods.is_empty() {
+        return Vec::new();
+    }
+
     if required_contracts.contains("*") && required_methods.contains("*") {
-        // Broad permissions needed
-        permissions.push(json!({
+        return vec![json!({
             "contract": "*",
             "methods": "*"
-        }));
-    } else if !required_contracts.is_empty() || !required_methods.is_empty() {
-        // Specific permissions
-        let methods_value = if required_methods.is_empty() {
-            json!([])
-        } else if required_methods.contains("*") {
-            json!("*")
-        } else {
-            json!(required_methods.iter().collect::<Vec<_>>())
-        };
+        })];
+    }
 
-        permissions.push(json!({
-            "contract": if required_contracts.is_empty() { "*" } else { "*" },
-            "methods": methods_value
-        }));
+    let methods_value = if required_methods.is_empty() {
+        json!([])
+    } else if required_methods.contains("*") {
+        json!("*")
     } else {
-        // Minimal permissions - only allow calls to self
-        permissions.push(json!({
-            "contract": "*",
-            "methods": []
-        }));
+        json!(required_methods.iter().collect::<Vec<_>>())
+    };
+
+    vec![json!({
+        "contract": if required_contracts.is_empty() { "*" } else { "*" },
+        "methods": methods_value
+    })]
+}
+
+fn emit_warning(message: &str, contract: Option<&str>, json: bool, code: Option<&str>) {
+    if json {
+        let warning = json!({
+            "component": "neo-solidity",
+            "severity": "warning",
+            "type": "CompilerWarning",
+            "code": code.unwrap_or("COMPILER_WARNING"),
+            "contract": contract,
+            "message": message,
+            "formattedMessage": message,
+        });
+        eprintln!("{warning}");
+        return;
     }
 
-    // If no permissions were added, use safe default
-    if permissions.is_empty() {
-        permissions.push(json!({
-            "contract": "*",
-            "methods": "*"
-        }));
+    if let Some(contract) = contract {
+        eprintln!("warning ({}): {}", contract, message);
+    } else {
+        eprintln!("warning: {}", message);
     }
+}
 
-    permissions
+fn emit_error(message: &str, code: &str, json: bool) {
+    if json {
+        let error = json!({
+            "component": "neo-solidity",
+            "severity": "error",
+            "type": "CompilerError",
+            "code": code,
+            "message": message,
+            "formattedMessage": message,
+        });
+        eprintln!("{error}");
+    } else {
+        eprintln!("error: {}", message);
+    }
 }
 
 #[cfg(test)]

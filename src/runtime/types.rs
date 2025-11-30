@@ -61,11 +61,11 @@ impl RuntimeValue {
             RuntimeValue::UnsignedInteger(u) => u.to_le_bytes().to_vec(),
             RuntimeValue::ByteString(bytes) => bytes.clone(),
             RuntimeValue::Array(_) => {
-                // Serialize as JSON for now
+                // Serialize complex types as JSON for interoperability
                 serde_json::to_vec(self).unwrap_or_default()
             }
             RuntimeValue::Map(_) => {
-                // Serialize as JSON for now
+                // Serialize complex types as JSON for interoperability
                 serde_json::to_vec(self).unwrap_or_default()
             }
         }

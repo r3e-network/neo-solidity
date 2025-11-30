@@ -1,14 +1,57 @@
+# Build outputs
 /target/
 /build/
+**/target/
+Cargo.lock
+!Cargo.lock
+
+# Node.js
 node_modules/
 tooling/node_modules/
 tooling/**/node_modules/
 tooling/**/dist/
 tooling/**/.turbo/
 tooling/**/tsconfig.tsbuildinfo
-docs/api/
+
+# .NET
 bin/
 obj/
 **/bin/
 **/obj/
+
+# Generated documentation
+docs/api/
+
+# Example outputs
 examples/out/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Claude Code / AI assistant files
+.claude-flow/
+.hive-mind/
+.claude/
+
+# Test artifacts
+*.nef
+*.manifest.json
+!examples/**/*.nef
+!examples/**/*.manifest.json
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Neo Express files
+*.neo-express
+
+# Coverage reports
+coverage/
+*.lcov

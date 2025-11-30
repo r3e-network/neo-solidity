@@ -242,7 +242,10 @@ fn parse_natspec(text: &str) -> NatspecDocIR {
             // Parse new tag
             let parts: Vec<&str> = trimmed.splitn(2, char::is_whitespace).collect();
             current_tag = Some(parts[0]);
-            current_content = parts.get(1).map(|s| s.trim().to_string()).unwrap_or_default();
+            current_content = parts
+                .get(1)
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
         } else if current_tag.is_some() {
             // Continue previous tag content
             if !current_content.is_empty() {
@@ -283,7 +286,8 @@ fn save_tag_content(doc: &mut NatspecDocIR, tag: &str, content: &str) {
             // Format: @param name description
             let parts: Vec<&str> = content.splitn(2, char::is_whitespace).collect();
             if parts.len() >= 2 {
-                doc.params.push((parts[0].to_string(), parts[1].trim().to_string()));
+                doc.params
+                    .push((parts[0].to_string(), parts[1].trim().to_string()));
             } else if !parts.is_empty() {
                 doc.params.push((parts[0].to_string(), String::new()));
             }
@@ -595,8 +599,14 @@ mod tests {
         let text = "@param to The recipient address\n@param amount The amount to send";
         let doc = parse_natspec(text);
         assert_eq!(doc.params.len(), 2);
-        assert_eq!(doc.params[0], ("to".to_string(), "The recipient address".to_string()));
-        assert_eq!(doc.params[1], ("amount".to_string(), "The amount to send".to_string()));
+        assert_eq!(
+            doc.params[0],
+            ("to".to_string(), "The recipient address".to_string())
+        );
+        assert_eq!(
+            doc.params[1],
+            ("amount".to_string(), "The amount to send".to_string())
+        );
     }
 
     #[test]
@@ -613,7 +623,13 @@ mod tests {
         let text = "@custom:security-contact security@example.com\n@custom:version 1.0.0";
         let doc = parse_natspec(text);
         assert_eq!(doc.custom.len(), 2);
-        assert_eq!(doc.custom[0], ("security-contact".to_string(), "security@example.com".to_string()));
+        assert_eq!(
+            doc.custom[0],
+            (
+                "security-contact".to_string(),
+                "security@example.com".to_string()
+            )
+        );
         assert_eq!(doc.custom[1], ("version".to_string(), "1.0.0".to_string()));
     }
 

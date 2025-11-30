@@ -109,7 +109,7 @@ pub struct Parameter {
 }
 
 /// Parameter value types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ParameterValue {
     Uint256(String),
     Address(String),

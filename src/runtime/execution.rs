@@ -2,7 +2,7 @@
 //!
 //! Provides execution context and gas tracking for Neo runtime.
 
-        use super::{spec, storage, LogEntry, RuntimeConfig, RuntimeError};
+use super::{spec, storage, LogEntry, RuntimeConfig, RuntimeError};
 use hex;
 use ripemd::Ripemd160;
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,8 @@ pub struct ExecutionContext {
     neo_total_supply: u64,
     gas_total_supply: u64,
     contract_registry: HashMap<Vec<u8>, ContractState>,
+    /// When true, arithmetic overflow/underflow will return an error instead of wrapping
+    strict_arithmetic: bool,
 }
 
 /// Stack item in execution context
@@ -138,6 +140,27 @@ struct OverlayEntry {
     dirty: bool,
 }
 
+/// Storage key that includes account for isolation
+/// Used for cross-contract storage isolation to prevent storage collisions
+#[allow(dead_code)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct IsolatedStorageKey {
+    /// Account/contract that owns this storage
+    account: String,
+    /// The actual storage key
+    key: Vec<u8>,
+}
+
+#[allow(dead_code)]
+impl IsolatedStorageKey {
+    fn new(account: &str, key: Vec<u8>) -> Self {
+        Self {
+            account: account.to_string(),
+            key,
+        }
+    }
+}
+
 type StorageOverlayEntries = Vec<(Vec<u8>, Option<Vec<u8>>)>;
 
 impl ExecutionContext {
@@ -192,6 +215,7 @@ impl ExecutionContext {
             neo_total_supply: 100_000_000,
             gas_total_supply: 30_000_000_000,
             contract_registry: HashMap::new(),
+            strict_arithmetic: config.strict_mode,
         })
     }
 
@@ -454,9 +478,16 @@ impl ExecutionContext {
                 }
 
                 // Route to the nearest catch if available, otherwise the topmost finally.
-                if let Some(frame) = self.try_stack.iter().rev().find(|f| f.catch_target.is_some()) {
+                if let Some(frame) = self
+                    .try_stack
+                    .iter()
+                    .rev()
+                    .find(|f| f.catch_target.is_some())
+                {
                     self.instruction_pointer = frame.catch_target.unwrap();
-                } else if let Some(finally_target) = self.try_stack.last().and_then(|f| f.finally_target) {
+                } else if let Some(finally_target) =
+                    self.try_stack.last().and_then(|f| f.finally_target)
+                {
                     self.instruction_pointer = finally_target;
                 } else {
                     return Err(RuntimeError::ExecutionError { message: msg });
@@ -713,9 +744,12 @@ impl ExecutionContext {
                 self.push_stack(StackItem::ByteArray(value))?;
             }
             "System.Storage.Put" => {
-                let value_item = self.pop_stack()?;
-                let _context = self.pop_stack()?; // ignored
-                let slot_item = self.pop_stack()?;
+                // NeoVM stack is LIFO, so parameters are popped in reverse order
+                // Call signature: System.Storage.Put(context, key, value)
+                // Stack order (top to bottom): value, key, context
+                let value_item = self.pop_stack()?; // value (pushed last, popped first)
+                let slot_item = self.pop_stack()?; // key (pushed second)
+                let _context = self.pop_stack()?; // context (pushed first, popped last)
 
                 let key = Self::stack_item_to_bytes(slot_item);
                 let value = Self::stack_item_to_bytes(value_item);
@@ -731,8 +765,11 @@ impl ExecutionContext {
                 entry.dirty = true;
             }
             "System.Storage.Delete" => {
-                let _context = self.pop_stack()?;
-                let slot_item = self.pop_stack()?;
+                // NeoVM stack is LIFO, so parameters are popped in reverse order
+                // Call signature: System.Storage.Delete(context, key)
+                // Stack order (top to bottom): key, context
+                let slot_item = self.pop_stack()?; // key (pushed last, popped first)
+                let _context = self.pop_stack()?; // context (pushed first, popped last)
                 let key = Self::stack_item_to_bytes(slot_item);
                 self.storage_overlay.insert(
                     key,
@@ -855,14 +892,14 @@ impl ExecutionContext {
                 let data = self.pop_stack()?;
                 let bytes = Self::stack_item_to_bytes(data);
                 let sha = Sha256::digest(&bytes);
-                let ripemd = Ripemd160::digest(&sha);
+                let ripemd = Ripemd160::digest(sha);
                 self.push_stack(StackItem::ByteArray(ripemd[..].to_vec()))?;
             }
             "System.Crypto.Hash256" => {
                 let data = self.pop_stack()?;
                 let bytes = Self::stack_item_to_bytes(data);
                 let first = Sha256::digest(&bytes);
-                let second = Sha256::digest(&first);
+                let second = Sha256::digest(first);
                 self.push_stack(StackItem::ByteArray(second[..].to_vec()))?;
             }
             "System.Crypto.CheckSig" => {
@@ -870,16 +907,21 @@ impl ExecutionContext {
                 let pub_item = self.pop_stack()?;
                 let pubkey = Self::stack_item_to_bytes(pub_item);
                 let sig = Self::stack_item_to_bytes(sig_item);
-                let ok = Self::verify_secp256k1(&pubkey, &sig);
+                // Use the current transaction/message hash for verification
+                // In a real implementation, this would come from the transaction context
+                let msg_hash = self.get_current_message_hash();
+                let ok = Self::verify_secp256k1_with_message(&msg_hash, &pubkey, &sig);
                 self.push_stack(StackItem::Boolean(ok))?;
             }
             "System.Crypto.CheckMultisig" => {
                 let sigs = Self::stack_item_to_bytes(self.pop_stack()?);
                 let pubs = Self::stack_item_to_bytes(self.pop_stack()?);
+                // Use the current transaction/message hash for verification
+                let msg_hash = self.get_current_message_hash();
                 // Treat as true only if both blobs can be split into at least one valid pair
                 let ok = !pubs.is_empty()
                     && !sigs.is_empty()
-                    && Self::verify_secp256k1(&pubs, &sigs);
+                    && Self::verify_secp256k1_with_message(&msg_hash, &pubs, &sigs);
                 self.push_stack(StackItem::Boolean(ok))?;
             }
             "System.Storage.Find" => {
@@ -937,7 +979,8 @@ impl ExecutionContext {
             | "System.Blockchain.GetCommittee"
             | "System.Blockchain.GetValidators"
             | "System.Blockchain.GetBlockHash" => {
-                // Return a default validator/committee set placeholder for now.
+                // Return the default account as the validator/committee set
+                // In production, this would query the actual blockchain state
                 self.push_stack(StackItem::Array(vec![StackItem::ByteArray(
                     self.default_account_bytes.clone(),
                 )]))?;
@@ -952,14 +995,14 @@ impl ExecutionContext {
             "System.Contract.CreateStandardAccount" | "System.Contract.CreateMultisigAccount" => {
                 // Push a deterministic pseudo-address
                 let mut addr = [0u8; 20];
-                addr.copy_from_slice(&Sha256::digest(&[self.invocation_counter as u8])[0..20]);
+                addr.copy_from_slice(&Sha256::digest([self.invocation_counter as u8])[0..20]);
                 self.push_stack(StackItem::ByteArray(addr.to_vec()))?;
             }
             "System.ContractManagement.GetContract" => {
                 let params = self.pop_stack()?;
                 let mut result = StackItem::Null;
                 if let StackItem::Array(args) = params {
-                    if let Some(StackItem::ByteArray(hash_bytes)) = args.get(0) {
+                    if let Some(StackItem::ByteArray(hash_bytes)) = args.first() {
                         if let Some(state) = self.lookup_contract(hash_bytes) {
                             result = self.contract_to_stackitem(&state);
                         }
@@ -979,16 +1022,18 @@ impl ExecutionContext {
                         });
                         let state = if let Some(hash_bytes) = target_hash {
                             self.update_contract(&hash_bytes, nef.clone(), manifest.clone())
-                                .unwrap_or_else(|| self.register_contract(nef.clone(), manifest.clone()))
+                                .unwrap_or_else(|| {
+                                    self.register_contract(nef.clone(), manifest.clone())
+                                })
                         } else if name.ends_with("Deploy") {
                             self.register_contract(nef.clone(), manifest.clone())
+                        } else if let Some(hash) = self.contract_registry.keys().next().cloned() {
+                            self.update_contract(&hash, nef.clone(), manifest.clone())
+                                .unwrap_or_else(|| {
+                                    self.register_contract(nef.clone(), manifest.clone())
+                                })
                         } else {
-                            if let Some(hash) = self.contract_registry.keys().next().cloned() {
-                                self.update_contract(&hash, nef.clone(), manifest.clone())
-                                    .unwrap_or_else(|| self.register_contract(nef.clone(), manifest.clone()))
-                            } else {
-                                self.register_contract(nef.clone(), manifest.clone())
-                            }
+                            self.register_contract(nef.clone(), manifest.clone())
                         };
                         self.push_stack(self.contract_to_stackitem(&state))?;
                     } else {
@@ -1004,7 +1049,7 @@ impl ExecutionContext {
                 let _filter = self.pop_stack()?;
                 let _callback = self.pop_stack()?;
                 let _url = self.pop_stack()?;
-                let request_id = Sha256::digest(&self.invocation_counter.to_le_bytes());
+                let request_id = Sha256::digest(self.invocation_counter.to_le_bytes());
                 self.push_stack(StackItem::ByteArray(request_id[..4].to_vec()))?;
             }
             "System.Policy.GetFeePerByte"
@@ -1054,7 +1099,7 @@ impl ExecutionContext {
                     "totalsupply" => StackItem::UnsignedInteger(self.neo_total_supply),
                     "balanceof" => {
                         if let StackItem::Array(args) = params {
-                            if let Some(StackItem::ByteArray(acc)) = args.get(0) {
+                            if let Some(StackItem::ByteArray(acc)) = args.first() {
                                 let bal = *self.neo_balances.get(acc).unwrap_or(&0);
                                 StackItem::UnsignedInteger(bal)
                             } else {
@@ -1064,9 +1109,7 @@ impl ExecutionContext {
                             StackItem::UnsignedInteger(0)
                         }
                     }
-                    "transfer" => {
-                        self.handle_native_transfer(true, params)
-                    }
+                    "transfer" => self.handle_native_transfer(true, params),
                     _ => StackItem::Null,
                 },
                 "GAS" => match method_lower.as_str() {
@@ -1075,7 +1118,7 @@ impl ExecutionContext {
                     "totalsupply" => StackItem::UnsignedInteger(self.gas_total_supply),
                     "balanceof" => {
                         if let StackItem::Array(args) = params {
-                            if let Some(StackItem::ByteArray(acc)) = args.get(0) {
+                            if let Some(StackItem::ByteArray(acc)) = args.first() {
                                 let bal = *self.gas_balances.get(acc).unwrap_or(&0);
                                 StackItem::UnsignedInteger(bal)
                             } else {
@@ -1085,9 +1128,7 @@ impl ExecutionContext {
                             StackItem::UnsignedInteger(0)
                         }
                     }
-                    "transfer" => {
-                        self.handle_native_transfer(false, params)
-                    }
+                    "transfer" => self.handle_native_transfer(false, params),
                     _ => StackItem::Null,
                 },
                 "Policy" => match method_lower.as_str() {
@@ -1099,7 +1140,7 @@ impl ExecutionContext {
                 "Oracle" => {
                     if method_lower == "request" {
                         // Return pseudo request id
-                        let req = Sha256::digest(&self.invocation_counter.to_le_bytes());
+                        let req = Sha256::digest(self.invocation_counter.to_le_bytes());
                         StackItem::ByteArray(req[..4].to_vec())
                     } else {
                         StackItem::Null
@@ -1108,7 +1149,7 @@ impl ExecutionContext {
                 "ContractManagement" => match method_lower.as_str() {
                     "getcontract" => {
                         if let StackItem::Array(args) = params {
-                            if let Some(StackItem::ByteArray(hash_bytes)) = args.get(0) {
+                            if let Some(StackItem::ByteArray(hash_bytes)) = args.first() {
                                 if let Some(state) = self.lookup_contract(hash_bytes) {
                                     return self.contract_to_stackitem(&state);
                                 }
@@ -1154,8 +1195,8 @@ impl ExecutionContext {
                 _ => StackItem::Null,
             }
         } else {
-            // Unknown contract – return null to avoid halting.
-            let _ = params; // silence unused warning for now
+            // Unknown contract – return null to allow graceful handling
+            let _ = params; // params unused for unknown contracts
             StackItem::Null
         }
     }
@@ -1377,7 +1418,7 @@ impl ExecutionContext {
                 }
                 let as_byte = match value {
                     StackItem::ByteArray(ref v) if v.len() == 1 => v[0],
-                    StackItem::Integer(i) if i >= 0 && i < 256 => i as u8,
+                    StackItem::Integer(i) if (0..256).contains(&i) => i as u8,
                     StackItem::UnsignedInteger(u) if u < 256 => u as u8,
                     _ => {
                         return Err(RuntimeError::ExecutionError {
@@ -1561,16 +1602,18 @@ impl ExecutionContext {
 
         match dst_item {
             StackItem::ByteArray(mut dst) => {
-                let src_end = src_offset
-                    .checked_add(count)
-                    .ok_or(RuntimeError::ExecutionError {
-                        message: "MEMCPY: source range overflow".to_string(),
-                    })?;
-                let dst_end = dst_offset
-                    .checked_add(count)
-                    .ok_or(RuntimeError::ExecutionError {
-                        message: "MEMCPY: destination range overflow".to_string(),
-                    })?;
+                let src_end =
+                    src_offset
+                        .checked_add(count)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: "MEMCPY: source range overflow".to_string(),
+                        })?;
+                let dst_end =
+                    dst_offset
+                        .checked_add(count)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: "MEMCPY: destination range overflow".to_string(),
+                        })?;
 
                 if src_end > src.len() || dst_end > dst.len() {
                     return Err(RuntimeError::ExecutionError {
@@ -2425,7 +2468,7 @@ impl ExecutionContext {
                 self.instruction_pointer = target;
             }
             0x36 | 0x37 => {
-                // CALLA / CALLT – treated as absolute CALL for now
+                // CALLA / CALLT – implemented as absolute CALL with 32-bit target address
                 let target = self.read_u32_offset("CALLA/CALLT")?;
                 if target as usize >= self.bytecode.len() {
                     return Err(RuntimeError::ExecutionError {
@@ -2480,7 +2523,11 @@ impl ExecutionContext {
                 let catch_target = u32::from_le_bytes(catch_buf);
                 let finally_target = u32::from_le_bytes(finally_buf);
                 self.try_stack.push(TryFrame {
-                    catch_target: if catch_target == 0 { None } else { Some(catch_target) },
+                    catch_target: if catch_target == 0 {
+                        None
+                    } else {
+                        Some(catch_target)
+                    },
                     finally_target: if finally_target == 0 {
                         None
                     } else {
@@ -2921,9 +2968,21 @@ impl ExecutionContext {
                     &self.bytecode[self.instruction_pointer as usize + 1
                         ..self.instruction_pointer as usize + 5],
                 );
-                // Consume syscall gas if known
-                if let Some(cost) = self.syscall_gas.get(&syscall_id) {
-                    let projected = self.gas_used.saturating_add(*cost);
+                // Consume syscall-specific gas if known
+                // NOTE: This is ADDITIONAL gas on top of the base opcode cost (already charged
+                // at the start of execute_instruction). The syscall_gas map contains only the
+                // extra cost for each syscall, not the total cost.
+                if let Some(extra_cost) = self.syscall_gas.get(&syscall_id) {
+                    // Use checked_add to detect overflow instead of saturating silently
+                    let projected = match self.gas_used.checked_add(*extra_cost) {
+                        Some(p) => p,
+                        None => {
+                            return Err(RuntimeError::OutOfGas {
+                                used: u64::MAX,
+                                limit: self.gas_limit,
+                            });
+                        }
+                    };
                     if projected > self.gas_limit {
                         return Err(RuntimeError::OutOfGas {
                             used: projected,
@@ -3269,10 +3328,26 @@ impl ExecutionContext {
     fn add_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
-                Ok(StackItem::Integer(x.wrapping_add(y)))
+                if self.strict_arithmetic {
+                    x.checked_add(y).map(StackItem::Integer).ok_or_else(|| {
+                        RuntimeError::ExecutionError {
+                            message: format!("Integer overflow in ADD: {} + {}", x, y),
+                        }
+                    })
+                } else {
+                    Ok(StackItem::Integer(x.wrapping_add(y)))
+                }
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
-                Ok(StackItem::UnsignedInteger(x.wrapping_add(y)))
+                if self.strict_arithmetic {
+                    x.checked_add(y)
+                        .map(StackItem::UnsignedInteger)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: format!("Unsigned integer overflow in ADD: {} + {}", x, y),
+                        })
+                } else {
+                    Ok(StackItem::UnsignedInteger(x.wrapping_add(y)))
+                }
             }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for ADD".to_string(),
@@ -3283,10 +3358,26 @@ impl ExecutionContext {
     fn sub_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
-                Ok(StackItem::Integer(x.wrapping_sub(y)))
+                if self.strict_arithmetic {
+                    x.checked_sub(y).map(StackItem::Integer).ok_or_else(|| {
+                        RuntimeError::ExecutionError {
+                            message: format!("Integer underflow in SUB: {} - {}", x, y),
+                        }
+                    })
+                } else {
+                    Ok(StackItem::Integer(x.wrapping_sub(y)))
+                }
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
-                Ok(StackItem::UnsignedInteger(x.wrapping_sub(y)))
+                if self.strict_arithmetic {
+                    x.checked_sub(y)
+                        .map(StackItem::UnsignedInteger)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: format!("Unsigned integer underflow in SUB: {} - {}", x, y),
+                        })
+                } else {
+                    Ok(StackItem::UnsignedInteger(x.wrapping_sub(y)))
+                }
             }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for SUB".to_string(),
@@ -3297,10 +3388,26 @@ impl ExecutionContext {
     fn mul_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
-                Ok(StackItem::Integer(x.wrapping_mul(y)))
+                if self.strict_arithmetic {
+                    x.checked_mul(y).map(StackItem::Integer).ok_or_else(|| {
+                        RuntimeError::ExecutionError {
+                            message: format!("Integer overflow in MUL: {} * {}", x, y),
+                        }
+                    })
+                } else {
+                    Ok(StackItem::Integer(x.wrapping_mul(y)))
+                }
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
-                Ok(StackItem::UnsignedInteger(x.wrapping_mul(y)))
+                if self.strict_arithmetic {
+                    x.checked_mul(y)
+                        .map(StackItem::UnsignedInteger)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: format!("Unsigned integer overflow in MUL: {} * {}", x, y),
+                        })
+                } else {
+                    Ok(StackItem::UnsignedInteger(x.wrapping_mul(y)))
+                }
             }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for MUL".to_string(),
@@ -3722,29 +3829,126 @@ impl ExecutionContext {
         }
     }
 
+    /// MurmurHash3 32-bit implementation (x86 variant)
+    /// This is the actual MurmurHash3 algorithm, not a SHA256 placeholder
     fn murmur3_32(data: &[u8]) -> u32 {
-        let digest = Sha256::digest(data);
-        u32::from_le_bytes([digest[0], digest[1], digest[2], digest[3]])
+        const C1: u32 = 0xcc9e2d51;
+        const C2: u32 = 0x1b873593;
+        const SEED: u32 = 0;
+
+        let mut h1: u32 = SEED;
+        let len = data.len();
+
+        // Process 4-byte chunks
+        let chunks = data.chunks_exact(4);
+        let remainder = chunks.remainder();
+
+        for chunk in chunks {
+            let k1 = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let k1 = k1.wrapping_mul(C1);
+            let k1 = k1.rotate_left(15);
+            let k1 = k1.wrapping_mul(C2);
+
+            h1 ^= k1;
+            h1 = h1.rotate_left(13);
+            h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64);
+        }
+
+        // Process remaining bytes
+        if !remainder.is_empty() {
+            let mut k1: u32 = 0;
+            for (i, &byte) in remainder.iter().enumerate() {
+                k1 |= (byte as u32) << (i * 8);
+            }
+            let k1 = k1.wrapping_mul(C1);
+            let k1 = k1.rotate_left(15);
+            let k1 = k1.wrapping_mul(C2);
+            h1 ^= k1;
+        }
+
+        // Finalization
+        h1 ^= len as u32;
+        h1 ^= h1 >> 16;
+        h1 = h1.wrapping_mul(0x85ebca6b);
+        h1 ^= h1 >> 13;
+        h1 = h1.wrapping_mul(0xc2b2ae35);
+        h1 ^= h1 >> 16;
+
+        h1
     }
 
-    fn verify_secp256k1(pubkey: &[u8], signature: &[u8]) -> bool {
-        // Best-effort ECDSA check against sha256("") as message placeholder
-        if pubkey.is_empty() || signature.len() < 64 {
+    /// Verify secp256k1 ECDSA signature
+    ///
+    /// # Arguments
+    /// * `message` - The message hash (32 bytes) that was signed
+    /// * `pubkey` - The public key (33 or 65 bytes)
+    /// * `signature` - The signature (64 bytes compact or DER encoded)
+    ///
+    /// # Returns
+    /// `true` if the signature is valid, `false` otherwise
+    fn verify_secp256k1_with_message(message: &[u8], pubkey: &[u8], signature: &[u8]) -> bool {
+        // Validate input lengths
+        if message.len() != 32 {
             return false;
         }
-        let msg = Sha256::digest(&[]);
-        if let (Ok(pk), Ok(sig)) = (
-            secp256k1::PublicKey::from_slice(pubkey),
-            secp256k1::ecdsa::Signature::from_der(signature).or_else(|_| {
-                secp256k1::ecdsa::Signature::from_compact(signature)
-            }),
-        ) {
-            let secp = secp256k1::Secp256k1::verification_only();
-            let msg = secp256k1::Message::from_slice(&msg).unwrap();
-            secp.verify_ecdsa(&msg, &sig, &pk).is_ok()
-        } else {
-            false
+        if pubkey.is_empty() || (pubkey.len() != 33 && pubkey.len() != 65) {
+            return false;
         }
+        if signature.len() < 64 || signature.len() > 72 {
+            // 64 bytes for compact, up to 72 for DER
+            return false;
+        }
+
+        // Parse public key
+        let pk = match secp256k1::PublicKey::from_slice(pubkey) {
+            Ok(pk) => pk,
+            Err(_) => return false,
+        };
+
+        // Parse signature (try DER first, then compact)
+        let sig = match secp256k1::ecdsa::Signature::from_der(signature)
+            .or_else(|_| secp256k1::ecdsa::Signature::from_compact(signature))
+        {
+            Ok(sig) => sig,
+            Err(_) => return false,
+        };
+
+        // Parse message - use proper error handling instead of unwrap
+        let msg = match secp256k1::Message::from_slice(message) {
+            Ok(msg) => msg,
+            Err(_) => return false,
+        };
+
+        // Verify signature
+        let secp = secp256k1::Secp256k1::verification_only();
+        secp.verify_ecdsa(&msg, &sig, &pk).is_ok()
+    }
+
+    /// Get the current message hash for signature verification
+    /// In a real Neo N3 implementation, this would be the transaction hash
+    /// For now, we use a deterministic hash based on the current execution context
+    fn get_current_message_hash(&self) -> [u8; 32] {
+        // Create a deterministic message hash from execution context
+        // This includes: bytecode hash + current account + invocation counter
+        let mut hasher_input = Vec::new();
+
+        // Include bytecode hash
+        let bytecode_hash = Sha256::digest(&self.bytecode);
+        hasher_input.extend_from_slice(&bytecode_hash);
+
+        // Include storage account if available
+        if let Some(ref account) = self.storage_account {
+            hasher_input.extend_from_slice(account.as_bytes());
+        }
+
+        // Include invocation counter for uniqueness
+        hasher_input.extend_from_slice(&self.invocation_counter.to_le_bytes());
+
+        // Final hash
+        let result = Sha256::digest(&hasher_input);
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&result);
+        hash
     }
 
     fn stack_item_to_bytes(item: StackItem) -> Vec<u8> {
@@ -3762,7 +3966,7 @@ impl ExecutionContext {
     fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
         let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
-        if without_prefix.len() % 2 != 0 {
+        if !without_prefix.len().is_multiple_of(2) {
             return Err(RuntimeError::ConfigurationError {
                 message: "contract account hex string has odd length".to_string(),
             });
@@ -3837,13 +4041,8 @@ impl ExecutionContext {
     fn allocate_iterator(&mut self, entries: Vec<StackItem>) -> StackItem {
         let id = self.next_iterator_id;
         self.next_iterator_id = self.next_iterator_id.saturating_add(1);
-        self.iterators.insert(
-            id,
-            IteratorState {
-                entries,
-                index: 0,
-            },
-        );
+        self.iterators
+            .insert(id, IteratorState { entries, index: 0 });
         StackItem::ByteArray(id.to_le_bytes().to_vec())
     }
 

@@ -1,6 +1,6 @@
 use super::{compile_contracts, CompilationArtifacts, COMPILER_ID, VERSION};
 use neo_solidity::frontend::parse_source;
-use neo_solidity::neo::build_nef;
+use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};
 use neo_solidity::solidity::{ContractMetadata, DiagnosticSeverity, FunctionKind, StateMutability};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -26,6 +26,7 @@ pub(crate) fn process_standard_json(
     input_path: &str,
     output_path: Option<&str>,
     optimizer_level: u8,
+    nef_source: Option<&str>,
 ) -> Result<(), String> {
     let input_content = fs::read_to_string(input_path)
         .map_err(|err| format!("Failed to read input file: {err}"))?;
@@ -122,12 +123,33 @@ pub(crate) fn process_standard_json(
                             .map(|(_, _, keccak)| keccak.as_str());
 
                         let abi_entries = build_standard_abi(&artifact.metadata);
+                        let raw_source = nef_source.unwrap_or(target_file.as_str());
+                        let (source_field, truncated) = clamp_nef_source_with_flag(raw_source);
+                        if truncated {
+                            errors.push(json!({
+                                "component": "neo-solidity",
+                                "severity": "warning",
+                                "type": "NefSourceTruncated",
+                                "code": "NEF_SOURCE_TRUNCATED",
+                                "sourceLocation": { "file": target_file },
+                                "formattedMessage": format!(
+                                    "NEF source exceeds {} bytes and will be truncated",
+                                    NEF_SOURCE_MAX_BYTES
+                                ),
+                                "message": format!(
+                                    "NEF source exceeds {} bytes and will be truncated",
+                                    NEF_SOURCE_MAX_BYTES
+                                ),
+                            }));
+                        }
+
                         let compiled_contract = build_compiled_contract_value(
                             &target_file,
                             &artifact,
                             &abi_entries,
                             &request.settings,
                             source_keccak,
+                            Some(source_field.as_ref()),
                         );
 
                         let per_file_value = contracts_output
@@ -182,15 +204,66 @@ pub(crate) fn diagnostic_to_standard_error(
         DiagnosticSeverity::Warning => "warning",
         DiagnosticSeverity::Error => "error",
     };
+    let code = infer_validation_code(&diagnostic.message, diagnostic.severity);
 
     json!({
         "component": "neo-solidity",
         "severity": severity,
         "type": "Validation",
+        "code": code,
         "sourceLocation": { "file": file },
         "formattedMessage": diagnostic.message,
         "message": diagnostic.message,
     })
+}
+
+pub(crate) fn infer_validation_code(message: &str, severity: DiagnosticSeverity) -> &'static str {
+    let msg = message.to_ascii_lowercase();
+
+    if msg.contains("duplicate function signature") {
+        "DUPLICATE_SIGNATURE"
+    } else if msg.contains("duplicate parameter name") {
+        "DUPLICATE_PARAMETER_NAME"
+    } else if msg.contains("unsupported type") && msg.contains("parameter") {
+        "UNSUPPORTED_PARAMETER_TYPE"
+    } else if msg.contains("unsupported type") && msg.contains("state variable") {
+        "UNSUPPORTED_STATE_TYPE"
+    } else if msg.contains("unsupported type") && msg.contains("return type") {
+        "UNSUPPORTED_RETURN_TYPE"
+    } else if msg.contains("unsupported type") {
+        "UNSUPPORTED_TYPE"
+    } else if msg.contains("constructor must not specify a return type") {
+        "INVALID_CONSTRUCTOR_RETURN"
+    } else if msg.contains("multiple constructors defined") {
+        "MULTIPLE_CONSTRUCTORS"
+    } else if msg.contains("state variable declared without a name") {
+        "STATE_VARIABLE_NAME_MISSING"
+    } else if msg.contains("duplicate state variable") {
+        "DUPLICATE_STATE_VARIABLE"
+    } else if msg.contains("constant state variable") && msg.contains("must have an initializer") {
+        "CONSTANT_MISSING_INITIALIZER"
+    } else if msg.contains("may not use 'storage'") {
+        "INVALID_STORAGE_PARAM"
+    } else if msg.contains("return value") && msg.contains("storage") {
+        "INVALID_STORAGE_RETURN"
+    } else if msg.contains("returns multiple values") {
+        "MULTIPLE_RETURN_VALUES_UNSUPPORTED"
+    } else if msg.contains("expected") && msg.contains("return") && msg.contains("values") {
+        "RETURN_MISMATCH"
+    } else if msg.contains("returns") && msg.contains("may not map cleanly") {
+        "RETURN_TYPE_UNMAPPED"
+    } else if msg.contains("return type") && msg.contains("unsupported") {
+        "UNSUPPORTED_RETURN_TYPE"
+    } else if msg.contains("event") && msg.contains("exceeds neo abi limits") {
+        "EVENT_PARAM_LIMIT"
+    } else if msg.contains("declares a return type but has no implementation") {
+        "MISSING_IMPLEMENTATION_RETURN"
+    } else {
+        match severity {
+            DiagnosticSeverity::Warning => "VALIDATION_WARNING",
+            DiagnosticSeverity::Error => "VALIDATION_ERROR",
+        }
+    }
 }
 
 pub(crate) fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
@@ -302,7 +375,10 @@ pub(crate) fn build_compiled_contract_value(
     abi_entries: &[Value],
     settings: &Value,
     source_keccak: Option<&str>,
+    nef_source: Option<&str>,
 ) -> Value {
+    let raw_source = nef_source.unwrap_or(file_name);
+    let (source_field, _) = clamp_nef_source_with_flag(raw_source);
     let script_hex = hex::encode(&artifact.bytecode);
     let bytecode_object = format!("0x{script_hex}");
     let metadata_blob = build_metadata_blob(
@@ -316,7 +392,8 @@ pub(crate) fn build_compiled_contract_value(
 
     let storage_map = build_storage_map(&artifact.metadata);
     let manifest = artifact.manifest.clone();
-    let nef_bytes = build_nef(&artifact.bytecode, COMPILER_ID, VERSION);
+    let nef_bytes =
+        build_nef_with_tokens(&artifact.bytecode, COMPILER_ID, source_field.as_ref(), &[]);
     let checksum = if nef_bytes.len() >= 4 {
         hex::encode(&nef_bytes[nef_bytes.len() - 4..])
     } else {
@@ -346,7 +423,7 @@ pub(crate) fn build_compiled_contract_value(
             "nef": {
                 "magic": "NEF3",
                 "compiler": COMPILER_ID,
-                "source": file_name,
+                "source": source_field.as_ref(),
                 "tokens": [],
                 "script": script_hex,
                 "image": nef_image,
@@ -482,6 +559,11 @@ pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
         return "Hash160";
     }
 
+    // Hash types (must check before generic bytes handling)
+    if ty == "bytes32" || ty == "hash256" {
+        return "Hash256";
+    }
+
     // Fixed-size byte arrays (bytes1-32)
     if ty == "bytes" {
         return "ByteArray";
@@ -490,15 +572,14 @@ pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
         // bytes1, bytes2, ..., bytes32 are fixed-size
         if let Some(size_str) = ty.strip_prefix("bytes") {
             if size_str.parse::<u8>().is_ok() {
-                return "ByteArray";
+                return if size_str == "32" {
+                    "Hash256"
+                } else {
+                    "ByteArray"
+                };
             }
         }
         return "ByteArray";
-    }
-
-    // Hash types
-    if ty == "bytes32" || ty == "hash256" {
-        return "Hash256";
     }
 
     // Void/empty return type

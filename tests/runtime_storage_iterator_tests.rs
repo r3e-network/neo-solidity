@@ -12,28 +12,32 @@ fn storage_find_respects_prefix_and_overlay() {
     ctx.bind_storage(account, &mut storage).expect("bind");
 
     // Overlay change: delete "aa", add "ab"
+    // NeoVM stack is LIFO, so for syscalls:
+    // - Storage.Delete(context, key): push context first, then key
+    // - Storage.Put(context, key, value): push context first, then key, then value
     ctx.initialize(
         &[
             // Delete key "aa"
-            0x0C, 0x02, b'a', b'a', // key "aa"
-            0x41, 155, 246, 103, 206, // Storage.GetContext
-            0x41, 47, 88, 197, 237, // Storage.Delete
+            // Stack order for Delete: context (bottom), key (top)
+            0x41, 155, 246, 103, 206, // Storage.GetContext -> pushes context
+            0x0C, 0x02, b'a', b'a', // key "aa" -> pushes key on top
+            0x41, 47, 88, 197, 237, // Storage.Delete (pops key, then context)
             // Put key "ab" = "2"
-            0x0C, 0x02, b'a', b'b', // key "ab"
-            0x0C, 0x01, b'2', // value "2"
-            0x41, 155, 246, 103, 206, // Storage.GetContext
-            0x50, // SWAP to reorder stack [key, context, value]
-            0x41, 230, 63, 24, 132, // Storage.Put
+            // Stack order for Put: context (bottom), key (middle), value (top)
+            0x41, 155, 246, 103, 206, // Storage.GetContext -> pushes context
+            0x0C, 0x02, b'a', b'b', // key "ab" -> pushes key
+            0x0C, 0x01, b'2', // value "2" -> pushes value on top
+            0x41, 230, 63, 24, 132, // Storage.Put (pops value, key, context)
             // Find with prefix "a"
             0x41, 155, 246, 103, 206, // Storage.GetContext
             0x0C, 0x01, b'a', // prefix "a"
             0x41, 223, 48, 184, 154, // Storage.Find
             // Advance iterator and read first value
-            0x41, 156, 8, 237, 156, // Iterator.Next
-            0x45,                   // DROP bool
-            0x41, 243, 84, 191, 29, // Iterator.Value
-            0x50,                   // SWAP to drop iterator token
-            0x45,                   // DROP token
+            0x41, 156, 8, 237, 156,  // Iterator.Next
+            0x45, // DROP bool
+            0x41, 243, 84, 191, 29,   // Iterator.Value
+            0x50, // SWAP to drop iterator token
+            0x45, // DROP token
             0x40, // RET
         ],
         &[],

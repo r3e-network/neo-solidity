@@ -1,4 +1,5 @@
 use super::*;
+use neo_solidity::neo::NEF_SOURCE_MAX_BYTES;
 use neo_solidity::solidity::StateMutability;
 use sha3::{Digest, Keccak256};
 use std::fs;
@@ -41,6 +42,7 @@ fn standard_json_includes_keccak_and_identifiers() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should succeed");
 
@@ -115,6 +117,7 @@ fn standard_json_handles_multiple_sources() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should succeed");
 
@@ -205,6 +208,7 @@ fn standard_json_handles_multiple_contracts_per_source() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should succeed");
 
@@ -271,6 +275,7 @@ fn standard_json_reports_missing_content_error() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should surface errors but not fail");
 
@@ -305,7 +310,7 @@ fn standard_json_rejects_non_solidity_language() {
     )
     .expect("write input");
 
-    let result = process_standard_json(input_path.to_str().unwrap(), None, 2);
+    let result = process_standard_json(input_path.to_str().unwrap(), None, 2, None);
     assert!(
         result
             .err()
@@ -338,6 +343,7 @@ fn standard_json_reports_no_contracts() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should surface errors but not fail");
 
@@ -349,6 +355,68 @@ fn standard_json_reports_no_contracts() {
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["type"], Value::String("NoContracts".into()));
     assert_eq!(errors[0]["severity"], Value::String("error".into()));
+}
+
+#[test]
+fn standard_json_carries_features_and_permissions() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract Bank {
+        mapping(address => uint256) public balances;
+
+        function deposit() public payable {
+            balances[msg.sender] += msg.value;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "Bank.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+        None,
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let manifest = &output["contracts"]["Bank.sol"]["Bank"]["neo"]["manifest"];
+    assert!(
+        manifest["features"]["storage"].as_bool().unwrap_or(false),
+        "storage feature should be true when mappings are present"
+    );
+    assert!(
+        manifest["features"]["payable"].as_bool().unwrap_or(false),
+        "payable feature should be true when deposit is payable"
+    );
+
+    let permissions = manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+    assert!(
+        permissions.is_empty(),
+        "no external calls should produce an empty permissions list"
+    );
 }
 
 #[test]
@@ -373,14 +441,17 @@ fn solidity_types_map_to_manifest_types() {
     assert_eq!(solidity_to_manifest_type("int8"), "Integer");
     assert_eq!(solidity_to_manifest_type("bool"), "Boolean");
     assert_eq!(solidity_to_manifest_type("address"), "Hash160");
-    assert_eq!(solidity_to_manifest_type("bytes32"), "ByteArray");
+    assert_eq!(solidity_to_manifest_type("bytes32"), "Hash256");
     assert_eq!(solidity_to_manifest_type("string"), "String");
     // Arrays should correctly return "Array" regardless of element type
     assert_eq!(solidity_to_manifest_type("uint256[]"), "Array");
     assert_eq!(solidity_to_manifest_type("address[]"), "Array");
     assert_eq!(solidity_to_manifest_type("bool[]"), "Array");
     // Mappings should return "Map"
-    assert_eq!(solidity_to_manifest_type("mapping(address => uint256)"), "Map");
+    assert_eq!(
+        solidity_to_manifest_type("mapping(address => uint256)"),
+        "Map"
+    );
     assert_eq!(solidity_to_manifest_type("customStruct"), "Any");
 }
 
@@ -441,6 +512,7 @@ fn standard_json_reports_unsupported_settings_warning() {
         input_path.to_str().unwrap(),
         Some(output_path.to_str().unwrap()),
         2,
+        None,
     )
     .expect("standard-json processing should succeed");
 
@@ -454,5 +526,204 @@ fn standard_json_reports_unsupported_settings_warning() {
             .iter()
             .any(|err| err["type"] == "UnsupportedSettings"),
         "expected UnsupportedSettings warning when unsupported settings are present"
+    );
+}
+
+#[test]
+fn standard_json_warns_when_nef_source_truncated() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let long_source = "s".repeat(NEF_SOURCE_MAX_BYTES + 10);
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract C {
+        function f() public pure returns (uint256) { return 1; }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "C.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+        Some(&long_source),
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().unwrap_or(&Vec::new()).clone();
+    assert!(
+        errors.iter().any(|err| {
+            err["type"] == "NefSourceTruncated"
+                && err["severity"] == "warning"
+                && err["code"] == "NEF_SOURCE_TRUNCATED"
+        }),
+        "expected NefSourceTruncated warning"
+    );
+
+    let source_value = output["contracts"]["C.sol"]["C"]["neo"]["nef"]["source"]
+        .as_str()
+        .expect("nef source string");
+    assert_eq!(source_value.len(), NEF_SOURCE_MAX_BYTES);
+}
+
+#[test]
+fn standard_json_emits_codes_for_validation_errors() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    contract D {
+        function foo(uint256 a) public {}
+        function foo(uint256 a) public {}
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "D.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+        None,
+    )
+    .expect("standard-json processing should succeed with validation errors");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().unwrap_or(&Vec::new()).clone();
+    assert!(
+        errors
+            .iter()
+            .any(|err| err["code"] == "DUPLICATE_SIGNATURE"),
+        "expected duplicate signature error code"
+    );
+}
+
+#[test]
+fn standard_json_codes_for_invalid_storage_param() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    contract E {
+        function foo(uint256[] storage x) public {}
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "E.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+        None,
+    )
+    .expect("standard-json processing should succeed with validation errors");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().unwrap_or(&Vec::new()).clone();
+    assert!(
+        errors
+            .iter()
+            .any(|err| err["code"] == "INVALID_STORAGE_PARAM"),
+        "expected invalid storage param code"
+    );
+}
+
+#[test]
+fn standard_json_codes_for_unsafe_external_type() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    contract Unsafe {
+        function foo(string storage x) external {}
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "Unsafe.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        2,
+        None,
+    )
+    .expect("standard-json processing should surface validation errors");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().unwrap_or(&Vec::new()).clone();
+    assert!(
+        errors
+            .iter()
+            .any(|err| err["code"] == "INVALID_STORAGE_PARAM"),
+        "expected invalid storage param code"
     );
 }

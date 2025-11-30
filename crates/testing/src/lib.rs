@@ -95,7 +95,7 @@ pub struct TestFailure {
 }
 
 /// Performance metrics for benchmarks
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PerformanceMetrics {
     pub avg_execution_time_ns: u64,
     pub min_execution_time_ns: u64,

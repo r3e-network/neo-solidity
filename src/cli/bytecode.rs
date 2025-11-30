@@ -247,7 +247,7 @@ fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
         ValueType::Array(_) => bytecode.push(0xC2), // NEWARRAY0
         ValueType::Mapping { .. } => bytecode.push(0xC8), // NEWMAP
         ValueType::Struct { .. } => bytecode.push(0xC5), // NEWSTRUCT0
-        ValueType::Any => bytecode.push(0x0B), // NULL
+        ValueType::Any => bytecode.push(0x0B),      // NULL
     }
 }
 

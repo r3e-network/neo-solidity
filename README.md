@@ -248,7 +248,22 @@ neo-solc contract.sol --validate
 
 # Verbose output for debugging
 neo-solc contract.sol -v --debug
+
+# Override NEF source field and emit JSON warnings
+neo-solc contract.sol --nef-source https://example.com/src.sol --json-warnings
+
+# Emit structured errors to stderr as JSON
+neo-solc contract.sol --json-errors
+
+Structured diagnostics (stderr):
+- Warnings (JSON): `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`, validation codes (e.g., `DUPLICATE_SIGNATURE`, `INVALID_STORAGE_PARAM`)
+- Errors (JSON): `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`
 ```
+
+> **Structured diagnostics:**  
+> - `--json-warnings` emits warnings as JSON lines on stderr (codes: `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`).  
+> - `--json-errors` emits errors as JSON lines on stderr (codes: `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`).  
+> These flags do not alter file outputs; they only change how diagnostics are printed.
 
 #### Batch Operations
 

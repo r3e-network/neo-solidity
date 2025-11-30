@@ -445,7 +445,9 @@ pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
             | "System.Blockchain.GetValidators"
             | "System.Blockchain.GetBlockHash" => 1,
             // Contract / native calls
-            "System.Contract.Call" | "System.Contract.CallEx" | "System.Contract.GetCallFlags" => 10,
+            "System.Contract.Call" | "System.Contract.CallEx" | "System.Contract.GetCallFlags" => {
+                10
+            }
             "System.Contract.CreateStandardAccount" | "System.Contract.CreateMultisigAccount" => 10,
             "System.ContractManagement.Deploy"
             | "System.ContractManagement.Update"

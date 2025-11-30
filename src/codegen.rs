@@ -445,7 +445,9 @@ impl CodeGenerator {
 }
 
 // Compute Neo N3 interop ID (first 4 bytes of SHA-256 of method name, little-endian order)
-fn interop_id_bytes(name: &str) -> [u8; 4] {
+/// Compute the 4-byte interop ID for a Neo syscall name
+/// This is used to identify syscalls in NeoVM bytecode
+pub fn interop_id_bytes(name: &str) -> [u8; 4] {
     let mut hasher = Sha256::new();
     hasher.update(name.as_bytes());
     let digest = hasher.finalize();

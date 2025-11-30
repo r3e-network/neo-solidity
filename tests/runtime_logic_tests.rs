@@ -63,9 +63,9 @@ fn bool_alias_opcodes_match_originals() {
 fn convert_coerces_to_boolean_and_bytearray() {
     // Integer 1 -> CONVERT to Boolean (0x20) should yield true
     let code = [
-        0x11,       // value 1
+        0x11, // value 1
         0x00, 0x20, // PUSHINT8 0x20 (Boolean)
-        0xDB,       // CONVERT
+        0xDB, // CONVERT
         0x40,
     ];
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
@@ -75,9 +75,9 @@ fn convert_coerces_to_boolean_and_bytearray() {
 
     // Boolean false -> CONVERT to ByteArray (0x28) should yield [0]
     let code2 = [
-        0x09,       // PUSHF (boolean false)
+        0x09, // PUSHF (boolean false)
         0x00, 0x28, // target type bytearray
-        0xDB,       // CONVERT
+        0xDB, // CONVERT
         0x40,
     ];
     let mut ctx2 = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");

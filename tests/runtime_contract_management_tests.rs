@@ -16,11 +16,21 @@ fn deploy_and_update_contract_tracks_state() {
     // Deploy: params [nef, manifest]
     let deploy_id = syscall_id("System.ContractManagement.Deploy");
     let deploy = vec![
-        0x0C, 0x02, 0xAA, 0xAB, // nef bytes
-        0x0C, 0x02, 0xBA, 0xBB, // manifest bytes
-        0x12,                   // count=2
-        0xC0,                   // PACK -> params array
-        0x41, deploy_id[0], deploy_id[1], deploy_id[2], deploy_id[3],
+        0x0C,
+        0x02,
+        0xAA,
+        0xAB, // nef bytes
+        0x0C,
+        0x02,
+        0xBA,
+        0xBB, // manifest bytes
+        0x12, // count=2
+        0xC0, // PACK -> params array
+        0x41,
+        deploy_id[0],
+        deploy_id[1],
+        deploy_id[2],
+        deploy_id[3],
         0x40, // RET
     ];
 
@@ -34,11 +44,21 @@ fn deploy_and_update_contract_tracks_state() {
     // Update with new nef/manifest
     let update_id = syscall_id("System.ContractManagement.Update");
     let update = vec![
-        0x0C, 0x02, 0xCC, 0xCD, // nef bytes
-        0x0C, 0x02, 0xDC, 0xDD, // manifest bytes
-        0x12,                   // count=2
-        0xC0,                   // PACK
-        0x41, update_id[0], update_id[1], update_id[2], update_id[3],
+        0x0C,
+        0x02,
+        0xCC,
+        0xCD, // nef bytes
+        0x0C,
+        0x02,
+        0xDC,
+        0xDD, // manifest bytes
+        0x12, // count=2
+        0xC0, // PACK
+        0x41,
+        update_id[0],
+        update_id[1],
+        update_id[2],
+        update_id[3],
         0x40,
     ];
     ctx.initialize(&update, &[]).expect("init");

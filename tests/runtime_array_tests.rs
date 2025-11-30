@@ -121,14 +121,14 @@ fn packmap_builds_map_and_supports_pickitem() {
     // key "a" -> 1, key "b" -> 2, count=2 -> PACKMAP -> push "a" -> PICKITEM -> RET
     let code = [
         0x0C, 0x01, b'a', // key a
-        0x11,             // value 1
+        0x11, // value 1
         0x0C, 0x01, b'b', // key b
-        0x12,             // value 2
-        0x12,             // count=2
-        0xBE,             // PACKMAP
+        0x12, // value 2
+        0x12, // count=2
+        0xBE, // PACKMAP
         0x0C, 0x01, b'a', // key a again
-        0xCE,             // PICKITEM
-        0x40,             // RET
+        0xCE, // PICKITEM
+        0x40, // RET
     ];
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");

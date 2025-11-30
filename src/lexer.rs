@@ -289,3 +289,533 @@ impl Lexer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==================== Basic Token Tests ====================
+
+    #[test]
+    fn test_empty_input() {
+        let mut lexer = Lexer::new("");
+        let tokens = lexer.tokenize().unwrap();
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn test_whitespace_only() {
+        let mut lexer = Lexer::new("   \t\n  ");
+        let tokens = lexer.tokenize().unwrap();
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn test_braces() {
+        let mut lexer = Lexer::new("{ }");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token_type, TokenType::LeftBrace);
+        assert_eq!(tokens[1].token_type, TokenType::RightBrace);
+    }
+
+    #[test]
+    fn test_parentheses() {
+        let mut lexer = Lexer::new("( )");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token_type, TokenType::LeftParen);
+        assert_eq!(tokens[1].token_type, TokenType::RightParen);
+    }
+
+    #[test]
+    fn test_comma() {
+        let mut lexer = Lexer::new(",");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Comma);
+    }
+
+    // ==================== Operator Tests ====================
+
+    #[test]
+    fn test_plus_operator() {
+        let mut lexer = Lexer::new("+");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Plus);
+    }
+
+    #[test]
+    fn test_minus_operator() {
+        let mut lexer = Lexer::new("-");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Minus);
+    }
+
+    #[test]
+    fn test_arrow_operator() {
+        let mut lexer = Lexer::new("->");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Arrow);
+        assert_eq!(tokens[0].value, "->");
+    }
+
+    #[test]
+    fn test_assignment_operator() {
+        let mut lexer = Lexer::new(":=");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Assignment);
+        assert_eq!(tokens[0].value, ":=");
+    }
+
+    // ==================== Keyword Tests ====================
+
+    #[test]
+    fn test_let_keyword() {
+        let mut lexer = Lexer::new("let");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Let);
+    }
+
+    #[test]
+    fn test_if_keyword() {
+        let mut lexer = Lexer::new("if");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::If);
+    }
+
+    #[test]
+    fn test_else_keyword() {
+        let mut lexer = Lexer::new("else");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Else);
+    }
+
+    #[test]
+    fn test_for_keyword() {
+        let mut lexer = Lexer::new("for");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::For);
+    }
+
+    #[test]
+    fn test_switch_keyword() {
+        let mut lexer = Lexer::new("switch");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Switch);
+    }
+
+    #[test]
+    fn test_case_keyword() {
+        let mut lexer = Lexer::new("case");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Case);
+    }
+
+    #[test]
+    fn test_default_keyword() {
+        let mut lexer = Lexer::new("default");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Default);
+    }
+
+    #[test]
+    fn test_leave_keyword() {
+        let mut lexer = Lexer::new("leave");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Leave);
+    }
+
+    #[test]
+    fn test_break_keyword() {
+        let mut lexer = Lexer::new("break");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Break);
+    }
+
+    #[test]
+    fn test_continue_keyword() {
+        let mut lexer = Lexer::new("continue");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Continue);
+    }
+
+    #[test]
+    fn test_function_keyword() {
+        let mut lexer = Lexer::new("function");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Function);
+    }
+
+    // ==================== Builtin Function Tests ====================
+
+    #[test]
+    fn test_arithmetic_builtins() {
+        let builtins = ["add", "sub", "mul", "div", "mod"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+            assert_eq!(tokens[0].value, builtin);
+        }
+    }
+
+    #[test]
+    fn test_comparison_builtins() {
+        let builtins = ["eq", "lt", "gt", "iszero"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_bitwise_builtins() {
+        let builtins = ["and", "or", "xor", "not", "shl", "shr", "sar"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_memory_builtins() {
+        let builtins = ["mload", "mstore"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_storage_builtins() {
+        let builtins = ["sload", "sstore"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_crypto_builtins() {
+        let builtins = ["keccak256", "sha256", "ripemd160", "ecrecover"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_context_builtins() {
+        let builtins = ["caller", "callvalue", "gas", "origin", "address", "balance"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_block_builtins() {
+        let builtins = ["timestamp", "number", "blockhash", "coinbase"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_log_builtins() {
+        let builtins = ["log0", "log1", "log2", "log3", "log4"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    #[test]
+    fn test_call_builtins() {
+        let builtins = ["call", "callcode", "delegatecall", "staticcall"];
+        for builtin in builtins {
+            let mut lexer = Lexer::new(builtin);
+            let tokens = lexer.tokenize().unwrap();
+            assert_eq!(tokens.len(), 1);
+            assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        }
+    }
+
+    // ==================== Identifier Tests ====================
+
+    #[test]
+    fn test_simple_identifier() {
+        let mut lexer = Lexer::new("foo");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(tokens[0].value, "foo");
+    }
+
+    #[test]
+    fn test_identifier_with_underscore() {
+        let mut lexer = Lexer::new("_bar");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(tokens[0].value, "_bar");
+    }
+
+    #[test]
+    fn test_identifier_with_numbers() {
+        let mut lexer = Lexer::new("baz123");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(tokens[0].value, "baz123");
+    }
+
+    // ==================== Number Literal Tests ====================
+
+    #[test]
+    fn test_decimal_number() {
+        let mut lexer = Lexer::new("42");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "42");
+    }
+
+    #[test]
+    fn test_zero() {
+        let mut lexer = Lexer::new("0");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "0");
+    }
+
+    #[test]
+    fn test_hex_number_lowercase() {
+        let mut lexer = Lexer::new("0xdeadbeef");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "0xdeadbeef");
+    }
+
+    #[test]
+    fn test_hex_number_uppercase() {
+        let mut lexer = Lexer::new("0XABCDEF");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "0xABCDEF");
+    }
+
+    #[test]
+    fn test_hex_number_mixed_case() {
+        let mut lexer = Lexer::new("0x123AbC");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "0x123AbC");
+    }
+
+    // ==================== String Literal Tests ====================
+
+    #[test]
+    fn test_simple_string() {
+        let mut lexer = Lexer::new("\"hello\"");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "\"hello\"");
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let mut lexer = Lexer::new("\"\"");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "\"\"");
+    }
+
+    #[test]
+    fn test_string_with_escape() {
+        let mut lexer = Lexer::new("\"hello\\nworld\"");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Literal);
+        assert_eq!(tokens[0].value, "\"hello\\nworld\"");
+    }
+
+    #[test]
+    fn test_unterminated_string() {
+        let mut lexer = Lexer::new("\"hello");
+        let result = lexer.tokenize();
+        assert!(result.is_err());
+    }
+
+    // ==================== Comment Tests ====================
+
+    #[test]
+    fn test_line_comment() {
+        let mut lexer = Lexer::new("// this is a comment\nfoo");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(tokens[0].value, "foo");
+    }
+
+    #[test]
+    fn test_comment_at_end() {
+        let mut lexer = Lexer::new("foo // comment");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
+    }
+
+    // ==================== Position Tracking Tests ====================
+
+    #[test]
+    fn test_line_tracking() {
+        let mut lexer = Lexer::new("a\nb\nc");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens[0].line, 1);
+        assert_eq!(tokens[1].line, 2);
+        assert_eq!(tokens[2].line, 3);
+    }
+
+    #[test]
+    fn test_column_tracking() {
+        let mut lexer = Lexer::new("abc def");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens[0].column, 1);
+        assert_eq!(tokens[1].column, 5);
+    }
+
+    // ==================== Complex Expression Tests ====================
+
+    #[test]
+    fn test_variable_declaration() {
+        let mut lexer = Lexer::new("let x := 42");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].token_type, TokenType::Let);
+        assert_eq!(tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(tokens[2].token_type, TokenType::Assignment);
+        assert_eq!(tokens[3].token_type, TokenType::Literal);
+    }
+
+    #[test]
+    fn test_function_call() {
+        let mut lexer = Lexer::new("add(1, 2)");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens[0].token_type, TokenType::BuiltinFunction);
+        assert_eq!(tokens[1].token_type, TokenType::LeftParen);
+        assert_eq!(tokens[2].token_type, TokenType::Literal);
+        assert_eq!(tokens[3].token_type, TokenType::Comma);
+        assert_eq!(tokens[4].token_type, TokenType::Literal);
+        assert_eq!(tokens[5].token_type, TokenType::RightParen);
+    }
+
+    #[test]
+    fn test_function_definition() {
+        // function foo(a, b) -> result { }
+        // tokens: function, foo, (, a, ,, b, ), ->, result, {, }
+        let mut lexer = Lexer::new("function foo(a, b) -> result { }");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens.len(), 11);
+        assert_eq!(tokens[0].token_type, TokenType::Function);
+        assert_eq!(tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(tokens[7].token_type, TokenType::Arrow);
+    }
+
+    #[test]
+    fn test_if_statement() {
+        let mut lexer = Lexer::new("if eq(x, 0) { leave }");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens[0].token_type, TokenType::If);
+        assert_eq!(tokens[1].token_type, TokenType::BuiltinFunction);
+        assert!(tokens.iter().any(|t| t.token_type == TokenType::Leave));
+    }
+
+    #[test]
+    fn test_for_loop() {
+        let mut lexer = Lexer::new("for { let i := 0 } lt(i, 10) { i := add(i, 1) } { }");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens[0].token_type, TokenType::For);
+        assert!(tokens.iter().any(|t| t.token_type == TokenType::Let));
+        assert!(tokens
+            .iter()
+            .any(|t| t.token_type == TokenType::BuiltinFunction && t.value == "lt"));
+    }
+
+    #[test]
+    fn test_switch_statement() {
+        let mut lexer = Lexer::new("switch x case 0 { } case 1 { } default { }");
+        let tokens = lexer.tokenize().unwrap();
+        assert_eq!(tokens[0].token_type, TokenType::Switch);
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|t| t.token_type == TokenType::Case)
+                .count(),
+            2
+        );
+        assert!(tokens.iter().any(|t| t.token_type == TokenType::Default));
+    }
+
+    // ==================== Error Handling Tests ====================
+
+    #[test]
+    fn test_unexpected_character() {
+        let mut lexer = Lexer::new("@");
+        let result = lexer.tokenize();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_position() {
+        let mut lexer = Lexer::new("foo @");
+        let result = lexer.tokenize();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let msg = format!("{}", e);
+            assert!(msg.contains("line"));
+            assert!(msg.contains("column"));
+        }
+    }
+}

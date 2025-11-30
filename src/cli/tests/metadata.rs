@@ -175,9 +175,7 @@ fn supported_standards_flags_nep24() {
         documentation: NatspecDoc::default(),
     };
 
-    let methods = vec![
-        build_method("tokenUri"),
-    ];
+    let methods = vec![build_method("tokenUri")];
     let standards = detect_supported_standards(&methods);
     assert!(
         standards.iter().any(|s| s == "NEP-24"),

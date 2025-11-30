@@ -21,12 +21,29 @@ pub struct NeoVMCodeGenerator {
     local_variables: HashMap<String, LocalVariable>,
     static_variables: HashMap<String, StaticVariable>,
     functions: HashMap<String, FunctionInfo>,
+    /// Map of label names to their bytecode offsets (set when label is defined)
     labels: HashMap<String, u32>,
+    /// List of (bytecode_offset, label_name) pairs that need to be backfilled
+    /// These are locations where we wrote temporary zero bytes that will be replaced with actual label addresses
+    pending_label_refs: Vec<PendingLabelRef>,
     bytecode: Vec<u8>,
     current_offset: u32,
     stack_height: i32,
     max_stack_height: i32,
     debug_info: DebugInfo,
+}
+
+/// A pending label reference that needs to be backfilled
+#[derive(Debug, Clone)]
+struct PendingLabelRef {
+    /// Offset in bytecode where the temporary bytes were written
+    bytecode_offset: u32,
+    /// Name of the label being referenced
+    label_name: String,
+    /// Whether this is a relative offset (for JMP) or absolute address
+    is_relative: bool,
+    /// Size of the offset field (1, 2, or 4 bytes)
+    offset_size: u8,
 }
 
 /// NeoVM instruction set mapping
@@ -138,22 +155,31 @@ pub struct CodeGenResult {
 pub enum CodeGenError {
     #[error("Unsupported instruction: {instruction}")]
     UnsupportedInstruction { instruction: String },
-    
+
     #[error("Stack overflow at offset {offset}")]
     StackOverflow { offset: u32 },
-    
+
     #[error("Stack underflow at offset {offset}")]
     StackUnderflow { offset: u32 },
-    
+
     #[error("Undefined function: {name}")]
     UndefinedFunction { name: String },
-    
+
     #[error("Undefined variable: {name}")]
     UndefinedVariable { name: String },
-    
+
+    #[error("Undefined label: {name}")]
+    UndefinedLabel { name: String },
+
+    #[error("Label offset overflow for '{label}': offset {offset} exceeds range")]
+    LabelOffsetOverflow { label: String, offset: i32 },
+
     #[error("Invalid operand: {operand:?}")]
     InvalidOperand { operand: Operand },
-    
+
+    #[error("Internal error: {0}")]
+    InternalError(String),
+
     #[error("Code generation error: {message}")]
     Generic { message: String },
 }
@@ -372,6 +398,7 @@ impl NeoVMCodeGenerator {
             static_variables: HashMap::new(),
             functions: HashMap::new(),
             labels: HashMap::new(),
+            pending_label_refs: Vec::new(),
             bytecode: Vec::new(),
             current_offset: 0,
             stack_height: 0,
@@ -382,7 +409,7 @@ impl NeoVMCodeGenerator {
                 variable_map: HashMap::new(),
             },
         };
-        
+
         generator.initialize_builtin_mappings();
         generator
     }
@@ -459,7 +486,7 @@ impl NeoVMCodeGenerator {
                     return_count: func.returns.len() as u8,
                     local_count: 0, // Will be calculated during generation
                     address: 0, // Will be set during generation
-                    is_public: true, // All functions are public for now
+                    is_public: true, // Yul functions are exported as public by default
                 };
                 
                 self.functions.insert(func.name.clone(), func_info);
@@ -856,14 +883,28 @@ impl NeoVMCodeGenerator {
                     self.bytecode.extend_from_slice(bytes);
                     self.current_offset += bytes.len() as u32;
                 },
-                Operand::String(_) => {
-                    // String operands are labels - will be resolved later
-                    self.bytecode.extend_from_slice(&[0u8; 4]); // Placeholder
+                Operand::String(label_name) => {
+                    // String operands are labels - record for backfilling
+                    let placeholder_offset = self.bytecode.len() as u32;
+                    self.bytecode.extend_from_slice(&[0u8; 4]); // 4-byte placeholder
+                    self.pending_label_refs.push(PendingLabelRef {
+                        bytecode_offset: placeholder_offset,
+                        label_name: label_name.clone(),
+                        is_relative: true, // JMP instructions use relative offsets
+                        offset_size: 4,
+                    });
                     self.current_offset += 4;
                 },
-                Operand::Address(_) => {
-                    // Address operands - will be resolved later
-                    self.bytecode.extend_from_slice(&[0u8; 4]); // Placeholder
+                Operand::Address(label_name) => {
+                    // Address operands are absolute label addresses - record for backfilling
+                    let placeholder_offset = self.bytecode.len() as u32;
+                    self.bytecode.extend_from_slice(&[0u8; 4]); // 4-byte placeholder
+                    self.pending_label_refs.push(PendingLabelRef {
+                        bytecode_offset: placeholder_offset,
+                        label_name: label_name.clone(),
+                        is_relative: false, // Absolute address
+                        offset_size: 4,
+                    });
                     self.current_offset += 4;
                 },
             }
@@ -993,10 +1034,67 @@ impl NeoVMCodeGenerator {
         10 // Default allocation
     }
 
-    /// Resolve label references
+    /// Resolve label references by backfilling placeholder bytes with actual addresses
     fn resolve_labels(&mut self) -> Result<(), CodeGenError> {
-        // This would iterate through bytecode and resolve label references
-        // For now, just a placeholder
+        // Process all pending label references
+        for label_ref in &self.pending_label_refs {
+            // Look up the label's address
+            let label_address = self.labels.get(&label_ref.label_name).ok_or_else(|| {
+                CodeGenError::UndefinedLabel {
+                    name: label_ref.label_name.clone(),
+                }
+            })?;
+
+            // Calculate the value to write
+            let value = if label_ref.is_relative {
+                // Relative offset: target - (current_instruction_end)
+                // The instruction that references the label ends at bytecode_offset + offset_size
+                let instruction_end = label_ref.bytecode_offset + label_ref.offset_size as u32;
+                (*label_address as i64 - instruction_end as i64) as i32
+            } else {
+                // Absolute address
+                *label_address as i32
+            };
+
+            // Write the resolved value back into the bytecode
+            let offset = label_ref.bytecode_offset as usize;
+            match label_ref.offset_size {
+                1 => {
+                    if value < i8::MIN as i32 || value > i8::MAX as i32 {
+                        return Err(CodeGenError::LabelOffsetOverflow {
+                            label: label_ref.label_name.clone(),
+                            offset: value,
+                        });
+                    }
+                    self.bytecode[offset] = value as u8;
+                }
+                2 => {
+                    if value < i16::MIN as i32 || value > i16::MAX as i32 {
+                        return Err(CodeGenError::LabelOffsetOverflow {
+                            label: label_ref.label_name.clone(),
+                            offset: value,
+                        });
+                    }
+                    let bytes = (value as i16).to_le_bytes();
+                    self.bytecode[offset..offset + 2].copy_from_slice(&bytes);
+                }
+                4 => {
+                    let bytes = value.to_le_bytes();
+                    self.bytecode[offset..offset + 4].copy_from_slice(&bytes);
+                }
+                _ => {
+                    return Err(CodeGenError::InternalError(format!(
+                        "Invalid offset size: {}",
+                        label_ref.offset_size
+                    )));
+                }
+            }
+        }
+
+        // Clear pending refs after resolution
+        // Note: We don't clear here because we might need them for debugging
+        // self.pending_label_refs.clear();
+
         Ok(())
     }
 
