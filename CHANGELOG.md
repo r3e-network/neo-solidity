@@ -5,6 +5,32 @@ All notable changes to the Neo Solidity Compiler project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.9] - 2025-12-13
+
+### Added
+- Comprehensive module-level documentation across 15+ source files
+- Integration tests for gas accounting and contract management
+- 8 new unit tests for bytecode helper functions
+- Main.rs documentation and README known limitations section
+
+### Changed
+- Refactored CLI into modular crate structure
+- Extracted bytecode emitter into dedicated module
+- Removed unused compiler directory (-7,230 lines)
+- Split large modules into logical submodules using include! macro
+
+### Fixed
+- All clippy warnings resolved across codebase
+- Removed placeholder comments and improved code documentation
+- Applied rustfmt formatting consistently
+
+### Improved
+- Code quality with production-ready documentation
+- Test coverage now at 295+ passing tests
+- Cleaner module organization following SOLID principles
+
+---
+
 ## [1.0.0] - 2024-08-22
 
 ### Added
