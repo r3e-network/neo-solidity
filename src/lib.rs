@@ -14,9 +14,15 @@
 //!
 //! Author: Jimmy <jimmy@r3e.network>
 
+// Allow referring to this crate by name (`neo_solidity::...`) internally.
+extern crate self as neo_solidity;
+
 // Core compilation modules
 pub mod ir;
 pub mod solidity;
+
+// Public CLI APIs (standard-json, NEF/manifest output, etc.)
+pub mod cli;
 
 // Yul language support modules
 pub mod codegen;

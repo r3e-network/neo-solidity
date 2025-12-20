@@ -1,0 +1,10 @@
+include!("execution_impl_part2_native/crypto.rs");
+include!("execution_impl_part2_native/stdlib.rs");
+include!("execution_impl_part2_native/neo.rs");
+include!("execution_impl_part2_native/gas.rs");
+include!("execution_impl_part2_native/policy.rs");
+include!("execution_impl_part2_native/oracle.rs");
+include!("execution_impl_part2_native/contract_management.rs");
+include!("execution_impl_part2_native/role_management.rs");
+include!("execution_impl_part2_native/ledger.rs");
+include!("execution_impl_part2_native/dispatch.rs");

@@ -4,18 +4,33 @@ use solang_parser::pt::Identifier;
 #[test]
 fn lower_emit_pushes_event_name_before_args() {
     let state_index_map = HashMap::new();
+    let state_variables: Vec<StateVariableMetadata> = Vec::new();
     let event_index_map = HashMap::new();
+    let event_signature_map: HashMap<String, Vec<ManifestType>> = HashMap::new();
+    let enum_variant_map: HashMap<String, HashMap<String, u64>> = HashMap::new();
+    let contract_types = HashSet::new();
+    let selector_registry = SelectorRegistry::default();
     let function_names = HashSet::new();
+    let function_overloads: HashMap<(String, usize), String> = HashMap::new();
     let state_types: Vec<ValueType> = Vec::new();
+    let defined_struct_types: Vec<ValueType> = Vec::new();
 
     let mut ctx = LoweringContext::new(
         "test_emit",
+        false,
         HashMap::new(),
         &[],
+        &state_variables,
         &state_index_map,
         &state_types,
+        &defined_struct_types,
         &event_index_map,
+        &event_signature_map,
+        &enum_variant_map,
+        &contract_types,
+        &selector_registry,
         &function_names,
+        &function_overloads,
     );
 
     let expr = Expression::FunctionCall(

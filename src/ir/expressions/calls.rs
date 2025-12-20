@@ -1,0 +1,9 @@
+include!("calls/storage_array.rs");
+include!("calls/value_transfer.rs");
+include!("calls/low_level.rs");
+include!("calls/type_constructors.rs");
+include!("calls/struct_constructors.rs");
+include!("calls/builtins.rs");
+include!("calls/member_calls.rs");
+include!("calls/variable_calls.rs");
+include!("calls/dispatch.rs");

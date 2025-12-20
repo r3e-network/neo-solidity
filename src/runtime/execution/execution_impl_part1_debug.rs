@@ -1,0 +1,68 @@
+impl ExecutionContext {
+    /// Enable debugging
+    pub fn enable_debugging(&mut self) {
+        self.debugging_enabled = true;
+    }
+
+    /// Disable debugging
+    pub fn disable_debugging(&mut self) {
+        self.debugging_enabled = false;
+    }
+
+    /// Set breakpoint
+    pub fn set_breakpoint(&mut self, address: u32) {
+        self.breakpoints.insert(address);
+    }
+
+    /// Remove breakpoint
+    pub fn remove_breakpoint(&mut self, address: u32) {
+        self.breakpoints.remove(&address);
+    }
+
+    /// Step through one instruction
+    pub fn step(&mut self) -> Result<StepResult, RuntimeError> {
+        if self.instruction_pointer as usize >= self.bytecode.len() {
+            return Ok(StepResult {
+                instruction_pointer: self.instruction_pointer,
+                opcode: "HALT".to_string(),
+                stack_items: self.stack.clone(),
+                gas_used: self.gas_used,
+                memory_changes: Vec::new(),
+                halted: true,
+            });
+        }
+
+        let opcode = self.bytecode[self.instruction_pointer as usize];
+        let opcode_name = self.get_opcode_name(opcode);
+        let old_gas = self.gas_used;
+
+        // Execute the current instruction
+        match self.execute_instruction(opcode) {
+            Ok(()) => {}
+            Err(e) => {
+                if matches!(e, RuntimeError::OutOfGas { .. }) {
+                    return Err(e);
+                }
+
+                if self.try_stack.is_empty() {
+                    return Err(e);
+                }
+
+                self.dispatch_exception(e.to_string())?;
+            }
+        }
+
+        self.instruction_count += 1;
+        self.max_stack_depth = self.max_stack_depth.max(self.stack.len() as u32);
+        let halted = self.instruction_pointer as usize >= self.bytecode.len();
+
+        Ok(StepResult {
+            instruction_pointer: self.instruction_pointer,
+            opcode: opcode_name,
+            stack_items: self.stack.clone(),
+            gas_used: self.gas_used - old_gas,
+            memory_changes: Vec::new(), // Would track actual changes
+            halted,
+        })
+    }
+}

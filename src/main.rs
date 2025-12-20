@@ -5,24 +5,27 @@
 //! # Usage
 //!
 //! ```bash
-//! # Compile a single file
-//! neo-solc input.sol -o output/
+//! # Compile a single file (writes .nef + .manifest.json)
+//! neo-solc input.sol -o build/
 //!
-//! # Use standard JSON interface
+//! # Batch compile multiple input files into a directory
+//! neo-solc contracts/*.sol -o build/
+//!
+//! # Use standard JSON interface (stdin/stdout)
 //! neo-solc --standard-json < input.json > output.json
 //!
+//! # Or via explicit files
+//! neo-solc --standard-json --input input.json --output output.json
+//!
 //! # Set optimization level (0-3)
-//! neo-solc input.sol -o output/ -O 3
+//! neo-solc input.sol -o build/ -O 3
 //! ```
 //!
 //! # Output Files
 //!
 //! - `*.nef` - Neo Executable Format bytecode
 //! - `*.manifest.json` - Contract manifest for deployment
-//! - `*.abi.json` - Application Binary Interface
-
-mod cli;
 
 fn main() {
-    cli::run();
+    neo_solidity::cli::run();
 }

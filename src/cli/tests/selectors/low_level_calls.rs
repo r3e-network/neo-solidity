@@ -1,0 +1,380 @@
+// Low-level call tests
+//
+// Tests for:
+// - abi.encodeWithSelector for low-level calls
+// - Low-level call/staticcall lowering
+// - External member calls with read-only flags
+// - Syscalls.contractCall in view functions
+
+#[test]
+fn encode_with_selector_recovers_method_name_for_low_level_calls() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    interface IFoo {
+        function bar(uint256 x) external returns (bool);
+    }
+
+    contract CallHarness {
+        function run(address target) public {
+            target.call(abi.encodeWithSelector(IFoo.bar.selector, 1));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "CallHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::String(bytes)) if bytes == b"bar"
+        )),
+        "expected low-level call lowering to recover method name from `.selector`"
+    );
+}
+
+#[test]
+fn low_level_call_lowers_to_contract_call_and_returns_tuple() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    interface IFoo {
+        function bar(uint256 x) external returns (bool);
+    }
+
+    contract CallHarness {
+        function run(address target) public returns (bool ok) {
+            (bool success, bytes memory data) = target.call(abi.encodeWithSelector(IFoo.bar.selector, 1));
+            data;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "CallHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level call lowering to use the ContractCall builtin"
+    );
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(true))
+        )),
+        "expected low-level call lowering to set success=true on the happy path"
+    );
+}
+
+#[test]
+fn low_level_staticcall_uses_contract_call_with_flags() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract StaticHarness {
+        function run(address target) public view returns (bool ok) {
+            (bool success, bytes memory data) = target.staticcall(abi.encodeWithSignature("foo()"));
+            data;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "StaticHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCallWithFlags,
+                arg_count: 4
+            }
+        )),
+        "expected `staticcall` lowering to use ContractCallWithFlags"
+    );
+
+    let read_only_flags = BigInt::from(0x05u8);
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::Integer(value)) if value == &read_only_flags
+        )),
+        "expected `staticcall` lowering to push CallFlags.ReadOnly (0x05)"
+    );
+}
+
+#[test]
+fn low_level_call_supports_intermediate_call_data_variable() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract CallDataHarness {
+        function run(address target) public returns (bool ok) {
+            bytes memory data = abi.encodeWithSignature("foo(uint256)", 7);
+            (bool success, bytes memory out) = target.call(data);
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "CallDataHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level call lowering to use the ContractCall builtin"
+    );
+}
+
+#[test]
+fn low_level_call_supports_constant_signature_string() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract ConstSigHarness {
+        string constant SIG = "foo(uint256)";
+
+        function run(address target) public returns (bool ok) {
+            bytes memory data = abi.encodeWithSignature(SIG, 7);
+            (bool success, bytes memory out) = target.call(data);
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "ConstSigHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::String(bytes)) if bytes == b"foo"
+        )),
+        "expected const signature to resolve to method name 'foo'"
+    );
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level call lowering to use the ContractCall builtin"
+    );
+}
+
+#[test]
+fn external_member_calls_use_read_only_flags_in_view_functions() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    interface IFoo {
+        function bar(uint256 x) external view returns (uint256);
+    }
+
+    contract ExternalViewHarness {
+        function run(address target) public view returns (uint256) {
+            return IFoo(target).bar(1);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "ExternalViewHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::Syscall(name),
+                arg_count: 4
+            } if name == "System.Contract.Call"
+        )),
+        "expected external member call lowering to use the System.Contract.Call syscall"
+    );
+
+    let read_only_flags = BigInt::from(0x05u8);
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::Integer(value)) if value == &read_only_flags
+        )),
+        "expected external calls from view functions to push CallFlags.ReadOnly (0x05)"
+    );
+}
+
+#[test]
+fn syscalls_contract_call_defaults_to_read_only_in_view_functions() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    library Syscalls {
+        function contractCall(address scriptHash, string memory method, bytes memory params) internal returns (bytes memory) {
+            scriptHash;
+            method;
+            params;
+            return "";
+        }
+    }
+
+    contract SyscallViewHarness {
+        function run(address target) public view returns (bytes memory) {
+            return Syscalls.contractCall(target, "foo", abi.encode(uint256(1)));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "SyscallViewHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCallWithFlags,
+                arg_count: 4
+            }
+        )),
+        "expected Syscalls.contractCall to lower to ContractCallWithFlags in view context"
+    );
+
+    let read_only_flags = BigInt::from(0x05u8);
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::Integer(value)) if value == &read_only_flags
+        )),
+        "expected view-context Syscalls.contractCall lowering to push CallFlags.ReadOnly (0x05)"
+    );
+}

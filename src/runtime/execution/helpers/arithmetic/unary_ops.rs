@@ -1,0 +1,67 @@
+impl ExecutionContext {
+    fn sign_stack_item(&self, value: StackItem) -> Result<i64, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => Ok(v.signum()),
+            StackItem::UnsignedInteger(v) => Ok(if v == 0 { 0 } else { 1 }),
+            StackItem::Boolean(b) => Ok(if b { 1 } else { 0 }),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for SIGN".to_string(),
+            }),
+        }
+    }
+
+    fn abs_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => {
+                v.checked_abs()
+                    .map(StackItem::Integer)
+                    .ok_or(RuntimeError::ExecutionError {
+                        message: "ABS overflow".to_string(),
+                    })
+            }
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v)),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for ABS".to_string(),
+            }),
+        }
+    }
+
+    fn negate_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_neg())),
+            StackItem::UnsignedInteger(v) => {
+                if v <= i64::MAX as u64 {
+                    Ok(StackItem::Integer(-(v as i64)))
+                } else {
+                    Err(RuntimeError::ExecutionError {
+                        message: "NEGATE overflow for unsigned value".to_string(),
+                    })
+                }
+            }
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for NEGATE".to_string(),
+            }),
+        }
+    }
+
+    fn inc_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_add(1))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_add(1))),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for INC".to_string(),
+            }),
+        }
+    }
+
+    fn dec_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+        match value {
+            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_sub(1))),
+            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_sub(1))),
+            _ => Err(RuntimeError::ExecutionError {
+                message: "Invalid operand for DEC".to_string(),
+            }),
+        }
+    }
+}
+

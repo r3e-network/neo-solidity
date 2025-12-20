@@ -1,0 +1,224 @@
+fn build_combined_source_with_import_validation(
+    sources: &[(String, String, String)],
+    errors: &mut Vec<Value>,
+) -> String {
+    use solang_parser::pt::{Import, ImportPath, SourceUnitPart};
+    use std::collections::{HashMap, HashSet, VecDeque};
+    use std::path::{Component, Path};
+
+    fn normalize_virtual_path(path: &Path) -> String {
+        let mut components: Vec<String> = Vec::new();
+        for comp in path.components() {
+            match comp {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    components.pop();
+                }
+                Component::Normal(part) => components.push(part.to_string_lossy().to_string()),
+                Component::Prefix(_) | Component::RootDir => {}
+            }
+        }
+        components.join("/")
+    }
+
+    fn resolve_import_key(from_file: &str, import_path: &str, available: &HashSet<String>) -> Option<String> {
+        let import = Path::new(import_path);
+        if import.is_absolute() && available.contains(import_path) {
+            return Some(import_path.to_string());
+        }
+
+        let from_dir = Path::new(from_file).parent().unwrap_or_else(|| Path::new(""));
+        let candidate = normalize_virtual_path(&from_dir.join(import));
+        if available.contains(&candidate) {
+            return Some(candidate);
+        }
+
+        // Fallbacks when sources use canonicalized/trimmed paths.
+        if available.contains(import_path) {
+            return Some(import_path.to_string());
+        }
+        if let Some(stripped) = import_path.strip_prefix("./") {
+            let candidate = normalize_virtual_path(&from_dir.join(stripped));
+            if available.contains(&candidate) {
+                return Some(candidate);
+            }
+            if available.contains(stripped) {
+                return Some(stripped.to_string());
+            }
+        }
+
+        None
+    }
+
+    fn push_error(errors: &mut Vec<Value>, file: &str, typ: &str, message: String) {
+        errors.push(json!({
+            "component": "neo-solidity",
+            "severity": "error",
+            "type": typ,
+            "sourceLocation": { "file": file },
+            "formattedMessage": message,
+            "message": message,
+        }));
+    }
+
+    let available: HashSet<String> = sources.iter().map(|(name, _, _)| name.clone()).collect();
+    let mut content_map: HashMap<String, String> = HashMap::new();
+    for (name, content, _) in sources {
+        content_map.insert(name.clone(), content.clone());
+    }
+
+    let mut deps: HashMap<String, Vec<String>> = HashMap::new();
+    for (file_name, content, _) in sources {
+        let (unit, _comments) = match solang_parser::parse(content, 0) {
+            Ok(parsed) => parsed,
+            Err(diags) => {
+                let summary = diags
+                    .iter()
+                    .map(|d| d.message.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                push_error(
+                    errors,
+                    file_name,
+                    "ImportParseError",
+                    format!("failed to parse source to resolve imports: {summary}"),
+                );
+                continue;
+            }
+        };
+
+        let mut imports: Vec<String> = Vec::new();
+        for part in unit.0.iter() {
+            let SourceUnitPart::ImportDirective(import) = part else {
+                continue;
+            };
+
+            match import {
+                Import::Plain(path, _) => {
+                    if let ImportPath::Filename(lit) = path {
+                        imports.push(lit.string.clone());
+                    } else {
+                        push_error(
+                            errors,
+                            file_name,
+                            "UnsupportedImportPath",
+                            "unsupported import path kind (path imports are not supported)".to_string(),
+                        );
+                    }
+                }
+                Import::Rename(path, renames, _) => {
+                    if renames.iter().any(|(_, alias)| alias.is_some()) {
+                        push_error(
+                            errors,
+                            file_name,
+                            "UnsupportedImportSyntax",
+                            "unsupported import aliasing (use `import \"...\";` instead)".to_string(),
+                        );
+                        continue;
+                    }
+                    if let ImportPath::Filename(lit) = path {
+                        imports.push(lit.string.clone());
+                    } else {
+                        push_error(
+                            errors,
+                            file_name,
+                            "UnsupportedImportPath",
+                            "unsupported import path kind (path imports are not supported)".to_string(),
+                        );
+                    }
+                }
+                Import::GlobalSymbol(_, _, _) => {
+                    push_error(
+                        errors,
+                        file_name,
+                        "UnsupportedImportSyntax",
+                        "unsupported import form: `import * as X from \"...\"`".to_string(),
+                    );
+                }
+            }
+        }
+
+        let mut resolved: Vec<String> = Vec::new();
+        for import in imports {
+            if let Some(key) = resolve_import_key(file_name, &import, &available) {
+                resolved.push(key);
+            } else {
+                push_error(
+                    errors,
+                    file_name,
+                    "MissingImport",
+                    format!("import '{import}' not found in standard JSON sources"),
+                );
+            }
+        }
+        deps.insert(file_name.clone(), resolved);
+    }
+
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut visiting: HashSet<String> = HashSet::new();
+    let mut stack: VecDeque<String> = VecDeque::new();
+    let mut order: Vec<String> = Vec::new();
+
+    fn dfs(
+        node: &str,
+        deps: &HashMap<String, Vec<String>>,
+        visited: &mut HashSet<String>,
+        visiting: &mut HashSet<String>,
+        stack: &mut VecDeque<String>,
+        order: &mut Vec<String>,
+        errors: &mut Vec<Value>,
+    ) {
+        if visited.contains(node) {
+            return;
+        }
+        if !visiting.insert(node.to_string()) {
+            let mut chain: Vec<String> = stack.iter().cloned().collect();
+            chain.push(node.to_string());
+            push_error(
+                errors,
+                node,
+                "ImportCycle",
+                format!("import cycle detected: {}", chain.join(" -> ")),
+            );
+            return;
+        }
+
+        stack.push_back(node.to_string());
+        if let Some(children) = deps.get(node) {
+            for dep in children {
+                dfs(dep, deps, visited, visiting, stack, order, errors);
+            }
+        }
+        stack.pop_back();
+
+        visiting.remove(node);
+        visited.insert(node.to_string());
+        order.push(node.to_string());
+    }
+
+    for (file, _, _) in sources {
+        dfs(
+            file,
+            &deps,
+            &mut visited,
+            &mut visiting,
+            &mut stack,
+            &mut order,
+            errors,
+        );
+    }
+
+    let mut combined = String::new();
+    for (idx, file) in order.iter().enumerate() {
+        let Some(content) = content_map.get(file) else {
+            continue;
+        };
+        if idx > 0 {
+            combined.push_str("\n\n");
+        }
+        combined.push_str(&format!("// --- {file}\n"));
+        combined.push_str(content);
+    }
+
+    combined
+}

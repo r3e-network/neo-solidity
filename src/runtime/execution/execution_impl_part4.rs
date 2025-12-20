@@ -1,0 +1,9 @@
+include!("instruction/dispatch.rs");
+include!("instruction/push.rs");
+include!("instruction/flow.rs");
+include!("instruction/syscall.rs");
+include!("instruction/stack.rs");
+include!("instruction/bytes.rs");
+include!("instruction/arithmetic.rs");
+include!("instruction/slots.rs");
+include!("instruction/collections.rs");

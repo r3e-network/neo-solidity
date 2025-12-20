@@ -1,0 +1,42 @@
+fn convert_event(event: EventIR) -> EventMetadata {
+    let normalized = normalize_event_signature(&event.name, &event.parameters);
+    EventMetadata {
+        name: event.name,
+        normalized_name: normalized,
+        parameters: event
+            .parameters
+            .into_iter()
+            .map(|param| EventParameter {
+                name: param.name,
+                ty: param.ty,
+                indexed: param.indexed,
+            })
+            .collect(),
+    }
+}
+
+fn normalize_event_signature(name: &str, params: &[crate::frontend::EventParameterIR]) -> String {
+    fn canonical_param_type(ty: &str) -> String {
+        let mut parts = ty.split_whitespace();
+        match parts.next() {
+            Some("struct") | Some("enum") => parts.next().unwrap_or_default().to_string(),
+            Some(first) => first.to_string(),
+            None => String::new(),
+        }
+    }
+
+    let base = name.trim().to_ascii_lowercase();
+    let param_types: Vec<String> = params
+        .iter()
+        .map(|param| canonical_param_type(&param.ty).to_ascii_lowercase())
+        .collect();
+
+    // `event Foo` with no parameters is valid Solidity syntax (treated as Foo()).
+    if param_types.is_empty() {
+        format!("{base}()")
+    } else {
+        // Preserve the declared order; Neo ABI dispatches events by name only,
+        // so we use this signature only for de-duplication and validation.
+        format!("{base}({})", param_types.join(","))
+    }
+}

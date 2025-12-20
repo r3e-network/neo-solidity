@@ -1,0 +1,133 @@
+fn lower_expression_statement(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if let Expression::Assign(_, lhs, rhs) = expr {
+        lower_assignment(lhs, rhs, ctx, instructions);
+    } else if let Expression::FunctionCall(_, func, args) = expr {
+        if let Expression::Variable(identifier) = func.as_ref() {
+            if identifier.name == "require" {
+                lower_require(args, ctx, instructions);
+                return false;
+            }
+            if identifier.name == "assert" {
+                lower_assert(args, ctx, instructions);
+                return false;
+            }
+        }
+        if lower_expression(expr, ctx, instructions) {
+            instructions.push(Instruction::Drop(ValueType::Any));
+        }
+    } else if lower_expression(expr, ctx, instructions) {
+        instructions.push(Instruction::Drop(ValueType::Any));
+    }
+    false
+}
+
+fn lower_variable_definition_statement(
+    decl: &solang_parser::pt::VariableDeclaration,
+    init: Option<&Expression>,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if let Some(ident) = &decl.name {
+        if ctx.is_local_in_current_scope(&ident.name) {
+            ctx.record_error(format!("local variable '{}' redeclared", ident.name));
+        } else {
+            let is_storage_reference = matches!(decl.storage, Some(PtStorageLocation::Storage(_)));
+            let mut inferred_type = if is_storage_reference {
+                None
+            } else {
+                infer_type_from_expression(&decl.ty, ctx)
+            };
+
+            // Best-effort: infer user-defined struct types for locals so that member
+            // access (`tmp.field`) can be lowered correctly for memory copies.
+            if !is_storage_reference && inferred_type.is_none() {
+                if let Expression::Variable(type_ident) = &decl.ty {
+                    inferred_type = ctx
+                        .defined_struct_types
+                        .iter()
+                        .chain(ctx.state_types.iter())
+                        .chain(ctx.param_types.iter())
+                        .chain(ctx.return_types.iter())
+                        .chain(ctx.local_types.values())
+                        .find_map(|ty| find_named_struct_type(ty, &type_ident.name));
+                }
+            }
+
+            let slot = ctx.allocate_local(ident.name.clone(), inferred_type.clone());
+            if let Some(initializer) = init {
+                if is_storage_reference {
+                    if let Some(reference) = resolve_storage_reference(initializer, ctx) {
+                        ctx.set_storage_alias(ident.name.clone(), reference);
+                    } else if lower_expression(initializer, ctx, instructions) {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                } else {
+                    match parse_low_level_call_data(initializer, ctx) {
+                        Ok(Some((method_name, encode_args))) => {
+                            // Support `bytes data = abi.encodeWithSignature/encodeWithSelector(...)`
+                            // for subsequent `address.call(data)` lowering.
+                            let mut lowered = true;
+                            for arg in encode_args {
+                                if !lower_expression(arg, ctx, instructions) {
+                                    lowered = false;
+                                }
+                            }
+
+                            if lowered {
+                                instructions.push(Instruction::CallBuiltin {
+                                    builtin: BuiltinCall::AbiEncode,
+                                    arg_count: encode_args.len(),
+                                });
+                                instructions.push(Instruction::StoreLocal(slot));
+                                ctx.set_call_data_local(slot, method_name);
+                            }
+                        }
+                        Ok(None) => {
+                            if lower_expression(initializer, ctx, instructions) {
+                                instructions.push(Instruction::StoreLocal(slot));
+                                ctx.clear_call_data_local(slot);
+                            }
+                        }
+                        Err(message) => {
+                            ctx.record_error(message);
+                            ctx.clear_call_data_local(slot);
+                        }
+                    }
+                }
+            } else if !is_storage_reference {
+                if let Some(value_type) = inferred_type.as_ref() {
+                    push_default_for_value_type(value_type, ctx, instructions);
+                } else {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::from(0u8),
+                    )));
+                }
+                instructions.push(Instruction::StoreLocal(slot));
+                ctx.clear_call_data_local(slot);
+            }
+        }
+    } else {
+        ctx.record_error("variable declaration missing identifier");
+    }
+    false
+}
+
+fn lower_emit_statement(
+    call: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    lower_emit(call, ctx, instructions);
+    false
+}
+
+fn lower_assembly_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+    if !lower_special_assembly(ctx, instructions) {
+        ctx.record_error("inline assembly is not supported");
+    }
+    false
+}

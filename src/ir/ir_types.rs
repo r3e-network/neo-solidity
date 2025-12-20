@@ -1,0 +1,290 @@
+#[derive(Debug)]
+pub struct Module {
+    pub functions: Vec<Function>,
+    pub state_variables: Vec<StateVariable>,
+    pub events: Vec<Event>,
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: String,
+    pub kind: FunctionKind,
+    pub parameters: Vec<ValueType>,
+    pub returns: Vec<ValueType>,
+    pub basic_blocks: Vec<BasicBlock>,
+    pub local_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionKind {
+    Constructor,
+    Regular,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StateVariable {
+    pub name: Option<String>,
+    pub ty: ValueType,
+    pub is_constant: bool,
+    pub is_immutable: bool,
+    pub storage_key: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Event {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BasicBlock {
+    pub instructions: Vec<Instruction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuntimeValue {
+    MsgSender,
+    MsgValue,
+    MsgData,
+    TxOrigin,
+    BlockTimestamp,
+    BlockNumber,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Instruction {
+    Drop(ValueType),
+    LoadParameter(usize),
+    PushLiteral(LiteralValue),
+    Return,
+    ReturnVoid,
+    ReturnDefault(ValueType),
+    BinaryOp(BinaryOperator),
+    LoadState(usize),
+    StoreState(usize),
+    LoadStorageDynamic,
+    LoadLocal(usize),
+    StoreLocal(usize),
+    LoadMappingElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+    },
+    StoreMappingElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+    },
+    LoadStructField {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        field_type: ValueType,
+    },
+    StoreStructField {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        field_type: ValueType,
+    },
+    LoadStructArrayElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        element_type: ValueType,
+    },
+    StoreStructArrayElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        element_type: ValueType,
+    },
+    LoadRuntimeValue(RuntimeValue),
+    GetSize,
+    CallFunction {
+        name: String,
+        arg_count: usize,
+    },
+    CallBuiltin {
+        builtin: BuiltinCall,
+        arg_count: usize,
+    },
+    EmitEvent {
+        event_index: usize,
+        arg_count: usize,
+    },
+    EmitEventByName {
+        name: String,
+        arg_count: usize,
+    },
+    /// NeoVM `CONVERT` opcode. Converts the top stack item to a different StackItemType.
+    Convert {
+        target: ConvertTarget,
+    },
+    /// Allocate a new mutable buffer (NeoVM `NEWBUFFER`) whose length is taken from the stack.
+    /// Used to implement Solidity `new bytes(n)` / `new string(n)` allocations.
+    NewBuffer,
+    NewArray {
+        element_type: ValueType,
+    },
+    ArrayGet,
+    ArraySet,
+    /// NeoVM MEMCPY opcode: copy a slice of bytes into a buffer.
+    /// Stack order (bottom -> top): [dst, dst_offset, src, src_offset, count]
+    MemCpy,
+    /// NeoVM REVERSEITEMS opcode: reverse an Array/Buffer in place.
+    /// Note: consumes one reference and does not push it back.
+    ReverseItems,
+    BitwiseNot,
+    Try {
+        catch_target: usize,
+    },
+    EndTry {
+        target: usize,
+    },
+    Jump {
+        target: usize,
+    },
+    JumpIf {
+        target: usize,
+    },
+    Label(usize),
+    /// NeoVM THROW - raises a catchable exception using the value on the stack.
+    Throw,
+    AbortMsg,
+    Abort,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LiteralValue {
+    Integer(BigInt),
+    Boolean(bool),
+    String(Vec<u8>),
+    ByteArray(Vec<u8>),
+    Address(Vec<u8>),
+    Null,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConvertTarget {
+    Any,
+    Boolean,
+    Integer,
+    ByteArray,
+    Array,
+    Map,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValueType {
+    Integer {
+        signed: bool,
+        bits: u16,
+    },
+    Boolean,
+    String,
+    Address,
+    ByteArray {
+        fixed_len: Option<u16>,
+    },
+    Array(Box<ValueType>),
+    Mapping {
+        key: Box<ValueType>,
+        value: Box<ValueType>,
+    },
+    Struct {
+        name: String,
+        fields: Vec<StructField>,
+    },
+    Any,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ManifestType {
+    Integer,
+    Boolean,
+    String,
+    Hash160,
+    Hash256,
+    ByteArray,
+    Array,
+    Map,
+    Any,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructField {
+    pub name: String,
+    pub ty: ValueType,
+    pub key: [u8; 32],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Eq,
+    Ne,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NativeContract {
+    Neo,
+    Gas,
+    ContractManagement,
+    Policy,
+    Oracle,
+    RoleManagement,
+    Ledger,
+    CryptoLib,
+    StdLib,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuiltinCall {
+    RuntimeNotify,
+    RuntimeCheckWitness,
+    AbiEncode,
+    AbiEncodePacked,
+    AbiEncodeWithSignature,
+    AbiDecode,
+    Keccak256,
+    Ecrecover,
+    StorageFind,
+    StoragePut,
+    StorageGet,
+    StorageDelete,
+    ContractCall,
+    ContractCallWithFlags,
+    NotifySerialized,
+    VerifySignature,
+    /// Convenience wrapper for `ContractManagement.deploy` that returns only the deployed
+    /// contract hash (UInt160) rather than the full `ContractState`.
+    DeployContract,
+    /// Convenience wrapper for `ContractManagement.getContract` that reshapes the returned
+    /// `ContractState` into a devpack-friendly struct:
+    /// `[hash, nef, serialize(manifest), updateCounter]`.
+    GetContract,
+    /// Convenience wrapper for fetching the NEF file from a contract state.
+    /// This is exposed as `Syscalls.getContractScript` in the devpack.
+    GetContractScript,
+    /// Convenience wrapper for `NeoToken.getAccountState` that:
+    /// - Returns a default struct when the native contract returns `null`.
+    /// - Normalizes the `voteTo` field to an empty byte string when it is `null`.
+    GetNeoAccountState,
+    NativeCall {
+        contract: NativeContract,
+        method: String,
+    },
+    Syscall(String),
+    TypeOf,
+}

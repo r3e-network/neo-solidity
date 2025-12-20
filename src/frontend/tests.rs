@@ -1,0 +1,108 @@
+use super::*;
+
+#[test]
+fn parse_natspec_extracts_title() {
+    let text = "@title My Token\n@author Alice";
+    let doc = parse_natspec(text);
+    assert_eq!(doc.title, Some("My Token".to_string()));
+    assert_eq!(doc.author, Some("Alice".to_string()));
+}
+
+#[test]
+fn parse_natspec_extracts_notice_and_dev() {
+    let text = "@notice This is a token\n@dev Internal implementation";
+    let doc = parse_natspec(text);
+    assert_eq!(doc.notice, Some("This is a token".to_string()));
+    assert_eq!(doc.dev, Some("Internal implementation".to_string()));
+}
+
+#[test]
+fn parse_natspec_extracts_params() {
+    let text = "@param to The recipient address\n@param amount The amount to send";
+    let doc = parse_natspec(text);
+    assert_eq!(doc.params.len(), 2);
+    assert_eq!(
+        doc.params[0],
+        ("to".to_string(), "The recipient address".to_string())
+    );
+    assert_eq!(
+        doc.params[1],
+        ("amount".to_string(), "The amount to send".to_string())
+    );
+}
+
+#[test]
+fn parse_natspec_extracts_return() {
+    let text = "@return The balance amount\n@return success Whether it succeeded";
+    let doc = parse_natspec(text);
+    assert_eq!(doc.returns.len(), 2);
+    assert_eq!(doc.returns[0], "The balance amount");
+    assert_eq!(doc.returns[1], "success Whether it succeeded");
+}
+
+#[test]
+fn parse_natspec_extracts_custom_tags() {
+    let text = "@custom:security-contact security@example.com\n@custom:version 1.0.0";
+    let doc = parse_natspec(text);
+    assert_eq!(doc.custom.len(), 2);
+    assert_eq!(
+        doc.custom[0],
+        (
+            "security-contact".to_string(),
+            "security@example.com".to_string()
+        )
+    );
+    assert_eq!(doc.custom[1], ("version".to_string(), "1.0.0".to_string()));
+}
+
+#[test]
+fn clean_doc_comment_removes_prefixes() {
+    assert_eq!(clean_doc_comment("/// Hello"), "Hello");
+    assert_eq!(clean_doc_comment("/** Hello */"), "Hello");
+    assert_eq!(clean_doc_comment("   * Hello"), "Hello");
+    assert_eq!(clean_doc_comment("Hello"), "Hello");
+}
+
+#[test]
+fn parse_source_captures_contract_doc() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/// @title Test Contract
+/// @author Test Author
+contract Test {
+    function foo() public pure returns (uint256) {
+        return 42;
+    }
+}
+"#;
+    let contracts = parse_source(source).expect("should parse");
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(contracts[0].doc.title, Some("Test Contract".to_string()));
+    assert_eq!(contracts[0].doc.author, Some("Test Author".to_string()));
+}
+
+#[test]
+fn parse_source_captures_function_doc() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Test {
+    /// @notice Get the value
+    /// @param x The input value
+    /// @return The output value
+    function getValue(uint256 x) public pure returns (uint256) {
+        return x * 2;
+    }
+}
+"#;
+    let contracts = parse_source(source).expect("should parse");
+    assert_eq!(contracts.len(), 1);
+    let func = &contracts[0].functions[0];
+    assert_eq!(func.doc.notice, Some("Get the value".to_string()));
+    assert_eq!(func.doc.params.len(), 1);
+    assert_eq!(func.doc.params[0].0, "x");
+    assert_eq!(func.doc.returns.len(), 1);
+}
