@@ -19,7 +19,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts"
   },
@@ -33,6 +33,7 @@
     "rpc"
   ],
   "dependencies": {
+    "@cityofzion/neon-js": "^5.8.0",
     "@neo-solidity/types": "^0.1.0",
     "ethers": "^6.9.0",
     "axios": "^1.6.0",

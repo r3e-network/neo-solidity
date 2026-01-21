@@ -2,8 +2,6 @@
 /target/
 /build/
 **/target/
-Cargo.lock
-!Cargo.lock
 
 # Node.js
 node_modules/
@@ -37,10 +35,12 @@ examples/out/
 .claude-flow/
 .hive-mind/
 .claude/
+.serena/
 
 # Test artifacts
 *.nef
 *.manifest.json
+*.asm
 !examples/**/*.nef
 !examples/**/*.manifest.json
 

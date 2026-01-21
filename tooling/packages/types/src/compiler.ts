@@ -1,5 +1,3 @@
-import { BigNumber } from '@ethersproject/bignumber';
-
 /**
  * Configuration for the Neo-Solidity compiler
  */
@@ -60,6 +58,7 @@ export interface CompilationOutput {
   sources: {
     [fileName: string]: {
       id: number;
+      keccak256?: string;
       ast?: any;
     };
   };
@@ -95,12 +94,17 @@ export interface CompiledContract {
   neo: {
     /** Neo VM bytecode */
     nef: {
-      magic: number;
+      /** NEF magic; for Neo N3 this is typically "NEF3" */
+      magic: string;
       compiler: string;
       source: string;
-      tokens: any[];
+      tokens: NeoMethodToken[];
+      /** Script hex without 0x prefix */
       script: string;
-      checksum: number;
+      /** Full NEF file bytes as hex (no 0x prefix) */
+      image: string;
+      /** NEF checksum as 8 hex chars (no 0x prefix) */
+      checksum: string;
     };
     /** Neo manifest */
     manifest: {
@@ -129,6 +133,15 @@ export interface CompiledContract {
       };
     };
   };
+}
+
+export interface NeoMethodToken {
+  /** Contract hash as 0x-prefixed big-endian hex */
+  hash: string;
+  method: string;
+  paramcount: number;
+  hasreturnvalue: boolean;
+  callflags: number;
 }
 
 /**
@@ -161,9 +174,10 @@ export interface NeoParameter {
  * Neo-specific gas estimation
  */
 export interface NeoGasEstimate {
-  gas: BigNumber;
-  systemFee: BigNumber;
-  networkFee: BigNumber;
+  /** Stringified integer (GAS in fractions) as emitted by standard-json output */
+  gas: string;
+  systemFee: string;
+  networkFee: string;
 }
 
 /**
@@ -247,19 +261,20 @@ export interface GasEstimates {
 export interface CompilationError {
   sourceLocation?: {
     file: string;
-    start: number;
-    end: number;
+    start?: number;
+    end?: number;
   };
   secondarySourceLocations?: Array<{
     file: string;
-    start: number;
-    end: number;
+    start?: number;
+    end?: number;
     message: string;
   }>;
-  type: 'TypeError' | 'ParserError' | 'Warning' | 'Info';
+  type: string;
   component: string;
   severity: 'error' | 'warning' | 'info';
   message: string;
+  code?: string;
   formattedMessage?: string;
 }
 

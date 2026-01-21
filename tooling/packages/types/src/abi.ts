@@ -12,7 +12,7 @@ export interface ABIEntry {
 export interface ABIInput {
   name: string;
   type: string;
-  indexed?: boolean;
+  indexed?: boolean | null;
   internalType?: string;
   components?: ABIInput[];
 }
@@ -106,8 +106,14 @@ export interface ABIRegistry {
   addError(abi: ABIEntry): void;
   
   getFunctionBySelector(selector: string): FunctionSelector | undefined;
+  getFunctionByName(name: string): FunctionSelector | undefined;
   getEventByTopic(topic: string): EventSelector | undefined;
+  getEventByName(name: string): EventSelector | undefined;
   getErrorBySelector(selector: string): ABIEntry | undefined;
+
+  getFunctionSelectors(): FunctionSelector[];
+  getEventSelectors(): EventSelector[];
+  getConstructors(): ABIEntry[];
   
   validateABI(abi: ContractABI): ABIValidationResult;
 }

@@ -114,7 +114,7 @@ library Runtime {
      * @dev Get all notifications for current transaction
      */
     function getNotifications() internal view returns (Syscalls.Notification[] memory) {
-        return Syscalls.getNotifications(address(0));
+        return Syscalls.getNotifications();
     }
     
     /**
@@ -136,6 +136,15 @@ library Runtime {
     function checkWitness(address account) internal view returns (bool) {
         bool success = Syscalls.checkWitness(account);
         emit WitnessVerified(account, success);
+        return success;
+    }
+
+    /**
+     * @dev Check witness by public key
+     */
+    function checkWitness(bytes memory publicKey) internal view returns (bool) {
+        bool success = Syscalls.checkWitness(publicKey);
+        emit WitnessVerified(address(0), success);
         return success;
     }
     
@@ -203,7 +212,7 @@ library Runtime {
         address executingContract,
         address callingContract,
         address entryContract,
-        Syscalls.TriggerType trigger,
+        uint8 trigger,
         uint256 gasLeft_,
         uint256 invocationCounter
     ) {
@@ -214,11 +223,32 @@ library Runtime {
         gasLeft_ = Syscalls.gasLeft();
         invocationCounter = Syscalls.getInvocationCounter();
     }
+
+    /**
+     * @dev Get current call flags
+     */
+    function getCallFlags() internal view returns (uint8) {
+        return Syscalls.getCallFlags();
+    }
+
+    /**
+     * @dev Get current script container
+     */
+    function getScriptContainer() internal view returns (Syscalls.Transaction memory) {
+        return Syscalls.getScriptContainer();
+    }
+
+    /**
+     * @dev Load script with arguments
+     */
+    function loadScript(bytes memory script, uint8 callFlags, bytes[] memory args) internal {
+        Syscalls.loadScript(script, callFlags, args);
+    }
     
     /**
      * @dev Check execution trigger type
      */
-    function getTriggerType() internal view returns (Syscalls.TriggerType) {
+    function getTriggerType() internal view returns (uint8) {
         return Syscalls.getTrigger();
     }
     
@@ -226,14 +256,14 @@ library Runtime {
      * @dev Check if in application trigger
      */
     function isApplicationTrigger() internal view returns (bool) {
-        return getTriggerType() == Syscalls.TriggerType.Application;
+        return getTriggerType() == Syscalls.TRIGGER_APPLICATION;
     }
-    
+
     /**
      * @dev Check if in verification trigger
      */
     function isVerificationTrigger() internal view returns (bool) {
-        return getTriggerType() == Syscalls.TriggerType.Verification;
+        return getTriggerType() == Syscalls.TRIGGER_VERIFICATION;
     }
     
     // ========== Gas Management ==========
@@ -669,7 +699,7 @@ library Runtime {
     /**
      * @dev Get platform information
      */
-    function getPlatformInfo() internal pure returns (
+    function getPlatformInfo() internal view returns (
         string memory platform,
         uint32 network,
         uint8 addressVersion
@@ -682,11 +712,11 @@ library Runtime {
     /**
      * @dev Check if running on specific network
      */
-    function isMainNet() internal pure returns (bool) {
+    function isMainNet() internal view returns (bool) {
         return Syscalls.getNetwork() == 860833102; // Neo N3 MainNet
     }
     
-    function isTestNet() internal pure returns (bool) {
+    function isTestNet() internal view returns (bool) {
         return Syscalls.getNetwork() == 894710606; // Neo N3 TestNet
     }
     
@@ -695,6 +725,13 @@ library Runtime {
      */
     function getInvocationCounter() internal view returns (uint256) {
         return Syscalls.getInvocationCounter();
+    }
+
+    /**
+     * @dev Get current transaction signers
+     */
+    function getCurrentSigners() internal view returns (Syscalls.Signer[] memory) {
+        return Syscalls.getCurrentSigners();
     }
     
     // ========== Advanced Runtime Features ==========

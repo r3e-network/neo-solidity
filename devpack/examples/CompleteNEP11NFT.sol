@@ -16,15 +16,13 @@ pragma solidity ^0.8.19;
  */
 
 import "../standards/NEP11.sol";
-import "../standards/NEP24.sol";
+import "../contracts/OracleService.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Storage.sol";
-import "../libraries/Runtime.sol";
 
-contract CompleteNEP11NFT is NEP11 {
+contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     using Neo for *;
     using Storage for *;
-    using Runtime for *;
     
     // Royalty system
     struct RoyaltyInfo {
@@ -51,7 +49,7 @@ contract CompleteNEP11NFT is NEP11 {
     bytes32[] private _activeListings;
     
     // Oracle integration for metadata
-    NEP24Oracle private _oracle;
+    OracleService private _oracle;
     mapping(bytes32 => string) private _metadataURLs;
     mapping(bytes32 => uint256) private _lastMetadataUpdate;
     
@@ -84,9 +82,27 @@ contract CompleteNEP11NFT is NEP11 {
     
     // Events
     event RoyaltySet(bytes32 indexed tokenId, address recipient, uint96 percentage);
-    event TokenListed(bytes32 indexed tokenId, address indexed seller, uint256 price);
+    event DefaultRoyaltySet(address recipient, uint96 percentage);
+    event TokenMintedWithMetadata(bytes32 indexed tokenId, address indexed to, string metadataURI);
+    event BatchMintWithMetadata(bytes32[] tokenIds, address[] recipients);
+    event TokenListed(bytes32 indexed tokenId, address indexed seller, uint256 price, address currency);
     event TokenSold(bytes32 indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
+    event ListingCancelled(bytes32 indexed tokenId, address indexed seller);
     event MetadataUpdated(bytes32 indexed tokenId, string newMetadata);
+    event CurationProposed(bytes32 indexed proposalId, bytes32 indexed tokenId, address indexed proposer);
+    event CurationVote(bytes32 indexed proposalId, address indexed voter);
+    event CurationExecuted(bytes32 indexed proposalId, bytes32 indexed tokenId);
+    event TokenFractionalized(
+        bytes32 indexed tokenId,
+        address indexed owner,
+        address shareContract,
+        uint256 shareCount,
+        string shareName,
+        string shareSymbol
+    );
+    event TokenCombined(bytes32 indexed tokenId, address indexed owner, address shareContract);
+    event BundleCreated(bytes32 indexed bundleId, bytes32[] tokenIds, string bundleName, uint256 bundlePrice);
+    event CollectionUpdated(string description, string externalURL, string imageURL);
     event CuratorAdded(address indexed curator);
     event CuratorRemoved(address indexed curator);
     event FloorPriceUpdated(uint256 newFloorPrice);
@@ -140,7 +156,7 @@ contract CompleteNEP11NFT is NEP11 {
         });
         
         if (oracleAddress != address(0)) {
-            _oracle = NEP24Oracle(oracleAddress);
+            _oracle = OracleService(oracleAddress);
         }
         
         // Set default royalty to 2.5%
@@ -179,8 +195,8 @@ contract CompleteNEP11NFT is NEP11 {
         if (royalty.isSet) {
             setTokenRoyalty(tokenId, royalty.recipient, royalty.percentage);
         }
-        
-        Runtime.notify("TokenMintedWithMetadata", abi.encode(tokenId, to, metadataURI));
+
+        emit TokenMintedWithMetadata(tokenId, to, metadataURI);
     }
     
     /**
@@ -202,8 +218,8 @@ contract CompleteNEP11NFT is NEP11 {
         for (uint256 i = 0; i < recipients.length; i++) {
             tokenIds[i] = mintWithMetadata(recipients[i], metadataURIs[i], properties[i], royalties[i]);
         }
-        
-        Runtime.notify("BatchMintWithMetadata", abi.encode(tokenIds, recipients));
+
+        emit BatchMintWithMetadata(tokenIds, recipients);
     }
     
     // ========== Royalty System ==========
@@ -225,7 +241,6 @@ contract CompleteNEP11NFT is NEP11 {
         });
         
         emit RoyaltySet(tokenId, recipient, percentage);
-        Runtime.notify("RoyaltySet", abi.encode(tokenId, recipient, percentage));
     }
     
     /**
@@ -243,8 +258,8 @@ contract CompleteNEP11NFT is NEP11 {
             percentage: percentage,
             isSet: true
         });
-        
-        Runtime.notify("DefaultRoyaltySet", abi.encode(recipient, percentage));
+
+        emit DefaultRoyaltySet(recipient, percentage);
     }
     
     /**
@@ -302,8 +317,7 @@ contract CompleteNEP11NFT is NEP11 {
         // Transfer token to contract for escrow
         _transfer(msg.sender, address(this), tokenId, "");
         
-        emit TokenListed(tokenId, msg.sender, price);
-        Runtime.notify("TokenListed", abi.encode(tokenId, msg.sender, price, currency));
+        emit TokenListed(tokenId, msg.sender, price, currency);
     }
     
     /**
@@ -365,7 +379,6 @@ contract CompleteNEP11NFT is NEP11 {
         _updateFloorPrice();
         
         emit TokenSold(tokenId, listing.seller, msg.sender, listing.price);
-        Runtime.notify("TokenSold", abi.encode(tokenId, listing.seller, msg.sender, listing.price));
     }
     
     /**
@@ -385,8 +398,8 @@ contract CompleteNEP11NFT is NEP11 {
         // Update listing
         listing.active = false;
         delete _tokenToListing[tokenId];
-        
-        Runtime.notify("ListingCancelled", abi.encode(tokenId, listing.seller));
+
+        emit ListingCancelled(tokenId, listing.seller);
     }
     
     // ========== Oracle Integration for Dynamic Metadata ==========
@@ -402,24 +415,16 @@ contract CompleteNEP11NFT is NEP11 {
         
         _metadataURLs[tokenId] = metadataURL;
         
-        return _oracle.request(
-            metadataURL,
-            "", // No filter, get full metadata
-            "metadataCallback",
-            abi.encode(tokenId),
-            20000000 // 0.2 GAS for response
-        );
+        return _oracle.request(metadataURL, "", abi.encode(tokenId), 20_000_000);
     }
     
     /**
-     * @dev Oracle metadata callback
+     * @dev Oracle callback (from OracleService)
      */
-    function metadataCallback(
-        uint256 requestId,
-        uint256 code,
-        bytes calldata result,
-        bytes calldata userData
-    ) external {
+    function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
+        external
+        override
+    {
         require(msg.sender == address(_oracle), "CompleteNEP11: unauthorized oracle response");
         
         if (code == 0) {
@@ -430,7 +435,6 @@ contract CompleteNEP11NFT is NEP11 {
             _lastMetadataUpdate[tokenId] = block.timestamp;
             
             emit MetadataUpdated(tokenId, string(result));
-            Runtime.notify("MetadataUpdated", abi.encode(tokenId, result));
         }
     }
     
@@ -475,8 +479,8 @@ contract CompleteNEP11NFT is NEP11 {
             deadline: block.timestamp + 7 days,
             executed: false
         });
-        
-        Runtime.notify("CurationProposed", abi.encode(proposalId, tokenId, msg.sender));
+
+        emit CurationProposed(proposalId, tokenId, msg.sender);
     }
     
     /**
@@ -489,8 +493,8 @@ contract CompleteNEP11NFT is NEP11 {
         require(!proposal.executed, "CompleteNEP11: already executed");
         
         proposal.votes++;
-        
-        Runtime.notify("CurationVote", abi.encode(proposalId, msg.sender));
+
+        emit CurationVote(proposalId, msg.sender);
     }
     
     /**
@@ -507,8 +511,8 @@ contract CompleteNEP11NFT is NEP11 {
         
         // Update token metadata
         setProperties(proposal.tokenId, bytes(proposal.newMetadata));
-        
-        Runtime.notify("CurationExecuted", abi.encode(proposalId, proposal.tokenId));
+
+        emit CurationExecuted(proposalId, proposal.tokenId);
     }
     
     // ========== Advanced Features ==========
@@ -524,18 +528,15 @@ contract CompleteNEP11NFT is NEP11 {
     ) public tokenExists(tokenId) returns (address shareContract) {
         require(ownerOf(tokenId) == msg.sender, "CompleteNEP11: not token owner");
         require(shareCount > 1, "CompleteNEP11: invalid share count");
-        
-        // Deploy new NEP-17 contract for fractional shares
-        Runtime.notify("TokenFractionalized", abi.encode(
-            tokenId, msg.sender, shareCount, shareName, shareSymbol
-        ));
-        
+
         // Deploy fractional token contract via ContractManagement
         bytes memory nefData = abi.encode("FRACTIONAL_TOKEN_NEF"); // Would be actual NEF bytecode
         bytes memory manifestData = abi.encode("FRACTIONAL_TOKEN_MANIFEST"); // Would be actual manifest
         
         shareContract = NativeCalls.deployContract(nefData, manifestData);
         _transfer(msg.sender, shareContract, tokenId, "");
+
+        emit TokenFractionalized(tokenId, msg.sender, shareContract, shareCount, shareName, shareSymbol);
         
         return shareContract;
     }
@@ -565,8 +566,8 @@ contract CompleteNEP11NFT is NEP11 {
         
         // Transfer NFT back to caller
         _transfer(shareContract, msg.sender, tokenId, "");
-        
-        Runtime.notify("TokenCombined", abi.encode(tokenId, msg.sender, shareContract));
+
+        emit TokenCombined(tokenId, msg.sender, shareContract);
     }
     
     /**
@@ -597,8 +598,8 @@ contract CompleteNEP11NFT is NEP11 {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             _transfer(msg.sender, address(this), tokenIds[i], "");
         }
-        
-        Runtime.notify("BundleCreated", abi.encode(bundleId, tokenIds, bundleName, bundlePrice));
+
+        emit BundleCreated(bundleId, tokenIds, bundleName, bundlePrice);
     }
     
     // ========== Collection Management ==========
@@ -614,8 +615,8 @@ contract CompleteNEP11NFT is NEP11 {
         _collection.description = description;
         _collection.externalURL = externalURL;
         _collection.imageURL = imageURL;
-        
-        Runtime.notify("CollectionUpdated", abi.encode(description, externalURL, imageURL));
+
+        emit CollectionUpdated(description, externalURL, imageURL);
     }
     
     /**

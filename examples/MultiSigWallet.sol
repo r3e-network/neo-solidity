@@ -3,8 +3,12 @@ pragma solidity ^0.8.19;
 
 /**
  * @title MultiSigWallet
- * @dev Complete multi-signature wallet implementation for Neo blockchain
- * Features: multi-sig transactions, owner management, daily limits, emergency functions
+ * @dev Multi-signature wallet implementation for Neo N3.
+ *
+ * Neo N3 does not support EVM-style `{value: ...}` calls. This example models "value" as
+ * native GAS (NEP-17) and executes transactions as `GAS.transfer(address(this), to, amount, data)`.
+ *
+ * Features: multi-sig approvals, owner management, daily limits, emergency functions.
  */
 contract MultiSigWallet {
     // Constants
@@ -172,7 +176,27 @@ contract MultiSigWallet {
     }
     
     /**
-     * @dev Fallback function allows to deposit ether
+     * @dev Neo N3 NEP-17 token deposit hook.
+     *
+     * Native GAS/NEO transfers call `onNEP17Payment`. We accept GAS deposits and emit a
+     * Deposit event.
+     *
+     * NOTE: `msg.sender` / `msg.value` / `msg.data` are mapped to (from, amount, data) by the
+     * neo-solidity compiler for this entrypoint.
+     */
+    function onNEP17Payment(address /*from*/, uint256 /*amount*/, bytes memory /*data*/) external {
+        address token = Syscalls.getCallingScriptHash();
+        require(token == NativeCalls.GAS_CONTRACT, "MultiSigWallet: only GAS accepted");
+
+        if (msg.value > 0) {
+            emit Deposit(msg.sender, msg.value);
+        }
+    }
+
+    /**
+     * @dev EVM-style ether receive hook (kept for Solidity source compatibility).
+     *
+     * Neo N3 has no native attached value; use NEP-17 transfers + `onNEP17Payment` instead.
      */
     receive() external payable {
         if (msg.value > 0) {
@@ -342,7 +366,7 @@ contract MultiSigWallet {
             
             txn.executed = true;
             
-            (bool success, ) = txn.destination.call{value: txn.value}(txn.data);
+            bool success = NativeCalls.gasTransfer(address(this), txn.destination, txn.value, txn.data);
             if (success) {
                 emit Execution(transactionId);
             } else {
@@ -641,7 +665,7 @@ contract MultiSigWallet {
             revert InsufficientBalance();
         }
         
-        (bool success, ) = destination.call{value: value}(data);
+        bool success = NativeCalls.gasTransfer(address(this), destination, value, data);
         if (!success) {
             revert ExecutionFailed();
         }

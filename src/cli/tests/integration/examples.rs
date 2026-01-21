@@ -1,6 +1,6 @@
 #[test]
 fn example_contract_compiles_and_manifest_is_populated() {
-    let source = include_str!("../../../examples/TestContract.sol");
+    let source = include_str!("../../../../examples/TestContract.sol");
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
 
@@ -30,7 +30,7 @@ fn example_contract_compiles_and_manifest_is_populated() {
 
 #[test]
 fn counter_example_compiles_and_has_events() {
-    let source = include_str!("../../../examples/new/Counter.sol");
+    let source = include_str!("../../../../examples/new/Counter.sol");
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
 
@@ -61,7 +61,7 @@ fn counter_example_compiles_and_has_events() {
 
 #[test]
 fn nft_example_advertises_nep11() {
-    let source = include_str!("../../../examples/new/NFT.sol");
+    let source = include_str!("../../../../examples/new/NFT.sol");
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     assert_eq!(artifacts.len(), 1);
     let artifact = &artifacts[0];
@@ -103,7 +103,7 @@ fn nft_example_advertises_nep11() {
 
 #[test]
 fn vault_example_compiles_with_external_calls() {
-    let source = include_str!("../../../examples/new/Vault.sol");
+    let source = include_str!("../../../../examples/new/Vault.sol");
     let artifacts = compile_contracts(source, false, 2).expect("vault compilation failed");
     assert_eq!(artifacts.len(), 1);
 

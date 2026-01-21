@@ -1,5 +1,5 @@
-import { extendConfig, extendEnvironment } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
+import { extendConfig, extendEnvironment } from "hardhat/config.js";
+import { lazyObject } from "hardhat/plugins.js";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoHardhatConfig } from "@neo-solidity/types";
 
@@ -75,7 +75,7 @@ const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
       },
       accounts: [],
       gasLimit: "9007199254740991",
-      gasPrice: "0",
+      gasPrice: "auto",
       blockGasLimit: "9007199254740991"
     }
   },
@@ -98,6 +98,10 @@ const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
 // Extend Hardhat configuration
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
+    const userNeoSettings: Partial<NeoHardhatConfig["solidity"]["settings"]["neo"]> =
+      userConfig.neoSolc?.solidity?.settings?.neo ?? {};
+    const userNeo: Partial<NeoHardhatConfig["neo"]> = userConfig.neoSolc?.neo ?? {};
+
     config.neoSolc = {
       ...DEFAULT_NEO_HARDHAT_CONFIG,
       ...userConfig.neoSolc,
@@ -109,7 +113,16 @@ extendConfig(
           ...userConfig.neoSolc?.solidity?.settings,
           neo: {
             ...DEFAULT_NEO_HARDHAT_CONFIG.solidity.settings.neo,
-            ...userConfig.neoSolc?.solidity?.settings?.neo
+            ...userNeoSettings,
+            generateNef:
+              userNeoSettings.generateNef ?? DEFAULT_NEO_HARDHAT_CONFIG.solidity.settings.neo.generateNef,
+            generateManifest:
+              userNeoSettings.generateManifest ??
+              DEFAULT_NEO_HARDHAT_CONFIG.solidity.settings.neo.generateManifest,
+            optimizeGas:
+              userNeoSettings.optimizeGas ?? DEFAULT_NEO_HARDHAT_CONFIG.solidity.settings.neo.optimizeGas,
+            debugInfo:
+              userNeoSettings.debugInfo ?? DEFAULT_NEO_HARDHAT_CONFIG.solidity.settings.neo.debugInfo
           }
         }
       },
@@ -123,7 +136,13 @@ extendConfig(
       },
       neo: {
         ...DEFAULT_NEO_HARDHAT_CONFIG.neo,
-        ...userConfig.neoSolc?.neo
+        ...userNeo,
+        rpcUrl: userNeo.rpcUrl ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.rpcUrl,
+        privateKey: userNeo.privateKey ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.privateKey,
+        addressVersion: userNeo.addressVersion ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.addressVersion,
+        magic: userNeo.magic ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.magic,
+        gasLimit: userNeo.gasLimit ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.gasLimit,
+        gasPrice: userNeo.gasPrice ?? DEFAULT_NEO_HARDHAT_CONFIG.neo.gasPrice
       }
     };
   }

@@ -8,6 +8,7 @@ fn size_of_array_and_map() {
         0x11, 0x12, 0x13, 0x13, 0xC0, // push 1,2,3,count=3 => PACK (array of 3)
         0xCA, // SIZE -> 3 (codegen mapping)
         0xC8, // NEWMAP
+        0x4A, // DUP map (SETITEM consumes the collection)
         0x0C, 0x02, b'a', b'a', 0x11, 0xD0, // set k1->1
         0xCA, // SIZE -> 1
         0x40, // RET

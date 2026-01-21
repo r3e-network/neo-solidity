@@ -29,6 +29,10 @@ fn lower_member_access_expression(
         return result;
     }
 
+    if let Some(result) = try_lower_current_value(inner, member, ctx, instructions) {
+        return result;
+    }
+
     if let Some(result) = try_lower_code_property(inner, member, ctx, instructions) {
         return result;
     }

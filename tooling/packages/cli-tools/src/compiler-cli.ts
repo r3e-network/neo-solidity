@@ -1,15 +1,17 @@
 import { spawn } from "child_process";
-import { promises as fs } from "fs";
+import { accessSync, constants, promises as fs } from "fs";
+import http from "http";
+import https from "https";
 import path from "path";
 import { glob } from "glob";
 import { 
   CompilationInput,
   CompilationOutput,
-  CompilerOptions,
   NeoSolidityConfig
 } from "@neo-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
+import { wallet } from "@cityofzion/neon-js";
 
 const debug = Debug("neo-solidity:cli:compiler");
 
@@ -174,12 +176,12 @@ export class CompilerCLI {
     prerelease: boolean;
   }>> {
     try {
-      const response = await fetch('https://api.github.com/repos/neo-project/neo-solidity/releases');
+      const response = await fetch('https://api.github.com/repos/r3e-network/neo-solidity/releases');
       if (!response.ok) {
         throw new Error(`GitHub API request failed: ${response.statusText}`);
       }
       
-      const releases = await response.json();
+      const releases = (await response.json()) as any[];
       const currentVersion = await this.getCurrentVersion();
       
       return releases.map((release: any) => ({
@@ -295,8 +297,6 @@ export class CompilerCLI {
     debug(`Flattening file: ${filePath}`);
 
     try {
-      const content = await fs.readFile(filePath, "utf-8");
-      
       const flattened = await this.flattenRecursively(filePath, new Set());
       return `// SPDX-License-Identifier: UNLICENSED
 // File: ${filePath}
@@ -314,8 +314,12 @@ ${flattened}`;
   async verifyContract(options: {
     address: string;
     source: string;
+    contract?: string;
     network: string;
     constructorArgs?: string;
+    optimize?: boolean;
+    optimizeRuns?: string;
+    gasModel?: string;
   }): Promise<{
     success: boolean;
     error?: string;
@@ -324,28 +328,34 @@ ${flattened}`;
     debug(`Verifying contract at ${options.address}`);
 
     try {
-      const explorerConfig = this.getExplorerConfig(options.network);
-      if (!explorerConfig) {
+      const networkConfig = this.getNetworkConfig(options.network);
+      if (!networkConfig) {
         throw new Error(`Unsupported network: ${options.network}`);
       }
-      
-      const verificationPayload = {
-        address: options.address,
-        sourceCode: options.source,
-        constructorArguments: options.constructorArgs || '',
-        compilerVersion: await this.getCurrentVersion()
-      };
-      
-      const response = await this.submitVerification(explorerConfig, verificationPayload);
-      
-      if (response.success) {
-        return {
-          success: true,
-          explorerUrl: `${explorerConfig.baseUrl}/contract/${options.address}`
-        };
-      } else {
-        throw new Error(response.error || 'Verification failed');
+
+      const scriptHash = this.toScriptHash(options.address);
+      const state = await this.rpcCall<any>(networkConfig.rpcUrl, "getcontractstate", [scriptHash]);
+
+      const compiled = await this.compileForVerification(options);
+
+      const localScript = this.normalizeHex(compiled.neo.nef.script);
+      const chainScript = this.decodeNefScript(state?.nef?.script);
+
+      const localChecksum = this.parseChecksumU32(compiled.neo.nef.checksum);
+      const chainChecksum = Number(state?.nef?.checksum ?? 0);
+
+      const manifestOk = this.compareManifests(compiled.neo.manifest, state?.manifest);
+
+      if (localScript !== chainScript || localChecksum !== chainChecksum || !manifestOk) {
+        return { success: false, error: "On-chain contract does not match local compilation output" };
       }
+
+      return {
+        success: true,
+        explorerUrl: networkConfig.explorerBaseUrl
+          ? `${networkConfig.explorerBaseUrl}/contract/${options.address}`
+          : undefined
+      };
     } catch (error) {
       return {
         success: false,
@@ -519,15 +529,26 @@ ${flattened}`;
   }
 
   private getCompilerPath(): string {
-    // Try to find neo-solc compiler
-    const possiblePaths = [
-      path.join(process.cwd(), "bin/neo-solc"),
-      path.join(process.cwd(), "target/release/neo-solc"),
-      "neo-solc" // Assume in PATH
-    ];
+    const ext = process.platform === "win32" ? ".exe" : "";
+    const fromEnv = process.env.NEO_SOLC;
 
-    // For this implementation, we'll assume it exists
-    return possiblePaths[2];
+    const candidates = [
+      fromEnv,
+      path.join(process.cwd(), `bin/neo-solc${ext}`),
+      path.join(process.cwd(), `target/release/neo-solc${ext}`),
+      path.join(process.cwd(), `target/debug/neo-solc${ext}`),
+    ].filter(Boolean) as string[];
+
+    for (const candidate of candidates) {
+      try {
+        accessSync(candidate, constants.X_OK);
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+
+    return "neo-solc";
   }
 
   private parseVersionOutput(output: string): {
@@ -543,13 +564,13 @@ ${flattened}`;
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.includes('neo-solidity')) {
-        const match = trimmed.match(/neo-solidity[:\s]+([\d\.\w-]+)/);
+        const match = trimmed.match(/neo-solidity[:\s]+([\d.\w-]+)/);
         if (match) compiler = match[1];
       } else if (trimmed.includes('solidity')) {
-        const match = trimmed.match(/solidity[:\s]+([\d\.\w-]+)/);
+        const match = trimmed.match(/solidity[:\s]+([\d.\w-]+)/);
         if (match) solidity = match[1];
       } else if (trimmed.includes('neo-vm') || trimmed.includes('neovm')) {
-        const match = trimmed.match(/neo-?vm[:\s]+([\d\.\w-]+)/);
+        const match = trimmed.match(/neo-?vm[:\s]+([\d.\w-]+)/);
         if (match) neovm = match[1];
       }
     }
@@ -630,12 +651,12 @@ ${flattened}`;
 
   private async getLatestVersion(): Promise<string> {
     try {
-      const response = await fetch('https://api.github.com/repos/neo-project/neo-solidity/releases/latest');
+      const response = await fetch('https://api.github.com/repos/r3e-network/neo-solidity/releases/latest');
       if (!response.ok) {
         throw new Error('Failed to fetch latest version');
       }
-      const release = await response.json();
-      return release.tag_name.replace(/^v/, '');
+      const release = (await response.json()) as any;
+      return String(release.tag_name ?? '').replace(/^v/, '');
     } catch (error) {
       debug('Failed to fetch latest version, using default');
       return '0.1.0';
@@ -643,14 +664,14 @@ ${flattened}`;
   }
 
   private isValidVersion(version: string): boolean {
-    return /^\d+\.\d+\.\d+(-[\w\.]+)?$/.test(version);
+    return /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version);
   }
 
   private getDownloadUrl(version: string): string {
     const platform = process.platform;
     const arch = process.arch;
     const ext = platform === 'win32' ? '.exe' : '';
-    return `https://github.com/neo-project/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+    return `https://github.com/r3e-network/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
   }
 
   private async downloadCompiler(url: string, outputPath: string): Promise<void> {
@@ -910,38 +931,189 @@ ${flattened}`;
     throw new Error(`Could not resolve import: ${importPath}`);
   }
 
-  private getExplorerConfig(network: string): { baseUrl: string; apiKey?: string } | null {
-    const configs: Record<string, { baseUrl: string; apiKey?: string }> = {
-      'mainnet': { baseUrl: 'https://explorer.neo.org' },
-      'testnet': { baseUrl: 'https://testnet.neo.org' },
-      'private': { baseUrl: 'http://localhost:4000' }
+  private getNetworkConfig(
+    network: string
+  ): { rpcUrl: string; explorerBaseUrl?: string } | null {
+    const configs: Record<string, { rpcUrl: string; explorerBaseUrl?: string }> = {
+      mainnet: { rpcUrl: "https://mainnet1.neo.coz.io:443", explorerBaseUrl: "https://explorer.neo.org" },
+      testnet: { rpcUrl: "https://testnet1.neo.coz.io:443", explorerBaseUrl: "https://testnet.explorer.neo.org" },
+      private: { rpcUrl: "http://localhost:40332" },
     };
-    
+
     return configs[network] || null;
   }
 
-  private async submitVerification(
-    explorerConfig: { baseUrl: string; apiKey?: string },
-    payload: any
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const response = await fetch(`${explorerConfig.baseUrl}/api/verify-contract`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(explorerConfig.apiKey && { 'Authorization': `Bearer ${explorerConfig.apiKey}` })
+  private async rpcCall<T>(rpcUrl: string, method: string, params: any[]): Promise<T> {
+    const payload = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params,
+    });
+
+    const isHttps = rpcUrl.startsWith("https:");
+    const transport = isHttps ? https : http;
+
+    return new Promise((resolve, reject) => {
+      const req = transport.request(
+        rpcUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(payload).toString(),
+          },
         },
-        body: JSON.stringify(payload)
-      });
-      
-      if (!response.ok) {
-        return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
-      }
-      
-      const result = await response.json();
-      return { success: result.success, error: result.error };
-    } catch (error) {
-      return { success: false, error: `Network error: ${error}` };
+        (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            body += chunk;
+          });
+          res.on("end", () => {
+            try {
+              const json = JSON.parse(body) as any;
+              if (json?.error) {
+                reject(new Error(json.error.message || "RPC error"));
+                return;
+              }
+              resolve(json.result as T);
+            } catch (err) {
+              reject(err);
+            }
+          });
+        }
+      );
+
+      req.on("error", reject);
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  private toScriptHash(addressOrHash: string): string {
+    const value = addressOrHash.trim();
+    if (wallet.isAddress(value)) {
+      return "0x" + wallet.getScriptHashFromAddress(value);
     }
+    if (/^0x[0-9a-fA-F]{40}$/.test(value) || /^[0-9a-fA-F]{40}$/.test(value)) {
+      return value.startsWith("0x") ? value : "0x" + value;
+    }
+    throw new Error(`Invalid contract address or script hash: ${addressOrHash}`);
+  }
+
+  private normalizeHex(value: string): string {
+    const trimmed = value.startsWith("0x") ? value.slice(2) : value;
+    return trimmed.toLowerCase();
+  }
+
+  private decodeNefScript(value: unknown): string {
+    const raw = String(value ?? "");
+    try {
+      return this.normalizeHex(Buffer.from(raw, "base64").toString("hex"));
+    } catch {
+      return this.normalizeHex(raw);
+    }
+  }
+
+  private parseChecksumU32(checksumHexLe: string): number {
+    const normalized = this.normalizeHex(checksumHexLe);
+    if (normalized.length !== 8) {
+      throw new Error(`Expected NEF checksum as 8 hex chars, got ${normalized.length}`);
+    }
+    return Buffer.from(normalized, "hex").readUInt32LE(0);
+  }
+
+  private normalizeManifestJson(value: any): any {
+    if (Array.isArray(value)) {
+      return value.map((v) => this.normalizeManifestJson(v));
+    }
+    if (value && typeof value === "object") {
+      const out: any = {};
+      for (const [k, v] of Object.entries(value)) {
+        out[String(k).toLowerCase()] = this.normalizeManifestJson(v);
+      }
+
+      if (Array.isArray(out.supportedstandards)) {
+        out.supportedstandards = [...out.supportedstandards].map(String).sort();
+      }
+      if (Array.isArray(out.trusts)) {
+        out.trusts = [...out.trusts].map(String).sort();
+      }
+      if (out.abi && typeof out.abi === "object") {
+        if (Array.isArray(out.abi.methods)) {
+          out.abi.methods = [...out.abi.methods].sort((a: any, b: any) =>
+            String(a?.name ?? "").localeCompare(String(b?.name ?? ""))
+          );
+        }
+        if (Array.isArray(out.abi.events)) {
+          out.abi.events = [...out.abi.events].sort((a: any, b: any) =>
+            String(a?.name ?? "").localeCompare(String(b?.name ?? ""))
+          );
+        }
+      }
+      if (Array.isArray(out.permissions)) {
+        out.permissions = [...out.permissions]
+          .map((perm: any) => {
+            const normalized = this.normalizeManifestJson(perm);
+            if (Array.isArray(normalized.methods)) {
+              normalized.methods = [...normalized.methods].map(String).sort();
+            }
+            return normalized;
+          })
+          .sort((a: any, b: any) =>
+            String(a?.contract ?? "").localeCompare(String(b?.contract ?? ""))
+          );
+      }
+
+      return out;
+    }
+    return value;
+  }
+
+  private compareManifests(localManifest: any, chainManifest: any): boolean {
+    const normalizedLocal = this.normalizeManifestJson(localManifest);
+    const normalizedChain = this.normalizeManifestJson(chainManifest);
+    return JSON.stringify(normalizedLocal) === JSON.stringify(normalizedChain);
+  }
+
+  private async compileForVerification(options: {
+    source: string;
+    contract?: string;
+    optimize?: boolean;
+    optimizeRuns?: string;
+    gasModel?: string;
+  }): Promise<any> {
+    const config = this.buildCompilerConfig({
+      optimize: options.optimize,
+      optimizeRuns: options.optimizeRuns,
+      gasModel: options.gasModel,
+    });
+
+    const sources = await this.readSourceFiles([options.source]);
+    const output = await this.executeCompilation(sources, config);
+
+    const contractsByFile = output.contracts?.[options.source];
+    if (!contractsByFile || typeof contractsByFile !== "object") {
+      throw new Error(`No contracts compiled for ${options.source}`);
+    }
+
+    if (options.contract) {
+      const selected = (contractsByFile as any)[options.contract];
+      if (!selected) {
+        throw new Error(`Contract ${options.contract} not found in ${options.source}`);
+      }
+      return selected;
+    }
+
+    const contractNames = Object.keys(contractsByFile);
+    if (contractNames.length === 1) {
+      return (contractsByFile as any)[contractNames[0]];
+    }
+
+    throw new Error(
+      `Multiple contracts found in ${options.source}: ${contractNames.join(", ")}. ` +
+        `Pass --contract to select which one to verify.`
+    );
   }
 }

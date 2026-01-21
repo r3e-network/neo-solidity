@@ -27,7 +27,7 @@ fn get_gas_left_reflects_usage() {
     };
     let mut ctx = ExecutionContext::new(&config).expect("context init");
     // PUSH0, GETGASLEFT, RET
-    let code = vec![0x10, 0x41, 150, 39, 78, 22, 0x40];
+    let code = vec![0x10, 0x41, 20, 136, 216, 206, 0x40];
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
     let data = ctx.return_data();
@@ -85,9 +85,9 @@ fn syscall_consumes_additional_gas() {
 
     // Reset and run code with syscall
     let mut ctx2 = ExecutionContext::new(&config).expect("context init");
-    // PUSH data, SYSCALL System.Runtime.GetTime, RET
+    // SYSCALL System.Runtime.GetTime, RET
     let syscall_code = vec![
-        0x41, 0x96, 0x27, 0x4E, 0x16, // SYSCALL System.Runtime.GetTime
+        0x41, 183, 195, 136, 3,    // SYSCALL System.Runtime.GetTime
         0x40, // RET
     ];
     ctx2.initialize(&syscall_code, &[]).expect("init");
@@ -142,7 +142,7 @@ fn storage_operations_consume_significant_gas() {
         put_id[1],
         put_id[2],
         put_id[3], // Storage.Put
-        0x40, // RET
+        0x40,      // RET
     ];
 
     ctx.initialize(&code, &[]).expect("init");

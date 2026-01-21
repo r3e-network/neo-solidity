@@ -205,6 +205,9 @@ program
   .command("abi-encode <signature> [args...]")
   .description("Encode function call data")
   .action(async (signature, args, options) => {
+    void signature;
+    void args;
+    void options;
     console.log(chalk.yellow("ABI encoding not yet implemented"));
   });
 
@@ -212,6 +215,9 @@ program
   .command("abi-decode <signature> <data>")
   .description("Decode function return data")
   .action(async (signature, data, options) => {
+    void signature;
+    void data;
+    void options;
     console.log(chalk.yellow("ABI decoding not yet implemented"));
   });
 
@@ -220,6 +226,7 @@ program
   .command("console")
   .description("Start interactive console")
   .action(async (options) => {
+    void options;
     console.log(chalk.blue("🚀 Starting Neo-Cast interactive console..."));
     console.log(chalk.gray("Type 'help' for available commands, 'exit' to quit"));
     
@@ -268,7 +275,7 @@ program.on('command:*', () => {
 program.parse();
 
 // Helper function to create Cast instance
-async function createCast(commandOptions: any, globalOptions: any): Promise<NeoCast> {
+async function createCast(_commandOptions: any, globalOptions: any): Promise<NeoCast> {
   const configPath = globalOptions.config;
   const rpcUrl = globalOptions.rpcUrl;
   

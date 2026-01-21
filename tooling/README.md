@@ -3,8 +3,8 @@
 A complete toolchain under active development for Neo-Solidity. Several packages remain experimental—review the status table below before adopting any component in production.
 
 > ⚠️ **Current Status (Aug 2024)**  
-> - `@neo-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; deployment/test/gas tasks are **not implemented**.  
-> - `@neo-solidity/hardhat-neo-deployer`: placeholder; `neo-deploy`/`neo-deploy-batch` emit mock data and do **not** submit transactions.  
+> - `@neo-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
+> - `@neo-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
 > - `@neo-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): CLI scaffolding only; commands print placeholder messages.  
 > - `@neo-solidity/abi-router`, `@neo-solidity/cli-tools`: prototypes still missing full ABI coverage and verified deployments.
 
@@ -29,32 +29,31 @@ Neo-Solidity Tooling Ecosystem
 
 ## 🚀 Quick Start
 
-### 1. Hardhat Setup (compile only)
+### 1. Hardhat Setup (compile + deploy)
 
 ```bash
 npm install --save-dev @neo-solidity/hardhat-solc-neo
-# Optional (EXPERIMENTAL): @neo-solidity/hardhat-neo-deployer
 npm install --save-dev @neo-solidity/hardhat-neo-deployer
 
 # hardhat.config.ts
 import "@neo-solidity/hardhat-solc-neo";
-// import "@neo-solidity/hardhat-neo-deployer"; // deployment plugin still WIP
+import "@neo-solidity/hardhat-neo-deployer";
 
 export default {
   neoSolc: {
-    version: "latest",
-    optimizer: { enabled: true, runs: 200 },
-    neo: {
-      gasCostModel: "hybrid",
-      storageOptimization: true,
-      eventOptimization: true
+    solidity: {
+      version: "0.8.20",
+      settings: {
+        optimizer: { enabled: true, runs: 200 },
+        neo: { callt: true }
+      }
     }
   },
   neoNetworks: {
     testnet: {
       rpcUrls: ["https://testnet1.neo.coz.io:443"],
       magic: 894710606,
-      accounts: ["0x..."] // Private keys
+      accounts: [process.env.NEO_WIF || ""] // WIF or private key (hex)
     }
   }
 };
@@ -62,7 +61,8 @@ export default {
 # Compile contracts
 npx hardhat neo-compile
 
-# Deployment commands from @neo-solidity/hardhat-neo-deployer currently emit placeholder data.
+# Deploy contracts
+npx hardhat neo-deploy --contract MyContract --network testnet
 ```
 
 ### 2. Foundry Setup (scaffolding only)
@@ -74,16 +74,12 @@ npm install -g @neo-solidity/neo-foundry
 neo-forge init my-neo-project
 cd my-neo-project
 
-# foundry.toml configuration
+# neo-foundry.toml configuration
 [profile.default]
 src = "src"
 test = "test" 
+script = "script"
 out = "out"
-
-[profile.default.neo]
-gas_cost_model = "hybrid"
-storage_optimization = true
-event_optimization = true
 
 # Build and test (currently print placeholder output)
 neo-forge build
@@ -101,8 +97,8 @@ solc-neo compile contracts/*.sol --optimize --gas-model hybrid
 # Analyze contracts
 solc-neo analyze contracts/*.sol --gas-report --size-report
 
-# Verify on explorer
-solc-neo verify-contract --address N123... --source Token.sol
+# Verify on-chain NEF/manifest matches your local compilation output
+solc-neo verify-contract --address N123... --source Token.sol --contract Token --network testnet
 ```
 
 ## 📦 Package Ecosystem
@@ -120,7 +116,7 @@ Shared TypeScript interfaces and type definitions for all tooling packages.
 - `NeoRpcProvider` - RPC interface
 
 #### `@neo-solidity/abi-router` 
-ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. It currently supports static ABIs, best-effort event scanning, and deployments when you provide the Neo compiler’s NEF + manifest output yourself.
+ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. It currently supports static ABIs and best-effort event scanning; transaction signing + deployments are handled by `@neo-solidity/hardhat-neo-deployer` or native Neo tooling.
 
 **Current capabilities / caveats:**
 - ✅ Ethereum-style contract interaction (call/send/estimate).
@@ -153,30 +149,30 @@ Hardhat plugin for compiling Solidity to NeoVM bytecode. The runtime extension o
 **Tasks (currently supported):**
 - `neo-compile` - Compile contracts
 - `neo-clean` - Clean build artifacts  
-- `neo-verify` - Update local deployment metadata after you verify off-chain
+- `neo-verify` - Verify on-chain NEF/manifest matches local build artifact (updates deployment metadata)
 
-> ⚠️ Former deployment/test/gas tasks were removed because they never submitted valid Neo transactions. Use native Neo tooling for deployment until a dedicated Neo deploy plugin is completed.
+Pair this with `@neo-solidity/hardhat-neo-deployer` if you want `neo-deploy` tasks inside Hardhat.
 
 **Configuration:**
 ```typescript
 neoSolc: {
-  optimizer: { enabled: true, runs: 200 },
-  neo: {
-    gasCostModel: "hybrid",        // ethereum|neo|hybrid
-    storageOptimization: true,     // Optimize storage layout
-    eventOptimization: true       // Optimize event emission
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
+      neo: { callt: true }
+    }
   }
 }
 ```
 
 #### `@neo-solidity/hardhat-neo-deployer`
-Experimental Hardhat plugin intended for deploying and interacting with Neo contracts. The current implementation still returns mock addresses/transactions and does **not** submit transactions to a Neo RPC node.
+Experimental Hardhat plugin for deploying Neo N3 contracts. It builds/signs/sends `ContractManagement.deploy` transactions using the NEF + manifest embedded in build artifacts.
 
 **Status**
-- `neo-deploy`, `neo-deploy-batch`, `neo-deploy-estimate`: stub commands only.  
-- Account/network helpers log information but are not wired to real signing flows.  
-
-Use this package only if you plan to finish the deployment pipeline (script generation, signing, broadcasting) yourself.
+- `neo-deploy` / `neo-deploy-batch`: submit real deployment transactions.
+- `neo-deploy-estimate`: uses `invokescript` + `calculatenetworkfee` to estimate fees.
+- `neo-accounts` helpers: derive accounts from WIF/private key; no encrypted keystore yet.
 
 ### Foundry Integration
 
@@ -265,7 +261,7 @@ my-neo-project/
 │   ├── testnet/
 │   └── mainnet/
 ├── hardhat.config.ts   # Hardhat configuration
-└── foundry.toml       # Foundry configuration
+└── neo-foundry.toml   # Neo Foundry configuration
 ```
 
 ### 2. Contract Development
@@ -490,7 +486,7 @@ Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guideli
 ### Development Setup
 
 ```bash
-git clone https://github.com/neo-project/neo-solidity
+git clone https://github.com/r3e-network/neo-solidity
 cd neo-solidity/tooling
 npm install
 npm run build

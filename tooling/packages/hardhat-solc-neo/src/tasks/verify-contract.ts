@@ -1,9 +1,10 @@
-import { task } from "hardhat/config";
+import { task } from "hardhat/config.js";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
 import { VerificationResult } from "@neo-solidity/types";
+import { u, wallet } from "@cityofzion/neon-js";
 
-task("neo-verify", "Verify deployed contract on Neo blockchain explorer")
+task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact")
   .addParam("contract", "Contract name")
   .addParam("address", "Contract address")
   .addOptionalParam("network", "Network name")
@@ -38,7 +39,13 @@ task("neo-verify", "Verify deployed contract on Neo blockchain explorer")
       }
 
       // Perform verification
-      const result = await verifyContract({
+      if (!(hre as any).neoDeploy?.rpc) {
+        throw new Error(
+          "Neo RPC provider not available. Install and enable @neo-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
+        );
+      }
+
+      const result = await verifyContract((hre as any).neoDeploy.rpc, {
         contractName: contract,
         address,
         networkName,
@@ -48,19 +55,11 @@ task("neo-verify", "Verify deployed contract on Neo blockchain explorer")
 
       if (result.success) {
         console.log(chalk.green("✅ Contract verified successfully"));
-        if (result.explorerUrl) {
-          console.log(chalk.blue(`🔗 Explorer: ${result.explorerUrl}`));
-        }
-        if (result.sourceUrl) {
-          console.log(chalk.blue(`📄 Source: ${result.sourceUrl}`));
-        }
 
         // Update deployment artifact with verification status
         deployment.verified = true;
         deployment.verification = {
-          status: "verified",
-          explorerUrl: result.explorerUrl,
-          sourceCodeUrl: result.sourceUrl
+          status: "verified"
         };
         await hre.neoSolc.artifacts.saveDeploymentArtifact(deployment);
       } else {
@@ -84,33 +83,60 @@ task("neo-verify", "Verify deployed contract on Neo blockchain explorer")
 /**
  * Verify contract on Neo blockchain explorer
  */
-async function verifyContract(params: {
+async function verifyContract(
+  rpc: { getContractState: (scriptHash: string) => Promise<any> },
+  params: {
   contractName: string;
   address: string;
   networkName: string;
   buildArtifact: any;
   constructorArgs: any[];
 }): Promise<VerificationResult> {
-  const { contractName, address, networkName, buildArtifact, constructorArgs } = params;
+  const { address, buildArtifact } = params;
 
   try {
-    // This is a simplified implementation
-    // In a real implementation, this would:
-    // 1. Submit source code to Neo blockchain explorer API
-    // 2. Wait for verification process to complete
-    // 3. Return verification status and URLs
+    // On-chain bytecode/manifest verification:
+    // - Fetch `getcontractstate` from the configured Neo RPC
+    // - Compare NEF script + checksum + manifest contents with local build artifact
+    if (!rpc || typeof rpc.getContractState !== "function") {
+      throw new Error("Invalid Neo RPC provider");
+    }
 
-    console.log(chalk.yellow("📤 Submitting source code for verification..."));
-    
-    // Simulate verification process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock successful verification
+    if (!buildArtifact?.contract?.neo?.nef?.script || !buildArtifact?.contract?.neo?.nef?.checksum) {
+      throw new Error("Build artifact is missing Neo NEF (script/checksum)");
+    }
+    if (!buildArtifact?.contract?.neo?.manifest) {
+      throw new Error("Build artifact is missing Neo manifest");
+    }
+
+    const scriptHash = toScriptHash(address);
+    const state = await rpc.getContractState(scriptHash);
+
+    const localScript = normalizeHex(buildArtifact.contract.neo.nef.script);
+    const chainScript = decodeNefScript(state?.nef?.script);
+
+    const localChecksum = parseChecksumU32(buildArtifact.contract.neo.nef.checksum);
+    const chainChecksum = Number(state?.nef?.checksum ?? 0);
+
+    const manifestOk = compareManifests(buildArtifact.contract.neo.manifest, state?.manifest);
+
+    const matches =
+      localScript === chainScript &&
+      localChecksum === chainChecksum &&
+      manifestOk;
+
+    if (!matches) {
+      return {
+        success: false,
+        message:
+          "On-chain contract does not match local build artifact. " +
+          "Re-check network, address, and ensure you compiled the same sources/settings.",
+      };
+    }
+
     return {
       success: true,
-      message: "Contract verified successfully",
-      explorerUrl: `https://explorer.neo.org/contract/${address}`,
-      sourceUrl: `https://explorer.neo.org/contract/${address}/source`
+      message: "On-chain NEF + manifest match local build artifact",
     };
 
   } catch (error) {
@@ -121,7 +147,89 @@ async function verifyContract(params: {
   }
 }
 
-task("neo-verify-all", "Verify all deployed contracts on a network")
+function normalizeHex(value: string): string {
+  const trimmed = value.startsWith("0x") ? value.slice(2) : value;
+  return trimmed.toLowerCase();
+}
+
+function decodeNefScript(value: unknown): string {
+  const raw = String(value ?? "");
+  try {
+    return normalizeHex(u.base642hex(raw));
+  } catch {
+    return normalizeHex(raw);
+  }
+}
+
+function parseChecksumU32(checksumHexLe: string): number {
+  const normalized = normalizeHex(checksumHexLe);
+  if (normalized.length !== 8) {
+    throw new Error(`Expected NEF checksum as 8 hex chars, got ${normalized.length}`);
+  }
+  return Buffer.from(normalized, "hex").readUInt32LE(0);
+}
+
+function toScriptHash(addressOrHash: string): string {
+  const value = addressOrHash.trim();
+  if (wallet.isAddress(value)) {
+    return "0x" + wallet.getScriptHashFromAddress(value);
+  }
+  if (/^0x[0-9a-fA-F]{40}$/.test(value) || /^[0-9a-fA-F]{40}$/.test(value)) {
+    return value.startsWith("0x") ? value : "0x" + value;
+  }
+  throw new Error(`Invalid contract address or script hash: ${addressOrHash}`);
+}
+
+function normalizeManifestJson(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map(normalizeManifestJson);
+  }
+  if (value && typeof value === "object") {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[String(k).toLowerCase()] = normalizeManifestJson(v);
+    }
+
+    if (Array.isArray(out.supportedstandards)) {
+      out.supportedstandards = [...out.supportedstandards].map(String).sort();
+    }
+    if (Array.isArray(out.trusts)) {
+      out.trusts = [...out.trusts].map(String).sort();
+    }
+    if (out.abi && typeof out.abi === "object") {
+      if (Array.isArray(out.abi.methods)) {
+        out.abi.methods = [...out.abi.methods].sort((a: any, b: any) =>
+          String(a?.name ?? "").localeCompare(String(b?.name ?? ""))
+        );
+      }
+      if (Array.isArray(out.abi.events)) {
+        out.abi.events = [...out.abi.events].sort((a: any, b: any) =>
+          String(a?.name ?? "").localeCompare(String(b?.name ?? ""))
+        );
+      }
+    }
+    if (Array.isArray(out.permissions)) {
+      out.permissions = [...out.permissions].map((perm: any) => {
+        const normalized = normalizeManifestJson(perm);
+        if (Array.isArray(normalized.methods)) {
+          normalized.methods = [...normalized.methods].map(String).sort();
+        }
+        return normalized;
+      }).sort((a: any, b: any) => String(a?.contract ?? "").localeCompare(String(b?.contract ?? "")));
+    }
+
+    return out;
+  }
+  return value;
+}
+
+function compareManifests(localManifest: any, chainManifest: any): boolean {
+  const normalizedLocal = normalizeManifestJson(localManifest);
+  const normalizedChain = normalizeManifestJson(chainManifest);
+  return JSON.stringify(normalizedLocal) === JSON.stringify(normalizedChain);
+}
+
+task("neo-verify-all", "Verify all deployed contracts match local artifacts")
   .addOptionalParam("network", "Network name")
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
     const networkName = taskArgs.network || hre.network.name;
@@ -129,6 +237,12 @@ task("neo-verify-all", "Verify all deployed contracts on a network")
     console.log(chalk.blue(`🔍 Verifying all contracts on ${networkName}...`));
 
     try {
+      if (!(hre as any).neoDeploy?.rpc) {
+        throw new Error(
+          "Neo RPC provider not available. Install and enable @neo-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
+        );
+      }
+
       const deployments = await hre.neoSolc.artifacts.getNetworkDeployments(networkName);
       
       if (deployments.length === 0) {
@@ -159,7 +273,7 @@ task("neo-verify-all", "Verify all deployed contracts on a network")
             continue;
           }
 
-          const result = await verifyContract({
+          const result = await verifyContract((hre as any).neoDeploy.rpc, {
             contractName: deployment.contractName,
             address: deployment.address,
             networkName,
@@ -171,9 +285,7 @@ task("neo-verify-all", "Verify all deployed contracts on a network")
             console.log(chalk.green(`✅ ${deployment.contractName} verified`));
             deployment.verified = true;
             deployment.verification = {
-              status: "verified",
-              explorerUrl: result.explorerUrl,
-              sourceCodeUrl: result.sourceUrl
+              status: "verified"
             };
             await hre.neoSolc.artifacts.saveDeploymentArtifact(deployment);
             verified++;

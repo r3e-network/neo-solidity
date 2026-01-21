@@ -16,12 +16,12 @@ pragma solidity ^0.8.19;
  */
 
 import "../standards/NEP17.sol";
-import "../standards/NEP24.sol";
+import "../contracts/OracleService.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Storage.sol";
 import "../libraries/Runtime.sol";
 
-contract CompleteNEP17Token is NEP17 {
+contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     using Neo for *;
     using Storage for *;
     using Runtime for *;
@@ -79,7 +79,7 @@ contract CompleteNEP17Token is NEP17 {
     }
     
     // Oracle integration
-    NEP24Oracle private _oracle;
+    OracleService private _oracle;
     mapping(string => uint256) private _externalPrices;
     
     // Events
@@ -87,9 +87,37 @@ contract CompleteNEP17Token is NEP17 {
     event Unstake(address indexed account, uint256 amount, uint256 reward);
     event RewardClaimed(address indexed account, uint256 reward);
     event ProposalCreated(bytes32 indexed proposalId, address indexed proposer, string description);
+    event Vote(bytes32 indexed proposalId, address indexed voter, bool support, uint256 votingPower);
     event ProposalExecuted(bytes32 indexed proposalId, bool success);
     event PriceUpdated(string indexed symbol, uint256 price, uint256 timestamp);
     event ConfigUpdated(string parameter, uint256 oldValue, uint256 newValue);
+    event MultiSigMint(address indexed to, uint256 amount, uint256 signerCount, uint256 validSignatures);
+    event MultiSigBurn(address indexed from, uint256 amount, uint256 signerCount, uint256 validSignatures);
+    event TransferScheduled(
+        bytes32 indexed scheduleId,
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 executeTime
+    );
+    event ScheduledTransferExecuted(
+        bytes32 indexed scheduleId,
+        address indexed from,
+        address indexed to,
+        uint256 amount
+    );
+    event ConditionalTransfer(
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        string priceSymbol,
+        uint256 currentPrice,
+        uint256 minimumPrice
+    );
+    event BatchTransfer(address indexed from, address[] recipients, uint256[] amounts);
+    event EmergencyPauseComplete(address indexed caller, uint256 timestamp);
+    event EmergencyRecovery(address indexed caller, uint256 timestamp);
+    event OracleConfigUpdated(address indexed oldOracle, address indexed newOracle);
     
     /**
      * @dev Constructor with advanced configuration
@@ -114,7 +142,7 @@ contract CompleteNEP17Token is NEP17 {
         });
         
         if (_config.oracleEnabled) {
-            _oracle = NEP24Oracle(oracleAddress);
+            _oracle = OracleService(oracleAddress);
         }
         
         // Store contract metadata in Neo storage
@@ -150,7 +178,6 @@ contract CompleteNEP17Token is NEP17 {
         _totalStaked += amount;
         
         emit Stake(msg.sender, amount, lockPeriodDays);
-        Runtime.notify("Stake", abi.encode(msg.sender, amount, lockPeriodDays));
     }
     
     /**
@@ -181,7 +208,6 @@ contract CompleteNEP17Token is NEP17 {
         }
         
         emit Unstake(msg.sender, amount, reward);
-        Runtime.notify("Unstake", abi.encode(msg.sender, amount, reward));
     }
     
     /**
@@ -210,7 +236,6 @@ contract CompleteNEP17Token is NEP17 {
         _rewards[msg.sender] += reward;
         
         emit RewardClaimed(msg.sender, reward);
-        Runtime.notify("RewardClaimed", abi.encode(msg.sender, reward));
     }
     
     // ========== Oracle Integration ==========
@@ -224,19 +249,18 @@ contract CompleteNEP17Token is NEP17 {
             block.timestamp > _config.lastPriceUpdate + 1 hours,
             "CompleteNEP17: price updated recently"
         );
-        
-        return _oracle.requestPriceData(symbol(), "oraclePriceCallback");
+
+        string memory url = string(abi.encodePacked("https://example.com/prices/", symbol()));
+        return _oracle.request(url, "", abi.encode(symbol()), 20_000_000);
     }
     
     /**
-     * @dev Oracle price callback
+     * @dev Oracle callback (from OracleService)
      */
-    function oraclePriceCallback(
-        uint256 requestId,
-        uint256 code,
-        bytes calldata result,
-        bytes calldata userData
-    ) external {
+    function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
+        external
+        override
+    {
         require(msg.sender == address(_oracle), "CompleteNEP17: unauthorized oracle response");
         
         if (code == 0) {
@@ -245,7 +269,6 @@ contract CompleteNEP17Token is NEP17 {
             _config.lastPriceUpdate = block.timestamp;
             
             emit PriceUpdated(symbol(), newPrice, block.timestamp);
-            Runtime.notify("PriceUpdated", abi.encode(symbol(), newPrice, block.timestamp));
         }
     }
     
@@ -293,7 +316,6 @@ contract CompleteNEP17Token is NEP17 {
         });
         
         emit ProposalCreated(proposalId, msg.sender, description);
-        Runtime.notify("ProposalCreated", abi.encode(proposalId, msg.sender, description));
     }
     
     /**
@@ -314,7 +336,7 @@ contract CompleteNEP17Token is NEP17 {
             proposal.againstVotes += votingPower;
         }
         
-        Runtime.notify("Vote", abi.encode(proposalId, msg.sender, support, votingPower));
+        emit Vote(proposalId, msg.sender, support, votingPower);
     }
     
     /**
@@ -332,13 +354,21 @@ contract CompleteNEP17Token is NEP17 {
         // Execute proposal call data
         bool success;
         if (proposal.callData.length > 0) {
-            (success, ) = address(this).call(proposal.callData);
+            // Neo N3 does not support EVM-style `address(this).call(bytes)` dispatch.
+            // Instead, expect proposal.callData to be encoded as:
+            // abi.encode(methodName, paramsBytes)
+            // where paramsBytes is a serialized argument array (e.g. abi.encode(arg1, arg2, ...)).
+            (string memory methodName, bytes memory params) = abi.decode(
+                proposal.callData,
+                (string, bytes)
+            );
+            Syscalls.contractCall(address(this), methodName, params);
+            success = true;
         } else {
             success = true;
         }
         
         emit ProposalExecuted(proposalId, success);
-        Runtime.notify("ProposalExecuted", abi.encode(proposalId, success));
     }
     
     // ========== Multi-Signature Operations ==========
@@ -376,7 +406,7 @@ contract CompleteNEP17Token is NEP17 {
         // Execute mint
         _mint(to, amount);
         
-        Runtime.notify("MultiSigMint", abi.encode(to, amount, signers.length, validSignatures));
+        emit MultiSigMint(to, amount, signers.length, validSignatures);
     }
     
     /**
@@ -410,7 +440,7 @@ contract CompleteNEP17Token is NEP17 {
         
         _burn(from, amount);
         
-        Runtime.notify("MultiSigBurn", abi.encode(from, amount, signers.length, validSignatures));
+        emit MultiSigBurn(from, amount, signers.length, validSignatures);
     }
     
     // ========== Advanced Transfer Features ==========
@@ -438,7 +468,7 @@ contract CompleteNEP17Token is NEP17 {
             abi.encode(msg.sender, to, amount, executeTime, data)
         );
         
-        Runtime.notify("TransferScheduled", abi.encode(scheduleId, msg.sender, to, amount, executeTime));
+        emit TransferScheduled(scheduleId, msg.sender, to, amount, executeTime);
     }
     
     /**
@@ -459,7 +489,7 @@ contract CompleteNEP17Token is NEP17 {
         // Execute transfer
         _transfer(address(this), to, amount, data);
         
-        Runtime.notify("ScheduledTransferExecuted", abi.encode(scheduleId, from, to, amount));
+        emit ScheduledTransferExecuted(scheduleId, from, to, amount);
     }
     
     /**
@@ -480,9 +510,7 @@ contract CompleteNEP17Token is NEP17 {
         
         _transfer(msg.sender, to, amount, data);
         
-        Runtime.notify("ConditionalTransfer", abi.encode(
-            msg.sender, to, amount, priceSymbol, currentPrice, minimumPrice
-        ));
+        emit ConditionalTransfer(msg.sender, to, amount, priceSymbol, currentPrice, minimumPrice);
     }
     
     // ========== Gas Optimization Features ==========
@@ -497,18 +525,13 @@ contract CompleteNEP17Token is NEP17 {
         require(recipients.length == amounts.length, "CompleteNEP17: array length mismatch");
         require(recipients.length > 0, "CompleteNEP17: empty arrays");
         
-        // Gas optimization: batch all operations
-        Runtime.optimizeGasUsage(
-            function() {
-                for (uint256 i = 0; i < recipients.length; i++) {
-                    _transfer(msg.sender, recipients[i], amounts[i], "");
-                }
-            },
-            recipients.length * 50000 // Expected gas savings
-        );
+        // Neo Solidity does not support anonymous function literals; batch directly.
+        for (uint256 i = 0; i < recipients.length; i++) {
+            _transfer(msg.sender, recipients[i], amounts[i], "");
+        }
         
         // Single batch notification
-        Runtime.notify("BatchTransfer", abi.encode(msg.sender, recipients, amounts));
+        emit BatchTransfer(msg.sender, recipients, amounts);
     }
     
     // ========== Emergency Functions ==========
@@ -526,7 +549,7 @@ contract CompleteNEP17Token is NEP17 {
         _config.stakingEnabled = false;
         _config.oracleEnabled = false;
         
-        Runtime.notify("EmergencyPauseComplete", abi.encode(msg.sender, block.timestamp));
+        emit EmergencyPauseComplete(msg.sender, block.timestamp);
     }
     
     /**
@@ -540,7 +563,7 @@ contract CompleteNEP17Token is NEP17 {
         _config.stakingEnabled = true;
         _config.oracleEnabled = _config.oracleContract != address(0);
         
-        Runtime.notify("EmergencyRecovery", abi.encode(msg.sender, block.timestamp));
+        emit EmergencyRecovery(msg.sender, block.timestamp);
     }
     
     // ========== Advanced Admin Functions ==========
@@ -570,10 +593,10 @@ contract CompleteNEP17Token is NEP17 {
         
         address oldOracle = _config.oracleContract;
         _config.oracleContract = newOracleContract;
-        _oracle = NEP24Oracle(newOracleContract);
+        _oracle = OracleService(newOracleContract);
         _config.oracleEnabled = true;
         
-        Runtime.notify("OracleConfigUpdated", abi.encode(oldOracle, newOracleContract));
+        emit OracleConfigUpdated(oldOracle, newOracleContract);
     }
     
     // ========== View Functions ==========

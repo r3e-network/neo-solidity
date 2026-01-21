@@ -85,7 +85,12 @@ fn native_call_is_mutating(contract: NativeContract, method: &str) -> bool {
     match contract {
         NativeContract::Neo => matches!(
             method,
-            "transfer" | "vote" | "registerCandidate" | "unregisterCandidate" | "setGasPerBlock"
+            "transfer"
+                | "vote"
+                | "registerCandidate"
+                | "unregisterCandidate"
+                | "setGasPerBlock"
+                | "setRegisterPrice"
         ),
         NativeContract::Gas => matches!(method, "transfer"),
         NativeContract::ContractManagement => {
@@ -96,11 +101,25 @@ fn native_call_is_mutating(contract: NativeContract, method: &str) -> bool {
             "setFeePerByte"
                 | "setExecFeeFactor"
                 | "setStoragePrice"
+                | "setMillisecondsPerBlock"
+                | "setMaxValidUntilBlockIncrement"
+                | "setMaxTraceableBlocks"
+                | "setAttributeFee"
                 | "blockAccount"
                 | "unblockAccount"
+                | "recoverFund"
+                | "setWhitelistFeeContract"
+                | "removeWhitelistFeeContract"
         ),
-        NativeContract::Oracle => matches!(method, "request" | "setPrice"),
+        NativeContract::Oracle => matches!(method, "request" | "setPrice" | "finish"),
         NativeContract::RoleManagement => matches!(method, "designateAsRole"),
+        NativeContract::Notary => {
+            matches!(
+                method,
+                "lockDepositUntil" | "withdraw" | "setMaxNotValidBeforeDelta" | "onNEP17Payment"
+            )
+        }
+        NativeContract::Treasury => false,
         NativeContract::Ledger | NativeContract::CryptoLib | NativeContract::StdLib => false,
     }
 }

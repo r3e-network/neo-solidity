@@ -1,20 +1,16 @@
-import {
-  NeoNetworkConfig,
-  NetworkConfig,
-  NeoHardhatConfig
-} from '@neo-solidity/types';
+import type { NeoHardhatNetworkConfig } from '@neo-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 
 export class NetworkManager extends EventEmitter {
-  private networks: Map<string, NeoNetworkConfig> = new Map();
+  private networks: Map<string, NeoHardhatNetworkConfig> = new Map();
   private providers: Map<string, ethers.Provider> = new Map();
-  private signers: Map<string, ethers.Wallet> = new Map();
+  private signers: Map<string, ethers.Signer> = new Map();
   private currentNetwork?: string;
 
-  constructor(networks: { [networkName: string]: NeoNetworkConfig }) {
+  constructor(networks: { [networkName: string]: NeoHardhatNetworkConfig }) {
     super();
     
     // Register networks
@@ -24,7 +20,7 @@ export class NetworkManager extends EventEmitter {
   }
 
   // Network Management
-  addNetwork(name: string, config: NeoNetworkConfig): void {
+  addNetwork(name: string, config: NeoHardhatNetworkConfig): void {
     // Validate network configuration
     this.validateNetworkConfig(config);
     
@@ -43,7 +39,7 @@ export class NetworkManager extends EventEmitter {
     return false;
   }
 
-  getNetwork(name: string): NeoNetworkConfig | undefined {
+  getNetwork(name: string): NeoHardhatNetworkConfig | undefined {
     return this.networks.get(name);
   }
 
@@ -70,7 +66,7 @@ export class NetworkManager extends EventEmitter {
     return this.providers.get(networkName)!;
   }
 
-  async getSigner(networkName: string, accountIndex: number = 0): Promise<ethers.Wallet> {
+  async getSigner(networkName: string, accountIndex: number = 0): Promise<ethers.Signer> {
     const signerKey = `${networkName}:${accountIndex}`;
     
     if (!this.signers.has(signerKey)) {
@@ -174,15 +170,16 @@ export class NetworkManager extends EventEmitter {
     }
 
     if (Array.isArray(network.accounts)) {
-      return network.accounts.map((privateKey, index) => {
+      return network.accounts.map((privateKey) => {
         const wallet = new ethers.Wallet(privateKey);
         return wallet.address;
       });
     } else if (network.accounts.mnemonic) {
       const accounts: string[] = [];
       for (let i = 0; i < network.accounts.count; i++) {
-        const wallet = ethers.Wallet.fromPhrase(
+        const wallet = ethers.HDNodeWallet.fromPhrase(
           network.accounts.mnemonic,
+          "",
           `${network.accounts.path}/${i}`
         );
         accounts.push(wallet.address);
@@ -222,7 +219,7 @@ export class NetworkManager extends EventEmitter {
 
   // Configuration Management
   async saveNetworkConfig(filePath: string): Promise<void> {
-    const config: { [name: string]: NeoNetworkConfig } = {};
+    const config: { [name: string]: NeoHardhatNetworkConfig } = {};
     
     for (const [name, network] of this.networks.entries()) {
       // Remove sensitive data
@@ -247,7 +244,7 @@ export class NetworkManager extends EventEmitter {
     const config = await fs.readJson(filePath);
     
     for (const [name, networkConfig] of Object.entries(config)) {
-      this.addNetwork(name, networkConfig as NeoNetworkConfig);
+      this.addNetwork(name, networkConfig as NeoHardhatNetworkConfig);
     }
   }
 
@@ -268,7 +265,7 @@ export class NetworkManager extends EventEmitter {
   }
 
   // Private Implementation
-  private validateNetworkConfig(config: NeoNetworkConfig): void {
+  private validateNetworkConfig(config: NeoHardhatNetworkConfig): void {
     if (!config.rpc?.url) {
       throw new Error('Network RPC URL is required');
     }
@@ -288,7 +285,7 @@ export class NetworkManager extends EventEmitter {
     }
   }
 
-  private async createProvider(network: NeoNetworkConfig): Promise<ethers.Provider> {
+  private async createProvider(network: NeoHardhatNetworkConfig): Promise<ethers.Provider> {
     const providerOptions: any = {
       timeout: network.rpc.timeout || 30000
     };
@@ -301,10 +298,10 @@ export class NetworkManager extends EventEmitter {
   }
 
   private async createSigner(
-    network: NeoNetworkConfig,
+    network: NeoHardhatNetworkConfig,
     provider: ethers.Provider,
     accountIndex: number
-  ): Promise<ethers.Wallet> {
+  ): Promise<ethers.Signer> {
     if (Array.isArray(network.accounts)) {
       if (accountIndex >= network.accounts.length) {
         throw new Error(`Account index ${accountIndex} out of range`);
@@ -313,7 +310,7 @@ export class NetworkManager extends EventEmitter {
       return new ethers.Wallet(network.accounts[accountIndex], provider);
     } else if (network.accounts.mnemonic) {
       const derivationPath = `${network.accounts.path}/${network.accounts.initialIndex + accountIndex}`;
-      return ethers.Wallet.fromPhrase(network.accounts.mnemonic, derivationPath).connect(provider);
+      return ethers.HDNodeWallet.fromPhrase(network.accounts.mnemonic, "", derivationPath).connect(provider);
     } else {
       throw new Error('No accounts configured for network');
     }

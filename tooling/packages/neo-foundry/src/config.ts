@@ -163,7 +163,7 @@ export class ConfigManager {
   private config: NeoFoundryConfig;
   private configPath: string;
 
-  constructor(configPath = "foundry.toml") {
+  constructor(configPath = "neo-foundry.toml") {
     this.configPath = configPath;
     this.config = DEFAULT_NEO_FOUNDRY_CONFIG;
   }
@@ -240,7 +240,7 @@ export class ConfigManager {
    * Initialize project with default configuration
    */
   async initProject(projectPath = "."): Promise<void> {
-    const configPath = path.join(projectPath, "foundry.toml");
+    const configPath = path.join(projectPath, "neo-foundry.toml");
     
     // Create directories
     const profile = this.getProfile();
@@ -312,15 +312,17 @@ contract CounterTest is Test {
   }
 
   private async parseToml(content: string): Promise<Partial<NeoFoundryConfig>> {
+    const moduleId = "@iarna/toml";
     try {
-      // Use a proper TOML parser
-      const toml = await import('@iarna/toml');
-      return toml.parse(content) as Partial<NeoFoundryConfig>;
-    } catch (error) {
-      // Fallback to manual parsing if TOML library is not available
-      console.warn('TOML library not available, using manual parser');
-      return this.parseTomlManually(content);
+      // Avoid hard dependency in the scaffold; use a parser if present.
+      const toml = (await import(moduleId)) as any;
+      if (toml && typeof toml.parse === "function") {
+        return this.normalizeParsedConfig(toml.parse(content));
+      }
+    } catch {
+      // ignore, fall back to manual parser
     }
+    return this.normalizeParsedConfig(this.parseTomlManually(content));
   }
 
   private parseTomlManually(content: string): Partial<NeoFoundryConfig> {
@@ -342,6 +344,54 @@ contract CounterTest is Test {
     }
     
     return result;
+  }
+
+  private normalizeParsedConfig(parsed: any): Partial<NeoFoundryConfig> {
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    // Top-level mappings.
+    if (parsed.default_profile != null && parsed.defaultProfile == null) {
+      parsed.defaultProfile = parsed.default_profile;
+      delete parsed.default_profile;
+    }
+
+    // Profile mappings.
+    if (parsed.profile && typeof parsed.profile === "object") {
+      for (const rawProfile of Object.values(parsed.profile as Record<string, unknown>)) {
+        const profile: any = rawProfile;
+        if (!profile || typeof profile !== "object") continue;
+
+        if (profile.build && typeof profile.build === "object") {
+          if (profile.build.cache_dir != null && profile.build.cacheDir == null) {
+            profile.build.cacheDir = profile.build.cache_dir;
+            delete profile.build.cache_dir;
+          }
+          if (profile.build.size_optimization != null && profile.build.sizeOptimization == null) {
+            profile.build.sizeOptimization = profile.build.size_optimization;
+            delete profile.build.size_optimization;
+          }
+        }
+
+        if (profile.testing && typeof profile.testing === "object") {
+          if (profile.testing.gas_reports != null && profile.testing.gasReports == null) {
+            profile.testing.gasReports = profile.testing.gas_reports;
+            delete profile.testing.gas_reports;
+          }
+          if (profile.testing.fork_network != null && profile.testing.forkNetwork == null) {
+            profile.testing.forkNetwork = profile.testing.fork_network;
+            delete profile.testing.fork_network;
+          }
+          if (profile.testing.fork_block_number != null && profile.testing.forkBlockNumber == null) {
+            profile.testing.forkBlockNumber = profile.testing.fork_block_number;
+            delete profile.testing.fork_block_number;
+          }
+        }
+      }
+    }
+
+    return parsed as Partial<NeoFoundryConfig>;
   }
 
   private parseValue(value: string): any {
@@ -413,14 +463,30 @@ contract CounterTest is Test {
   }
 
   private mergeConfig(base: NeoFoundryConfig, override: Partial<NeoFoundryConfig>): NeoFoundryConfig {
-    // Deep merge configuration objects
-    return {
-      ...base,
-      ...override,
-      profile: {
-        ...base.profile,
-        ...override.profile
+    return this.mergeDeep(base, override) as NeoFoundryConfig;
+  }
+
+  private mergeDeep(base: any, override: any): any {
+    if (override === undefined) return base;
+    if (base === undefined) return override;
+    if (Array.isArray(base) || Array.isArray(override)) {
+      return override;
+    }
+    if (this.isPlainObject(base) && this.isPlainObject(override)) {
+      const merged: Record<string, any> = { ...base };
+      for (const [key, value] of Object.entries(override)) {
+        merged[key] = this.mergeDeep(base[key], value);
       }
-    };
+      return merged;
+    }
+    return override;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, any> {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+    );
   }
 }

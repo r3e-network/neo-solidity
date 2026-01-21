@@ -23,7 +23,6 @@ pub static SYSCALLS: Lazy<HashMap<[u8; 4], SyscallSpec>> = Lazy::new(|| {
         "System.Crypto.CheckMultisig",
         // Contract
         "System.Contract.Call",
-        "System.Contract.GetContract",
         "System.Contract.GetCallFlags",
         "System.Contract.CreateStandardAccount",
         "System.Contract.CreateMultisigAccount",

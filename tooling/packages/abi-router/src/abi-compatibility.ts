@@ -2,16 +2,13 @@ import {
   ABICompatibilityLayer,
   ContractABI,
   ABIEntry,
-  EncodedData,
   DecodedEvent,
   FunctionSelector,
   EventSelector,
   ABIRegistry,
-  ABICodec,
-  TypeDefinition
+  ABICodec
 } from '@neo-solidity/types';
 import { ethers } from 'ethers';
-import Web3 from 'web3';
 import { EventEmitter } from 'events';
 
 export class NeoABICompatibilityLayer extends EventEmitter implements ABICompatibilityLayer {
@@ -27,11 +24,26 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
 
   // Ethers.js Integration
   toEthersInterface(): ethers.Interface {
+    const mapInput = (input: any): any => ({
+      name: input.name,
+      type: input.type,
+      indexed: input.indexed ?? undefined,
+      internalType: input.internalType,
+      components: Array.isArray(input.components) ? input.components.map(mapInput) : undefined
+    });
+
+    const mapOutput = (output: any): any => ({
+      name: output.name,
+      type: output.type,
+      internalType: output.internalType,
+      components: Array.isArray(output.components) ? output.components.map(mapOutput) : undefined
+    });
+
     const abi = this.registry.getFunctionSelectors().map(selector => ({
       type: 'function',
       name: this.extractFunctionName(selector.signature),
-      inputs: selector.inputs,
-      outputs: selector.outputs,
+      inputs: selector.inputs.map(mapInput),
+      outputs: selector.outputs.map(mapOutput),
       stateMutability: this.determineStateMutability(selector)
     }));
 
@@ -39,7 +51,7 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
     const events = this.registry.getEventSelectors().map(selector => ({
       type: 'event',
       name: this.extractEventName(selector.signature),
-      inputs: selector.inputs,
+      inputs: selector.inputs.map(mapInput),
       anonymous: false
     }));
 
@@ -325,19 +337,21 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
         return '0x' + value.value;
       
       case 'Array':
-        const baseType = type.endsWith('[]') ? type.slice(0, -2) : 'string';
-        return (value.value || []).map((item: any) => 
-          this.convertFromNeoVM(baseType, item)
-        );
+        {
+          const baseType = type.endsWith('[]') ? type.slice(0, -2) : 'string';
+          return (value.value || []).map((item: any) => this.convertFromNeoVM(baseType, item));
+        }
       
       case 'Map':
-        const result: { [key: string]: any } = {};
-        if (value.value) {
-          for (const [k, v] of Object.entries(value.value)) {
-            result[k] = this.convertFromNeoVM('string', v);
+        {
+          const result: { [key: string]: any } = {};
+          if (value.value) {
+            for (const [k, v] of Object.entries(value.value)) {
+              result[k] = this.convertFromNeoVM('string', v);
+            }
           }
+          return result;
         }
-        return result;
       
       default:
         return value.value;
@@ -394,7 +408,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
     return match ? match[1] : signature;
   }
 
-  private determineStateMutability(selector: FunctionSelector): string {
+  private determineStateMutability(
+    selector: FunctionSelector
+  ): 'pure' | 'view' | 'payable' | 'nonpayable' {
     // Analyze function to determine state mutability
     // This is a simplified implementation
     if (selector.signature.includes('view') || selector.signature.includes('pure')) {
@@ -610,7 +626,7 @@ export class NeoABIRegistry implements ABIRegistry {
     return [];
   }
 
-  validateABI(abi: ContractABI): any {
+  validateABI(_abi: ContractABI): any {
     // Validate ABI structure and return results
     return {
       valid: true,

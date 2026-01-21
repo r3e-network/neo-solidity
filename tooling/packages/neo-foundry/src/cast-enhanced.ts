@@ -509,7 +509,7 @@ export class NeoCast extends EventEmitter {
     contractAddress: string,
     functionSignature: string,
     args: any[],
-    options: CastCallOptions
+    _options: CastCallOptions
   ): Promise<string> {
     try {
       const { name, inputs } = this.parseFunctionSignature(functionSignature);

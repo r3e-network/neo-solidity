@@ -1,6 +1,7 @@
-import { task } from "hardhat/config";
+import { task } from "hardhat/config.js";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
+import { wallet } from "@cityofzion/neon-js";
 
 task("neo-accounts", "List Neo accounts configured for deployment")
   .addFlag("balances", "Show account balances")
@@ -135,13 +136,15 @@ task("neo-account-import", "Import account from private key")
     console.log(chalk.blue("📥 Importing account..."));
 
     try {
-      // Add account to account manager
+      const account = new wallet.Account(privateKey);
+
       hre.neoDeploy.accounts.addAccount({
-        privateKey,
+        address: account.address,
+        scriptHash: account.scriptHash,
+        privateKey: account.privateKey,
+        publicKey: account.publicKey,
         label: label || `Imported Account ${Date.now()}`,
-        // Other fields would be derived from private key
-        address: "NMockAddress123456789",
-        scriptHash: "0xmockscripthash123456789"
+        isMultiSig: false,
       });
       
       const importedAccount = hre.neoDeploy.accounts.getAllAccounts().slice(-1)[0];
@@ -198,15 +201,16 @@ task("neo-account-generate", "Generate new account")
     console.log(chalk.blue("🎲 Generating new account..."));
 
     try {
-      // This would generate a real Neo account with proper cryptography
-      // For now, return mock data
+      const privateKey = wallet.generatePrivateKey();
+      const account = new wallet.Account(privateKey);
+
       const newAccount = {
-        address: `N${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-        scriptHash: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        privateKey: `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        publicKey: `03${Array.from({ length: 62 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+        address: account.address,
+        scriptHash: account.scriptHash,
+        privateKey: account.privateKey,
+        publicKey: account.publicKey,
         label: label || `Generated Account ${Date.now()}`,
-        isMultiSig: false
+        isMultiSig: false,
       };
       
       console.log(chalk.green("✅ New account generated!"));

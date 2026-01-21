@@ -15,3 +15,44 @@ export * as profilerTypes from './profiler';
 export * as rpcTypes from './rpc';
 export * as sourcemapTypes from './sourcemap';
 export * as verificationTypes from './verification';
+
+// Commonly consumed submodules (safe named re-exports).
+export type { NeoHardhatConfig, DeploymentOptions, DeploymentResult } from './hardhat';
+export type { NeoNetworkConfig as NeoHardhatNetworkConfig } from './hardhat';
+export type { NeoRpcProvider, InvokeResult, ContractManifest } from './rpc';
+
+export type {
+  GasProfiler,
+  GasProfile,
+  TransactionProfile,
+  ContractProfile,
+  FunctionCallProfile,
+  StorageProfile,
+  OptimizationSuggestion,
+  GasBreakdown,
+  ExecutionTrace,
+  PerformanceProfiler,
+  PerformanceProfile,
+} from './profiler';
+
+// Verification types are exported with aliases to avoid clashing with `contracts.VerificationResult`.
+export type {
+  ContractVerifier,
+  MultiVerifier,
+  VerificationRequest,
+  VerificationStatus,
+  SourceCodeResult,
+  SimilarContract,
+  VerificationCache,
+  BytecodeAnalyzer,
+  BytecodeAnalysis,
+  ComparisonResult,
+  DecompiledCode,
+  VerificationPipeline,
+  VerificationStep,
+  VerificationContext,
+  StepResult,
+  BytecodeMetadata,
+  SecurityAnalysis,
+} from './verification';
+export type { VerificationResult as ExplorerVerificationResult } from './verification';

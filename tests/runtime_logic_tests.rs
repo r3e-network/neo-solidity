@@ -61,25 +61,16 @@ fn bool_alias_opcodes_match_originals() {
 
 #[test]
 fn convert_coerces_to_boolean_and_bytearray() {
-    // Integer 1 -> CONVERT to Boolean (0x20) should yield true
-    let code = [
-        0x11, // value 1
-        0x00, 0x20, // PUSHINT8 0x20 (Boolean)
-        0xDB, // CONVERT
-        0x40,
-    ];
+    // Integer 1 -> CONVERT to Boolean (0x20) should yield true.
+    // NeoVM CONVERT takes a 1-byte immediate operand for the target StackItemType.
+    let code = [0x11, 0xDB, 0x20, 0x40];
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
     assert_eq!(ctx.return_data(), vec![1]);
 
     // Boolean false -> CONVERT to ByteArray (0x28) should yield [0]
-    let code2 = [
-        0x09, // PUSHF (boolean false)
-        0x00, 0x28, // target type bytearray
-        0xDB, // CONVERT
-        0x40,
-    ];
+    let code2 = [0x09, 0xDB, 0x28, 0x40];
     let mut ctx2 = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx2.initialize(&code2, &[]).expect("init");
     while !ctx2.step().expect("step").halted {}

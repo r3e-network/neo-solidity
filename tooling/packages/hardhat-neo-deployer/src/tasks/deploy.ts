@@ -1,4 +1,4 @@
-import { task, types } from "hardhat/config";
+import { task, types } from "hardhat/config.js";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
 
@@ -65,6 +65,7 @@ task("neo-deploy", "Deploy contracts to Neo blockchain")
       console.log(chalk.gray(`   const contract = await hre.neoDeploy.deployer.getContract("${contract}", "${deployment.address}");`));
       console.log(chalk.gray("   // Call contract methods..."));
 
+      return deployment;
     } catch (error) {
       console.error(chalk.red("❌ Deployment failed:"));
       console.error(error instanceof Error ? error.message : String(error));
@@ -99,28 +100,33 @@ task("neo-deploy-batch", "Deploy multiple contracts in batch")
 
       // Print summary
       console.log(chalk.blue("\n📋 Deployment Summary:"));
-      for (const deployment of deployments) {
-        console.log(`   ${deployment.contract}: ${deployment.address}`);
+      const deploymentsWithNames = deployments.map((deployment, index) => ({
+        contractName: deploymentConfig.contracts[index]?.name ?? `Contract ${index + 1}`,
+        deployment,
+      }));
+
+      for (const item of deploymentsWithNames) {
+        console.log(`   ${item.contractName}: ${item.deployment.address}`);
       }
 
       // Verify all contracts if requested
       if (verify) {
         console.log(chalk.yellow("\n🔍 Verifying contracts..."));
         
-        for (const deployment of deployments) {
+        for (const item of deploymentsWithNames) {
           try {
             // Find the original config for constructor args
             const contractConfig = deploymentConfig.contracts.find(
-              (c: any) => c.name === deployment.contract
+              (c: any) => c.name === item.contractName
             );
             
             await hre.run("neo-verify", {
-              contract: deployment.contract,
-              address: deployment.address,
+              contract: item.contractName,
+              address: item.deployment.address,
               constructorArgs: JSON.stringify(contractConfig?.args || [])
             });
           } catch (verifyError) {
-            console.log(chalk.yellow(`⚠️  Verification failed for ${deployment.contract}: ${verifyError}`));
+            console.log(chalk.yellow(`⚠️  Verification failed for ${item.contractName}: ${verifyError}`));
           }
         }
       }
@@ -133,19 +139,20 @@ task("neo-deploy-batch", "Deploy multiple contracts in batch")
       const summary = {
         network: hre.network.name,
         timestamp: new Date().toISOString(),
-        deployments: deployments.map(d => ({
-          contract: d.contract,
-          address: d.address,
-          scriptHash: d.scriptHash,
-          transactionHash: d.transactionHash,
-          blockNumber: d.blockNumber,
-          gasUsed: d.gasUsed.toString()
+        deployments: deploymentsWithNames.map(item => ({
+          contract: item.contractName,
+          address: item.deployment.address,
+          scriptHash: item.deployment.scriptHash,
+          transactionHash: item.deployment.transactionHash,
+          blockNumber: item.deployment.blockNumber,
+          gasUsed: item.deployment.gasUsed.toString()
         }))
       };
       
       await fs2.writeFile(summaryPath, JSON.stringify(summary, null, 2));
       console.log(chalk.blue(`📄 Deployment summary saved to ${summaryPath}`));
 
+      return deployments;
     } catch (error) {
       console.error(chalk.red("❌ Batch deployment failed:"));
       console.error(error instanceof Error ? error.message : String(error));

@@ -77,6 +77,44 @@ fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
                 ("updateCounter", u256),
             ],
         )),
+        ("NativeCalls", "WhitelistedContract") => Some(mk_struct(
+            "NativeCalls.WhitelistedContract",
+            vec![
+                ("contractHash", ValueType::Address),
+                ("method", ValueType::String),
+                (
+                    "argCount",
+                    ValueType::Integer {
+                        signed: false,
+                        bits: 256,
+                    },
+                ),
+                (
+                    "fixedFee",
+                    ValueType::Integer {
+                        signed: true,
+                        bits: 256,
+                    },
+                ),
+            ],
+        )),
+        ("NativeCalls", "NetworkConfig") => Some(mk_struct(
+            "NativeCalls.NetworkConfig",
+            vec![
+                ("feePerByte", u256.clone()),
+                (
+                    "execFeeFactor",
+                    ValueType::Integer {
+                        signed: false,
+                        bits: 32,
+                    },
+                ),
+                ("storagePrice", u256.clone()),
+                ("gasPerBlock", u256.clone()),
+                ("oraclePrice", u256.clone()),
+                ("minimumDeploymentFee", u256),
+            ],
+        )),
         _ => None,
     }
 }
@@ -195,6 +233,11 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                         | "POLICY_CONTRACT"
                         | "ORACLE_CONTRACT"
                         | "ROLE_MANAGEMENT"
+                        | "NOTARY_CONTRACT"
+                        | "TREASURY_CONTRACT"
+                        | "LEDGER_CONTRACT"
+                        | "CRYPTO_LIB"
+                        | "STD_LIB"
                 )
             {
                 return Some(ValueType::Address);

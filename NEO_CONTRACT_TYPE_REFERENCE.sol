@@ -12,6 +12,7 @@ pragma solidity ^0.8.19;
  */
 
 import "devpack/contracts/Framework.sol";
+import "devpack/contracts/OracleService.sol";
 import "devpack/standards/NEP17.sol";
 import "devpack/standards/NEP11.sol";
 import "devpack/standards/NEP24.sol";
@@ -69,6 +70,9 @@ contract AdvancedNEP11NFT is NEP11 {
 contract GovernanceContract is Framework {
     using Neo for *;
     using Runtime for *;
+
+    event ProposalCreated(uint256 proposalId, address proposer, string description);
+    event VoteCast(uint256 proposalId, address voter, bool support, uint256 votes);
     
     struct Proposal {
         uint256 id;
@@ -140,6 +144,8 @@ contract GovernanceContract is Framework {
 contract AMMLiquidityPool is Framework {
     using Neo for *;
     
+    event LiquidityAdded(address indexed to, uint256 amount0, uint256 amount1, uint256 liquidity);
+    
     address public token0;
     address public token1;
     uint256 public reserve0;
@@ -207,6 +213,8 @@ contract AMMLiquidityPool is Framework {
  */
 contract LendingProtocol is Framework {
     using Neo for *;
+
+    event Supply(address indexed user, address indexed token, uint256 amount, uint256 cTokens);
     
     struct Market {
         address token;
@@ -261,13 +269,19 @@ contract LendingProtocol is Framework {
 
 /**
  * @dev Price Feed Oracle Contract
- * Real-time price feeds with NEP-24 integration
+ * Real-time price feeds with the Oracle native contract
  */
-contract PriceFeedOracle is NEP24Oracle {
+contract PriceFeedOracle is IOracleServiceReceiver {
+    OracleService private _oracle;
+
+    event PriceUpdated(string symbol, uint256 price, uint256 timestamp);
+    
     mapping(string => uint256) public prices;
     mapping(string => uint256) public lastUpdate;
     
-    constructor() NEP24Oracle(1000000) {} // 0.01 GAS per request
+    constructor(address oracleService) {
+        _oracle = OracleService(oracleService);
+    }
     
     function requestPriceUpdate(string memory symbol) public returns (uint256) {
         string memory url = string(abi.encodePacked(
@@ -275,15 +289,14 @@ contract PriceFeedOracle is NEP24Oracle {
             symbol
         ));
         
-        return request(url, "$.quotes.USD.price", "updatePrice", abi.encode(symbol), 10000000);
+        return _oracle.request(url, "$.quotes.USD.price", abi.encode(symbol), 10_000_000);
     }
     
-    function updatePrice(
-        uint256 requestId,
-        uint256 code,
-        bytes calldata result,
-        bytes calldata userData
-    ) external {
+    function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
+        external
+        override
+    {
+        require(msg.sender == address(_oracle), "unauthorized oracle response");
         if (code == 0) {
             string memory symbol = abi.decode(userData, (string));
             uint256 price = abi.decode(result, (uint256));
@@ -306,6 +319,8 @@ contract PriceFeedOracle is NEP24Oracle {
  */
 contract ContractRegistry is Framework {
     using Neo for *;
+
+    event ContractDeployed(bytes32 contractId, address contractAddress, address deployer);
     
     struct ContractInfo {
         address contractAddress;
@@ -350,6 +365,8 @@ contract ContractRegistry is Framework {
  */
 contract NeoDNS is Framework {
     using Storage for *;
+
+    event DomainRegistered(bytes32 domainHash, string name, address owner);
     
     struct Domain {
         address owner;
@@ -398,8 +415,14 @@ contract NeoDNS is Framework {
  * @dev Cross-Chain Bridge Contract
  * Asset bridging with oracle verification
  */
-contract CrossChainBridge is Framework, NEP24Oracle {
+contract CrossChainBridge is Framework, IOracleServiceReceiver {
     using Neo for *;
+    
+    OracleService private _oracle;
+
+    event BridgeInitiated(bytes32 requestId, address user, string targetChain);
+    event BridgeCompleted(bytes32 requestId);
+    event BridgeRefunded(bytes32 requestId);
     
     struct BridgeRequest {
         address user;
@@ -415,7 +438,9 @@ contract CrossChainBridge is Framework, NEP24Oracle {
     mapping(bytes32 => BridgeRequest) public bridgeRequests;
     mapping(string => address) public chainOracles;
     
-    constructor() NEP24Oracle(5000000) {} // 0.05 GAS per bridge request
+    constructor(address oracleService) {
+        _oracle = OracleService(oracleService);
+    }
     
     function initiateBridge(
         address token,
@@ -450,18 +475,17 @@ contract CrossChainBridge is Framework, NEP24Oracle {
             targetAddress
         ));
         
-        request(url, "$.valid", "bridgeCallback", abi.encode(requestId), 20000000);
+        _oracle.request(url, "$.valid", abi.encode(requestId), 20_000_000);
         
         Runtime.notify("BridgeInitiated", abi.encode(requestId, msg.sender, targetChain));
         return requestId;
     }
     
-    function bridgeCallback(
-        uint256 oracleRequestId,
-        uint256 code,
-        bytes calldata result,
-        bytes calldata userData
-    ) external {
+    function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
+        external
+        override
+    {
+        require(msg.sender == address(_oracle), "unauthorized oracle response");
         if (code == 0) {
             bool isValid = abi.decode(result, (bool));
             bytes32 requestId = abi.decode(userData, (bytes32));
@@ -495,6 +519,9 @@ contract CrossChainBridge is Framework, NEP24Oracle {
 contract DigitalIdentity is Framework {
     using Storage for *;
     using Runtime for *;
+
+    event IdentityCreated(address owner, string name);
+    event CredentialVerified(address user, bytes32 credentialHash, address verifier);
     
     struct Identity {
         address owner;
@@ -544,6 +571,9 @@ contract DigitalIdentity is Framework {
  */
 contract SupplyChain is Framework {
     using Storage for *;
+
+    event ProductCreated(bytes32 productId, string name, address manufacturer);
+    event ProductTransferred(bytes32 productId, address from, address to);
     
     struct Product {
         bytes32 id;
@@ -624,6 +654,8 @@ contract SupplyChain is Framework {
  */
 contract GameContract is Framework, NEP11 {
     using Neo for *;
+
+    event GameItemCreated(bytes32 itemId, address player, string itemType, uint256 rarity);
     
     constructor() NEP11("Game Items", "GAME", 0, "https://game.neo.org/items/", 100000, false) {}
     
@@ -700,6 +732,7 @@ contract UpgradeableProxy is Framework {
     address public admin;
     
     event Upgraded(address indexed implementation);
+    event ProxyContractUpgraded(address proxy, uint256 timestamp);
     
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin");
@@ -714,21 +747,12 @@ contract UpgradeableProxy is Framework {
         NativeCalls.updateContract(nef, manifest);
         
         emit Upgraded(address(this));
-        Runtime.notify("ContractUpgraded", abi.encode(address(this), block.timestamp));
+        Runtime.notify("ProxyContractUpgraded", abi.encode(address(this), block.timestamp));
     }
     
     fallback() external payable {
-        // Delegate to implementation contract
-        address impl = implementation;
-        assembly {
-            calldatacopy(0, 0, calldatasize())
-            let result := delegatecall(gas(), impl, 0, calldatasize(), 0, 0)
-            returndatacopy(0, 0, returndatasize())
-            
-            switch result
-            case 0 { revert(0, returndatasize()) }
-            default { return(0, returndatasize()) }
-        }
+        // Neo N3 does not support EVM-style delegatecall proxies.
+        revert("UpgradeableProxy fallback is not supported on Neo N3");
     }
 }
 
@@ -742,6 +766,9 @@ contract UpgradeableProxy is Framework {
  */
 contract ValidatorManager is Framework {
     using Neo for *;
+
+    event ValidatorRegistered(address validator, bytes publicKey);
+    event VotesDelegated(address voter, address validator, uint256 amount);
     
     struct Validator {
         bytes publicKey;

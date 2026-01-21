@@ -712,14 +712,8 @@ contract ERC721Token {
         if (to.code.length > 0) {
             try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, data) returns (bytes4 retval) {
                 return retval == IERC721Receiver.onERC721Received.selector;
-            } catch (bytes memory reason) {
-                if (reason.length == 0) {
-                    revert TransferToNonERC721Receiver();
-                } else {
-                    assembly {
-                        revert(add(32, reason), mload(reason))
-                    }
-                }
+            } catch {
+                revert TransferToNonERC721Receiver();
             }
         } else {
             return true;

@@ -182,8 +182,12 @@ program
   .description("Verify contract source code")
   .requiredOption("-a, --address <address>", "Contract address")
   .requiredOption("-s, --source <file>", "Source file")
+  .option("-c, --contract <name>", "Contract name (if the source contains multiple contracts)")
   .option("-n, --network <network>", "Network name", "testnet")
   .option("--constructor-args <args>", "Constructor arguments (JSON)")
+  .option("--optimize", "Enable optimizer (must match deployed build settings)")
+  .option("--optimize-runs <runs>", "Optimizer runs (default: 200)")
+  .option("--gas-model <model>", "Neo gas cost model (hybrid|neo)", "hybrid")
   .action(async (options) => {
     const spinner = ora("Verifying contract...").start();
 

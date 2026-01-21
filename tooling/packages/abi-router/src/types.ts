@@ -1,8 +1,5 @@
 import type { ContractManifest } from "@neo-solidity/types";
 
-// Re-export types for convenience
-export * from "@neo-solidity/types";
-
 /**
  * ABI Router specific types
  */

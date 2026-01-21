@@ -1,5 +1,12 @@
 import { NeoRpcProvider, InvokeResult } from "@neo-solidity/types";
 import Debug from "debug";
+import { id } from "ethers";
+import { wallet } from "@cityofzion/neon-js";
+import {
+  decodeNeoBytes,
+  normalizeNeoHash160,
+  strip0x,
+} from "./neo-utils";
 
 const debug = Debug("neo-solidity:rpc-adapter");
 
@@ -20,7 +27,7 @@ export class RpcAdapter {
     contractAddress: string,
     methodName: string,
     args: any[] = [],
-    blockTag?: string | number
+    _blockTag?: string | number
   ): Promise<InvokeResult> {
     debug(`Invoking function ${methodName} on ${contractAddress}`);
 
@@ -54,7 +61,7 @@ export class RpcAdapter {
     contractAddress: string,
     methodName: string,
     args: any[] = [],
-    options: {
+    _options: {
       from?: string;
       value?: string;
     } = {}
@@ -147,15 +154,9 @@ export class RpcAdapter {
     debug(`Getting events ${eventName} from ${contractAddress}`);
 
     try {
-      const filter = {
-        address: contractAddress,
-        topics: eventName ? [this.getEventTopicHash(eventName), eventName] : undefined,
-        fromBlock,
-        toBlock
-      };
+      const filter = { address: contractAddress, eventName, fromBlock, toBlock };
 
-      const events = await this.fetchEventsFromNeo(filter);
-      return events.map(event => this.convertNeoEventToEthLog(event));
+      return await this.fetchEventsFromNeo(filter);
     } catch (error) {
       debug(`Failed to get events: ${error}`);
       throw error;
@@ -165,7 +166,7 @@ export class RpcAdapter {
   /**
    * Get account balance
    */
-  async getBalance(address: string, blockTag?: string | number): Promise<string> {
+  async getBalance(address: string, _blockTag?: string | number): Promise<string> {
     debug(`Getting balance for ${address}`);
 
     try {
@@ -192,7 +193,7 @@ export class RpcAdapter {
   /**
    * Get transaction count (nonce)
    */
-  async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
+  async getTransactionCount(address: string, _blockTag?: string | number): Promise<number> {
     try {
       // Neo doesn't use nonces like Ethereum, but we can return the number of transactions
       // sent by this address as an approximation
@@ -208,7 +209,7 @@ export class RpcAdapter {
   /**
    * Get code at address
    */
-  async getCode(address: string, blockTag?: string | number): Promise<string> {
+  async getCode(address: string, _blockTag?: string | number): Promise<string> {
     debug(`Getting code for ${address}`);
 
     try {
@@ -229,7 +230,7 @@ export class RpcAdapter {
   async getStorageAt(
     address: string,
     position: string,
-    blockTag?: string | number
+    _blockTag?: string | number
   ): Promise<string> {
     debug(`Getting storage at ${position} for ${address}`);
 
@@ -327,9 +328,8 @@ export class RpcAdapter {
     return notifications.map((notification, index) => ({
       address: notification.contract,
       topics: [
-        // First topic is event signature hash
-        this.getEventTopicHash(notification.eventname || notification.eventName),
-        // Additional topics from indexed parameters would go here
+        // Best-effort placeholder; decode via EventFragment in EventDecoder for real topics.
+        id(String(notification.eventname || notification.eventName || "UnknownEvent")),
       ],
       data: this.encodeLogData(notification.state),
       logIndex: index,
@@ -339,34 +339,14 @@ export class RpcAdapter {
     }));
   }
 
-  private getEventTopicHash(eventName: string): string {
-    const name = eventName || "UnknownEvent";
-    // For Neo events, we use a different hashing approach than Ethereum's Keccak256
-    // We'll use SHA256 which is available in Neo
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(name).digest('hex');
-    return '0x' + hash;
-  }
-
   private encodeLogData(state: any[]): string {
-    // Encode Neo state array as Ethereum-compatible log data
-    const encoded = state.map(item => {
-      if (typeof item === 'string') {
-        // Convert string to hex
-        return Buffer.from(item, 'utf8').toString('hex');
-      } else if (typeof item === 'number' || typeof item === 'bigint') {
-        // Convert number to 32-byte hex
-        return BigInt(item).toString(16).padStart(64, '0');
-      } else if (typeof item === 'boolean') {
-        // Convert boolean to 32-byte hex
-        return item ? '0'.repeat(63) + '1' : '0'.repeat(64);
-      } else {
-        // Convert object to JSON then hex
-        return Buffer.from(JSON.stringify(item), 'utf8').toString('hex');
-      }
-    }).join('');
-    
-    return '0x' + encoded;
+    // Best-effort: encode the notification state into hex(JSON) for inspection.
+    try {
+      const payload = JSON.stringify(state ?? null);
+      return "0x" + Buffer.from(payload, "utf8").toString("hex");
+    } catch {
+      return "0x";
+    }
   }
 
   /**
@@ -374,7 +354,7 @@ export class RpcAdapter {
    */
   private async fetchEventsFromNeo(filter: {
     address?: string;
-    topics?: string[];
+    eventName?: string;
     fromBlock?: string | number;
     toBlock?: string | number;
   }): Promise<any[]> {
@@ -383,6 +363,13 @@ export class RpcAdapter {
     try {
       const fromBlock = await this.resolveBlockTag(filter.fromBlock ?? 'earliest');
       const toBlock = await this.resolveBlockTag(filter.toBlock ?? 'latest');
+
+      const blockRange = toBlock - fromBlock;
+      if (blockRange > 2000) {
+        throw new Error(
+          `Refusing to scan ${blockRange} blocks. Provide a narrower fromBlock/toBlock range.`
+        );
+      }
       
       // Get application logs for the block range
       for (let blockHeight = fromBlock; blockHeight <= toBlock; blockHeight++) {
@@ -394,7 +381,12 @@ export class RpcAdapter {
           if (appLog && appLog.executions) {
             for (const execution of appLog.executions) {
               if (execution.notifications) {
-                events.push(...this.filterNotifications(execution.notifications, filter));
+                const annotated = (execution.notifications as any[]).map((notification) => ({
+                  ...notification,
+                  blockNumber: blockHeight,
+                  transactionHash: tx.hash,
+                }));
+                events.push(...this.filterNotifications(annotated, filter));
               }
             }
           }
@@ -414,49 +406,20 @@ export class RpcAdapter {
     return notifications.filter(notification => {
       // Filter by contract address
       if (filter.address) {
-        const targetScriptHash = this.addressToScriptHash(filter.address);
-        if (notification.contract !== targetScriptHash) {
+        const targetScriptHash = strip0x(this.addressToScriptHash(filter.address)).toLowerCase();
+        const contractHash = strip0x(String(notification.contract ?? "")).toLowerCase();
+        if (!contractHash || contractHash !== targetScriptHash) {
           return false;
         }
       }
       
-      // Filter by topics (event names)
-      if (filter.topics && filter.topics.length > 0) {
-        const eventName = notification.eventname || notification.eventName;
-        const eventHash = this.getEventTopicHash(eventName);
-        
-        // Check if any topic matches
-        const topicMatches = filter.topics.some((topic: string) => 
-          topic === eventHash || topic === eventName
-        );
-        
-        if (!topicMatches) {
-          return false;
-        }
+      if (filter.eventName) {
+        const name = String(notification.eventname || notification.eventName || "");
+        if (name !== filter.eventName) return false;
       }
       
       return true;
     });
-  }
-
-  /**
-   * Convert Neo event notification to Ethereum-style log
-   */
-  private convertNeoEventToEthLog(notification: any): any {
-    return {
-      address: this.scriptHashToAddress(notification.contract),
-      topics: [
-        this.getEventTopicHash(notification.eventname || notification.eventName),
-        // Additional topics would be extracted from notification.state
-      ],
-      data: this.encodeLogData(notification.state || []),
-      blockNumber: notification.blockIndex || 0,
-      blockHash: notification.blockHash || '0x0000000000000000000000000000000000000000000000000000000000000000',
-      transactionHash: notification.txHash || '0x0000000000000000000000000000000000000000000000000000000000000000',
-      transactionIndex: 0,
-      logIndex: 0,
-      removed: false
-    };
   }
 
   /**
@@ -493,101 +456,24 @@ export class RpcAdapter {
   }
 
   /**
-   * Convert script hash to Neo address
-   */
-  private scriptHashToAddress(scriptHash: string): string {
-    try {
-      // Remove 0x prefix if present
-      const cleanHash = scriptHash.replace(/^0x/, '');
-      
-      // Reverse the script hash (little endian to big endian)
-      const reversedHash = Buffer.from(cleanHash, 'hex').reverse();
-      
-      // Add version byte (0x35 for N3)
-      const versionByte = Buffer.from([0x35]);
-      const addressPayload = Buffer.concat([versionByte, reversedHash]);
-      
-      // Calculate checksum
-      const crypto = require('crypto');
-      const checksum1 = crypto.createHash('sha256').update(addressPayload).digest();
-      const checksum2 = crypto.createHash('sha256').update(checksum1).digest();
-      const checksum = checksum2.slice(0, 4);
-      
-      // Combine and encode
-      const fullAddress = Buffer.concat([addressPayload, checksum]);
-      return this.base58Encode(fullAddress);
-    } catch (error) {
-      debug(`Failed to convert script hash to address: ${error}`);
-      return scriptHash; // Return original if conversion fails
-    }
-  }
-
-  /**
    * Convert Neo address to script hash
    */
   private addressToScriptHash(address: string): string {
+    if (wallet.isAddress(address)) {
+      return "0x" + wallet.getScriptHashFromAddress(address);
+    }
+
+    // Allow direct script hash usage (Neo canonical form)
     try {
-      // Decode base58 address
-      const decoded = this.base58Decode(address);
-      
-      // Remove version byte and checksum
-      const scriptHash = decoded.slice(1, 21);
-      
-      // Reverse for little endian format
-      const reversedHash = Buffer.from(scriptHash).reverse();
-      
-      return '0x' + reversedHash.toString('hex');
-    } catch (error) {
-      debug(`Failed to convert address to script hash: ${error}`);
-      throw new Error(`Invalid Neo address: ${address}`);
-    }
-  }
-
-  /**
-   * Base58 encode
-   */
-  private base58Encode(buffer: Buffer): string {
-    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let num = BigInt('0x' + buffer.toString('hex'));
-    let result = '';
-    
-    while (num > 0) {
-      const remainder = num % 58n;
-      result = alphabet[Number(remainder)] + result;
-      num = num / 58n;
-    }
-    
-    // Add leading 1s for leading zeros
-    for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
-      result = '1' + result;
-    }
-    
-    return result;
-  }
-
-  /**
-   * Base58 decode
-   */
-  private base58Decode(address: string): Buffer {
-    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let num = 0n;
-    
-    for (const char of address) {
-      const index = alphabet.indexOf(char);
-      if (index === -1) {
-        throw new Error(`Invalid character in address: ${char}`);
+      return normalizeNeoHash160(address);
+    } catch {
+      // Fallback: treat as raw ByteString and attempt to decode to 20 bytes, then normalize.
+      const bytes = decodeNeoBytes(address);
+      if (bytes.length !== 20) {
+        throw new Error(`Invalid Neo address/script hash: ${address}`);
       }
-      num = num * 58n + BigInt(index);
+      return "0x" + bytes.toString("hex");
     }
-    
-    const hex = num.toString(16);
-    const buffer = Buffer.from(hex.length % 2 ? '0' + hex : hex, 'hex');
-    
-    // Add leading zeros for leading 1s
-    const leadingOnes = address.match(/^1*/)?.[0]?.length || 0;
-    const leadingZeros = Buffer.alloc(leadingOnes);
-    
-    return Buffer.concat([leadingZeros, buffer]);
   }
 
   /**

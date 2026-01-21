@@ -88,10 +88,10 @@ Deployment Outputs (.nef, .manifest.json, optional debug bundle)
   symbols (source map, variable info).
 
 ### 6. Artifact Builder
-- **NEF:** build method token table, include manifest hash, compute CRC32,
-  support optional `nef.debug.json` emission.
+- **NEF:** build method token table, clamp the `source` field, compute the
+  standard checksum (double SHA-256, first 4 bytes).
 - **Manifest:** derive ABI from analysed symbols, populate `supportedstandards`,
-  `permissions`, `features`, and `extra` metadata.
+  `permissions`, `features` flags (e.g., storage), and `extra` metadata.
 - **Debug:** optional PDB-like JSON for the debugger (breakpoints, locals).
 
 ### 7. DevPack & Runtime Bindings

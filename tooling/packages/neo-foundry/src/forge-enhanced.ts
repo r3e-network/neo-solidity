@@ -1,6 +1,5 @@
 import {
   FoundryConfig,
-  ForgeProject,
   ForgeBuildOptions,
   ForgeBuildResult,
   ForgeTestOptions,
@@ -18,7 +17,6 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import glob from 'glob';
-import semver from 'semver';
 
 export class NeoForge extends EventEmitter {
   private config: FoundryConfig;
@@ -231,9 +229,9 @@ export class NeoForge extends EventEmitter {
   }
 
   // Advanced Features
-
-  async watch(options: ForgeBuildOptions = {}): Promise<void> {
-    const watchPaths = [
+  
+  async watch(_options: ForgeBuildOptions = {}): Promise<void> {
+    const _watchPaths = [
       path.join(this.projectRoot, this.config.src),
       path.join(this.projectRoot, 'test'),
       path.join(this.projectRoot, 'script')
@@ -334,7 +332,7 @@ export class NeoForge extends EventEmitter {
     return { contracts, errors, warnings };
   }
 
-  private async compileSingleContract(sourceFile: string, options: ForgeBuildOptions): Promise<{
+  private async compileSingleContract(sourceFile: string, _options: ForgeBuildOptions): Promise<{
     contracts: any;
     errors: CompilationMessage[];
     warnings: CompilationMessage[];
@@ -382,7 +380,7 @@ export class NeoForge extends EventEmitter {
     }
   }
 
-  private async discoverTestFiles(options: ForgeTestOptions): Promise<string[]> {
+  private async discoverTestFiles(_options: ForgeTestOptions): Promise<string[]> {
     const testDir = path.join(this.projectRoot, 'test');
     const pattern = '**/*.sol';
     
@@ -394,7 +392,7 @@ export class NeoForge extends EventEmitter {
     });
   }
 
-  private async runTests(testFiles: string[], options: ForgeTestOptions): Promise<any[]> {
+  private async runTests(_testFiles: string[], _options: ForgeTestOptions): Promise<any[]> {
     // This would execute test contracts using the Neo-Solidity test runner
     return [];
   }
@@ -413,13 +411,13 @@ export class NeoForge extends EventEmitter {
     return organized;
   }
 
-  private async generateGasReport(testResults: any[]): Promise<GasUsageReport> {
+  private async generateGasReport(_testResults: any[]): Promise<GasUsageReport> {
     return {
       contracts: {}
     };
   }
 
-  private async generateCoverage(testResults: any[]): Promise<CoverageReport> {
+  private async generateCoverage(_testResults: any[]): Promise<CoverageReport> {
     return {
       files: {},
       summary: {
@@ -441,12 +439,12 @@ export class NeoForge extends EventEmitter {
     return fs.readFile(fullPath, 'utf8');
   }
 
-  private async executeScript(script: string, options: ScriptOptions): Promise<any[]> {
+  private async executeScript(_script: string, _options: ScriptOptions): Promise<any[]> {
     // This would execute Solidity scripts using the Neo-Solidity runtime
     return [];
   }
 
-  private async getTransactionReceipts(transactions: any[]): Promise<any[]> {
+  private async getTransactionReceipts(_transactions: any[]): Promise<any[]> {
     // Get transaction receipts from the network
     return [];
   }
@@ -466,13 +464,13 @@ export class NeoForge extends EventEmitter {
     };
   }
 
-  private async submitVerification(verificationData: any): Promise<boolean> {
+  private async submitVerification(_verificationData: any): Promise<boolean> {
     // Submit to block explorer for verification
     // This would integrate with actual APIs
     return true;
   }
 
-  private async flattenContract(contractPath: string, options: FlattenOptions): Promise<FlattenResult> {
+  private async flattenContract(contractPath: string, _options: FlattenOptions): Promise<FlattenResult> {
     // Flatten contract by resolving all imports
     const source = await fs.readFile(contractPath, 'utf8');
     
@@ -498,7 +496,7 @@ export class NeoForge extends EventEmitter {
     });
   }
 
-  private async compileSolcContract(sourceFile: string): Promise<any> {
+  private async compileSolcContract(_sourceFile: string): Promise<any> {
     // Compile using solc
     return {};
   }
@@ -535,7 +533,7 @@ export class NeoForge extends EventEmitter {
   private async generateContractSizes(compilationResult: any): Promise<void> {
     // Generate contract sizes output
     console.log('📏 Contract Sizes:');
-    for (const [file, contracts] of Object.entries(compilationResult.contracts)) {
+    for (const [_file, contracts] of Object.entries(compilationResult.contracts)) {
       for (const [contractName, contract] of Object.entries(contracts as any)) {
         const bytecode = (contract as any).bytecode?.object || '0x';
         const sizeInBytes = (bytecode.length - 2) / 2;

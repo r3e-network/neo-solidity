@@ -14,7 +14,7 @@ pragma solidity ^0.8.19;
  * - Event system compatible with Neo Runtime.Notify
  */
 
-import "../contracts/Framework.sol";
+import "../contracts/FrameworkBase.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
 
@@ -28,7 +28,9 @@ interface INEP17 {
     function decimals() external view returns (uint8);
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
-    function transfer(address from, address to, uint256 amount, bytes calldata data) external returns (bool);
+    // NEP-17 `data` is an unconstrained StackItem (Neo ABI type: Any).
+    // This devpack uses the Neo-Solidity `Any` type to accurately reflect the standard.
+    function transfer(address from, address to, uint256 amount, Any calldata data) external returns (bool);
     
     // Events
     event Transfer(address indexed from, address indexed to, uint256 amount);
@@ -39,14 +41,14 @@ interface INEP17 {
  * @dev Interface for contracts that can receive NEP-17 tokens
  */
 interface INEP17Receiver {
-    function onNEP17Payment(address from, uint256 amount, bytes calldata data) external;
+    function onNEP17Payment(address from, uint256 amount, Any calldata data) external;
 }
 
 /**
  * @title NEP17
  * @dev Complete NEP-17 token implementation with Neo N3 integration
  */
-contract NEP17 is INEP17, Framework {
+contract NEP17 is INEP17, FrameworkBase {
     using Neo for *;
     using Runtime for *;
     
@@ -76,6 +78,26 @@ contract NEP17 is INEP17, Framework {
     event TransfersDisabled();
     event MinterChanged(address indexed oldMinter, address indexed newMinter);
     event MaxSupplySet(uint256 maxSupply);
+
+    // Extended events
+    event EmergencyPause(address indexed caller, uint256 timestamp);
+    event EmergencyUnpause(address indexed caller, uint256 timestamp);
+    event TimelockCreated(
+        bytes32 indexed timelockId,
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint256 releaseTime
+    );
+    event TimelockClaimed(bytes32 indexed timelockId, address indexed to, uint256 amount);
+    event ConditionalTransferCreated(
+        bytes32 indexed requestId,
+        address indexed from,
+        address indexed to,
+        uint256 amount
+    );
+    event ConditionalTransferExecuted(address indexed from, address indexed to, uint256 amount);
+    event ConditionalTransferFailed(address indexed from, uint256 amount);
     
     // Custom errors
     error NEP17InsufficientBalance(address account, uint256 balance, uint256 needed);
@@ -115,7 +137,7 @@ contract NEP17 is INEP17, Framework {
         uint8 decimals_,
         uint256 initialSupply,
         uint256 maxSupply_
-    ) Framework() {
+    ) FrameworkBase() {
         require(bytes(name_).length > 0, "NEP17: name cannot be empty");
         require(bytes(symbol_).length > 0, "NEP17: symbol cannot be empty");
         require(decimals_ <= 18, "NEP17: decimals cannot exceed 18");
@@ -205,7 +227,7 @@ contract NEP17 is INEP17, Framework {
         address from,
         address to,
         uint256 amount,
-        bytes calldata data
+        Any calldata data
     ) public override whenTransfersEnabled validReceiver(to) validAmount(amount) returns (bool) {
         // Check authorization
         require(
@@ -381,7 +403,7 @@ contract NEP17 is INEP17, Framework {
     /**
      * @dev Internal transfer function
      */
-    function _transfer(address from, address to, uint256 amount, bytes memory data) internal {
+    function _transfer(address from, address to, uint256 amount, Any memory data) internal {
         uint256 fromBalance = _balances[from];
         if (fromBalance < amount) {
             revert NEP17InsufficientBalance(from, fromBalance, amount);
@@ -393,9 +415,6 @@ contract NEP17 is INEP17, Framework {
         _balances[to] += amount;
         
         emit Transfer(from, to, amount);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(from, to, amount));
         
         // Call onNEP17Payment if recipient is a contract
         if (to.code.length > 0) {
@@ -417,9 +436,6 @@ contract NEP17 is INEP17, Framework {
         
         emit Transfer(address(0), to, amount);
         emit Mint(to, amount);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(address(0), to, amount));
         
         // Call onNEP17Payment if recipient is a contract
         if (to.code.length > 0) {
@@ -447,9 +463,6 @@ contract NEP17 is INEP17, Framework {
         
         emit Transfer(from, address(0), amount);
         emit Burn(from, amount);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(from, address(0), amount));
     }
     
     /**
@@ -529,33 +542,11 @@ contract NEP17 is INEP17, Framework {
     // ========== Emergency Functions ==========
     
     /**
-     * @dev Emergency token recovery
-     */
-    function emergencyTokenRecovery(
-        address token,
-        address to,
-        uint256 amount
-    ) public onlyOwner {
-        require(token != address(this), "NEP17: cannot recover own tokens");
-        require(to != address(0), "NEP17: cannot recover to zero address");
-        
-        // Call the token's transfer function
-        (bool success, ) = token.call(
-            abi.encodeWithSignature("transfer(address,address,uint256,bytes)", 
-                                  address(this), to, amount, "")
-        );
-        
-        require(success, "NEP17: token recovery failed");
-    }
-    
-    /**
      * @dev Emergency pause (disable transfers)
      */
     function emergencyPause() public onlyOwner {
         disableTransfers();
-        
-        // Emit emergency notification
-        Runtime.notify("EmergencyPause", abi.encode(msg.sender, block.timestamp));
+        emit EmergencyPause(msg.sender, block.timestamp);
     }
     
     /**
@@ -563,9 +554,7 @@ contract NEP17 is INEP17, Framework {
      */
     function emergencyUnpause() public onlyOwner {
         enableTransfers();
-        
-        // Emit emergency notification
-        Runtime.notify("EmergencyUnpause", abi.encode(msg.sender, block.timestamp));
+        emit EmergencyUnpause(msg.sender, block.timestamp);
     }
     
     // ========== Advanced Features ==========
@@ -593,7 +582,7 @@ contract NEP17 is INEP17, Framework {
         );
         
         // Emit event
-        Runtime.notify("TimelockCreated", abi.encode(timelockId, msg.sender, to, amount, releaseTime));
+        emit TimelockCreated(timelockId, msg.sender, to, amount, releaseTime);
     }
     
     /**
@@ -616,7 +605,7 @@ contract NEP17 is INEP17, Framework {
         _transfer(address(this), to, amount, "");
         
         // Emit event
-        Runtime.notify("TimelockClaimed", abi.encode(timelockId, to, amount));
+        emit TimelockClaimed(timelockId, to, amount);
     }
     
     /**
@@ -670,8 +659,8 @@ contract NEP17 is INEP17, Framework {
         
         // Make oracle request via syscall
         Syscalls.oracleRequest(oracleUrl, condition, "conditionalTransferCallback", userData, 10000000);
-        
-        Runtime.notify("ConditionalTransferCreated", abi.encode(requestId, msg.sender, to, amount));
+
+        emit ConditionalTransferCreated(requestId, msg.sender, to, amount);
     }
     
     /**
@@ -694,14 +683,14 @@ contract NEP17 is INEP17, Framework {
                 
                 // Execute transfer
                 _transfer(address(this), to, amount, "");
-                
-                Runtime.notify("ConditionalTransferExecuted", abi.encode(from, to, amount));
+
+                emit ConditionalTransferExecuted(from, to, amount);
             } else {
                 // Return tokens to sender
                 (address from,, uint256 amount,) = abi.decode(userData, (address, address, uint256, string));
                 _transfer(address(this), from, amount, "");
-                
-                Runtime.notify("ConditionalTransferFailed", abi.encode(from, amount));
+
+                emit ConditionalTransferFailed(from, amount);
             }
         }
     }

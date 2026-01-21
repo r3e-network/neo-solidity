@@ -1,12 +1,12 @@
 # @neo-solidity/cli-tools
 
-CLI utility scaffolding for the Neo Solidity toolchain. The package exports the new compiler CLI (`neo-solc`), Cast-like helpers, and a shared CLI framework. **Everything is still a scaffold**: commands print the intended UX and throw `Error/HardhatPluginError` before performing real work.
+CLI utility scaffolding for the Neo Solidity toolchain. The package ships lightweight Node CLIs (`solc-neo`, `neo-sol`) that shell out to the Rust `neo-solc` binary, plus a shared CLI framework. **Everything is still a scaffold**: commands print the intended UX and may throw errors instead of performing full end-to-end workflows.
 
 ## Status
 
 | Command / API | Status |
 | --- | --- |
-| `neo-solc` compile (`CompilerCLI`) | ⚠️ Constructs JSON input and shells out to `neo-solc`, but the surrounding task runner (artifact persistence, plugin integration) is still under construction |
+| `solc-neo` / `neo-sol` compile (`CompilerCLI`) | ⚠️ Constructs JSON input and shells out to `neo-solc`, but the surrounding task runner (artifact persistence, plugin integration) is still under construction |
 | CLI framework (`NeoSolidityCLI`) | ✅ Usable to register commands/log/spinners. Can power your own scripts. |
 | Utility helpers in `src/cli-framework.ts` | ✅ Logging/spinner/progress abstractions |
 | Higher-level CLI commands (forge/cast/anvil wrappers) | ⚠️ Each prints placeholder output and throws “not implemented yet”. |
@@ -21,10 +21,12 @@ npm install -g @neo-solidity/cli-tools
 
 ```bash
 # Compile contracts (scaffold)
-neo-solc compile contracts/**/*.sol --optimize --gas-model hybrid
+solc-neo compile contracts/**/*.sol --optimize --gas-model hybrid
+# or
+neo-sol compile contracts/**/*.sol --optimize --gas-model hybrid
 
-# Show version (delegates to bundled neo-solc path)
-neo-solc --version
+# Show version (delegates to the discovered neo-solc binary)
+solc-neo --version
 ```
 
 The `CompilerCLI` module is also exportable so tool authors can integrate it programmatically:

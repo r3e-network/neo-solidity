@@ -261,7 +261,7 @@ contract GovernanceToken {
      * @param delegatee Address to delegate votes to
      */
     function delegate(address delegatee) public whenNotPaused {
-        return _delegate(msg.sender, delegatee);
+        _delegate(msg.sender, delegatee);
     }
     
     /**
@@ -300,7 +300,7 @@ contract GovernanceToken {
         require(nonce == numCheckpoints[signatory], "Invalid nonce");
         require(block.timestamp <= expiry, "Signature expired");
         
-        return _delegate(signatory, delegatee);
+        _delegate(signatory, delegatee);
     }
     
     /**
@@ -532,7 +532,9 @@ contract GovernanceToken {
         proposal.executed = true;
         
         for (uint256 i = 0; i < proposal.targets.length; i++) {
-            ITimelock(timelock).executeTransaction{value: proposal.values[i]}(
+            // Neo N3 has no EVM-style attached value; enforce explicit token transfers instead.
+            require(proposal.values[i] == 0, "Neo N3: value transfers unsupported");
+            ITimelock(timelock).executeTransaction(
                 proposal.targets[i],
                 proposal.values[i],
                 proposal.signatures[i],

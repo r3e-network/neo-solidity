@@ -4,7 +4,14 @@
 
 ## 🎯 Overview
 
-The Neo N3 Devpack provides complete integration between Solidity smart contracts and the Neo N3 blockchain, including all syscalls, native contracts, and NEP standards support.
+The Neo N3 Devpack provides Solidity-facing interfaces for Neo N3 features supported by the
+`neo-solidity` compiler (syscalls, native contract calls, and NEP standard examples).
+
+> Important: `neo-solidity` treats `Runtime`, `Storage`, `Syscalls`, `Neo`, `NativeCalls` and `abi`
+> as **compiler intrinsics** (built-in libraries). Calls to supported members are lowered directly
+> to Neo N3 syscalls / native contract calls. The Solidity bodies of these libraries are not
+> compiled, and unsupported members will fail compilation with an error that lists the supported
+> intrinsics.
 
 ## 🚀 Quick Start
 
@@ -26,25 +33,44 @@ npm install
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-devpack/contracts/Framework.sol";
-import "@r3e-network/neo-devpack/standards/NEP17.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
 
-contract MyToken is NEP17, Framework {
+contract MyToken is NEP17 {
     constructor() NEP17("My Token", "MTK", 18, 1000000, 10000000) {
         // Your token is now ready with full Neo N3 integration!
     }
 }
 ```
 
+## 🏗️ Deploying Contracts With Constructor Arguments
+
+Neo N3 deployment invokes `_deploy(data, update)`. `neo-solidity` injects `_deploy` automatically.
+
+When your Solidity contract constructor has parameters, pass them through `_deploy.data` as an
+array of arguments:
+
+- Neo-Express / CLI tooling: pass a JSON array string (for example `[7]`).
+- SDKs that support StackItems directly may pass an Array value.
+- Contract-to-contract deploy flows may pass StdLib.serialize(...) bytes (for example `abi.encode(...)`).
+
+The injected deploy prologue attempts to parse `data` via `StdLib.jsonDeserialize`, then falls back
+to `StdLib.deserialize` (binary serialization), and finally uses `data` as-is when native calls
+throw. The resulting Array is then fed into the constructor.
+
+This means the generated manifest will include permission entries for `StdLib.jsonDeserialize` and
+`StdLib.deserialize`.
+
 ## 📚 Core Components
 
-### 🏗️ Framework.sol
-Base framework providing Neo N3 integration:
+### 🏗️ FrameworkBase.sol
+Base framework providing Neo N3 integration with minimally-permissioned manifests.
 
 ```solidity
-import "@r3e-network/neo-devpack/contracts/Framework.sol";
+import "@r3e-network/neo-solidity-devpack/contracts/FrameworkBase.sol";
 
-contract MyContract is Framework {
+contract MyContract is FrameworkBase {
+    event MyEvent(string data);
+
     function myFunction() public withWitness {
         // Function requires valid witness (signature)
         
@@ -55,32 +81,58 @@ contract MyContract is Framework {
         uint256 gasBalance = getBalance();
         
         // Emit Neo-compatible events
-        emitEvent("MyEvent", abi.encode("data"));
+        emit MyEvent("data");
     }
 }
 ```
 
+### ⚠️ Framework.sol (Dynamic Calls)
+`Framework.sol` extends `FrameworkBase.sol` and exposes `callContract(...)`, which performs fully
+dynamic contract calls (dynamic target + method). This requires full wildcard permissions in the
+Neo N3 manifest (`{"contract":"*","methods":"*"}`) and should be used only when you explicitly
+need that surface.
+
+To enforce manifest strictness in CI/production builds, compile with:
+
+- `--deny-wildcard-permissions` (reject `{"contract":"*","methods":"*"}`)
+- `--deny-wildcard-contracts` (reject any `{"contract":"*", ...}`)
+- `--deny-wildcard-methods` (reject any `{..., "methods":"*"}`)
+
+If you must keep dynamic calls but still want a deployable non-wildcard manifest, provide an explicit
+allowlist and replace wildcard entries:
+
+- `--manifest-permissions permissions.json --manifest-permissions-mode replace-wildcards`
+
+Example `permissions.json`:
+
+```json
+[
+  { "contract": "0x0102030405060708090a0b0c0d0e0f1011121314", "methods": ["ping"] }
+]
+```
+
 ### 🔧 Syscalls.sol
-Complete Neo N3 syscall integration:
+Neo N3 syscall (and syscall-like) integration used by `neo-solidity`:
 
 ```solidity
-import "@r3e-network/neo-devpack/contracts/Syscalls.sol";
+import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
 
 contract MySyscallContract {
     using Syscalls for *;
     
     function useBlockchain() public view {
-        // Get blockchain information
+        // Runtime / blockchain information
         uint256 currentHeight = Syscalls.getCurrentIndex();
-        Syscalls.Block memory block = Syscalls.getBlock(currentHeight);
-        
-        // Storage operations
-        Syscalls.StorageContext memory ctx = Syscalls.getStorageContext();
-        bytes memory value = Syscalls.storageGet(ctx, "mykey");
-        
-        // Cryptographic operations
+        uint256 timeMs = Syscalls.getTime();
+
+        // Crypto and witness checks
         bytes32 hash = Syscalls.sha256("data");
         bool verified = Syscalls.checkWitness(msg.sender);
+
+        currentHeight;
+        timeMs;
+        hash;
+        verified;
     }
 }
 ```
@@ -89,7 +141,7 @@ contract MySyscallContract {
 Direct integration with Neo native contracts:
 
 ```solidity
-import "@r3e-network/neo-devpack/contracts/NativeCalls.sol";
+import "@r3e-network/neo-solidity-devpack/contracts/NativeCalls.sol";
 
 contract MyNativeContract {
     using NativeCalls for *;
@@ -119,18 +171,20 @@ contract MyNativeContract {
 ### 🪙 NEP-17 Fungible Tokens
 
 ```solidity
-import "@r3e-network/neo-devpack/standards/NEP17.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
 
 contract MyNEP17Token is NEP17 {
     constructor() NEP17("My Token", "MTK", 18, 1000000, 0) {
         // Token with 18 decimals, 1M initial supply, no max supply
     }
+
+    event CustomMint(address indexed to, uint256 amount);
     
     function customMint(address to, uint256 amount) public onlyMinter {
         mint(to, amount);
         
         // Emit custom event
-        emitEvent("CustomMint", abi.encode(to, amount));
+        emit CustomMint(to, amount);
     }
 }
 ```
@@ -138,7 +192,7 @@ contract MyNEP17Token is NEP17 {
 ### 🎨 NEP-11 Non-Fungible Tokens
 
 ```solidity
-import "@r3e-network/neo-devpack/standards/NEP11.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP11.sol";
 
 contract MyNEP11NFT is NEP11 {
     constructor() NEP11("My NFT", "MNFT", 0, "https://api.mynft.com/", 10000, false) {
@@ -153,27 +207,15 @@ contract MyNEP11NFT is NEP11 {
 }
 ```
 
-### 🔮 NEP-24 Oracle Integration
+### 💸 NEP-24 Royalties (NFT)
 
 ```solidity
-import "@r3e-network/neo-devpack/standards/NEP24.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP24.sol";
 
-contract MyOracleContract is NEP24Oracle {
-    constructor() NEP24Oracle(1000000) { // 0.01 GAS per request
-    }
-    
-    function getPriceData(string memory symbol) public returns (uint256 requestId) {
-        return requestPriceData(symbol, "priceCallback");
-    }
-    
-    function priceCallback(uint256 requestId, uint256 code, bytes calldata result, bytes calldata userData) external override {
-        if (code == 0) {
-            uint256 price = abi.decode(result, (uint256));
-            string memory symbol = abi.decode(userData, (string));
-            
-            // Store price data
-            Storage.put(abi.encode("price", symbol), abi.encode(price, block.timestamp));
-        }
+contract MyRoyaltyMixin is NEP24Royalty {
+    constructor(address recipient, uint96 bps) {
+        // Example: 500 = 5%
+        _setDefaultRoyalty(recipient, bps);
     }
 }
 ```
@@ -183,29 +225,36 @@ contract MyOracleContract is NEP24Oracle {
 ### 🌐 Neo.sol - Blockchain Utilities
 
 ```solidity
-import "@r3e-network/neo-devpack/libraries/Neo.sol";
+import "@r3e-network/neo-solidity-devpack/libraries/Neo.sol";
+import "@r3e-network/neo-solidity-devpack/libraries/Runtime.sol";
 
 contract MyContract {
     using Neo for *;
+    using Runtime for *;
     
     function advancedOperations() public {
-        // Blockchain queries
-        (uint256 index, bytes32 hash,,) = Neo.getCurrentBlock();
-        
-        // Account management
+        // Account management (native contracts)
         uint256 neoBalance = Neo.getNeoBalance(msg.sender);
         uint256 gasBalance = Neo.getGasBalance(msg.sender);
         
-        // Governance
+        // Governance helpers (committee/validators are derived from public keys)
         bool isCommittee = Neo.isCommittee(msg.sender);
-        address[] memory validators = Neo.getValidators();
+        address[] memory committee = Neo.getCommittee();
         
         // Contract interaction
         bytes memory result = Neo.callContract(targetContract, "method", params);
         
-        // Security
-        bool verified = Neo.verifyWithWitness(msg.sender);
+        // Security (Neo witness check)
+        bool verified = Runtime.checkWitness(msg.sender);
         uint256 random = Neo.getRandom();
+
+        neoBalance;
+        gasBalance;
+        isCommittee;
+        committee;
+        result;
+        verified;
+        random;
     }
 }
 ```
@@ -213,36 +262,28 @@ contract MyContract {
 ### 💾 Storage.sol - Advanced Storage
 
 ```solidity
-import "@r3e-network/neo-devpack/libraries/Storage.sol";
+import "@r3e-network/neo-solidity-devpack/libraries/Storage.sol";
+import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
 
 contract MyStorageContract {
     using Storage for *;
     
     function advancedStorage() public {
-        // Initialize storage
-        Storage.initializeContext();
-        
-        // Basic operations
-        Storage.put("key", "value");
-        bytes memory value = Storage.get("key");
-        
-        // Advanced operations
-        bytes[] memory values = Storage.findValues("prefix");
-        uint256 count = Storage.count("prefix");
-        
-        // Batch operations
-        bytes[] memory keys = ["key1", "key2", "key3"];
-        bytes[] memory vals = ["val1", "val2", "val3"];
-        Storage.batchPut(keys, vals);
-        
-        // Typed storage
-        Storage.putUint256("balance", 1000);
-        Storage.putAddress("owner", msg.sender);
-        Storage.putString("name", "MyContract");
-        
-        // Security
-        Storage.putSecure("secret", "sensitive_data");
-        bytes memory secureData = Storage.getSecure("secret");
+        // Basic operations (lowered to System.Storage.*)
+        Storage.put("key", abi.encode(uint256(123)));
+        uint256 value = abi.decode(Storage.get("key"), (uint256));
+        Storage.remove("key");
+
+        // Iteration (Storage.find returns an iterator over [key, value] pairs)
+        Syscalls.Iterator memory it = Storage.find("prefix");
+        while (it.next()) {
+            bytes memory k = it.currentKey;
+            bytes memory v = it.value();
+            k;
+            v;
+        }
+
+        value;
     }
 }
 ```
@@ -250,33 +291,28 @@ contract MyStorageContract {
 ### ⚡ Runtime.sol - Runtime Services
 
 ```solidity
-import "@r3e-network/neo-devpack/libraries/Runtime.sol";
+import "@r3e-network/neo-solidity-devpack/libraries/Runtime.sol";
 
 contract MyRuntimeContract {
     using Runtime for *;
+
+    event MyEvent(string data);
     
     function runtimeOperations() public {
-        // Event emission
-        Runtime.notify("MyEvent", abi.encode("data"));
-        Runtime.notifyTransfer(address(0), msg.sender, 1000);
+        // Event emission (recommended)
+        emit MyEvent("data");
+        // Advanced: Runtime.notify("MyEvent", abi.encode("data")) (requires matching event declaration)
         
-        // Authorization
-        Runtime.requireWitness(msg.sender);
-        bool hasRole = Runtime.hasRole(msg.sender, "ADMIN");
-        
-        // Gas management
+        // Authorization (Neo witness check)
+        bool ok = Runtime.checkWitness(msg.sender);
+
+        // Gas / time
         uint256 gasRemaining = Runtime.gasLeft();
-        Runtime.requireGas(1000000); // Require 0.01 GAS
-        
-        // Time operations
-        uint256 currentTime = Runtime.getTimestamp();
-        bool isAfter = Runtime.isAfterTime(1640995200); // After specific timestamp
-        
-        // Execution context
-        (address executing, address calling,,,) = Runtime.getExecutionContext();
-        
-        // Error handling
-        (bool success, bytes memory result) = Runtime.safeExternalCall(target, data);
+        uint256 timeMs = Runtime.getTime();
+
+        ok;
+        gasRemaining;
+        timeMs;
     }
 }
 ```
@@ -312,7 +348,7 @@ See [`examples/CompleteNEP11NFT.sol`](./examples/CompleteNEP11NFT.sol) for:
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-devpack/standards/NEP17.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
 
 contract SimpleToken is NEP17 {
     constructor() NEP17("Simple Token", "SIMPLE", 8, 1000000, 0) {
@@ -328,7 +364,7 @@ contract SimpleToken is NEP17 {
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-devpack/standards/NEP11.sol";
+import "@r3e-network/neo-solidity-devpack/standards/NEP11.sol";
 
 contract SimpleNFT is NEP11 {
     constructor() NEP11("Simple NFT", "SNFT", 0, "https://api.simple.nft/", 1000, false) {
@@ -343,23 +379,33 @@ contract SimpleNFT is NEP11 {
 }
 ```
 
-### Oracle Integration
+### Oracle Integration (Native Oracle)
 
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-devpack/standards/NEP24.sol";
+import "@r3e-network/neo-solidity-devpack/contracts/OracleService.sol";
 
-contract PriceOracle is NEP24Oracle {
+contract PriceConsumer is IOracleServiceReceiver {
+    OracleService private _oracle;
     mapping(string => uint256) public prices;
-    
-    constructor() NEP24Oracle(1000000) {} // 0.01 GAS per request
-    
-    function updatePrice(string memory symbol) public returns (uint256) {
-        return requestPriceData(symbol, "updatePriceCallback");
+
+    constructor(address oracleService) {
+        _oracle = OracleService(oracleService);
     }
-    
-    function updatePriceCallback(uint256, uint256 code, bytes calldata result, bytes calldata userData) external {
+
+    function updatePrice(string calldata symbol) external returns (uint256 requestId) {
+        string memory url = string(abi.encodePacked("https://example.com/prices/", symbol));
+        requestId = _oracle.request(url, "", abi.encode(symbol), 20_000_000);
+    }
+
+    function onOracleResponse(
+        uint256,
+        uint256 code,
+        bytes calldata result,
+        bytes calldata userData
+    ) external override {
+        require(msg.sender == address(_oracle), "unauthorized oracle response");
         if (code == 0) {
             string memory symbol = abi.decode(userData, (string));
             uint256 price = abi.decode(result, (uint256));
@@ -385,10 +431,10 @@ contract SecureContract is Framework {
         // Manual witness verification
     }
     
-    function multiSigOperation() public {
-        address[] memory signers = [signer1, signer2, signer3];
-        require(Runtime.checkMultiSigWitness(signers, 2), "Insufficient signatures");
-        // Requires 2 of 3 signatures
+    function multiSigOperation(uint256 m, bytes[] memory publicKeys) public {
+        // Neo witness checks work with standard and multisig account script hashes.
+        address multisig = Syscalls.createMultisigAccount(m, publicKeys);
+        require(Runtime.checkWitness(multisig), "Insufficient signatures");
     }
 }
 ```
@@ -397,25 +443,17 @@ contract SecureContract is Framework {
 
 ```solidity
 contract GasOptimizedContract is Framework {
-    function expensiveOperation() public withGasLimit(50000000) { // Require 0.5 GAS
+    function expensiveOperation() public withGasLimit(50000000) { // Require ~0.5 GAS
         // Gas-intensive operation
-        
-        // Optimize with batching
-        Runtime.optimizeGasUsage(
-            function() {
-                // Batch operations here
-            },
-            10000000 // Expected savings
-        );
     }
     
     function conditionalOperation() public {
-        Runtime.executeIfGasAvailable(
-            10000000, // Required gas
-            function() {
-                // Execute only if enough gas
-            }
-        );
+        // Guard expensive work with a gas check.
+        if (Runtime.gasLeft() < 10000000) {
+            return;
+        }
+
+        // Execute only if enough gas.
     }
 }
 ```
@@ -427,15 +465,24 @@ contract SecureStorageContract is Framework {
     using Storage for *;
     
     function secureStorage() public {
-        // Secure storage with checksum
-        Storage.putSecure("sensitive_data", abi.encode(secretValue));
-        bytes memory data = Storage.getSecure("sensitive_data");
-        
+        // Secure storage with checksum (implement in-contract using Storage.put/get + keccak256).
+        bytes memory value = abi.encode(secretValue);
+        bytes32 checksum = keccak256(value);
+        Storage.put("sensitive_data", abi.encode(value, checksum));
+
+        bytes memory encoded = Storage.get("sensitive_data");
+        if (encoded.length > 0) {
+            (bytes memory inner, bytes32 storedChecksum) =
+                abi.decode(encoded, (bytes, bytes32));
+            require(keccak256(inner) == storedChecksum, "corrupt");
+        }
+
         // Access-controlled storage
-        Storage.putWithAccess("admin_data", abi.encode(adminValue), owner());
-        
-        // Expiring storage
-        Storage.putWithExpiration("temp_data", abi.encode(tempValue), block.number + 1000);
+        require(Runtime.checkWitness(owner()), "unauthorized");
+        Storage.put("admin_data", abi.encode(adminValue));
+
+        // Expiring storage (example: expires after N blocks)
+        Storage.put("temp_data", abi.encode(tempValue, block.number + 1000));
     }
 }
 ```
@@ -454,10 +501,12 @@ contract OptimizedContract is NEP17 {
     }
     
     function batchStorage() public {
-        // Batch storage operations
+        // Batch storage operations (simple loop)
         bytes[] memory keys = [key1, key2, key3];
         bytes[] memory values = [val1, val2, val3];
-        Storage.batchPut(keys, values);
+        for (uint256 i = 0; i < keys.length; i++) {
+            Storage.put(keys[i], values[i]);
+        }
     }
 }
 ```
@@ -467,14 +516,12 @@ contract OptimizedContract is NEP17 {
 ```solidity
 contract GasOptimized is Framework {
     function optimizedLoop() public {
-        Runtime.optimizedLoop(
-            1000, // iterations
-            5000,  // gas per iteration
-            function(uint256 i) {
-                // Loop body - automatically limited by available gas
-                Storage.put(abi.encode("item", i), abi.encode(i * 2));
-            }
-        );
+        // Neo N3 exposes remaining gas via Runtime.GasLeft().
+        // Use it to stop early if needed.
+        for (uint256 i = 0; i < 1000; i++) {
+            if (Runtime.gasLeft() < 5000) break;
+            Storage.put(abi.encode("item", i), abi.encode(i * 2));
+        }
     }
 }
 ```
@@ -671,7 +718,7 @@ contract ErrorHandling is Framework {
     }
     
     function riskyOperation() external {
-        require(Neo.gasLeft() > 1000000, "Insufficient gas");
+        require(Runtime.gasLeft() > 1000000, "Insufficient gas");
         require(Runtime.checkWitness(msg.sender), "Invalid witness");
         
         // Operation that might fail
@@ -691,21 +738,18 @@ function secureFunction() public withWitness {
 ### 2. Optimize Gas Usage
 ```solidity
 function batchOperation() public {
-    Runtime.optimizeGasUsage(
-        function() {
-            // Batch multiple operations
-        },
-        expectedSavings
-    );
+    // Prefer explicit batching + early exit when gas is low.
+    for (uint256 i = 0; i < items.length; i++) {
+        if (Runtime.gasLeft() < 5000) break;
+        // ... process items[i]
+    }
 }
 ```
 
 ### 3. Use Typed Storage
 ```solidity
-// Good
-Storage.putUint256("balance", amount);
-
-// Avoid
+// Store typed values using abi.encode / abi.decode (NeoVM serialization),
+// or prefer Solidity state variables/mappings when possible.
 Storage.put("balance", abi.encode(amount));
 ```
 
@@ -723,10 +767,12 @@ function oracleCallback(uint256 requestId, uint256 code, bytes calldata result, 
 
 ### 5. Implement Emergency Controls
 ```solidity
+event EmergencyStop(address caller, uint256 timestamp);
+
 function emergencyStop() public onlyOwner withWitness {
     // Emergency pause functionality
     _pause();
-    Runtime.notify("EmergencyStop", abi.encode(msg.sender, block.timestamp));
+    emit EmergencyStop(msg.sender, block.timestamp);
 }
 ```
 

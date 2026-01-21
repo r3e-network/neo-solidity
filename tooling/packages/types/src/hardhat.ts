@@ -1,4 +1,4 @@
-import type { HardhatRuntimeEnvironment, TaskArguments, NetworkConfig } from 'hardhat/types';
+import type { HardhatRuntimeEnvironment, TaskArguments } from 'hardhat/types';
 import type { NeoSolidityConfig, CompilationError } from './compiler';
 
 export interface NeoHardhatConfig {
@@ -14,11 +14,25 @@ export interface NeoHardhatConfig {
           [key: string]: string[];
         };
       };
-      neo?: {
+      neo: {
         generateNef: boolean;
         generateManifest: boolean;
         optimizeGas: boolean;
         debugInfo: boolean;
+        /** Emit CALLT + method tokens for native calls (neo-solc: --callt) */
+        callt?: boolean;
+        /** Fail if manifest contains full wildcard permissions (neo-solc: --deny-wildcard-permissions) */
+        denyWildcardPermissions?: boolean;
+        /** Fail if manifest permissions include contract="*" (neo-solc: --deny-wildcard-contracts) */
+        denyWildcardContracts?: boolean;
+        /** Fail if manifest permissions include methods="*" (neo-solc: --deny-wildcard-methods) */
+        denyWildcardMethods?: boolean;
+        /** Path to explicit permissions allowlist JSON (neo-solc: --manifest-permissions) */
+        manifestPermissions?: string;
+        /** How to apply allowlist permissions (neo-solc: --manifest-permissions-mode) */
+        manifestPermissionsMode?: 'merge' | 'replace-wildcards';
+        /** Override NEF source field (neo-solc: --nef-source) */
+        nefSource?: string;
       };
     };
   };
@@ -29,7 +43,7 @@ export interface NeoHardhatConfig {
     cache: string;
     tests: string;
   };
-  neo?: {
+  neo: {
     rpcUrl: string;
     privateKey: string;
     addressVersion: number;
@@ -41,7 +55,7 @@ export interface NeoHardhatConfig {
 
 type CompilerConfig = NeoSolidityConfig;
 
-export type NeoNetworkConfig = NetworkConfig & {
+export interface NeoNetworkConfig {
   magic: number;
   addressVersion: number;
   rpc: {
@@ -60,7 +74,7 @@ export type NeoNetworkConfig = NetworkConfig & {
   blockGasLimit: string;
   hardfork?: string;
   chainId?: number;
-};
+}
 
 export interface NeoHardhatTask {
   name: string;

@@ -1,4 +1,4 @@
-import { task, types } from "hardhat/config";
+import { task, types } from "hardhat/config.js";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { promises as fs } from "fs";
 import path from "path";
@@ -48,27 +48,42 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
       }
 
       // Compile with Neo-Solidity
+      const compileStartedAt = Date.now();
       const compilationOutput = await hre.neoSolc.compiler.compile(sources);
+      const compileDurationMs = Date.now() - compileStartedAt;
+
+      const compilerSettings = {
+        optimizer: hre.config.neoSolc.solidity.settings.optimizer
+      };
+      const compilerNeoSettings = hre.config.neoSolc.solidity.settings.neo;
 
       // Save build info
       const buildInfo: BuildInfo = {
         id: generateBuildId(),
         solcVersion: "0.8.19", // Would get from actual compiler
         neoSolcVersion: "0.1.0", // Would get from Neo compiler
-        input: { language: "Solidity", sources, settings: hre.config.neoSolc },
+        input: { language: "Solidity", sources, settings: compilerSettings as any },
         output: compilationOutput,
         metadata: {
           timestamp: new Date().toISOString(),
-          duration: 0, // Would measure actual duration
+          duration: compileDurationMs,
           sourceFiles: Object.keys(sources),
-          optimization: hre.config.neoSolc.optimizer || { enabled: false, runs: 0 },
-          neo: hre.config.neoSolc.neo || {
-            gasCostModel: "hybrid",
-            storageOptimization: true,
-            eventOptimization: true
+          optimization: hre.config.neoSolc.solidity.settings.optimizer,
+          neo: {
+            gasCostModel: "neo",
+            storageOptimization: Boolean(compilerNeoSettings?.optimizeGas),
+            eventOptimization: Boolean(compilerNeoSettings?.optimizeGas)
           }
         }
       };
+
+      // Save build info for traceability/debugging.
+      const buildInfoDir = path.join(hre.config.paths.artifacts, "build-info");
+      await fs.mkdir(buildInfoDir, { recursive: true });
+      await fs.writeFile(
+        path.join(buildInfoDir, `${buildInfo.id}.json`),
+        JSON.stringify(buildInfo, null, 2)
+      );
 
       // Save artifacts
       let compiledContracts = 0;
@@ -82,7 +97,7 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
             metadata: {
               compiler: {
                 version: buildInfo.neoSolcVersion,
-                settings: hre.config.neoSolc
+                settings: hre.config.neoSolc.solidity.settings
               },
               buildTime: buildInfo.metadata.timestamp,
               environment: {

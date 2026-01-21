@@ -27,6 +27,14 @@ pub static NATIVE_CONTRACTS: Lazy<HashMap<[u8; 20], NativeContractSpec>> = Lazy:
             "RoleManagement",
         ),
         (
+            *b"\x3b\xec\x35\x31\x11\x9b\xba\xd7\x6d\xd0\x44\x92\x0b\x0d\xe6\xc3\x19\x4f\xe1\xc1",
+            "Notary",
+        ),
+        (
+            *b"\xc1\x3a\x56\xc9\x83\x53\xa7\xea\x6a\x32\x4d\x9a\x83\x5d\x1b\x5b\xf2\x26\x63\x15",
+            "Treasury",
+        ),
+        (
             *b"\xbe\xf2\x04\x31\x40\x36\x2a\x77\xc1\x50\x99\xc7\xe6\x4c\x12\xf7\x00\xb6\x65\xda",
             "Ledger",
         ),
@@ -50,4 +58,3 @@ pub static NATIVE_CONTRACTS: Lazy<HashMap<[u8; 20], NativeContractSpec>> = Lazy:
 pub fn native_contract_name(hash: &[u8; 20]) -> Option<&'static str> {
     NATIVE_CONTRACTS.get(hash).map(|s| s.name)
 }
-

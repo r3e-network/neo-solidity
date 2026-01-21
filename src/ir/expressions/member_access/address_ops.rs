@@ -40,9 +40,9 @@ fn try_lower_length_property(
 
     // Neo doesn't expose EVM bytecode, but many Solidity contracts use
     // `address.code.length > 0` as a contract-existence check. On Neo N3 we can
-    // approximate this by calling `System.Contract.GetContract(address)`:
-    // - null => non-contract => length 0
-    // - non-null => contract exists => length 1
+    // approximate this by calling `ContractManagement.isContract(address)`:
+    // - false => non-contract => length 0
+    // - true => contract exists => length 1
     if let Expression::MemberAccess(_, code_inner, code_member) = inner {
         if code_member.name == "code"
             && matches!(
@@ -55,26 +55,27 @@ fn try_lower_length_property(
             }
 
             instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::Syscall("System.Contract.GetContract".to_string()),
+                builtin: BuiltinCall::NativeCall {
+                    contract: NativeContract::ContractManagement,
+                    method: "isContract".to_string(),
+                },
                 arg_count: 1,
             });
-            instructions.push(Instruction::PushLiteral(LiteralValue::Null));
-            instructions.push(Instruction::BinaryOp(BinaryOperator::Eq)); // isNull
 
-            let not_null_label = ctx.next_label();
+            let not_contract_label = ctx.next_label();
             let end_label = ctx.next_label();
 
-            // JumpIf branches on false, so this jumps when isNull == false.
+            // JumpIf branches on false, so this jumps when isContract == false.
             instructions.push(Instruction::JumpIf {
-                target: not_null_label,
+                target: not_contract_label,
             });
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::zero(),
+                BigInt::one(),
             )));
             instructions.push(Instruction::Jump { target: end_label });
-            instructions.push(Instruction::Label(not_null_label));
+            instructions.push(Instruction::Label(not_contract_label));
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::one(),
+                BigInt::zero(),
             )));
             instructions.push(Instruction::Label(end_label));
             return Some(true);
@@ -120,6 +121,32 @@ fn try_lower_current_key(
     });
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
         BigInt::zero(),
+    )));
+    instructions.push(Instruction::ArrayGet);
+    Some(true)
+}
+
+fn try_lower_current_value(
+    inner: &Expression,
+    member: &Identifier,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    if member.name != "currentValue" {
+        return None;
+    }
+
+    // Neo storage iterators yield [key, value] pairs. Devpacks sometimes model this as
+    // a struct field; extract value via `System.Iterator.Value` + PICKITEM(1).
+    if !lower_expression(inner, ctx, instructions) {
+        return Some(false);
+    }
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::Syscall("System.Iterator.Value".to_string()),
+        arg_count: 1,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
     )));
     instructions.push(Instruction::ArrayGet);
     Some(true)

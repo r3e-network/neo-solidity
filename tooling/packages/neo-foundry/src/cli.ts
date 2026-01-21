@@ -4,8 +4,6 @@ import { Command } from "commander";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import { NeoForge } from "./forge";
-import { NeoCast } from "./cast";
-import { NeoAnvil } from "./anvil";
 import { ConfigManager } from "./config";
 
 const program = new Command();
@@ -258,16 +256,18 @@ async function editProfileSettings(config: ConfigManager) {
   
   switch (setting) {
     case "Source directory":
-      const { src } = await inquirer.prompt([
-        {
-          type: "input",
-          name: "src",
-          message: "Source directory:",
-          default: profileConfig.src
-        }
-      ]);
-      profileConfig.src = src;
-      break;
+      {
+        const { src } = await inquirer.prompt([
+          {
+            type: "input",
+            name: "src",
+            message: "Source directory:",
+            default: profileConfig.src
+          }
+        ]);
+        profileConfig.src = src;
+        break;
+      }
       
     // Add other setting edits...
   }

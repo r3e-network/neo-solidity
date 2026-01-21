@@ -3,18 +3,12 @@ import {
   GasProfile,
   TransactionProfile,
   ContractProfile,
-  FunctionCallProfile,
-  StorageProfile,
   OptimizationSuggestion,
   GasBreakdown,
-  ExecutionTrace,
-  PerformanceProfiler,
-  PerformanceProfile
+  ExecutionTrace
 } from '@neo-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
-import * as fs from 'fs-extra';
-import * as path from 'path';
 
 export class GasProfiler extends EventEmitter implements IGasProfiler {
   private provider: ethers.Provider;
@@ -120,7 +114,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
       // Extract events
       profile.events = receipt.logs.map(log => ({
         eventName: 'Unknown',
-        topics: log.topics,
+        topics: [...log.topics],
         data: log.data,
         gasUsed: '0', // Would need more analysis
         logIndex: log.index
@@ -253,12 +247,12 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
       try {
         // Check for new transactions
         const latestBlock = await this.provider.getBlockNumber();
-        const block = await this.provider.getBlock(latestBlock, true);
+        const block: any = await (this.provider as any).getBlock(latestBlock, true);
         
-        if (block && block.transactions) {
-          for (const tx of block.transactions) {
-            if (typeof tx === 'object' && tx.to === address) {
-              const receipt = await this.provider.getTransactionReceipt(tx.hash);
+        const transactions: any[] = block?.transactions ?? [];
+        for (const tx of transactions) {
+          if (tx && typeof tx === 'object' && tx.to === address) {
+            const receipt = await this.provider.getTransactionReceipt(tx.hash);
               if (receipt) {
                 gasUsageOverTime.push({
                   timestamp: Date.now(),
@@ -274,7 +268,6 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
                   });
                 }
               }
-            }
           }
         }
         
@@ -288,7 +281,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
     return { gasUsageOverTime, functionCalls, alerts };
   }
 
-  private async getTransactionTrace(txHash: string): Promise<ExecutionTrace> {
+  private async getTransactionTrace(_txHash: string): Promise<ExecutionTrace> {
     try {
       // This would use debug_traceTransaction RPC call
       // Simplified implementation
@@ -303,7 +296,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
     }
   }
 
-  private async analyzeGasBreakdown(trace: ExecutionTrace): Promise<GasBreakdown> {
+  private async analyzeGasBreakdown(_trace: ExecutionTrace): Promise<GasBreakdown> {
     // Analyze trace to break down gas usage by category
     return {
       intrinsic: '21000',
@@ -353,13 +346,13 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
     return [];
   }
 
-  private async findContractCreation(address: string): Promise<any> {
+  private async findContractCreation(_address: string): Promise<any> {
     // This would require scanning blocks to find contract creation
     // Simplified implementation
     return null;
   }
 
-  private async analyzeContractHistory(profile: ContractProfile): Promise<void> {
+  private async analyzeContractHistory(_profile: ContractProfile): Promise<void> {
     // Analyze historical transactions for the contract
     // This would involve scanning recent blocks for transactions to this contract
   }
@@ -432,7 +425,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
     return suggestions;
   }
 
-  private async loadArtifact(contractAddress: string): Promise<any> {
+  private async loadArtifact(_contractAddress: string): Promise<any> {
     // Try to load artifact for contract
     // This is a simplified implementation
     return null;

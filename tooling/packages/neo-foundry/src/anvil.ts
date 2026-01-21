@@ -1,658 +1,405 @@
-import { spawn, ChildProcess } from "child_process";
-import { promises as fs } from "fs";
+import http from "http";
+import { promises as fs, readFileSync } from "fs";
+import os from "os";
 import path from "path";
-import chalk from "chalk";
-import { ConfigManager } from "./config";
-import Debug from "debug";
 
-const debug = Debug("neo-foundry:anvil");
+export interface NeoAnvilStatus {
+  running: boolean;
+  port?: number;
+  chainId?: number;
+  accounts?: number;
+}
 
-/**
- * Neo-Anvil - Local Neo blockchain simulation for development and testing
- */
-export class NeoAnvil {
-  private config: ConfigManager;
-  private process?: ChildProcess;
-  private isRunning = false;
-  private currentState: any = null;
-  private blockTime = 15000; // 15 seconds in milliseconds
-  private forkUrl?: string;
-  private forkBlockNumber?: number;
+export interface NeoAnvilStartOptions {
+  port?: number;
+  chainId?: number;
+  accounts?: number;
+  balance?: string;
+  gasLimit?: string;
+  gasPrice?: string;
+  blockTime?: number;
+  fork?: string;
+  forkBlockNumber?: number;
+  quiet?: boolean;
+}
 
-  constructor(configPath?: string) {
-    this.config = new ConfigManager(configPath);
-  }
+type AnvilState = {
+  blockHeight: number;
+  time: number;
+  snapshots: Map<string, { blockHeight: number; time: number }>;
+};
 
-  /**
-   * Start local Neo blockchain
-   */
-  async start(options: {
-    port?: number;
-    chainId?: number;
-    accounts?: number;
-    balance?: string;
-    gasLimit?: string;
-    gasPrice?: string;
-    blockTime?: number;
-    fork?: string;
-    forkBlockNumber?: number;
-    quiet?: boolean;
-  } = {}): Promise<void> {
-    if (this.isRunning) {
-      console.log(chalk.yellow("Neo-Anvil is already running"));
-      return;
-    }
+const DEFAULT_PORT = 40332;
+const STATE_FILE = path.join(os.tmpdir(), "neo-anvil.json");
 
-    const {
-      port = 40332,
-      chainId = 12345,
-      accounts = 10,
-      balance = "100000000000000", // 10000000 GAS
-      gasLimit = "50000000", // 0.5 GAS
-      gasPrice = "1000",
-      blockTime = 15, // 15 seconds like Neo MainNet
-      fork,
-      forkBlockNumber,
-      quiet = false
-    } = options;
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
 
-    if (!quiet) {
-      console.log(chalk.blue("🔥 Starting Neo-Anvil local blockchain..."));
-    }
-
-    try {
-      // Create blockchain state
-      const blockchainState = await this.createBlockchainState({
-        chainId,
-        accounts,
-        balance,
-        gasLimit,
-        gasPrice,
-        blockTime
-      });
-
-      // Start RPC server
-      await this.startRpcServer(port, blockchainState, { quiet });
-
-      if (!quiet) {
-        console.log(chalk.green("✅ Neo-Anvil started successfully!"));
-        this.printStartupInfo(port, chainId, blockchainState.accounts);
-      }
-
-      this.isRunning = true;
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to start Neo-Anvil:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Stop local blockchain
-   */
-  async stop(): Promise<void> {
-    if (!this.isRunning) {
-      console.log(chalk.yellow("Neo-Anvil is not running"));
-      return;
-    }
-
-    console.log(chalk.blue("🛑 Stopping Neo-Anvil..."));
-
-    try {
-      if (this.process) {
-        this.process.kill('SIGTERM');
-        this.process = undefined;
-      }
-
-      this.isRunning = false;
-      console.log(chalk.green("✅ Neo-Anvil stopped"));
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to stop Neo-Anvil:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Reset blockchain state
-   */
-  async reset(): Promise<void> {
-    console.log(chalk.blue("🔄 Resetting Neo-Anvil state..."));
-
-    try {
-      if (this.isRunning) {
-        await this.stop();
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-        await this.start();
-      }
-
-      console.log(chalk.green("✅ Neo-Anvil reset completed"));
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to reset Neo-Anvil:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Mine new block
-   */
-  async mine(blocks = 1): Promise<void> {
-    if (!this.isRunning) {
-      throw new Error("Neo-Anvil is not running");
-    }
-
-    console.log(chalk.blue(`⛏️ Mining ${blocks} block(s)...`));
-
-    try {
-      if (!this.getIsRunning()) {
-        throw new Error('Neo-Anvil is not running. Start it first with `neo-foundry anvil`');
-      }
-
-      // Mine the specified number of blocks
-      for (let i = 0; i < blocks; i++) {
-        await this.mineBlock();
-      }
-
-      console.log(chalk.green(`✅ Mined ${blocks} block(s)`));
-    } catch (error) {
-      console.error(chalk.red("❌ Mining failed:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Set time for next block
-   */
-  async setTime(timestamp: number): Promise<void> {
-    if (!this.isRunning) {
-      throw new Error("Neo-Anvil is not running");
-    }
-
-    console.log(chalk.blue(`🕐 Setting next block time to ${new Date(timestamp * 1000).toISOString()}...`));
-
-    try {
-      // This would set the timestamp for the next block
-      console.log(chalk.green("✅ Block time set"));
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to set time:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Increase time
-   */
-  async increaseTime(seconds: number): Promise<void> {
-    if (!this.isRunning) {
-      throw new Error("Neo-Anvil is not running");
-    }
-
-    console.log(chalk.blue(`⏭️ Increasing time by ${seconds} seconds...`));
-
-    try {
-      // This would increase the blockchain time
-      console.log(chalk.green("✅ Time increased"));
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to increase time:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get status
-   */
-  getStatus(): {
-    running: boolean;
-    port?: number;
-    chainId?: number;
-    accounts?: number;
-  } {
-    return {
-      running: this.isRunning,
-      // Additional status info would be stored and returned here
-    };
-  }
-
-  /**
-   * Take snapshot of blockchain state
-   */
-  async snapshot(): Promise<string> {
-    if (!this.isRunning) {
-      throw new Error("Neo-Anvil is not running");
-    }
-
-    console.log(chalk.blue("📸 Taking blockchain snapshot..."));
-
-    try {
-      // This would create a snapshot of the current blockchain state
-      const snapshotId = `snapshot_${Date.now()}`;
-      console.log(chalk.green(`✅ Snapshot created: ${snapshotId}`));
-      return snapshotId;
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to create snapshot:"), error);
-      throw error;
-    }
-  }
-
-  /**
-   * Restore from snapshot
-   */
-  async restore(snapshotId: string): Promise<void> {
-    if (!this.isRunning) {
-      throw new Error("Neo-Anvil is not running");
-    }
-
-    console.log(chalk.blue(`🔄 Restoring from snapshot ${snapshotId}...`));
-
-    try {
-      // This would restore the blockchain state from snapshot
-      console.log(chalk.green("✅ Snapshot restored"));
-    } catch (error) {
-      console.error(chalk.red("❌ Failed to restore snapshot:"), error);
-      throw error;
-    }
-  }
-
-  // Private methods
-
-  private async createBlockchainState(config: any): Promise<{
-    chainId: number;
-    accounts: Array<{
-      address: string;
-      privateKey: string;
-      balance: string;
-    }>;
-    blockNumber: number;
-    blockTime: number;
-  }> {
-    const accounts = [];
-
-    // Generate accounts
-    for (let i = 0; i < config.accounts; i++) {
-      accounts.push({
-        address: await this.generateAddress(),
-        privateKey: await this.generatePrivateKey(),
-        balance: config.balance
-      });
-    }
-
-    return {
-      chainId: config.chainId,
-      accounts,
-      blockNumber: 1,
-      blockTime: config.blockTime
-    };
-  }
-
-  private async startRpcServer(port: number, state: any, options: any): Promise<void> {
-    // Start the actual RPC server
-    const { createServer } = await import('http');
-    const server = createServer(this.handleRpcRequest.bind(this, state, options));
-    
-    return new Promise((resolve, reject) => {
-      server.on('error', reject);
-      server.listen(port, () => {
-      if (!options.quiet) {
-        console.log(chalk.gray(`Starting RPC server on port ${port}...`));
-      }
-      
-      // Simulate server startup
-      setTimeout(() => {
-        resolve();
-      }, 1000);
-    });
-  }
-
-  private printStartupInfo(port: number, chainId: number, accounts: any[]): void {
-    console.log(chalk.blue("\n📋 Neo-Anvil Configuration:"));
-    console.log(`   RPC URL: http://localhost:${port}`);
-    console.log(`   Chain ID: ${chainId}`);
-    console.log(`   Accounts: ${accounts.length}`);
-    console.log(`   Block Time: 15s`);
-
-    console.log(chalk.blue("\n👥 Available Accounts:"));
-    accounts.slice(0, 10).forEach((account, index) => {
-      console.log(`   (${index}) ${account.address} (${Number(account.balance) / 1e8} GAS)`);
-    });
-
-    console.log(chalk.blue("\n🔐 Private Keys:"));
-    accounts.slice(0, 10).forEach((account, index) => {
-      console.log(`   (${index}) ${account.privateKey}`);
-    });
-
-    console.log(chalk.yellow("\n⚠️  WARNING: These accounts and private keys are for development only!"));
-    console.log(chalk.yellow("Do NOT use them on mainnet or with real funds!\n"));
-  }
-
-  private async mineBlock(): Promise<void> {
-    const blockTime = Date.now();
-    const blockHeight = this.currentState.blockHeight + 1;
-    
-    // Create new block
-    const block = {
-      index: blockHeight,
-      timestamp: blockTime,
-      transactions: [],
-      previousHash: this.currentState.lastBlockHash,
-      hash: this.generateBlockHash(blockHeight, blockTime),
-      merkleRoot: this.calculateMerkleRoot([]),
-      nonce: Math.floor(Math.random() * 2**32),
-      gasUsed: 0,
-      gasLimit: 30000000
-    };
-    
-    // Update state
-    this.currentState.blockHeight = blockHeight;
-    this.currentState.lastBlockHash = block.hash;
-    this.currentState.blocks.push(block);
-    
-    // Simulate mining time
-    await new Promise(resolve => setTimeout(resolve, this.blockTime));
-  }
-
-  private async generateAddress(): Promise<string> {
-    const privateKey = await this.generatePrivateKey();
-    const publicKey = await this.derivePublicKey(privateKey);
-    return await this.deriveAddress(publicKey);
-  }
-
-  private async generatePrivateKey(): Promise<string> {
-    const crypto = await import('crypto');
-    const privateKeyBytes = crypto.randomBytes(32);
-    return '0x' + privateKeyBytes.toString('hex');
+async function readStateFile(): Promise<NeoAnvilStatus | null> {
+  try {
+    const raw = await fs.readFile(STATE_FILE, "utf8");
+    const parsed = JSON.parse(raw) as NeoAnvilStatus;
+    if (!parsed?.port) return null;
+    return parsed;
+  } catch {
+    return null;
   }
 }
 
-/**
- * Fork functionality for Neo-Anvil
- */
-export class NeoAnvilFork {
-  private forkUrl: string;
-  private forkBlockNumber?: number;
-
-  constructor(forkUrl: string, forkBlockNumber?: number) {
-    this.forkUrl = forkUrl;
-    this.forkBlockNumber = forkBlockNumber;
+function readStateFileSync(): NeoAnvilStatus | null {
+  try {
+    const raw = readFileSync(STATE_FILE, "utf8");
+    const parsed = JSON.parse(raw) as NeoAnvilStatus;
+    if (!parsed?.port) return null;
+    return parsed;
+  } catch {
+    return null;
   }
+}
 
-  /**
-   * Initialize fork state
-   */
-  async initializeFork(): Promise<any> {
-    console.log(chalk.blue(`🍴 Forking from ${this.forkUrl}...`));
+async function writeStateFile(status: NeoAnvilStatus): Promise<void> {
+  await fs.writeFile(STATE_FILE, JSON.stringify(status, null, 2), "utf8");
+}
 
-    try {
-      // This would:
-      // 1. Connect to the fork RPC
-      // 2. Download the state at the specified block
-      // 3. Initialize local state with fork data
-
-      const forkState = {
-        url: this.forkUrl,
-        blockNumber: this.forkBlockNumber || await this.getLatestBlockNumber(),
-        contracts: await this.downloadContracts(),
-        accounts: await this.downloadAccounts()
-      };
-
-      console.log(chalk.green(`✅ Fork initialized at block ${forkState.blockNumber}`));
-      return forkState;
-    } catch (error) {
-      console.error(chalk.red("❌ Fork initialization failed:"), error);
-      throw error;
-    }
+async function removeStateFile(): Promise<void> {
+  try {
+    await fs.unlink(STATE_FILE);
+  } catch {
+    // ignore
   }
+}
 
-  private async getLatestBlockNumber(): Promise<number> {
-    // This would get the latest block number from the fork RPC
-    return this.currentState?.blockHeight || 0;
-  }
+async function rpcControlCall(
+  port: number,
+  method: string,
+  params: unknown[] = []
+): Promise<unknown> {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1,
+  });
 
-  private async downloadContracts(): Promise<any[]> {
-    // This would download all contracts from the fork
-    return this.currentState?.deployedContracts || [];
-  }
-
-  private async downloadAccounts(): Promise<any[]> {
-    // This would download account states from the fork
-    return this.currentState?.accounts || [];
-  }
-
-  /**
-   * Check if Anvil is currently running
-   */
-  getIsRunning(): boolean {
-    return this.isRunning;
-  }
-
-  /**
-   * Handle RPC requests
-   */
-  private async handleRpcRequest(state: any, options: any, req: any, res: any): Promise<void> {
-    let body = '';
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString();
-    });
-
-    req.on('end', async () => {
-      try {
-        const request = JSON.parse(body);
-        const response = await this.processRpcCall(request, state);
-        
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        res.end(JSON.stringify(response));
-      } catch (error) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          jsonrpc: '2.0',
-          error: { code: -32600, message: 'Invalid Request' },
-          id: null
-        }));
-      }
-    });
-  }
-
-  /**
-   * Process individual RPC calls
-   */
-  private async processRpcCall(request: any, state: any): Promise<any> {
-    const { method, params, id } = request;
-
-    try {
-      let result: any;
-
-      switch (method) {
-        case 'getblockcount':
-          result = this.currentState?.blockHeight || 0;
-          break;
-        case 'getblock':
-          result = this.getBlock(params[0]);
-          break;
-        case 'invokefunction':
-          result = await this.invokeFunction(params[0], params[1], params[2]);
-          break;
-        case 'sendrawtransaction':
-          result = await this.sendTransaction(params[0]);
-          break;
-        case 'getapplicationlog':
-          result = this.getApplicationLog(params[0]);
-          break;
-        default:
-          throw new Error(`Method ${method} not supported`);
-      }
-
-      return {
-        jsonrpc: '2.0',
-        result,
-        id
-      };
-    } catch (error) {
-      return {
-        jsonrpc: '2.0',
-        error: {
-          code: -32601,
-          message: error instanceof Error ? error.message : 'Unknown error'
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: "/",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
         },
-        id
-      };
-    }
-  }
-
-  /**
-   * Generate a cryptographically secure block hash
-   */
-  private generateBlockHash(blockHeight: number, timestamp: number): string {
-    const crypto = require('crypto');
-    const data = `${blockHeight}${timestamp}${Math.random()}`;
-    return '0x' + crypto.createHash('sha256').update(data).digest('hex');
-  }
-
-  /**
-   * Calculate Merkle root for transactions
-   */
-  private calculateMerkleRoot(transactions: any[]): string {
-    if (transactions.length === 0) {
-      return '0x0000000000000000000000000000000000000000000000000000000000000000';
-    }
-
-    const crypto = require('crypto');
-    let hashes = transactions.map(tx => 
-      crypto.createHash('sha256').update(JSON.stringify(tx)).digest('hex')
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          try {
+            const parsed = JSON.parse(text) as { result?: unknown; error?: unknown };
+            if (parsed?.error) {
+              reject(new Error(`Neo-Anvil RPC error: ${JSON.stringify(parsed.error)}`));
+              return;
+            }
+            resolve(parsed?.result);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
     );
 
-    while (hashes.length > 1) {
-      const newHashes: string[] = [];
-      for (let i = 0; i < hashes.length; i += 2) {
-        const left = hashes[i];
-        const right = hashes[i + 1] || left;
-        const combined = crypto.createHash('sha256').update(left + right).digest('hex');
-        newHashes.push(combined);
-      }
-      hashes = newHashes;
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+/**
+ * Neo-Anvil - in-memory mock chain with a minimal JSON-RPC façade.
+ *
+ * This is intentionally limited: it exists to support CLI demos and local
+ * development ergonomics, not to execute real NEF bytecode.
+ */
+export class NeoAnvil {
+  private server?: http.Server;
+  private status: NeoAnvilStatus = { running: false };
+  private state: AnvilState = {
+    blockHeight: 0,
+    time: nowSeconds(),
+    snapshots: new Map(),
+  };
+
+  async start(options: NeoAnvilStartOptions = {}): Promise<void> {
+    if (this.server) {
+      throw new Error("Neo-Anvil is already running in this process.");
     }
 
-    return '0x' + hashes[0];
-  }
+    const port = options.port ?? DEFAULT_PORT;
+    const chainId = options.chainId ?? 12345;
+    const accounts = options.accounts ?? 10;
 
-  /**
-   * Derive public key from private key using secp256r1
-   */
-  private async derivePublicKey(privateKey: string): Promise<string> {
-    const crypto = await import('crypto');
-    const keyBuffer = Buffer.from(privateKey.slice(2), 'hex');
-    
-    // Simplified public key derivation - in production use proper elliptic curve library
-    const publicKeyBuffer = crypto.createHash('sha256').update(keyBuffer).digest();
-    return '0x' + publicKeyBuffer.toString('hex');
-  }
-
-  /**
-   * Derive Neo address from public key
-   */
-  private async deriveAddress(publicKey: string): Promise<string> {
-    const crypto = await import('crypto');
-    
-    const publicKeyBuffer = Buffer.from(publicKey.slice(2), 'hex');
-    const sha256Hash = crypto.createHash('sha256').update(publicKeyBuffer).digest();
-    const ripemd160Hash = crypto.createHash('ripemd160').update(sha256Hash).digest();
-    
-    const versionByte = Buffer.from([0x35]); // N3 version
-    const addressPayload = Buffer.concat([versionByte, ripemd160Hash]);
-    
-    const checksum1 = crypto.createHash('sha256').update(addressPayload).digest();
-    const checksum2 = crypto.createHash('sha256').update(checksum1).digest();
-    const checksum = checksum2.slice(0, 4);
-    
-    const fullAddress = Buffer.concat([addressPayload, checksum]);
-    return this.base58Encode(fullAddress);
-  }
-
-  /**
-   * Base58 encode for Neo addresses
-   */
-  private base58Encode(buffer: Buffer): string {
-    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let num = BigInt('0x' + buffer.toString('hex'));
-    let result = '';
-    
-    while (num > 0) {
-      const remainder = num % 58n;
-      result = alphabet[Number(remainder)] + result;
-      num = num / 58n;
-    }
-    
-    for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
-      result = '1' + result;
-    }
-    
-    return result;
-  }
-
-  /**
-   * Initialize blockchain state
-   */
-  private initializeState(config: any): any {
-    return {
+    this.state = {
       blockHeight: 0,
-      lastBlockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      blocks: [],
-      transactions: [],
-      deployedContracts: [],
-      accounts: config.accounts || [],
-      gasPrice: config.gasPrice || '1000',
-      gasLimit: config.gasLimit || '50000000'
+      time: nowSeconds(),
+      snapshots: new Map(),
     };
-  }
 
-  /**
-   * RPC method implementations
-   */
-  private getBlock(blockNumber: number): any {
-    const blocks = this.currentState?.blocks || [];
-    return blocks.find((block: any) => block.index === blockNumber) || null;
-  }
+    this.server = http.createServer(async (req, res) => {
+      if (req.method !== "POST") {
+        res.writeHead(405);
+        res.end();
+        return;
+      }
 
-  private async invokeFunction(scriptHash: string, method: string, params: any[]): Promise<any> {
-    // Simulate contract invocation
-    return {
-      script: '',
-      state: 'HALT',
-      gasConsumed: '10000000',
-      stack: [{ type: 'Boolean', value: true }],
-      notifications: []
-    };
-  }
+      const chunks: Buffer[] = [];
+      req.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      req.on("end", async () => {
+        try {
+          const payload = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+            id?: number | string | null;
+            method?: string;
+            params?: unknown[];
+          };
 
-  private async sendTransaction(rawTransaction: string): Promise<string> {
-    // Process and add transaction to mempool
-    const crypto = require('crypto');
-    const txHash = '0x' + crypto.createHash('sha256').update(rawTransaction).digest('hex');
-    
-    // Add to current state
-    if (this.currentState) {
-      this.currentState.transactions.push({
-        hash: txHash,
-        script: rawTransaction,
-        timestamp: Date.now()
+          const id = payload.id ?? 1;
+          const method = payload.method ?? "";
+          const params = payload.params ?? [];
+
+          const respond = (result: unknown) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
+          };
+
+          const respondError = (message: string) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id,
+                error: { code: -32000, message },
+              })
+            );
+          };
+
+          // Control methods (used by the CLI to talk to a running instance).
+          if (method === "neo_anvil_stop") {
+            respond(true);
+            setImmediate(() => this.stop().catch(() => {}));
+            return;
+          }
+          if (method === "neo_anvil_reset") {
+            this.state.blockHeight = 0;
+            this.state.time = nowSeconds();
+            this.state.snapshots.clear();
+            respond(true);
+            return;
+          }
+          if (method === "neo_anvil_mine") {
+            const count = Number(params[0] ?? 1);
+            this.state.blockHeight += Number.isFinite(count) ? Math.max(0, count) : 1;
+            respond(true);
+            return;
+          }
+          if (method === "neo_anvil_setTime") {
+            const timestamp = Number(params[0]);
+            if (!Number.isFinite(timestamp)) {
+              respondError("Invalid timestamp");
+              return;
+            }
+            this.state.time = Math.floor(timestamp);
+            respond(true);
+            return;
+          }
+          if (method === "neo_anvil_increaseTime") {
+            const seconds = Number(params[0]);
+            if (!Number.isFinite(seconds)) {
+              respondError("Invalid seconds");
+              return;
+            }
+            this.state.time += Math.floor(seconds);
+            respond(true);
+            return;
+          }
+          if (method === "neo_anvil_snapshot") {
+            const snapshotId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            this.state.snapshots.set(snapshotId, {
+              blockHeight: this.state.blockHeight,
+              time: this.state.time,
+            });
+            respond(snapshotId);
+            return;
+          }
+          if (method === "neo_anvil_restore") {
+            const snapshotId = String(params[0] ?? "");
+            const snap = this.state.snapshots.get(snapshotId);
+            if (!snap) {
+              respondError(`Unknown snapshot id: ${snapshotId}`);
+              return;
+            }
+            this.state.blockHeight = snap.blockHeight;
+            this.state.time = snap.time;
+            respond(true);
+            return;
+          }
+
+          // Minimal read-only Neo N3-like RPC surface (enough for demos).
+          if (method === "getversion") {
+            respond({
+              useragent: "neo-anvil/0.1.0",
+              protocol: { network: chainId, validatorscount: 0 },
+            });
+            return;
+          }
+          if (method === "getpeers") {
+            respond({ connected: [] });
+            return;
+          }
+          if (method === "getblockcount") {
+            respond(this.state.blockHeight);
+            return;
+          }
+          if (method === "getbestblockhash") {
+            respond("0x" + "00".repeat(32));
+            return;
+          }
+          if (method === "invokefunction") {
+            respond({
+              state: "HALT",
+              gasConsumed: "0",
+              stack: [],
+            });
+            return;
+          }
+          if (method === "getnep17balances") {
+            respond({ balance: [] });
+            return;
+          }
+
+          respondError(`Method not implemented: ${method}`);
+        } catch (err) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              error: { code: -32700, message: err instanceof Error ? err.message : String(err) },
+            })
+          );
+        }
       });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.server!.once("error", reject);
+      this.server!.listen(port, "127.0.0.1", () => resolve());
+    });
+
+    this.status = { running: true, port, chainId, accounts };
+    await writeStateFile(this.status);
+
+    if (!options.quiet) {
+      // The CLI prints its own UX; keep this minimal.
+      // eslint-disable-next-line no-console
+      console.log(`Neo-Anvil listening on http://127.0.0.1:${port} (chainId=${chainId})`);
     }
-    
-    return txHash;
   }
 
-  private getApplicationLog(txHash: string): any {
-    // Return application log for transaction
-    return {
-      txid: txHash,
-      executions: [{
-        trigger: 'Application',
-        vmstate: 'HALT',
-        gasConsumed: '10000000',
-        stack: [],
-        notifications: []
-      }]
-    };
+  async stop(): Promise<void> {
+    if (!this.server) {
+      const running = await readStateFile();
+      const port = running?.port ?? DEFAULT_PORT;
+      await rpcControlCall(port, "neo_anvil_stop", []).catch(() => {});
+      await removeStateFile();
+      this.status = { running: false };
+      return;
+    }
+
+    await new Promise<void>((resolve) => this.server!.close(() => resolve()));
+    this.server = undefined;
+    this.status = { running: false };
+    await removeStateFile();
+  }
+
+  async reset(): Promise<void> {
+    if (this.server) {
+      this.state.blockHeight = 0;
+      this.state.time = nowSeconds();
+      this.state.snapshots.clear();
+      return;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    await rpcControlCall(port, "neo_anvil_reset", []);
+  }
+
+  async mine(blocks = 1): Promise<void> {
+    if (this.server) {
+      this.state.blockHeight += Math.max(0, Math.floor(blocks));
+      return;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    await rpcControlCall(port, "neo_anvil_mine", [blocks]);
+  }
+
+  async setTime(timestamp: number): Promise<void> {
+    if (this.server) {
+      this.state.time = Math.floor(timestamp);
+      return;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    await rpcControlCall(port, "neo_anvil_setTime", [timestamp]);
+  }
+
+  async increaseTime(seconds: number): Promise<void> {
+    if (this.server) {
+      this.state.time += Math.floor(seconds);
+      return;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    await rpcControlCall(port, "neo_anvil_increaseTime", [seconds]);
+  }
+
+  async snapshot(): Promise<string> {
+    if (this.server) {
+      const snapshotId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      this.state.snapshots.set(snapshotId, {
+        blockHeight: this.state.blockHeight,
+        time: this.state.time,
+      });
+      return snapshotId;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    const result = await rpcControlCall(port, "neo_anvil_snapshot", []);
+    return String(result);
+  }
+
+  async restore(snapshotId: string): Promise<void> {
+    if (this.server) {
+      const snap = this.state.snapshots.get(snapshotId);
+      if (!snap) {
+        throw new Error(`Unknown snapshot id: ${snapshotId}`);
+      }
+      this.state.blockHeight = snap.blockHeight;
+      this.state.time = snap.time;
+      return;
+    }
+    const running = await readStateFile();
+    const port = running?.port ?? DEFAULT_PORT;
+    await rpcControlCall(port, "neo_anvil_restore", [snapshotId]);
+  }
+
+  getStatus(): NeoAnvilStatus {
+    if (this.status.running) return this.status;
+    const fromDisk = readStateFileSync();
+    return fromDisk ?? { running: false };
   }
 }

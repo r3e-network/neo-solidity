@@ -2,16 +2,16 @@ import { promises as fs, Dirent } from "fs";
 import path from "path";
 import { 
   BuildArtifact, 
-  BuildInfo, 
   DeploymentArtifact,
   ArtifactManager as IArtifactManager,
   ArtifactStorageConfig,
   ArtifactValidationResult,
   ArtifactComparison,
+  ArtifactDifference,
   ArtifactSearchCriteria,
   ArtifactStatistics
 } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins";
+import { HardhatPluginError } from "hardhat/plugins.js";
 import Debug from "debug";
 
 const debug = Debug("hardhat:neo-solidity:artifacts");
@@ -344,41 +344,100 @@ export class ArtifactManager implements IArtifactManager {
    * Compare two artifacts
    */
   async compareArtifacts(artifact1: BuildArtifact, artifact2: BuildArtifact): Promise<ArtifactComparison> {
-    const differences: string[] = [];
+    const differences: ArtifactDifference[] = [];
     const breakingChanges: string[] = [];
     const nonBreakingChanges: string[] = [];
 
+    const recordModified = (
+      path: string,
+      oldValue: any,
+      newValue: any,
+      impact: ArtifactDifference["impact"],
+      message: string
+    ) => {
+      differences.push({
+        path,
+        type: "modified",
+        oldValue,
+        newValue,
+        impact
+      });
+
+      if (impact === "breaking" || impact === "high") {
+        breakingChanges.push(message);
+      } else {
+        nonBreakingChanges.push(message);
+      }
+    };
+
     // Compare basic properties
     if (artifact1.contractName !== artifact2.contractName) {
-      differences.push('Contract name differs');
+      recordModified(
+        "contractName",
+        artifact1.contractName,
+        artifact2.contractName,
+        "breaking",
+        "Contract name differs"
+      );
     }
 
     if (artifact1.sourceName !== artifact2.sourceName) {
-      differences.push('Source name differs');
+      recordModified(
+        "sourceName",
+        artifact1.sourceName,
+        artifact2.sourceName,
+        "medium",
+        "Source name differs"
+      );
     }
 
     // Compare bytecode
-    if (artifact1.bytecode !== artifact2.bytecode) {
-      differences.push('Bytecode differs');
-      breakingChanges.push('Bytecode change detected');
+    const bytecode1 = artifact1.contract?.evm?.bytecode?.object ?? "";
+    const bytecode2 = artifact2.contract?.evm?.bytecode?.object ?? "";
+    if (bytecode1 !== bytecode2) {
+      recordModified(
+        "contract.evm.bytecode.object",
+        bytecode1,
+        bytecode2,
+        "breaking",
+        "Bytecode change detected"
+      );
     }
 
     // Compare ABI
-    const abiComparison = this.compareABI(artifact1.abi, artifact2.abi);
-    differences.push(...abiComparison.differences);
-    breakingChanges.push(...abiComparison.breakingChanges);
-    nonBreakingChanges.push(...abiComparison.nonBreakingChanges);
+    const abiComparison = this.compareABI(artifact1.contract.abi, artifact2.contract.abi);
+    if (abiComparison.differences.length > 0) {
+      differences.push({
+        path: "contract.abi",
+        type: "modified",
+        oldValue: artifact1.contract.abi,
+        newValue: artifact2.contract.abi,
+        impact: abiComparison.breakingChanges.length > 0 ? "breaking" : "medium"
+      });
+      breakingChanges.push(...abiComparison.breakingChanges);
+      nonBreakingChanges.push(...abiComparison.nonBreakingChanges);
+    }
 
     // Compare Neo-specific data
-    if (artifact1.neo && artifact2.neo) {
-      if (artifact1.neo.nef !== artifact2.neo.nef) {
-        differences.push('NEF differs');
-        breakingChanges.push('NEF change detected');
+    if (artifact1.contract.neo && artifact2.contract.neo) {
+      const nef1 = artifact1.contract.neo.nef?.image ?? artifact1.contract.neo.nef?.script ?? "";
+      const nef2 = artifact2.contract.neo.nef?.image ?? artifact2.contract.neo.nef?.script ?? "";
+      if (nef1 !== nef2) {
+        recordModified("contract.neo.nef", nef1, nef2, "breaking", "NEF change detected");
       }
 
-      if (JSON.stringify(artifact1.neo.manifest) !== JSON.stringify(artifact2.neo.manifest)) {
-        differences.push('Manifest differs');
-        const manifestComparison = this.compareManifests(artifact1.neo.manifest, artifact2.neo.manifest);
+      if (JSON.stringify(artifact1.contract.neo.manifest) !== JSON.stringify(artifact2.contract.neo.manifest)) {
+        differences.push({
+          path: "contract.neo.manifest",
+          type: "modified",
+          oldValue: artifact1.contract.neo.manifest,
+          newValue: artifact2.contract.neo.manifest,
+          impact: "high"
+        });
+        const manifestComparison = this.compareManifests(
+          artifact1.contract.neo.manifest,
+          artifact2.contract.neo.manifest
+        );
         breakingChanges.push(...manifestComparison.breaking);
         nonBreakingChanges.push(...manifestComparison.nonBreaking);
       }

@@ -7,9 +7,7 @@ import {
 } from "ethers";
 import { 
   NeoRpcProvider,
-  InvokeResult,
-  ContractMethod,
-  ContractEvent
+  InvokeResult
 } from "@neo-solidity/types";
 import { RpcAdapter } from "./rpc-adapter";
 import { TransactionBuilder } from "./transaction-builder";
@@ -17,6 +15,15 @@ import { EventDecoder } from "./event-decoder";
 import { ContractWrapper } from "./contract-wrapper";
 import { NeoDeploymentArtifacts } from "./types";
 import Debug from "debug";
+import {
+  decodeNeoBytes,
+  evmAddressToNeoHash160,
+  neoBytesToEvmAddress,
+  neoHash160ToEvmAddress,
+  parseNeoBoolean,
+  parseNeoInteger,
+  stackItemArrayValue,
+} from "./neo-utils";
 
 const debug = Debug("neo-solidity:abi-router");
 
@@ -146,7 +153,7 @@ export class AbiRouter {
   encodeFilterTopics(
     eventFragment: string | EventFragment,
     values: any[] = []
-  ): string[] {
+  ): Array<string | string[] | null> {
     debug(`Encoding filter topics for ${eventFragment}`);
 
     const iface = new Interface([
@@ -178,7 +185,11 @@ export class AbiRouter {
         : eventFragment
     ]);
 
-    return iface.parseLog({ data, topics });
+    const parsed = iface.parseLog({ data, topics });
+    if (!parsed) {
+      throw new Error("Failed to parse event log");
+    }
+    return parsed;
   }
 
   /**
@@ -251,38 +262,52 @@ export class AbiRouter {
 
     switch (item.type) {
       case 'Boolean':
-        return targetType === 'bool' ? item.value : Boolean(item.value);
+        return parseNeoBoolean(item.value);
 
       case 'Integer':
         if (targetType.startsWith('uint') || targetType.startsWith('int')) {
-          return BigInt(item.value);
+          return parseNeoInteger(item.value);
         }
         return Number(item.value);
 
       case 'ByteString':
+      case 'ByteArray':
+      case 'Buffer': {
+        const bytes = decodeNeoBytes(item.value);
         if (targetType === 'address') {
-          return this.bytesToAddress(item.value);
+          return neoBytesToEvmAddress(bytes);
         }
         if (targetType === 'string') {
-          return this.bytesToString(item.value);
+          return bytes.toString('utf8');
         }
-        if (targetType.startsWith('bytes')) {
-          return '0x' + item.value;
+        if (targetType.startsWith('bytes') || targetType === 'bytes') {
+          return '0x' + bytes.toString('hex');
         }
-        return item.value;
+        return bytes.toString('hex');
+      }
+      case 'Hash160':
+        if (targetType === 'address') {
+          return neoHash160ToEvmAddress(String(item.value));
+        }
+        return String(item.value);
 
       case 'Array':
-        return item.value?.map((subItem: any, index: number) => 
+      case 'Struct': {
+        const children = stackItemArrayValue(item);
+        return children.map((subItem: any) =>
           this.convertStackItem(subItem, this.getArrayElementType(targetType))
-        ) || [];
+        );
+      }
 
       case 'Map':
         // Convert Neo map to object
-        const obj: any = {};
-        for (const [key, value] of Object.entries(item.value || {})) {
-          obj[key] = this.convertStackItem(value, 'string');
+        {
+          const obj: any = {};
+          for (const [key, value] of Object.entries(item.value || {})) {
+            obj[key] = this.convertStackItem(value, 'string');
+          }
+          return obj;
         }
-        return obj;
 
       default:
         return item.value;
@@ -300,7 +325,7 @@ export class AbiRouter {
       case 'address':
         return {
           type: 'Hash160',
-          value: this.addressToScriptHash(arg)
+          value: evmAddressToNeoHash160(String(arg))
         };
 
       case 'string':
@@ -318,9 +343,10 @@ export class AbiRouter {
         }
         
         if (paramType.startsWith('bytes')) {
+          const asString = String(arg);
           return {
             type: 'ByteArray',
-            value: arg.startsWith('0x') ? arg.slice(2) : arg
+            value: asString.startsWith('0x') ? asString.slice(2) : asString
           };
         }
 
@@ -335,28 +361,5 @@ export class AbiRouter {
   private getArrayElementType(arrayType: string): string {
     // Extract element type from array type (e.g., "uint256[]" -> "uint256")
     return arrayType.replace(/\[\]$/, '');
-  }
-
-  private bytesToAddress(bytes: string): string {
-    // Convert Neo script hash to address format
-    // This is a simplified conversion - actual implementation would use Neo address encoding
-    return "0x" + bytes.slice(-40);
-  }
-
-  private bytesToString(bytes: string): string {
-    try {
-      return Buffer.from(bytes, 'hex').toString('utf8');
-    } catch {
-      return bytes;
-    }
-  }
-
-  private addressToScriptHash(address: string): string {
-    // Convert Ethereum address to Neo script hash
-    // This is a simplified conversion - actual implementation would handle proper conversion
-    if (address.startsWith('0x')) {
-      return address;
-    }
-    return '0x' + address.slice(-40);
   }
 }

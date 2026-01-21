@@ -48,7 +48,14 @@ export interface VerificationStatus {
 }
 
 export interface VerificationError {
-  type: 'compilation' | 'bytecode_mismatch' | 'constructor_args' | 'library_linking';
+  type:
+    | 'compilation'
+    | 'bytecode_mismatch'
+    | 'constructor_args'
+    | 'library_linking'
+    | 'submission'
+    | 'verification'
+    | 'pipeline';
   message: string;
   line?: number;
   column?: number;

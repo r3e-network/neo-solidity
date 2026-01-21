@@ -1,13 +1,13 @@
 #[test]
 fn devpack_nep17_standard_compiles() {
     let source = [
-        include_str!("../../../devpack/contracts/Syscalls.sol"),
-        include_str!("../../../devpack/contracts/NativeCalls.sol"),
-        include_str!("../../../devpack/libraries/Storage.sol"),
-        include_str!("../../../devpack/libraries/Runtime.sol"),
-        include_str!("../../../devpack/libraries/Neo.sol"),
-        include_str!("../../../devpack/contracts/FrameworkBase.sol"),
-        include_str!("../../../devpack/standards/NEP17.sol"),
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP17.sol"),
     ]
     .join("\n");
 
@@ -36,13 +36,13 @@ fn devpack_nep17_standard_compiles() {
 #[test]
 fn devpack_nep11_standard_compiles() {
     let source = [
-        include_str!("../../../devpack/contracts/Syscalls.sol"),
-        include_str!("../../../devpack/contracts/NativeCalls.sol"),
-        include_str!("../../../devpack/libraries/Storage.sol"),
-        include_str!("../../../devpack/libraries/Runtime.sol"),
-        include_str!("../../../devpack/libraries/Neo.sol"),
-        include_str!("../../../devpack/contracts/FrameworkBase.sol"),
-        include_str!("../../../devpack/standards/NEP11.sol"),
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP11.sol"),
     ]
     .join("\n");
 
@@ -71,13 +71,13 @@ fn devpack_nep11_standard_compiles() {
 #[test]
 fn devpack_nep24_standard_compiles() {
     let source = [
-        include_str!("../../../devpack/contracts/Syscalls.sol"),
-        include_str!("../../../devpack/contracts/NativeCalls.sol"),
-        include_str!("../../../devpack/libraries/Storage.sol"),
-        include_str!("../../../devpack/libraries/Runtime.sol"),
-        include_str!("../../../devpack/libraries/Neo.sol"),
-        include_str!("../../../devpack/contracts/FrameworkBase.sol"),
-        include_str!("../../../devpack/standards/NEP24.sol"),
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP24.sol"),
     ]
     .join("\n");
 

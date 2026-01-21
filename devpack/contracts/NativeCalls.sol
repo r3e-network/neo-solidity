@@ -13,6 +13,9 @@ pragma solidity ^0.8.19;
  * - Policy: Network policy management
  * - Oracle: Oracle services
  * - RoleManagement: Role and permission management
+ * - Notary: Notary deposit services
+ * - Treasury: Treasury funds management
+ * - Ledger: Blockchain data access
  */
 
 import "./Syscalls.sol";
@@ -27,6 +30,11 @@ library NativeCalls {
     address constant POLICY_CONTRACT = 0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b;
     address constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
     address constant ROLE_MANAGEMENT = 0x49cf4e5378ffcd4dec034fd98a174c5491e395e2;
+    address constant NOTARY_CONTRACT = 0xc1e14f19c3e60d0b9244d06dd7ba9b113135ec3b;
+    address constant TREASURY_CONTRACT = 0x156326f25b1b5d839a4d326aeaa75383c9563ac1;
+    address constant LEDGER_CONTRACT = 0xda65b600f7124ce6c79950c1772a36403104f2be;
+    address constant CRYPTO_LIB = 0x726cb6e0cd8628a1350a611384688911ab75f51b;
+    address constant STD_LIB = 0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0;
     
     // ========== NEO Token Native Contract ==========
     
@@ -62,15 +70,17 @@ library NativeCalls {
     /**
      * @dev Get NEO decimals
      */
-    function neoDecimals() internal pure returns (uint8) {
-        return 0; // NEO is indivisible
+    function neoDecimals() internal view returns (uint8) {
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "decimals", "");
+        return abi.decode(result, (uint8));
     }
     
     /**
      * @dev Get NEO symbol
      */
-    function neoSymbol() internal pure returns (string memory) {
-        return "NEO";
+    function neoSymbol() internal view returns (string memory) {
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "symbol", "");
+        return abi.decode(result, (string));
     }
     
     /**
@@ -84,10 +94,30 @@ library NativeCalls {
     
     /**
      * @dev Get candidates
+     *
+     * Neo N3: `NeoToken.getCandidates()` returns `(ECPoint publicKey, BigInteger votes)[]`
+     * for the first 256 registered (non-blocked) candidates.
      */
     function getCandidates() internal view returns (NeoCandidate[] memory) {
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getCandidates", "");
         return abi.decode(result, (NeoCandidate[]));
+    }
+
+    /**
+     * @dev Get all registered candidates (iterator)
+     */
+    function getAllCandidates() internal view returns (Syscalls.Iterator memory) {
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getAllCandidates", "");
+        return abi.decode(result, (Syscalls.Iterator));
+    }
+
+    /**
+     * @dev Get candidate vote count (returns -1 if not found)
+     */
+    function getCandidateVote(bytes memory publicKey) internal view returns (int256) {
+        bytes memory params = abi.encode(publicKey);
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getCandidateVote", params);
+        return abi.decode(result, (int256));
     }
     
     /**
@@ -115,6 +145,22 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getGasPerBlock", "");
         return abi.decode(result, (uint256));
     }
+
+    /**
+     * @dev Get register price for candidates
+     */
+    function getRegisterPrice() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getRegisterPrice", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set register price for candidates (committee only)
+     */
+    function setRegisterPrice(uint256 value) internal {
+        bytes memory params = abi.encode(value);
+        Syscalls.contractCall(NEO_CONTRACT, "setRegisterPrice", params);
+    }
     
     /**
      * @dev Set GAS per block (committee only)
@@ -126,11 +172,25 @@ library NativeCalls {
     
     /**
      * @dev Get account state
+     *
+     * Neo N3: `NeoToken.getAccountState(UInt160)` returns `NeoAccountState?` (nullable).
+     * The compiler lowers this helper to return a default (zeroed) struct when the
+     * native contract returns `null`, matching Solidity's "missing mapping key"
+     * semantics.
      */
     function getAccountState(address account) internal view returns (AccountState memory) {
         bytes memory params = abi.encode(account);
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getAccountState", params);
         return abi.decode(result, (AccountState));
+    }
+
+    /**
+     * @dev Get unclaimed GAS for account at a specific block height
+     */
+    function unclaimedGas(address account, uint256 end) internal view returns (uint256) {
+        bytes memory params = abi.encode(account, end);
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "unclaimedGas", params);
+        return abi.decode(result, (uint256));
     }
     
     // ========== GAS Token Native Contract ==========
@@ -167,15 +227,17 @@ library NativeCalls {
     /**
      * @dev Get GAS decimals
      */
-    function gasDecimals() internal pure returns (uint8) {
-        return 8;
+    function gasDecimals() internal view returns (uint8) {
+        bytes memory result = Syscalls.contractCall(GAS_CONTRACT, "decimals", "");
+        return abi.decode(result, (uint8));
     }
     
     /**
      * @dev Get GAS symbol
      */
-    function gasSymbol() internal pure returns (string memory) {
-        return "GAS";
+    function gasSymbol() internal view returns (string memory) {
+        bytes memory result = Syscalls.contractCall(GAS_CONTRACT, "symbol", "");
+        return abi.decode(result, (string));
     }
     
     // ========== Contract Management Native Contract ==========
@@ -188,12 +250,40 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "deploy", params);
         return abi.decode(result, (address));
     }
+
+    /**
+     * @dev Deploy new contract and pass deployment data to `_deploy(data, false)`
+     *
+     * The `data` parameter is forwarded to the deployed contract's `_deploy(data, update)` entrypoint
+     * (with `update == false`). For neo-solidity-compiled contracts with parameterised constructors,
+     * this is typically a JSON-encoded array (e.g. `[7]`) or StdLib.serialize(...) bytes.
+     */
+    function deployContract(bytes memory nef, bytes memory manifest, bytes memory data)
+        internal
+        returns (address)
+    {
+        bytes memory params = abi.encode(nef, manifest, data);
+        bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "deploy", params);
+        return abi.decode(result, (address));
+    }
     
     /**
      * @dev Update contract
      */
     function updateContract(bytes memory nef, bytes memory manifest) internal {
         bytes memory params = abi.encode(nef, manifest);
+        Syscalls.contractCall(CONTRACT_MANAGEMENT, "update", params);
+    }
+
+    /**
+     * @dev Update contract and pass update data to `_deploy(data, true)`
+     *
+     * The `data` parameter is forwarded to the updated contract's `_deploy(data, update)` entrypoint
+     * (with `update == true`). This can be used for migration flows when a contract implements custom
+     * `_deploy` logic.
+     */
+    function updateContract(bytes memory nef, bytes memory manifest, bytes memory data) internal {
+        bytes memory params = abi.encode(nef, manifest, data);
         Syscalls.contractCall(CONTRACT_MANAGEMENT, "update", params);
     }
     
@@ -212,13 +302,27 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "getContract", params);
         return abi.decode(result, (ContractState));
     }
+
+    /**
+     * @dev Get contract by id
+     */
+    function getContractById(int256 id) internal view returns (ContractState memory) {
+        bytes memory params = abi.encode(id);
+        bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "getContractById", params);
+        return abi.decode(result, (ContractState));
+    }
     
     /**
      * @dev List all contracts
      */
-    function listContracts() internal view returns (address[] memory) {
-        bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "listContracts", "");
-        return abi.decode(result, (address[]));
+    function listContracts() internal view returns (Syscalls.Iterator memory) {
+        // Compiler intrinsic: lowered to `ContractManagement.getContractHashes()` which returns
+        // a Neo iterator of deployed contract hashes.
+        //
+        // Consume it via:
+        //   while (it.next()) { bytes memory hash = it.value(); ... }
+        Syscalls.Iterator memory it;
+        return it;
     }
     
     /**
@@ -231,6 +335,15 @@ library NativeCalls {
     {
         bytes memory params = abi.encode(hash, method, paramCount);
         bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "hasMethod", params);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Check if contract exists
+     */
+    function isContract(address hash) internal view returns (bool) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "isContract", params);
         return abi.decode(result, (bool));
     }
     
@@ -275,6 +388,14 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getExecFeeFactor", "");
         return abi.decode(result, (uint32));
     }
+
+    /**
+     * @dev Get execution fee factor in picoGAS
+     */
+    function getExecPicoFeeFactor() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getExecPicoFeeFactor", "");
+        return abi.decode(result, (uint256));
+    }
     
     /**
      * @dev Set execution fee factor
@@ -290,6 +411,71 @@ library NativeCalls {
     function getStoragePrice() internal view returns (uint256) {
         bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getStoragePrice", "");
         return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get milliseconds per block
+     */
+    function getMillisecondsPerBlock() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getMillisecondsPerBlock", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set milliseconds per block
+     */
+    function setMillisecondsPerBlock(uint256 value) internal {
+        bytes memory params = abi.encode(value);
+        Syscalls.contractCall(POLICY_CONTRACT, "setMillisecondsPerBlock", params);
+    }
+
+    /**
+     * @dev Get max valid-until-block increment
+     */
+    function getMaxValidUntilBlockIncrement() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getMaxValidUntilBlockIncrement", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set max valid-until-block increment
+     */
+    function setMaxValidUntilBlockIncrement(uint256 value) internal {
+        bytes memory params = abi.encode(value);
+        Syscalls.contractCall(POLICY_CONTRACT, "setMaxValidUntilBlockIncrement", params);
+    }
+
+    /**
+     * @dev Get max traceable blocks
+     */
+    function getMaxTraceableBlocks() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getMaxTraceableBlocks", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set max traceable blocks
+     */
+    function setMaxTraceableBlocks(uint256 value) internal {
+        bytes memory params = abi.encode(value);
+        Syscalls.contractCall(POLICY_CONTRACT, "setMaxTraceableBlocks", params);
+    }
+
+    /**
+     * @dev Get attribute fee
+     */
+    function getAttributeFee(uint8 attributeType) internal view returns (uint256) {
+        bytes memory params = abi.encode(attributeType);
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getAttributeFee", params);
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set attribute fee
+     */
+    function setAttributeFee(uint8 attributeType, uint256 value) internal {
+        bytes memory params = abi.encode(attributeType, value);
+        Syscalls.contractCall(POLICY_CONTRACT, "setAttributeFee", params);
     }
     
     /**
@@ -324,6 +510,56 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "isBlocked", params);
         return abi.decode(result, (bool));
     }
+
+    /**
+     * @dev Get blocked accounts iterator
+     */
+    function getBlockedAccounts() internal view returns (Syscalls.Iterator memory) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getBlockedAccounts", "");
+        return abi.decode(result, (Syscalls.Iterator));
+    }
+
+    /**
+     * @dev Recover blocked funds (committee only)
+     */
+    function recoverFund(address account, address token) internal returns (bool) {
+        bytes memory params = abi.encode(account, token);
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "recoverFund", params);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Set whitelist fee contract (committee only)
+     */
+    function setWhitelistFeeContract(
+        address contractHash,
+        string memory method,
+        uint8 argCount,
+        uint256 fixedFee
+    ) internal {
+        bytes memory params = abi.encode(contractHash, method, argCount, fixedFee);
+        Syscalls.contractCall(POLICY_CONTRACT, "setWhitelistFeeContract", params);
+    }
+
+    /**
+     * @dev Remove whitelist fee contract (committee only)
+     */
+    function removeWhitelistFeeContract(
+        address contractHash,
+        string memory method,
+        uint8 argCount
+    ) internal {
+        bytes memory params = abi.encode(contractHash, method, argCount);
+        Syscalls.contractCall(POLICY_CONTRACT, "removeWhitelistFeeContract", params);
+    }
+
+    /**
+     * @dev Get whitelisted fee contracts iterator
+     */
+    function getWhitelistFeeContracts() internal view returns (Syscalls.Iterator memory) {
+        bytes memory result = Syscalls.contractCall(POLICY_CONTRACT, "getWhitelistFeeContracts", "");
+        return abi.decode(result, (Syscalls.Iterator));
+    }
     
     // ========== Oracle Native Contract ==========
     
@@ -356,39 +592,255 @@ library NativeCalls {
         bytes memory params = abi.encode(price);
         Syscalls.contractCall(ORACLE_CONTRACT, "setPrice", params);
     }
+
+    /**
+     * @dev Finish oracle response (oracle nodes)
+     */
+    function oracleFinish() internal {
+        Syscalls.contractCall(ORACLE_CONTRACT, "finish", "");
+    }
+
+    /**
+     * @dev Verify oracle response transaction
+     */
+    function oracleVerify() internal view returns (bool) {
+        bytes memory result = Syscalls.contractCall(ORACLE_CONTRACT, "verify", "");
+        return abi.decode(result, (bool));
+    }
     
     // ========== Role Management Native Contract ==========
     
     /**
      * @dev Designate as role
      */
-    function designateAsRole(bytes1 role, address[] memory nodes) internal {
-        bytes memory params = abi.encode(role, nodes);
+    function designateAsRole(bytes1 role, bytes[] memory publicKeys) internal {
+        bytes memory params = abi.encode(role, publicKeys);
         Syscalls.contractCall(ROLE_MANAGEMENT, "designateAsRole", params);
     }
     
     /**
      * @dev Get designated by role
      */
-    function getDesignatedByRole(bytes1 role, uint256 index) internal view returns (address[] memory) {
+    function getDesignatedByRole(bytes1 role, uint256 index) internal view returns (bytes[] memory) {
         bytes memory params = abi.encode(role, index);
         bytes memory result = Syscalls.contractCall(ROLE_MANAGEMENT, "getDesignatedByRole", params);
-        return abi.decode(result, (address[]));
+        return abi.decode(result, (bytes[]));
     }
-    
+
+    // ========== Ledger Native Contract ==========
+
+    /**
+     * @dev Get current block index
+     */
+    function currentIndex() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "currentIndex", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get current block hash
+     */
+    function currentHash() internal view returns (bytes32) {
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "currentHash", "");
+        return abi.decode(result, (bytes32));
+    }
+
+    /**
+     * @dev Get block by index
+     */
+    function getBlock(uint256 index) internal view returns (Syscalls.Block memory) {
+        bytes memory params = abi.encode(index);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getBlock", params);
+        return abi.decode(result, (Syscalls.Block));
+    }
+
+    /**
+     * @dev Get block by hash
+     */
+    function getBlock(bytes32 hash) internal view returns (Syscalls.Block memory) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getBlock", params);
+        return abi.decode(result, (Syscalls.Block));
+    }
+
+    /**
+     * @dev Get transaction by hash
+     */
+    function getTransaction(bytes32 hash) internal view returns (Syscalls.Transaction memory) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransaction", params);
+        return abi.decode(result, (Syscalls.Transaction));
+    }
+
+    /**
+     * @dev Get transaction height
+     */
+    function getTransactionHeight(bytes32 hash) internal view returns (int256) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransactionHeight", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev Get transaction from block
+     */
+    function getTransactionFromBlock(uint256 blockIndex, uint256 txIndex)
+        internal
+        view
+        returns (Syscalls.Transaction memory)
+    {
+        bytes memory params = abi.encode(blockIndex, txIndex);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransactionFromBlock", params);
+        return abi.decode(result, (Syscalls.Transaction));
+    }
+
+    /**
+     * @dev Get transaction from block by hash
+     */
+    function getTransactionFromBlock(bytes32 blockHash, uint256 txIndex)
+        internal
+        view
+        returns (Syscalls.Transaction memory)
+    {
+        bytes memory params = abi.encode(blockHash, txIndex);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransactionFromBlock", params);
+        return abi.decode(result, (Syscalls.Transaction));
+    }
+
+    /**
+     * @dev Get transaction signers
+     */
+    function getTransactionSigners(bytes32 hash) internal view returns (Syscalls.Signer[] memory) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransactionSigners", params);
+        return abi.decode(result, (Syscalls.Signer[]));
+    }
+
+    /**
+     * @dev Get transaction VM state
+     */
+    function getTransactionVMState(bytes32 hash) internal view returns (uint8) {
+        bytes memory params = abi.encode(hash);
+        bytes memory result = Syscalls.contractCall(LEDGER_CONTRACT, "getTransactionVMState", params);
+        return abi.decode(result, (uint8));
+    }
+
+    // ========== Notary Native Contract ==========
+
+    /**
+     * @dev Verify notary-assisted transaction
+     */
+    function notaryVerify(bytes memory signature) internal view returns (bool) {
+        bytes memory params = abi.encode(signature);
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "verify", params);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Get notary deposit balance
+     */
+    function notaryBalanceOf(address account) internal view returns (uint256) {
+        bytes memory params = abi.encode(account);
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "balanceOf", params);
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get notary deposit expiration height
+     */
+    function notaryExpirationOf(address account) internal view returns (uint256) {
+        bytes memory params = abi.encode(account);
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "expirationOf", params);
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Lock notary deposit until a specific block height
+     */
+    function notaryLockDepositUntil(address account, uint256 till) internal returns (bool) {
+        bytes memory params = abi.encode(account, till);
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "lockDepositUntil", params);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Withdraw notary deposit
+     */
+    function notaryWithdraw(address from, address to) internal returns (bool) {
+        bytes memory params = abi.encode(from, to);
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "withdraw", params);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Get maximum NotValidBefore delta
+     */
+    function notaryGetMaxNotValidBeforeDelta() internal view returns (uint256) {
+        bytes memory result = Syscalls.contractCall(NOTARY_CONTRACT, "getMaxNotValidBeforeDelta", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Set maximum NotValidBefore delta
+     */
+    function notarySetMaxNotValidBeforeDelta(uint256 value) internal {
+        bytes memory params = abi.encode(value);
+        Syscalls.contractCall(NOTARY_CONTRACT, "setMaxNotValidBeforeDelta", params);
+    }
+
+    /**
+     * @dev Handle NEP-17 payment (notary deposit)
+     */
+    function notaryOnNEP17Payment(address from, uint256 amount, bytes memory data) internal {
+        bytes memory params = abi.encode(from, amount, data);
+        Syscalls.contractCall(NOTARY_CONTRACT, "onNEP17Payment", params);
+    }
+
+    // ========== Treasury Native Contract ==========
+
+    /**
+     * @dev Verify treasury transaction
+     */
+    function treasuryVerify() internal view returns (bool) {
+        bytes memory result = Syscalls.contractCall(TREASURY_CONTRACT, "verify", "");
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Handle NEP-17 payment
+     */
+    function treasuryOnNEP17Payment(address from, uint256 amount, bytes memory data) internal {
+        bytes memory params = abi.encode(from, amount, data);
+        Syscalls.contractCall(TREASURY_CONTRACT, "onNEP17Payment", params);
+    }
+
+    /**
+     * @dev Handle NEP-11 payment
+     */
+    function treasuryOnNEP11Payment(
+        address from,
+        uint256 amount,
+        bytes memory tokenId,
+        bytes memory data
+    ) internal {
+        bytes memory params = abi.encode(from, amount, tokenId, data);
+        Syscalls.contractCall(TREASURY_CONTRACT, "onNEP11Payment", params);
+    }
+
     // ========== Data Structures ==========
     
     struct NeoCandidate {
         bytes publicKey;
         uint256 votes;
-        bool active;
     }
     
     struct AccountState {
-        uint256 neoBalance;
-        uint256 gasBalance;
-        uint256 lastGasClaimBlock;
+        // NeoToken NeoAccountState:
+        // [balance, balanceHeight, voteTo (ECPoint bytes or null), lastGasPerVote]
+        uint256 balance;
+        uint256 balanceHeight;
         bytes voteTo;
+        uint256 lastGasPerVote;
     }
     
     struct ContractState {
@@ -396,6 +848,13 @@ library NativeCalls {
         bytes nef;
         bytes manifest;
         uint256 updateCounter;
+    }
+
+    struct WhitelistedContract {
+        address contractHash;
+        string method;
+        uint256 argCount;
+        int256 fixedFee;
     }
     
     // ========== Helper Functions ==========
@@ -409,7 +868,12 @@ library NativeCalls {
                contractHash == CONTRACT_MANAGEMENT ||
                contractHash == POLICY_CONTRACT ||
                contractHash == ORACLE_CONTRACT ||
-               contractHash == ROLE_MANAGEMENT;
+               contractHash == ROLE_MANAGEMENT ||
+               contractHash == NOTARY_CONTRACT ||
+               contractHash == TREASURY_CONTRACT ||
+               contractHash == LEDGER_CONTRACT ||
+               contractHash == CRYPTO_LIB ||
+               contractHash == STD_LIB;
     }
     
     /**
@@ -422,6 +886,11 @@ library NativeCalls {
         if (contractHash == POLICY_CONTRACT) return "PolicyContract";
         if (contractHash == ORACLE_CONTRACT) return "OracleContract";
         if (contractHash == ROLE_MANAGEMENT) return "RoleManagement";
+        if (contractHash == NOTARY_CONTRACT) return "Notary";
+        if (contractHash == TREASURY_CONTRACT) return "Treasury";
+        if (contractHash == LEDGER_CONTRACT) return "LedgerContract";
+        if (contractHash == CRYPTO_LIB) return "CryptoLib";
+        if (contractHash == STD_LIB) return "StdLib";
         return "Unknown";
     }
     
@@ -429,13 +898,18 @@ library NativeCalls {
      * @dev Get all native contract addresses
      */
     function getAllNativeContracts() internal pure returns (address[] memory) {
-        address[] memory contracts = new address[](6);
+        address[] memory contracts = new address[](11);
         contracts[0] = NEO_CONTRACT;
         contracts[1] = GAS_CONTRACT;
         contracts[2] = CONTRACT_MANAGEMENT;
         contracts[3] = POLICY_CONTRACT;
         contracts[4] = ORACLE_CONTRACT;
         contracts[5] = ROLE_MANAGEMENT;
+        contracts[6] = NOTARY_CONTRACT;
+        contracts[7] = TREASURY_CONTRACT;
+        contracts[8] = LEDGER_CONTRACT;
+        contracts[9] = CRYPTO_LIB;
+        contracts[10] = STD_LIB;
         return contracts;
     }
     
@@ -521,6 +995,14 @@ library NativeCalls {
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getCommittee", "");
         return abi.decode(result, (address[]));
     }
+
+    /**
+     * @dev Get committee multi-sig address
+     */
+    function getCommitteeAddress() internal view returns (address) {
+        bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getCommitteeAddress", "");
+        return abi.decode(result, (address));
+    }
     
     /**
      * @dev Get next block validators
@@ -557,14 +1039,6 @@ library NativeCalls {
     }
     
     // ========== Native Contract Utilities ==========
-    
-    /**
-     * @dev Get native contract version
-     */
-    function getNativeContractVersion(address contractHash) internal view returns (string memory) {
-        bytes memory result = Syscalls.contractCall(contractHash, "version", "");
-        return abi.decode(result, (string));
-    }
     
     /**
      * @dev Get native contract manifest

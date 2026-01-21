@@ -3,12 +3,48 @@ use neo_solidity::runtime::RuntimeConfig;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use sha3::{Digest, Keccak256};
 
+fn syscall_id(name: &str) -> [u8; 4] {
+    let digest = sha2::Sha256::digest(name.as_bytes());
+    [digest[0], digest[1], digest[2], digest[3]]
+}
+
+fn push_data(script: &mut Vec<u8>, data: &[u8]) {
+    assert!(
+        data.len() <= u8::MAX as usize,
+        "push_data only supports PUSHDATA1 lengths"
+    );
+    script.push(0x0C); // PUSHDATA1
+    script.push(data.len() as u8);
+    script.extend_from_slice(data);
+}
+
+// CryptoLib native contract hash in NeoVM stack byte order (UInt160 little-endian).
+const CRYPTOLIB_HASH_LE: [u8; 20] = [
+    0x1B, 0xF5, 0x75, 0xAB, 0x11, 0x89, 0x68, 0x84, 0x13, 0x61, 0x0A, 0x35, 0xA1, 0x28, 0x86, 0xCD,
+    0xE0, 0xB6, 0x6C, 0x72,
+];
+
+// StdLib native contract hash in NeoVM stack byte order (UInt160 little-endian).
+const STDLIB_HASH_LE: [u8; 20] = [
+    0xC0, 0xEF, 0x39, 0xCE, 0xE0, 0xE4, 0xE9, 0x25, 0xC6, 0xC2, 0xA0, 0x6A, 0x79, 0xE1, 0x44, 0x0D,
+    0xD8, 0x6F, 0xCE, 0xAC,
+];
+
 #[test]
 fn keccak256_syscall_hashes_input() {
-    // push "abc", SYSCALL keccak256, RET
-    let mut code = vec![0x0C, 0x03, b'a', b'b', b'c', 0x41];
-    code.extend_from_slice(&[9, 151, 249, 225]); // keccak256 id
-    code.push(0x40);
+    // Neo N3 uses CryptoLib.keccak256 (native contract), not a syscall.
+    let call_id = syscall_id("System.Contract.Call");
+    let mut code = Vec::new();
+    // Stack order for System.Contract.Call: [args, flags, method, hash]
+    push_data(&mut code, b"abc");
+    code.push(0x11); // PUSH1
+    code.push(0xC0); // PACK -> ["abc"]
+    code.push(0x1F); // PUSH15 (CallFlags.All = 0x0F)
+    push_data(&mut code, b"keccak256");
+    push_data(&mut code, &CRYPTOLIB_HASH_LE);
+    code.push(0x41); // SYSCALL
+    code.extend_from_slice(&call_id);
+    code.push(0x40); // RET
 
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
@@ -36,10 +72,34 @@ fn platform_syscall_returns_neo() {
 
 #[test]
 fn deserialize_syscall_is_identity_for_bytes() {
-    // push "hi", SYSCALL Deserialize, RET
-    let mut code = vec![0x0C, 0x02, b'h', b'i', 0x41];
-    code.extend_from_slice(&[223, 237, 215, 191]);
-    code.push(0x40);
+    // StdLib.serialize + StdLib.deserialize round-trip.
+    let call_id = syscall_id("System.Contract.Call");
+    let mut code = vec![
+        0x57, 0x01, 0x00, // INITSLOT 1 local, 0 args
+    ];
+
+    // Stack order for System.Contract.Call: [args, flags, method, hash]
+    // StdLib.serialize("hi")
+    push_data(&mut code, b"hi");
+    code.push(0x11); // PUSH1
+    code.push(0xC0); // PACK
+    code.push(0x1F); // PUSH15 (CallFlags.All = 0x0F)
+    push_data(&mut code, b"serialize");
+    push_data(&mut code, &STDLIB_HASH_LE);
+    code.push(0x41); // SYSCALL
+    code.extend_from_slice(&call_id);
+    code.push(0x70); // STLOC0 (serialized bytes)
+
+    // StdLib.deserialize(serialized)
+    code.push(0x68); // LDLOC0
+    code.push(0x11); // PUSH1
+    code.push(0xC0); // PACK
+    code.push(0x1F); // PUSH15 (CallFlags.All)
+    push_data(&mut code, b"deserialize");
+    push_data(&mut code, &STDLIB_HASH_LE);
+    code.push(0x41); // SYSCALL
+    code.extend_from_slice(&call_id);
+    code.push(0x40); // RET
 
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
@@ -190,9 +250,9 @@ fn get_network_returns_zero() {
 
 #[test]
 fn get_gas_left_reports_remaining() {
-    // CALL GetGasLeft at start should be >0
+    // CALL GasLeft at start should be >0
     let mut code = vec![0x41];
-    code.extend_from_slice(&[150, 39, 78, 22]);
+    code.extend_from_slice(&[20, 136, 216, 206]);
     code.push(0x40);
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&code, &[]).expect("init");

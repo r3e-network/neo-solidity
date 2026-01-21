@@ -9,14 +9,62 @@ fn syscall_bytes(name: &str) -> [u8; 4] {
     [digest[0], digest[1], digest[2], digest[3]]
 }
 
-fn build_script(syscalls: &[&str]) -> Vec<u8> {
-    let mut bytecode = Vec::with_capacity(syscalls.len() * 5 + 1);
-    for name in syscalls {
-        bytecode.push(0x41);
-        bytecode.extend_from_slice(&syscall_bytes(name));
-    }
-    bytecode.push(0x40); // RET
-    bytecode
+fn append_syscall(bytecode: &mut Vec<u8>, name: &str) {
+    bytecode.push(0x41);
+    bytecode.extend_from_slice(&syscall_bytes(name));
+}
+
+// Ledger native contract hash in NeoVM stack byte order (UInt160 little-endian).
+const LEDGER_HASH_LE: [u8; 20] = [
+    0xBE, 0xF2, 0x04, 0x31, 0x40, 0x36, 0x2A, 0x77, 0xC1, 0x50, 0x99, 0xC7, 0xE6, 0x4C, 0x12, 0xF7,
+    0x00, 0xB6, 0x65, 0xDA,
+];
+
+fn append_ledger_current_index(bytecode: &mut Vec<u8>) {
+    // Ledger.currentIndex() via System.Contract.Call
+    bytecode.extend_from_slice(&[
+        // Stack order for System.Contract.Call: [args, flags, method, hash]
+        0x10, // PUSH0
+        0xC0, // PACK -> []
+        0x1F, // CallFlags.All (0x0F)
+        0x0C,
+        0x0C,
+        b'c',
+        b'u',
+        b'r',
+        b'r',
+        b'e',
+        b'n',
+        b't',
+        b'I',
+        b'n',
+        b'd',
+        b'e',
+        b'x',
+        0x0C,
+        0x14,
+        LEDGER_HASH_LE[0],
+        LEDGER_HASH_LE[1],
+        LEDGER_HASH_LE[2],
+        LEDGER_HASH_LE[3],
+        LEDGER_HASH_LE[4],
+        LEDGER_HASH_LE[5],
+        LEDGER_HASH_LE[6],
+        LEDGER_HASH_LE[7],
+        LEDGER_HASH_LE[8],
+        LEDGER_HASH_LE[9],
+        LEDGER_HASH_LE[10],
+        LEDGER_HASH_LE[11],
+        LEDGER_HASH_LE[12],
+        LEDGER_HASH_LE[13],
+        LEDGER_HASH_LE[14],
+        LEDGER_HASH_LE[15],
+        LEDGER_HASH_LE[16],
+        LEDGER_HASH_LE[17],
+        LEDGER_HASH_LE[18],
+        LEDGER_HASH_LE[19],
+    ]);
+    append_syscall(bytecode, "System.Contract.Call");
 }
 
 #[test]
@@ -29,13 +77,13 @@ fn execution_context_reports_default_metadata() {
     };
 
     let mut context = ExecutionContext::new(&config).expect("context creation");
-    let script = build_script(&[
-        "System.Blockchain.GetHeight",
-        "System.Runtime.GetTime",
-        "System.Runtime.CallingScriptHash",
-        "System.Runtime.GetInvocationCounter",
-        "System.Runtime.GetInvocationCounter",
-    ]);
+    let mut script = Vec::new();
+    append_ledger_current_index(&mut script);
+    append_syscall(&mut script, "System.Runtime.GetTime");
+    append_syscall(&mut script, "System.Runtime.GetCallingScriptHash");
+    append_syscall(&mut script, "System.Runtime.GetInvocationCounter");
+    append_syscall(&mut script, "System.Runtime.GetInvocationCounter");
+    script.push(0x40); // RET
 
     context
         .initialize(&script, &[])
@@ -60,9 +108,10 @@ fn execution_context_reports_default_metadata() {
 
     match context.pop_stack().expect("calling script hash") {
         StackItem::ByteArray(bytes) => {
-            let expected =
+            let mut expected =
                 hex::decode("1122334455667788990011223344556677889900").expect("valid hex");
-            assert_eq!(bytes, expected);
+            expected.reverse();
+            assert_eq!(bytes.borrow().as_slice(), expected.as_slice());
         }
         other => panic!("expected calling script hash bytes, got {:?}", other),
     }
@@ -89,11 +138,11 @@ fn execution_context_applies_metadata_overrides() {
         .override_caller_account("0x0102030405060708090a0102030405060708090a")
         .expect("caller override");
 
-    let script = build_script(&[
-        "System.Blockchain.GetHeight",
-        "System.Runtime.GetTime",
-        "System.Runtime.CallingScriptHash",
-    ]);
+    let mut script = Vec::new();
+    append_ledger_current_index(&mut script);
+    append_syscall(&mut script, "System.Runtime.GetTime");
+    append_syscall(&mut script, "System.Runtime.GetCallingScriptHash");
+    script.push(0x40); // RET
 
     context
         .initialize(&script, &[])
@@ -108,9 +157,10 @@ fn execution_context_applies_metadata_overrides() {
 
     match context.pop_stack().expect("caller hash") {
         StackItem::ByteArray(bytes) => {
-            let expected =
+            let mut expected =
                 hex::decode("0102030405060708090a0102030405060708090a").expect("valid hex");
-            assert_eq!(bytes, expected);
+            expected.reverse();
+            assert_eq!(bytes.borrow().as_slice(), expected.as_slice());
         }
         other => panic!("expected caller script hash, got {:?}", other),
     }

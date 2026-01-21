@@ -1,54 +1,86 @@
 # @neo-solidity/hardhat-neo-deployer
 
-Hardhat task collection that mirrors Foundry/Hardhat deployment ergonomics for Neo contracts. **This package is still a placeholder** – it wires the tasks into Hardhat so you can explore the intended UX, but none of the tasks broadcast real Neo transactions yet. All functionality currently terminates with a `HardhatPluginError` explaining that deployment is not implemented.
+Deploy Neo N3 contracts (NEF + manifest) from Hardhat.
 
-## Status
-
-| Feature | Status |
-| --- | --- |
-| `neo-deploy` / `neo-deploy-batch` tasks | ⚠️ Stub – prints CLI flow but does not submit transactions |
-| Gas estimation task (`neo-deploy-estimate`) | ⚠️ Stub – returns heuristic numbers, not RPC-calculated figures |
-| Account utilities (`hardhat neo-account ...`) | ⚠️ Stub |
-| RPC client (`NeoRpcClient`) | ✅ Typed wrapper around Neo JSON-RPC; usable outside of the tasks |
-
-If you need to deploy contracts today, use native Neo tooling (`neo-cli`, `neo-express`, or the Neo Foundry CLI) and treat this package as a preview of the eventual Hardhat workflow.
+This plugin is designed to work with build artifacts produced by `@neo-solidity/hardhat-solc-neo` (it reads the embedded `contract.neo.nef.image` + `contract.neo.manifest` fields).
 
 ## Installation
 
 ```bash
-npm install --save-dev @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
 ```
 
-Then enable the plugin in your `hardhat.config.(ts|js)`:
+Enable the plugins:
 
 ```ts
+import "@neo-solidity/hardhat-solc-neo";
 import "@neo-solidity/hardhat-neo-deployer";
 
 export default {
+  neoSolc: {
+    solidity: {
+      settings: {
+        neo: {
+          // optional compiler flags forwarded to neo-solc
+          callt: true
+        }
+      }
+    }
+  },
   neoNetworks: {
     testnet: {
       rpcUrls: ["https://testnet1.neo.coz.io:443"],
       magic: 894710606,
-      accounts: ["0x..."] // private keys
+      addressVersion: 0x35,
+      nativeTokens: {
+        gas: { name: "GasToken", symbol: "GAS", hash: "0xd2a4cff31913016155e38e474a2c06d08be276cf", decimals: 8 },
+        neo: { name: "NeoToken", symbol: "NEO", hash: "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5", decimals: 0 }
+      },
+      accounts: [
+        // WIF or private key (hex)
+        process.env.NEO_WIF!
+      ]
     }
   }
 };
 ```
 
-## Tasks (prototype)
+## Usage
 
-- `npx hardhat neo-deploy --contract MyToken` – runs through the deployment flow and immediately throws with a "not implemented" message.
-- `npx hardhat neo-deploy-batch --config deployments.json` – reads your config, simulates output, then throws.
-- `npx hardhat neo-deploy-estimate --contract MyToken` – prints heuristic gas numbers based purely on artifact size.
+Compile (writes Neo build artifacts via `neo-solc --standard-json`):
 
-Because all tasks throw early, integrate them only if you want to exercise the future UX or hook custom scripts around the exposed API objects (`hre.neoDeploy.deployer`, `hre.neoDeploy.rpc`, etc.).
+```bash
+npx hardhat neo-compile
+```
 
-## When will this change?
+Deploy:
 
-The long‑term plan is to:
+```bash
+npx hardhat neo-deploy --contract MyContract --network testnet
+```
 
-1. Implement NEF/manifest transaction assembly via `NeoRpcClient`.
-2. Add account/key management (signers, hardware wallets, Ledger support).
-3. Provide explorer verification hooks and deployment summaries identical to the Hardhat EVM flow.
+Constructor args are passed as a JSON array:
 
-Those pieces are being tracked in the project roadmap. Until they land, expect every task to terminate with `HardhatPluginError: <feature> is not available because Neo deployments are not implemented...`.
+```bash
+npx hardhat neo-deploy --contract MyContract --args '[\"Nep17Token\", \"N...sender...\"]' --network testnet
+```
+
+Interact (read + write):
+
+```ts
+const deployed = await hre.run("neo-deploy", { contract: "MyContract", network: "testnet" });
+const contract = await hre.neoDeploy.deployer.getContract("MyContract", deployed.address);
+
+// Read-only simulation (invokescript)
+const result = await contract.methods.balanceOf.call("N...address...");
+
+// On-chain invocation (sendrawtransaction)
+const tx = await contract.methods.transfer.invoke("N...to...", "100000000", ""); // args depend on ABI
+const receipt = await tx.wait();
+```
+
+## Notes
+
+- The deploy transaction calls `ContractManagement.deploy(nef, manifest, data)` and passes constructor arguments via `_deploy(data, update)` as an array.
+- RPC payload encoding differs between node implementations. This plugin auto-detects `neo-go` and sends base64 payloads where required (e.g., `sendrawtransaction`, `calculatenetworkfee`, `invokescript`).
+- You need GAS to pay system + network fees; unfunded accounts will fail with RPC mempool validation errors.

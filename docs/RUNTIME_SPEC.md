@@ -13,10 +13,10 @@ This document captures the fidelity of the embedded Neo N3 runtime at
 - Registry and IDs are generated via SHA-256(name) (see `src/runtime/spec.rs`).
 - Implemented categories:
   - Storage: GetContext/GetReadOnlyContext, Get/Put/Delete, Find, Iterator.Next/Value/Dispose.
-  - Runtime: Platform/GetNetwork/GetTime/GetBlockTime/GetGasLeft/GetInvocationCounter/CallingScriptHash/EntryScriptHash/ExecutingScriptHash/CheckWitness/Log/Notify/Serialize/Deserialize/GetRandom.
+  - Runtime: GetTrigger/Platform/GetScriptContainer/GetNetwork/GetTime/GetBlockTime/GasLeft/GetInvocationCounter/GetCallingScriptHash/GetEntryScriptHash/GetExecutingScriptHash/CheckWitness/Log/Notify/Serialize/Deserialize/GetRandom.
   - Crypto: SHA256/RIPEMD160/Keccak256/Murmur32/Hash160/Hash256/CheckSig/CheckMultisig (best-effort secp256k1).
   - Blockchain: GetHeight, GetBlock/GetTransaction*/GetContract/GetCommittee/GetValidators/GetBlockHash (stub data).
-  - Contract: Call/CallEx/GetCallFlags/CreateStandardAccount/CreateMultisigAccount.
+  - Contract: Call/GetContract/GetCallFlags/CreateStandardAccount/CreateMultisigAccount.
   - ContractManagement: Deploy/Update/GetContract (stateful in-memory registry with NEF/manifest + update counter).
   - Oracle: Request (returns deterministic pseudo ID).
   - Policy: GetFeePerByte/GetExecFeeFactor/GetStoragePrice (stub values).

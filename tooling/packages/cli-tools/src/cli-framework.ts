@@ -1,6 +1,5 @@
 import {
   CLICommand,
-  CLIOption,
   CLIArgs,
   CLIContext,
   CLILogger,
@@ -19,6 +18,7 @@ import inquirer from 'inquirer';
 import ora, { Ora } from 'ora';
 import * as fs from 'fs-extra';
 import * as path from 'path';
+import * as os from 'os';
 import { EventEmitter } from 'events';
 
 export class NeoSolidityCLI extends EventEmitter {
@@ -221,7 +221,8 @@ export class NeoSolidityCLI extends EventEmitter {
     try {
       await command.action(args);
     } catch (error) {
-      this.context.logger.error(error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.context.logger.error(err);
       process.exit(1);
     }
   }
@@ -239,19 +240,15 @@ export class NeoSolidityCLI extends EventEmitter {
       throw new Error(`Unknown command: ${commandName}`);
     }
 
-    try {
-      await command.action(args);
-      return { success: true, duration: 0 };
-    } catch (error) {
-      throw error;
-    }
+    await command.action(args);
+    return { success: true, duration: 0 };
   }
 
   private findConfigFile(): string | null {
     const candidates = [
       path.join(process.cwd(), '.neosolidity.json'),
       path.join(process.cwd(), 'neosolidity.config.json'),
-      path.join(require.os().homedir(), '.neosolidity.json')
+      path.join(os.homedir(), '.neosolidity.json')
     ];
 
     return candidates.find(file => fs.existsSync(file)) || null;
@@ -467,12 +464,12 @@ class ProgressManager implements CLIProgress {
     this.render();
   }
 
-  update(current: number, payload?: any): void {
+  update(current: number, _payload?: unknown): void {
     this.current = current;
     this.render();
   }
 
-  increment(step: number = 1, payload?: any): void {
+  increment(step: number = 1, _payload?: unknown): void {
     this.current += step;
     this.render();
   }
@@ -544,7 +541,7 @@ class InteractiveManager implements CLIInteractive {
     return selected;
   }
 
-  async autocomplete(message: string, source: (input: string) => Promise<string[]>): Promise<string> {
+  async autocomplete(message: string, _source: (input: string) => Promise<string[]>): Promise<string> {
     // This would require inquirer-autocomplete-prompt plugin
     const { value } = await inquirer.prompt([{
       type: 'input',
@@ -644,10 +641,12 @@ export class CLIFormatterImpl implements CLIFormatter {
   private alignText(text: string, width: number, alignment: 'left' | 'center' | 'right'): string {
     switch (alignment) {
       case 'center':
-        const padding = Math.max(0, width - text.length);
-        const leftPad = Math.floor(padding / 2);
-        const rightPad = padding - leftPad;
-        return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+        {
+          const padding = Math.max(0, width - text.length);
+          const leftPad = Math.floor(padding / 2);
+          const rightPad = padding - leftPad;
+          return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+        }
       case 'right':
         return text.padStart(width);
       default:

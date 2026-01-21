@@ -5,8 +5,91 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-test.XXXXXX")"
+
+cleanup() {
+  rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
+
+resolve_neo_solc() {
+  is_stale_binary() {
+    local bin="$1"
+    if [ ! -x "$bin" ]; then
+      return 0
+    fi
+    if [ "$bin" -ot "$ROOT_DIR/Cargo.lock" ] || [ "$bin" -ot "$ROOT_DIR/Cargo.toml" ]; then
+      return 0
+    fi
+    if find "$ROOT_DIR/src" "$ROOT_DIR/crates" -type f -name '*.rs' -newer "$bin" -print -quit 2>/dev/null | grep -q .; then
+      return 0
+    fi
+    return 1
+  }
+
+  # Force rebuild when requested.
+  if [ -n "${NEO_SOLC_REBUILD:-}" ]; then
+    echo "(info) NEO_SOLC_REBUILD set; rebuilding neo-solc..." >&2
+    (cd "$ROOT_DIR" && cargo build --release --bin neo-solc >/dev/null)
+    echo "$ROOT_DIR/target/release/neo-solc"
+    return
+  fi
+
+  if [ -n "${NEO_SOLC:-}" ]; then
+    echo "$NEO_SOLC"
+    return
+  fi
+
+  if command -v neo-solc >/dev/null 2>&1; then
+    echo "neo-solc"
+    return
+  fi
+
+  if [ -x "$ROOT_DIR/target/release/neo-solc" ]; then
+    # Rebuild if sources changed since the last release build.
+    if is_stale_binary "$ROOT_DIR/target/release/neo-solc"; then
+      echo "(info) neo-solc release binary is out of date; rebuilding..." >&2
+      (cd "$ROOT_DIR" && cargo build --release --bin neo-solc >/dev/null)
+    fi
+    echo "$ROOT_DIR/target/release/neo-solc"
+    return
+  fi
+
+  if [ -x "$ROOT_DIR/target/debug/neo-solc" ]; then
+    if is_stale_binary "$ROOT_DIR/target/debug/neo-solc"; then
+      echo "(info) neo-solc debug binary is out of date; rebuilding..." >&2
+      (cd "$ROOT_DIR" && cargo build --bin neo-solc >/dev/null)
+    fi
+    echo "$ROOT_DIR/target/debug/neo-solc"
+    return
+  fi
+
+  echo "(info) neo-solc not found; building it first..." >&2
+  (cd "$ROOT_DIR" && cargo build --bin neo-solc >/dev/null)
+  echo "$ROOT_DIR/target/debug/neo-solc"
+}
+
+NEO_SOLC_BIN="$(resolve_neo_solc)"
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "error: jq is required for this test script"
+  exit 1
+fi
+
+if ! command -v hexdump >/dev/null 2>&1; then
+  echo "error: hexdump is required for this test script"
+  exit 1
+fi
+
+cd "$WORK_DIR"
+
 echo "🔨 Testing Neo Solidity Compiler - Neo N3 Contract Generation"
 echo "============================================================"
+echo "(info) Using compiler: $NEO_SOLC_BIN"
+echo "(info) Work dir: $WORK_DIR"
 
 # Create a simple test contract
 cat > TestContract.sol << 'EOF'
@@ -40,7 +123,7 @@ echo "📄 Created test contract: TestContract.sol"
 echo
 echo "Test 1: Default compilation (complete format)"
 echo "--------------------------------------------"
-neo-solc TestContract.sol -o TestContract
+"$NEO_SOLC_BIN" "$WORK_DIR/TestContract.sol" -I "$ROOT_DIR/devpack" -o TestContract
 
 # Verify outputs
 if [ -f "TestContract.nef" ]; then
@@ -74,7 +157,7 @@ fi
 echo
 echo "Test 2: NEF-only format"
 echo "----------------------"
-neo-solc TestContract.sol -f nef -o TestOnly.nef
+"$NEO_SOLC_BIN" "$WORK_DIR/TestContract.sol" -I "$ROOT_DIR/devpack" -f nef -o TestOnly.nef
 
 if [ -f "TestOnly.nef" ]; then
     echo "✅ NEF-only output generated successfully"
@@ -88,7 +171,7 @@ fi
 echo
 echo "Test 3: Manifest-only format"
 echo "---------------------------"
-neo-solc TestContract.sol -f manifest -o TestOnly.manifest.json
+"$NEO_SOLC_BIN" "$WORK_DIR/TestContract.sol" -I "$ROOT_DIR/devpack" -f manifest -o TestOnly.manifest.json
 
 if [ -f "TestOnly.manifest.json" ]; then
     echo "✅ Manifest-only output generated successfully"
@@ -102,7 +185,7 @@ fi
 echo
 echo "Test 4: Complete JSON format"
 echo "---------------------------"
-neo-solc TestContract.sol -f json -o TestContract.json
+"$NEO_SOLC_BIN" "$WORK_DIR/TestContract.sol" -I "$ROOT_DIR/devpack" -f json -o TestContract.json
 
 if [ -f "TestContract.json" ]; then
     echo "✅ JSON output generated successfully"
@@ -125,7 +208,7 @@ fi
 echo
 echo "Test 5: Optimized compilation (-O3)"
 echo "---------------------------------"
-neo-solc TestContract.sol -O3 -o TestContractOptimized
+"$NEO_SOLC_BIN" "$WORK_DIR/TestContract.sol" -I "$ROOT_DIR/devpack" -O3 -o TestContractOptimized
 
 if [ -f "TestContractOptimized.nef" ] && [ -f "TestContractOptimized.manifest.json" ]; then
     echo "✅ Optimized compilation successful"
@@ -153,8 +236,8 @@ echo "Test 6: Validate Neo contract format"
 echo "-----------------------------------"
 
 # Check NEF magic number
-NEF_MAGIC=$(hexdump -C TestContract.nef | head -1 | cut -d' ' -f2-5 | tr -d ' ')
-if [ "$NEF_MAGIC" = "4e454633" ]; then  # "NEF3" in little endian hex
+NEF_MAGIC=$(dd if=TestContract.nef bs=1 count=4 2>/dev/null | hexdump -v -e '/1 "%02x"')
+if [ "$NEF_MAGIC" = "4e454633" ]; then  # "NEF3" ASCII
     echo "✅ NEF file has correct magic number (NEF3)"
 else
     echo "❌ NEF file has incorrect magic number: $NEF_MAGIC"
@@ -175,8 +258,8 @@ fi
 echo
 echo "Test 7: Real-world ERC20 contract"
 echo "--------------------------------"
-if [ -f "../examples/ERC20Token.sol" ]; then
-    neo-solc ../examples/ERC20Token.sol -O2 -o ERC20
+if [ -f "$ROOT_DIR/examples/ERC20Token.sol" ]; then
+    "$NEO_SOLC_BIN" "$ROOT_DIR/examples/ERC20Token.sol" -I "$ROOT_DIR/devpack" -O2 -o ERC20
     
     if [ -f "ERC20.nef" ] && [ -f "ERC20.manifest.json" ]; then
         echo "✅ ERC20 contract compiled successfully"
@@ -199,14 +282,6 @@ if [ -f "../examples/ERC20Token.sol" ]; then
     fi
 fi
 
-# Cleanup
-echo
-echo "🧹 Cleaning up test files..."
-rm -f TestContract.sol TestContract.nef TestContract.manifest.json
-rm -f TestOnly.nef TestOnly.manifest.json TestContract.json
-rm -f TestContractOptimized.nef TestContractOptimized.manifest.json
-rm -f ERC20.nef ERC20.manifest.json
-
 echo
 echo "🎉 All tests passed! Neo Solidity Compiler correctly generates:"
 echo "   ✓ .nef files (Neo Executable Format)"
@@ -215,5 +290,5 @@ echo "   ✓ Proper Neo N3 contract structure"
 echo "   ✓ Ready for deployment to Neo blockchain"
 echo
 echo "Usage examples:"
-echo "  neo-solc MyContract.sol -o MyContract     # Generates MyContract.nef + MyContract.manifest.json"
+echo "  $NEO_SOLC_BIN MyContract.sol -I $ROOT_DIR/devpack -o MyContract     # Generates MyContract.nef + MyContract.manifest.json"
 echo "  neo-cli contract deploy MyContract.nef MyContract.manifest.json"

@@ -244,6 +244,8 @@ pub enum NativeContract {
     Policy,
     Oracle,
     RoleManagement,
+    Notary,
+    Treasury,
     Ledger,
     CryptoLib,
     StdLib,

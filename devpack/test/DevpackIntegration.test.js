@@ -236,41 +236,28 @@ describe("Neo N3 Devpack Integration Tests", function () {
 
   describe("Oracle Integration", function () {
     beforeEach(async function () {
-      const Oracle = await ethers.getContractFactory("NEP24Oracle");
-      oracle = await Oracle.deploy(ethers.utils.parseEther("0.01")); // 0.01 GAS per request
+      const Oracle = await ethers.getContractFactory("OracleService");
+      oracle = await Oracle.deploy();
       await oracle.deployed();
     });
 
-    it("Should validate URLs correctly", async function () {
-      expect(await oracle.isValidURL("https://api.example.com")).to.be.true;
-      expect(await oracle.isValidURL("http://api.example.com")).to.be.true;
-      expect(await oracle.isValidURL("invalid-url")).to.be.false;
-      expect(await oracle.isValidURL("")).to.be.false;
-    });
-
-    it("Should validate filters correctly", async function () {
-      expect(await oracle.isValidFilter("$.price")).to.be.true;
-      expect(await oracle.isValidFilter(".data.value")).to.be.true;
-      expect(await oracle.isValidFilter("")).to.be.true; // Empty is valid
-      expect(await oracle.isValidFilter("invalid")).to.be.false;
-    });
-
-    it("Should estimate request costs correctly", async function () {
-      const gasForResponse = ethers.utils.parseEther("0.1"); // 0.1 GAS
-      const cost = await oracle.estimateRequestCost(gasForResponse);
-      
-      expect(cost).to.equal(
-        ethers.utils.parseEther("0.01").add(gasForResponse) // price + gas
+    it("Should record oracle requests", async function () {
+      const requestId = await oracle.callStatic.request(
+        "https://api.example.com/price/BTC",
+        "",
+        ethers.utils.toUtf8Bytes("BTC"),
+        20000000
       );
-    });
+      await oracle.request(
+        "https://api.example.com/price/BTC",
+        "",
+        ethers.utils.toUtf8Bytes("BTC"),
+        20000000
+      );
 
-    it("Should handle price data requests", async function () {
-      const requestId = await oracle.callStatic.requestPriceData("BTC", "priceCallback");
-      await oracle.requestPriceData("BTC", "priceCallback");
-      
       const request = await oracle.getRequest(requestId);
       expect(request.requester).to.equal(owner.address);
-      expect(request.status).to.equal(0); // Pending
+      expect(request.completed).to.equal(false);
     });
   });
 

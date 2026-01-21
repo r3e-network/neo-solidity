@@ -1,8 +1,13 @@
 import { NeoAccount } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins";
+import { HardhatPluginError } from "hardhat/plugins.js";
 import Debug from "debug";
+import { wallet } from "@cityofzion/neon-js";
 
 const debug = Debug("hardhat:neo-deployer:accounts");
+
+function strip0x(value: string): string {
+  return value.startsWith("0x") ? value.slice(2) : value;
+}
 
 /**
  * Account manager for Neo deployments
@@ -10,9 +15,14 @@ const debug = Debug("hardhat:neo-deployer:accounts");
 export class AccountManager {
   private accounts: NeoAccount[];
   private defaultAccountIndex = 0;
+  private readonly addressVersion: number;
 
-  constructor(accountsConfig: (string | NeoAccount)[]) {
-    this.accounts = this.processAccountsConfig(accountsConfig);
+  constructor(accountsConfig: (string | NeoAccount)[], addressVersion = 0x35) {
+    this.accounts = [];
+    this.addressVersion = addressVersion;
+    for (const config of accountsConfig) {
+      this.accounts.push(this.processAccountConfig(config));
+    }
   }
 
   /**
@@ -121,24 +131,24 @@ export class AccountManager {
    * Validate account configuration
    */
   validateAccount(account: NeoAccount): boolean {
-    // Basic validation
     if (!account.address || !account.scriptHash) {
       return false;
     }
 
-    // Validate address format (simplified)
-    if (!account.address.startsWith('N') && !account.address.startsWith('A')) {
+    if (!wallet.isAddress(account.address, this.addressVersion)) {
       return false;
     }
 
-    // Validate script hash format
-    if (!account.scriptHash.startsWith('0x') || account.scriptHash.length !== 42) {
+    const scriptHash = strip0x(account.scriptHash);
+    if (!/^[0-9a-fA-F]{40}$/.test(scriptHash)) {
       return false;
     }
 
-    // If private key is provided, validate it
     if (account.privateKey) {
-      if (account.privateKey.length !== 64 && !account.privateKey.startsWith('0x')) {
+      try {
+        // Validate it is something neon-js can consume (WIF or private key).
+        void new wallet.Account(account.privateKey, { addressVersion: this.addressVersion });
+      } catch {
         return false;
       }
     }
@@ -212,51 +222,61 @@ export class AccountManager {
 
   // Private methods
 
-  private processAccountsConfig(accountsConfig: (string | NeoAccount)[]): NeoAccount[] {
-    return accountsConfig.map(config => this.processAccountConfig(config));
-  }
-
   private processAccountConfig(config: string | NeoAccount): NeoAccount {
     if (typeof config === "string") {
-      // Assume it's a private key in hex format
-      return this.createAccountFromPrivateKey(config);
+      // Assume it's a WIF or a private key.
+      return this.createAccountFromSigningKey(config);
     } else {
-      // Validate and return account object
+      if (config.privateKey) {
+        const derived = this.createAccountFromSigningKey(config.privateKey);
+
+        if (config.address && config.address !== derived.address) {
+          throw new Error(
+            `Invalid account configuration: address does not match privateKey (expected ${derived.address}, got ${config.address})`
+          );
+        }
+
+        const providedScriptHash = strip0x(config.scriptHash || "");
+        if (providedScriptHash && providedScriptHash !== strip0x(derived.scriptHash)) {
+          throw new Error(
+            `Invalid account configuration: scriptHash does not match privateKey (expected ${derived.scriptHash}, got ${config.scriptHash})`
+          );
+        }
+
+        const merged: NeoAccount = {
+          ...derived,
+          ...config,
+          address: derived.address,
+          scriptHash: strip0x(derived.scriptHash),
+          publicKey: derived.publicKey,
+        };
+
+        if (!this.validateAccount(merged)) {
+          throw new Error(`Invalid account configuration: ${JSON.stringify(config)}`);
+        }
+        return merged;
+      }
+
       if (!this.validateAccount(config)) {
         throw new Error(`Invalid account configuration: ${JSON.stringify(config)}`);
       }
-      return config;
+      return {
+        ...config,
+        scriptHash: strip0x(config.scriptHash),
+      };
     }
   }
 
-  private createAccountFromPrivateKey(privateKey: string): NeoAccount {
-    // This would derive address and script hash from private key
-    // For now, return a mock account
-    const normalizedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-    
+  private createAccountFromSigningKey(signingKey: string): NeoAccount {
+    const neoAccount = new wallet.Account(signingKey, { addressVersion: this.addressVersion });
+    const nextIndex = this.accounts.length;
     return {
-      address: this.generateMockAddress(),
-      scriptHash: this.generateMockScriptHash(),
-      privateKey: normalizedPrivateKey,
-      publicKey: this.derivePublicKey(normalizedPrivateKey),
-      label: `Account ${this.accounts.length + 1}`,
-      isMultiSig: false
+      address: neoAccount.address,
+      scriptHash: neoAccount.scriptHash,
+      privateKey: neoAccount.privateKey,
+      publicKey: neoAccount.publicKey,
+      label: `Account ${nextIndex + 1}`,
+      isMultiSig: false,
     };
-  }
-
-  private derivePublicKey(privateKey: string): string {
-    // This would derive the public key from private key using Neo cryptography.
-    // For now, create a deterministic mock value derived from the input so the
-    // parameter is actually consumed (keeps TypeScript happy in strict mode).
-    const normalized = privateKey.replace(/^0x/, '').padEnd(64, '0');
-    return "03" + normalized.slice(0, 62);
-  }
-
-  private generateMockAddress(): string {
-    return "N" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
-
-  private generateMockScriptHash(): string {
-    return "0x" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
   }
 }

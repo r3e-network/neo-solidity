@@ -42,6 +42,10 @@ const NATIVE_ORACLE_HASH_LE: [u8; 20] =
     *b"\x58\x87\x17\x11\x7e\x0a\xa8\x10\x72\xaf\xab\x71\xd2\xdd\x89\xfe\x7c\x4b\x92\xfe";
 const NATIVE_ROLE_MANAGEMENT_HASH_LE: [u8; 20] =
     *b"\xe2\x95\xe3\x91\x54\x4c\x17\x8a\xd9\x4f\x03\xec\x4d\xcd\xff\x78\x53\x4e\xcf\x49";
+const NATIVE_NOTARY_HASH_LE: [u8; 20] =
+    *b"\x3b\xec\x35\x31\x11\x9b\xba\xd7\x6d\xd0\x44\x92\x0b\x0d\xe6\xc3\x19\x4f\xe1\xc1";
+const NATIVE_TREASURY_HASH_LE: [u8; 20] =
+    *b"\xc1\x3a\x56\xc9\x83\x53\xa7\xea\x6a\x32\x4d\x9a\x83\x5d\x1b\x5b\xf2\x26\x63\x15";
 const NATIVE_LEDGER_HASH_LE: [u8; 20] =
     *b"\xbe\xf2\x04\x31\x40\x36\x2a\x77\xc1\x50\x99\xc7\xe6\x4c\x12\xf7\x00\xb6\x65\xda";
 const NATIVE_CRYPTOLIB_HASH_LE: [u8; 20] =
@@ -57,6 +61,8 @@ pub(crate) fn native_contract_hash(contract: ir::NativeContract) -> [u8; 20] {
         ir::NativeContract::Policy => NATIVE_POLICY_HASH_LE,
         ir::NativeContract::Oracle => NATIVE_ORACLE_HASH_LE,
         ir::NativeContract::RoleManagement => NATIVE_ROLE_MANAGEMENT_HASH_LE,
+        ir::NativeContract::Notary => NATIVE_NOTARY_HASH_LE,
+        ir::NativeContract::Treasury => NATIVE_TREASURY_HASH_LE,
         ir::NativeContract::Ledger => NATIVE_LEDGER_HASH_LE,
         ir::NativeContract::CryptoLib => NATIVE_CRYPTOLIB_HASH_LE,
         ir::NativeContract::StdLib => NATIVE_STDLIB_HASH_LE,

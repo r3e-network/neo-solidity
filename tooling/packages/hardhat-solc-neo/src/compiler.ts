@@ -1,12 +1,11 @@
 import { spawn } from "child_process";
-import { promises as fs } from "fs";
+import { accessSync, constants, promises as fs } from "fs";
 import path from "path";
-import { HardhatPluginError } from "hardhat/plugins";
+import { HardhatPluginError } from "hardhat/plugins.js";
 import { 
   CompilationInput, 
   CompilationOutput, 
-  NeoSolidityConfig,
-  CompilerOptions
+  NeoHardhatConfig
 } from "@neo-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
@@ -17,10 +16,10 @@ const debug = Debug("hardhat:neo-solidity:compiler");
  * Neo-Solidity compiler wrapper for Hardhat integration
  */
 export class NeoSolidityCompiler {
-  private config: NeoSolidityConfig;
+  private config: NeoHardhatConfig;
   private paths: any;
 
-  constructor(config: NeoSolidityConfig, paths: any) {
+  constructor(config: NeoHardhatConfig, paths: any) {
     this.config = config;
     this.paths = paths;
   }
@@ -32,11 +31,13 @@ export class NeoSolidityCompiler {
     debug("Starting Neo-Solidity compilation");
     
     try {
+      const settings = this.getStandardJsonSettings();
+
       // Prepare compilation input
       const input: CompilationInput = {
         language: "Solidity",
         sources,
-        settings: this.config
+        settings
       };
 
       // Write input to temporary file
@@ -79,6 +80,29 @@ export class NeoSolidityCompiler {
         "--output", outputFile
       ];
 
+      const neoSettings = this.config.solidity?.settings?.neo;
+      if (neoSettings?.callt) {
+        args.push("--callt");
+      }
+      if (neoSettings?.denyWildcardPermissions) {
+        args.push("--deny-wildcard-permissions");
+      }
+      if (neoSettings?.denyWildcardContracts) {
+        args.push("--deny-wildcard-contracts");
+      }
+      if (neoSettings?.denyWildcardMethods) {
+        args.push("--deny-wildcard-methods");
+      }
+      if (neoSettings?.manifestPermissions) {
+        args.push("--manifest-permissions", neoSettings.manifestPermissions);
+        if (neoSettings.manifestPermissionsMode) {
+          args.push("--manifest-permissions-mode", neoSettings.manifestPermissionsMode);
+        }
+      }
+      if (neoSettings?.nefSource) {
+        args.push("--nef-source", neoSettings.nefSource);
+      }
+
       debug(`Executing compiler: ${compilerPath} ${args.join(" ")}`);
 
       const child = spawn(compilerPath, args, {
@@ -120,28 +144,26 @@ export class NeoSolidityCompiler {
    * Get path to Neo-Solidity compiler binary
    */
   private getCompilerPath(): string {
-    // Try different potential locations
-    const possiblePaths = [
-      path.join(process.cwd(), "bin/neo-solc"),
-      path.join(process.cwd(), "target/release/neo-solc"),
-      "neo-solc" // Assume it's in PATH
-    ];
+    const ext = process.platform === "win32" ? ".exe" : "";
+    const fromEnv = process.env.NEO_SOLC;
 
-    for (const compilerPath of possiblePaths) {
+    const candidates = [
+      fromEnv,
+      path.join(process.cwd(), `bin/neo-solc${ext}`),
+      path.join(process.cwd(), `target/release/neo-solc${ext}`),
+      path.join(process.cwd(), `target/debug/neo-solc${ext}`),
+    ].filter(Boolean) as string[];
+
+    for (const candidate of candidates) {
       try {
-        // Check if file exists and is executable
-        if (path.isAbsolute(compilerPath)) {
-          require("fs").accessSync(compilerPath, require("fs").constants.X_OK);
-        }
-        return compilerPath;
+        accessSync(candidate, constants.X_OK);
+        return candidate;
       } catch {
         continue;
       }
     }
 
-    throw new Error(
-      "Neo-Solidity compiler not found. Please ensure neo-solc is installed and available in PATH."
-    );
+    return "neo-solc"; // Assume it's in PATH.
   }
 
   /**
@@ -230,13 +252,13 @@ export class NeoSolidityCompiler {
     for (const line of lines) {
       const trimmed = line.trim();
       // Look for version patterns like "neo-solidity: 0.1.0"
-      const versionMatch = trimmed.match(/neo-solidity[:\s]+([\d\.\w-]+)/);
+      const versionMatch = trimmed.match(/neo-solidity[:\s]+([\d.\w-]+)/);
       if (versionMatch) {
         versions.push(versionMatch[1]);
       }
       
       // Also look for supported Solidity versions
-      const solidityMatch = trimmed.match(/solidity[:\s]+([\d\.\w-]+)/);
+      const solidityMatch = trimmed.match(/solidity[:\s]+([\d.\w-]+)/);
       if (solidityMatch) {
         versions.push(`solidity-${solidityMatch[1]}`);
       }
@@ -292,7 +314,7 @@ export class NeoSolidityCompiler {
    * Validate version format
    */
   private isValidVersion(version: string): boolean {
-    return /^\d+\.\d+\.\d+(-[\w\.]+)?$/.test(version) || version === 'latest';
+    return /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version) || version === 'latest';
   }
 
   /**
@@ -304,9 +326,9 @@ export class NeoSolidityCompiler {
     const ext = platform === 'win32' ? '.exe' : '';
     
     if (version === 'latest') {
-      return `https://github.com/neo-project/neo-solidity/releases/latest/download/neo-solc-${platform}-${arch}${ext}`;
+      return `https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-${platform}-${arch}${ext}`;
     } else {
-      return `https://github.com/neo-project/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+      return `https://github.com/r3e-network/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
     }
   }
 
@@ -374,8 +396,9 @@ export class NeoSolidityCompiler {
         contractCount++;
         const contract = output.contracts[fileName][contractName];
         if (contract.neo?.nef) {
-          // Estimate size from NEF bytecode
-          totalSize += contract.neo.nef.length / 2; // Convert hex to bytes
+          // Prefer the VM script size; fall back to full NEF image if needed.
+          const hex = contract.neo.nef.script || contract.neo.nef.image || "";
+          totalSize += hex.length / 2; // Convert hex to bytes
         }
       }
     }
@@ -392,5 +415,13 @@ export class NeoSolidityCompiler {
       warningCount,
       totalSize
     };
+  }
+
+  private getStandardJsonSettings(): any {
+    // neo-solc standard-json currently only reads `settings.optimizer`, and
+    // warns on other keys. Keep the settings object minimal to avoid noisy
+    // warnings and bloated metadata.
+    const optimizer = this.config.solidity?.settings?.optimizer;
+    return optimizer ? { optimizer } : {};
   }
 }

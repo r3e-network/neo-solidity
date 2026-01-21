@@ -1,10 +1,20 @@
 import { Interface, FunctionFragment, EventFragment } from "ethers";
 import { EventEmitter } from "events";
-import { NeoContract } from "@neo-solidity/types";
 import { RpcAdapter } from "./rpc-adapter";
 import { TransactionBuilder } from "./transaction-builder";
 import { EventDecoder } from "./event-decoder";
 import Debug from "debug";
+import {
+  decodeNeoBytes,
+  evmAddressToNeoHash160,
+  isHexString,
+  neoBytesToEvmAddress,
+  neoHash160ToEvmAddress,
+  parseNeoBoolean,
+  parseNeoInteger,
+  stackItemArrayValue,
+  strip0x,
+} from "./neo-utils";
 
 const debug = Debug("neo-solidity:contract-wrapper");
 
@@ -274,7 +284,7 @@ export class ContractWrapper extends EventEmitter {
 
     return {
       fragment,
-      queryFilter: (filter?: any, fromBlock?: number, toBlock?: number) =>
+      queryFilter: (filter?: any, _fromBlock?: number, toBlock?: number) =>
         this.queryFilter(fragment.name, filter, toBlock)
     };
   }
@@ -402,7 +412,7 @@ export class ContractWrapper extends EventEmitter {
       case 'bool':
         return { type: 'Boolean', value: Boolean(arg) };
       case 'address':
-        return { type: 'Hash160', value: this.addressToScriptHash(arg) };
+        return { type: 'Hash160', value: evmAddressToNeoHash160(String(arg)) };
       case 'string':
         return { type: 'String', value: String(arg) };
       default:
@@ -410,7 +420,17 @@ export class ContractWrapper extends EventEmitter {
           return { type: 'Integer', value: String(arg) };
         }
         if (paramType.startsWith('bytes')) {
-          return { type: 'ByteArray', value: arg.startsWith('0x') ? arg.slice(2) : arg };
+          if (Buffer.isBuffer(arg) || arg instanceof Uint8Array) {
+            return { type: 'ByteArray', value: Buffer.from(arg).toString('hex') };
+          }
+          const asString = String(arg);
+          if (asString.startsWith('0x')) {
+            return { type: 'ByteArray', value: strip0x(asString) };
+          }
+          if (isHexString(asString)) {
+            return { type: 'ByteArray', value: asString };
+          }
+          return { type: 'ByteArray', value: Buffer.from(asString, 'utf8').toString('hex') };
         }
         return { type: 'String', value: String(arg) };
     }
@@ -444,38 +464,39 @@ export class ContractWrapper extends EventEmitter {
 
     switch (item.type) {
       case 'Boolean':
-        return item.value;
+        return parseNeoBoolean(item.value);
       case 'Integer':
         return targetType.startsWith('uint') || targetType.startsWith('int') 
-          ? BigInt(item.value) 
+          ? parseNeoInteger(item.value)
           : Number(item.value);
       case 'ByteString':
+      case 'ByteArray':
+      case 'Buffer': {
+        const bytes = decodeNeoBytes(item.value);
         if (targetType === 'address') {
-          return this.scriptHashToAddress(item.value);
+          return neoBytesToEvmAddress(bytes);
         }
         if (targetType === 'string') {
-          return Buffer.from(item.value, 'hex').toString('utf8');
+          return bytes.toString('utf8');
         }
-        return '0x' + item.value;
+        if (targetType.startsWith('bytes') || targetType === 'bytes') {
+          return '0x' + bytes.toString('hex');
+        }
+        return bytes.toString('hex');
+      }
+      case 'Hash160':
+        if (targetType === 'address') {
+          return neoHash160ToEvmAddress(String(item.value));
+        }
+        return String(item.value);
       case 'Array':
-        return item.value?.map((subItem: any) => 
-          this.convertStackItemToEthereum(subItem, targetType.replace('[]', ''))
-        ) || [];
+      case 'Struct': {
+        const children = stackItemArrayValue(item);
+        const elementType = targetType.endsWith('[]') ? targetType.slice(0, -2) : targetType;
+        return children.map((subItem: any) => this.convertStackItemToEthereum(subItem, elementType));
+      }
       default:
         return item.value;
     }
-  }
-
-  private addressToScriptHash(address: string): string {
-    // Convert Ethereum address to Neo script hash
-    if (address.startsWith('0x')) {
-      return address.toLowerCase();
-    }
-    return '0x' + address.slice(-40).toLowerCase();
-  }
-
-  private scriptHashToAddress(scriptHash: string): string {
-    // Convert Neo script hash to Ethereum address format
-    return '0x' + scriptHash.slice(-40);
   }
 }

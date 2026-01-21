@@ -526,8 +526,12 @@ mod ir_tests {
         let module = Module::from_contract(&metadata).expect("IR lowering failed");
         let names: Vec<_> = module.functions.iter().map(|f| f.name.clone()).collect();
         assert!(
-            names.iter().any(|name| name == "extsload"),
-            "expected function named 'extsload'"
+            names.iter().any(|name| name == "extsload(bytes32)"),
+            "expected overload named 'extsload(bytes32)'"
+        );
+        assert!(
+            names.iter().any(|name| name == "extsload(bytes32,uint256)"),
+            "expected overload named 'extsload(bytes32,uint256)'"
         );
     }
 

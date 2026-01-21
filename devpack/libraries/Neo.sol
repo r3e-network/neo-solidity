@@ -76,7 +76,7 @@ library Neo {
     /**
      * @dev Get transaction height
      */
-    function getTransactionHeight(bytes32 txHash) internal view returns (uint256) {
+    function getTransactionHeight(bytes32 txHash) internal view returns (int256) {
         return Syscalls.getTransactionHeight(txHash);
     }
     
@@ -84,7 +84,7 @@ library Neo {
      * @dev Check if transaction exists
      */
     function transactionExists(bytes32 txHash) internal view returns (bool) {
-        return getTransactionHeight(txHash) > 0;
+        return getTransactionHeight(txHash) >= 0;
     }
     
     // ========== Account and Balance Management ==========
@@ -221,7 +221,7 @@ library Neo {
     /**
      * @dev Get network magic number
      */
-    function getNetworkMagic() internal pure returns (uint32) {
+    function getNetworkMagic() internal view returns (uint32) {
         return Syscalls.getNetwork();
     }
     
@@ -466,7 +466,7 @@ library Neo {
     /**
      * @dev Platform information
      */
-    function getPlatformInfo() internal pure returns (
+    function getPlatformInfo() internal view returns (
         string memory platform,
         uint32 network,
         uint8 addressVersion

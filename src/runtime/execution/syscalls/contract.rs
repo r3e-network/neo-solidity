@@ -5,20 +5,6 @@ impl ExecutionContext {
                 self.handle_contract_call()?;
                 Ok(true)
             }
-            "System.Contract.GetContract" => {
-                // Signature: GetContract(scriptHash: UInt160) -> ContractState | null
-                let hash_item = self.pop_stack()?;
-                let hash = Self::stack_item_to_bytes(hash_item);
-
-                if let Some(state) = self.lookup_contract(&hash) {
-                    let item = self.contract_to_stackitem(&state);
-                    self.push_stack(item)?;
-                } else {
-                    self.push_stack(StackItem::Null)?;
-                }
-
-                Ok(true)
-            }
             "System.Contract.GetCallFlags" => {
                 // Default to CallFlags.All (ReadStates | WriteStates | AllowCall | AllowNotify).
                 self.push_stack(StackItem::UnsignedInteger(0x0F))?;

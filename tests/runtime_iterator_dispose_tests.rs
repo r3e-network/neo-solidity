@@ -10,15 +10,13 @@ fn syscall_id(name: &str) -> [u8; 4] {
 }
 
 #[test]
-fn iterator_dispose_removes_handle() {
+fn iterator_token_reports_iterator_type() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
     let find = syscall_id("System.Storage.Find");
     let get_context = syscall_id("System.Storage.GetContext");
-    let dispose = syscall_id("System.Iterator.Dispose");
-    let istype_marker = [0x80u8]; // iterator type code
 
-    // GetContext -> push empty prefix -> Find -> DUP token -> Dispose -> DROP bool
-    // push type marker 0x80 -> ISTYPE (should be false) -> RET
+    // System.Iterator.Dispose is not a Neo N3 syscall. Instead, validate that the iterator token
+    // returned from Storage.Find is recognized as an iterator (ISTYPE 0x80).
     let script = vec![
         0x41,
         get_context[0],
@@ -27,26 +25,18 @@ fn iterator_dispose_removes_handle() {
         get_context[3],
         0x0C,
         0x00,
+        0x10, // options = 0
         0x41,
         find[0],
         find[1],
         find[2],
         find[3],
-        0x4A,
-        0x41,
-        dispose[0],
-        dispose[1],
-        dispose[2],
-        dispose[3],
-        0x45,
-        0x0C,
-        0x01,
-        istype_marker[0],
         0xD9,
-        0x40,
+        0x80, // ISTYPE 0x80 (iterator)
+        0x40, // RET
     ];
 
     ctx.initialize(&script, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
-    assert_eq!(ctx.return_data(), vec![0u8]);
+    assert_eq!(ctx.return_data(), vec![1u8]);
 }

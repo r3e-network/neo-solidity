@@ -14,7 +14,7 @@ pragma solidity ^0.8.19;
  * - Integration with Neo native features
  */
 
-import "../contracts/Framework.sol";
+import "../contracts/FrameworkBase.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
 
@@ -54,7 +54,7 @@ interface INEP11Receiver {
  * @title NEP11
  * @dev Complete NEP-11 token implementation with Neo N3 integration
  */
-contract NEP11 is INEP11, Framework {
+contract NEP11 is INEP11, FrameworkBase {
     using Neo for *;
     using Runtime for *;
     
@@ -141,7 +141,7 @@ contract NEP11 is INEP11, Framework {
         string memory baseURI_,
         uint256 maxSupply_,
         bool isDivisible_
-    ) Framework() {
+    ) FrameworkBase() {
         require(bytes(name_).length > 0, "NEP11: name cannot be empty");
         require(bytes(symbol_).length > 0, "NEP11: symbol cannot be empty");
         
@@ -434,9 +434,6 @@ contract NEP11 is INEP11, Framework {
     {
         _tokenProperties[tokenId] = properties;
         emit TokenPropertiesUpdated(tokenId, properties);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("TokenPropertiesUpdated", abi.encode(tokenId, properties));
     }
     
     /**
@@ -447,6 +444,13 @@ contract NEP11 is INEP11, Framework {
         onlyOwner 
         tokenExists(tokenId) 
     {
+        _setTokenURI(tokenId, uri);
+    }
+
+    /**
+     * @dev Internal token URI setter for derived contracts.
+     */
+    function _setTokenURI(bytes32 tokenId, string memory uri) internal {
         _tokenURIs[tokenId] = uri;
     }
     
@@ -516,9 +520,6 @@ contract NEP11 is INEP11, Framework {
         
         emit Transfer(from, to, 1, tokenId);
         
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(from, to, 1, tokenId));
-        
         // Call onNEP11Payment if recipient is a contract
         if (to.code.length > 0) {
             try INEP11Receiver(to).onNEP11Payment(from, 1, tokenId, data) {
@@ -550,9 +551,6 @@ contract NEP11 is INEP11, Framework {
         
         emit Transfer(address(0), to, 1, tokenId);
         emit Mint(to, tokenId);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(address(0), to, 1, tokenId));
         
         // Call onNEP11Payment if recipient is a contract
         if (to.code.length > 0) {
@@ -586,9 +584,6 @@ contract NEP11 is INEP11, Framework {
         
         emit Transfer(owner, address(0), 1, tokenId);
         emit Burn(tokenId);
-        
-        // Emit Neo-compatible notification
-        Runtime.notify("Transfer", abi.encode(owner, address(0), 1, tokenId));
     }
     
     /**
@@ -612,13 +607,10 @@ contract NEP11 is INEP11, Framework {
             try INEP11Receiver(to).onNEP11Payment(from, 1, tokenId, data) {
                 return;
             } catch (bytes memory reason) {
-                if (reason.length == 0) {
-                    revert NEP11InvalidReceiver(to);
-                } else {
-                    assembly {
-                        revert(add(32, reason), mload(reason))
-                    }
-                }
+                // NeoVM Solidity does not support inline assembly or rethrowing raw EVM revert
+                // data. Treat any failure to call `onNEP11Payment` as an invalid receiver.
+                reason; // silence unused variable warning for other toolchains
+                revert NEP11InvalidReceiver(to);
             }
         }
     }
@@ -762,7 +754,7 @@ contract NEP11 is INEP11, Framework {
     /**
      * @dev Generate unique token ID
      */
-    function generateTokenId(address minter, uint256 nonce) public pure returns (bytes32) {
+    function generateTokenId(address minter, uint256 nonce) public view returns (bytes32) {
         return keccak256(abi.encode(minter, nonce, block.timestamp));
     }
     

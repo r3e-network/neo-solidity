@@ -1,5 +1,5 @@
-import { extendConfig, extendEnvironment } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
+import { extendConfig, extendEnvironment } from "hardhat/config.js";
+import { lazyObject } from "hardhat/plugins.js";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoNetworkConfig, NeoAccount } from "@neo-solidity/types";
 
@@ -153,8 +153,16 @@ extendEnvironment((hre: HardhatRuntimeEnvironment) => {
     }
     
     const rpc = new NeoRpcClient(networkConfig);
-    const accounts = new AccountManager(networkConfig.accounts);
-    const deployer = new NeoDeployer(rpc, accounts, hre.artifacts);
+    const accounts = new AccountManager(networkConfig.accounts, Number(networkConfig.addressVersion ?? 0x35));
+    // Prefer neo-solc build artifacts when available (from @neo-solidity/hardhat-solc-neo).
+    const artifactProvider = (hre as any).neoSolc?.artifacts ?? hre.artifacts;
+    const deployer = new NeoDeployer(
+      rpc,
+      accounts,
+      artifactProvider,
+      hre.network.name,
+      Number(networkConfig.addressVersion ?? 0x35)
+    );
     
     return {
       deployer,

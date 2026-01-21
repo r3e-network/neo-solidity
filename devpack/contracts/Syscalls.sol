@@ -8,9 +8,22 @@ pragma solidity ^0.8.19;
  * 
  * This library provides direct access to all Neo N3 system calls,
  * enabling Solidity contracts to fully utilize Neo blockchain features.
+ *
+ * NOTE: Neo N3 exposes many features via *native contracts* (Ledger, Policy,
+ * Oracle, ContractManagement, etc.) rather than syscalls. The neo-solidity
+ * compiler lowers these helpers to `System.Contract.Call` as needed.
  */
 
 library Syscalls {
+
+    // Native contract script hashes (Neo N3 MainNet)
+    address constant CONTRACT_MANAGEMENT = 0xfffdc93764dbaddd97c48f252a53ea4643faa3fd;
+    address constant POLICY_CONTRACT = 0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b;
+    address constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
+    address constant ROLE_MANAGEMENT = 0x49cf4e5378ffcd4dec034fd98a174c5491e395e2;
+    address constant LEDGER_CONTRACT = 0xda65b600f7124ce6c79950c1772a36403104f2be;
+    address constant CRYPTO_LIB = 0x726cb6e0cd8628a1350a611384688911ab75f51b;
+    address constant STD_LIB = 0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0;
     
     // ========== Blockchain System Calls ==========
     
@@ -18,8 +31,16 @@ library Syscalls {
      * @dev Get current block index
      */
     function getCurrentIndex() internal view returns (uint256) {
-        // Maps to System.Blockchain.GetHeight
-        return _syscall("System.Blockchain.GetHeight", "");
+        bytes memory result = contractCall(LEDGER_CONTRACT, "currentIndex", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get current block hash
+     */
+    function getCurrentHash() internal view returns (bytes32) {
+        bytes memory result = contractCall(LEDGER_CONTRACT, "currentHash", "");
+        return abi.decode(result, (bytes32));
     }
     
     /**
@@ -27,7 +48,16 @@ library Syscalls {
      */
     function getBlock(uint256 index) internal view returns (Block memory) {
         bytes memory data = abi.encode(index);
-        bytes memory result = _syscallBytes("System.Blockchain.GetBlock", data);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getBlock", data);
+        return abi.decode(result, (Block));
+    }
+
+    /**
+     * @dev Get block by hash
+     */
+    function getBlock(bytes32 hash) internal view returns (Block memory) {
+        bytes memory data = abi.encode(hash);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getBlock", data);
         return abi.decode(result, (Block));
     }
     
@@ -36,16 +66,17 @@ library Syscalls {
      */
     function getTransaction(bytes32 hash) internal view returns (Transaction memory) {
         bytes memory data = abi.encode(hash);
-        bytes memory result = _syscallBytes("System.Blockchain.GetTransaction", data);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransaction", data);
         return abi.decode(result, (Transaction));
     }
     
     /**
      * @dev Get transaction height
      */
-    function getTransactionHeight(bytes32 hash) internal view returns (uint256) {
+    function getTransactionHeight(bytes32 hash) internal view returns (int256) {
         bytes memory data = abi.encode(hash);
-        return _syscall("System.Blockchain.GetTransactionHeight", data);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransactionHeight", data);
+        return abi.decode(result, (int256));
     }
     
     /**
@@ -57,8 +88,39 @@ library Syscalls {
         returns (Transaction memory) 
     {
         bytes memory data = abi.encode(blockIndex, txIndex);
-        bytes memory result = _syscallBytes("System.Blockchain.GetTransactionFromBlock", data);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransactionFromBlock", data);
         return abi.decode(result, (Transaction));
+    }
+
+    /**
+     * @dev Get transaction from block by hash
+     */
+    function getTransactionFromBlock(bytes32 blockHash, uint256 txIndex)
+        internal
+        view
+        returns (Transaction memory)
+    {
+        bytes memory data = abi.encode(blockHash, txIndex);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransactionFromBlock", data);
+        return abi.decode(result, (Transaction));
+    }
+
+    /**
+     * @dev Get transaction signers
+     */
+    function getTransactionSigners(bytes32 hash) internal view returns (Signer[] memory) {
+        bytes memory data = abi.encode(hash);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransactionSigners", data);
+        return abi.decode(result, (Signer[]));
+    }
+
+    /**
+     * @dev Get transaction VM state
+     */
+    function getTransactionVMState(bytes32 hash) internal view returns (uint8) {
+        bytes memory data = abi.encode(hash);
+        bytes memory result = contractCall(LEDGER_CONTRACT, "getTransactionVMState", data);
+        return abi.decode(result, (uint8));
     }
     
     // ========== Contract System Calls ==========
@@ -85,7 +147,37 @@ library Syscalls {
         uint8 flags
     ) internal returns (bytes memory) {
         bytes memory data = abi.encode(scriptHash, method, params, flags);
-        return _syscallBytes("System.Contract.CallEx", data);
+        // Neo N3 has no `System.Contract.CallEx`; flags are passed to `System.Contract.Call`.
+        return _syscallBytes("System.Contract.Call", data);
+    }
+
+    /**
+     * @dev Get current call flags
+     */
+    function getCallFlags() internal view returns (uint8) {
+        return uint8(_syscall("System.Contract.GetCallFlags", ""));
+    }
+
+    /**
+     * @dev Create a standard signature account script hash from an ECPoint public key.
+     *
+     * Syscall: System.Contract.CreateStandardAccount(pubkey: ByteString) -> UInt160
+     */
+    function createStandardAccount(bytes memory publicKey) internal view returns (address) {
+        bytes memory data = abi.encode(publicKey);
+        bytes memory result = _syscallBytes("System.Contract.CreateStandardAccount", data);
+        return abi.decode(result, (address));
+    }
+
+    /**
+     * @dev Create a multisig account script hash from ECPoint public keys.
+     *
+     * Syscall: System.Contract.CreateMultisigAccount(m: int, pubkeys: Array) -> UInt160
+     */
+    function createMultisigAccount(uint256 m, bytes[] memory publicKeys) internal view returns (address) {
+        bytes memory data = abi.encode(m, publicKeys);
+        bytes memory result = _syscallBytes("System.Contract.CreateMultisigAccount", data);
+        return abi.decode(result, (address));
     }
     
     /**
@@ -93,8 +185,22 @@ library Syscalls {
      */
     function contractCreate(bytes memory nef, bytes memory manifest) internal returns (address) {
         bytes memory data = abi.encode(nef, manifest);
-        bytes memory result = _syscallBytes("System.Contract.Create", data);
-        return abi.decode(result, (address));
+        bytes memory result = contractCall(CONTRACT_MANAGEMENT, "deploy", data);
+        ContractStateNative memory state = abi.decode(result, (ContractStateNative));
+        return state.hash;
+    }
+
+    /**
+     * @dev Create new contract and pass deployment data to `_deploy(data, false)`
+     */
+    function contractCreate(bytes memory nef, bytes memory manifest, bytes memory deployData)
+        internal
+        returns (address)
+    {
+        bytes memory data = abi.encode(nef, manifest, deployData);
+        bytes memory result = contractCall(CONTRACT_MANAGEMENT, "deploy", data);
+        ContractStateNative memory state = abi.decode(result, (ContractStateNative));
+        return state.hash;
     }
     
     /**
@@ -102,14 +208,22 @@ library Syscalls {
      */
     function contractUpdate(bytes memory nef, bytes memory manifest) internal {
         bytes memory data = abi.encode(nef, manifest);
-        _syscallVoid("System.Contract.Update", data);
+        contractCall(CONTRACT_MANAGEMENT, "update", data);
+    }
+
+    /**
+     * @dev Update contract and pass update data to `_deploy(data, true)`
+     */
+    function contractUpdate(bytes memory nef, bytes memory manifest, bytes memory updateData) internal {
+        bytes memory data = abi.encode(nef, manifest, updateData);
+        contractCall(CONTRACT_MANAGEMENT, "update", data);
     }
     
     /**
      * @dev Destroy contract
      */
     function contractDestroy() internal {
-        _syscallVoid("System.Contract.Destroy", "");
+        contractCall(CONTRACT_MANAGEMENT, "destroy", "");
     }
     
     /**
@@ -135,6 +249,22 @@ library Syscalls {
         bytes memory result = _syscallBytes("System.Runtime.GetEntryScriptHash", "");
         return abi.decode(result, (address));
     }
+
+    /**
+     * @dev Get script container
+     */
+    function getScriptContainer() internal view returns (Transaction memory) {
+        bytes memory result = _syscallBytes("System.Runtime.GetScriptContainer", "");
+        return abi.decode(result, (Transaction));
+    }
+
+    /**
+     * @dev Load script with arguments
+     */
+    function loadScript(bytes memory script, uint8 callFlags, bytes[] memory args) internal {
+        bytes memory data = abi.encode(script, callFlags, args);
+        _syscallVoid("System.Runtime.LoadScript", data);
+    }
     
     // ========== Storage System Calls ==========
     
@@ -151,6 +281,15 @@ library Syscalls {
      */
     function getReadOnlyStorageContext() internal view returns (StorageContext memory) {
         bytes memory result = _syscallBytes("System.Storage.GetReadOnlyContext", "");
+        return abi.decode(result, (StorageContext));
+    }
+
+    /**
+     * @dev Convert storage context to read-only
+     */
+    function storageAsReadOnly(StorageContext memory context) internal view returns (StorageContext memory) {
+        bytes memory data = abi.encode(context);
+        bytes memory result = _syscallBytes("System.Storage.AsReadOnly", data);
         return abi.decode(result, (StorageContext));
     }
     
@@ -190,8 +329,76 @@ library Syscalls {
         view 
         returns (Iterator memory) 
     {
-        bytes memory data = abi.encode(context, prefix);
+        // Neo N3 signature: Storage.Find(context, prefix, options)
+        bytes memory data = abi.encode(context, prefix, uint8(0));
         bytes memory result = _syscallBytes("System.Storage.Find", data);
+        return abi.decode(result, (Iterator));
+    }
+
+    /**
+     * @dev Storage find with options
+     */
+    function storageFind(
+        StorageContext memory context,
+        bytes memory prefix,
+        uint8 options
+    ) internal view returns (Iterator memory) {
+        bytes memory data = abi.encode(context, prefix, options);
+        bytes memory result = _syscallBytes("System.Storage.Find", data);
+        return abi.decode(result, (Iterator));
+    }
+
+    /**
+     * @dev Storage get (local context)
+     */
+    function storageGetLocal(bytes memory key)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes memory data = abi.encode(key);
+        return _syscallBytes("System.Storage.Local.Get", data);
+    }
+
+    /**
+     * @dev Storage put (local context)
+     */
+    function storagePutLocal(bytes memory key, bytes memory value) internal {
+        bytes memory data = abi.encode(key, value);
+        _syscallVoid("System.Storage.Local.Put", data);
+    }
+
+    /**
+     * @dev Storage delete (local context)
+     */
+    function storageDeleteLocal(bytes memory key) internal {
+        bytes memory data = abi.encode(key);
+        _syscallVoid("System.Storage.Local.Delete", data);
+    }
+
+    /**
+     * @dev Storage find (local context)
+     */
+    function storageFindLocal(bytes memory prefix)
+        internal
+        view
+        returns (Iterator memory)
+    {
+        bytes memory data = abi.encode(prefix, uint8(0));
+        bytes memory result = _syscallBytes("System.Storage.Local.Find", data);
+        return abi.decode(result, (Iterator));
+    }
+
+    /**
+     * @dev Storage find (local context) with options
+     */
+    function storageFindLocal(bytes memory prefix, uint8 options)
+        internal
+        view
+        returns (Iterator memory)
+    {
+        bytes memory data = abi.encode(prefix, options);
+        bytes memory result = _syscallBytes("System.Storage.Local.Find", data);
         return abi.decode(result, (Iterator));
     }
     
@@ -202,6 +409,14 @@ library Syscalls {
      */
     function checkWitness(address hash) internal view returns (bool) {
         bytes memory data = abi.encode(hash);
+        return _syscall("System.Runtime.CheckWitness", data) != 0;
+    }
+
+    /**
+     * @dev Check witness (public key)
+     */
+    function checkWitness(bytes memory publicKey) internal view returns (bool) {
+        bytes memory data = abi.encode(publicKey);
         return _syscall("System.Runtime.CheckWitness", data) != 0;
     }
     
@@ -222,17 +437,16 @@ library Syscalls {
     /**
      * @dev Get platform information
      */
-    function getPlatform() internal pure returns (string memory) {
-        bytes memory result = _syscallBytes("System.Runtime.GetPlatform", "");
+    function getPlatform() internal view returns (string memory) {
+        bytes memory result = _syscallBytes("System.Runtime.Platform", "");
         return abi.decode(result, (string));
     }
     
     /**
      * @dev Get trigger type
      */
-    function getTrigger() internal view returns (TriggerType) {
-        uint256 trigger = _syscall("System.Runtime.GetTrigger", "");
-        return TriggerType(trigger);
+    function getTrigger() internal view returns (uint8) {
+        return uint8(_syscall("System.Runtime.GetTrigger", ""));
     }
     
     /**
@@ -251,6 +465,14 @@ library Syscalls {
         bytes memory result = _syscallBytes("System.Runtime.GetNotifications", data);
         return abi.decode(result, (Notification[]));
     }
+
+    /**
+     * @dev Get all notifications
+     */
+    function getNotifications() internal view returns (Notification[] memory) {
+        bytes memory result = _syscallBytes("System.Runtime.GetNotifications", "");
+        return abi.decode(result, (Notification[]));
+    }
     
     /**
      * @dev Log message
@@ -259,15 +481,39 @@ library Syscalls {
         bytes memory data = abi.encode(message);
         _syscallVoid("System.Runtime.Log", data);
     }
+
+    /**
+     * @dev Get current transaction signers
+     */
+    function getCurrentSigners() internal view returns (Signer[] memory) {
+        bytes memory result = _syscallBytes("System.Runtime.CurrentSigners", "");
+        return abi.decode(result, (Signer[]));
+    }
     
     // ========== Cryptographic System Calls ==========
+
+    /**
+     * @dev Check signature against current script container
+     */
+    function checkSig(bytes memory publicKey, bytes memory signature) internal view returns (bool) {
+        bytes memory data = abi.encode(publicKey, signature);
+        return _syscall("System.Crypto.CheckSig", data) != 0;
+    }
+
+    /**
+     * @dev Check multi-signature against current script container
+     */
+    function checkMultisig(bytes[] memory publicKeys, bytes[] memory signatures) internal view returns (bool) {
+        bytes memory data = abi.encode(publicKeys, signatures);
+        return _syscall("System.Crypto.CheckMultisig", data) != 0;
+    }
     
     /**
      * @dev SHA256 hash
      */
     function sha256(bytes memory data) internal pure returns (bytes32) {
         bytes memory params = abi.encode(data);
-        bytes memory result = _syscallBytes("System.Crypto.Sha256", params);
+        bytes memory result = contractCall(CRYPTO_LIB, "sha256", params);
         return abi.decode(result, (bytes32));
     }
     
@@ -276,9 +522,15 @@ library Syscalls {
      */
     function ripemd160(bytes memory data) internal pure returns (bytes20) {
         bytes memory params = abi.encode(data);
-        bytes memory result = _syscallBytes("System.Crypto.Ripemd160", params);
+        bytes memory result = contractCall(CRYPTO_LIB, "ripemd160", params);
         return abi.decode(result, (bytes20));
     }
+
+    // NamedCurveHash values (Neo.SmartContract.Native.NamedCurveHash)
+    uint8 constant SECP256K1_SHA256 = 22;
+    uint8 constant SECP256R1_SHA256 = 23;
+    uint8 constant SECP256K1_KECCAK256 = 122;
+    uint8 constant SECP256R1_KECCAK256 = 123;
     
     /**
      * @dev Verify ECDSA signature
@@ -290,7 +542,22 @@ library Syscalls {
         uint8 curve
     ) internal pure returns (bool) {
         bytes memory data = abi.encode(hash, publicKey, signature, curve);
-        return _syscall("System.Crypto.VerifyWithECDsa", data) != 0;
+        bytes memory result = contractCall(CRYPTO_LIB, "verifyWithECDsa", data);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Verify ECDSA signature (message bytes)
+     */
+    function verifyWithECDsa(
+        bytes memory message,
+        bytes memory publicKey,
+        bytes memory signature,
+        uint8 curve
+    ) internal pure returns (bool) {
+        bytes memory data = abi.encode(message, publicKey, signature, curve);
+        bytes memory result = contractCall(CRYPTO_LIB, "verifyWithECDsa", data);
+        return abi.decode(result, (bool));
     }
     
     /**
@@ -298,10 +565,130 @@ library Syscalls {
      */
     function murmur32(bytes memory data, uint32 seed) internal pure returns (bytes4) {
         bytes memory params = abi.encode(data, seed);
-        bytes memory result = _syscallBytes("System.Crypto.Murmur32", params);
+        bytes memory result = contractCall(CRYPTO_LIB, "murmur32", params);
         return abi.decode(result, (bytes4));
     }
+
+    /**
+     * @dev Recover secp256k1 public key from signature
+     */
+    function recoverSecp256K1(bytes memory messageHash, bytes memory signature) internal pure returns (bytes memory) {
+        bytes memory data = abi.encode(messageHash, signature);
+        return contractCall(CRYPTO_LIB, "recoverSecp256K1", data);
+    }
+
+    /**
+     * @dev Verify Ed25519 signature
+     */
+    function verifyWithEd25519(bytes memory message, bytes memory publicKey, bytes memory signature) internal pure returns (bool) {
+        bytes memory data = abi.encode(message, publicKey, signature);
+        bytes memory result = contractCall(CRYPTO_LIB, "verifyWithEd25519", data);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Serialize BLS12-381 point (opaque handle)
+     */
+    function bls12381Serialize(bytes memory point) internal pure returns (bytes memory) {
+        bytes memory data = abi.encode(point);
+        return contractCall(CRYPTO_LIB, "bls12381Serialize", data);
+    }
+
+    /**
+     * @dev Deserialize BLS12-381 point (returns opaque handle)
+     */
+    function bls12381Deserialize(bytes memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(CRYPTO_LIB, "bls12381Deserialize", params);
+    }
+
+    /**
+     * @dev Compare BLS12-381 points
+     */
+    function bls12381Equal(bytes memory x, bytes memory y) internal pure returns (bool) {
+        bytes memory data = abi.encode(x, y);
+        bytes memory result = contractCall(CRYPTO_LIB, "bls12381Equal", data);
+        return abi.decode(result, (bool));
+    }
+
+    /**
+     * @dev Add BLS12-381 points
+     */
+    function bls12381Add(bytes memory x, bytes memory y) internal pure returns (bytes memory) {
+        bytes memory data = abi.encode(x, y);
+        return contractCall(CRYPTO_LIB, "bls12381Add", data);
+    }
+
+    /**
+     * @dev Multiply BLS12-381 point by scalar
+     */
+    function bls12381Mul(bytes memory x, bytes memory mul, bool neg) internal pure returns (bytes memory) {
+        bytes memory data = abi.encode(x, mul, neg);
+        return contractCall(CRYPTO_LIB, "bls12381Mul", data);
+    }
+
+    /**
+     * @dev Pairing operation for BLS12-381
+     */
+    function bls12381Pairing(bytes memory g1, bytes memory g2) internal pure returns (bytes memory) {
+        bytes memory data = abi.encode(g1, g2);
+        return contractCall(CRYPTO_LIB, "bls12381Pairing", data);
+    }
     
+    // ========== StdLib System Calls ==========
+
+    /**
+     * @dev Serialize stack item
+     */
+    function serialize(bytes memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(STD_LIB, "serialize", params);
+    }
+
+    /**
+     * @dev Deserialize stack item
+     */
+    function deserialize(bytes memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(STD_LIB, "deserialize", params);
+    }
+
+    /**
+     * @dev Integer to string (base 10)
+     */
+    function itoa(int256 value) internal pure returns (string memory) {
+        bytes memory params = abi.encode(value);
+        bytes memory result = contractCall(STD_LIB, "itoa", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev Integer to string with base (10 or 16)
+     */
+    function itoa(int256 value, uint8 base) internal pure returns (string memory) {
+        bytes memory params = abi.encode(value, base);
+        bytes memory result = contractCall(STD_LIB, "itoa", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev String to integer (base 10)
+     */
+    function atoi(string memory value) internal pure returns (int256) {
+        bytes memory params = abi.encode(value);
+        bytes memory result = contractCall(STD_LIB, "atoi", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev String to integer with base (10 or 16)
+     */
+    function atoi(string memory value, uint8 base) internal pure returns (int256) {
+        bytes memory params = abi.encode(value, base);
+        bytes memory result = contractCall(STD_LIB, "atoi", params);
+        return abi.decode(result, (int256));
+    }
+
     // ========== JSON System Calls ==========
     
     /**
@@ -309,7 +696,7 @@ library Syscalls {
      */
     function jsonSerialize(bytes memory data) internal pure returns (bytes memory) {
         bytes memory params = abi.encode(data);
-        return _syscallBytes("System.Json.Serialize", params);
+        return contractCall(STD_LIB, "jsonSerialize", params);
     }
     
     /**
@@ -317,7 +704,7 @@ library Syscalls {
      */
     function jsonDeserialize(bytes memory json) internal pure returns (bytes memory) {
         bytes memory params = abi.encode(json);
-        return _syscallBytes("System.Json.Deserialize", params);
+        return contractCall(STD_LIB, "jsonDeserialize", params);
     }
     
     // ========== Base64 System Calls ==========
@@ -327,7 +714,7 @@ library Syscalls {
      */
     function base64Encode(bytes memory data) internal pure returns (string memory) {
         bytes memory params = abi.encode(data);
-        bytes memory result = _syscallBytes("System.Binary.Base64Encode", params);
+        bytes memory result = contractCall(STD_LIB, "base64Encode", params);
         return abi.decode(result, (string));
     }
     
@@ -336,7 +723,153 @@ library Syscalls {
      */
     function base64Decode(string memory data) internal pure returns (bytes memory) {
         bytes memory params = abi.encode(data);
-        return _syscallBytes("System.Binary.Base64Decode", params);
+        return contractCall(STD_LIB, "base64Decode", params);
+    }
+
+    /**
+     * @dev Base64Url encode
+     */
+    function base64UrlEncode(string memory data) internal pure returns (string memory) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(STD_LIB, "base64UrlEncode", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev Base64Url decode
+     */
+    function base64UrlDecode(string memory data) internal pure returns (string memory) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(STD_LIB, "base64UrlDecode", params);
+        return abi.decode(result, (string));
+    }
+
+    // ========== Base58 System Calls ==========
+
+    /**
+     * @dev Base58 encode
+     */
+    function base58Encode(bytes memory data) internal pure returns (string memory) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(STD_LIB, "base58Encode", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev Base58 decode
+     */
+    function base58Decode(string memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(STD_LIB, "base58Decode", params);
+    }
+
+    /**
+     * @dev Base58Check encode
+     */
+    function base58CheckEncode(bytes memory data) internal pure returns (string memory) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(STD_LIB, "base58CheckEncode", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev Base58Check decode
+     */
+    function base58CheckDecode(string memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(STD_LIB, "base58CheckDecode", params);
+    }
+
+    // ========== Hex Utilities ==========
+
+    /**
+     * @dev Hex encode
+     */
+    function hexEncode(bytes memory data) internal pure returns (string memory) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(STD_LIB, "hexEncode", params);
+        return abi.decode(result, (string));
+    }
+
+    /**
+     * @dev Hex decode
+     */
+    function hexDecode(string memory data) internal pure returns (bytes memory) {
+        bytes memory params = abi.encode(data);
+        return contractCall(STD_LIB, "hexDecode", params);
+    }
+
+    // ========== Memory and String Utilities ==========
+
+    /**
+     * @dev Compare two byte arrays
+     */
+    function memoryCompare(bytes memory left, bytes memory right) internal pure returns (int256) {
+        bytes memory params = abi.encode(left, right);
+        bytes memory result = contractCall(STD_LIB, "memoryCompare", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev Search for a value in memory (start at 0)
+     */
+    function memorySearch(bytes memory mem, bytes memory value) internal pure returns (int256) {
+        bytes memory params = abi.encode(mem, value);
+        bytes memory result = contractCall(STD_LIB, "memorySearch", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev Search for a value in memory (start at offset)
+     */
+    function memorySearch(bytes memory mem, bytes memory value, int256 start) internal pure returns (int256) {
+        bytes memory params = abi.encode(mem, value, start);
+        bytes memory result = contractCall(STD_LIB, "memorySearch", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev Search for a value in memory (start at offset, optionally backward)
+     */
+    function memorySearch(bytes memory mem, bytes memory value, int256 start, bool backward)
+        internal
+        pure
+        returns (int256)
+    {
+        bytes memory params = abi.encode(mem, value, start, backward);
+        bytes memory result = contractCall(STD_LIB, "memorySearch", params);
+        return abi.decode(result, (int256));
+    }
+
+    /**
+     * @dev Split a string by separator
+     */
+    function stringSplit(string memory value, string memory separator) internal pure returns (string[] memory) {
+        bytes memory params = abi.encode(value, separator);
+        bytes memory result = contractCall(STD_LIB, "stringSplit", params);
+        return abi.decode(result, (string[]));
+    }
+
+    /**
+     * @dev Split a string by separator with optional empty removal
+     */
+    function stringSplit(
+        string memory value,
+        string memory separator,
+        bool removeEmptyEntries
+    ) internal pure returns (string[] memory) {
+        bytes memory params = abi.encode(value, separator, removeEmptyEntries);
+        bytes memory result = contractCall(STD_LIB, "stringSplit", params);
+        return abi.decode(result, (string[]));
+    }
+
+    /**
+     * @dev Get string length in text elements
+     */
+    function strLen(string memory value) internal pure returns (uint256) {
+        bytes memory params = abi.encode(value);
+        bytes memory result = contractCall(STD_LIB, "strLen", params);
+        return abi.decode(result, (uint256));
     }
     
     // ========== Iterator System Calls ==========
@@ -426,7 +959,7 @@ library Syscalls {
         } else if (methodHash == keccak256("System.Storage.Get")) {
             (StorageContext memory context, bytes memory key) = abi.decode(params, (StorageContext, bytes));
             // Use EVM storage as fallback
-            bytes32 storageKey = keccak256(abi.encode(context.contractHash, key));
+            bytes32 storageKey = keccak256(abi.encode(context.id, key));
             bytes32 value;
             assembly {
                 value := sload(storageKey)
@@ -436,7 +969,7 @@ library Syscalls {
         
         return "";
     }
-    
+
     /**
      * @dev Internal syscall that returns void
      */
@@ -463,7 +996,7 @@ library Syscalls {
                 abi.decode(params, (StorageContext, bytes, bytes));
             
             // Use EVM storage as fallback
-            bytes32 storageKey = keccak256(abi.encode(context.contractHash, key));
+            bytes32 storageKey = keccak256(abi.encode(context.id, key));
             bytes32 storageValue = keccak256(value); // Hash for storage
             
             assembly {
@@ -472,7 +1005,7 @@ library Syscalls {
         } else if (methodHash == keccak256("System.Storage.Delete")) {
             (StorageContext memory context, bytes memory key) = abi.decode(params, (StorageContext, bytes));
             
-            bytes32 storageKey = keccak256(abi.encode(context.contractHash, key));
+            bytes32 storageKey = keccak256(abi.encode(context.id, key));
             assembly {
                 sstore(storageKey, 0)
             }
@@ -488,46 +1021,78 @@ library Syscalls {
     
     // ========== Data Structures ==========
     
+    // Ledger.getBlock returns a TrimmedBlock stack item, not the full block payload.
     struct Block {
         bytes32 hash;
-        uint256 index;
+        uint256 version;
+        bytes32 previousHash;
+        bytes32 merkleRoot;
         uint256 timestamp;
         uint256 nonce;
-        bytes32 merkleRoot;
-        bytes32 previousHash;
+        uint256 index;
+        uint256 primaryIndex;
         address nextConsensus;
-        Witness[] witnesses;
-        Transaction[] transactions;
+        uint256 txCount;
     }
     
+    // Ledger.getTransaction returns the base transaction fields (no signers/witnesses).
     struct Transaction {
         bytes32 hash;
+        uint256 version;
         uint256 nonce;
         address sender;
         uint256 systemFee;
         uint256 networkFee;
         uint256 validUntilBlock;
         bytes script;
-        Witness[] witnesses;
-        Signer[] signers;
     }
     
     struct Witness {
         bytes invocationScript;
         bytes verificationScript;
     }
+
+    uint8 constant WITNESS_RULE_DENY = 0x00;
+    uint8 constant WITNESS_RULE_ALLOW = 0x01;
+
+    uint8 constant WITNESS_CONDITION_BOOLEAN = 0x00;
+    uint8 constant WITNESS_CONDITION_NOT = 0x01;
+    uint8 constant WITNESS_CONDITION_AND = 0x02;
+    uint8 constant WITNESS_CONDITION_OR = 0x03;
+    uint8 constant WITNESS_CONDITION_SCRIPT_HASH = 0x18;
+    uint8 constant WITNESS_CONDITION_GROUP = 0x19;
+    uint8 constant WITNESS_CONDITION_CALLED_BY_ENTRY = 0x20;
+    uint8 constant WITNESS_CONDITION_CALLED_BY_CONTRACT = 0x28;
+    uint8 constant WITNESS_CONDITION_CALLED_BY_GROUP = 0x29;
+
+    // WitnessCondition is represented as a NeoVM Array:
+    // [type, ...condition-specific data]. Use StdLib.serialize/deserialize
+    // if you need to inspect it in Solidity.
+    struct WitnessRule {
+        uint8 action;
+        bytes condition;
+    }
     
+    // WitnessScope bit flags (see Neo WitnessScope enum).
+    uint8 constant WITNESS_SCOPE_NONE = 0x00;
+    uint8 constant WITNESS_SCOPE_CALLED_BY_ENTRY = 0x01;
+    uint8 constant WITNESS_SCOPE_CUSTOM_CONTRACTS = 0x10;
+    uint8 constant WITNESS_SCOPE_CUSTOM_GROUPS = 0x20;
+    uint8 constant WITNESS_SCOPE_WITNESS_RULES = 0x40;
+    uint8 constant WITNESS_SCOPE_GLOBAL = 0x80;
+
     struct Signer {
         address account;
         uint8 scopes;
         address[] allowedContracts;
-        string[] allowedGroups;
+        bytes[] allowedGroups;
+        // Witness rules (only present when scopes includes WITNESS_SCOPE_WITNESS_RULES).
+        WitnessRule[] rules;
     }
     
     struct StorageContext {
-        address contractHash;
+        int256 id;
         bool isReadOnly;
-        uint8 id;
     }
     
     struct Iterator {
@@ -540,15 +1105,27 @@ library Syscalls {
     struct Notification {
         address scriptHash;
         string eventName;
-        bytes data;
+        // State array passed to Runtime.notify(...)
+        bytes[] state;
+    }
+
+    // ContractManagement.getContract returns:
+    // [id, updateCounter, hash, nef, manifestStruct]
+    struct ContractStateNative {
+        int256 id;
+        uint256 updateCounter;
+        address hash;
+        bytes nef;
+        bytes manifest;
     }
     
-    enum TriggerType {
-        OnPersist,
-        PostPersist,
-        Verification,
-        Application
-    }
+    // TriggerType values (Neo.SmartContract.TriggerType)
+    uint8 constant TRIGGER_ON_PERSIST = 0x01;
+    uint8 constant TRIGGER_POST_PERSIST = 0x02;
+    uint8 constant TRIGGER_VERIFICATION = 0x20;
+    uint8 constant TRIGGER_APPLICATION = 0x40;
+    uint8 constant TRIGGER_SYSTEM = TRIGGER_ON_PERSIST | TRIGGER_POST_PERSIST;
+    uint8 constant TRIGGER_ALL = TRIGGER_SYSTEM | TRIGGER_VERIFICATION | TRIGGER_APPLICATION;
     
     // ========== Advanced Syscalls ==========
     
@@ -562,14 +1139,14 @@ library Syscalls {
     /**
      * @dev Get network magic number
      */
-    function getNetwork() internal pure returns (uint32) {
+    function getNetwork() internal view returns (uint32) {
         return uint32(_syscall("System.Runtime.GetNetwork", ""));
     }
     
     /**
      * @dev Get address version
      */
-    function getAddressVersion() internal pure returns (uint8) {
+    function getAddressVersion() internal view returns (uint8) {
         return uint8(_syscall("System.Runtime.GetAddressVersion", ""));
     }
     
@@ -588,74 +1165,80 @@ library Syscalls {
         return _syscall("System.Runtime.GetInvocationCounter", "");
     }
     
-    // ========== Neo-Specific Extensions ==========
-    
-    /**
-     * @dev Check if account is committee member
-     */
-    function isCommittee(address account) internal view returns (bool) {
-        bytes memory data = abi.encode(account);
-        return _syscall("Neo.Crypto.CheckMultisigWithECDsa", data) != 0;
-    }
-    
-    /**
-     * @dev Get next validators
-     */
-    function getNextBlockValidators() internal view returns (address[] memory) {
-        bytes memory result = _syscallBytes("Neo.GetNextBlockValidators", "");
-        return abi.decode(result, (address[]));
-    }
-    
-    /**
-     * @dev Get candidate votes
-     */
-    function getCandidates() internal view returns (Candidate[] memory) {
-        bytes memory result = _syscallBytes("Neo.GetCandidates", "");
-        return abi.decode(result, (Candidate[]));
-    }
-    
-    /**
-     * @dev Get committee members
-     */
-    function getCommittee() internal view returns (address[] memory) {
-        bytes memory result = _syscallBytes("Neo.GetCommittee", "");
-        return abi.decode(result, (address[]));
-    }
-    
-    struct Candidate {
-        bytes publicKey;
-        uint256 votes;
-    }
-    
     // ========== Policy System Calls ==========
     
     /**
      * @dev Get fee per byte
      */
     function getFeePerByte() internal view returns (uint256) {
-        return _syscall("Policy.GetFeePerByte", "");
+        bytes memory result = contractCall(POLICY_CONTRACT, "getFeePerByte", "");
+        return abi.decode(result, (uint256));
     }
     
     /**
      * @dev Get exec fee factor
      */
     function getExecFeeFactor() internal view returns (uint32) {
-        return uint32(_syscall("Policy.GetExecFeeFactor", ""));
+        bytes memory result = contractCall(POLICY_CONTRACT, "getExecFeeFactor", "");
+        return abi.decode(result, (uint32));
     }
-    
+
+    /**
+     * @dev Get exec fee factor in picoGAS units
+     */
+    function getExecPicoFeeFactor() internal view returns (uint256) {
+        bytes memory result = contractCall(POLICY_CONTRACT, "getExecPicoFeeFactor", "");
+        return abi.decode(result, (uint256));
+    }
+
     /**
      * @dev Get storage price
      */
     function getStoragePrice() internal view returns (uint256) {
-        return _syscall("Policy.GetStoragePrice", "");
+        bytes memory result = contractCall(POLICY_CONTRACT, "getStoragePrice", "");
+        return abi.decode(result, (uint256));
     }
-    
+
+    /**
+     * @dev Get block milliseconds
+     */
+    function getMillisecondsPerBlock() internal view returns (uint256) {
+        bytes memory result = contractCall(POLICY_CONTRACT, "getMillisecondsPerBlock", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get max valid-until-block increment
+     */
+    function getMaxValidUntilBlockIncrement() internal view returns (uint256) {
+        bytes memory result = contractCall(POLICY_CONTRACT, "getMaxValidUntilBlockIncrement", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get max traceable blocks
+     */
+    function getMaxTraceableBlocks() internal view returns (uint256) {
+        bytes memory result = contractCall(POLICY_CONTRACT, "getMaxTraceableBlocks", "");
+        return abi.decode(result, (uint256));
+    }
+
+    /**
+     * @dev Get attribute fee
+     */
+    function getAttributeFee(uint8 attributeType) internal view returns (uint256) {
+        bytes memory data = abi.encode(attributeType);
+        bytes memory result = contractCall(POLICY_CONTRACT, "getAttributeFee", data);
+        return abi.decode(result, (uint256));
+    }
+
     /**
      * @dev Check if account is blocked
      */
     function isBlocked(address account) internal view returns (bool) {
         bytes memory data = abi.encode(account);
-        return _syscall("Policy.IsBlocked", data) != 0;
+        bytes memory result = contractCall(POLICY_CONTRACT, "isBlocked", data);
+        return abi.decode(result, (bool));
     }
     
     // ========== Oracle System Calls ==========
@@ -671,14 +1254,15 @@ library Syscalls {
         uint256 gasForResponse
     ) internal {
         bytes memory data = abi.encode(url, filter, callback, userData, gasForResponse);
-        _syscallVoid("Oracle.Request", data);
+        contractCall(ORACLE_CONTRACT, "request", data);
     }
     
     /**
      * @dev Get oracle price
      */
     function getOraclePrice() internal view returns (uint256) {
-        return _syscall("Oracle.GetPrice", "");
+        bytes memory result = contractCall(ORACLE_CONTRACT, "getPrice", "");
+        return abi.decode(result, (uint256));
     }
     
     // ========== Role Management System Calls ==========
@@ -686,18 +1270,10 @@ library Syscalls {
     /**
      * @dev Get designated by role
      */
-    function getDesignatedByRole(bytes1 role, uint256 index) internal view returns (address[] memory) {
+    function getDesignatedByRole(bytes1 role, uint256 index) internal view returns (bytes[] memory) {
         bytes memory data = abi.encode(role, index);
-        bytes memory result = _syscallBytes("RoleManagement.GetDesignatedByRole", data);
-        return abi.decode(result, (address[]));
-    }
-    
-    /**
-     * @dev Check if has role
-     */
-    function hasRole(address account, bytes1 role) internal view returns (bool) {
-        bytes memory data = abi.encode(account, role);
-        return _syscall("RoleManagement.HasRole", data) != 0;
+        bytes memory result = contractCall(ROLE_MANAGEMENT, "getDesignatedByRole", data);
+        return abi.decode(result, (bytes[]));
     }
     
     // ========== Utility Functions ==========
@@ -724,18 +1300,30 @@ library Syscalls {
     }
     
     /**
-     * @dev Get contract script
+     * @dev Get contract NEF (script container)
+     *
+     * NOTE: The neo-solidity compiler treats this as an intrinsic and lowers it
+     * to `ContractManagement.getContract(contractHash).nef`.
      */
     function getContractScript(address contractHash) internal view returns (bytes memory) {
         bytes memory data = abi.encode(contractHash);
-        return _syscallBytes("ContractManagement.GetContract", data);
+        bytes memory result = contractCall(CONTRACT_MANAGEMENT, "getContract", data);
+        if (result.length == 0) {
+            return "";
+        }
+        ContractStateNative memory state = abi.decode(result, (ContractStateNative));
+        return state.nef;
     }
     
     /**
      * @dev Check if contract exists
+     *
+     * NOTE: The compiler lowers this helper to `ContractManagement.isContract(contractHash)`
+     * on Neo N3 for correctness and efficiency.
      */
     function contractExists(address contractHash) internal view returns (bool) {
-        bytes memory script = getContractScript(contractHash);
-        return script.length > 0;
+        bytes memory data = abi.encode(contractHash);
+        bytes memory result = contractCall(CONTRACT_MANAGEMENT, "isContract", data);
+        return abi.decode(result, (bool));
     }
 }

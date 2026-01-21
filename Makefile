@@ -2,7 +2,7 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-solidity
 
-.PHONY: all build clean test docs install format lint release help
+.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test
 
 all: build
 
@@ -13,8 +13,118 @@ build:
 
 test:
 	@echo "🧪 Running tests..."
-	cargo test
+	cargo test --workspace
 	@echo "✅ Tests passed"
+
+test-all: test tooling-test tooling-lint
+	@echo "✅ Core test suites complete"
+
+test-all-full: test tooling-test runtime-test
+	@echo "✅ Full test suites complete"
+
+test-deploy-smoke:
+	@echo "🚀 Running Neo-Express deploy smoke test..."
+	bash examples/test_neoxp_deploy.sh
+
+test-deploy-callt-smoke:
+	@echo "🪙 Running Neo-Express CALLT smoke test..."
+	bash examples/test_neoxp_callt_smoke.sh
+
+test-deploy-constructor-smoke:
+	@echo "🏗️  Running Neo-Express constructor deploy smoke test..."
+	bash examples/test_neoxp_constructor_smoke.sh
+
+test-deploy-update-smoke:
+	@echo "🔁 Running Neo-Express contract update smoke test..."
+	bash examples/test_neoxp_update_smoke.sh
+
+test-deploy-permissions-smoke:
+	@echo "🔐 Running Neo-Express manifest permissions smoke test..."
+	bash examples/test_neoxp_permissions_smoke.sh
+
+test-deploy-encoding-smoke:
+	@echo "🧩 Running Neo-Express abi.encode/abi.decode smoke test..."
+	bash examples/test_neoxp_encoding_smoke.sh
+
+test-deploy-abortmsg-smoke:
+	@echo "💥 Running Neo-Express revert reason smoke test..."
+	bash examples/test_neoxp_abortmsg_smoke.sh
+
+test-deploy-lowlevel-call-smoke:
+	@echo "📞 Running Neo-Express low-level call smoke test..."
+	bash examples/test_neoxp_lowlevel_call_smoke.sh
+
+test-deploy-lowlevel-call-failure-smoke:
+	@echo "📞 Running Neo-Express low-level call failure smoke test..."
+	bash examples/test_neoxp_lowlevel_call_failure_smoke.sh
+
+test-deploy-external-call-smoke:
+	@echo "🔗 Running Neo-Express external member-call smoke test..."
+	bash examples/test_neoxp_external_member_call_smoke.sh
+
+test-deploy-view-readonly-call-smoke:
+	@echo "🔒 Running Neo-Express view ReadOnly external-call smoke test..."
+	bash examples/test_neoxp_view_readonly_call_smoke.sh
+
+test-deploy-compound-assignment-smoke:
+	@echo "🧮 Running Neo-Express compound assignment smoke test..."
+	bash examples/test_neoxp_compound_assignment_smoke.sh
+
+test-deploy-struct-array-element-smoke:
+	@echo "📦 Running Neo-Express struct-array element smoke test..."
+	bash examples/test_neoxp_struct_array_element_smoke.sh
+
+test-deploy-nested-struct-smoke:
+	@echo "🧬 Running Neo-Express nested struct storage smoke test..."
+	bash examples/test_neoxp_nested_struct_storage_smoke.sh
+
+test-deploy-delete-smoke:
+	@echo "🗑️  Running Neo-Express delete smoke test..."
+	bash examples/test_neoxp_delete_smoke.sh
+
+test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke
+	@echo "✅ Neo-Express smoke tests complete"
+
+install-deps: tooling-install
+	@echo "📦 Fetching Rust dependencies..."
+	cargo fetch
+	@echo "✅ Dependencies installed"
+
+tooling-install:
+	@echo "📦 Installing tooling dependencies..."
+	npm --prefix tooling install
+	@echo "✅ Tooling dependencies installed"
+
+tooling-build: tooling-install
+	@echo "🔨 Building tooling packages..."
+	npm --prefix tooling run build
+	@echo "✅ Tooling build complete"
+
+tooling-test: tooling-install
+	@echo "🧪 Running tooling tests..."
+	npm --prefix tooling test
+	@echo "✅ Tooling tests passed"
+
+tooling-lint: tooling-install
+	@echo "🔍 Linting tooling packages..."
+	npm --prefix tooling run lint
+	@echo "✅ Tooling lint passed"
+
+runtime-build:
+	@echo "🔨 Building C# runtime (optional)..."
+	@if command -v dotnet >/dev/null 2>&1; then \
+		dotnet build src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj --configuration Release; \
+	else \
+		echo "⚠️  dotnet not found; skipping runtime build"; \
+	fi
+
+runtime-test:
+	@echo "🧪 Running C# runtime tests (optional)..."
+	@if command -v dotnet >/dev/null 2>&1; then \
+		dotnet test tests/Neo.Sol.Runtime.Tests/Neo.Sol.Runtime.Tests.csproj --configuration Release; \
+	else \
+		echo "⚠️  dotnet not found; skipping runtime tests"; \
+	fi
 
 clean:
 	@echo "🧹 Cleaning build artifacts..."

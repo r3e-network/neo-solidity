@@ -1,5 +1,5 @@
 #[test]
-fn address_code_length_uses_contract_getcontract_syscall() {
+fn address_code_length_uses_contract_management_iscontract() {
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -19,25 +19,26 @@ fn address_code_length_uses_contract_getcontract_syscall() {
         .expect("expected len function");
 
     let instrs = &len_fn.basic_blocks[0].instructions;
-    let mut saw_getcontract = false;
-    let mut saw_null = false;
+    let mut saw_is_contract = false;
 
     for instr in instrs {
         match instr {
             ir::Instruction::CallBuiltin {
-                builtin: ir::BuiltinCall::Syscall(name),
+                builtin:
+                    ir::BuiltinCall::NativeCall {
+                        contract: ir::NativeContract::ContractManagement,
+                        method,
+                    },
                 ..
-            } if name == "System.Contract.GetContract" => saw_getcontract = true,
-            ir::Instruction::PushLiteral(ir::LiteralValue::Null) => saw_null = true,
+            } if method == "isContract" => saw_is_contract = true,
             _ => {}
         }
     }
 
     assert!(
-        saw_getcontract,
-        "expected code.length to call System.Contract.GetContract"
+        saw_is_contract,
+        "expected code.length to call ContractManagement.isContract"
     );
-    assert!(saw_null, "expected code.length to compare against NULL");
 }
 
 #[test]

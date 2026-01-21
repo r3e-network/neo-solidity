@@ -1,4 +1,4 @@
-import { task, types } from "hardhat/config";
+import { task, types } from "hardhat/config.js";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
 
@@ -50,6 +50,7 @@ task("neo-deploy-and-verify", "Deploy and verify contract in one step")
       console.log(`   Contract: ${deploymentAddress}`);
       console.log(`   Explorer: https://explorer.neo.org/contract/${deploymentAddress}`);
 
+      return deployResult;
     } catch (error) {
       console.error(chalk.red("❌ Deploy and verify failed:"));
       console.error(error instanceof Error ? error.message : String(error));
@@ -87,13 +88,13 @@ task("neo-redeploy", "Redeploy contract (useful for development)")
 
 task("neo-deploy-upgrade", "Deploy contract upgrade")
   .addParam("contract", "Contract name to upgrade")
-  .addParam("proxy", "Proxy contract address")
+  .addParam("proxy", "Deployed contract address to upgrade")
   .addOptionalParam("args", "Upgrade arguments (JSON array)", "[]")
   .addOptionalParam("from", "Account to deploy from")
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
     const { contract, proxy, args, from } = taskArgs;
     
-    console.log(chalk.blue(`🆙 Deploying upgrade for ${contract} via proxy ${proxy}...`));
+    console.log(chalk.blue(`🆙 Upgrading ${contract} at ${proxy}...`));
 
     try {
       // Parse upgrade arguments
@@ -106,29 +107,61 @@ task("neo-deploy-upgrade", "Deploy contract upgrade")
         }
       }
 
-      // Deploy new implementation
-      console.log(chalk.yellow("1️⃣ Deploying new implementation..."));
-      
-      const deployment = await hre.neoDeploy.deployer.deploy(`${contract}_Implementation`, upgradeArgs, {
-        from
-      });
+      // Set deployment account if specified
+      if (from) {
+        hre.neoDeploy.accounts.setDefaultAccount(from);
+      }
 
-      console.log(chalk.green(`✅ New implementation deployed at ${deployment.address}`));
+      // Load build artifact for the new code
+      const artifactsAny = (hre as any).neoSolc?.artifacts;
+      if (typeof artifactsAny?.getBuildArtifact !== "function") {
+        throw new Error(
+          "Neo build artifacts not available. Install and use @neo-solidity/hardhat-solc-neo and run `npx hardhat neo-compile`."
+        );
+      }
 
-      // Get proxy contract
-      console.log(chalk.yellow("2️⃣ Updating proxy..."));
-      
-      await hre.neoDeploy.deployer.getContract("Proxy", proxy);
-      
-      // Update proxy to point to new implementation
-      // This would depend on the specific proxy pattern being used
-      console.log(chalk.yellow("📝 Proxy update transaction would be created here"));
-      
-      console.log(chalk.green("✅ Contract upgrade completed!"));
-      console.log(chalk.blue("📋 Upgrade Summary:"));
-      console.log(`   Proxy: ${proxy}`);
-      console.log(`   New Implementation: ${deployment.address}`);
-      console.log(`   Transaction: ${deployment.transactionHash}`);
+      let buildArtifact = await artifactsAny.getBuildArtifact(contract);
+      if (!buildArtifact) {
+        console.log(chalk.yellow("🔧 No build artifact found, compiling..."));
+        await hre.run("neo-compile", { force: true, quiet: true });
+        buildArtifact = await artifactsAny.getBuildArtifact(contract);
+      }
+      if (!buildArtifact?.contract?.neo?.nef?.image) {
+        throw new Error(`Build artifact for ${contract} is missing NEF image data`);
+      }
+      if (!buildArtifact?.contract?.neo?.manifest) {
+        throw new Error(`Build artifact for ${contract} is missing manifest data`);
+      }
+
+      const manifestJson = JSON.stringify(buildArtifact.contract.neo.manifest);
+      const nefHex = buildArtifact.contract.neo.nef.image;
+
+      // Upgrade is performed by calling the deployed contract's own `update` entry point.
+      // Contracts must implement an `update(nef, manifest, data)` method that calls
+      // `ContractManagement.update(...)` and enforces authorization (e.g., checkWitness).
+      console.log(chalk.yellow("1️⃣ Preparing upgrade transaction (calling update)..."));
+
+      const target = await hre.neoDeploy.deployer.getContract(contract, proxy);
+      const updateMethod = (target.methods as any).update;
+      if (!updateMethod) {
+        throw new Error(
+          `Contract ABI for ${contract} does not expose an update method. ` +
+            `Implement \`update(bytes nef, string manifest, any data)\` in your contract to enable upgrades.`
+        );
+      }
+
+      const txResult = await updateMethod.invoke(nefHex, manifestJson, upgradeArgs);
+
+      console.log(chalk.green("✅ Upgrade transaction broadcast"));
+      console.log(chalk.blue("📋 Upgrade Details:"));
+      console.log(`   Contract: ${proxy}`);
+      console.log(`   Tx Hash: ${txResult.hash}`);
+
+      const receipt = await txResult.wait();
+      console.log(chalk.blue(`   VM State: ${receipt.neo.vmState}`));
+      console.log(chalk.blue(`   Status: ${receipt.status}`));
+
+      return { transactionHash: txResult.hash, receipt };
 
     } catch (error) {
       console.error(chalk.red("❌ Contract upgrade failed:"));
@@ -146,17 +179,12 @@ async function waitForBlocks(hre: HardhatRuntimeEnvironment, blocks: number): Pr
   
   console.log(chalk.gray(`   Waiting for block ${targetBlock} (current: ${startBlock})...`));
   
-  while (true) {
-    const currentBlock = await hre.neoDeploy.rpc.getBlockCount();
-    
-    if (currentBlock >= targetBlock) {
-      break;
-    }
-    
+  let currentBlock = await hre.neoDeploy.rpc.getBlockCount();
+  while (currentBlock < targetBlock) {
     // Wait 15 seconds (average Neo block time)
     await new Promise(resolve => setTimeout(resolve, 15000));
-    
     process.stdout.write(chalk.gray("."));
+    currentBlock = await hre.neoDeploy.rpc.getBlockCount();
   }
   
   console.log(chalk.gray(" ✅"));

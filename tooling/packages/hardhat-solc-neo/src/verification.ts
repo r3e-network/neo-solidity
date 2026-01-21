@@ -2,7 +2,7 @@ import {
   ContractVerifier,
   MultiVerifier,
   VerificationRequest,
-  VerificationResult,
+  ExplorerVerificationResult as VerificationResult,
   VerificationStatus,
   SourceCodeResult,
   SimilarContract,
@@ -14,14 +14,11 @@ import {
   VerificationPipeline,
   VerificationStep,
   VerificationContext,
-  StepResult,
   BytecodeMetadata,
   SecurityAnalysis
 } from '@neo-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
-import * as fs from 'fs-extra';
-import * as path from 'path';
 import * as crypto from 'crypto';
 
 export class NeoContractVerifier extends EventEmitter implements ContractVerifier {
@@ -526,7 +523,7 @@ export class NeoBytecodeAnalyzer extends EventEmitter implements BytecodeAnalyze
     return metadata;
   }
 
-  async decompile(bytecode: string): Promise<DecompiledCode> {
+  async decompile(_bytecode: string): Promise<DecompiledCode> {
     // This would implement bytecode decompilation
     // Simplified implementation
     return {
@@ -562,27 +559,27 @@ export class NeoBytecodeAnalyzer extends EventEmitter implements BytecodeAnalyze
     return functions;
   }
 
-  private async extractEvents(bytecode: string): Promise<any[]> {
+  private async extractEvents(_bytecode: string): Promise<any[]> {
     // Extract event signatures from bytecode
     return [];
   }
 
-  private async extractErrors(bytecode: string): Promise<any[]> {
+  private async extractErrors(_bytecode: string): Promise<any[]> {
     // Extract custom error signatures
     return [];
   }
 
-  private async extractStorage(bytecode: string): Promise<any[]> {
+  private async extractStorage(_bytecode: string): Promise<any[]> {
     // Analyze storage layout from bytecode
     return [];
   }
 
-  private async extractImports(bytecode: string): Promise<string[]> {
+  private async extractImports(_bytecode: string): Promise<string[]> {
     // Extract imported contracts/libraries
     return [];
   }
 
-  private async extractLibraries(bytecode: string): Promise<any[]> {
+  private async extractLibraries(_bytecode: string): Promise<any[]> {
     // Extract linked libraries
     return [];
   }
@@ -620,7 +617,7 @@ export class NeoBytecodeAnalyzer extends EventEmitter implements BytecodeAnalyze
     };
   }
 
-  private async compileSource(sourceCode: string, compiler: any): Promise<string> {
+  private async compileSource(_sourceCode: string, _compiler: any): Promise<string> {
     // This would compile the source code using the specified compiler
     // For now, return empty bytecode
     return '0x';

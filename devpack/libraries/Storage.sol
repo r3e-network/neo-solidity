@@ -71,6 +71,17 @@ library Storage {
     function getReadOnlyContext() internal view returns (Syscalls.StorageContext memory) {
         return Syscalls.getReadOnlyStorageContext();
     }
+
+    /**
+     * @dev Convert storage context to read-only
+     */
+    function asReadOnly(Syscalls.StorageContext memory context)
+        internal
+        view
+        returns (Syscalls.StorageContext memory)
+    {
+        return Syscalls.storageAsReadOnly(context);
+    }
     
     // ========== Basic Storage Operations ==========
     
@@ -124,6 +135,48 @@ library Storage {
         bytes memory value = get(key);
         return value.length > 0;
     }
+
+    // ========== Local Storage Operations ==========
+
+    /**
+     * @dev Store value by key (local context)
+     */
+    function putLocal(bytes memory key, bytes memory value) internal {
+        require(_config.initialized, "Storage: not initialized");
+
+        Syscalls.storagePutLocal(key, value);
+
+        // Track usage
+        _config.totalOperations++;
+        _config.totalBytes += value.length;
+        _config.keyExists[key] = true;
+
+        emit StorageOperation("PUT_LOCAL", key, value.length);
+    }
+
+    /**
+     * @dev Get value by key (local context)
+     */
+    function getLocal(bytes memory key) internal view returns (bytes memory) {
+        require(_config.initialized, "Storage: not initialized");
+
+        return Syscalls.storageGetLocal(key);
+    }
+
+    /**
+     * @dev Remove value by key (local context)
+     */
+    function removeLocal(bytes memory key) internal {
+        require(_config.initialized, "Storage: not initialized");
+
+        Syscalls.storageDeleteLocal(key);
+
+        // Track usage
+        _config.totalOperations++;
+        _config.keyExists[key] = false;
+
+        emit StorageOperation("DELETE_LOCAL", key, 0);
+    }
     
     // ========== Iterator Operations ==========
     
@@ -135,6 +188,15 @@ library Storage {
         
         Syscalls.StorageContext memory context = getReadOnlyContext();
         return Syscalls.storageFind(context, prefix);
+    }
+
+    /**
+     * @dev Find all keys with prefix (local context)
+     */
+    function findLocal(bytes memory prefix) internal view returns (Iterator memory) {
+        require(_config.initialized, "Storage: not initialized");
+
+        return Syscalls.storageFindLocal(prefix);
     }
     
     /**
@@ -150,6 +212,25 @@ library Storage {
             count++;
         }
         
+        // Resize array to actual count
+        assembly {
+            mstore(values, count)
+        }
+    }
+
+    /**
+     * @dev Get all values with prefix (local context)
+     */
+    function findLocalValues(bytes memory prefix) internal view returns (bytes[] memory values) {
+        Iterator memory iterator = findLocal(prefix);
+        values = new bytes[](1000); // Max 1000 results
+        uint256 count = 0;
+
+        while (iterator.next() && count < 1000) {
+            values[count] = iterator.value();
+            count++;
+        }
+
         // Resize array to actual count
         assembly {
             mstore(values, count)
@@ -174,6 +255,25 @@ library Storage {
             mstore(keys, count)
         }
     }
+
+    /**
+     * @dev Get all keys with prefix (local context)
+     */
+    function findLocalKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
+        Iterator memory iterator = findLocal(prefix);
+        keys = new bytes[](1000); // Max 1000 results
+        uint256 count = 0;
+
+        while (iterator.next() && count < 1000) {
+            keys[count] = iterator.currentKey;
+            count++;
+        }
+
+        // Resize array to actual count
+        assembly {
+            mstore(keys, count)
+        }
+    }
     
     /**
      * @dev Count entries with prefix
@@ -186,6 +286,20 @@ library Storage {
             total++;
         }
         
+        return total;
+    }
+
+    /**
+     * @dev Count entries with prefix (local context)
+     */
+    function countLocal(bytes memory prefix) internal view returns (uint256) {
+        Iterator memory iterator = findLocal(prefix);
+        uint256 total = 0;
+
+        while (iterator.next()) {
+            total++;
+        }
+
         return total;
     }
     

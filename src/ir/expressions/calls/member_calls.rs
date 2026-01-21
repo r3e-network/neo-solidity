@@ -62,6 +62,11 @@ fn try_lower_member_call(
                         "POLICY_CONTRACT" => Some(NativeContract::Policy),
                         "ORACLE_CONTRACT" => Some(NativeContract::Oracle),
                         "ROLE_MANAGEMENT" => Some(NativeContract::RoleManagement),
+                        "NOTARY_CONTRACT" => Some(NativeContract::Notary),
+                        "TREASURY_CONTRACT" => Some(NativeContract::Treasury),
+                        "LEDGER_CONTRACT" => Some(NativeContract::Ledger),
+                        "CRYPTO_LIB" => Some(NativeContract::CryptoLib),
+                        "STD_LIB" => Some(NativeContract::StdLib),
                         _ => None,
                     }
                 }

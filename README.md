@@ -45,30 +45,74 @@ neo-solc contract.sol -o contract
 # With optimization
 neo-solc contract.sol -O3 -o contract
 
-# Include debug information  
-neo-solc contract.sol --debug --source-map -o contract
+# Emit CALLT + method tokens (more efficient native contract calls)
+neo-solc contract.sol --callt -O3 -o contract
 
 # Generate only specific formats
 neo-solc contract.sol -f nef -o contract.nef
 neo-solc contract.sol -f manifest -o contract.manifest.json
+neo-solc contract.sol -f assembly -o contract.asm
 ```
 
-### Batch Compilation (Reference Suite)
+### Batch Compilation (Examples)
 
-The repository includes a complete Uniswap-compatible contract tree under
-`uniswap/`. To exercise the compiler against this suite and produce `.nef` plus
-`.manifest.json` outputs for every contract, run:
+The repository ships a handful of non-trivial Solidity contracts under `examples/`
+(ERC-20/721, UniswapV2Pair, governance, multisig). To compile them all into Neo
+artifacts:
 
 ```bash
-find -L uniswap -name '*.sol' | sort \
-  | xargs -I{} target/debug/neo-solc {} -o build/uniswap_latest/$(basename {} .sol)
+mkdir -p build/examples
+for f in examples/*.sol; do
+  target/release/neo-solc "$f" -I devpack -O2 -o "build/examples/$(basename "$f" .sol)"
+done
 ```
 
-Each invocation produces `*.nef` and `*.manifest.json` files inside
-`build/uniswap_latest/`, along with logs and a `compile_summary.csv` that
-captures success/failure for every contract (current run: `SUCCESS=132 FAIL=0`).
-This is the simplest way to verify that the compiler emits deployable Neo
-artifacts for a large, real-world codebase.
+For a quick end-to-end sanity check (NEF magic + manifest structure), run:
+
+```bash
+bash examples/test_compilation.sh
+```
+
+For a local deploy + invoke smoke test (fresh Neo-Express chain), run:
+
+```bash
+make test-deploy-smoke
+# or:
+bash examples/test_neoxp_deploy.sh
+```
+
+For a deploy smoke test that validates parameterised Solidity constructors
+(constructor args passed via `_deploy(data, update)`), run:
+
+```bash
+make test-deploy-constructor-smoke
+# or:
+bash examples/test_neoxp_constructor_smoke.sh
+```
+
+For an additional deploy test that validates manifest permissions for native
+contracts (StdLib/CryptoLib) via mapping storage, run:
+
+```bash
+make test-deploy-permissions-smoke
+# or:
+bash examples/test_neoxp_permissions_smoke.sh
+```
+
+To run all Neo-Express smoke tests:
+
+```bash
+make test-deploy-smoke-full
+```
+
+For an on-chain check that `abi.encode` / `abi.decode` preserve argument order
+(StdLib.serialize/deserialize round-trip), run:
+
+```bash
+make test-deploy-encoding-smoke
+# or:
+bash examples/test_neoxp_encoding_smoke.sh
+```
 
 ### Runtime Semantics & Metadata
 
@@ -123,6 +167,13 @@ neo-solc SimpleToken.sol -O2 -o SimpleToken
 # This generates: SimpleToken.nef + SimpleToken.manifest.json
 
 # 2. Deploy to Neo TestNet
+# If your Solidity constructor has parameters, pass constructor args through
+# `_deploy(data, update)`. Neo-Express / CLI tooling: pass a JSON array string
+# (e.g. `[1000000]`); SDKs that support StackItems may pass an Array directly.
+# For contract-to-contract deploy flows, `abi.encode(...)` (StdLib.serialize bytes) is also supported.
+#
+# For local Neo-Express deploys, see:
+#   bash examples/test_neoxp_constructor_smoke.sh
 neo-cli contract deploy SimpleToken.nef SimpleToken.manifest.json
 
 # 3. Verify deployment  
@@ -179,14 +230,12 @@ cd neo-solidity
 # Build compiler
 cargo build --release
 
-# Build runtime library
-cd runtime
-dotnet build --configuration Release
+# (Optional) Build C# runtime library (requires .NET SDK)
+dotnet build src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj --configuration Release
 
-# Build tooling
-cd tooling
-npm install
-npm run build
+# (Optional) Build tooling packages
+npm --prefix tooling install
+npm --prefix tooling run build
 
 # Run comprehensive tests
 make test-all
@@ -195,14 +244,14 @@ make test-all
 #### **Development Setup**
 
 ```bash
-# Install development dependencies
+# Install development dependencies (Rust + tooling)
 make install-deps
 
-# Setup pre-commit hooks
-make setup-hooks
+# Build tooling packages
+make tooling-build
 
-# Run development server with auto-reload
-make dev
+# Run all test suites
+make test-all
 ```
 
 ### CLI Reference
@@ -219,45 +268,56 @@ neo-solc contract.sol -o MyContract
 # Set optimization level (0-3)
 neo-solc contract.sol -O3
 
-# Target specific NeoVM version
-neo-solc contract.sol -t 3.5
-
 # Generate specific formats
 neo-solc contract.sol -f nef          # Only .nef file
 neo-solc contract.sol -f manifest     # Only .manifest.json
 neo-solc contract.sol -f complete     # Both files (default)
+neo-solc contract.sol -f assembly     # NeoVM disassembly (.asm)
+
+# Resolve Solidity imports (repeatable)
+neo-solc contracts/Token.sol -I contracts -I lib -o build/Token
 ```
 
 #### Advanced Options
 
 ```bash
-# Security analysis mode
-neo-solc contract.sol --analyze --focus security
-
-# Performance profiling
-neo-solc contract.sol --analyze --focus performance
+# Emit CALLT + method tokens for native calls
+neo-solc contract.sol --callt -O3 -o contract
 
 # JSON output with all information
 neo-solc contract.sol -f json -o contract.json
 
-# Custom gas model
-neo-solc contract.sol --gas-model hybrid
-
-# Validation only (no compilation)
-neo-solc contract.sol --validate
-
 # Verbose output for debugging
-neo-solc contract.sol -v --debug
+neo-solc contract.sol -v
 
 # Override NEF source field and emit JSON warnings
 neo-solc contract.sol --nef-source https://example.com/src.sol --json-warnings
+
+# Predict the deployed contract hash (Neo derives it from sender + NEF checksum + manifest name)
+neo-solc contract.sol --deployer 0x0123456789abcdef0123456789abcdef01234567
+
+# Only emit outputs for specific contracts (repeatable; useful when imports include extra contracts)
+neo-solc contract.sol --contract MyContract -o build/MyContract
+
+# Fail compilation if full wildcard manifest permissions are required
+neo-solc contract.sol --deny-wildcard-permissions
+
+# Stricter: fail compilation if any wildcard contract permissions are required
+neo-solc contract.sol --deny-wildcard-contracts
+
+# Stricter: fail compilation if any wildcard method permissions are required
+neo-solc contract.sol --deny-wildcard-methods
+
+# Provide an explicit allowlist to replace wildcard permissions (useful for dynamic calls)
+neo-solc contract.sol --manifest-permissions permissions.json --manifest-permissions-mode replace-wildcards \
+  --deny-wildcard-contracts --deny-wildcard-methods
 
 # Emit structured errors to stderr as JSON
 neo-solc contract.sol --json-errors
 
 Structured diagnostics (stderr):
-- Warnings (JSON): `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`, validation codes (e.g., `DUPLICATE_SIGNATURE`, `INVALID_STORAGE_PARAM`)
-- Errors (JSON): `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`
+- Warnings (JSON): `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`, `MANIFEST_FULL_WILDCARD`, `MANIFEST_WILDCARD_CONTRACT`, `MANIFEST_WILDCARD_METHODS`, validation codes (e.g., `DUPLICATE_SIGNATURE`, `INVALID_STORAGE_PARAM`)
+- Errors (JSON): `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `MANIFEST_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`
 ```
 
 > **Structured diagnostics:**  
@@ -282,40 +342,41 @@ neo-solc contracts/*.sol -O3 -o build/
 
 #### Hardhat Integration
 
-```javascript
-// hardhat.config.js
-require('@neo-solidity/hardhat-solc-neo');
-require('@neo-solidity/hardhat-neo-deployer');
+Hardhat integration is primarily useful for **compilation + artifact management**.
 
-module.exports = {
-  solidity: {
-    version: "0.8.19",
-    settings: {
-      neo: {
-        target: "3.0",
-        optimization: 3,
-        gasModel: "neo"
+```ts
+// hardhat.config.ts
+import "@neo-solidity/hardhat-solc-neo";
+
+export default {
+  neoSolc: {
+    solidity: {
+      version: "0.8.20",
+      settings: {
+        optimizer: { enabled: true, runs: 200 },
+        neo: {
+          // neo-solc flags forwarded by the plugin:
+          callt: true,
+          denyWildcardContracts: true,
+          denyWildcardMethods: true
+          // If your contract uses intentional dynamic calls, provide an allowlist:
+          // manifestPermissions: "./permissions.json",
+          // manifestPermissionsMode: "replace-wildcards",
+        }
       }
-    }
-  },
-  networks: {
-    neo_testnet: {
-      url: "http://seed1t5.neo.org:20332",
-      accounts: ["your-private-key"]
     }
   }
 };
 ```
 
 ```bash
-# Compile contracts
+# Compile contracts (standard-json via neo-solc)
 npx hardhat neo-compile
+```
 
-# Deploy to Neo
-npx hardhat neo-deploy --network neo_testnet --contract SimpleToken
-
-# Verify contracts
-npx hardhat neo-verify --network neo_testnet
+```bash
+# Deploy to Neo (requires a funded account in neoNetworks.<network>.accounts)
+npx hardhat neo-deploy --contract MyContract --network testnet
 ```
 
 #### Foundry Integration
@@ -334,8 +395,7 @@ neo-forge build
 # Run tests
 neo-forge test
 
-# Deploy contract
-neo-cast deploy SimpleToken --constructor-args 1000000
+Neo Foundry commands are currently scaffolding-only; use `neo-solc` + `neo-cli` for deployment.
 ```
 
 #### Direct Integration
@@ -507,14 +567,14 @@ address[] holders; // Expensive to search
 #### **Gas Optimization**
 
 ```bash
-# Analyze gas usage
-neo-solc contract.sol --analyze --focus performance
-
 # Compare optimization levels
 neo-solc contract.sol -O0 -o contract-O0
 neo-solc contract.sol -O3 -o contract-O3
 # Compare the generated .nef file sizes
 ls -la contract-O0.nef contract-O3.nef
+
+# Inspect generated NeoVM assembly
+neo-solc contract.sol -f assembly -o contract.asm
 ```
 
 ### **🔒 Security Best Practices**
@@ -522,14 +582,15 @@ ls -la contract-O0.nef contract-O3.nef
 #### **Automated Security Analysis**
 
 ```bash
-# Run security analyzer
-neo-solc contract.sol --analyze --focus security
+# neo-solc currently focuses on compilation and does not ship a built-in
+# `--analyze` security mode. Use external Solidity analysis tooling + review,
+# then compile with neo-solc.
+neo-solc contract.sol --deny-wildcard-permissions -O3 -o contract
 
-# Generate security report  
-neo-solc contract.sol --analyze -f json -o security.json
-
-# Check for common vulnerabilities
-neo-solc contract.sol --analyze --focus security
+# Stricter builds (recommended for production):
+# - reject wildcard contract permissions (contract='*')
+# - reject wildcard method permissions (methods='*')
+neo-solc contract.sol --deny-wildcard-contracts --deny-wildcard-methods -O3 -o contract
 ```
 
 #### **Common Security Patterns**
@@ -563,14 +624,15 @@ function transfer(address to, uint256 amount) public {
 #### **Debug Information**
 
 ```bash
-# Compile with debug info
-neo-solc contract.sol --debug --source-map -o contract
-
-# View debug information
-cat contract.debug.json | jq '.'
+# Compile with verbose output (prints a high-level IR summary)
+neo-solc contract.sol -v
 
 # View manifest information
 cat contract.manifest.json | jq '.'
+
+# View NeoVM assembly (disassembly)
+neo-solc contract.sol -f assembly -o contract.asm
+cat contract.asm
 ```
 
 #### **Common Issues & Solutions**
@@ -584,24 +646,8 @@ cat contract.manifest.json | jq '.'
 
 #### **Interactive Debugging**
 
-```bash
-# Start debug session
-neo-debug contract.json --input transaction.json
-
-# Set breakpoints
-(neo-debug) break contract.sol:42
-(neo-debug) break transfer
-
-# Step through execution
-(neo-debug) step
-(neo-debug) next
-(neo-debug) continue
-
-# Inspect state
-(neo-debug) print balances[msg.sender]
-(neo-debug) stack
-(neo-debug) memory 0x40 32
-```
+neo-solc does not currently generate source maps or ship an interactive debugger.
+Use Neo N3 tooling (neo-cli / neo-express / RPC tracing) for on-chain debugging.
 
 ### **📊 Performance Benchmarks**
 
@@ -689,6 +735,7 @@ make publish
 - ✅ Semantic analyzer with type checking and optimization
 - ✅ Multi-level optimizer (4 levels: 0-3)
 - ✅ Complete NeoVM code generator
+- ✅ Solidity-style public state variable getters
 - ✅ Comprehensive error handling and reporting
 - ✅ CLI interface with 25+ options
 - ✅ Neo N3 native formats (.nef and .manifest.json)
@@ -755,6 +802,9 @@ While the compiler is production-ready for most use cases, please note:
 
 | Area | Status | Notes |
 |------|--------|-------|
+| **Function Overloading** | Partial | Neo ABI dispatches by method name + arg count. Overloads with different arg counts are supported via signature-mangled Neo names (e.g., `foo(uint256)`); overloads with the same arg count are rejected. |
+| **EVM Call Options** | Partial | `{gas: ...}` is accepted but ignored (Neo N3 has no per-invocation gas limit). `{value: 0}` is accepted but ignored. Non-zero `{value: ...}` is unsupported; use NEP-17 transfers (`NativeCalls.gasTransfer`/`NativeCalls.neoTransfer`) and handle funds via `onNEP17Payment`. |
+| **Low-Level Calls** | Partial | `address.call(...)` / `address.staticcall(...)` can be lowered to Neo `System.Contract.Call` when the call data comes from `abi.encodeWithSignature/encodeWithSelector(...)` (either inlined, or stored in a local `bytes` variable). Raw ABI calldata bytes are not supported. |
 | **Gas Accounting** | Approximate | Per-syscall gas hints; opcode-level fees ~80% accurate |
 | **Iterator Streaming** | Partial | `Storage.Find` returns handles; streaming not fully implemented |
 | **Cryptographic Syscalls** | Stubs | `CheckWitness`, `GetRandom` return mock values in embedded runtime |
@@ -803,6 +853,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Comprehensive event logging
 
 #### **🎨 [ERC721 NFT](./examples/ERC721Token.sol)** (850 lines)
+- Note: this example includes EVM-specific patterns (inline assembly + `.selector`) and is not currently supported end-to-end; prefer `examples/new/NFT.sol` or `devpack/examples/CompleteNEP11NFT.sol` for Neo N3.
 - Full NFT implementation with metadata
 - Enumerable extension for token discovery
 - Royalty support (EIP-2981)
@@ -817,6 +868,8 @@ We've included complete, production-ready implementations of popular contract pa
 - Advanced mathematical operations
 
 #### **🔐 [MultiSig Wallet](./examples/MultiSigWallet.sol)** (720 lines)
+- Neo-adapted: uses native GAS (NEP-17) transfers and accepts deposits via `onNEP17Payment`.
+- Smaller Neo-native example: `examples/new/MultiSigWalletNEP17.sol`.
 - Multi-signature transaction approval
 - Owner management and daily limits
 - Emergency stop functionality
@@ -824,6 +877,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Comprehensive security features
 
 #### **🗳️ [Governance Token](./examples/GovernanceToken.sol)** (980 lines)
+- Neo-adapted: proposals cannot attach native value (`values[]` must be `0`); use NEP-17 transfers and a Neo-compatible timelock contract instead.
 - ERC20 with voting capabilities
 - Delegation and vote tracking
 - Proposal creation and execution

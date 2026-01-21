@@ -10,6 +10,19 @@ fn try_lower_syscalls_member_builtin(
     }
 
     match member.name.as_str() {
+        "getNotifications" => {
+            if args.is_empty() {
+                // System.Runtime.GetNotifications accepts a nullable hash; omit the argument
+                // by pushing Null to request all notifications.
+                instructions.push(Instruction::PushLiteral(LiteralValue::Null));
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::Syscall("System.Runtime.GetNotifications".to_string()),
+                    arg_count: 1,
+                });
+                return Some(true);
+            }
+            None
+        }
         "scriptHashToAddress" => {
             if args.len() != 1 {
                 ctx.record_error(format!(

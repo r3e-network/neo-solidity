@@ -41,7 +41,7 @@ pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
             // Crypto
             "System.Crypto.CheckSig" | "System.Crypto.CheckMultisig" => 1_000,
             // Contract / native calls
-            "System.Contract.Call" | "System.Contract.GetContract" | "System.Contract.GetCallFlags" => 10,
+            "System.Contract.Call" | "System.Contract.GetCallFlags" => 10,
             "System.Contract.CreateStandardAccount" | "System.Contract.CreateMultisigAccount" => {
                 10
             }

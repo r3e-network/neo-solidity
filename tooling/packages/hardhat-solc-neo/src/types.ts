@@ -1,6 +1,3 @@
-// Re-export types for convenience
-export * from "@neo-solidity/types";
-
 /**
  * Hardhat plugin-specific types
  */

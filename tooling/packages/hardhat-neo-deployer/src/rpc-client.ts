@@ -1,8 +1,9 @@
 import axios, { AxiosInstance } from "axios";
 import type { rpcTypes } from "@neo-solidity/types";
 import { NeoNetworkConfig } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins";
+import { HardhatPluginError } from "hardhat/plugins.js";
 import Debug from "debug";
+import { u } from "@cityofzion/neon-js";
 
 const debug = Debug("hardhat:neo-deployer:rpc");
 
@@ -19,18 +20,29 @@ type ApplicationLog = rpcTypes.ApplicationLog;
  * Neo RPC client implementation
  */
 export class NeoRpcClient implements NeoRpcProvider {
-  public readonly url: string;
+  public url: string;
   public readonly magic: number;
   private client: AxiosInstance;
   private requestId = 1;
+  private readonly rpcUrls: string[];
+  private rpcUrlIndex = 0;
 
   constructor(config: NeoNetworkConfig) {
-    this.url = config.rpcUrls[0]; // Use first RPC URL
+    this.rpcUrls = Array.isArray(config.rpcUrls) && config.rpcUrls.length > 0 ? config.rpcUrls : [];
+    if (this.rpcUrls.length === 0) {
+      throw new HardhatPluginError(
+        "@neo-solidity/hardhat-neo-deployer",
+        "Neo RPC configuration must include at least one URL (neoNetworks.<name>.rpcUrls)"
+      );
+    }
+
+    this.url = this.rpcUrls[0]; // Default to first RPC URL
     this.magic = config.magic;
     
     this.client = axios.create({
       baseURL: this.url,
       timeout: 30000,
+      proxy: false,
       headers: {
         'Content-Type': 'application/json'
       }
@@ -43,19 +55,51 @@ export class NeoRpcClient implements NeoRpcProvider {
   async call<T = any>(method: string, params: any[] = []): Promise<T> {
     debug(`RPC call: ${method}`, params);
     
-    try {
-      const response = await this.client.post('/', {
-        jsonrpc: '2.0',
-        method,
-        params,
-        id: this.requestId++
-      });
+    const request = {
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: this.requestId++
+    };
 
-      if (response.data.error) {
-        throw new Error(`RPC error: ${response.data.error.message}`);
+    // Prefer the last known-good URL, but fail over across configured RPC URLs on network failures.
+    const urls = this.rpcUrls;
+    let lastError: unknown = null;
+
+    try {
+      for (let attempt = 0; attempt < urls.length; attempt++) {
+        const idx = (this.rpcUrlIndex + attempt) % urls.length;
+        const baseURL = urls[idx];
+
+        try {
+          if (this.client.defaults.baseURL !== baseURL) {
+            this.client.defaults.baseURL = baseURL;
+          }
+
+          const response = await this.client.post('/', request);
+
+          if (response.data?.error) {
+            // JSON-RPC-level error is not a transport issue; don't failover.
+            throw new Error(`RPC error: ${response.data.error.message}`);
+          }
+
+          // Mark this URL as healthy for subsequent calls.
+          this.url = baseURL;
+          this.rpcUrlIndex = idx;
+
+          return response.data.result;
+        } catch (error) {
+          lastError = error;
+
+          // Don't retry JSON-RPC errors (contract/validation issues).
+          const message = error instanceof Error ? error.message : String(error);
+          if (message.startsWith("RPC error:")) {
+            throw error;
+          }
+        }
       }
 
-      return response.data.result;
+      throw lastError;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new HardhatPluginError(
@@ -63,6 +107,15 @@ export class NeoRpcClient implements NeoRpcProvider {
         `RPC call failed: ${message}`
       );
     }
+  }
+
+  private static strip0x(value: string): string {
+    return value.startsWith("0x") ? value.slice(2) : value;
+  }
+
+  private static isHexString(value: string): boolean {
+    const stripped = NeoRpcClient.strip0x(value);
+    return stripped.length > 0 && /^[0-9a-fA-F]+$/.test(stripped) && stripped.length % 2 === 0;
   }
 
   /**
@@ -98,17 +151,81 @@ export class NeoRpcClient implements NeoRpcProvider {
   }
 
   /**
-   * Send raw transaction
+   * Invoke an arbitrary script (read-only)
+   *
+   * Neo nodes differ on whether they expect hex or base64 in this RPC.
+   * neo-go expects base64; neo-cli expects hex.
    */
-  async sendRawTransaction(signedTransaction: string): Promise<SendResult> {
-    return this.call('sendrawtransaction', [signedTransaction]);
+  async invokeScript(scriptHex: string, signers?: any[]): Promise<any> {
+    const normalizedHex = NeoRpcClient.strip0x(scriptHex);
+    const base64 = u.hex2base64(normalizedHex);
+
+    try {
+      if (signers && signers.length > 0) {
+        return await this.call("invokescript", [base64, signers]);
+      }
+      return await this.call("invokescript", [base64]);
+    } catch (error) {
+      // Fallback to hex if node rejects base64 payloads.
+      if (signers && signers.length > 0) {
+        return this.call("invokescript", [normalizedHex, signers]);
+      }
+      return this.call("invokescript", [normalizedHex]);
+    }
   }
 
   /**
-   * Send structured transaction (placeholder implementation)
+   * Send raw transaction
+   */
+  async sendRawTransaction(signedTransaction: string): Promise<SendResult> {
+    const normalize = (result: any): SendResult => {
+      if (typeof result === "string") return { hash: result };
+      if (result && typeof result === "object" && typeof result.hash === "string") return { hash: result.hash };
+      return result as SendResult;
+    };
+
+    // neo-cli expects hex; neo-go expects base64. Try hex first when we have hex.
+    if (NeoRpcClient.isHexString(signedTransaction)) {
+      const hex = NeoRpcClient.strip0x(signedTransaction);
+      try {
+        return normalize(await this.call<any>("sendrawtransaction", [hex]));
+      } catch (firstError) {
+        const base64 = u.hex2base64(hex);
+        try {
+          return normalize(await this.call<any>("sendrawtransaction", [base64]));
+        } catch {
+          throw firstError;
+        }
+      }
+    }
+
+    // For non-hex inputs, assume base64 first then fall back to hex.
+    try {
+      return normalize(await this.call<any>("sendrawtransaction", [signedTransaction]));
+    } catch (firstError) {
+      try {
+        const hex = u.base642hex(signedTransaction);
+        return normalize(await this.call<any>("sendrawtransaction", [hex]));
+      } catch {
+        throw firstError;
+      }
+    }
+  }
+
+  /**
+   * Send a transaction object. Prefer serializing and calling `sendrawtransaction`
+   * since `sendtransaction` is not universally supported by Neo nodes.
    */
   async sendTransaction(transaction: any): Promise<SendResult> {
-    return this.call('sendtransaction', [transaction]);
+    if (typeof transaction === "string") {
+      return this.sendRawTransaction(transaction);
+    }
+
+    if (transaction && typeof transaction.serialize === "function") {
+      return this.sendRawTransaction(transaction.serialize(true));
+    }
+
+    return this.call("sendtransaction", [transaction]);
   }
 
   /**
@@ -169,7 +286,41 @@ export class NeoRpcClient implements NeoRpcProvider {
    * Calculate network fee
    */
   async calculateNetworkFee(tx: string): Promise<string> {
-    return this.call('calculatenetworkfee', [tx]);
+    const parseNetworkFee = (result: any): string => {
+      if (typeof result === "string") return result;
+      if (result && typeof result === "object") {
+        if (typeof result.networkfee === "string") return result.networkfee;
+        if (typeof result.networkFee === "string") return result.networkFee;
+      }
+      return "0";
+    };
+
+    // neo-cli expects hex; neo-go expects base64. Try hex first when we have hex.
+    if (NeoRpcClient.isHexString(tx)) {
+      const hex = NeoRpcClient.strip0x(tx);
+      try {
+        return parseNetworkFee(await this.call<any>("calculatenetworkfee", [hex]));
+      } catch (firstError) {
+        const base64 = u.hex2base64(hex);
+        try {
+          return parseNetworkFee(await this.call<any>("calculatenetworkfee", [base64]));
+        } catch {
+          throw firstError;
+        }
+      }
+    }
+
+    // For non-hex inputs, assume base64 first then fall back to hex.
+    try {
+      return parseNetworkFee(await this.call<any>("calculatenetworkfee", [tx]));
+    } catch (firstError) {
+      try {
+        const hex = u.base642hex(tx);
+        return parseNetworkFee(await this.call<any>("calculatenetworkfee", [hex]));
+      } catch {
+        throw firstError;
+      }
+    }
   }
 
   /**
@@ -233,13 +384,6 @@ export class NeoRpcClient implements NeoRpcProvider {
    */
   async getCandidates(): Promise<any[]> {
     return this.call('getcandidates');
-  }
-
-  /**
-   * Invoke script
-   */
-  async invokeScript(script: string, signers?: any[]): Promise<InvokeResult> {
-    return this.call('invokescript', [script, signers]);
   }
 
   /**

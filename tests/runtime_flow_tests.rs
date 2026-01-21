@@ -5,8 +5,8 @@ use neo_solidity::runtime::RuntimeConfig;
 fn jmp_out_of_bounds_produces_error() {
     // JMP with offset that would jump past bytecode end
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
-    ctx.initialize(&[0x22, 0x0A, 0x00, 0x00, 0x00], &[])
-        .expect("init");
+    // JMP uses a 1-byte signed relative offset from the beginning of the instruction.
+    ctx.initialize(&[0x22, 0x0A], &[]).expect("init");
 
     // First step executes JMP and should error
     let result = ctx.step();
@@ -20,34 +20,37 @@ fn jmp_out_of_bounds_produces_error() {
 
 #[test]
 fn jmpif_skips_when_condition_false() {
-    // PUSH0 (false), JMPIF -> RET (target 7), PUSH1, RET
+    // PUSH0 (false), JMPIF -> RET, PUSH1, RET
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
-    let code = [0x10, 0x24, 0x07, 0x00, 0x00, 0x00, 0x11, 0x40];
+    // JMPIF offset is relative to the JMPIF opcode position.
+    // Layout: PUSH0, JMPIF +3 -> RET, PUSH1, RET
+    let code = [0x10, 0x24, 0x03, 0x11, 0x40];
     ctx.initialize(&code, &[]).expect("init");
 
     ctx.step().expect("push0");
     let step = ctx.step().expect("jmpif");
     assert_eq!(
-        step.instruction_pointer as usize, 6,
+        step.instruction_pointer as usize, 3,
         "JMPIF should advance past instruction when condition is false"
     );
 
     // Next instruction should be PUSH1
     let next = ctx.step().expect("push1");
-    assert_eq!(next.instruction_pointer as usize, 7);
+    assert_eq!(next.instruction_pointer as usize, 4);
 }
 
 #[test]
 fn jmpif_jumps_forward_when_true() {
-    // PUSH1 (true), JMPIF -> RET (target 7), NOP, RET
+    // PUSH1 (true), JMPIF -> RET, NOP, RET
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
-    let code = [0x11, 0x24, 0x07, 0x00, 0x00, 0x00, 0x21, 0x40];
+    // Layout: PUSH1, JMPIF +3 -> RET, NOP, RET
+    let code = [0x11, 0x24, 0x03, 0x21, 0x40];
     ctx.initialize(&code, &[]).expect("init");
 
     ctx.step().expect("push1");
     let step = ctx.step().expect("jmpif");
     assert_eq!(
-        step.instruction_pointer as usize, 7,
+        step.instruction_pointer as usize, 4,
         "JMPIF should jump to RET target"
     );
 
@@ -57,15 +60,16 @@ fn jmpif_jumps_forward_when_true() {
 
 #[test]
 fn jmpifnot_jumps_when_false() {
-    // PUSH0 (false), JMPIFNOT -> RET (target 7)
+    // PUSH0 (false), JMPIFNOT -> RET
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
-    let code = [0x10, 0x26, 0x07, 0x00, 0x00, 0x00, 0x21, 0x40];
+    // Layout: PUSH0, JMPIFNOT +3 -> RET, NOP, RET
+    let code = [0x10, 0x26, 0x03, 0x21, 0x40];
     ctx.initialize(&code, &[]).expect("init");
 
     ctx.step().expect("push0");
     let step = ctx.step().expect("jmpifnot");
     assert_eq!(
-        step.instruction_pointer as usize, 7,
+        step.instruction_pointer as usize, 4,
         "JMPIFNOT should skip to RET when condition is false"
     );
     let ret = ctx.step().expect("ret");
@@ -76,8 +80,9 @@ fn jmpifnot_jumps_when_false() {
 fn jmp_accepts_wide_offsets() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     let target: u32 = 250;
-    let mut code = vec![0x22];
-    code.extend_from_slice(&target.to_le_bytes());
+    // JMP_L uses a 4-byte signed relative offset from the beginning of the instruction.
+    let mut code = vec![0x23];
+    code.extend_from_slice(&(target as i32).to_le_bytes());
     let padding = target as usize - 5;
     code.extend(std::iter::repeat_n(0x21, padding)); // fill with NOPs
     code.push(0x40); // RET at jump target
@@ -87,6 +92,6 @@ fn jmp_accepts_wide_offsets() {
     let step = ctx.step().expect("jmp");
     assert_eq!(
         step.instruction_pointer, target,
-        "JMP should support 4-byte absolute offsets"
+        "JMP_L should support 4-byte relative offsets"
     );
 }

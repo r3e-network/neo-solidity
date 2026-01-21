@@ -8,6 +8,7 @@ fn is_void_syscall(name: &str) -> bool {
             | "System.Runtime.Notify"
             | "System.Runtime.Log"
             | "System.Runtime.BurnGas"
+            | "System.Runtime.LoadScript"
     )
 }
 
@@ -92,12 +93,17 @@ fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Opti
     use ir::NativeContract::*;
 
     let is_mutating = match (contract, method) {
-        (Neo, "transfer" | "vote" | "registerCandidate" | "unregisterCandidate" | "setGasPerBlock") => true,
+        (Neo, "transfer" | "vote" | "registerCandidate" | "unregisterCandidate" | "setGasPerBlock"
+        | "setRegisterPrice") => true,
         (Gas, "transfer") => true,
         (ContractManagement, "deploy" | "update" | "destroy" | "setMinimumDeploymentFee") => true,
-        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice" | "blockAccount" | "unblockAccount") => true,
-        (Oracle, "request" | "setPrice") => true,
+        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice" | "setAttributeFee"
+        | "setMillisecondsPerBlock" | "setMaxValidUntilBlockIncrement" | "setMaxTraceableBlocks"
+        | "blockAccount" | "unblockAccount" | "recoverFund"
+        | "setWhitelistFeeContract" | "removeWhitelistFeeContract") => true,
+        (Oracle, "request" | "setPrice" | "finish") => true,
         (RoleManagement, "designateAsRole") => true,
+        (Notary, "lockDepositUntil" | "withdraw" | "setMaxNotValidBeforeDelta" | "onNEP17Payment") => true,
         _ => {
             if native_method_has_return_value(contract, method).is_some() {
                 return Some(false);
@@ -114,26 +120,41 @@ fn native_method_has_return_value(contract: ir::NativeContract, method: &str) ->
 
     let has_return = match (contract, method) {
         (StdLib, "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
-        | "base64Decode") => true,
+        | "base64Decode" | "base64UrlEncode" | "base64UrlDecode" | "base58Encode" | "base58Decode"
+        | "base58CheckEncode" | "base58CheckDecode" | "hexEncode" | "hexDecode" | "itoa" | "atoi"
+        | "memoryCompare" | "memorySearch" | "stringSplit" | "strLen") => true,
         (CryptoLib, "sha256" | "ripemd160" | "keccak256" | "murmur32" | "recoverSecp256K1"
-        | "verifyWithECDsa") => true,
+        | "verifyWithECDsa" | "verifyWithEd25519" | "bls12381Serialize" | "bls12381Deserialize"
+        | "bls12381Equal" | "bls12381Add" | "bls12381Mul" | "bls12381Pairing") => true,
         (Ledger, "currentIndex" | "getBlock" | "getTransaction" | "getTransactionHeight"
         | "getTransactionFromBlock") => true,
-        (Neo, "totalSupply" | "balanceOf" | "transfer" | "vote" | "getCandidates"
-        | "registerCandidate" | "unregisterCandidate" | "getGasPerBlock" | "getAccountState"
-        | "getCommittee" | "getNextBlockValidators") => true,
-        (Neo, "setGasPerBlock") => false,
-        (Gas, "totalSupply" | "balanceOf" | "transfer") => true,
+        (Neo, "symbol" | "decimals" | "totalSupply" | "balanceOf" | "transfer" | "vote" | "getCandidates"
+        | "registerCandidate" | "unregisterCandidate" | "getGasPerBlock" | "getRegisterPrice"
+        | "getAccountState" | "unclaimedGas" | "getCandidateVote" | "getCommittee"
+        | "getCommitteeAddress" | "getNextBlockValidators" | "getAllCandidates") => true,
+        (Neo, "setGasPerBlock" | "setRegisterPrice") => false,
+        (Gas, "symbol" | "decimals" | "totalSupply" | "balanceOf" | "transfer") => true,
         (ContractManagement, "deploy" | "getContract" | "getContractById" | "getContractHashes"
         | "hasMethod" | "isContract" | "getMinimumDeploymentFee") => true,
         (ContractManagement, "update" | "destroy" | "setMinimumDeploymentFee") => false,
-        (Policy, "getFeePerByte" | "getExecFeeFactor" | "getStoragePrice" | "blockAccount"
-        | "unblockAccount" | "isBlocked") => true,
-        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice") => false,
-        (Oracle, "getPrice") => true,
-        (Oracle, "request" | "setPrice") => false,
+        (Policy, "getFeePerByte" | "getExecFeeFactor" | "getExecPicoFeeFactor" | "getStoragePrice"
+        | "getMillisecondsPerBlock" | "getMaxValidUntilBlockIncrement" | "getMaxTraceableBlocks"
+        | "getAttributeFee" | "blockAccount" | "unblockAccount" | "isBlocked"
+        | "getBlockedAccounts" | "recoverFund" | "getWhitelistFeeContracts") => true,
+        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice" | "setAttributeFee"
+        | "setMillisecondsPerBlock" | "setMaxValidUntilBlockIncrement"
+        | "setMaxTraceableBlocks" | "setWhitelistFeeContract"
+        | "removeWhitelistFeeContract") => false,
+        (Oracle, "getPrice" | "verify") => true,
+        (Oracle, "request" | "setPrice" | "finish") => false,
         (RoleManagement, "getDesignatedByRole") => true,
         (RoleManagement, "designateAsRole") => false,
+        (Notary, "balanceOf" | "expirationOf" | "lockDepositUntil" | "withdraw"
+        | "getMaxNotValidBeforeDelta" | "verify") => true,
+        (Notary, "setMaxNotValidBeforeDelta" | "onNEP17Payment") => false,
+        (Treasury, "verify") => true,
+        (Treasury, "onNEP17Payment" | "onNEP11Payment") => false,
+        (Ledger, "currentHash" | "getTransactionSigners" | "getTransactionVMState") => true,
         _ => return None,
     };
 
