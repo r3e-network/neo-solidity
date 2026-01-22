@@ -5,26 +5,89 @@ All notable changes to the Neo Solidity Compiler project will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-01-22
+
+### Architecture Refactoring
+
+#### Changed
+
+- **Unified to Rust implementation**: Archived Go reference implementation to `archive/go_implementation/`
+  - Files moved: compiler.go, code_generator.go, lexer.go, yul_parser.go, neovm_types.go, supporting_types.go
+  - Go tests moved to `archive/go_tests/`
+  - Rust is now the primary and only production implementation
+
+#### Updated
+
+- **README.md**: Revised project status with accurate completion percentages
+  - Core Compiler: ~85% complete
+  - Runtime Library: ~75% complete
+  - Testing: ~60% complete
+  - Developer Tools: ~70% complete
+  - Documentation: ~80% complete
+  - Removed overly optimistic "100% Complete" claims
+
+- **TESTING.md**: Complete rewrite based on actual test infrastructure
+  - Removed references to non-existent `neo-sol-test` binary
+  - Added documentation for actual test suite structure
+  - Documented Neo-Express smoke tests
+
+- **docs/ARCHITECTURE.md**: Complete rewrite
+  - Changed from "technical plan" to actual architecture documentation
+  - Added detailed project structure with file locations
+  - Documented all key components and their responsibilities
+  - Added clear separation between implemented and planned features
+
+#### Added
+
+- **E2E Compilation Tests** (`tests/e2e_compilation_tests.rs`):
+  - test_compile_simple_storage
+  - test_compile_erc20_token
+  - test_compile_staking
+  - test_compile_multisig_wallet
+  - test_compile_with_optimization
+  - test_nef_file_structure
+  - test_manifest_structure
+
+- **Unsafe Code Documentation**: Added detailed `# Safety` comments in `src/runtime/execution/helpers/storage.rs`
+  - Documented pointer lifetime guarantees
+  - Explained safety reasoning for unsafe blocks
+
+- **Version Synchronization**: Unified version numbers
+  - Cargo.toml: 0.9.9
+  - package.json: 0.9.9 (was 1.0.0)
+
+#### Fixed
+
+- All clippy warnings resolved (cargo clippy --workspace passes)
+- Code properly formatted (cargo fmt passes)
+- NEF3 magic bytes format in E2E tests
+
+---
+
 ## [0.9.9] - 2025-12-13
 
 ### Added
+
 - Comprehensive module-level documentation across 15+ source files
 - Integration tests for gas accounting and contract management
 - 8 new unit tests for bytecode helper functions
 - Main.rs documentation and README known limitations section
 
 ### Changed
+
 - Refactored CLI into modular crate structure
 - Extracted bytecode emitter into dedicated module
 - Removed unused compiler directory (-7,230 lines)
 - Split large modules into logical submodules using include! macro
 
 ### Fixed
+
 - All clippy warnings resolved across codebase
 - Removed placeholder comments and improved code documentation
 - Applied rustfmt formatting consistently
 
 ### Improved
+
 - Code quality with production-ready documentation
 - Test coverage now at 295+ passing tests
 - Cleaner module organization following SOLID principles
@@ -36,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Compiler Core
+
 - Complete Yul-to-NeoVM compiler implementation with 8,000+ lines of production Rust code
 - Full lexical analyzer supporting all Yul tokens, operators, and 100+ built-in functions
 - Comprehensive AST parser with recursive descent parsing and error recovery
@@ -47,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ABI generation with function signature calculation
 
 #### Runtime Library
+
 - Complete EVM semantic emulation with 2,500+ lines of production C# code
 - Advanced memory manager with 32-byte word addressing and garbage collection
 - Storage manager preserving Solidity storage layout with collision-resistant key generation
@@ -59,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address registry with contract discovery and EIP-165 interface tracking
 
 #### Developer Tooling
+
 - Complete Hardhat integration with compilation and deployment plugins
 - Full Foundry adapter with neo-forge, neo-cast, and neo-anvil equivalents
 - ABI compatibility layer providing drop-in ethers.js/web3.js replacement
@@ -69,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance profiling and gas analysis tools
 
 #### Testing Framework
+
 - Comprehensive test suite with 400+ unit tests and integration tests
 - Performance benchmarking with statistical analysis and regression detection
 - Property-based testing and fuzzing for robustness validation
@@ -78,6 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Real-world contract examples with validation
 
 #### Examples & Documentation
+
 - Complete ERC20 token implementation (420 lines) with advanced features
 - Full ERC721 NFT implementation (850 lines) with enumerable and royalty support
 - Uniswap V2 AMM pair implementation (650 lines) with liquidity and swapping
@@ -91,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Specifications
 
 #### Supported Features
+
 - Solidity 0.8.19+ source-level compatibility
 - Complete Yul intermediate representation support
 - NeoVM versions 3.0 through 3.5+ target support
@@ -99,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full ABI compatibility with existing Ethereum tooling ecosystem
 
 #### Performance Characteristics
+
 - Compilation time: <2 seconds for complex contracts
 - Memory usage: <100MB for large contracts
 - Runtime overhead: <2x compared to native NeoVM execution
@@ -106,6 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform compatibility with identical outputs
 
 #### Security Features
+
 - Automated vulnerability detection with 8-category analysis
 - Bounds checking and overflow protection
 - Reentrancy detection and prevention patterns
@@ -115,20 +186,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Project Statistics
 
-- **Total Implementation**: 12,000+ lines of production code
-- **Test Coverage**: 95%+ across all components
-- **Documentation**: Complete with examples and API reference
-- **Examples**: 5 real-world contracts with 3,600+ lines of Solidity
-- **Platform Support**: Linux, Windows, macOS with identical functionality
-
-## [Unreleased]
-
-### Planned
-- Additional language support (Vyper)
-- Advanced optimization passes
-- IDE integrations (VS Code, IntelliJ)
-- Educational resources and workshops
-- Performance improvements and memory optimizations
+- **Total Implementation**: ~40,000 lines of Rust production code
+- **Test Coverage**: Comprehensive unit and integration tests
+- **Documentation**: Complete with examples and reference
+- **Examples**: 5 real-world contracts (SimpleStorage, ERC20Token, Staking, MultiSigWallet, NameService)
+- **Platform Support**: Linux, macOS, Windows
 
 ---
 

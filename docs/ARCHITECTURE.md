@@ -1,162 +1,240 @@
 # Neo Solidity Compiler Architecture
 
-This document captures the technical plan for delivering a production-grade
-Solidity → NeoVM toolchain. It pinpoints the core subsystems, the libraries we
-intend to reuse, and the order in which they will be implemented.
+This document describes the architecture of the Neo Solidity compiler, a Rust-based production-ready toolchain for compiling Solidity smart contracts to Neo N3 blockchain.
+
+## Overview
+
+The compiler translates Solidity 0.8.x smart contracts to NeoVM bytecode, producing `.nef` (Neo Executable Format) files and `.manifest.json` deployment manifests.
 
 ## High-Level Pipeline
 
 ```
-Solidity source
+Solidity source (*.sol)
     │
     ▼
-Frontend (Solang)
+Frontend (solang-parser crate)
     │  - Parse Solidity → AST/IR
-    │  - Run builtin Solidity diagnostics
+    │  - Built-in Solidity diagnostics
     ▼
-Canonical IR Layer (Yul-like)
-    │  - Normalise control flow & data types
-    │  - Provide stable input for optimisations
+Solidity Metadata Extraction
+    │  - Contract definitions
+    │  - Function signatures and metadata
+    │  - State variables and events
+    │  - Natspec documentation
     ▼
-Semantic Analysis
-    │  - Symbol table & scope resolution
-    │  - Type checking, storage layout validation
-    │  - Runtime safety diagnostics (re-entrancy, permissions) [stretch]
+Semantic Model
+    │  - Symbol table and scope resolution
+    │  - Type checking and validation
+    │  - Storage layout validation
     ▼
-Optimiser Pipeline
-    │  - Constant folding, DCE, inlining
-    │  - Neo-specific passes (stack depth, syscall hoisting)
+IR (Intermediate Representation)
+    │  - Yul-like IR with Neo-specific extensions
+    │  - Stack effects, storage annotations, syscall nodes
     ▼
-Code Generator
-    │  - Lower IR blocks to NeoVM bytecode
-    │  - Allocate locals/arguments, manage evaluation stack
-    │  - Encode syscalls, storage ops, inter-contract calls
+Optimizer Pipeline
+    │  - Constant folding/propagation
+    │  - Dead code elimination
+    │  - Function inlining (bounded)
+    │  - Stack height reduction
+    │  - NeoVM-specific cleanups
+    ▼
+Code Generator (NeoVM)
+    │  - Map IR to NeoVM opcodes
+    │  - Manage call frames (INITSLOT/RET)
+    │  - Emit syscalls via interop IDs
+    │  - Handle control flow (labels, jumps)
     ▼
 Artifact Builder
     │  - NEF writer (tokens, method table, checksum)
     │  - Manifest writer (ABI, permissions, standards)
-    │  - Debug info (source map, sequence points)
     ▼
-Deployment Outputs (.nef, .manifest.json, optional debug bundle)
+Output (.nef, .manifest.json)
 ```
 
-## Key Components and Responsibilities
+## Project Structure
 
-### 1. Frontend Integration
-- **Dependency:** [`solang`](https://github.com/hyperledger-labs/solang) Rust
-  crate for Solidity parsing and semantic diagnostics.
-- **Responsibility:** translate Solidity into Solang's intermediate
-  representation (IR) or Yul AST while preserving metadata (source map,
-  types, modifiers).
-- **Deliverables:** `frontend` crate/module exposing a structured IR plus
-  diagnostic reporting that plugs into our compiler driver.
+```
+neo-solidity/
+├── src/
+│   ├── main.rs                 # CLI entry point
+│   ├── lib.rs                  # Library root, exports public API
+│   ├── cli/                    # Command-line interface
+│   │   ├── mod.rs
+│   │   ├── bytecode/           # NeoVM bytecode generation
+│   │   ├── standard_json/      # Standard JSON interface
+│   │   └── cli_parts/          # CLI components (compile, run, manifest, etc.)
+│   ├── solidity.rs             # Solidity metadata extraction
+│   ├── frontend.rs             # Solang parser integration
+│   ├── ir/                     # Intermediate representation
+│   │   ├── ir_types.rs         # IR type definitions
+│   │   ├── context/            # IR lowering context
+│   │   ├── expressions/        # Expression lowering
+│   │   └── statements/         # Statement lowering
+│   ├── codegen.rs              # Code generation utilities
+│   ├── lexer.rs                # Yul lexer
+│   ├── parser.rs               # Yul parser
+│   ├── optimizer.rs            # Optimization passes
+│   ├── semantic.rs             # Semantic analysis
+│   ├── runtime/                # NeoVM runtime emulation
+│   │   ├── execution/          # Execution engine
+│   │   ├── spec.rs             # Opcode/syscall specs
+│   │   └── helpers/            # Runtime helpers
+│   ├── neo.rs                  # Neo-specific utilities (NEF, manifest)
+│   ├── storage_key.rs          # Storage key handling
+│   ├── type_system/            # Type system
+│   └── semantic_model.rs       # Semantic model
+├── devpack/                    # Solidity libraries for Neo N3
+│   ├── contracts/              # Contract interfaces
+│   ├── libraries/              # Utility libraries
+│   ├── standards/              # NEP standards (NEP-17, NEP-11, etc.)
+│   └── examples/               # Devpack usage examples
+├── tests/                      # Test suite
+│   ├── runtime_*.rs            # Runtime unit tests
+│   ├── e2e_compilation_tests.rs # End-to-end compilation tests
+│   └── conformance_tests.rs    # Conformance tests
+├── examples/                   # Example Solidity contracts
+│   ├── SimpleStorage.sol
+│   ├── ERC20Token.sol
+│   ├── Staking.sol
+│   └── ... (other examples)
+├── archive/
+│   ├── go_implementation/      # Archived Go reference implementation
+│   └── go_tests/               # Archived Go tests
+├── docs/                       # Documentation
+│   ├── ARCHITECTURE.md         # This file
+│   ├── RUNTIME_SPEC.md         # Runtime specification
+│   └── NEO_VM_PARITY_TODO.md   # Known gaps
+└── Cargo.toml                  # Rust project manifest
+```
 
-### 2. Canonical IR Layer
-- **Format:** custom, inspired by Yul with Neo-specific extensions (explicit
-  stack effects, storage annotations, syscall nodes).
-- **Goals:**
-  - Normalise Solang output (control flow graphs, explicit temporaries).
-  - Provide deterministic serialisation for testing.
-  - Serve as the input to optimisation and codegen stages.
+## Key Components
 
-### 3. Semantic Analysis
-- **Scopes & Symbols:** build symbol tables for contracts, functions, events,
-  state variables.
-- **Type System:** enforce Solidity type rules, Neo limitations (e.g., struct
-  size, supported numeric widths), storage location correctness.
-- **Diagnostics:** surface errors/warnings with source locations; produce
-  machine-readable diagnostics for tooling.
+### 1. Frontend Integration (`src/frontend.rs`)
 
-### 4. Optimiser Pipeline
-- **Pass Ordering:**
-  1. Constant Folding / Propagation
-  2. Dead Code Elimination
-  3. Function Inlining (bounded by heuristics)
-  4. Stack Height Reduction (peephole rewriting)
-  5. NeoVM-Specific cleanups (e.g., merging adjacent PUSH operations)
-- **Infrastructure:** generic pass manager with change tracking, statistics,
-  and optional debug dumps.
+Uses the `solang-parser` crate for Solidity parsing:
 
-### 5. NeoVM Code Generator
-- **Responsibilities:**
-  - Map IR instructions to opcodes while maintaining stack discipline.
-  - Manage call frames (arguments, locals, returns) using `INITSLOT` /
-    `RET` semantics.
-  - Emit syscalls via interop IDs; support native contract calls and triggers.
-  - Handle control flow (labels, forward jumps) with fixups.
-- **Outputs:** script byte vector, per-method offsets, gas estimates, debug
-  symbols (source map, variable info).
+```rust
+use solang_parser::{
+    parse,
+    pt::{ContractDefinition, FunctionDefinition, ...},
+};
+```
 
-### 6. Artifact Builder
-- **NEF:** build method token table, clamp the `source` field, compute the
-  standard checksum (double SHA-256, first 4 bytes).
-- **Manifest:** derive ABI from analysed symbols, populate `supportedstandards`,
-  `permissions`, `features` flags (e.g., storage), and `extra` metadata.
-- **Debug:** optional PDB-like JSON for the debugger (breakpoints, locals).
+Provides:
 
-### 7. DevPack & Runtime Bindings
-- Replace placeholder Solidity libraries (`Syscalls.sol`, `NativeCalls.sol`)
-  with code that matches Neo's ABI:
-  - Use proper interop IDs and parameter marshalling.
-  - Support `CallFlags`, iterator handling, oracle callbacks, etc.
-- Provide Rust-side helpers for inserting runtime support stubs (e.g.,
-  storage contexts, iterator wrappers).
+- Solidity AST extraction
+- Type information
+- Source location mapping
+- Diagnostic reporting
 
-### 8. Testing & Validation
-- **Unit Tests:** per module—frontend parsing, semantic rules, optimiser passes.
-- **Integration Tests:** compile canonical contracts (NEP-17, NEP-11, oracle
-  samples) and check bytecode/manifest snapshots.
-- **VM Regression:** execute generated scripts inside Neo VM runner (via
-  `neo-vm-rs` or `NeoExpress`) to verify behaviour.
-- **CI:** GitHub Actions matrix covering `cargo fmt`, `clippy`, unit, integration,
-  and VM tests.
+### 2. Solidity Metadata (`src/solidity.rs`)
 
-## Implementation Order
-1. Finalise architecture (this document) ✔️
-2. Integrate Solang frontend (parsing + basic diagnostic bridging).
-3. Define canonical IR structs and converters from Solang output.
-4. Implement semantic analyser atop the IR.
-5. Rework optimiser to operate on the new IR (reusing current scaffolding
-   where possible).
-6. Build the NeoVM code generator and replace stub emitter in `src/main.rs`.
-7. Expand artifact builder to emit full NEF/Manifest tied to generated code.
-8. Replace devpack libraries with spec-accurate bindings.
-9. Stand up comprehensive tests/CI, including VM execution harness.
+Extracts contract metadata from Solidity source:
 
-## Runtime Metadata Overrides
-The runtime exposes an `ExecutionOverrides` helper alongside
-`NeoRuntime::execute_with_overrides`. Tests or embedding applications can supply
-per-execution block height, timestamp, and calling-script hash without mutating
-global state. After each run the overrides are cleared and the context falls
-back to the deterministic defaults from `RuntimeConfig`, which keeps the CLI
-and other integrations predictable while still allowing VM-level simulations of
-chain metadata. `ExecutionResult` now carries an `ExecutionMetadata` payload so
-callers can inspect the effective values that were in play for a given
-invocation.
+- `ContractMetadata` - Complete contract metadata
+- `FunctionMetadata` - Function signatures and attributes
+- `NatspecDoc` - Documentation extraction
+- `EventDefinition` - Event signatures
 
-## Tooling & Dependencies
-- `solang` crate (GPLv3) — confirm license compatibility or consider invoking
-  external solc with JSON outputs if required.
-- `neo-vm` crate for executing bytecode in tests.
-- `serde`/`serde_json` for manifest & debug info serialisation.
-- `crc32fast` (already integrated) for NEF checksum.
-- `anyhow`/`thiserror` for diagnostics.
+### 3. IR Layer (`src/ir/`)
 
-## Open Questions
-- **Licensing:** decide whether embedding Solang (GPL) is acceptable for the
-  project; if not, plan to invoke `solc` externally and parse its JSON IR.
-- **Storage Layout:** align Solidity storage semantics with Neo's key-value
-  storage model—may require additional lowering steps.
-- **Gas Model:** determine whether to estimate NeoVM gas during codegen or rely
-  on external tooling.
-- **Debug Info:** confirm format expected by Neo debugger for source maps and
-  breakpoints.
+Custom IR inspired by Yul with Neo-specific extensions:
 
-## Next Steps
-Following this architecture baseline, the next milestone is to integrate the
-Solidity frontend so that real contracts can be parsed into a structured IR:
-- Add a `frontend` module/crate wrapping Solang.
-- Translate Solang AST/IR into the canonical IR defined above.
-- Surface compiler diagnostics with line/column info through the CLI.
+```rust
+pub enum Instruction {
+    PushLiteral(LiteralValue),
+    Call(FunctionCall),
+    Syscall(SyscallName),
+    StorageOp(StorageOperation),
+    // ... more variants
+}
+```
 
-Subsequent milestones will build upon that foundation as outlined in the plan.
+### 4. Optimizer (`src/optimizer.rs`)
+
+Multi-level optimization (0-3):
+
+| Level | Description                   |
+| ----- | ----------------------------- |
+| -O0   | No optimization               |
+| -O1   | Basic (DCE, constant folding) |
+| -O2   | Standard (inlining, peephole) |
+| -O3   | Aggressive (max optimization) |
+
+### 5. Code Generator (`src/cli/bytecode/`)
+
+Translates IR to NeoVM bytecode:
+
+- Opcode emission
+- Stack management
+- Jump resolution
+- Local/argument allocation
+
+### 6. Runtime (`src/runtime/`)
+
+Embedded Neo N3 runtime for testing:
+
+- Full opcode support
+- Syscall implementations
+- Storage emulation
+- Event logging
+
+### 7. Artifact Builder (`src/neo.rs`)
+
+Generates deployment artifacts:
+
+- NEF file format
+- Manifest JSON generation
+- Method token tables
+- Checksum computation
+
+## Dependencies
+
+### Core Dependencies
+
+- `solang-parser` - Solidity parsing
+- `clap` - CLI argument parsing
+- `serde`/`serde_json` - Serialization
+- `sha2`, `sha3`, `ripemd` - Cryptography
+- `thiserror`/`anyhow` - Error handling
+
+### Dev Dependencies
+
+- `criterion` - Benchmarking
+- `proptest` - Property testing
+- `tempfile` - Test utilities
+
+## Build System
+
+```bash
+# Debug build
+cargo build
+
+# Release build
+cargo build --release
+
+# Run tests
+cargo test --workspace
+
+# Format code
+cargo fmt
+
+# Run linter
+cargo clippy
+```
+
+## Known Limitations
+
+See `docs/NEO_VM_PARITY_TODO.md` for a comprehensive list of runtime parity gaps and planned improvements.
+
+## Archived Go Implementation
+
+The `archive/go_implementation/` directory contains an earlier Go-based reference implementation of the compiler. This code is no longer maintained and is kept for historical reference only.
+
+## Contributing
+
+See `CONTRIBUTING.md` for development guidelines.
+
+## License
+
+MIT License - see `LICENSE` file for details.

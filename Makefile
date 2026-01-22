@@ -2,7 +2,7 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-solidity
 
-.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test
+.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
 
 all: build
 
@@ -141,6 +141,29 @@ lint:
 	cargo clippy -- -D warnings
 	@echo "✅ Linting passed"
 
+coverage:
+	@echo "📊 Running code coverage..."
+	@if command -v cargo-tarpaulin >/dev/null 2>&1; then \
+		cargo tarpaulin --out Html --output-dir coverage; \
+		echo "✅ Coverage report generated in coverage/"; \
+	else \
+		echo "⚠️  cargo-tarpaulin not installed. Install with:"; \
+		echo "   cargo install cargo-tarpaulin"; \
+	fi
+
+coverage-ci:
+	@echo "📊 Running code coverage for CI..."
+	cargo tarpaulin --out Lcov --output-dir coverage --ignore-panics
+
+check-coverage:
+	@echo "📊 Checking minimum coverage threshold..."
+	@if command -v cargo-tarpaulin >/dev/null 2>&1; then \
+		cargo tarpaulin --out Text --threshold 70; \
+	else \
+		echo "⚠️  cargo-tarpaulin not installed. Install with:"; \
+		echo "   cargo install cargo-tarpaulin"; \
+	fi
+
 install: build
 	@echo "📦 Installing neo-solc..."
 	cargo install --path .
@@ -160,14 +183,27 @@ help:
 	@echo "Neo Solidity Compiler - Build System"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build    - Build the compiler"
-	@echo "  test     - Run all tests"
-	@echo "  clean    - Clean build artifacts"
-	@echo "  format   - Format code"
-	@echo "  lint     - Lint code"
-	@echo "  docs     - Build documentation"
-	@echo "  install  - Install neo-solc binary"
-	@echo "  release  - Create release package"
-	@echo "  help     - Show this help message"
+	@echo "  build           - Build the compiler"
+	@echo "  test            - Run all tests"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  format          - Format code"
+	@echo "  lint            - Lint code"
+	@echo "  coverage        - Generate HTML coverage report"
+	@echo "  coverage-ci     - Generate LCOV coverage for CI"
+	@echo "  check-coverage  - Check minimum coverage threshold (70%)"
+	@echo "  docs            - Build documentation"
+	@echo "  install         - Install neo-solc binary"
+	@echo "  release         - Create release package"
+	@echo "  help            - Show this help message"
 	@echo ""
 	@echo "Repository: https://github.com/r3e-network/neo-solidity"
+	@echo ""
+	@echo "Testing targets:"
+	@echo "  test-deploy-smoke      - Basic deployment test"
+	@echo "  test-deploy-smoke-full - All deployment smoke tests"
+	@echo ""
+	@echo "Tooling targets:"
+	@echo "  tooling-install  - Install Node.js tooling"
+	@echo "  tooling-build    - Build tooling packages"
+	@echo "  tooling-test     - Run tooling tests"
+	@echo "  tooling-lint     - Lint tooling code"

@@ -2,6 +2,18 @@ impl ExecutionContext {
     fn build_storage_entries(&self, prefix: Vec<u8>) -> Result<Vec<StackItem>, RuntimeError> {
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         if let (Some(mut ptr), Some(account)) = (self.storage_host, self.storage_account.as_ref()) {
+            // # Safety
+            //
+            // The `storage_host` pointer is set via `bind_storage()`, which receives a raw pointer
+            // to a `StorageHost` struct. We guarantee:
+            //
+            // 1. The pointer is valid for the entire execution context lifetime (set at bind time)
+            // 2. No other code accesses or frees this storage during execution
+            // 3. We only hold mutable references for the duration of this method call
+            // 4. The storage host's memory is not modified by any external code
+            //
+            // This pattern is necessary because we're bridging between the Rust runtime
+            // and the storage layer which uses FFI-compatible interfaces.
             let storage = unsafe { ptr.as_mut() };
             let query = storage::StorageQuery {
                 account: account.clone(),
@@ -157,8 +169,13 @@ impl ExecutionContext {
     fn fetch_storage_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, RuntimeError> {
         match (self.storage_host, self.storage_account.as_ref()) {
             (Some(mut ptr), Some(account)) => {
-                // Safety: storage_host is set via bind_storage, which guarantees the pointer is valid
-                // for the duration of execution. We avoid holding references across calls.
+                // # Safety
+                //
+                // Same guarantee as `build_storage_entries()`:
+                // The storage_host pointer is valid for the execution context lifetime.
+                // We only borrow mutably for the duration of this single operation.
+                // No other code can access storage during this call since we're in a
+                // single-threaded execution model with exclusive access to the context.
                 let storage = unsafe { ptr.as_mut() };
                 storage.get(account, key)
             }

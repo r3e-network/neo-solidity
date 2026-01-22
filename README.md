@@ -16,10 +16,11 @@
 ## 🎯 At a Glance
 
 - **Solidity → NeoVM**: Compile Solidity 0.8.x to Neo N3 (`.nef` + `.manifest.json`).
+- **Primary Implementation**: Rust-based compiler (production-ready) with archived Go reference implementation.
 - **EVM semantics**: ABI-compatible selectors and metadata; NEP standard detection (NEP-11/17/24).
 - **Optimized output**: Multi-level optimizer, Neo-specific lowering, manifest generation.
-- **Tooling friendly**: CLI first, with patterns for Hardhat/Foundry adapters.
-- **Quality-focused**: Extensive unit/integration/runtime tests, clear diagnostics.
+- **Tooling friendly**: CLI first, with scaffolding for Hardhat/Foundry adapters.
+- **Quality-focused**: Unit/integration/runtime tests, clear diagnostics.
 
 ## 🚀 Quick Start
 
@@ -141,14 +142,14 @@ pragma solidity ^0.8.19;
 contract SimpleToken {
     mapping(address => uint256) public balances;
     uint256 public totalSupply;
-    
+
     event Transfer(address indexed from, address indexed to, uint256 value);
-    
+
     constructor(uint256 _totalSupply) {
         totalSupply = _totalSupply;
         balances[msg.sender] = _totalSupply;
     }
-    
+
     function transfer(address to, uint256 amount) public returns (bool) {
         require(balances[msg.sender] >= amount, "Insufficient balance");
         balances[msg.sender] -= amount;
@@ -176,7 +177,7 @@ neo-solc SimpleToken.sol -O2 -o SimpleToken
 #   bash examples/test_neoxp_constructor_smoke.sh
 neo-cli contract deploy SimpleToken.nef SimpleToken.manifest.json
 
-# 3. Verify deployment  
+# 3. Verify deployment
 neo-cli contract invoke <contract-hash> totalSupply
 ```
 
@@ -191,20 +192,20 @@ graph TB
     A[Solidity Source] --> B[Yul IR Generation]
     B --> C[Neo Solidity Compiler]
     C --> D[Lexer]
-    C --> E[Parser]  
+    C --> E[Parser]
     C --> F[Semantic Analyzer]
     C --> G[Optimizer]
     C --> H[Code Generator]
     H --> I[NeoVM Bytecode]
     H --> J[Neo Manifest]
     H --> K[ABI JSON]
-    
+
     L[Neo-Sol Runtime] --> M[Memory Manager]
     L --> N[Storage Manager]
     L --> O[ABI Encoder]
     L --> P[Crypto Library]
     L --> Q[Event System]
-    
+
     R[Developer Tools] --> S[Hardhat Plugin]
     R --> T[Foundry Adapter]
     R --> U[CLI Tools]
@@ -214,6 +215,7 @@ graph TB
 ### **🔧 Installation & Setup**
 
 #### **System Requirements**
+
 - **Rust**: 1.70 or higher
 - **Node.js**: 16.0 or higher (for tooling)
 - **Neo CLI**: 3.0+ (for deployment)
@@ -320,10 +322,11 @@ Structured diagnostics (stderr):
 - Errors (JSON): `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `MANIFEST_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`
 ```
 
-> **Structured diagnostics:**  
-> - `--json-warnings` emits warnings as JSON lines on stderr (codes: `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`).  
+> **Structured diagnostics:**
+>
+> - `--json-warnings` emits warnings as JSON lines on stderr (codes: `COMPILER_WARNING`, `NEF_SOURCE_TRUNCATED`).
 > - `--json-errors` emits errors as JSON lines on stderr (codes: `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`).  
-> These flags do not alter file outputs; they only change how diagnostics are printed.
+>   These flags do not alter file outputs; they only change how diagnostics are printed.
 
 #### Batch Operations
 
@@ -358,14 +361,14 @@ export default {
           // neo-solc flags forwarded by the plugin:
           callt: true,
           denyWildcardContracts: true,
-          denyWildcardMethods: true
+          denyWildcardMethods: true,
           // If your contract uses intentional dynamic calls, provide an allowlist:
           // manifestPermissions: "./permissions.json",
           // manifestPermissionsMode: "replace-wildcards",
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 };
 ```
 
@@ -401,18 +404,18 @@ Neo Foundry commands are currently scaffolding-only; use `neo-solc` + `neo-cli` 
 #### Direct Integration
 
 ```javascript
-const { NeoSolidityCompiler } = require('@neo-solidity/core');
+const { NeoSolidityCompiler } = require("@neo-solidity/core");
 
 const compiler = new NeoSolidityCompiler({
   optimization: 2,
-  target: '3.0',
-  outputFormat: 'json'
+  target: "3.0",
+  outputFormat: "json",
 });
 
-const result = await compiler.compile('contract.sol');
-console.log('Bytecode:', result.bytecode);
-console.log('ABI:', result.abi);
-console.log('Gas estimate:', result.estimatedGas);
+const result = await compiler.compile("contract.sol");
+console.log("Bytecode:", result.bytecode);
+console.log("ABI:", result.abi);
+console.log("Gas estimate:", result.estimatedGas);
 ```
 
 ### Testing Framework
@@ -423,7 +426,7 @@ console.log('Gas estimate:', result.estimatedGas);
 # Run all tests
 cargo test
 
-# Run specific test suite  
+# Run specific test suite
 cargo test lexer_tests
 
 # Run with output
@@ -493,7 +496,7 @@ var runtime = new EvmRuntime();
 runtime.MStore(0x40, new byte[32]);
 var data = runtime.MLoad(0x40);
 
-// Storage operations  
+// Storage operations
 runtime.SStore(storageKey, value);
 var retrieved = runtime.SLoad(storageKey);
 
@@ -522,7 +525,7 @@ var success = encoder.DecodeBool(returnData);
 
 // Encode events
 var transferEvent = encoder.EncodeEvent(
-    "Transfer", 
+    "Transfer",
     new[] { from, to }, // indexed parameters
     amount // data parameter
 );
@@ -532,12 +535,12 @@ var transferEvent = encoder.EncodeEvent(
 
 #### **Optimization Levels**
 
-| Level | Description | Use Case | Compilation Time | Performance Gain |
-|-------|-------------|----------|------------------|------------------|
-| `-O0` | No optimization | Development, debugging | Fastest | None |
-| `-O1` | Basic optimization | Testing, CI/CD | Fast | 10-20% |
-| `-O2` | Standard optimization | Production builds | Moderate | 30-50% |
-| `-O3` | Aggressive optimization | Critical performance | Slow | 50-80% |
+| Level | Description             | Use Case               | Compilation Time | Performance Gain |
+| ----- | ----------------------- | ---------------------- | ---------------- | ---------------- |
+| `-O0` | No optimization         | Development, debugging | Fastest          | None             |
+| `-O1` | Basic optimization      | Testing, CI/CD         | Fast             | 10-20%           |
+| `-O2` | Standard optimization   | Production builds      | Moderate         | 30-50%           |
+| `-O3` | Aggressive optimization | Critical performance   | Slow             | 50-80%           |
 
 #### **Performance Tips**
 
@@ -552,7 +555,7 @@ unchecked {
 // ✅ Good: Pack structs efficiently
 struct PackedData {
     uint128 amount;      // 16 bytes
-    uint64 timestamp;    // 8 bytes  
+    uint64 timestamp;    // 8 bytes
     uint32 blockNumber;  // 4 bytes
     uint32 nonce;        // 4 bytes
 }                        // Total: 32 bytes (1 storage slot)
@@ -637,12 +640,12 @@ cat contract.asm
 
 #### **Common Issues & Solutions**
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `Stack too deep` | Too many local variables | Restructure code, use structs |
-| `Gas limit exceeded` | Infinite loop or expensive operation | Add gas checks, optimize code |
-| `Invalid jump destination` | Corrupted bytecode | Check compiler version, rebuild |
-| `Revert without reason` | Failed require without message | Add descriptive error messages |
+| Error                      | Cause                                | Solution                        |
+| -------------------------- | ------------------------------------ | ------------------------------- |
+| `Stack too deep`           | Too many local variables             | Restructure code, use structs   |
+| `Gas limit exceeded`       | Infinite loop or expensive operation | Add gas checks, optimize code   |
+| `Invalid jump destination` | Corrupted bytecode                   | Check compiler version, rebuild |
+| `Revert without reason`    | Failed require without message       | Add descriptive error messages  |
 
 #### **Interactive Debugging**
 
@@ -654,21 +657,21 @@ Use Neo N3 tooling (neo-cli / neo-express / RPC tracing) for on-chain debugging.
 #### **Compilation Performance**
 
 | Contract Size | Lines of Code | Compilation Time (O2) | Memory Usage |
-|---------------|---------------|----------------------|--------------|
-| Simple Token | 100 | 50ms | 15MB |
-| ERC721 NFT | 500 | 200ms | 45MB |
-| DeFi Protocol | 2000 | 800ms | 120MB |
-| Large DAO | 5000 | 2000ms | 250MB |
+| ------------- | ------------- | --------------------- | ------------ |
+| Simple Token  | 100           | 50ms                  | 15MB         |
+| ERC721 NFT    | 500           | 200ms                 | 45MB         |
+| DeFi Protocol | 2000          | 800ms                 | 120MB        |
+| Large DAO     | 5000          | 2000ms                | 250MB        |
 
 #### **Runtime Performance**
 
-| Operation | Neo-Sol Runtime | Native NeoVM | Overhead |
-|-----------|----------------|--------------|----------|
-| Arithmetic | 1.2μs | 1.0μs | 20% |
-| Memory Load | 2.1μs | 1.8μs | 17% |
-| Storage Load | 12.3μs | 10.5μs | 17% |
-| Keccak256 | 45.2μs | N/A | N/A |
-| EcRecover | 156.8μs | N/A | N/A |
+| Operation    | Neo-Sol Runtime | Native NeoVM | Overhead |
+| ------------ | --------------- | ------------ | -------- |
+| Arithmetic   | 1.2μs           | 1.0μs        | 20%      |
+| Memory Load  | 2.1μs           | 1.8μs        | 17%      |
+| Storage Load | 12.3μs          | 10.5μs       | 17%      |
+| Keccak256    | 45.2μs          | N/A          | N/A      |
+| EcRecover    | 156.8μs         | N/A          | N/A      |
 
 ### **🤝 Contributing**
 
@@ -727,113 +730,129 @@ make publish
 
 ## 📋 **Project Status**
 
-### **✅ Completed Features**
+### **Implementation Language**
 
-#### **Core Compiler (100% Complete)**
-- ✅ Complete Yul lexer with all tokens and built-ins
-- ✅ Full AST parser supporting all Yul constructs
-- ✅ Semantic analyzer with type checking and optimization
+- **Primary**: Rust (src/) - Production-ready compiler and runtime
+- **Archived**: Go implementation (archive/go_implementation/) - Reference implementation, no longer maintained
+
+### **Current Progress**
+
+#### **Core Compiler (~85% Complete)**
+
+- ✅ Yul lexer with all tokens and built-ins
+- ✅ AST parser supporting Yul constructs
+- ✅ Semantic analyzer with type checking
 - ✅ Multi-level optimizer (4 levels: 0-3)
-- ✅ Complete NeoVM code generator
+- ✅ NeoVM code generator
 - ✅ Solidity-style public state variable getters
-- ✅ Comprehensive error handling and reporting
+- ✅ Error handling and reporting
 - ✅ CLI interface with 25+ options
 - ✅ Neo N3 native formats (.nef and .manifest.json)
+- 🔄 Full Solidity 0.8.x support (in progress)
 
-#### **Runtime Library (100% Complete)**
-- ✅ EVM-compatible memory manager with garbage collection
+#### **Runtime Library (~75% Complete)**
+
+- ✅ EVM-compatible memory manager
 - ✅ Storage manager with Solidity layout compatibility
-- ✅ Complete ABI encoder/decoder for all types
+- ✅ ABI encoder/decoder for basic types
 - ✅ Cryptographic library (keccak256, ecrecover, sha256)
 - ✅ Event system with Runtime.Notify integration
 - ✅ Context objects (msg, tx, block) with Neo mapping
 - ✅ External call manager (CALL/DELEGATECALL/STATICCALL)
-- ✅ Exception handling with proper error propagation
+- 🔄 Exception handling (partial - see docs/NEO_VM_PARITY_TODO.md)
+- 🔄 Iterator streaming (partial)
+- 🔄 Oracle integration (stub only)
 
-#### **Testing Framework (100% Complete)**
-- ✅ 400+ comprehensive unit tests
-- ✅ Integration tests for complete pipeline
-- ✅ Performance benchmarks and stress tests
-- ✅ Property-based testing and fuzzing
-- ✅ Real-world contract examples
-- ✅ Cross-platform testing (Linux, Windows, macOS)
-- ✅ CI/CD pipeline with automated testing
+#### **Testing (~60% Complete)**
 
-#### **Developer Tools (100% Complete)**
-- ✅ Complete Hardhat integration with plugins
-- ✅ Full Foundry adapter (forge, cast, anvil)
-- ✅ ABI compatibility layer for ethers.js/web3.js
-- ✅ CLI tools with rich features
-- ✅ Project templates and scaffolding
-- ✅ TypeScript definitions and interfaces
-- ✅ Debug tooling with source maps
+- ✅ Unit tests for runtime primitives (tests/runtime\_\*.rs)
+- ✅ Integration tests for compiler pipeline
+- ✅ Neo-Express deployment smoke tests
+- ✅ Cross-platform CI/CD (Linux, macOS, Windows)
+- 🔄 End-to-end contract execution tests (in progress)
+- 🔄 Fuzzing framework (planned)
+- 🔄 Differential testing (EVM vs NeoVM) (planned)
 
-#### **Documentation (95% Complete)**
+#### **Developer Tools (~70% Complete)**
+
+- ✅ CLI tools (neo-solc)
+- ✅ Hardhat integration scaffolding (tooling/)
+- ✅ Foundry adapter scaffolding (tooling/)
+- 🔄 Hardhat plugin (experimental)
+- 🔄 Foundry integration (experimental)
+- 🔄 Debug tooling (planned)
+
+#### **Documentation (~80% Complete)**
+
 - ✅ Comprehensive README with examples
-- ✅ Complete API reference documentation
-- ✅ Integration guides for all supported tools
-- ✅ Security best practices and guidelines
-- ✅ Performance optimization guide
-- ✅ Troubleshooting and FAQ sections
-- 🔄 Video tutorials and workshops (in progress)
+- ✅ Architecture documentation (docs/ARCHITECTURE.md)
+- ✅ Runtime specification (docs/RUNTIME_SPEC.md)
+- ✅ NeoVM parity TODO list (docs/NEO_VM_PARITY_TODO.md)
+- 🔄 API reference (in progress)
+- 🔄 Security best practices (basic)
+- 🔄 Video tutorials and workshops (planned)
 
 ### **📈 Metrics & Statistics**
 
-- **📊 Total Lines of Code**: 12,000+ (Production quality)
-- **🧪 Test Coverage**: 95%+ across all components
-- **⚡ Performance**: <2x overhead vs native NeoVM
-- **🔒 Security**: Comprehensive vulnerability scanning
-- **📚 Documentation**: 15,000+ words of comprehensive docs
-- **🛠️ Compatibility**: Supports Solidity 0.8.19+ and NeoVM 3.0+
+- **📊 Total Lines of Code**: ~40,000 (Rust implementation)
+- **🧪 Test Coverage**: Unit tests for runtime, integration tests for compiler
+- **⚡ Performance**: Optimized code generation with multi-level optimization
+- **🔒 Security**: Basic security analysis; external audit recommended for production
+- **📚 Documentation**: Comprehensive guides and reference documentation
+- **🛠️ Compatibility**: Solidity 0.8.x (partial support), NeoVM 3.0+
 
 ### **🎯 Production Readiness**
 
-| Component | Status | Test Coverage | Documentation | Performance |
-|-----------|---------|---------------|---------------|-------------|
-| **Compiler Core** | ✅ Production | 98% | Complete | Optimized |
-| **Runtime Library** | ✅ Production | 96% | Complete | Optimized |
-| **Developer Tools** | ✅ Production | 94% | Complete | Fast |
-| **Testing Suite** | ✅ Production | 100% | Complete | Comprehensive |
-| **Documentation** | ✅ Production | N/A | 95% Complete | N/A |
+| Component           | Status              | Test Coverage      | Documentation | Notes                          |
+| ------------------- | ------------------- | ------------------ | ------------- | ------------------------------ |
+| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration | Complete      | Ready for most use cases       |
+| **Runtime Library** | 🟡 Production-Ready | Unit Tests         | Complete      | See docs/NEO_VM_PARITY_TODO.md |
+| **Developer Tools** | 🟢 Stable           | Smoke Tests        | Basic         | CLI fully functional           |
+| **Testing Suite**   | 🟡 Growing          | Partial            | Good          | E2E tests in progress          |
+| **Documentation**   | 🟡 Good             | N/A                | 80%           | Accurate but incomplete        |
 
 ### **⚠️ Known Limitations**
 
 While the compiler is production-ready for most use cases, please note:
 
-| Area | Status | Notes |
-|------|--------|-------|
-| **Function Overloading** | Partial | Neo ABI dispatches by method name + arg count. Overloads with different arg counts are supported via signature-mangled Neo names (e.g., `foo(uint256)`); overloads with the same arg count are rejected. |
-| **EVM Call Options** | Partial | `{gas: ...}` is accepted but ignored (Neo N3 has no per-invocation gas limit). `{value: 0}` is accepted but ignored. Non-zero `{value: ...}` is unsupported; use NEP-17 transfers (`NativeCalls.gasTransfer`/`NativeCalls.neoTransfer`) and handle funds via `onNEP17Payment`. |
-| **Low-Level Calls** | Partial | `address.call(...)` / `address.staticcall(...)` can be lowered to Neo `System.Contract.Call` when the call data comes from `abi.encodeWithSignature/encodeWithSelector(...)` (either inlined, or stored in a local `bytes` variable). Raw ABI calldata bytes are not supported. |
-| **Gas Accounting** | Approximate | Per-syscall gas hints; opcode-level fees ~80% accurate |
-| **Iterator Streaming** | Partial | `Storage.Find` returns handles; streaming not fully implemented |
-| **Cryptographic Syscalls** | Stubs | `CheckWitness`, `GetRandom` return mock values in embedded runtime |
-| **Oracle Integration** | Stub | Oracle syscalls not connected to real oracle service |
-| **Conformance Tests** | In Progress | No official NeoVM test vector validation yet |
+| Area                       | Status      | Notes                                                                                                                                                                                                                                                                           |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function Overloading**   | Partial     | Neo ABI dispatches by method name + arg count. Overloads with different arg counts are supported via signature-mangled Neo names (e.g., `foo(uint256)`); overloads with the same arg count are rejected.                                                                        |
+| **EVM Call Options**       | Partial     | `{gas: ...}` is accepted but ignored (Neo N3 has no per-invocation gas limit). `{value: 0}` is accepted but ignored. Non-zero `{value: ...}` is unsupported; use NEP-17 transfers (`NativeCalls.gasTransfer`/`NativeCalls.neoTransfer`) and handle funds via `onNEP17Payment`.  |
+| **Low-Level Calls**        | Partial     | `address.call(...)` / `address.staticcall(...)` can be lowered to Neo `System.Contract.Call` when the call data comes from `abi.encodeWithSignature/encodeWithSelector(...)` (either inlined, or stored in a local `bytes` variable). Raw ABI calldata bytes are not supported. |
+| **Gas Accounting**         | Approximate | Per-syscall gas hints; opcode-level fees ~80% accurate                                                                                                                                                                                                                          |
+| **Iterator Streaming**     | Partial     | `Storage.Find` returns handles; streaming not fully implemented                                                                                                                                                                                                                 |
+| **Cryptographic Syscalls** | Stubs       | `CheckWitness`, `GetRandom` return mock values in embedded runtime                                                                                                                                                                                                              |
+| **Oracle Integration**     | Stub        | Oracle syscalls not connected to real oracle service                                                                                                                                                                                                                            |
+| **Conformance Tests**      | In Progress | No official NeoVM test vector validation yet                                                                                                                                                                                                                                    |
 
 **Recommendation:** For MainNet deployment, thoroughly test your contracts on Neo N3 TestNet first.
 
 ### **🚀 Roadmap**
 
 #### **Phase 1: Core Stability (Q1 2024)** ✅
+
 - ✅ Complete compiler implementation
 - ✅ Runtime library with EVM compatibility
 - ✅ Basic tooling and CLI interface
 - ✅ Comprehensive testing framework
 
 #### **Phase 2: Developer Experience (Q2 2024)** ✅
+
 - ✅ Hardhat and Foundry integration
 - ✅ Debug tooling and source maps
 - ✅ Performance optimization
 - ✅ Security analysis features
 
 #### **Phase 3: Production Deployment (Q3 2024)** 🔄
+
 - ✅ Audit-ready codebase
 - ✅ Performance benchmarking
 - 🔄 Community testing and feedback
 - 🔄 MainNet deployment support
 
 #### **Phase 4: Ecosystem Growth (Q4 2024)** 📋
+
 - 📋 Additional language support (Vyper)
 - 📋 Advanced optimization passes
 - 📋 IDE integrations (VS Code, IntelliJ)
@@ -846,6 +865,7 @@ While the compiler is production-ready for most use cases, please note:
 We've included complete, production-ready implementations of popular contract patterns:
 
 #### **🪙 [ERC20 Token](./examples/ERC20Token.sol)** (420 lines)
+
 - Complete standard implementation
 - Advanced features: minting, burning, pausing
 - Owner management and emergency functions
@@ -853,6 +873,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Comprehensive event logging
 
 #### **🎨 [ERC721 NFT](./examples/ERC721Token.sol)** (850 lines)
+
 - Note: this example includes EVM-specific patterns (inline assembly + `.selector`) and is not currently supported end-to-end; prefer `examples/new/NFT.sol` or `devpack/examples/CompleteNEP11NFT.sol` for Neo N3.
 - Full NFT implementation with metadata
 - Enumerable extension for token discovery
@@ -861,6 +882,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Gas-optimized storage patterns
 
 #### **🏦 [Uniswap V2 Pair](./examples/UniswapV2Pair.sol)** (650 lines)
+
 - Complete AMM implementation
 - Liquidity provision and swapping
 - Price oracle functionality
@@ -868,6 +890,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Advanced mathematical operations
 
 #### **🔐 [MultiSig Wallet](./examples/MultiSigWallet.sol)** (720 lines)
+
 - Neo-adapted: uses native GAS (NEP-17) transfers and accepts deposits via `onNEP17Payment`.
 - Smaller Neo-native example: `examples/new/MultiSigWalletNEP17.sol`.
 - Multi-signature transaction approval
@@ -877,6 +900,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Comprehensive security features
 
 #### **🗳️ [Governance Token](./examples/GovernanceToken.sol)** (980 lines)
+
 - Neo-adapted: proposals cannot attach native value (`values[]` must be `0`); use NEP-17 transfers and a Neo-compatible timelock contract instead.
 - ERC20 with voting capabilities
 - Delegation and vote tracking
@@ -885,6 +909,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Advanced governance features
 
 #### **💾 [Simple Storage](./examples/SimpleStorage.sol)** (170 lines)
+
 - Basic storage read/write operations
 - Key-value mapping storage
 - Owner access control
@@ -892,6 +917,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Ideal for learning NeoVM storage
 
 #### **🔒 [Escrow](./examples/Escrow.sol)** (280 lines)
+
 - Secure fund escrow service
 - Time-locked releases
 - Multi-party dispute resolution
@@ -899,6 +925,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Fee collection system
 
 #### **🎰 [Lottery](./examples/Lottery.sol)** (320 lines)
+
 - Multi-round lottery system
 - Ticket purchase and tracking
 - Pseudo-random winner selection
@@ -906,6 +933,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Operator fee collection
 
 #### **📈 [Staking](./examples/Staking.sol)** (310 lines)
+
 - Token staking with rewards
 - Configurable lock periods
 - APY calculation
@@ -913,6 +941,7 @@ We've included complete, production-ready implementations of popular contract pa
 - Reward distribution tracking
 
 #### **🏷️ [Name Service](./examples/NameService.sol)** (350 lines)
+
 - Decentralized name registration
 - Address resolution
 - Text record storage
@@ -979,6 +1008,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 [Website](https://r3e.network) • [Documentation](https://docs.r3e.network) • [Discord](https://discord.gg/r3e-network) • [Twitter](https://twitter.com/r3enetwork)
 
-*Bringing Ethereum's developer ecosystem to Neo blockchain*
+_Bringing Ethereum's developer ecosystem to Neo blockchain_
 
 </div>

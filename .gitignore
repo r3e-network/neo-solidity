@@ -55,3 +55,6 @@ examples/out/
 # Coverage reports
 coverage/
 *.lcov
+
+# Archived files (Go implementation)
+archive/

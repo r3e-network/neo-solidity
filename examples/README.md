@@ -30,6 +30,7 @@ reference ports adapted for Neo N3.
 - `Staking.sol`: staking sample.
 - `UniswapV2Pair.sol`: AMM pair sample (Neo-adapted; no native ETH-style value transfers).
 - `new/Counter.sol`: counter with increment/decrement events.
+- `new/Bank.sol`: banking contract with deposits, withdrawals, and transfers.
 - `new/MultiSigWalletNEP17.sol`: multisig wallet for GAS/NEO via NEP-17 transfers.
 - `new/Vault.sol`: token vault with deposits/withdrawals.
 - `new/NFT.sol`: minimal NEP-11-style NFT implementation.
