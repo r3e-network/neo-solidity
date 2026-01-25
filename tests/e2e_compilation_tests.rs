@@ -173,7 +173,7 @@ fn test_nef_file_structure() {
         .map_err(|e| format!("Failed to read NEF: {}", e))
         .unwrap();
 
-    assert!(nef_data.len() > 0, "NEF should not be empty");
+    assert!(!nef_data.is_empty(), "NEF should not be empty");
     assert!(
         nef_data.len() < 1024 * 1024,
         "NEF should be reasonable size"

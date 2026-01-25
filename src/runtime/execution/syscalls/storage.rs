@@ -1,3 +1,78 @@
+/// Storage syscall implementations for Neo N3 VM compatibility.
+///
+/// This module implements the System.Storage.* syscall interface, providing persistent
+/// key-value storage operations compatible with Neo N3's storage model.
+///
+/// # Storage Model
+///
+/// - **Keys**: Byte arrays (typically SHA-256 hashed for deterministic slot calculation)
+/// - **Values**: Byte arrays (empty value represents deleted key)
+/// - **Context**: Opaque handle representing storage context (simplified as empty byte array)
+/// - **Gas**: Storage operations consume gas based on operation type and data size
+///
+/// # Syscall Signatures
+///
+/// ## Context Management
+/// - `GetContext()` - Returns a storage context for regular operations
+/// - `GetReadOnlyContext()` - Returns a read-only storage context
+/// - `AsReadOnly(context)` - Converts a context to read-only view
+///
+/// ## Data Operations
+/// - `Get(context, key)` - Retrieve value for key, returns empty if not found
+/// - `Put(context, key, value)` - Store key-value pair, empty value deletes key
+/// - `Delete(context, key)` - Remove key from storage
+///
+/// ## Local Operations (context-free)
+/// - `Local.Get(key)` - Get from storage overlay (ephemeral during execution)
+/// - `Local.Put(key, value)` - Put to storage overlay
+/// - `Local.Delete(key)` - Delete from storage overlay
+///
+/// ## Query Operations
+/// - `Find(context, prefix, options)` - Returns iterator for prefix search
+/// - `Local.Find(prefix, options)` - Local version of Find
+///
+/// # Storage Overlay
+///
+/// During execution, modifications are tracked in `storage_overlay` as `OverlayEntry`:
+/// - `value`: The value (Some) or deletion marker (None)
+/// - `dirty`: Whether this entry needs to be persisted
+/// - Changes are flushed via `drain_dirty_storage_overlay()` after execution
+///
+/// # Thread Safety
+///
+/// Storage operations modify internal state but are safe within single-threaded
+/// execution model. Concurrent access must be synchronized externally.
+///
+/// # Gas Costs
+///
+/// - GetContext/GetReadOnlyContext/AsReadOnly: 1 gas
+/// - Get: 100 gas
+/// - Put: 1,000 gas
+/// - Delete: 100 gas
+/// - Find: 100 gas
+/// - Local operations: Same as regular operations
+///
+/// # Examples
+///
+/// ## Basic storage operation
+/// ```ignore
+/// // In NeoVM bytecode (simplified)
+/// PUSHDATA1 "my_key"
+/// PUSHDATA1 "my_value"
+/// SYSCALL System.Storage.GetContext
+/// SYSCALL System.Storage.Put
+/// ```
+///
+/// ## Prefix search with Find
+/// ```ignore
+/// PUSH0                      // options (unused)
+/// PUSHDATA1 "prefix"         // search prefix
+/// SYSCALL System.Storage.GetContext
+/// SYSCALL System.Storage.Find
+/// // Returns iterator token
+/// SYSCALL System.Iterator.Next
+/// SYSCALL System.Iterator.Value
+/// ```
 impl ExecutionContext {
     fn handle_storage_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {

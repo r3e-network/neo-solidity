@@ -3,6 +3,11 @@
 //! This module provides infrastructure for validating the neo-solidity compiler
 //! against NeoVM specification test vectors.
 
+pub mod crypto_signature_tests;
+pub mod exception_handling_tests;
+pub mod gas_regression_tests;
+pub mod storage_tests;
+
 use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use serde::{Deserialize, Serialize};
 

@@ -9,6 +9,7 @@ use serde_json;
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
 use std::collections::{HashMap, HashSet};
+use std::ops::{Div, Rem};
 use std::ptr::NonNull;
 
 include!("execution/execution_types.rs");
