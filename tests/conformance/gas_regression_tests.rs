@@ -22,10 +22,10 @@ fn gas_arithmetic_consumes_expected_amount() {
 
     // ADD costs 3 gas
     let code = [
-        0x11,    // PUSH1 (1 gas)
-        0x11,    // PUSH1 (1 gas)
-        0x9E,    // ADD (3 gas)
-        0x40,    // RET (0 gas)
+        0x11, // PUSH1 (1 gas)
+        0x11, // PUSH1 (1 gas)
+        0x9E, // ADD (3 gas)
+        0x40, // RET (0 gas)
     ];
 
     let mut ctx = ExecutionContext::new(&config).expect("context init");
@@ -36,7 +36,10 @@ fn gas_arithmetic_consumes_expected_amount() {
     let gas_after = ctx.gas_used();
 
     let consumed = gas_after - gas_before;
-    assert!(consumed >= 5, "Should consume at least 5 gas for PUSH1+PUSH1+ADD");
+    assert!(
+        consumed >= 5,
+        "Should consume at least 5 gas for PUSH1+PUSH1+ADD"
+    );
     assert!(consumed <= 10, "Should not consume excessive gas");
 }
 
@@ -94,7 +97,10 @@ fn gas_storage_scales_with_data_size() {
     let gas_large = ctx_large.gas_used();
 
     // Larger data should consume more gas
-    assert!(gas_large > gas_small, "Larger storage should consume more gas");
+    assert!(
+        gas_large > gas_small,
+        "Larger storage should consume more gas"
+    );
 }
 
 /// Test that syscall gas costs are reasonable
@@ -128,7 +134,10 @@ fn gas_syscall_costs_are_reasonable() {
 
     let consumed = gas_after - gas_before;
     assert!(consumed >= 100, "Storage.Get should cost at least 100 gas");
-    assert!(consumed <= 200, "Storage.Get should not cost more than 200 gas");
+    assert!(
+        consumed <= 200,
+        "Storage.Get should not cost more than 200 gas"
+    );
 }
 
 /// Test that exception handling consumes gas
@@ -142,11 +151,11 @@ fn gas_exception_handling_consumes_appropriately() {
     // TRY...THROW should consume gas
     let code = [
         0x3B, 0x04, 0x00, // TRY (1 gas)
-        0x0C, 0x04,           // PUSHDATA1 (2 gas)
+        0x0C, 0x04, // PUSHDATA1 (2 gas)
         0x45, 0x52, 0x52, 0x4F, // "ERR"
-        0x3A,                  // THROW (1 gas)
-        0x11,                  // catch: PUSH1
-        0x40,                  // RET
+        0x3A, // THROW (1 gas)
+        0x11, // catch: PUSH1
+        0x40, // RET
     ];
 
     let mut ctx = ExecutionContext::new(&config).expect("context init");
@@ -156,7 +165,10 @@ fn gas_exception_handling_consumes_appropriately() {
     while !ctx.step().expect("step").halted {}
     let gas_after = ctx.gas_used();
 
-    assert!(gas_after > gas_before, "Exception handling should consume gas");
+    assert!(
+        gas_after > gas_before,
+        "Exception handling should consume gas"
+    );
 }
 
 /// Test that loops don't leak gas
@@ -195,11 +207,11 @@ fn gas_never_zero_after_operations() {
 
     // Various operations that should always consume gas
     let operations: Vec<Vec<u8>> = vec![
-        vec![0x11, 0x9E, 0x40],             // PUSH1, ADD, RET
-        vec![0x11, 0x9F, 0x40],             // PUSH1, MUL, RET
-        vec![0x0C, 0x01, 0x61, 0x40],      // PUSHDATA1 1, PUSH1, RET
-        vec![0x21, 0x21, 0x40],             // NOP, NOP, RET
-        vec![0x45, 0x21, 0x40],             // DROP, NOP, RET
+        vec![0x11, 0x9E, 0x40],       // PUSH1, ADD, RET
+        vec![0x11, 0x9F, 0x40],       // PUSH1, MUL, RET
+        vec![0x0C, 0x01, 0x61, 0x40], // PUSHDATA1 1, PUSH1, RET
+        vec![0x21, 0x21, 0x40],       // NOP, NOP, RET
+        vec![0x45, 0x21, 0x40],       // DROP, NOP, RET
     ];
 
     for (i, op) in operations.iter().enumerate() {
@@ -243,8 +255,10 @@ fn gas_limit_is_enforced() {
 
     // Verify the error is OutOfGas
     let error_msg = result.unwrap_err().to_string();
-    assert!(error_msg.contains("OutOfGas") || error_msg.contains("out of gas"),
-        "Error should mention gas limit");
+    assert!(
+        error_msg.contains("OutOfGas") || error_msg.contains("out of gas"),
+        "Error should mention gas limit"
+    );
 }
 
 /// Test that cryptographic operations consume more gas
@@ -258,7 +272,7 @@ fn gas_crypto_consumes_more_than_basic_ops() {
     // Crypto syscall (GetBlock) costs more than basic ops
     let keccak_id = syscall_id("System.Blockchain.GetBlock");
     let mut code_crypto = vec![
-        0x0C, 0x01, 0x61,  // PUSHDATA1 1, PUSH1 (block height param)
+        0x0C, 0x01, 0x61, // PUSHDATA1 1, PUSH1 (block height param)
     ];
     code_crypto.extend_from_slice(&keccak_id);
     code_crypto.push(0x40); // RET
@@ -283,6 +297,8 @@ fn gas_crypto_consumes_more_than_basic_ops() {
     let gas_after_basic = ctx_basic.gas_used();
 
     // Crypto should consume more gas than basic arithmetic
-    assert!(gas_after_crypto > gas_after_basic,
-        "Crypto operations should consume more gas than basic ops");
+    assert!(
+        gas_after_crypto > gas_after_basic,
+        "Crypto operations should consume more gas than basic ops"
+    );
 }
