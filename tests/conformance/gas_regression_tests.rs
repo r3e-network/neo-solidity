@@ -241,10 +241,8 @@ fn gas_limit_is_enforced() {
     };
 
     // Code that would exceed gas limit
-    let mut code = vec![];
-    for _ in 0..100 {
-        code.push(0x11); // PUSH1 (1 gas each, so 100 would exceed limit of 10)
-    }
+    // 100 PUSH1 instructions (1 gas each, so 100 would exceed limit of 10)
+    let mut code = vec![0x11; 100];
     code.push(0x40); // RET
 
     let mut ctx = ExecutionContext::new(&config).expect("context init");

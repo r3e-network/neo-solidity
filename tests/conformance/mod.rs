@@ -11,5 +11,5 @@ pub mod storage_tests;
 pub mod infrastructure;
 pub mod vectors;
 
-pub use infrastructure::{ConformanceRunner, ConformanceSummary, TestResult, TestVector};
+pub use infrastructure::ConformanceRunner;
 pub use vectors::basic_test_vectors;

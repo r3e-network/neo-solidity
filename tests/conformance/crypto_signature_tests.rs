@@ -76,18 +76,14 @@ fn checksig_malformed_input_returns_false() {
 /// Test CheckMultisig with empty inputs (should return false)
 #[test]
 fn checkmultisig_empty_inputs_returns_false() {
-    let mut code = vec![];
-
-    // Push empty signatures
-    code.push(0x0C); // PUSHDATA1
-    code.push(0x00); // 0 bytes
-
-    // Push empty pubkeys
-    code.push(0x0C);
-    code.push(0x00);
-
     let checkmultisig_id = syscall_id("System.Crypto.CheckMultisig");
-    code.push(0x41); // SYSCALL
+    let mut code = vec![
+        0x0C, // PUSHDATA1 - empty signatures
+        0x00, // 0 bytes
+        0x0C, // PUSHDATA1 - empty pubkeys
+        0x00, // 0 bytes
+        0x41, // SYSCALL
+    ];
     code.extend_from_slice(&checkmultisig_id);
     code.push(0x40); // RET
 
