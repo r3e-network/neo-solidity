@@ -4,7 +4,6 @@
 
 use super::{spec, storage, LogEntry, RuntimeConfig, RuntimeError};
 use ripemd::Ripemd160;
-use serde::{Deserialize, Serialize};
 use serde_json;
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
