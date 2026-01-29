@@ -13,6 +13,11 @@ impl ExecutionResult {
         }
     }
 
+    /// Get remaining gas
+    pub fn gas_remaining(&self) -> u64 {
+        self.gas_limit.saturating_sub(self.gas_used)
+    }
+
     /// Check if execution ran out of gas
     pub fn out_of_gas(&self) -> bool {
         matches!(
@@ -32,6 +37,16 @@ impl ExecutionResult {
     /// Get return data as hex string
     pub fn return_hex(&self) -> String {
         hex::encode(&self.return_data)
+    }
+
+    /// Check if there were any state changes
+    pub fn has_state_changes(&self) -> bool {
+        !self.state_changes.is_empty()
+    }
+
+    /// Get the number of logs emitted
+    pub fn log_count(&self) -> usize {
+        self.logs.len()
     }
 }
 
