@@ -165,6 +165,23 @@ pub enum RuntimeError {
     ConfigurationError { message: String },
 }
 
+impl RuntimeError {
+    /// Create an execution error
+    pub fn execution(msg: impl Into<String>) -> Self {
+        Self::ExecutionError { message: msg.into() }
+    }
+
+    /// Create a storage error
+    pub fn storage(msg: impl Into<String>) -> Self {
+        Self::StorageError { message: msg.into() }
+    }
+
+    /// Check if this is a gas-related error
+    pub fn is_gas_error(&self) -> bool {
+        matches!(self, Self::OutOfGas { .. })
+    }
+}
+
 /// Runtime performance statistics
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RuntimeStatistics {
