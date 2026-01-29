@@ -89,6 +89,7 @@ impl RuntimeValue {
     }
 
     /// Check if value is truthy
+    #[must_use]
     pub fn is_truthy(&self) -> bool {
         match self {
             RuntimeValue::Null => false,

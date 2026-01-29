@@ -58,6 +58,7 @@ impl Address {
     }
 
     /// Check if address is zero
+    #[must_use]
     pub fn is_zero(&self) -> bool {
         self.0 == "0x0000000000000000000000000000000000000000"
     }
@@ -137,6 +138,7 @@ impl Gas {
     }
 
     /// Check if sufficient gas
+    #[must_use]
     pub fn sufficient_for(&self, required: Gas) -> bool {
         self.0 >= required.0
     }
@@ -168,11 +170,13 @@ impl Balance {
     }
 
     /// Check if sufficient balance
+    #[must_use]
     pub fn sufficient_for(&self, required: Balance) -> bool {
         self.0 >= required.0
     }
 
     /// Is zero balance
+    #[must_use]
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }
