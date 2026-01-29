@@ -1,8 +1,42 @@
+/// AST node with source location
 #[derive(Debug, Clone)]
 pub struct AstNode {
     pub node_type: AstNodeType,
     pub line: usize,
     pub column: usize,
+}
+
+impl AstNode {
+    /// Create a new AST node
+    pub fn new(node_type: AstNodeType, line: usize, column: usize) -> Self {
+        Self { node_type, line, column }
+    }
+
+    /// Check if this is a function node
+    pub fn is_function(&self) -> bool {
+        matches!(self.node_type, AstNodeType::Function { .. })
+    }
+
+    /// Check if this is a literal node
+    pub fn is_literal(&self) -> bool {
+        matches!(self.node_type, AstNodeType::Literal { .. })
+    }
+
+    /// Get the node type name
+    pub fn type_name(&self) -> &'static str {
+        match &self.node_type {
+            AstNodeType::Object { .. } => "object",
+            AstNodeType::Function { .. } => "function",
+            AstNodeType::Block { .. } => "block",
+            AstNodeType::If { .. } => "if",
+            AstNodeType::For { .. } => "for",
+            AstNodeType::Switch { .. } => "switch",
+            AstNodeType::FunctionCall { .. } => "call",
+            AstNodeType::Assignment { .. } => "assignment",
+            AstNodeType::Identifier { .. } => "identifier",
+            AstNodeType::Literal { .. } => "literal",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
