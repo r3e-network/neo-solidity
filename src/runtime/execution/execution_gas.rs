@@ -74,5 +74,13 @@ impl GasTracker {
     pub fn out_of_gas(&self) -> bool {
         self.used >= self.limit
     }
+
+    /// Get usage percentage
+    pub fn usage_percent(&self) -> f64 {
+        if self.limit == 0 {
+            return 0.0;
+        }
+        (self.used as f64 / self.limit as f64) * 100.0
+    }
 }
 
