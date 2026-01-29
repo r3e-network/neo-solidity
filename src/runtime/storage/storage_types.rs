@@ -47,12 +47,29 @@ impl StorageChange {
 }
 
 /// Types of storage changes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StorageChangeType {
     Create,   // New key-value pair
     Update,   // Update existing value
     Delete,   // Delete key-value pair
     NoChange, // Value unchanged
+}
+
+impl StorageChangeType {
+    /// Check if this is a write operation
+    pub fn is_write(&self) -> bool {
+        matches!(self, Self::Create | Self::Update | Self::Delete)
+    }
+
+    /// Get type as string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Create => "create",
+            Self::Update => "update",
+            Self::Delete => "delete",
+            Self::NoChange => "no_change",
+        }
+    }
 }
 
 /// Storage gas costs (Neo N3 compatible)
