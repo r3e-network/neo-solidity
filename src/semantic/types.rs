@@ -112,11 +112,6 @@ impl PerformanceMetrics {
     }
 }
 
+#[derive(Default)]
 pub struct SemanticAnalyzer;
-
-impl Default for SemanticAnalyzer {
-    fn default() -> Self {
-        Self
-    }
-}
 
