@@ -32,7 +32,7 @@ pub struct RuntimeException {
 }
 
 /// Types of runtime exceptions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ExceptionType {
     OutOfGas,
     StackOverflow,
@@ -42,6 +42,27 @@ pub enum ExceptionType {
     RevertExecution,
     Fault,
     Halt,
+}
+
+impl ExceptionType {
+    /// Check if this is a recoverable exception
+    pub fn is_recoverable(&self) -> bool {
+        matches!(self, Self::RevertExecution | Self::Halt)
+    }
+
+    /// Get exception name as string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::OutOfGas => "OutOfGas",
+            Self::StackOverflow => "StackOverflow",
+            Self::StackUnderflow => "StackUnderflow",
+            Self::InvalidOpcode => "InvalidOpcode",
+            Self::InvalidJump => "InvalidJump",
+            Self::RevertExecution => "RevertExecution",
+            Self::Fault => "Fault",
+            Self::Halt => "Halt",
+        }
+    }
 }
 
 /// State change record
