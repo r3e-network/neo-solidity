@@ -1,6 +1,7 @@
 /// Value type for runtime operations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum RuntimeValue {
+    #[default]
     Null,
     Boolean(bool),
     Integer(i64),
@@ -8,12 +9,6 @@ pub enum RuntimeValue {
     ByteString(Vec<u8>),
     Array(Vec<RuntimeValue>),
     Map(std::collections::HashMap<String, RuntimeValue>),
-}
-
-impl Default for RuntimeValue {
-    fn default() -> Self {
-        Self::Null
-    }
 }
 
 impl From<bool> for RuntimeValue {

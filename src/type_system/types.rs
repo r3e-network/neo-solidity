@@ -64,7 +64,7 @@ impl NeoType {
     /// Get the storage size in bytes (for value types)
     pub fn storage_size(&self) -> Option<usize> {
         match self {
-            Self::Integer { bits, .. } => Some((*bits as usize + 7) / 8),
+            Self::Integer { bits, .. } => Some((*bits as usize).div_ceil(8)),
             Self::Boolean => Some(1),
             Self::Address => Some(20),
             Self::ByteArray { fixed_len: Some(len) } => Some(*len as usize),
