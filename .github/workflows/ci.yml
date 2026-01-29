@@ -164,7 +164,7 @@ jobs:
       - name: Test NEP17 example
         run: |
           ./target/release/neo-solc devpack/examples/CompleteNEP17Token.sol -o TestNEP17 -v
-          test -f TestNEP17.nef || exit 1
+          test -f TestNEP17-CompleteNEP17Token.nef || exit 1
 
       - name: Validate NEF format
         run: |
