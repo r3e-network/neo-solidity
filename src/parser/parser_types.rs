@@ -85,10 +85,18 @@ pub enum AstNodeType {
     },
 }
 
+/// Switch case in a switch statement
 #[derive(Debug, Clone)]
 pub struct SwitchCase {
     pub value: AstNode,
     pub body: AstNode,
+}
+
+impl SwitchCase {
+    /// Create a new switch case
+    pub fn new(value: AstNode, body: AstNode) -> Self {
+        Self { value, body }
+    }
 }
 
 pub struct Parser {
