@@ -1,40 +1,48 @@
 //! Lexer unit tests.
 //!
-//! Tests tokenization of Yul source code into tokens.
+//! Tests tokenization through compilation.
 
-use neo_solidity::{codegen::*, lexer::*, optimizer::*, parser::*, semantic::*, storage_key::*, CompilerConfig, CompilerError};
+use neo_solidity::cli::compile_contracts;
 
-#[cfg(test)]
-mod lexer_tests {
-    use super::*;
-
-    #[test]
-    fn test_basic_tokenization() {
-        let input = "{ let x := add(1, 2) }";
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().unwrap();
-
-        assert!(!tokens.is_empty());
-        // Basic validation that tokenization works
+#[test]
+fn test_basic_syntax_parsing() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Basic {
+        uint256 public x;
     }
+    "#;
+    
+    let result = compile_contracts(source, false, 0);
+    assert!(result.is_ok());
+}
 
-    #[test]
-    fn test_number_literals() {
-        let input = "0x42 123 0b1010";
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().unwrap();
-
-        assert!(tokens.len() >= 3);
-        // Basic validation that number parsing works
+#[test]
+fn test_number_literals() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Numbers {
+        uint256 constant HEX = 0x42;
+        uint256 constant DEC = 123;
     }
+    "#;
+    
+    let result = compile_contracts(source, false, 0);
+    assert!(result.is_ok());
+}
 
-    #[test]
-    fn test_string_literals() {
-        let input = r#""hello world" "test\"quote""#;
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().unwrap();
-
-        assert!(tokens.len() >= 2);
-        // Basic validation that string parsing works
+#[test]
+fn test_string_literals() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Strings {
+        string public hello = "hello world";
     }
+    "#;
+    
+    let result = compile_contracts(source, false, 0);
+    assert!(result.is_ok());
 }

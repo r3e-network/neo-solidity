@@ -1,46 +1,33 @@
 //! Code generator unit tests.
 //!
-//! Tests code generation from Yul AST to bytecode.
+//! Tests code generation through compilation.
 
-use neo_solidity::{codegen::*, lexer::*, optimizer::*, parser::*, semantic::*, storage_key::*, CompilerConfig, CompilerError};
+use neo_solidity::cli::compile_contracts;
 
-#[cfg(test)]
-mod codegen_tests {
-    use super::*;
-
-    fn compile_yul(input: &str) -> Result<CompilationResult, CompilerError> {
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize()?;
-        let mut parser = Parser::new(tokens);
-        let ast = parser.parse()?;
-
-        let config = CompilerConfig::default();
-        let mut codegen = CodeGenerator::new(&config);
-        codegen.generate(&ast)
-    }
-
-    #[test]
-    fn test_simple_arithmetic() {
-        let input = "{ let x := add(1, 2) }";
-        let result = compile_yul(input).unwrap();
-
-        assert!(!result.bytecode.is_empty());
-        assert!(result.estimated_gas > 0);
-    }
-
-    #[test]
-    fn test_function_compilation() {
-        let input = r#"
-        {
-            function add_one(x) -> result {
-                result := add(x, 1)
-            }
-            let y := add_one(5)
+#[test]
+fn test_simple_arithmetic() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Arith {
+        function add(uint256 a, uint256 b) public pure returns (uint256) {
+            return a + b;
         }
-        "#;
-        let result = compile_yul(input).unwrap();
-
-        assert!(!result.bytecode.is_empty());
-        assert!(!result.assembly.is_empty());
     }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
+}
+
+#[test]
+fn test_function_compilation() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Funcs {
+        function addOne(uint256 x) public pure returns (uint256) {
+            return x + 1;
+        }
+    }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
 }

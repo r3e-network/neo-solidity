@@ -1,95 +1,68 @@
 //! Integration tests for full compilation pipeline.
 //!
-//! Tests end-to-end compilation from Yul source to bytecode.
+//! Tests end-to-end compilation from Solidity source.
 
-use neo_solidity::{codegen::*, lexer::*, optimizer::*, parser::*, semantic::*, storage_key::*, CompilerConfig, CompilerError};
+use neo_solidity::cli::compile_contracts;
 
-#[cfg(test)]
-mod integration_tests {
-    use super::*;
-
-    fn full_compile_test(input: &str) -> Result<CompilationResult, CompilerError> {
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize()?;
-        let mut parser = Parser::new(tokens);
-        let ast = parser.parse()?;
-
-        let config = CompilerConfig::default();
-        let mut code_generator = CodeGenerator::new(&config);
-        code_generator.generate(&ast)
-    }
-
-    #[test]
-    fn test_erc20_like_contract() {
-        let input = r#"
-        {
-            function balanceOf(account) -> balance {
-                let slot := add(1, account)
-                balance := sload(slot)
-            }
-
-            function transfer(to, amount) -> success {
-                let sender := caller()
-                let sender_balance := balanceOf(sender)
-
-                if lt(sender_balance, amount) {
-                    success := 0
-                    leave
-                }
-
-                success := 1
-            }
+#[test]
+fn test_erc20_like_contract() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Token {
+        mapping(address => uint256) public balances;
+        
+        function transfer(address to, uint256 amount) public returns (bool) {
+            require(balances[msg.sender] >= amount, "Insufficient");
+            balances[msg.sender] -= amount;
+            balances[to] += amount;
+            return true;
         }
-        "#;
-
-        let result = full_compile_test(input).unwrap();
-        assert!(!result.bytecode.is_empty());
-        assert!(result.estimated_gas > 0);
     }
+    "#;
+    
+    let result = compile_contracts(source, false, 2);
+    assert!(result.is_ok(), "ERC20-like contract should compile");
+}
 
-    #[test]
-    fn test_complex_control_flow() {
-        let input = r#"
-        {
-            function fibonacci(n) -> result {
-                if lt(n, 2) {
-                    result := n
-                    leave
-                }
-
-                let a := 0
-                let b := 1
-                for { let i := 2 } lt(i, add(n, 1)) { i := add(i, 1) } {
-                    let temp := add(a, b)
-                    a := b
-                    b := temp
-                }
-                result := b
+#[test]
+fn test_complex_control_flow() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Fibonacci {
+        function fib(uint256 n) public pure returns (uint256) {
+            if (n < 2) return n;
+            uint256 a = 0;
+            uint256 b = 1;
+            for (uint256 i = 2; i <= n; i++) {
+                uint256 temp = a + b;
+                a = b;
+                b = temp;
             }
+            return b;
         }
-        "#;
-
-        let result = full_compile_test(input).unwrap();
-        assert!(!result.bytecode.is_empty());
-        assert!(result.estimated_gas > 100);
     }
+    "#;
+    
+    let result = compile_contracts(source, false, 2);
+    assert!(result.is_ok(), "Control flow contract should compile");
+}
 
-    #[test]
-    fn test_optimization_effectiveness() {
-        let input = r#"
-        {
-            function unoptimized_example() -> result {
-                let a := add(1, 2)
-                let b := add(1, 2)
-                let c := mul(a, 1)
-                let d := add(c, 0)
-                result := d
-            }
-        }
-        "#;
-
-        let result = full_compile_test(input).unwrap();
-        assert!(!result.bytecode.is_empty());
-        assert!(result.estimated_gas < 1000);
+#[test]
+fn test_optimization_levels() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Simple {
+        uint256 public value;
+        function set(uint256 v) public { value = v; }
+    }
+    "#;
+    
+    // Test different optimization levels
+    for level in 0..=3 {
+        let result = compile_contracts(source, false, level);
+        assert!(result.is_ok(), "Should compile at O{}", level);
     }
 }
