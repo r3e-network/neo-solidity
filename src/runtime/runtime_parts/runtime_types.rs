@@ -145,7 +145,7 @@ pub enum RuntimeError {
 }
 
 /// Runtime performance statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RuntimeStatistics {
     pub total_gas_used: u64,
     pub total_instructions_executed: u64,
@@ -153,5 +153,30 @@ pub struct RuntimeStatistics {
     pub storage_reads: u64,
     pub storage_writes: u64,
     pub state_changes: u64,
+}
+
+impl RuntimeStatistics {
+    /// Get total storage operations
+    pub fn total_storage_ops(&self) -> u64 {
+        self.storage_reads + self.storage_writes
+    }
+
+    /// Get average gas per instruction
+    pub fn avg_gas_per_instruction(&self) -> f64 {
+        if self.total_instructions_executed == 0 {
+            return 0.0;
+        }
+        self.total_gas_used as f64 / self.total_instructions_executed as f64
+    }
+
+    /// Merge with another statistics instance
+    pub fn merge(&mut self, other: &RuntimeStatistics) {
+        self.total_gas_used += other.total_gas_used;
+        self.total_instructions_executed += other.total_instructions_executed;
+        self.max_stack_depth = self.max_stack_depth.max(other.max_stack_depth);
+        self.storage_reads += other.storage_reads;
+        self.storage_writes += other.storage_writes;
+        self.state_changes += other.state_changes;
+    }
 }
 
