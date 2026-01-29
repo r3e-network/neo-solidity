@@ -19,6 +19,18 @@ pub struct AccountState {
     pub created_at: u64,
 }
 
+impl AccountState {
+    /// Check if this is a contract account
+    pub fn is_contract(&self) -> bool {
+        self.code.is_some()
+    }
+
+    /// Get code size in bytes
+    pub fn code_size(&self) -> usize {
+        self.code.as_ref().map(|c| c.len()).unwrap_or(0)
+    }
+}
+
 /// State snapshot for rollback
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateSnapshot {
