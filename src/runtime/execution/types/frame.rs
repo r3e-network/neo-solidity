@@ -14,6 +14,23 @@ pub struct CallFrame {
     pub stack_base: usize,
 }
 
+impl CallFrame {
+    /// Create a new call frame
+    pub fn new(return_address: u32, stack_base: usize) -> Self {
+        Self {
+            return_address,
+            function_name: None,
+            local_variables: HashMap::new(),
+            stack_base,
+        }
+    }
+
+    /// Check if this frame has local variables
+    pub fn has_locals(&self) -> bool {
+        !self.local_variables.is_empty()
+    }
+}
+
 /// Exception handling frame for try-catch-finally blocks
 #[derive(Debug, Clone)]
 pub struct TryFrame {
