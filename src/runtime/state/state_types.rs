@@ -41,12 +41,34 @@ pub struct StateSnapshot {
 }
 
 /// State query interface
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StateQuery {
     pub account: Option<String>,
     pub include_code: bool,
     pub include_storage: bool,
     pub block_number: Option<u64>,
+}
+
+impl StateQuery {
+    /// Create a query for a specific account
+    pub fn for_account(address: impl Into<String>) -> Self {
+        Self {
+            account: Some(address.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Include code in the query result
+    pub fn with_code(mut self) -> Self {
+        self.include_code = true;
+        self
+    }
+
+    /// Include storage in the query result
+    pub fn with_storage(mut self) -> Self {
+        self.include_storage = true;
+        self
+    }
 }
 
 /// State update batch
