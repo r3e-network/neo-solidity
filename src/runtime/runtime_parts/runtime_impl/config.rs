@@ -17,3 +17,47 @@ impl Default for RuntimeConfig {
     }
 }
 
+impl RuntimeConfig {
+    /// Create a new builder
+    pub fn builder() -> RuntimeConfigBuilder {
+        RuntimeConfigBuilder::default()
+    }
+
+    /// Create config for testing with debugging enabled
+    pub fn for_testing() -> Self {
+        Self {
+            enable_debugging: true,
+            enable_tracing: true,
+            strict_mode: false,
+            ..Default::default()
+        }
+    }
+}
+
+/// Builder for RuntimeConfig
+#[derive(Debug, Clone, Default)]
+pub struct RuntimeConfigBuilder {
+    config: RuntimeConfig,
+}
+
+impl RuntimeConfigBuilder {
+    pub fn gas_limit(mut self, limit: u64) -> Self {
+        self.config.gas_limit = limit;
+        self
+    }
+
+    pub fn debugging(mut self, enabled: bool) -> Self {
+        self.config.enable_debugging = enabled;
+        self
+    }
+
+    pub fn tracing(mut self, enabled: bool) -> Self {
+        self.config.enable_tracing = enabled;
+        self
+    }
+
+    pub fn build(self) -> RuntimeConfig {
+        self.config
+    }
+}
+
