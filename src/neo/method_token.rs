@@ -28,6 +28,16 @@ impl MethodToken {
         }
     }
 
+    /// Get the contract hash as hex string
+    pub fn hash_hex(&self) -> String {
+        hex::encode(self.hash)
+    }
+
+    /// Check if call flags allow state changes
+    pub fn allows_state_changes(&self) -> bool {
+        self.call_flags & 0x01 != 0
+    }
+
     /// Serialize the method token to bytes
     fn serialize(&self, buffer: &mut Vec<u8>) {
         // Contract hash (20 bytes)
