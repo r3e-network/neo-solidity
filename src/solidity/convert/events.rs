@@ -19,7 +19,7 @@ fn normalize_event_signature(name: &str, params: &[crate::frontend::EventParamet
     fn canonical_param_type(ty: &str) -> String {
         let mut parts = ty.split_whitespace();
         match parts.next() {
-            Some("struct") | Some("enum") => parts.next().unwrap_or_default().to_string(),
+            Some("struct" | "enum") => parts.next().unwrap_or_default().to_string(),
             Some(first) => first.to_string(),
             None => String::new(),
         }

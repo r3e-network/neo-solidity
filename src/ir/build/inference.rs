@@ -272,7 +272,7 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                     }
                     ("msg", "data") => return Some(ValueType::ByteArray { fixed_len: None }),
                     ("tx", "origin") => return Some(ValueType::Address),
-                    ("block", "timestamp") | ("block", "number") | ("block", "chainid") => {
+                    ("block", "timestamp" | "number" | "chainid") => {
                         return Some(ValueType::Integer {
                             signed: false,
                             bits: 256,
