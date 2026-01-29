@@ -152,6 +152,18 @@ pub struct StackFrame {
     pub local_variables: HashMap<String, types::StackItem>,
 }
 
+impl StackFrame {
+    /// Get stack depth
+    pub fn stack_depth(&self) -> usize {
+        self.stack_items.len()
+    }
+
+    /// Check if this frame has a function name
+    pub fn has_function(&self) -> bool {
+        self.function_name.is_some()
+    }
+}
+
 /// Optional metadata overrides for a single execution
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ExecutionOverrides {
