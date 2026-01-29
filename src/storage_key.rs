@@ -35,6 +35,7 @@ pub enum KeyFragment {
 }
 
 impl KeyFragment {
+    /// Create an integer key fragment
     pub fn integer(value: BigInt, bits: u16, signed: bool) -> Self {
         Self::Integer {
             value,
@@ -43,20 +44,54 @@ impl KeyFragment {
         }
     }
 
+    /// Create a boolean key fragment
     pub fn boolean(value: bool) -> Self {
         Self::Boolean(value)
     }
 
+    /// Create an address key fragment (20 bytes)
     pub fn address(bytes: impl Into<Vec<u8>>) -> Self {
         Self::Address(bytes.into())
     }
 
+    /// Create a bytes key fragment
     pub fn bytes(bytes: impl Into<Vec<u8>>) -> Self {
         Self::Bytes(bytes.into())
     }
 
+    /// Create a string key fragment
     pub fn string(value: impl Into<String>) -> Self {
         Self::String(value.into())
+    }
+
+    /// Create a uint256 key fragment
+    pub fn uint256(value: BigInt) -> Self {
+        Self::Integer {
+            value,
+            bits: 256,
+            signed: false,
+        }
+    }
+
+    /// Create an int256 key fragment
+    pub fn int256(value: BigInt) -> Self {
+        Self::Integer {
+            value,
+            bits: 256,
+            signed: true,
+        }
+    }
+
+    /// Get the type name of this fragment
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::Integer { signed: true, .. } => "int",
+            Self::Integer { signed: false, .. } => "uint",
+            Self::Boolean(_) => "bool",
+            Self::Address(_) => "address",
+            Self::Bytes(_) => "bytes",
+            Self::String(_) => "string",
+        }
     }
 }
 
