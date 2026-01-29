@@ -76,7 +76,7 @@ pub struct StateChange {
 }
 
 /// Types of state changes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StateChangeType {
     BalanceChange,
     StorageChange,
@@ -84,6 +84,25 @@ pub enum StateChangeType {
     NonceChange,
     AccountCreation,
     AccountDeletion,
+}
+
+impl StateChangeType {
+    /// Check if this is a destructive change
+    pub fn is_destructive(&self) -> bool {
+        matches!(self, Self::AccountDeletion | Self::CodeChange)
+    }
+
+    /// Get change type as string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::BalanceChange => "balance",
+            Self::StorageChange => "storage",
+            Self::CodeChange => "code",
+            Self::NonceChange => "nonce",
+            Self::AccountCreation => "creation",
+            Self::AccountDeletion => "deletion",
+        }
+    }
 }
 
 /// Log entry for events
