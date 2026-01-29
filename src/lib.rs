@@ -51,6 +51,7 @@ pub mod bounds;
 pub mod docs;
 pub mod security;
 pub mod testing;
+pub mod utils;
 pub mod validation;
 pub mod warning;
 
