@@ -172,6 +172,24 @@ impl RelatedInfo {
     }
 }
 
+/// Diagnostic data (boxed to reduce CompilerError size)
+#[derive(Debug, Clone)]
+pub struct DiagnosticData {
+    pub severity: ErrorSeverity,
+    pub location: SourceLocation,
+    pub message: String,
+    pub code: ErrorCode,
+    pub suggestions: Vec<FixSuggestion>,
+    pub related: Vec<RelatedInfo>,
+    pub source_snippet: Option<String>,
+}
+
+impl std::fmt::Display for DiagnosticData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}[{}] at {}: {}", self.severity, self.code, self.location, self.message)
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum CompilerError {
     #[error("IO error: {0}")]
@@ -194,16 +212,8 @@ pub enum CompilerError {
         code: Option<ErrorCode>,
     },
 
-    #[error("{severity}[{code}] at {location}: {message}")]
-    Diagnostic {
-        severity: ErrorSeverity,
-        location: SourceLocation,
-        message: String,
-        code: ErrorCode,
-        suggestions: Vec<FixSuggestion>,
-        related: Vec<RelatedInfo>,
-        source_snippet: Option<String>,
-    },
+    #[error("{0}")]
+    Diagnostic(Box<DiagnosticData>),
 }
 
 /// Error severity levels
@@ -373,9 +383,8 @@ impl CompilerError {
     /// Check if this is a fatal error
     pub fn is_fatal(&self) -> bool {
         match self {
-            Self::Located { severity, .. } | Self::Diagnostic { severity, .. } => {
-                *severity == ErrorSeverity::Error
-            }
+            Self::Located { severity, .. } => *severity == ErrorSeverity::Error,
+            Self::Diagnostic(d) => d.severity == ErrorSeverity::Error,
             _ => true,
         }
     }
@@ -383,9 +392,8 @@ impl CompilerError {
     /// Check if this is a warning
     pub fn is_warning(&self) -> bool {
         match self {
-            Self::Located { severity, .. } | Self::Diagnostic { severity, .. } => {
-                *severity == ErrorSeverity::Warning
-            }
+            Self::Located { severity, .. } => *severity == ErrorSeverity::Warning,
+            Self::Diagnostic(d) => d.severity == ErrorSeverity::Warning,
             _ => false,
         }
     }
@@ -394,7 +402,7 @@ impl CompilerError {
     pub fn code(&self) -> Option<ErrorCode> {
         match self {
             Self::Located { code, .. } => *code,
-            Self::Diagnostic { code, .. } => Some(*code),
+            Self::Diagnostic(d) => Some(d.code),
             _ => None,
         }
     }
@@ -402,7 +410,7 @@ impl CompilerError {
     /// Get suggestions if available
     pub fn suggestions(&self) -> &[FixSuggestion] {
         match self {
-            Self::Diagnostic { suggestions, .. } => suggestions,
+            Self::Diagnostic(d) => &d.suggestions,
             _ => &[],
         }
     }
@@ -479,7 +487,7 @@ impl DiagnosticBuilder {
 
     /// Build the final CompilerError
     pub fn build(self) -> CompilerError {
-        CompilerError::Diagnostic {
+        CompilerError::Diagnostic(Box::new(DiagnosticData {
             severity: self.severity,
             location: self.location,
             message: self.message,
@@ -487,6 +495,6 @@ impl DiagnosticBuilder {
             suggestions: self.suggestions,
             related: self.related,
             source_snippet: self.source_snippet,
-        }
+        }))
     }
 }

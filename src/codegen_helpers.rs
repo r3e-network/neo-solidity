@@ -14,14 +14,14 @@ pub fn encode_small_int(n: i64) -> Vec<u8> {
 fn encode_varint(n: i64) -> Vec<u8> {
     let bytes = n.to_le_bytes();
     let len = minimal_bytes(n);
-    let mut result = vec![0x00 + len as u8];
+    let mut result = vec![len as u8];
     result.extend_from_slice(&bytes[..len]);
     result
 }
 
 fn minimal_bytes(n: i64) -> usize {
-    if n >= -128 && n <= 127 { 1 }
-    else if n >= -32768 && n <= 32767 { 2 }
-    else if n >= -2147483648 && n <= 2147483647 { 4 }
+    if (-128..=127).contains(&n) { 1 }
+    else if (-32768..=32767).contains(&n) { 2 }
+    else if (-2147483648..=2147483647).contains(&n) { 4 }
     else { 8 }
 }

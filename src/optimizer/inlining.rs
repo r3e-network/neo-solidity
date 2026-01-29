@@ -120,7 +120,7 @@ impl Optimizer {
             AstNodeType::If { condition, then_branch, else_branch } => {
                 self.contains_call_to(condition, target) ||
                 self.contains_call_to(then_branch, target) ||
-                else_branch.as_ref().map_or(false, |eb| self.contains_call_to(eb, target))
+                else_branch.as_ref().is_some_and(|eb| self.contains_call_to(eb, target))
             }
             _ => false,
         }

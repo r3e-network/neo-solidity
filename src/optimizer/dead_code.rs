@@ -31,7 +31,7 @@ impl Optimizer {
                 
                 // Check for empty branches
                 let then_empty = self.is_empty_block(&opt_then);
-                let else_empty = opt_else.as_ref().map_or(true, |eb| self.is_empty_block(eb));
+                let else_empty = opt_else.as_ref().is_none_or(|eb| self.is_empty_block(eb));
                 
                 if then_empty && else_empty {
                     // Both branches empty - eliminate entire if

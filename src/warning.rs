@@ -6,7 +6,7 @@ use crate::error::{ErrorCode, ErrorSeverity, SourceLocation, FixSuggestion};
 use std::collections::HashSet;
 
 /// Warning configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct WarningConfig {
     /// Disabled warning codes
     pub disabled: HashSet<ErrorCode>,
@@ -16,17 +16,6 @@ pub struct WarningConfig {
     pub all: bool,
     /// Enable pedantic warnings
     pub pedantic: bool,
-}
-
-impl Default for WarningConfig {
-    fn default() -> Self {
-        Self {
-            disabled: HashSet::new(),
-            errors: HashSet::new(),
-            all: false,
-            pedantic: false,
-        }
-    }
 }
 
 impl WarningConfig {
