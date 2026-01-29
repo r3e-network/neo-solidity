@@ -47,3 +47,19 @@ pub enum TryFrameState {
     Catch,
     Finally,
 }
+
+impl TryFrameState {
+    /// Check if in error handling state
+    pub fn is_handling_error(&self) -> bool {
+        matches!(self, Self::Catch | Self::Finally)
+    }
+
+    /// Get state as string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Try => "try",
+            Self::Catch => "catch",
+            Self::Finally => "finally",
+        }
+    }
+}
