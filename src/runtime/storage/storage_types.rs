@@ -27,6 +27,25 @@ pub struct StorageChange {
     pub gas_cost: u64,
 }
 
+impl StorageChange {
+    /// Check if this is a write operation
+    pub fn is_write(&self) -> bool {
+        matches!(self.change_type, StorageChangeType::Create | StorageChangeType::Update)
+    }
+
+    /// Get the key as hex string
+    pub fn key_hex(&self) -> String {
+        hex::encode(&self.key)
+    }
+
+    /// Get the size difference in bytes
+    pub fn size_delta(&self) -> i64 {
+        let old_size = self.old_value.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
+        let new_size = self.new_value.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
+        new_size - old_size
+    }
+}
+
 /// Types of storage changes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StorageChangeType {
