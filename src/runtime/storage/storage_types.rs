@@ -83,12 +83,22 @@ pub struct StorageGasCosts {
 }
 
 /// Storage query options
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StorageQuery {
     pub account: String,
     pub key_prefix: Option<Vec<u8>>,
     pub limit: Option<usize>,
     pub include_pending: bool,
+}
+
+impl StorageQuery {
+    /// Create a query for an account
+    pub fn for_account(account: impl Into<String>) -> Self {
+        Self {
+            account: account.into(),
+            ..Default::default()
+        }
+    }
 }
 
 /// Storage statistics
