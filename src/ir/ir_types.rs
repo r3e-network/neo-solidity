@@ -186,6 +186,7 @@ pub enum Instruction {
     Abort,
 }
 
+/// Literal values in IR
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LiteralValue {
     Integer(BigInt),
@@ -194,6 +195,35 @@ pub enum LiteralValue {
     ByteArray(Vec<u8>),
     Address(Vec<u8>),
     Null,
+}
+
+impl LiteralValue {
+    /// Create an integer literal
+    pub fn int(value: impl Into<BigInt>) -> Self {
+        Self::Integer(value.into())
+    }
+
+    /// Create a boolean literal
+    pub fn bool(value: bool) -> Self {
+        Self::Boolean(value)
+    }
+
+    /// Check if this is a null value
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+
+    /// Get the type name
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::Integer(_) => "integer",
+            Self::Boolean(_) => "boolean",
+            Self::String(_) => "string",
+            Self::ByteArray(_) => "bytes",
+            Self::Address(_) => "address",
+            Self::Null => "null",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
