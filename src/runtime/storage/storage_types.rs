@@ -75,7 +75,7 @@ pub struct StorageQuery {
 }
 
 /// Storage statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StorageStatistics {
     pub total_accounts: usize,
     pub total_keys: usize,
@@ -83,5 +83,20 @@ pub struct StorageStatistics {
     pub read_operations: u64,
     pub write_operations: u64,
     pub pending_changes: usize,
+}
+
+impl StorageStatistics {
+    /// Get total operations
+    pub fn total_operations(&self) -> u64 {
+        self.read_operations + self.write_operations
+    }
+
+    /// Get read/write ratio
+    pub fn read_write_ratio(&self) -> f64 {
+        if self.write_operations == 0 {
+            return f64::INFINITY;
+        }
+        self.read_operations as f64 / self.write_operations as f64
+    }
 }
 
