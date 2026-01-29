@@ -18,13 +18,17 @@ impl Optimizer {
         {
             // Only inline simple functions with few parameters
             if params.len() <= 2 && self.is_simple_function(body) {
-                candidates.insert(
-                    name.clone(),
-                    InlineCandidate {
-                        params: params.clone(),
-                        body: (**body).clone(),
-                    },
-                );
+                let cost = self.estimate_inline_cost(body);
+                if cost <= self.inline_threshold {
+                    candidates.insert(
+                        name.clone(),
+                        InlineCandidate {
+                            params: params.clone(),
+                            body: (**body).clone(),
+                            cost,
+                        },
+                    );
+                }
             }
         }
 
@@ -44,6 +48,11 @@ impl Optimizer {
             AstNodeType::Block { statements } => statements.len() <= 3,
             _ => true,
         }
+    }
+
+    /// Estimate the cost of inlining a function body
+    fn estimate_inline_cost(&self, body: &AstNode) -> usize {
+        self.count_nodes(body)
     }
 
     fn inline_functions_recursive(
