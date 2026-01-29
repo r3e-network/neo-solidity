@@ -10,6 +10,54 @@ pub enum RuntimeValue {
     Map(std::collections::HashMap<String, RuntimeValue>),
 }
 
+impl Default for RuntimeValue {
+    fn default() -> Self {
+        Self::Null
+    }
+}
+
+impl From<bool> for RuntimeValue {
+    fn from(b: bool) -> Self {
+        Self::Boolean(b)
+    }
+}
+
+impl From<i64> for RuntimeValue {
+    fn from(i: i64) -> Self {
+        Self::Integer(i)
+    }
+}
+
+impl From<u64> for RuntimeValue {
+    fn from(u: u64) -> Self {
+        Self::UnsignedInteger(u)
+    }
+}
+
+impl From<Vec<u8>> for RuntimeValue {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self::ByteString(bytes)
+    }
+}
+
+impl From<&[u8]> for RuntimeValue {
+    fn from(bytes: &[u8]) -> Self {
+        Self::ByteString(bytes.to_vec())
+    }
+}
+
+impl From<String> for RuntimeValue {
+    fn from(s: String) -> Self {
+        Self::ByteString(s.into_bytes())
+    }
+}
+
+impl From<&str> for RuntimeValue {
+    fn from(s: &str) -> Self {
+        Self::ByteString(s.as_bytes().to_vec())
+    }
+}
+
 impl RuntimeValue {
     /// Convert to bytes representation
     pub fn to_bytes(&self) -> Vec<u8> {
