@@ -1,3 +1,4 @@
+/// IR module representing a compiled contract
 #[derive(Debug)]
 pub struct Module {
     pub functions: Vec<Function>,
@@ -5,6 +6,27 @@ pub struct Module {
     pub events: Vec<Event>,
 }
 
+impl Module {
+    /// Get the constructor function if present
+    pub fn constructor(&self) -> Option<&Function> {
+        self.functions.iter().find(|f| f.kind == FunctionKind::Constructor)
+    }
+
+    /// Get a function by name
+    pub fn get_function(&self, name: &str) -> Option<&Function> {
+        self.functions.iter().find(|f| f.name == name)
+    }
+
+    /// Count total instructions across all functions
+    pub fn instruction_count(&self) -> usize {
+        self.functions.iter()
+            .flat_map(|f| &f.basic_blocks)
+            .map(|bb| bb.instructions.len())
+            .sum()
+    }
+}
+
+/// IR function representation
 #[derive(Debug)]
 pub struct Function {
     pub name: String,
@@ -13,6 +35,18 @@ pub struct Function {
     pub returns: Vec<ValueType>,
     pub basic_blocks: Vec<BasicBlock>,
     pub local_count: u16,
+}
+
+impl Function {
+    /// Check if this is a constructor
+    pub fn is_constructor(&self) -> bool {
+        self.kind == FunctionKind::Constructor
+    }
+
+    /// Get total instruction count
+    pub fn instruction_count(&self) -> usize {
+        self.basic_blocks.iter().map(|bb| bb.instructions.len()).sum()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
