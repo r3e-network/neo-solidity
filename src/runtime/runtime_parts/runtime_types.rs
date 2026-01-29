@@ -172,6 +172,25 @@ pub struct ExecutionOverrides {
     pub caller_account: Option<String>,
 }
 
+impl ExecutionOverrides {
+    /// Check if any overrides are set
+    pub fn has_overrides(&self) -> bool {
+        self.block_height.is_some() || self.timestamp.is_some() || self.caller_account.is_some()
+    }
+
+    /// Set block height
+    pub fn with_block_height(mut self, height: u64) -> Self {
+        self.block_height = Some(height);
+        self
+    }
+
+    /// Set timestamp
+    pub fn with_timestamp(mut self, ts: u64) -> Self {
+        self.timestamp = Some(ts);
+        self
+    }
+}
+
 /// Metadata captured from the execution environment
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ExecutionMetadata {
