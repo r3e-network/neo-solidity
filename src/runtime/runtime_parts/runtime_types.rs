@@ -94,6 +94,23 @@ pub struct LogEntry {
     pub data: Vec<u8>,
 }
 
+impl LogEntry {
+    /// Get the first topic (event signature) as hex
+    pub fn event_signature_hex(&self) -> Option<String> {
+        self.topics.first().map(hex::encode)
+    }
+
+    /// Get data as hex string
+    pub fn data_hex(&self) -> String {
+        hex::encode(&self.data)
+    }
+
+    /// Get number of indexed topics
+    pub fn topic_count(&self) -> usize {
+        self.topics.len()
+    }
+}
+
 /// Stack frame for debugging
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StackFrame {
