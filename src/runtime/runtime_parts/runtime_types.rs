@@ -75,6 +75,18 @@ pub struct StateChange {
     pub new_value: Vec<u8>,
 }
 
+impl StateChange {
+    /// Check if this is a storage change
+    pub fn is_storage(&self) -> bool {
+        self.change_type == StateChangeType::StorageChange
+    }
+
+    /// Get key as hex string
+    pub fn key_hex(&self) -> Option<String> {
+        self.key.as_ref().map(hex::encode)
+    }
+}
+
 /// Types of state changes
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StateChangeType {
