@@ -250,6 +250,7 @@ pub struct StructField {
     pub key: [u8; 32],
 }
 
+/// Binary operators for IR instructions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOperator {
     Add,
@@ -268,6 +269,45 @@ pub enum BinaryOperator {
     Ge,
     Eq,
     Ne,
+}
+
+impl BinaryOperator {
+    /// Check if this is an arithmetic operator
+    pub fn is_arithmetic(&self) -> bool {
+        matches!(self, Self::Add | Self::Sub | Self::Mul | Self::Div | Self::Mod)
+    }
+
+    /// Check if this is a comparison operator
+    pub fn is_comparison(&self) -> bool {
+        matches!(self, Self::Lt | Self::Le | Self::Gt | Self::Ge | Self::Eq | Self::Ne)
+    }
+
+    /// Check if this is a bitwise operator
+    pub fn is_bitwise(&self) -> bool {
+        matches!(self, Self::BitAnd | Self::BitOr | Self::BitXor | Self::Shl | Self::Shr)
+    }
+
+    /// Get the operator symbol
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            Self::Add => "+",
+            Self::Sub => "-",
+            Self::Mul => "*",
+            Self::Div => "/",
+            Self::Mod => "%",
+            Self::BitAnd => "&",
+            Self::BitOr => "|",
+            Self::BitXor => "^",
+            Self::Shl => "<<",
+            Self::Shr => ">>",
+            Self::Lt => "<",
+            Self::Le => "<=",
+            Self::Gt => ">",
+            Self::Ge => ">=",
+            Self::Eq => "==",
+            Self::Ne => "!=",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
