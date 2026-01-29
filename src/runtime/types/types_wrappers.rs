@@ -39,6 +39,7 @@ impl Address {
     }
 
     /// Get address as string
+    #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -71,6 +72,7 @@ impl TransactionHash {
     }
 
     /// Get hash as string
+    #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
     }
