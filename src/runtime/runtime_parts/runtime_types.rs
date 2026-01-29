@@ -46,6 +46,7 @@ pub enum ExceptionType {
 
 impl ExceptionType {
     /// Check if this is a recoverable exception
+    #[inline]
     pub fn is_recoverable(&self) -> bool {
         matches!(self, Self::RevertExecution | Self::Halt)
     }
@@ -77,11 +78,13 @@ pub struct StateChange {
 
 impl StateChange {
     /// Check if this is a storage change
+    #[inline]
     pub fn is_storage(&self) -> bool {
         self.change_type == StateChangeType::StorageChange
     }
 
     /// Get key as hex string
+    #[inline]
     pub fn key_hex(&self) -> Option<String> {
         self.key.as_ref().map(hex::encode)
     }
@@ -100,6 +103,7 @@ pub enum StateChangeType {
 
 impl StateChangeType {
     /// Check if this is a destructive change
+    #[inline]
     pub fn is_destructive(&self) -> bool {
         matches!(self, Self::AccountDeletion | Self::CodeChange)
     }
