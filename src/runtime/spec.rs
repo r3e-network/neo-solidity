@@ -12,6 +12,23 @@ pub struct OpcodeSpec {
     pub gas: u64,
 }
 
+impl OpcodeSpec {
+    /// Check if this is a push opcode
+    pub fn is_push(&self) -> bool {
+        self.code <= 0x20 || (self.code >= 0x0C && self.code <= 0x0E)
+    }
+
+    /// Check if this is a jump opcode
+    pub fn is_jump(&self) -> bool {
+        self.code >= 0x22 && self.code <= 0x33
+    }
+
+    /// Check if this is a call opcode
+    pub fn is_call(&self) -> bool {
+        self.code >= 0x34 && self.code <= 0x37
+    }
+}
+
 /// Syscall metadata.
 #[derive(Debug, Clone, Copy)]
 pub struct SyscallSpec {
@@ -19,11 +36,25 @@ pub struct SyscallSpec {
     pub name: &'static str,
 }
 
+impl SyscallSpec {
+    /// Get the syscall ID as hex string
+    pub fn id_hex(&self) -> String {
+        hex::encode(self.id)
+    }
+}
+
 /// Native contract metadata.
 #[derive(Debug, Clone, Copy)]
 pub struct NativeContractSpec {
     pub hash: [u8; 20],
     pub name: &'static str,
+}
+
+impl NativeContractSpec {
+    /// Get the contract hash as hex string
+    pub fn hash_hex(&self) -> String {
+        hex::encode(self.hash)
+    }
 }
 
 fn interop_id_bytes(name: &str) -> [u8; 4] {
