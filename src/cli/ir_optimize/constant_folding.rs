@@ -3,6 +3,7 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
     let mut i = 0;
 
     while i < block.instructions.len() {
+        // Try constant folding for binary ops
         if i + 2 < block.instructions.len() {
             if let (
                 ir::Instruction::PushLiteral(lhs),
@@ -21,11 +22,54 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
             }
         }
 
+        // Try identity elimination: x + 0, x * 1, etc.
+        if i + 1 < block.instructions.len() {
+            if let Some(simplified) = try_identity_elimination(
+                &block.instructions[i],
+                &block.instructions[i + 1],
+            ) {
+                if let Some(instr) = simplified {
+                    optimized.push(instr);
+                }
+                // Skip both instructions (or just drop if None)
+                i += 2;
+                continue;
+            }
+        }
+
         optimized.push(block.instructions[i].clone());
         i += 1;
     }
 
     block.instructions = optimized;
+}
+
+/// Try to eliminate identity operations
+fn try_identity_elimination(
+    first: &ir::Instruction,
+    second: &ir::Instruction,
+) -> Option<Option<ir::Instruction>> {
+    use ir::{Instruction::*, LiteralValue::*};
+
+    match (first, second) {
+        // PUSH 0, ADD -> no-op (keep original value)
+        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Add)) if n.is_zero() => {
+            Some(None)
+        }
+        // PUSH 1, MUL -> no-op
+        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Mul)) if *n == 1.into() => {
+            Some(None)
+        }
+        // PUSH 0, MUL -> replace with PUSH 0
+        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Mul)) if n.is_zero() => {
+            Some(Some(PushLiteral(Integer(0.into()))))
+        }
+        // PUSH 1, DIV -> no-op
+        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Div)) if *n == 1.into() => {
+            Some(None)
+        }
+        _ => None,
+    }
 }
 
 fn evaluate_binary_literal(

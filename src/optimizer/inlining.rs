@@ -1,10 +1,67 @@
 impl Optimizer {
     fn function_inlining(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
-        // Collect small functions for inlining (now includes parameter names)
+        // Collect small functions for inlining
         let mut inline_candidates: HashMap<String, InlineCandidate> = HashMap::new();
         self.collect_inline_candidates(&ast, &mut inline_candidates);
 
-        Ok(self.inline_functions_recursive(ast, &inline_candidates))
+        // Count call sites to make better inlining decisions
+        let call_counts = self.count_call_sites(&ast);
+        
+        // Filter candidates based on call frequency and cost
+        let filtered_candidates: HashMap<String, InlineCandidate> = inline_candidates
+            .into_iter()
+            .filter(|(name, candidate)| {
+                let calls = call_counts.get(name).copied().unwrap_or(0);
+                // Inline if: small function OR called only once OR total cost acceptable
+                candidate.cost <= 10 || calls <= 1 || candidate.cost * calls <= self.inline_threshold * 2
+            })
+            .collect();
+
+        // Run multiple inlining passes for recursive inlining
+        let mut result = ast;
+        for _ in 0..3 {
+            let before = self.stats.inlined_functions;
+            result = self.inline_functions_recursive(result, &filtered_candidates);
+            if self.stats.inlined_functions == before {
+                break; // No more inlining possible
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Count how many times each function is called
+    fn count_call_sites(&self, node: &AstNode) -> HashMap<String, usize> {
+        let mut counts = HashMap::new();
+        self.count_calls_recursive(node, &mut counts);
+        counts
+    }
+
+    fn count_calls_recursive(&self, node: &AstNode, counts: &mut HashMap<String, usize>) {
+        match &node.node_type {
+            AstNodeType::FunctionCall { name, arguments } => {
+                *counts.entry(name.clone()).or_insert(0) += 1;
+                for arg in arguments {
+                    self.count_calls_recursive(arg, counts);
+                }
+            }
+            AstNodeType::Object { statements } | AstNodeType::Block { statements } => {
+                for stmt in statements {
+                    self.count_calls_recursive(stmt, counts);
+                }
+            }
+            AstNodeType::If { condition, then_branch, else_branch } => {
+                self.count_calls_recursive(condition, counts);
+                self.count_calls_recursive(then_branch, counts);
+                if let Some(eb) = else_branch {
+                    self.count_calls_recursive(eb, counts);
+                }
+            }
+            AstNodeType::Function { body, .. } => {
+                self.count_calls_recursive(body, counts);
+            }
+            _ => {}
+        }
     }
 
     fn collect_inline_candidates(
@@ -12,12 +69,9 @@ impl Optimizer {
         node: &AstNode,
         candidates: &mut HashMap<String, InlineCandidate>,
     ) {
-        if let AstNodeType::Function {
-            name, params, body, ..
-        } = &node.node_type
-        {
-            // Only inline simple functions with few parameters
-            if params.len() <= 2 && self.is_simple_function(body) {
+        if let AstNodeType::Function { name, params, body, .. } = &node.node_type {
+            // More generous inlining criteria
+            if params.len() <= 4 && self.is_inlineable_function(body, name) {
                 let cost = self.estimate_inline_cost(body);
                 if cost <= self.inline_threshold {
                     candidates.insert(
@@ -32,7 +86,6 @@ impl Optimizer {
             }
         }
 
-        // Recursively collect from child nodes
         match &node.node_type {
             AstNodeType::Object { statements } | AstNodeType::Block { statements } => {
                 for stmt in statements {
@@ -43,9 +96,39 @@ impl Optimizer {
         }
     }
 
+    /// Check if a function is suitable for inlining
+    fn is_inlineable_function(&self, body: &AstNode, name: &str) -> bool {
+        // Don't inline recursive functions
+        if self.contains_call_to(body, name) {
+            return false;
+        }
+        self.is_simple_function(body)
+    }
+
+    /// Check if body contains a call to the named function (recursion check)
+    fn contains_call_to(&self, node: &AstNode, target: &str) -> bool {
+        match &node.node_type {
+            AstNodeType::FunctionCall { name, arguments } => {
+                if name == target {
+                    return true;
+                }
+                arguments.iter().any(|a| self.contains_call_to(a, target))
+            }
+            AstNodeType::Block { statements } | AstNodeType::Object { statements } => {
+                statements.iter().any(|s| self.contains_call_to(s, target))
+            }
+            AstNodeType::If { condition, then_branch, else_branch } => {
+                self.contains_call_to(condition, target) ||
+                self.contains_call_to(then_branch, target) ||
+                else_branch.as_ref().map_or(false, |eb| self.contains_call_to(eb, target))
+            }
+            _ => false,
+        }
+    }
+
     fn is_simple_function(&self, body: &AstNode) -> bool {
         match &body.node_type {
-            AstNodeType::Block { statements } => statements.len() <= 3,
+            AstNodeType::Block { statements } => statements.len() <= 5,
             _ => true,
         }
     }
@@ -62,27 +145,24 @@ impl Optimizer {
     ) -> AstNode {
         match node.node_type {
             AstNodeType::FunctionCall { name, arguments } => {
+                // First recursively process arguments
+                let optimized_args: Vec<AstNode> = arguments
+                    .into_iter()
+                    .map(|arg| self.inline_functions_recursive(arg, candidates))
+                    .collect();
+
                 if let Some(candidate) = candidates.get(&name) {
-                    // Validate argument count matches parameter count
-                    if arguments.len() == candidate.params.len() {
-                        // Build substitution map: parameter name -> argument expression
+                    if optimized_args.len() == candidate.params.len() {
                         let substitutions: HashMap<String, AstNode> = candidate
                             .params
                             .iter()
-                            .zip(arguments)
+                            .zip(optimized_args)
                             .map(|(param, arg)| (param.clone(), arg))
                             .collect();
 
-                        // Inline the function with parameter substitution
                         self.stats.inlined_functions += 1;
                         Self::substitute_parameters(candidate.body.clone(), &substitutions)
                     } else {
-                        // Argument count mismatch - don't inline, just optimize args
-                        let optimized_args = arguments
-                            .into_iter()
-                            .map(|arg| self.inline_functions_recursive(arg, candidates))
-                            .collect();
-
                         AstNode {
                             node_type: AstNodeType::FunctionCall {
                                 name,
@@ -93,12 +173,6 @@ impl Optimizer {
                         }
                     }
                 } else {
-                    // Not an inline candidate - recursively optimize arguments
-                    let optimized_args = arguments
-                        .into_iter()
-                        .map(|arg| self.inline_functions_recursive(arg, candidates))
-                        .collect();
-
                     AstNode {
                         node_type: AstNodeType::FunctionCall {
                             name,
@@ -110,28 +184,35 @@ impl Optimizer {
                 }
             }
             AstNodeType::Object { statements } => {
-                let optimized_statements = statements
+                let optimized = statements
                     .into_iter()
                     .map(|stmt| self.inline_functions_recursive(stmt, candidates))
                     .collect();
-
                 AstNode {
-                    node_type: AstNodeType::Object {
-                        statements: optimized_statements,
-                    },
+                    node_type: AstNodeType::Object { statements: optimized },
                     line: node.line,
                     column: node.column,
                 }
             }
             AstNodeType::Block { statements } => {
-                let optimized_statements = statements
+                let optimized = statements
                     .into_iter()
                     .map(|stmt| self.inline_functions_recursive(stmt, candidates))
                     .collect();
-
                 AstNode {
-                    node_type: AstNodeType::Block {
-                        statements: optimized_statements,
+                    node_type: AstNodeType::Block { statements: optimized },
+                    line: node.line,
+                    column: node.column,
+                }
+            }
+            AstNodeType::If { condition, then_branch, else_branch } => {
+                AstNode {
+                    node_type: AstNodeType::If {
+                        condition: Box::new(self.inline_functions_recursive(*condition, candidates)),
+                        then_branch: Box::new(self.inline_functions_recursive(*then_branch, candidates)),
+                        else_branch: else_branch.map(|eb| 
+                            Box::new(self.inline_functions_recursive(*eb, candidates))
+                        ),
                     },
                     line: node.line,
                     column: node.column,
@@ -145,7 +226,6 @@ impl Optimizer {
     fn substitute_parameters(node: AstNode, substitutions: &HashMap<String, AstNode>) -> AstNode {
         match node.node_type {
             AstNodeType::Identifier { ref name } => {
-                // If this identifier is a parameter, replace it with the argument
                 if let Some(replacement) = substitutions.get(name) {
                     replacement.clone()
                 } else {
@@ -157,47 +237,48 @@ impl Optimizer {
                     .into_iter()
                     .map(|arg| Self::substitute_parameters(arg, substitutions))
                     .collect();
-
                 AstNode {
-                    node_type: AstNodeType::FunctionCall {
-                        name,
-                        arguments: substituted_args,
-                    },
+                    node_type: AstNodeType::FunctionCall { name, arguments: substituted_args },
                     line: node.line,
                     column: node.column,
                 }
             }
             AstNodeType::Block { statements } => {
-                let substituted_stmts = statements
+                let substituted = statements
                     .into_iter()
                     .map(|stmt| Self::substitute_parameters(stmt, substitutions))
                     .collect();
-
                 AstNode {
-                    node_type: AstNodeType::Block {
-                        statements: substituted_stmts,
-                    },
+                    node_type: AstNodeType::Block { statements: substituted },
                     line: node.line,
                     column: node.column,
                 }
             }
             AstNodeType::Object { statements } => {
-                let substituted_stmts = statements
+                let substituted = statements
                     .into_iter()
                     .map(|stmt| Self::substitute_parameters(stmt, substitutions))
                     .collect();
-
                 AstNode {
-                    node_type: AstNodeType::Object {
-                        statements: substituted_stmts,
+                    node_type: AstNodeType::Object { statements: substituted },
+                    line: node.line,
+                    column: node.column,
+                }
+            }
+            AstNodeType::If { condition, then_branch, else_branch } => {
+                AstNode {
+                    node_type: AstNodeType::If {
+                        condition: Box::new(Self::substitute_parameters(*condition, substitutions)),
+                        then_branch: Box::new(Self::substitute_parameters(*then_branch, substitutions)),
+                        else_branch: else_branch.map(|eb| 
+                            Box::new(Self::substitute_parameters(*eb, substitutions))
+                        ),
                     },
                     line: node.line,
                     column: node.column,
                 }
             }
-            // For other node types, return as-is (could be extended for more complex AST)
             _ => node,
         }
     }
 }
-

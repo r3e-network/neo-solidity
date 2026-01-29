@@ -134,6 +134,16 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
         JumpIf { .. } => {
             pop_value(&mut state.stack)?;
         }
+        Dup => {
+            let value = state.stack.last().cloned().unwrap_or(AbstractValue::Unknown);
+            state.stack.push(value);
+        }
+        Swap => {
+            let len = state.stack.len();
+            if len >= 2 {
+                state.stack.swap(len - 1, len - 2);
+            }
+        }
     }
 
     Ok(())

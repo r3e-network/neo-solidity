@@ -45,6 +45,33 @@ pub mod semantic_model;
 pub mod type_system;
 pub mod types;
 
+// New optimization and analysis modules
+pub mod benchmark;
+pub mod bounds;
+pub mod docs;
+pub mod security;
+pub mod testing;
+pub mod validation;
+pub mod warning;
+
+// Analysis modules
+pub mod abi_opt;
+pub mod cache;
+pub mod callgraph;
+pub mod cfg;
+pub mod codegen_helpers;
+pub mod config;
+pub mod context;
+pub mod dataflow;
+pub mod diagnostic_fmt;
+pub mod liveness;
+pub mod metrics;
+pub mod pipeline;
+pub mod regalloc;
+pub mod scheduler;
+pub mod sourcemap;
+pub mod storage_opt;
+
 // Public re-exports
 pub use error::*;
 pub use types::*;

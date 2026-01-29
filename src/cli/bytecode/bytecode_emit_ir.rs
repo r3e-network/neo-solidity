@@ -238,6 +238,12 @@ fn emit_ir_function(
                 ir::Instruction::Throw => {
                     local.push(0x3A); // THROW
                 }
+                ir::Instruction::Dup => {
+                    local.push(0x4A); // DUP
+                }
+                ir::Instruction::Swap => {
+                    local.push(0x50); // SWAP
+                }
             }
         }
     }

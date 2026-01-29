@@ -20,10 +20,39 @@ fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
                 i += 2;
                 continue;
             }
+
+            // Pattern: DUP followed by DROP → remove both
+            if matches!(&block.instructions[i], ir::Instruction::Dup)
+                && matches!(&block.instructions[i + 1], ir::Instruction::Drop(_))
+            {
+                i += 2;
+                continue;
+            }
         }
 
-        // Note: StoreLocal + LoadLocal(same) pattern is handled at codegen level
-        // by using NeoVM's STLOC/LDLOC which can be fused by the NeoVM optimizer
+        // Pattern: StoreLocal x, LoadLocal x → DUP, StoreLocal x
+        if i + 1 < block.instructions.len() {
+            if let (
+                ir::Instruction::StoreLocal(store_idx),
+                ir::Instruction::LoadLocal(load_idx),
+            ) = (&block.instructions[i], &block.instructions[i + 1]) {
+                if store_idx == load_idx {
+                    optimized.push(ir::Instruction::Dup);
+                    optimized.push(ir::Instruction::StoreLocal(*store_idx));
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+
+        // Pattern: SWAP followed by SWAP → remove both
+        if i + 1 < block.instructions.len()
+            && matches!(&block.instructions[i], ir::Instruction::Swap)
+            && matches!(&block.instructions[i + 1], ir::Instruction::Swap)
+        {
+            i += 2;
+            continue;
+        }
 
         optimized.push(block.instructions[i].clone());
         i += 1;

@@ -87,6 +87,10 @@ pub enum RuntimeValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     Drop(ValueType),
+    /// NeoVM DUP - duplicate the top stack item
+    Dup,
+    /// NeoVM SWAP - swap the top two stack items
+    Swap,
     LoadParameter(usize),
     PushLiteral(LiteralValue),
     Return,
