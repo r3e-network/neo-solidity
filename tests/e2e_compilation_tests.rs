@@ -2,19 +2,21 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn get_compiler_path() -> PathBuf {
-    // Look for the compiler relative to the project root
+    // CARGO_MANIFEST_DIR points to the project root (where Cargo.toml is)
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let project_root = manifest_dir.join("..").join("..");
-    let compiler = project_root.join("target").join("release").join("neo-solc");
+    let compiler = manifest_dir.join("target").join("release").join("neo-solc");
 
-    // Also check absolute path (common development setup)
-    if !compiler.exists() {
-        let abs_compiler = PathBuf::from("/home/neo/git/neo-solidity/target/release/neo-solc");
-        if abs_compiler.exists() {
-            return abs_compiler;
-        }
+    if compiler.exists() {
+        return compiler;
     }
 
+    // Fallback: check absolute path (common development setup)
+    let abs_compiler = PathBuf::from("/home/neo/git/neo-solidity/target/release/neo-solc");
+    if abs_compiler.exists() {
+        return abs_compiler;
+    }
+
+    // Return the expected path for error message
     compiler
 }
 
