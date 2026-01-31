@@ -21,7 +21,22 @@ fn get_compiler_path() -> PathBuf {
 }
 
 fn get_example_path(contract: &str) -> PathBuf {
-    PathBuf::from("/home/neo/git/neo-solidity/examples").join(contract)
+    // Use CARGO_MANIFEST_DIR for portable paths that work on CI
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let examples_path = manifest_dir.join("examples").join(contract);
+    
+    if examples_path.exists() {
+        return examples_path;
+    }
+    
+    // Fallback: check absolute path (common development setup)
+    let abs_path = PathBuf::from("/home/neo/git/neo-solidity/examples").join(contract);
+    if abs_path.exists() {
+        return abs_path;
+    }
+    
+    // Return the expected path for error message
+    examples_path
 }
 
 fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
