@@ -23,12 +23,16 @@ impl CallGraph {
     }
 
     pub fn add_call(&mut self, caller: &str, callee: &str) {
-        self.nodes.entry(caller.to_string())
+        self.nodes
+            .entry(caller.to_string())
             .or_default()
-            .callees.insert(callee.to_string());
-        self.nodes.entry(callee.to_string())
+            .callees
+            .insert(callee.to_string());
+        self.nodes
+            .entry(callee.to_string())
             .or_default()
-            .callers.insert(caller.to_string());
+            .callers
+            .insert(caller.to_string());
     }
 
     pub fn is_recursive(&self, func: &str) -> bool {

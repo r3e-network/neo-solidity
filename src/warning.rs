@@ -2,7 +2,7 @@
 //!
 //! Provides configurable warnings for code quality and security issues.
 
-use crate::error::{ErrorCode, ErrorSeverity, SourceLocation, FixSuggestion};
+use crate::error::{ErrorCode, ErrorSeverity, FixSuggestion, SourceLocation};
 use std::collections::HashSet;
 
 /// Warning configuration
@@ -21,7 +21,10 @@ pub struct WarningConfig {
 impl WarningConfig {
     /// Create config with all warnings enabled
     pub fn all() -> Self {
-        Self { all: true, ..Default::default() }
+        Self {
+            all: true,
+            ..Default::default()
+        }
     }
 
     /// Disable a specific warning
@@ -85,7 +88,10 @@ pub struct WarningCollector {
 
 impl WarningCollector {
     pub fn new(config: WarningConfig) -> Self {
-        Self { warnings: Vec::new(), config }
+        Self {
+            warnings: Vec::new(),
+            config,
+        }
     }
 
     pub fn add(&mut self, warning: Warning) {
@@ -99,7 +105,9 @@ impl WarningCollector {
     }
 
     pub fn has_errors(&self) -> bool {
-        self.warnings.iter().any(|w| self.config.errors.contains(&w.code))
+        self.warnings
+            .iter()
+            .any(|w| self.config.errors.contains(&w.code))
     }
 
     pub fn count(&self) -> usize {

@@ -20,7 +20,7 @@ fn test_erc20_like_contract() {
         }
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 2);
     assert!(result.is_ok(), "ERC20-like contract should compile");
 }
@@ -44,7 +44,7 @@ fn test_complex_control_flow() {
         }
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 2);
     assert!(result.is_ok(), "Control flow contract should compile");
 }
@@ -59,7 +59,7 @@ fn test_optimization_levels() {
         function set(uint256 v) public { value = v; }
     }
     "#;
-    
+
     // Test different optimization levels
     for level in 0..=3 {
         let result = compile_contracts(source, false, level);

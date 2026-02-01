@@ -25,11 +25,14 @@ impl ControlFlowGraph {
     }
 
     pub fn add_block(&mut self, id: usize) {
-        self.blocks.insert(id, BasicBlock {
+        self.blocks.insert(
             id,
-            predecessors: Vec::new(),
-            successors: Vec::new(),
-        });
+            BasicBlock {
+                id,
+                predecessors: Vec::new(),
+                successors: Vec::new(),
+            },
+        );
     }
 
     pub fn add_edge(&mut self, from: usize, to: usize) {

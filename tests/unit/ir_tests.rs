@@ -16,7 +16,7 @@ fn ir_compiles_simple_contract() {
         }
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 2);
     assert!(result.is_ok(), "Compilation should succeed");
 }
@@ -33,7 +33,7 @@ fn ir_compiles_contract_with_mapping() {
         }
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 2);
     assert!(result.is_ok(), "Mapping contract should compile");
 }
@@ -50,7 +50,7 @@ fn ir_compiles_contract_with_events() {
         }
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 2);
     assert!(result.is_ok(), "Event contract should compile");
 }

@@ -72,7 +72,9 @@ impl CompilerConfig {
     /// Validate the configuration
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.optimization_level > 3 {
-            return Err(ConfigError::InvalidOptimizationLevel(self.optimization_level));
+            return Err(ConfigError::InvalidOptimizationLevel(
+                self.optimization_level,
+            ));
         }
         if self.input_file.as_os_str().is_empty() {
             return Err(ConfigError::MissingInputFile);

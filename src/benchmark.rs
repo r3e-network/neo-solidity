@@ -21,7 +21,11 @@ impl BenchResult {
 
     pub fn ops_per_sec(&self) -> f64 {
         let avg_ns = self.avg_time().as_nanos() as f64;
-        if avg_ns == 0.0 { 0.0 } else { 1_000_000_000.0 / avg_ns }
+        if avg_ns == 0.0 {
+            0.0
+        } else {
+            1_000_000_000.0 / avg_ns
+        }
     }
 }
 

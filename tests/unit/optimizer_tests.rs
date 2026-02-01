@@ -24,7 +24,7 @@ fn test_optimization_levels() {
     pragma solidity ^0.8.0;
     contract Simple { uint256 x; }
     "#;
-    
+
     for level in 0..=3 {
         assert!(compile_contracts(source, false, level).is_ok());
     }

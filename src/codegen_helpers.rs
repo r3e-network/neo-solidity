@@ -5,7 +5,7 @@
 /// Encode a small integer efficiently
 pub fn encode_small_int(n: i64) -> Vec<u8> {
     match n {
-        -1 => vec![0x0F],      // PUSHM1
+        -1 => vec![0x0F],               // PUSHM1
         0..=16 => vec![0x10 + n as u8], // PUSH0-PUSH16
         _ => encode_varint(n),
     }
@@ -20,8 +20,13 @@ fn encode_varint(n: i64) -> Vec<u8> {
 }
 
 fn minimal_bytes(n: i64) -> usize {
-    if (-128..=127).contains(&n) { 1 }
-    else if (-32768..=32767).contains(&n) { 2 }
-    else if (-2147483648..=2147483647).contains(&n) { 4 }
-    else { 8 }
+    if (-128..=127).contains(&n) {
+        1
+    } else if (-32768..=32767).contains(&n) {
+        2
+    } else if (-2147483648..=2147483647).contains(&n) {
+        4
+    } else {
+        8
+    }
 }

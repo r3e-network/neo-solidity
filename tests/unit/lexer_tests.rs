@@ -13,7 +13,7 @@ fn test_basic_syntax_parsing() {
         uint256 public x;
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 0);
     assert!(result.is_ok());
 }
@@ -28,7 +28,7 @@ fn test_number_literals() {
         uint256 constant DEC = 123;
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 0);
     assert!(result.is_ok());
 }
@@ -42,7 +42,7 @@ fn test_string_literals() {
         string public hello = "hello world";
     }
     "#;
-    
+
     let result = compile_contracts(source, false, 0);
     assert!(result.is_ok());
 }

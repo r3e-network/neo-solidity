@@ -30,7 +30,9 @@ impl SourceMapBuilder {
     }
 
     pub fn build(self) -> SourceMap {
-        SourceMap { entries: self.entries }
+        SourceMap {
+            entries: self.entries,
+        }
     }
 }
 

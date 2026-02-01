@@ -77,10 +77,7 @@ fn gas_storage_scales_with_data_size() {
     let gas_small = ctx_small.gas_used();
 
     // Storage operations should consume gas
-    assert!(
-        gas_small > 0,
-        "Storage operations should consume gas"
-    );
+    assert!(gas_small > 0, "Storage operations should consume gas");
 }
 
 /// Test that syscall gas costs are reasonable

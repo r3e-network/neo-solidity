@@ -20,14 +20,13 @@ impl InputValidator {
 
     pub fn validate_source(&mut self, source: &str) -> bool {
         if source.is_empty() {
-            self.errors.push(CompilerError::ParseError(
-                "Empty source file".to_string()
-            ));
+            self.errors
+                .push(CompilerError::ParseError("Empty source file".to_string()));
             return false;
         }
         if source.len() > 10_000_000 {
             self.errors.push(CompilerError::ParseError(
-                "Source file too large (>10MB)".to_string()
+                "Source file too large (>10MB)".to_string(),
             ));
             return false;
         }

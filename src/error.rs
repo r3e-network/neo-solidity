@@ -186,7 +186,11 @@ pub struct DiagnosticData {
 
 impl std::fmt::Display for DiagnosticData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}[{}] at {}: {}", self.severity, self.code, self.location, self.message)
+        write!(
+            f,
+            "{}[{}] at {}: {}",
+            self.severity, self.code, self.location, self.message
+        )
     }
 }
 
@@ -372,12 +376,22 @@ impl CompilerError {
 
     /// Create a parse error at a specific location
     pub fn parse_at(location: SourceLocation, message: impl Into<String>) -> Self {
-        Self::located(ErrorSeverity::Error, location, message, Some(ErrorCode::InvalidSyntax))
+        Self::located(
+            ErrorSeverity::Error,
+            location,
+            message,
+            Some(ErrorCode::InvalidSyntax),
+        )
     }
 
     /// Create a semantic error at a specific location
     pub fn semantic_at(location: SourceLocation, message: impl Into<String>) -> Self {
-        Self::located(ErrorSeverity::Error, location, message, Some(ErrorCode::TypeMismatch))
+        Self::located(
+            ErrorSeverity::Error,
+            location,
+            message,
+            Some(ErrorCode::TypeMismatch),
+        )
     }
 
     /// Check if this is a fatal error

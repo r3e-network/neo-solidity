@@ -2,7 +2,7 @@
 //!
 //! Detects potential security vulnerabilities in Solidity code.
 
-use crate::error::{ErrorCode, SourceLocation, FixSuggestion};
+use crate::error::{ErrorCode, FixSuggestion, SourceLocation};
 
 /// Security issue severity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,11 +71,15 @@ impl SecurityChecker {
     }
 
     pub fn has_critical(&self) -> bool {
-        self.issues.iter().any(|i| i.severity == SecuritySeverity::Critical)
+        self.issues
+            .iter()
+            .any(|i| i.severity == SecuritySeverity::Critical)
     }
 
     pub fn has_high(&self) -> bool {
-        self.issues.iter().any(|i| i.severity == SecuritySeverity::High)
+        self.issues
+            .iter()
+            .any(|i| i.severity == SecuritySeverity::High)
     }
 
     pub fn count_by_severity(&self, sev: SecuritySeverity) -> usize {

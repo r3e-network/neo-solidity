@@ -22,7 +22,10 @@ fn test_compute_state_slot_deterministic() {
 fn test_compute_state_slot_different_names() {
     let slot1 = compute_state_slot("balance");
     let slot2 = compute_state_slot("allowance");
-    assert_ne!(slot1, slot2, "Different names should produce different slots");
+    assert_ne!(
+        slot1, slot2,
+        "Different names should produce different slots"
+    );
 }
 
 #[test]

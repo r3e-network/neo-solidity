@@ -11,12 +11,12 @@
 //! - ir_tests: IR (Intermediate Representation) lowering and analysis
 //! - storage_key_tests: Storage key computation and derivation
 
-pub mod lexer_tests;
-pub mod parser_tests;
-pub mod semantic_tests;
 pub mod codegen_tests;
-pub mod optimizer_tests;
-pub mod runtime_tests;
 pub mod integration_tests;
 pub mod ir_tests;
+pub mod lexer_tests;
+pub mod optimizer_tests;
+pub mod parser_tests;
+pub mod runtime_tests;
+pub mod semantic_tests;
 pub mod storage_key_tests;
