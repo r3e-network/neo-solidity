@@ -2,41 +2,15 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn get_compiler_path() -> PathBuf {
-    // CARGO_MANIFEST_DIR points to the project root (where Cargo.toml is)
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let compiler = manifest_dir.join("target").join("release").join("neo-solc");
-
-    if compiler.exists() {
-        return compiler;
-    }
-
-    // Fallback: check absolute path (common development setup)
-    let abs_compiler = PathBuf::from("/home/neo/git/neo-solidity/target/release/neo-solc");
-    if abs_compiler.exists() {
-        return abs_compiler;
-    }
-
-    // Return the expected path for error message
-    compiler
+    // CARGO_BIN_EXE_<name> is set by Cargo for integration tests, pointing
+    // to the correct binary for the current build profile (debug or release).
+    PathBuf::from(env!("CARGO_BIN_EXE_neo-solc"))
 }
 
 fn get_example_path(contract: &str) -> PathBuf {
-    // Use CARGO_MANIFEST_DIR for portable paths that work on CI
+    // CARGO_MANIFEST_DIR is the project root — portable across CI and local dev.
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let examples_path = manifest_dir.join("examples").join(contract);
-
-    if examples_path.exists() {
-        return examples_path;
-    }
-
-    // Fallback: check absolute path (common development setup)
-    let abs_path = PathBuf::from("/home/neo/git/neo-solidity/examples").join(contract);
-    if abs_path.exists() {
-        return abs_path;
-    }
-
-    // Return the expected path for error message
-    examples_path
+    manifest_dir.join("examples").join(contract)
 }
 
 fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {

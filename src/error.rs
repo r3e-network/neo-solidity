@@ -384,14 +384,13 @@ impl CompilerError {
         )
     }
 
-    /// Create a semantic error at a specific location
-    pub fn semantic_at(location: SourceLocation, message: impl Into<String>) -> Self {
-        Self::located(
-            ErrorSeverity::Error,
-            location,
-            message,
-            Some(ErrorCode::TypeMismatch),
-        )
+    /// Create a semantic error at a specific location with the given error code.
+    pub fn semantic_at(
+        location: SourceLocation,
+        message: impl Into<String>,
+        code: ErrorCode,
+    ) -> Self {
+        Self::located(ErrorSeverity::Error, location, message, Some(code))
     }
 
     /// Check if this is a fatal error

@@ -31,7 +31,7 @@ fn builds_nef_payload_matching_spec() {
     let source = "https://example.com/src.sol";
     let compiler = "neo-solidity-test";
 
-    let nef = build_nef_with_tokens(&script, compiler, source, &[token]);
+    let nef = build_nef_with_tokens(&script, compiler, source, &[token]).unwrap();
     let mut offset = 0usize;
 
     // Magic
@@ -99,18 +99,22 @@ fn builds_nef_payload_matching_spec() {
 }
 
 #[test]
-#[should_panic(expected = "call flags")]
 fn rejects_invalid_call_flags() {
     let script = vec![0x40];
     let bad_token = MethodToken::new([0x22; 20], "x", 0, false, 0x80);
-    let _ = build_nef_with_tokens(&script, "compiler", "", &[bad_token]);
+    let result = build_nef_with_tokens(&script, "compiler", "", &[bad_token]);
+    assert!(result.is_err(), "expected Err for invalid call flags");
+    assert!(
+        result.unwrap_err().contains("call flags"),
+        "error should mention call flags"
+    );
 }
 
 #[test]
 fn clamps_long_source_field() {
     let script = vec![0x40];
     let long_source = "a".repeat(MAX_SOURCE_LENGTH + 20);
-    let nef = build_nef_with_tokens(&script, "compiler", &long_source, &[]);
+    let nef = build_nef_with_tokens(&script, "compiler", &long_source, &[]).unwrap();
     let mut offset = 4 + 64; // magic + compiler
     let len = read_varint(&nef, &mut offset) as usize;
     assert_eq!(len, MAX_SOURCE_LENGTH);

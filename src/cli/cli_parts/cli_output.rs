@@ -92,7 +92,7 @@ fn write_nef_file(
         emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
     }
 
-    let nef = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), tokens);
+    let nef = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), tokens)?;
     let checksum_offset = nef.len().saturating_sub(4);
     let checksum = if nef.len() >= 4 {
         let mut buf = [0u8; 4];
@@ -158,7 +158,7 @@ fn write_json_file(
         })
         .collect();
 
-    let nef_bytes = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), tokens);
+    let nef_bytes = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), tokens)?;
     let checksum = if nef_bytes.len() >= 4 {
         hex::encode(&nef_bytes[nef_bytes.len() - 4..])
     } else {

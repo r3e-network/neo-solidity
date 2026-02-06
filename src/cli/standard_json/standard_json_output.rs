@@ -41,7 +41,8 @@ pub(crate) fn build_compiled_contract_value(
         COMPILER_ID,
         source_field.as_ref(),
         &artifact.tokens,
-    );
+    )
+    .expect("validated bytecode should produce valid NEF");
     let checksum = if nef_bytes.len() >= 4 {
         hex::encode(&nef_bytes[nef_bytes.len() - 4..])
     } else {

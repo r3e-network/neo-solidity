@@ -69,9 +69,10 @@ macro_rules! arithmetic_op {
 
 /// Macro to generate division/modulo operation functions (DIV, MOD).
 ///
-/// Unlike basic arithmetic, these operations don't overflow but check for division by zero.
+/// Checks for division by zero AND the signed overflow case `i64::MIN / -1`
+/// (which panics in Rust debug mode and wraps in release mode).
 macro_rules! divmod_op {
-    ($fn_name:ident, $op_name:literal, $op_fn:ident, $error_msg:literal) => {
+    ($fn_name:ident, $op_name:literal, $checked_fn:ident, $error_msg:literal) => {
         fn $fn_name(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
             let use_unsigned =
                 matches!(a, StackItem::UnsignedInteger(_)) || matches!(b, StackItem::UnsignedInteger(_));
@@ -88,7 +89,7 @@ macro_rules! divmod_op {
                         message: $error_msg.to_string(),
                     });
                 }
-                Ok(StackItem::UnsignedInteger(x.$op_fn(y)))
+                Ok(StackItem::UnsignedInteger(x.$checked_fn(y).unwrap()))
             } else {
                 let x = self.coerce_item_to_i64(&a).ok_or_else(|| RuntimeError::ExecutionError {
                     message: concat!("Invalid operands for ", $op_name).to_string(),
@@ -101,7 +102,14 @@ macro_rules! divmod_op {
                         message: $error_msg.to_string(),
                     });
                 }
-                Ok(StackItem::Integer(x.$op_fn(y)))
+                x.$checked_fn(y)
+                    .map(StackItem::Integer)
+                    .ok_or_else(|| RuntimeError::ExecutionError {
+                        message: format!(
+                            "Signed integer overflow in {}: {} / -1",
+                            $op_name, x
+                        ),
+                    })
             }
         }
     };
@@ -116,10 +124,16 @@ impl ExecutionContext {
             StackItem::Null => Some(0),
             StackItem::ByteArray(bytes) => {
                 let bytes = bytes.borrow();
-                let mut buf = [0u8; 8];
-                for (idx, byte) in bytes.iter().take(8).enumerate() {
-                    buf[idx] = *byte;
+                if bytes.is_empty() {
+                    return Some(0);
                 }
+                // NeoVM integers are arbitrary-precision little-endian byte arrays.
+                // This runtime uses i64 internally; truncation to the low 8 bytes
+                // is intentional — the compiler emits masking ops (AND, SHL, etc.)
+                // to handle width reduction at the Solidity level.
+                let len = bytes.len().min(8);
+                let mut buf = [0u8; 8];
+                buf[..len].copy_from_slice(&bytes[..len]);
                 Some(i64::from_le_bytes(buf))
             }
             _ => None,
@@ -140,10 +154,14 @@ impl ExecutionContext {
             StackItem::Null => Some(0),
             StackItem::ByteArray(bytes) => {
                 let bytes = bytes.borrow();
-                let mut buf = [0u8; 8];
-                for (idx, byte) in bytes.iter().take(8).enumerate() {
-                    buf[idx] = *byte;
+                if bytes.is_empty() {
+                    return Some(0);
                 }
+                // See coerce_item_to_i64 comment — truncation to low 8 bytes
+                // is the correct NeoVM runtime behavior.
+                let len = bytes.len().min(8);
+                let mut buf = [0u8; 8];
+                buf[..len].copy_from_slice(&bytes[..len]);
                 Some(u64::from_le_bytes(buf))
             }
             _ => None,
@@ -154,6 +172,6 @@ impl ExecutionContext {
     arithmetic_op!(add_stack_items, "ADD", "+", checked_add, wrapping_add, "overflow");
     arithmetic_op!(sub_stack_items, "SUB", "-", checked_sub, wrapping_sub, "underflow");
     arithmetic_op!(mul_stack_items, "MUL", "*", checked_mul, wrapping_mul, "overflow");
-    divmod_op!(div_stack_items, "DIV", div, "Division by zero");
-    divmod_op!(mod_stack_items, "MOD", rem, "Modulo by zero");
+    divmod_op!(div_stack_items, "DIV", checked_div, "Division by zero");
+    divmod_op!(mod_stack_items, "MOD", checked_rem, "Modulo by zero");
 }

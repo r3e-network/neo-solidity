@@ -28,7 +28,13 @@ impl ExecutionContext {
 
     fn negate_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
-            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_neg())),
+            StackItem::Integer(v) => {
+                v.checked_neg()
+                    .map(StackItem::Integer)
+                    .ok_or(RuntimeError::ExecutionError {
+                        message: "NEGATE overflow: cannot negate i64::MIN".to_string(),
+                    })
+            }
             StackItem::UnsignedInteger(v) => {
                 if v <= i64::MAX as u64 {
                     Ok(StackItem::Integer(-(v as i64)))
@@ -46,8 +52,28 @@ impl ExecutionContext {
 
     fn inc_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
-            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_add(1))),
-            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_add(1))),
+            StackItem::Integer(v) => {
+                if self.strict_arithmetic {
+                    v.checked_add(1)
+                        .map(StackItem::Integer)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: format!("Integer overflow in INC: {}", v),
+                        })
+                } else {
+                    Ok(StackItem::Integer(v.wrapping_add(1)))
+                }
+            }
+            StackItem::UnsignedInteger(v) => {
+                if self.strict_arithmetic {
+                    v.checked_add(1)
+                        .map(StackItem::UnsignedInteger)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: format!("Unsigned integer overflow in INC: {}", v),
+                        })
+                } else {
+                    Ok(StackItem::UnsignedInteger(v.wrapping_add(1)))
+                }
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operand for INC".to_string(),
             }),
@@ -56,8 +82,28 @@ impl ExecutionContext {
 
     fn dec_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
-            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_sub(1))),
-            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_sub(1))),
+            StackItem::Integer(v) => {
+                if self.strict_arithmetic {
+                    v.checked_sub(1)
+                        .map(StackItem::Integer)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: format!("Integer underflow in DEC: {}", v),
+                        })
+                } else {
+                    Ok(StackItem::Integer(v.wrapping_sub(1)))
+                }
+            }
+            StackItem::UnsignedInteger(v) => {
+                if self.strict_arithmetic {
+                    v.checked_sub(1)
+                        .map(StackItem::UnsignedInteger)
+                        .ok_or(RuntimeError::ExecutionError {
+                            message: format!("Unsigned integer underflow in DEC: {}", v),
+                        })
+                } else {
+                    Ok(StackItem::UnsignedInteger(v.wrapping_sub(1)))
+                }
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operand for DEC".to_string(),
             }),

@@ -17,7 +17,7 @@
 ///
 /// # Returns
 /// Complete NEF file as byte vector
-pub fn build_nef(script: &[u8], compiler: &str) -> Vec<u8> {
+pub fn build_nef(script: &[u8], compiler: &str) -> Result<Vec<u8>, String> {
     build_nef_with_tokens(script, compiler, "", &[])
 }
 
@@ -36,32 +36,37 @@ pub fn build_nef_with_tokens(
     compiler: &str,
     source: &str,
     tokens: &[MethodToken],
-) -> Vec<u8> {
-    assert!(!script.is_empty(), "NEF script payload cannot be empty");
+) -> Result<Vec<u8>, String> {
+    if script.is_empty() {
+        return Err("NEF script payload cannot be empty".to_string());
+    }
     let source = clamp_nef_source(source);
-    assert!(
-        tokens.len() <= MAX_METHOD_TOKENS,
-        "NEF method token table exceeds {MAX_METHOD_TOKENS} entries"
-    );
+    if tokens.len() > MAX_METHOD_TOKENS {
+        return Err(format!(
+            "NEF method token table exceeds {MAX_METHOD_TOKENS} entries"
+        ));
+    }
 
     for token in tokens {
         let method_len = token.method.len();
-        assert!(
-            method_len <= MAX_TOKEN_METHOD_LENGTH,
-            "method token '{}' exceeds {MAX_TOKEN_METHOD_LENGTH} bytes",
-            token.method
-        );
-        assert!(
-            !token.method.starts_with('_'),
-            "method token '{}' must not start with '_'",
-            token.method
-        );
-        assert!(
-            token.call_flags & !MAX_CALL_FLAGS == 0,
-            "method token '{}' has invalid call flags {:#x}",
-            token.method,
-            token.call_flags
-        );
+        if method_len > MAX_TOKEN_METHOD_LENGTH {
+            return Err(format!(
+                "method token '{}' exceeds {MAX_TOKEN_METHOD_LENGTH} bytes",
+                token.method
+            ));
+        }
+        if token.method.starts_with('_') {
+            return Err(format!(
+                "method token '{}' must not start with '_'",
+                token.method
+            ));
+        }
+        if token.call_flags & !MAX_CALL_FLAGS != 0 {
+            return Err(format!(
+                "method token '{}' has invalid call flags {:#x}",
+                token.method, token.call_flags
+            ));
+        }
     }
 
     // Rough capacity hint: header (magic + compiler + empty source + reserves) plus script and tokens.
@@ -96,5 +101,5 @@ pub fn build_nef_with_tokens(
     let checksum = calculate_checksum(&buffer);
     buffer.extend_from_slice(&checksum.to_le_bytes());
 
-    buffer
+    Ok(buffer)
 }

@@ -53,17 +53,23 @@ impl VMBridge {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 if y == 0 {
-                    Ok(StackItem::Integer(0)) // Division by zero returns 0 in EVM
-                } else {
-                    Ok(StackItem::Integer(x / y))
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "Division by zero".to_string(),
+                    });
                 }
+                x.checked_div(y)
+                    .map(StackItem::Integer)
+                    .ok_or_else(|| VMBridgeError::StackOperationFailed {
+                        message: format!("Signed integer overflow in DIV: {} / {}", x, y),
+                    })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
-                    Ok(StackItem::UnsignedInteger(0))
-                } else {
-                    Ok(StackItem::UnsignedInteger(x / y))
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "Division by zero".to_string(),
+                    });
                 }
+                Ok(StackItem::UnsignedInteger(x / y))
             }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for DIV".to_string(),
@@ -75,17 +81,23 @@ impl VMBridge {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 if y == 0 {
-                    Ok(StackItem::Integer(0))
-                } else {
-                    Ok(StackItem::Integer(x % y))
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "Modulo by zero".to_string(),
+                    });
                 }
+                x.checked_rem(y)
+                    .map(StackItem::Integer)
+                    .ok_or_else(|| VMBridgeError::StackOperationFailed {
+                        message: format!("Signed integer overflow in MOD: {} % {}", x, y),
+                    })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
-                    Ok(StackItem::UnsignedInteger(0))
-                } else {
-                    Ok(StackItem::UnsignedInteger(x % y))
+                    return Err(VMBridgeError::StackOperationFailed {
+                        message: "Modulo by zero".to_string(),
+                    });
                 }
+                Ok(StackItem::UnsignedInteger(x % y))
             }
             _ => Err(VMBridgeError::StackOperationFailed {
                 message: "Invalid operands for MOD".to_string(),
@@ -120,7 +132,9 @@ impl VMBridge {
         };
 
         if m_int == 0 {
-            return Ok(StackItem::UnsignedInteger(0));
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "MODMUL: modulus is zero".to_string(),
+            });
         }
         let result = ((a_int % m_int) * (b_int % m_int)) % m_int;
         Ok(StackItem::UnsignedInteger(result as u64))
@@ -153,7 +167,9 @@ impl VMBridge {
         };
 
         if modulus == 0 {
-            return Ok(StackItem::UnsignedInteger(0));
+            return Err(VMBridgeError::StackOperationFailed {
+                message: "MODPOW: modulus is zero".to_string(),
+            });
         }
 
         base %= modulus;
