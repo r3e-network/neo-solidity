@@ -15,6 +15,7 @@ pragma solidity ^0.8.19;
  */
 
 import "../contracts/Syscalls.sol";
+import "../contracts/NativeCalls.sol";
 
 library Runtime {
     using Syscalls for *;
@@ -134,18 +135,14 @@ library Runtime {
      * @dev Check witness for account
      */
     function checkWitness(address account) internal view returns (bool) {
-        bool success = Syscalls.checkWitness(account);
-        emit WitnessVerified(account, success);
-        return success;
+        return Syscalls.checkWitness(account);
     }
 
     /**
      * @dev Check witness by public key
      */
     function checkWitness(bytes memory publicKey) internal view returns (bool) {
-        bool success = Syscalls.checkWitness(publicKey);
-        emit WitnessVerified(address(0), success);
-        return success;
+        return Syscalls.checkWitness(publicKey);
     }
     
     /**
@@ -256,14 +253,14 @@ library Runtime {
      * @dev Check if in application trigger
      */
     function isApplicationTrigger() internal view returns (bool) {
-        return getTriggerType() == Syscalls.TRIGGER_APPLICATION;
+        return getTriggerType() == 0x40;
     }
 
     /**
      * @dev Check if in verification trigger
      */
     function isVerificationTrigger() internal view returns (bool) {
-        return getTriggerType() == Syscalls.TRIGGER_VERIFICATION;
+        return getTriggerType() == 0x20;
     }
     
     // ========== Gas Management ==========
@@ -284,20 +281,16 @@ library Runtime {
     }
     
     /**
-     * @dev Optimize gas usage with batching
+     * @dev Placeholder for gas-optimized batch execution.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         exists to preserve API compatibility; it always reverts. Implement
+     *         batch logic inline at the call site instead.
      */
     function optimizeGasUsage(
-        function() internal batchOperation,
-        uint256 expectedSavings
+        function() internal /*batchOperation*/,
+        uint256 /*expectedSavings*/
     ) internal {
-        uint256 gasBefore = gasLeft();
-        batchOperation();
-        uint256 gasAfter = gasLeft();
-        
-        uint256 actualUsage = gasBefore - gasAfter;
-        if (actualUsage < expectedSavings) {
-            emit GasOptimization(expectedSavings - actualUsage, "batching");
-        }
+        revert("Runtime: optimizeGasUsage callback unsupported");
     }
     
     /**
@@ -399,25 +392,21 @@ library Runtime {
         bytes memory data
     ) internal returns (bool success, bytes memory returnData) {
         require(target != address(0), "Runtime: call to zero address");
-        
-        try Runtime.externalCall(target, data) returns (bytes memory result) {
-            return (true, result);
-        } catch Error(string memory reason) {
-            log(string(abi.encodePacked("External call failed: ", reason)));
-            return (false, bytes(reason));
-        } catch {
-            log("External call failed: unknown error");
-            return (false, "");
-        }
+        target;
+        data;
+        log("External call failed: unsupported in standalone Runtime library; use Syscalls.contractCall");
+        return (false, "");
     }
     
     /**
-     * @dev External call wrapper for try/catch
+     * @dev Placeholder for external call wrapper.
+     * @notice Always reverts. Use `Syscalls.contractCall()` for inter-contract
+     *         calls on Neo N3.
      */
     function externalCall(address target, bytes memory data) external returns (bytes memory) {
-        (bool success, bytes memory result) = target.call(data);
-        require(success, "Runtime: external call failed");
-        return result;
+        target;
+        data;
+        revert("Runtime: external call unsupported; use Syscalls.contractCall");
     }
     
     // ========== Statistics and Monitoring ==========
@@ -541,41 +530,28 @@ library Runtime {
     }
     
     /**
-     * @dev Conditional execution based on gas available
+     * @dev Placeholder for conditional gas-gated execution.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         always reverts. Use `gasLeft()` checks inline instead.
      */
     function executeIfGasAvailable(
-        uint256 requiredGas,
-        function() internal operation
+        uint256 /*requiredGas*/,
+        function() internal /*operation*/
     ) internal {
-        if (gasLeft() >= requiredGas) {
-            operation();
-        }
+        revert("Runtime: executeIfGasAvailable callback unsupported");
     }
-    
+
     /**
-     * @dev Gas-optimized loop execution
+     * @dev Placeholder for gas-budgeted loop execution.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         always reverts. Use a standard `for` loop with `gasLeft()` guards.
      */
     function optimizedLoop(
-        uint256 iterations,
-        uint256 gasPerIteration,
-        function(uint256) internal loopBody
+        uint256 /*iterations*/,
+        uint256 /*gasPerIteration*/,
+        function(uint256) internal /*loopBody*/
     ) internal {
-        uint256 maxIterations = gasLeft() / gasPerIteration;
-        uint256 actualIterations = iterations > maxIterations ? maxIterations : iterations;
-        
-        for (uint256 i = 0; i < actualIterations; i++) {
-            loopBody(i);
-        }
-        
-        if (actualIterations < iterations) {
-            log(string(abi.encodePacked(
-                "Loop truncated: ", 
-                _uint256ToString(actualIterations),
-                " of ",
-                _uint256ToString(iterations),
-                " iterations"
-            )));
-        }
+        revert("Runtime: optimizedLoop callback unsupported");
     }
     
     // ========== Access Control Integration ==========
@@ -603,7 +579,7 @@ library Runtime {
      */
     function isCommitteeMember(address account) internal view returns (bool) {
         // Check if account is in committee
-        address[] memory committee = Syscalls.getCommittee();
+        address[] memory committee = NativeCalls.getCommittee();
         for (uint256 i = 0; i < committee.length; i++) {
             if (committee[i] == account) {
                 return true;
@@ -616,7 +592,7 @@ library Runtime {
      * @dev Validator check
      */
     function isValidator(address account) internal view returns (bool) {
-        address[] memory validators = Syscalls.getNextBlockValidators();
+        address[] memory validators = NativeCalls.getNextBlockValidators();
         for (uint256 i = 0; i < validators.length; i++) {
             if (validators[i] == account) {
                 return true;
@@ -658,40 +634,36 @@ library Runtime {
     // ========== Error Recovery ==========
     
     /**
-     * @dev Try operation with fallback
+     * @dev Placeholder for try/fallback pattern.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         always reverts. Use Solidity `try/catch` blocks instead.
      */
     function tryWithFallback(
-        function() internal primaryOperation,
-        function() internal fallbackOperation
+        function() internal /*primaryOperation*/,
+        function() internal /*fallbackOperation*/
     ) internal {
-        try Runtime.executePrimary(primaryOperation) {
-            // Success
-        } catch {
-            fallbackOperation();
-        }
+        revert("Runtime: tryWithFallback callback unsupported");
     }
-    
+
     /**
-     * @dev Execute primary operation (for try/catch)
+     * @dev Placeholder for standalone primary execution.
+     * @notice Always reverts. Use Solidity `try/catch` for error recovery.
      */
-    function executePrimary(function() internal operation) external {
-        operation();
+    function executePrimary(function() internal /*operation*/) external {
+        revert("Runtime: executePrimary unsupported in standalone mode");
     }
     
     /**
-     * @dev Graceful degradation on low gas
+     * @dev Placeholder for graceful degradation under gas pressure.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         always reverts. Use `gasLeft()` checks with if/else branching.
      */
     function degradeGracefully(
-        function() internal fullOperation,
-        function() internal limitedOperation,
-        uint256 fullOperationGas
+        function() internal /*fullOperation*/,
+        function() internal /*limitedOperation*/,
+        uint256 /*fullOperationGas*/
     ) internal {
-        if (gasLeft() >= fullOperationGas) {
-            fullOperation();
-        } else {
-            limitedOperation();
-            log("Graceful degradation: using limited operation due to low gas");
-        }
+        revert("Runtime: degradeGracefully callback unsupported");
     }
     
     // ========== Platform Integration ==========
@@ -753,26 +725,15 @@ library Runtime {
     }
     
     /**
-     * @dev Measure execution time
+     * @dev Placeholder for execution measurement.
+     * @notice NeoVM does not support first-class function callbacks. This stub
+     *         always reverts. Use `gasLeft()` before/after to measure cost.
      */
     function measureExecution(
-        function() internal operation,
-        string memory operationName
+        function() internal /*operation*/,
+        string memory /*operationName*/
     ) internal {
-        uint256 startTime = getTimestamp();
-        uint256 startGas = gasLeft();
-        
-        operation();
-        
-        uint256 endTime = getTimestamp();
-        uint256 endGas = gasLeft();
-        
-        notify("ExecutionMeasured", abi.encode(
-            operationName,
-            endTime - startTime,  // Time elapsed
-            startGas - endGas,    // Gas consumed
-            getBlockIndex()
-        ));
+        revert("Runtime: measureExecution callback unsupported");
     }
     
     /**

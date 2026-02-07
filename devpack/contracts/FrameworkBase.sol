@@ -148,7 +148,11 @@ contract FrameworkBase {
     }
 
     /**
-     * @dev Get current block information
+     * @dev Get current block information.
+     * @notice `hash` and `merkleRoot` return zero because Neo N3 does not
+     *         expose per-block hash or merkle root via lightweight syscalls.
+     *         Use `Syscalls.contractCall(LEDGER_CONTRACT, "getBlock", ...)`
+     *         for full block data when needed.
      */
     function getCurrentBlock()
         public
@@ -156,9 +160,9 @@ contract FrameworkBase {
         returns (uint256 index, bytes32 hash, uint256 timestamp, bytes32 merkleRoot)
     {
         index = Syscalls.getCurrentIndex();
-        hash = bytes32(0);
+        hash = bytes32(0);           // Not available via syscall; see @notice
         timestamp = Syscalls.getTime();
-        merkleRoot = bytes32(0);
+        merkleRoot = bytes32(0);     // Not available via syscall; see @notice
     }
 
     /**

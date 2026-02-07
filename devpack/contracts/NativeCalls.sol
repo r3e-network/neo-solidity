@@ -316,13 +316,14 @@ library NativeCalls {
      * @dev List all contracts
      */
     function listContracts() internal view returns (Syscalls.Iterator memory) {
-        // Compiler intrinsic: lowered to `ContractManagement.getContractHashes()` which returns
-        // a Neo iterator of deployed contract hashes.
+        // Calls ContractManagement.listContracts() which returns a Neo iterator
+        // of deployed contract hashes.
         //
         // Consume it via:
         //   while (it.next()) { bytes memory hash = it.value(); ... }
-        Syscalls.Iterator memory it;
-        return it;
+        bytes memory params;
+        bytes memory result = Syscalls.contractCall(CONTRACT_MANAGEMENT, "listContracts", params);
+        return abi.decode(result, (Syscalls.Iterator));
     }
     
     /**

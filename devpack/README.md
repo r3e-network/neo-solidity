@@ -14,18 +14,34 @@ currently supports, plus complete example contracts (NEP-17/NEP-11).
 ## 🎯 Features
 
 ### ✅ Core Neo N3 Integration
+
 - **Syscalls**: Runtime, crypto, storage, iterator, and contract syscalls (plus convenience helpers)
 - **Native Contracts**: NEO, GAS, ContractManagement, Policy, Oracle, RoleManagement
 - **Storage**: `Storage.get/put/remove/find` lowered to `System.Storage.*`
 - **Events**: Solidity `emit` lowered to `System.Runtime.Notify` (Neo enforces ABI event name + parameter types)
 
 ### ✅ NEP Standards Support
+
 - **NEP-17**: Fungible token standard (enhanced ERC-20)
 - **NEP-11**: Non-fungible token standard (enhanced ERC-721)
 - **NEP-24**: NFT royalty standard (`royaltyInfo`)
 - **Custom NEPs**: Framework for implementing additional standards
 
+### ✅ ERC → NEP Migration
+
+The compiler includes built-in diagnostics to help migrate Ethereum contracts to Neo N3:
+
+- **ERC-20 → NEP-17**: Detects 2-param `transfer(to, amount)` and suggests 4-param NEP-17 form
+- **ERC-721 → NEP-11**: Detects `transferFrom(from, to, tokenId)` and suggests NEP-11 `transfer(to, tokenId, data)`
+- **approve/allowance**: Warns that these are not part of NEP-17 (Neo uses `Runtime.checkWitness()`)
+- **receive()/fallback()**: Suggests `onNEP17Payment()` callback instead
+- **supportsInterface()**: Notes that Neo uses manifest `supportedstandards` (auto-populated by compiler)
+
+See [`standards/STANDARDS_MAPPING.md`](standards/STANDARDS_MAPPING.md) for the complete EIP↔NEP mapping
+with method signatures, event mappings, migration checklists, and code examples.
+
 ### ✅ Advanced Features
+
 - **Cross-Contract Calls**: `Syscalls.contractCall{WithFlags}` and optional `CALLT` token emission
 - **Upgradeable Contracts**: ContractManagement wrappers via `NativeCalls.*`
 
@@ -100,10 +116,17 @@ devpack/
 - `NativeCalls`: NEO/GAS token calls, ContractManagement, Policy, Oracle, RoleManagement helpers
 
 For exact Solidity signatures, see:
+
 - `devpack/contracts/Syscalls.sol`
 - `devpack/contracts/NativeCalls.sol`
 - `devpack/libraries/Runtime.sol`
 - `devpack/libraries/Storage.sol`
+
+> Note: These files are primarily for Solidity tooling ergonomics (types/signatures/docs) over
+> compiler intrinsics. Most members compile standalone, but callback/function-pointer helpers
+> currently revert with explicit `unsupported` errors because callback invocation lowering is not
+> implemented yet. Use direct `Runtime`/`Storage`/`Syscalls`/`NativeCalls` intrinsic calls in
+> production contracts (see `devpack/examples/*.sol` and `examples/new/NeoInteropShowcase.sol`).
 
 ## 🔐 Manifest Permissions (Dynamic Calls)
 
@@ -112,6 +135,7 @@ Neo N3 manifests must declare cross-contract call permissions. The compiler can 
 (unknown contract hash and/or method name at compile time) may require wildcard permissions.
 
 **Recommended options:**
+
 - Prefer `FrameworkBase.sol` / `NativeCalls.*` helpers to avoid dynamic calls in production code.
 - Enforce strict manifests in CI with:
   - `--deny-wildcard-permissions` (blocks `{"contract":"*","methods":"*"}`)
@@ -122,7 +146,10 @@ Neo N3 manifests must declare cross-contract call permissions. The compiler can 
 ```json
 // permissions.json
 [
-  { "contract": "0x0000000000000000000000000000000000000000", "methods": ["transfer"] }
+  {
+    "contract": "0x0000000000000000000000000000000000000000",
+    "methods": ["transfer"]
+  }
 ]
 ```
 

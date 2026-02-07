@@ -511,7 +511,7 @@ library Syscalls {
     /**
      * @dev SHA256 hash
      */
-    function sha256(bytes memory data) internal pure returns (bytes32) {
+    function sha256(bytes memory data) internal view returns (bytes32) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(CRYPTO_LIB, "sha256", params);
         return abi.decode(result, (bytes32));
@@ -520,7 +520,7 @@ library Syscalls {
     /**
      * @dev RIPEMD160 hash
      */
-    function ripemd160(bytes memory data) internal pure returns (bytes20) {
+    function ripemd160(bytes memory data) internal view returns (bytes20) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(CRYPTO_LIB, "ripemd160", params);
         return abi.decode(result, (bytes20));
@@ -540,7 +540,7 @@ library Syscalls {
         bytes memory publicKey,
         bytes memory signature,
         uint8 curve
-    ) internal pure returns (bool) {
+    ) internal view returns (bool) {
         bytes memory data = abi.encode(hash, publicKey, signature, curve);
         bytes memory result = contractCall(CRYPTO_LIB, "verifyWithECDsa", data);
         return abi.decode(result, (bool));
@@ -554,7 +554,7 @@ library Syscalls {
         bytes memory publicKey,
         bytes memory signature,
         uint8 curve
-    ) internal pure returns (bool) {
+    ) internal view returns (bool) {
         bytes memory data = abi.encode(message, publicKey, signature, curve);
         bytes memory result = contractCall(CRYPTO_LIB, "verifyWithECDsa", data);
         return abi.decode(result, (bool));
@@ -563,7 +563,7 @@ library Syscalls {
     /**
      * @dev Murmur32 hash
      */
-    function murmur32(bytes memory data, uint32 seed) internal pure returns (bytes4) {
+    function murmur32(bytes memory data, uint32 seed) internal view returns (bytes4) {
         bytes memory params = abi.encode(data, seed);
         bytes memory result = contractCall(CRYPTO_LIB, "murmur32", params);
         return abi.decode(result, (bytes4));
@@ -572,7 +572,7 @@ library Syscalls {
     /**
      * @dev Recover secp256k1 public key from signature
      */
-    function recoverSecp256K1(bytes memory messageHash, bytes memory signature) internal pure returns (bytes memory) {
+    function recoverSecp256K1(bytes memory messageHash, bytes memory signature) internal view returns (bytes memory) {
         bytes memory data = abi.encode(messageHash, signature);
         return contractCall(CRYPTO_LIB, "recoverSecp256K1", data);
     }
@@ -580,7 +580,7 @@ library Syscalls {
     /**
      * @dev Verify Ed25519 signature
      */
-    function verifyWithEd25519(bytes memory message, bytes memory publicKey, bytes memory signature) internal pure returns (bool) {
+    function verifyWithEd25519(bytes memory message, bytes memory publicKey, bytes memory signature) internal view returns (bool) {
         bytes memory data = abi.encode(message, publicKey, signature);
         bytes memory result = contractCall(CRYPTO_LIB, "verifyWithEd25519", data);
         return abi.decode(result, (bool));
@@ -589,7 +589,7 @@ library Syscalls {
     /**
      * @dev Serialize BLS12-381 point (opaque handle)
      */
-    function bls12381Serialize(bytes memory point) internal pure returns (bytes memory) {
+    function bls12381Serialize(bytes memory point) internal view returns (bytes memory) {
         bytes memory data = abi.encode(point);
         return contractCall(CRYPTO_LIB, "bls12381Serialize", data);
     }
@@ -597,7 +597,7 @@ library Syscalls {
     /**
      * @dev Deserialize BLS12-381 point (returns opaque handle)
      */
-    function bls12381Deserialize(bytes memory data) internal pure returns (bytes memory) {
+    function bls12381Deserialize(bytes memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(CRYPTO_LIB, "bls12381Deserialize", params);
     }
@@ -605,7 +605,7 @@ library Syscalls {
     /**
      * @dev Compare BLS12-381 points
      */
-    function bls12381Equal(bytes memory x, bytes memory y) internal pure returns (bool) {
+    function bls12381Equal(bytes memory x, bytes memory y) internal view returns (bool) {
         bytes memory data = abi.encode(x, y);
         bytes memory result = contractCall(CRYPTO_LIB, "bls12381Equal", data);
         return abi.decode(result, (bool));
@@ -614,7 +614,7 @@ library Syscalls {
     /**
      * @dev Add BLS12-381 points
      */
-    function bls12381Add(bytes memory x, bytes memory y) internal pure returns (bytes memory) {
+    function bls12381Add(bytes memory x, bytes memory y) internal view returns (bytes memory) {
         bytes memory data = abi.encode(x, y);
         return contractCall(CRYPTO_LIB, "bls12381Add", data);
     }
@@ -622,7 +622,7 @@ library Syscalls {
     /**
      * @dev Multiply BLS12-381 point by scalar
      */
-    function bls12381Mul(bytes memory x, bytes memory mul, bool neg) internal pure returns (bytes memory) {
+    function bls12381Mul(bytes memory x, bytes memory mul, bool neg) internal view returns (bytes memory) {
         bytes memory data = abi.encode(x, mul, neg);
         return contractCall(CRYPTO_LIB, "bls12381Mul", data);
     }
@@ -630,7 +630,7 @@ library Syscalls {
     /**
      * @dev Pairing operation for BLS12-381
      */
-    function bls12381Pairing(bytes memory g1, bytes memory g2) internal pure returns (bytes memory) {
+    function bls12381Pairing(bytes memory g1, bytes memory g2) internal view returns (bytes memory) {
         bytes memory data = abi.encode(g1, g2);
         return contractCall(CRYPTO_LIB, "bls12381Pairing", data);
     }
@@ -640,7 +640,7 @@ library Syscalls {
     /**
      * @dev Serialize stack item
      */
-    function serialize(bytes memory data) internal pure returns (bytes memory) {
+    function serialize(bytes memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "serialize", params);
     }
@@ -648,7 +648,7 @@ library Syscalls {
     /**
      * @dev Deserialize stack item
      */
-    function deserialize(bytes memory data) internal pure returns (bytes memory) {
+    function deserialize(bytes memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "deserialize", params);
     }
@@ -656,7 +656,7 @@ library Syscalls {
     /**
      * @dev Integer to string (base 10)
      */
-    function itoa(int256 value) internal pure returns (string memory) {
+    function itoa(int256 value) internal view returns (string memory) {
         bytes memory params = abi.encode(value);
         bytes memory result = contractCall(STD_LIB, "itoa", params);
         return abi.decode(result, (string));
@@ -665,7 +665,7 @@ library Syscalls {
     /**
      * @dev Integer to string with base (10 or 16)
      */
-    function itoa(int256 value, uint8 base) internal pure returns (string memory) {
+    function itoa(int256 value, uint8 base) internal view returns (string memory) {
         bytes memory params = abi.encode(value, base);
         bytes memory result = contractCall(STD_LIB, "itoa", params);
         return abi.decode(result, (string));
@@ -674,7 +674,7 @@ library Syscalls {
     /**
      * @dev String to integer (base 10)
      */
-    function atoi(string memory value) internal pure returns (int256) {
+    function atoi(string memory value) internal view returns (int256) {
         bytes memory params = abi.encode(value);
         bytes memory result = contractCall(STD_LIB, "atoi", params);
         return abi.decode(result, (int256));
@@ -683,7 +683,7 @@ library Syscalls {
     /**
      * @dev String to integer with base (10 or 16)
      */
-    function atoi(string memory value, uint8 base) internal pure returns (int256) {
+    function atoi(string memory value, uint8 base) internal view returns (int256) {
         bytes memory params = abi.encode(value, base);
         bytes memory result = contractCall(STD_LIB, "atoi", params);
         return abi.decode(result, (int256));
@@ -694,7 +694,7 @@ library Syscalls {
     /**
      * @dev Serialize to JSON
      */
-    function jsonSerialize(bytes memory data) internal pure returns (bytes memory) {
+    function jsonSerialize(bytes memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "jsonSerialize", params);
     }
@@ -702,7 +702,7 @@ library Syscalls {
     /**
      * @dev Deserialize from JSON
      */
-    function jsonDeserialize(bytes memory json) internal pure returns (bytes memory) {
+    function jsonDeserialize(bytes memory json) internal view returns (bytes memory) {
         bytes memory params = abi.encode(json);
         return contractCall(STD_LIB, "jsonDeserialize", params);
     }
@@ -712,7 +712,7 @@ library Syscalls {
     /**
      * @dev Base64 encode
      */
-    function base64Encode(bytes memory data) internal pure returns (string memory) {
+    function base64Encode(bytes memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "base64Encode", params);
         return abi.decode(result, (string));
@@ -721,7 +721,7 @@ library Syscalls {
     /**
      * @dev Base64 decode
      */
-    function base64Decode(string memory data) internal pure returns (bytes memory) {
+    function base64Decode(string memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "base64Decode", params);
     }
@@ -729,7 +729,7 @@ library Syscalls {
     /**
      * @dev Base64Url encode
      */
-    function base64UrlEncode(string memory data) internal pure returns (string memory) {
+    function base64UrlEncode(string memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "base64UrlEncode", params);
         return abi.decode(result, (string));
@@ -738,7 +738,7 @@ library Syscalls {
     /**
      * @dev Base64Url decode
      */
-    function base64UrlDecode(string memory data) internal pure returns (string memory) {
+    function base64UrlDecode(string memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "base64UrlDecode", params);
         return abi.decode(result, (string));
@@ -749,7 +749,7 @@ library Syscalls {
     /**
      * @dev Base58 encode
      */
-    function base58Encode(bytes memory data) internal pure returns (string memory) {
+    function base58Encode(bytes memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "base58Encode", params);
         return abi.decode(result, (string));
@@ -758,7 +758,7 @@ library Syscalls {
     /**
      * @dev Base58 decode
      */
-    function base58Decode(string memory data) internal pure returns (bytes memory) {
+    function base58Decode(string memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "base58Decode", params);
     }
@@ -766,7 +766,7 @@ library Syscalls {
     /**
      * @dev Base58Check encode
      */
-    function base58CheckEncode(bytes memory data) internal pure returns (string memory) {
+    function base58CheckEncode(bytes memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "base58CheckEncode", params);
         return abi.decode(result, (string));
@@ -775,7 +775,7 @@ library Syscalls {
     /**
      * @dev Base58Check decode
      */
-    function base58CheckDecode(string memory data) internal pure returns (bytes memory) {
+    function base58CheckDecode(string memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "base58CheckDecode", params);
     }
@@ -785,7 +785,7 @@ library Syscalls {
     /**
      * @dev Hex encode
      */
-    function hexEncode(bytes memory data) internal pure returns (string memory) {
+    function hexEncode(bytes memory data) internal view returns (string memory) {
         bytes memory params = abi.encode(data);
         bytes memory result = contractCall(STD_LIB, "hexEncode", params);
         return abi.decode(result, (string));
@@ -794,7 +794,7 @@ library Syscalls {
     /**
      * @dev Hex decode
      */
-    function hexDecode(string memory data) internal pure returns (bytes memory) {
+    function hexDecode(string memory data) internal view returns (bytes memory) {
         bytes memory params = abi.encode(data);
         return contractCall(STD_LIB, "hexDecode", params);
     }
@@ -804,7 +804,7 @@ library Syscalls {
     /**
      * @dev Compare two byte arrays
      */
-    function memoryCompare(bytes memory left, bytes memory right) internal pure returns (int256) {
+    function memoryCompare(bytes memory left, bytes memory right) internal view returns (int256) {
         bytes memory params = abi.encode(left, right);
         bytes memory result = contractCall(STD_LIB, "memoryCompare", params);
         return abi.decode(result, (int256));
@@ -813,7 +813,7 @@ library Syscalls {
     /**
      * @dev Search for a value in memory (start at 0)
      */
-    function memorySearch(bytes memory mem, bytes memory value) internal pure returns (int256) {
+    function memorySearch(bytes memory mem, bytes memory value) internal view returns (int256) {
         bytes memory params = abi.encode(mem, value);
         bytes memory result = contractCall(STD_LIB, "memorySearch", params);
         return abi.decode(result, (int256));
@@ -822,7 +822,7 @@ library Syscalls {
     /**
      * @dev Search for a value in memory (start at offset)
      */
-    function memorySearch(bytes memory mem, bytes memory value, int256 start) internal pure returns (int256) {
+    function memorySearch(bytes memory mem, bytes memory value, int256 start) internal view returns (int256) {
         bytes memory params = abi.encode(mem, value, start);
         bytes memory result = contractCall(STD_LIB, "memorySearch", params);
         return abi.decode(result, (int256));
@@ -833,7 +833,7 @@ library Syscalls {
      */
     function memorySearch(bytes memory mem, bytes memory value, int256 start, bool backward)
         internal
-        pure
+        view
         returns (int256)
     {
         bytes memory params = abi.encode(mem, value, start, backward);
@@ -844,7 +844,7 @@ library Syscalls {
     /**
      * @dev Split a string by separator
      */
-    function stringSplit(string memory value, string memory separator) internal pure returns (string[] memory) {
+    function stringSplit(string memory value, string memory separator) internal view returns (string[] memory) {
         bytes memory params = abi.encode(value, separator);
         bytes memory result = contractCall(STD_LIB, "stringSplit", params);
         return abi.decode(result, (string[]));
@@ -857,7 +857,7 @@ library Syscalls {
         string memory value,
         string memory separator,
         bool removeEmptyEntries
-    ) internal pure returns (string[] memory) {
+    ) internal view returns (string[] memory) {
         bytes memory params = abi.encode(value, separator, removeEmptyEntries);
         bytes memory result = contractCall(STD_LIB, "stringSplit", params);
         return abi.decode(result, (string[]));
@@ -866,7 +866,7 @@ library Syscalls {
     /**
      * @dev Get string length in text elements
      */
-    function strLen(string memory value) internal pure returns (uint256) {
+    function strLen(string memory value) internal view returns (uint256) {
         bytes memory params = abi.encode(value);
         bytes memory result = contractCall(STD_LIB, "strLen", params);
         return abi.decode(result, (uint256));
@@ -920,7 +920,8 @@ library Syscalls {
         } else if (methodHash == keccak256("System.Runtime.GetTime")) {
             return block.timestamp;
         } else if (methodHash == keccak256("System.Runtime.GasLeft")) {
-            return gasleft();
+            // Fallback runtime does not expose gas accounting.
+            return 0;
         } else if (methodHash == keccak256("System.Runtime.CheckWitness")) {
             address account = abi.decode(params, (address));
             return account == tx.origin ? 1 : 0;
@@ -956,15 +957,6 @@ library Syscalls {
             return abi.encode(address(this));
         } else if (methodHash == keccak256("System.Runtime.GetCallingScriptHash")) {
             return abi.encode(msg.sender);
-        } else if (methodHash == keccak256("System.Storage.Get")) {
-            (StorageContext memory context, bytes memory key) = abi.decode(params, (StorageContext, bytes));
-            // Use EVM storage as fallback
-            bytes32 storageKey = keccak256(abi.encode(context.id, key));
-            bytes32 value;
-            assembly {
-                value := sload(storageKey)
-            }
-            return abi.encode(value);
         }
         
         return "";
@@ -992,30 +984,11 @@ library Syscalls {
         bytes32 methodHash = keccak256(bytes(method));
         
         if (methodHash == keccak256("System.Storage.Put")) {
-            (StorageContext memory context, bytes memory key, bytes memory value) = 
-                abi.decode(params, (StorageContext, bytes, bytes));
-            
-            // Use EVM storage as fallback
-            bytes32 storageKey = keccak256(abi.encode(context.id, key));
-            bytes32 storageValue = keccak256(value); // Hash for storage
-            
-            assembly {
-                sstore(storageKey, storageValue)
-            }
+            return;
         } else if (methodHash == keccak256("System.Storage.Delete")) {
-            (StorageContext memory context, bytes memory key) = abi.decode(params, (StorageContext, bytes));
-            
-            bytes32 storageKey = keccak256(abi.encode(context.id, key));
-            assembly {
-                sstore(storageKey, 0)
-            }
+            return;
         } else if (methodHash == keccak256("System.Runtime.Notify")) {
-            bytes memory eventData = abi.decode(params, (bytes));
-            
-            // Emit as EVM event
-            assembly {
-                log0(add(eventData, 0x20), mload(eventData))
-            }
+            return;
         }
     }
     

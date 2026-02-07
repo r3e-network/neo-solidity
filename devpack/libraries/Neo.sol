@@ -146,27 +146,40 @@ library Neo {
     }
     
     /**
-     * @dev Verify ECDSA signature
+     * @dev Verify ECDSA signature using the specified curve.
+     * @param curve Neo named curve ID (e.g. 23 = secp256r1, 22 = secp256k1)
+     */
+    function verifySignatureWithCurve(
+        bytes32 hash,
+        bytes memory publicKey,
+        bytes memory signature,
+        uint8 curve
+    ) internal view returns (bool) {
+        return Syscalls.verifyWithECDsa(hash, publicKey, signature, curve);
+    }
+
+    /**
+     * @dev Verify ECDSA signature (secp256r1, Neo's default curve).
      */
     function verifySignature(
         bytes32 hash,
         bytes memory publicKey,
         bytes memory signature
-    ) internal pure returns (bool) {
+    ) internal view returns (bool) {
         return Syscalls.verifyWithECDsa(hash, publicKey, signature, 23); // secp256r1
     }
-    
+
     /**
      * @dev SHA256 hash
      */
-    function sha256Hash(bytes memory data) internal pure returns (bytes32) {
+    function sha256Hash(bytes memory data) internal view returns (bytes32) {
         return Syscalls.sha256(data);
     }
-    
+
     /**
      * @dev RIPEMD160 hash
      */
-    function ripemd160Hash(bytes memory data) internal pure returns (bytes20) {
+    function ripemd160Hash(bytes memory data) internal view returns (bytes20) {
         return Syscalls.ripemd160(data);
     }
     

@@ -15,6 +15,7 @@ pragma solidity ^0.8.19;
  */
 
 import "../contracts/Syscalls.sol";
+import "../contracts/NativeCalls.sol";
 
 library Storage {
     using Syscalls for *;
@@ -204,17 +205,18 @@ library Storage {
      */
     function findValues(bytes memory prefix) internal view returns (bytes[] memory values) {
         Iterator memory iterator = find(prefix);
-        values = new bytes[](1000); // Max 1000 results
         uint256 count = 0;
-        
+
         while (iterator.next() && count < 1000) {
-            values[count] = iterator.value();
             count++;
         }
-        
-        // Resize array to actual count
-        assembly {
-            mstore(values, count)
+
+        values = new bytes[](count);
+        iterator = find(prefix);
+
+        for (uint256 i = 0; i < count; i++) {
+            require(iterator.next(), "Storage: iterator out of range");
+            values[i] = iterator.value();
         }
     }
 
@@ -223,17 +225,18 @@ library Storage {
      */
     function findLocalValues(bytes memory prefix) internal view returns (bytes[] memory values) {
         Iterator memory iterator = findLocal(prefix);
-        values = new bytes[](1000); // Max 1000 results
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
-            values[count] = iterator.value();
             count++;
         }
 
-        // Resize array to actual count
-        assembly {
-            mstore(values, count)
+        values = new bytes[](count);
+        iterator = findLocal(prefix);
+
+        for (uint256 i = 0; i < count; i++) {
+            require(iterator.next(), "Storage: iterator out of range");
+            values[i] = iterator.value();
         }
     }
     
@@ -242,17 +245,18 @@ library Storage {
      */
     function findKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
         Iterator memory iterator = find(prefix);
-        keys = new bytes[](1000); // Max 1000 results
         uint256 count = 0;
-        
+
         while (iterator.next() && count < 1000) {
-            keys[count] = iterator.currentKey;
             count++;
         }
-        
-        // Resize array to actual count
-        assembly {
-            mstore(keys, count)
+
+        keys = new bytes[](count);
+        iterator = find(prefix);
+
+        for (uint256 i = 0; i < count; i++) {
+            require(iterator.next(), "Storage: iterator out of range");
+            keys[i] = iterator.currentKey;
         }
     }
 
@@ -261,17 +265,18 @@ library Storage {
      */
     function findLocalKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
         Iterator memory iterator = findLocal(prefix);
-        keys = new bytes[](1000); // Max 1000 results
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
-            keys[count] = iterator.currentKey;
             count++;
         }
 
-        // Resize array to actual count
-        assembly {
-            mstore(keys, count)
+        keys = new bytes[](count);
+        iterator = findLocal(prefix);
+
+        for (uint256 i = 0; i < count; i++) {
+            require(iterator.next(), "Storage: iterator out of range");
+            keys[i] = iterator.currentKey;
         }
     }
     
@@ -609,30 +614,21 @@ library Storage {
      * @dev Atomic storage update
      */
     function atomicUpdate(
-        bytes memory key,
-        function(bytes memory) internal pure returns (bytes memory) updateFunction
+        bytes memory /*key*/,
+        function(bytes memory) internal pure returns (bytes memory) /*updateFunction*/
     ) internal {
-        bytes memory currentValue = get(key);
-        bytes memory newValue = updateFunction(currentValue);
-        put(key, newValue);
+        revert("Storage: atomicUpdate callback unsupported");
     }
     
     /**
      * @dev Conditional storage update
      */
     function conditionalPut(
-        bytes memory key,
-        bytes memory value,
-        function(bytes memory) internal pure returns (bool) condition
+        bytes memory /*key*/,
+        bytes memory /*value*/,
+        function(bytes memory) internal pure returns (bool) /*condition*/
     ) internal returns (bool) {
-        bytes memory currentValue = get(key);
-        
-        if (condition(currentValue)) {
-            put(key, value);
-            return true;
-        }
-        
-        return false;
+        revert("Storage: conditionalPut callback unsupported");
     }
     
     /**
@@ -682,13 +678,12 @@ library Storage {
             }
         }
         
-        // Resize and delete expired keys
-        assembly {
-            mstore(expiredKeys, expiredCount)
-        }
-        
         if (expiredCount > 0) {
-            batchDelete(expiredKeys);
+            bytes[] memory trimmed = new bytes[](expiredCount);
+            for (uint256 i = 0; i < expiredCount; i++) {
+                trimmed[i] = expiredKeys[i];
+            }
+            batchDelete(trimmed);
         }
     }
     
@@ -834,23 +829,11 @@ library Storage {
      * @dev Migrate storage from old key format to new
      */
     function migrateKeys(
-        bytes memory oldPrefix,
-        bytes memory newPrefix,
-        function(bytes memory) internal pure returns (bytes memory) keyTransform
+        bytes memory /*oldPrefix*/,
+        bytes memory /*newPrefix*/,
+        function(bytes memory) internal pure returns (bytes memory) /*keyTransform*/
     ) internal {
-        bytes[] memory oldKeys = findKeys(oldPrefix);
-        bytes[] memory values = findValues(oldPrefix);
-        
-        require(oldKeys.length == values.length, "Storage: migration data mismatch");
-        
-        // Create new keys and store values
-        for (uint256 i = 0; i < oldKeys.length; i++) {
-            bytes memory newKey = keyTransform(oldKeys[i]);
-            put(newKey, values[i]);
-        }
-        
-        // Clean old keys
-        batchDelete(oldKeys);
+        revert("Storage: migrateKeys callback unsupported");
     }
     
     /**
@@ -908,8 +891,14 @@ library Storage {
     ) {
         bytes memory metadata = get("__CONTRACT_METADATA__");
         if (metadata.length == 0) {
-            return ("", "", "", "", 0);
+            name = "";
+            version = "";
+            author = "";
+            extra = new bytes(0);
+            timestamp = 0;
+            return (name, version, author, extra, timestamp);
         }
-        return abi.decode(metadata, (string, string, string, bytes, uint256));
+        (name, version, author, extra, timestamp) = abi.decode(metadata, (string, string, string, bytes, uint256));
+        return (name, version, author, extra, timestamp);
     }
 }
