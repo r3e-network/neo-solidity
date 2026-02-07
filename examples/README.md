@@ -34,6 +34,53 @@ reference ports adapted for Neo N3.
 - `new/MultiSigWalletNEP17.sol`: multisig wallet for GAS/NEO via NEP-17 transfers.
 - `new/Vault.sol`: token vault with deposits/withdrawals.
 - `new/NFT.sol`: minimal NEP-11-style NFT implementation.
+- `new/NeoInteropShowcase.sol`: Runtime/Storage/Syscalls/NativeCalls intrinsic showcase.
+- `new/LowLevelCallShowcase.sol`: `address.call` / `address.staticcall` with `abi.encodeWith*` payloads.
+- `new/EnumArrayShowcase.sol`: dynamic enum array allocation (`new EnumType[](n)`) and return behavior.
+- `new/CustomErrorsShowcase.sol`: custom `error` definitions, `revert CustomError()`, error with parameters.
+- `new/InheritanceShowcase.sol`: abstract contracts, multiple inheritance, `super`, `virtual`/`override`.
+- `new/InterfaceShowcase.sol`: interface definition, implementation, interface inheritance, `supportsInterface`.
+- `new/ModifierShowcase.sol`: function modifiers, modifier chaining, modifier with arguments.
+- `new/StructMappingShowcase.sol`: nested structs, structs in mappings, struct arrays, struct return values.
+- `new/TypeCastingShowcase.sol`: explicit casts (`uint8→uint256`, `address→uint160`), `bytes` conversions, `abi.encode`/`decode`.
+- `new/ConstantsImmutableShowcase.sol`: `constant`, `immutable`, compile-time evaluation.
+- `new/BitwiseShowcase.sol`: bitwise AND/OR/XOR/NOT/shifts, bit packing, flags pattern.
+- `new/TryCatchShowcase.sol`: `try/catch`, catch with error data, catch panic, catch bytes.
+- `new/EventIndexedShowcase.sol`: events with indexed params, anonymous events, multi-topic events.
+- `new/OracleShowcase.sol`: Neo N3 Oracle request/callback pattern using NativeCalls.
+- `new/MultiStandardToken.sol`: NEP-17 + NEP-24 combined, royalty-bearing fungible token.
+
+### Famous DeFi/Web3 Contracts (`famous/`)
+
+Ports of iconic Ethereum DeFi protocols adapted for Neo N3. See [`famous/README.md`](famous/README.md) for details.
+
+- `famous/WGAS.sol`: Wrapped GAS (WETH9-style) — NEP-17 wrapped native token.
+- `famous/FlashLoan.sol`: Aave V2-style flash loan pool with 0.09% fee.
+- `famous/SimpleAMM.sol`: Uniswap V2-style constant-product AMM with LP shares.
+- `famous/TokenVesting.sol`: OpenZeppelin VestingWallet-style linear vesting with cliff.
+- `famous/SimpleLending.sol`: Compound-style lending pool with 150% collateral ratio.
+- `famous/SimpleDAO.sol`: Compound Governor-style DAO with staking, voting, and timelock.
+
+### Standards Compliance & Compiler Diagnostics
+
+The compiler automatically detects NEP standard compliance and emits actionable warnings
+for Ethereum-style patterns that need adaptation:
+
+| Pattern Detected                           | Compiler Warning                                                |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| `transfer(to, amount)` (2 params)          | Suggests NEP-17 4-param form `transfer(from, to, amount, data)` |
+| `transferFrom(from, to, tokenId)`          | Suggests NEP-11 `transfer(to, tokenId, data)`                   |
+| `approve` / `allowance` on token contracts | Notes these are not in NEP-17 spec                              |
+| `receive()` / `fallback()`                 | Suggests `onNEP17Payment()` callback                            |
+| `supportsInterface(bytes4)`                | Notes Neo uses manifest `supportedstandards`                    |
+
+**Near-miss detection**: If a contract has 3+ of 5 required NEP-17 methods, the compiler
+warns about the missing methods. Similar hints exist for NEP-11 and NEP-26.
+
+**Event validation**: When a standard is detected, the compiler checks for the required
+`Transfer` event with the correct parameter count.
+
+For the complete EIP↔NEP mapping, see [`../devpack/standards/STANDARDS_MAPPING.md`](../devpack/standards/STANDARDS_MAPPING.md).
 
 ### Notes
 

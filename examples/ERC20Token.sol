@@ -3,8 +3,16 @@ pragma solidity ^0.8.19;
 
 /**
  * @title ERC20Token
- * @dev Complete ERC20 token implementation for Neo blockchain
- * Features: transfers, allowances, minting, burning, and metadata
+ * @dev NEP-17 compliant fungible token for Neo N3 blockchain.
+ *
+ * Compiler constraints respected:
+ *   - NEP-17 transfer(from, to, amount, data) with Runtime.checkWitness(from)
+ *   - No {value: ...} — uses NativeCalls where needed
+ *   - No receive()/fallback() — uses onNEP17Payment() callback
+ *   - Parameterless constructor (Neo deploy constraint)
+ *   - Import devpack via -I devpack
+ *
+ * Features: transfers, allowances, minting, burning, pausable, ownership
  */
 contract ERC20Token {
     // State variables
@@ -43,34 +51,39 @@ contract ERC20Token {
         _;
     }
     
-    /**
-     * @dev Constructor sets the initial token metadata and mints initial supply to deployer
-     * @param name_ The name of the token
-     * @param symbol_ The symbol of the token  
-     * @param decimals_ The number of decimals for the token
-     * @param initialSupply The initial supply to mint to the deployer
-     */
-    constructor(
+    bool private _initialized;
+
+    /// @dev Parameterless constructor — Neo N3 deploy constraint.
+    /// Sets sensible defaults; call initialize() to customize.
+    constructor() {
+        _name = "MyToken";
+        _symbol = "MTK";
+        _decimals = 8;
+        _owner = msg.sender;
+        _paused = false;
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+
+    /// @notice Initialize token metadata. Only owner, only once.
+    function initialize(
         string memory name_,
         string memory symbol_,
         uint8 decimals_,
         uint256 initialSupply
-    ) {
+    ) external onlyOwner {
+        require(!_initialized, "ERC20: already initialized");
         require(bytes(name_).length > 0, "ERC20: name cannot be empty");
         require(bytes(symbol_).length > 0, "ERC20: symbol cannot be empty");
         require(decimals_ <= 18, "ERC20: decimals cannot exceed 18");
-        
+
         _name = name_;
         _symbol = symbol_;
         _decimals = decimals_;
-        _owner = msg.sender;
-        _paused = false;
-        
+        _initialized = true;
+
         if (initialSupply > 0) {
             _mint(msg.sender, initialSupply);
         }
-        
-        emit OwnershipTransferred(address(0), msg.sender);
     }
     
     /**
@@ -133,17 +146,21 @@ contract ERC20Token {
     }
     
     /**
-     * @dev Transfers tokens from caller to recipient
+     * @dev NEP-17 standard transfer (4-parameter signature).
+     * Authorization via Runtime.checkWitness(from) instead of msg.sender.
+     * @param from The address to transfer from (must pass witness check)
      * @param to The address to transfer to
      * @param amount The amount to transfer
+     * @param data Arbitrary data passed to onNEP17Payment callback
      */
-    function transfer(address to, uint256 amount) 
-        public 
-        whenNotPaused 
-        validAddress(to) 
-        returns (bool) 
+    function transfer(address from, address to, uint256 amount, Any calldata data)
+        public
+        whenNotPaused
+        validAddress(to)
+        returns (bool)
     {
-        _transfer(msg.sender, to, amount);
+        require(Runtime.checkWitness(from), "ERC20: unauthorized");
+        _transfer(from, to, amount);
         return true;
     }
     
@@ -397,25 +414,30 @@ contract ERC20Token {
         return true;
     }
     
+    /// @notice NEP-17 callback — receives token payments.
+    function onNEP17Payment(address from, uint256 amount, bytes memory /*data*/) external {
+        // Accept any NEP-17 token payment; override for custom logic.
+    }
+
     /**
-     * @dev Emergency function to recover accidentally sent tokens
-     * @param token The address of the token to recover
+     * @dev Emergency function to recover accidentally sent tokens.
+     * Uses abi.encodeWithSignature for Neo-compatible cross-contract call.
+     * @param token The address of the token contract to recover from
      * @param amount The amount to recover
      */
-    function emergencyTokenRecovery(address token, uint256 amount) 
-        public 
-        onlyOwner 
-        validAddress(token) 
+    function emergencyTokenRecovery(address token, uint256 amount)
+        public
+        onlyOwner
+        validAddress(token)
     {
         require(token != address(this), "ERC20: cannot recover own tokens");
         require(amount > 0, "ERC20: recovery amount must be greater than 0");
-        
-        // Interface call to recover tokens
+
         (bool success, bytes memory data) = token.call(
-            abi.encodeWithSignature("transfer(address,uint256)", _owner, amount)
+            abi.encodeWithSignature("transfer(address,address,uint256,bytes)", address(this), _owner, amount, "")
         );
-        
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 
+
+        require(success && (data.length == 0 || abi.decode(data, (bool))),
                 "ERC20: token recovery failed");
     }
 }
