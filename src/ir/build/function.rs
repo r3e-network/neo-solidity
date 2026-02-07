@@ -13,6 +13,7 @@ impl Function {
         selector_registry: &SelectorRegistry,
         function_names: &HashSet<String>,
         function_overloads: &HashMap<(String, usize), String>,
+        void_functions: &HashSet<String>,
     ) -> Result<Self, Vec<String>> {
         let parameters: Vec<ValueType> = metadata
             .parameters
@@ -43,6 +44,7 @@ impl Function {
             selector_registry,
             function_names,
             function_overloads,
+            void_functions,
         );
 
         let mut instructions: Vec<Instruction> = Vec::new();

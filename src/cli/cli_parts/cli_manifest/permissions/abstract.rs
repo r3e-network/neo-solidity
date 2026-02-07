@@ -126,7 +126,7 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
         ReverseItems => {
             pop_value(&mut state.stack)?;
         }
-        BitwiseNot => {
+        BitwiseNot | LogicalNot => {
             pop_value(&mut state.stack)?;
             state.stack.push(AbstractValue::Unknown);
         }

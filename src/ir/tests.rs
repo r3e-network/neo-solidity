@@ -12,6 +12,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let selector_registry = SelectorRegistry::default();
     let function_names = HashSet::new();
     let function_overloads: HashMap<(String, usize), String> = HashMap::new();
+    let void_functions = HashSet::new();
     let state_types: Vec<ValueType> = Vec::new();
     let defined_struct_types: Vec<ValueType> = Vec::new();
 
@@ -31,6 +32,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &selector_registry,
         &function_names,
         &function_overloads,
+        &void_functions,
     );
 
     let expr = Expression::FunctionCall(

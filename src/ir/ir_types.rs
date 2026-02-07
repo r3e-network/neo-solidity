@@ -171,6 +171,10 @@ pub enum Instruction {
     /// Note: consumes one reference and does not push it back.
     ReverseItems,
     BitwiseNot,
+    /// NeoVM NOT (0xAA) — logical boolean negation.
+    /// Pops one value, pushes `!value.is_truthy()`.
+    /// Correctly handles null (returns true), unlike `PUSHF + EQUAL`.
+    LogicalNot,
     Try {
         catch_target: usize,
     },

@@ -220,6 +220,11 @@ fn try_lower_member_call(
                         success = false;
                     }
                 }
+                // Void functions don't push a value onto the stack, so return
+                // false to prevent the caller from emitting a spurious DROP.
+                if ctx.is_void_function(&member.name) {
+                    return Some(false);
+                }
                 return Some(success);
             }
 

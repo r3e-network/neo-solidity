@@ -49,6 +49,13 @@ impl Module {
             .map(|method| method.name.clone())
             .collect();
 
+        let void_functions: HashSet<String> = metadata
+            .methods
+            .iter()
+            .filter(|method| method.return_parameters.is_empty())
+            .map(|method| method.name.clone())
+            .collect();
+
         let mut function_overloads = HashMap::new();
         for method in &metadata.methods {
             function_overloads.insert(
@@ -84,6 +91,7 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &void_functions,
             ) {
                 Ok(function) => {
                     if matches!(function.kind, FunctionKind::Constructor) {
@@ -115,6 +123,7 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &void_functions,
             ) {
                 Ok(function) => functions.push(function),
                 Err(mut errs) => errors.append(&mut errs),

@@ -190,6 +190,9 @@ fn emit_ir_function(
                 ir::Instruction::BitwiseNot => {
                     local.push(0x90); // INVERT
                 }
+                ir::Instruction::LogicalNot => {
+                    local.push(0xAA); // NOT (logical boolean negation)
+                }
                 ir::Instruction::Try { catch_target } => {
                     // NeoVM TRY_L uses 4-byte signed offsets (catch, finally) relative to
                     // the beginning of the TRY_L instruction. We always emit the wide form

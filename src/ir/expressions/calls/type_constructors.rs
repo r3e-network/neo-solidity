@@ -248,7 +248,8 @@ fn coerce_to_fixed_bytes(
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
-    instructions.push(Instruction::StoreLocal(dst_local));
+    // Note: MEMCPY modifies the buffer in-place and does NOT push anything
+    // back onto the stack. dst_local already holds the buffer reference.
 
     if reverse {
         // Reverse in place, keeping one reference on the stack.

@@ -20,6 +20,9 @@ struct LoweringContext<'a> {
     selector_registry: &'a SelectorRegistry,
     function_names: &'a HashSet<String>,
     function_overloads: &'a HashMap<(String, usize), String>,
+    /// Functions that return void (empty return_parameters). Used to avoid
+    /// emitting DROP after calling a void internal function as a statement.
+    void_functions: &'a HashSet<String>,
     local_index_map: HashMap<String, Vec<usize>>,
     local_types: HashMap<usize, ValueType>,
     scope_stack: Vec<Vec<String>>,
@@ -49,6 +52,7 @@ impl<'a> LoweringContext<'a> {
         selector_registry: &'a SelectorRegistry,
         function_names: &'a HashSet<String>,
         function_overloads: &'a HashMap<(String, usize), String>,
+        void_functions: &'a HashSet<String>,
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
@@ -68,6 +72,7 @@ impl<'a> LoweringContext<'a> {
             selector_registry,
             function_names,
             function_overloads,
+            void_functions,
             local_index_map: HashMap::new(),
             local_types: HashMap::new(),
             scope_stack: vec![Vec::new()],
@@ -213,6 +218,11 @@ impl<'a> LoweringContext<'a> {
         self.function_overloads
             .get(&(name.to_string(), arg_count))
             .cloned()
+    }
+
+    /// Returns true if the named function returns void (no return values).
+    fn is_void_function(&self, name: &str) -> bool {
+        self.void_functions.contains(name)
     }
 
     fn event_signature(&self, event_name: &str) -> Option<&[ManifestType]> {

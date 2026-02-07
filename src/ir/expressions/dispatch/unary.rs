@@ -5,8 +5,7 @@ fn try_lower_expression_unary(
 ) -> Option<bool> {
     match expr {
         Expression::Not(_, inner) => Some(if lower_expression(inner, ctx, instructions) {
-            instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
-            instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+            instructions.push(Instruction::LogicalNot);
             true
         } else {
             false
