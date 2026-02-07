@@ -13,6 +13,34 @@ fn get_example_path(contract: &str) -> PathBuf {
     manifest_dir.join("examples").join(contract)
 }
 
+/// Compile and assert success (exit-code only). Works for multi-contract files
+/// where the compiler suffixes output with contract names.
+fn assert_compiles(contract_path: &str) {
+    let compiler = get_compiler_path();
+    assert!(compiler.exists(), "Compiler not found");
+
+    let contract_path = get_example_path(contract_path);
+    let output_dir = std::env::temp_dir().join("neo-sol-test");
+    std::fs::create_dir_all(&output_dir).unwrap();
+    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+
+    let output = Command::new(&compiler)
+        .arg(&contract_path)
+        .arg("-I")
+        .arg("devpack")
+        .arg("-O2")
+        .arg("-o")
+        .arg(&output_prefix)
+        .output()
+        .expect("Failed to run compiler");
+
+    assert!(
+        output.status.success(),
+        "Compilation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
     let compiler = get_compiler_path();
 
@@ -256,6 +284,57 @@ fn test_compile_escrow() {
 }
 
 #[test]
+fn test_compile_new_neo_interop_showcase() {
+    let result = compile_contract("new/NeoInteropShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile NeoInteropShowcase: {:?}",
+        result.err()
+    );
+    let (nef, manifest) = result.unwrap();
+    assert!(nef.exists(), "NEF file should exist: {}", nef.display());
+    assert!(
+        manifest.exists(),
+        "Manifest should exist: {}",
+        manifest.display()
+    );
+}
+
+#[test]
+fn test_compile_new_low_level_call_showcase() {
+    let result = compile_contract("new/LowLevelCallShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile LowLevelCallShowcase: {:?}",
+        result.err()
+    );
+    let (nef, manifest) = result.unwrap();
+    assert!(nef.exists(), "NEF file should exist: {}", nef.display());
+    assert!(
+        manifest.exists(),
+        "Manifest should exist: {}",
+        manifest.display()
+    );
+}
+
+#[test]
+fn test_compile_new_enum_array_showcase() {
+    let result = compile_contract("new/EnumArrayShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile EnumArrayShowcase: {:?}",
+        result.err()
+    );
+    let (nef, manifest) = result.unwrap();
+    assert!(nef.exists(), "NEF file should exist: {}", nef.display());
+    assert!(
+        manifest.exists(),
+        "Manifest should exist: {}",
+        manifest.display()
+    );
+}
+
+#[test]
 fn test_optimization_reduces_size() {
     let compiler = get_compiler_path();
     if !compiler.exists() {
@@ -352,4 +431,270 @@ fn test_manifest_has_valid_abi() {
             "Method should have return type"
         );
     }
+}
+
+// ========== Root examples — previously untested ==========
+
+#[test]
+fn test_compile_erc721_token() {
+    let result = compile_contract("ERC721Token.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile ERC721Token: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_governance_token() {
+    let result = compile_contract("GovernanceToken.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile GovernanceToken: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_uniswap_v2_pair() {
+    let result = compile_contract("UniswapV2Pair.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile UniswapV2Pair: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_test_contract() {
+    let result = compile_contract("TestContract.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile TestContract: {:?}",
+        result.err()
+    );
+}
+
+// ========== Existing new/ examples — previously untested ==========
+
+#[test]
+fn test_compile_new_counter() {
+    let result = compile_contract("new/Counter.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile Counter: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_vault() {
+    let result = compile_contract("new/Vault.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile Vault: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_nft() {
+    let result = compile_contract("new/NFT.sol");
+    assert!(result.is_ok(), "Failed to compile NFT: {:?}", result.err());
+}
+
+#[test]
+fn test_compile_new_bank() {
+    let result = compile_contract("new/Bank.sol");
+    assert!(result.is_ok(), "Failed to compile Bank: {:?}", result.err());
+}
+
+#[test]
+fn test_compile_new_multisig_wallet_nep17() {
+    let result = compile_contract("new/MultiSigWalletNEP17.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile MultiSigWalletNEP17: {:?}",
+        result.err()
+    );
+}
+
+// ========== New showcase contracts ==========
+
+#[test]
+fn test_compile_new_custom_errors_showcase() {
+    let result = compile_contract("new/CustomErrorsShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile CustomErrorsShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_inheritance_showcase() {
+    // Multi-contract file: compiler suffixes output with contract names
+    assert_compiles("new/InheritanceShowcase.sol");
+}
+
+#[test]
+fn test_compile_new_interface_showcase() {
+    let result = compile_contract("new/InterfaceShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile InterfaceShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_modifier_showcase() {
+    let result = compile_contract("new/ModifierShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile ModifierShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_struct_mapping_showcase() {
+    let result = compile_contract("new/StructMappingShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile StructMappingShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_type_casting_showcase() {
+    let result = compile_contract("new/TypeCastingShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile TypeCastingShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_constants_immutable_showcase() {
+    let result = compile_contract("new/ConstantsImmutableShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile ConstantsImmutableShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_bitwise_showcase() {
+    let result = compile_contract("new/BitwiseShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile BitwiseShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_try_catch_showcase() {
+    let result = compile_contract("new/TryCatchShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile TryCatchShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_event_indexed_showcase() {
+    let result = compile_contract("new/EventIndexedShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile EventIndexedShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_oracle_showcase() {
+    let result = compile_contract("new/OracleShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile OracleShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_multi_standard_token() {
+    let result = compile_contract("new/MultiStandardToken.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile MultiStandardToken: {:?}",
+        result.err()
+    );
+}
+
+// ========== Famous DeFi/Web3 contracts ==========
+
+#[test]
+fn test_compile_famous_wgas() {
+    let result = compile_contract("famous/WGAS.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile WGAS: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_famous_flashloan() {
+    let result = compile_contract("famous/FlashLoan.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile FlashLoan: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_famous_simple_amm() {
+    let result = compile_contract("famous/SimpleAMM.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile SimpleAMM: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_famous_token_vesting() {
+    let result = compile_contract("famous/TokenVesting.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile TokenVesting: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_famous_simple_lending() {
+    let result = compile_contract("famous/SimpleLending.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile SimpleLending: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_famous_simple_dao() {
+    let result = compile_contract("famous/SimpleDAO.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile SimpleDAO: {:?}",
+        result.err()
+    );
 }

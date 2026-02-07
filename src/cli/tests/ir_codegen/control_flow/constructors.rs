@@ -50,12 +50,12 @@ fn base_constructor_is_inlined_into_derived_constructor() {
 
     let instrs = &ctor.basic_blocks[0].instructions;
     assert!(
-        instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreMappingElement { state_index, key_types } if *state_index == x_index && key_types.is_empty())),
+        instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreState(idx) if *idx == x_index)),
         "expected base constructor assignment to store state variable 'x'; instrs: {:?}",
         instrs
     );
     assert!(
-        instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreMappingElement { state_index, key_types } if *state_index == y_index && key_types.is_empty())),
+        instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreState(idx) if *idx == y_index)),
         "expected derived constructor assignment to store state variable 'y'; instrs: {:?}",
         instrs
     );
@@ -111,9 +111,8 @@ fn base_constructor_args_from_intermediate_contract_are_applied() {
             window,
             [
                 ir::Instruction::PushLiteral(ir::LiteralValue::Integer(value)),
-                ir::Instruction::StoreMappingElement { state_index, key_types }
+                ir::Instruction::StoreState(state_index)
             ] if *state_index == x_index
-                && key_types.is_empty()
                 && value == &BigInt::from(7u8)
         ) {
             found = true;

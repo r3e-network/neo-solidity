@@ -205,3 +205,42 @@ fn named_return_struct_defaults_fields_like_solidity() {
     assert_eq!(json["value"][1]["type"], "Boolean");
     assert_eq!(json["value"][1]["value"].as_bool(), Some(false));
 }
+
+#[test]
+fn enum_dynamic_array_allocation_is_supported() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract EnumArrayHarness {
+        enum Stage {
+            Pending,
+            Active,
+            Closed
+        }
+
+        function values() public pure returns (Stage[] memory out) {
+            out = new Stage[](2);
+            out[0] = Stage.Pending;
+            out[1] = Stage.Closed;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    let artifact = artifacts
+        .iter()
+        .find(|artifact| artifact.metadata.name == "EnumArrayHarness")
+        .expect("expected EnumArrayHarness artifact");
+
+    let result = execute_bytecode(&artifact.bytecode);
+    assert!(result.is_success(), "expected execution to succeed");
+
+    let json: Value =
+        serde_json::from_slice(&result.return_data).expect("expected JSON-encoded StackItem");
+    assert_eq!(json["type"], "Array");
+    assert_eq!(json["value"].as_array().map(|v| v.len()), Some(2));
+    assert_eq!(json["value"][0]["type"], "Integer");
+    assert_eq!(json["value"][0]["value"].as_i64(), Some(0));
+    assert_eq!(json["value"][1]["type"], "Integer");
+    assert_eq!(json["value"][1]["value"].as_i64(), Some(2));
+}

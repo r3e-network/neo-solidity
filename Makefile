@@ -2,7 +2,7 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-solidity
 
-.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
+.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
 
 all: build
 
@@ -84,6 +84,35 @@ test-deploy-delete-smoke:
 
 test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke
 	@echo "✅ Neo-Express smoke tests complete"
+
+# ========== Famous DeFi/Web3 contract smoke tests ==========
+
+test-deploy-wgas-smoke:
+	@echo "💰 Running WGAS (Wrapped GAS) smoke test..."
+	bash examples/test_neoxp_wgas_smoke.sh
+
+test-deploy-flashloan-smoke:
+	@echo "⚡ Running FlashLoan smoke test..."
+	bash examples/test_neoxp_flashloan_smoke.sh
+
+test-deploy-amm-smoke:
+	@echo "🔄 Running SimpleAMM smoke test..."
+	bash examples/test_neoxp_amm_smoke.sh
+
+test-deploy-vesting-smoke:
+	@echo "⏳ Running TokenVesting smoke test..."
+	bash examples/test_neoxp_vesting_smoke.sh
+
+test-deploy-lending-smoke:
+	@echo "🏦 Running SimpleLending smoke test..."
+	bash examples/test_neoxp_lending_smoke.sh
+
+test-deploy-dao-smoke:
+	@echo "🗳️  Running SimpleDAO smoke test..."
+	bash examples/test_neoxp_dao_smoke.sh
+
+test-deploy-famous-all: test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke
+	@echo "✅ Famous contract smoke tests complete"
 
 install-deps: tooling-install
 	@echo "📦 Fetching Rust dependencies..."

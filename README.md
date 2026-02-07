@@ -763,10 +763,12 @@ make publish
 - 🔄 Iterator streaming (partial)
 - 🔄 Oracle integration (stub only)
 
-#### **Testing (~60% Complete)**
+#### **Testing (~75% Complete)**
 
 - ✅ Unit tests for runtime primitives (tests/runtime\_\*.rs)
-- ✅ Integration tests for compiler pipeline
+- ✅ Integration tests for compiler pipeline (26 tests)
+- ✅ E2E compilation tests for all examples (36 tests)
+- ✅ Conformance test vectors (32 vectors, 93.8% pass rate)
 - ✅ Neo-Express deployment smoke tests
 - ✅ Cross-platform CI/CD (Linux, macOS, Windows)
 - 🔄 End-to-end contract execution tests (in progress)
@@ -803,13 +805,13 @@ make publish
 
 ### **🎯 Production Readiness**
 
-| Component           | Status              | Test Coverage      | Documentation | Notes                          |
-| ------------------- | ------------------- | ------------------ | ------------- | ------------------------------ |
-| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration | Complete      | Ready for most use cases       |
-| **Runtime Library** | 🟡 Production-Ready | Unit Tests         | Complete      | See docs/NEO_VM_PARITY_TODO.md |
-| **Developer Tools** | 🟢 Stable           | Smoke Tests        | Basic         | CLI fully functional           |
-| **Testing Suite**   | 🟡 Growing          | Partial            | Good          | E2E tests in progress          |
-| **Documentation**   | 🟡 Good             | N/A                | 80%           | Accurate but incomplete        |
+| Component           | Status              | Test Coverage               | Documentation | Notes                          |
+| ------------------- | ------------------- | --------------------------- | ------------- | ------------------------------ |
+| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration          | Complete      | Ready for most use cases       |
+| **Runtime Library** | 🟡 Production-Ready | Unit Tests                  | Complete      | See docs/NEO_VM_PARITY_TODO.md |
+| **Developer Tools** | 🟢 Stable           | Smoke Tests                 | Basic         | CLI fully functional           |
+| **Testing Suite**   | 🟢 Comprehensive    | 26 integ + 36 e2e + 32 conf | Good          | 93.8% conformance pass rate    |
+| **Documentation**   | 🟡 Good             | N/A                         | 80%           | Accurate but incomplete        |
 
 ### **⚠️ Known Limitations**
 
@@ -824,7 +826,11 @@ While the compiler is production-ready for most use cases, please note:
 | **Iterator Streaming**     | Partial     | `Storage.Find` returns handles; streaming not fully implemented                                                                                                                                                                                                                 |
 | **Cryptographic Syscalls** | Stubs       | `CheckWitness`, `GetRandom` return mock values in embedded runtime                                                                                                                                                                                                              |
 | **Oracle Integration**     | Stub        | Oracle syscalls not connected to real oracle service                                                                                                                                                                                                                            |
-| **Conformance Tests**      | In Progress | No official NeoVM test vector validation yet                                                                                                                                                                                                                                    |
+| **Conformance Tests**      | Basic       | 32 built-in test vectors, 93.8% pass rate; 2 failures are known runtime emulator limitations (internal function calls)                                                                                                                                                          |
+
+Note on intrinsic devpack libraries (`Runtime`, `Storage`, `Syscalls`, `NativeCalls`, `Neo`, `abi`):
+they are compiler intrinsics. Their Solidity source may include overloaded/internal helper signatures
+for tooling ergonomics; the compiler lowers supported members directly to Neo syscalls/native calls.
 
 **Recommendation:** For MainNet deployment, thoroughly test your contracts on Neo N3 TestNet first.
 
@@ -947,6 +953,19 @@ We've included complete, production-ready implementations of popular contract pa
 - Text record storage
 - Name transfer and renewal
 - Similar to ENS for Neo N3
+
+#### **🏛️ Famous DeFi/Web3 Contracts** (`examples/famous/`)
+
+Ports of iconic Ethereum DeFi protocols adapted for Neo N3:
+
+- **[WGAS](./examples/famous/WGAS.sol)** — Wrapped GAS (WETH9-style NEP-17 wrapper)
+- **[FlashLoan](./examples/famous/FlashLoan.sol)** — Aave V2-style flash loan pool
+- **[SimpleAMM](./examples/famous/SimpleAMM.sol)** — Uniswap V2-style constant-product AMM
+- **[TokenVesting](./examples/famous/TokenVesting.sol)** — OpenZeppelin-style linear vesting with cliff
+- **[SimpleLending](./examples/famous/SimpleLending.sol)** — Compound-style lending with liquidation
+- **[SimpleDAO](./examples/famous/SimpleDAO.sol)** — Governor-style DAO with staking and timelock
+
+See [`examples/famous/README.md`](./examples/famous/README.md) for full details and Neo N3 adaptation notes.
 
 ### **Usage Examples**
 

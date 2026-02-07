@@ -102,3 +102,74 @@ fn devpack_nep24_standard_compiles() {
         "NEP24Royalty should not require full wildcard permissions"
     );
 }
+
+#[test]
+fn devpack_syscalls_library_compiles_standalone() {
+    let source = include_str!("../../../../devpack/contracts/Syscalls.sol");
+    let artifacts = compile_contracts(source, false, 2).expect("Syscalls compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "Syscalls"),
+        "expected Syscalls artifact"
+    );
+}
+
+#[test]
+fn devpack_nativecalls_rejects_unsupported_return_types() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+    ]
+    .join("\n");
+
+    // NativeCalls uses Syscalls.Iterator, Syscalls.Block, etc. which are
+    // unsupported return types — the compiler correctly rejects them.
+    let result = compile_contracts(&source, false, 2);
+    assert!(
+        result.is_err(),
+        "NativeCalls standalone should fail due to unsupported return types"
+    );
+    let err_msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        err_msg.contains("unsupported"),
+        "error should mention unsupported types, got: {}",
+        err_msg
+    );
+}
+
+#[test]
+fn devpack_runtime_library_rejects_unsupported_nativecalls_types() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+    ]
+    .join("\n");
+
+    // Fails because NativeCalls includes unsupported return types.
+    let result = compile_contracts(&source, false, 2);
+    assert!(
+        result.is_err(),
+        "Runtime + NativeCalls standalone should fail due to unsupported return types"
+    );
+}
+
+#[test]
+fn devpack_storage_library_rejects_unsupported_nativecalls_types() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+    ]
+    .join("\n");
+
+    // Fails because NativeCalls includes unsupported return types.
+    let result = compile_contracts(&source, false, 2);
+    assert!(
+        result.is_err(),
+        "Storage + NativeCalls standalone should fail due to unsupported return types"
+    );
+}
