@@ -31,9 +31,11 @@ use neo_solidity::ir;
 use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};
 use neo_solidity::semantic_model::build_semantic_model;
 use neo_solidity::solidity::{
-    analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, FunctionKind,
-    FunctionMetadata, NatspecDoc, ParameterMetadata, StateMutability,
+    analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, EventMetadata,
+    FunctionKind, FunctionMetadata, NatspecDoc, ParameterMetadata, StateMutability,
 };
+#[cfg(test)]
+use neo_solidity::solidity::EventParameter;
 use neo_solidity::type_system::NeoType;
 use serde_json::{json, Value};
 use sha3::{Digest, Keccak256};

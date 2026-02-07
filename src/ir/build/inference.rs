@@ -1,32 +1,38 @@
 fn infer_literal_array_element_type(elements: &[Expression]) -> ValueType {
     if elements.is_empty() {
+        // Empty array literals (`[]`) have no elements to infer from.
+        // Callers should use assignment-target context when available.
         return ValueType::Any;
     }
 
-    let mut ty = ValueType::Any;
+    let mut inferred: Option<ValueType> = None;
     for expr in elements {
-        match literal_from_expression(expr) {
-            Some(LiteralValue::Boolean(_)) => ty = ValueType::Boolean,
-            Some(LiteralValue::Integer(_)) => {
-                ty = ValueType::Integer {
-                    signed: false,
-                    bits: 256,
+        let candidate = match literal_from_expression(expr) {
+            Some(LiteralValue::Boolean(_)) => Some(ValueType::Boolean),
+            Some(LiteralValue::Integer(_)) => Some(ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }),
+            Some(LiteralValue::String(_)) => Some(ValueType::String),
+            Some(LiteralValue::ByteArray(_)) => Some(ValueType::ByteArray { fixed_len: None }),
+            Some(LiteralValue::Address(_)) => Some(ValueType::Address),
+            Some(LiteralValue::Null) | None => None,
+        };
+
+        if let Some(ty) = candidate {
+            if let Some(ref prev) = inferred {
+                if *prev != ty {
+                    // Mixed element types — fall back to Any.
+                    return ValueType::Any;
                 }
-            }
-            Some(LiteralValue::String(_)) => ty = ValueType::String,
-            Some(LiteralValue::ByteArray(_)) => ty = ValueType::ByteArray { fixed_len: None },
-            Some(LiteralValue::Address(_)) => ty = ValueType::Address,
-            Some(LiteralValue::Null) => {
-                ty = ValueType::Any;
-                break;
-            }
-            None => {
-                ty = ValueType::Any;
-                break;
+            } else {
+                inferred = Some(ty);
             }
         }
+        // Skip unparseable elements; keep searching for a concrete type.
     }
-    ty
+
+    inferred.unwrap_or(ValueType::Any)
 }
 
 fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
@@ -177,17 +183,26 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
         Expression::Variable(identifier) => {
             if identifier.name == "this" {
                 Some(ValueType::Address)
+            } else if ctx.enum_variant_map.contains_key(&identifier.name) {
+                // Solidity enums lower to unsigned integers. We model enum-typed values as
+                // uint8 for IR inference to support constructs like `new MyEnum[](n)`.
+                Some(ValueType::Integer {
+                    signed: false,
+                    bits: 8,
+                })
             } else {
                 ctx.variable_type(&identifier.name).or_else(|| {
                     // In type contexts solang-parser represents user-defined type names (e.g.,
-                    // structs) as `Expression::Variable`. Resolve these by scanning the known
-                    // state/param/return/local value types for a matching struct.
-                    ctx.defined_struct_types
-                        .iter()
-                        .chain(ctx.state_types.iter())
+                    // structs) as `Expression::Variable`. Resolve by scanning known value types
+                    // with scope-priority ordering: local → param → return → state → defined
+                    // structs. This prevents cross-scope type collisions when the same name
+                    // appears at multiple levels.
+                    ctx.local_types
+                        .values()
                         .chain(ctx.param_types.iter())
                         .chain(ctx.return_types.iter())
-                        .chain(ctx.local_types.values())
+                        .chain(ctx.state_types.iter())
+                        .chain(ctx.defined_struct_types.iter())
                         .find_map(|ty| find_named_struct_type(ty, &identifier.name))
                 })
             }
@@ -307,7 +322,7 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
 fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
     match ty {
         PtType::Bool => Some(ValueType::Boolean),
-        PtType::Address | PtType::AddressPayable => Some(ValueType::Address),
+        PtType::Address | PtType::AddressPayable | PtType::Payable => Some(ValueType::Address),
         PtType::Uint(bits) => Some(ValueType::Integer {
             signed: false,
             bits: *bits,
@@ -321,7 +336,32 @@ fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
             fixed_len: Some(*len as u16),
         }),
         PtType::DynamicBytes => Some(ValueType::ByteArray { fixed_len: None }),
-        _ => None,
+        // Solidity `fixed`/`ufixed` rational literals resolve to integers at compile time.
+        PtType::Rational => Some(ValueType::Integer {
+            signed: false,
+            bits: 256,
+        }),
+        // Mapping type: extract key/value from inner type expressions when possible.
+        PtType::Mapping {
+            key, value, ..
+        } => {
+            let key_ty = if let Expression::Type(_, inner) = key.as_ref() {
+                value_type_from_ptype(inner)?
+            } else {
+                ValueType::Any
+            };
+            let val_ty = if let Expression::Type(_, inner) = value.as_ref() {
+                value_type_from_ptype(inner)?
+            } else {
+                ValueType::Any
+            };
+            Some(ValueType::Mapping {
+                key: Box::new(key_ty),
+                value: Box::new(val_ty),
+            })
+        }
+        // Function types are not representable on NeoVM.
+        PtType::Function { .. } => None,
     }
 }
 

@@ -4,3 +4,4 @@ include!("contract/methods.rs");
 include!("contract/state_variables.rs");
 include!("contract/events.rs");
 include!("contract/return_types.rs");
+include!("contract/erc_nep_patterns.rs");

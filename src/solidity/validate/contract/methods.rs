@@ -1,8 +1,13 @@
 fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) -> usize {
     use std::collections::{HashMap, HashSet};
 
+    fn is_intrinsic_library(name: &str) -> bool {
+        matches!(name, "Runtime" | "Storage" | "Syscalls" | "NativeCalls" | "Neo" | "abi")
+    }
+
     let mut signatures = HashSet::new();
     let mut overload_counts: HashSet<(String, usize)> = HashSet::new();
+    let mut overload_has_exposed: HashMap<(String, usize), bool> = HashMap::new();
     let mut constructor_count = 0usize;
 
     // Used to reduce false-positive diagnostics for `return foo();` in
@@ -29,15 +34,32 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
             }
             FunctionKind::Regular => {
                 let count_key = (function.name.clone(), function.parameters.len());
-                if !overload_counts.insert(count_key.clone()) {
+                let is_exposed = matches!(
+                    function.visibility,
+                    VisibilityKind::Public | VisibilityKind::External
+                );
+                let has_exposed = overload_has_exposed
+                    .get(&count_key)
+                    .copied()
+                    .unwrap_or(false);
+
+                let intrinsic_internal_overload = is_intrinsic_library(&metadata.name)
+                    && !is_exposed
+                    && !has_exposed;
+
+                if !overload_counts.insert(count_key.clone()) && !intrinsic_internal_overload {
                     diagnostics.push(Diagnostic {
                         severity: DiagnosticSeverity::Error,
                         message: format!(
-                            "overloaded function '{}' with {} parameter(s) is not supported on Neo",
+                            "overloaded function '{}' with {} parameter(s) is not supported; \
+                             Neo ABI dispatches by name and argument count only, so overloads \
+                             that differ only in parameter types cannot be distinguished at runtime",
                             count_key.0, count_key.1
                         ),
                     });
                 }
+
+                overload_has_exposed.insert(count_key.clone(), has_exposed || is_exposed);
 
                 let param_signature: Vec<String> = function
                     .parameters
@@ -84,6 +106,34 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                 });
             }
 
+            // Validate mapping key types: arrays, structs, and mappings are
+            // not valid as mapping keys because they lack a stable hash on NeoVM.
+            if let Some(NeoType::Mapping { ref key, .. }) = param.neo_type {
+                fn is_invalid_mapping_key(ty: &NeoType) -> bool {
+                    matches!(
+                        ty,
+                        NeoType::Array(_)
+                            | NeoType::Struct { .. }
+                            | NeoType::Mapping { .. }
+                    )
+                }
+                if is_invalid_mapping_key(key) {
+                    let param_name = param
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| "<unnamed>".to_string());
+                    diagnostics.push(Diagnostic {
+                        severity: DiagnosticSeverity::Error,
+                        message: format!(
+                            "function '{}' parameter '{}': mapping key type must be \
+                             an elementary type (integer, bool, address, string, bytes); \
+                             arrays, structs, and mappings are not allowed as keys",
+                            function.name, param_name
+                        ),
+                    });
+                }
+            }
+
             if let Some(storage) = &param.storage {
                 if storage == "storage"
                     && matches!(
@@ -118,9 +168,10 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
             && !matches!(function.kind, FunctionKind::Constructor)
         {
             diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
+                severity: DiagnosticSeverity::Error,
                 message: format!(
-                    "function '{}' declares a return type but has no implementation",
+                    "function '{}' declares a return type but has no implementation; \
+                     provide a body or mark the contract as abstract",
                     function.name
                 ),
             });

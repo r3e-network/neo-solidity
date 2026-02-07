@@ -217,6 +217,13 @@ fn resolve_mapping_access<'a>(
                 current = inner;
             }
             Expression::Variable(identifier) => {
+                // A bare variable without subscript keys is NOT a mapping access;
+                // it should be handled as a plain state-variable load so that
+                // `emit_load_state` (with proper null-coercion) is used.
+                if keys.is_empty() {
+                    return None;
+                }
+
                 let state_index = *ctx.state_index_map.get(&identifier.name)?;
                 let mut current_type = ctx.state_type(state_index)?.clone();
                 let mut key_types = Vec::with_capacity(keys.len());

@@ -60,20 +60,30 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
             if (&numerator % &denominator).is_zero() {
                 Some(LiteralValue::Integer(numerator / denominator))
             } else {
+                eprintln!(
+                    "warning: non-integer rational literal {}.{} cannot be represented \
+                     as an integer; fractional values are not supported on NeoVM",
+                    integer, fraction
+                );
                 None
             }
         }
         Expression::StringLiteral(parts) => Some(LiteralValue::String(string_literal_bytes(parts))),
         Expression::HexLiteral(parts) => decode_hex_segments(parts).map(LiteralValue::ByteArray),
-        Expression::AddressLiteral(_, value) => decode_hex_bytes(value).map(|mut bytes| {
+        Expression::AddressLiteral(_, value) => decode_hex_bytes(value).and_then(|mut bytes| {
+            // Neo addresses are UInt160 (20 bytes). Reject malformed literals early.
+            if bytes.len() != 20 {
+                eprintln!(
+                    "warning: address literal has {} bytes, expected 20 (UInt160)",
+                    bytes.len()
+                );
+                return None;
+            }
             // Neo smart contracts treat UInt160 values (script hashes) in little-endian byte
             // order on the VM stack. Solidity address literals are written in the canonical
-            // big-endian hex form, so we reverse here to make the on-chain representation
-            // match Neo N3 conventions.
-            if bytes.len() == 20 {
-                bytes.reverse();
-            }
-            LiteralValue::Address(bytes)
+            // big-endian hex form, so we reverse here to match Neo N3 conventions.
+            bytes.reverse();
+            Some(LiteralValue::Address(bytes))
         }),
         Expression::Parenthesis(_, inner) => literal_from_expression(inner),
         _ => None,

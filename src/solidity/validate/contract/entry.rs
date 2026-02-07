@@ -14,6 +14,7 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     validate_state_variables(metadata, &method_name_counts, &mut diagnostics);
     validate_events(metadata, &mut diagnostics);
     validate_return_types(metadata, &mut diagnostics);
+    validate_erc_nep_patterns(metadata, &mut diagnostics);
 
     diagnostics
 }

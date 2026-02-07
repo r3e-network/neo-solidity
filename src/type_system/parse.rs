@@ -121,7 +121,7 @@ impl NeoType {
             return Ok(NeoType::Address);
         }
 
-        Ok(NeoType::Any)
+        Err(TypeParseError::Unsupported(ty.to_string()))
     }
 }
 
@@ -237,6 +237,20 @@ fn parse_mapping_type(
     }
 
     let key = NeoType::from_solidity(key_str, structs, enums, contract_types)?;
+
+    // Solidity requires mapping keys to be elementary types (integers, bool,
+    // address, string, bytes, enums, contract types). Arrays, structs, and
+    // nested mappings are not valid because they lack a deterministic hash.
+    match &key {
+        NeoType::Array(_) | NeoType::Struct { .. } | NeoType::Mapping { .. } => {
+            return Err(TypeParseError::Unsupported(format!(
+                "invalid mapping key type '{}'; only elementary types are allowed",
+                key_str
+            )));
+        }
+        _ => {}
+    }
+
     let value = NeoType::from_solidity(value_str, structs, enums, contract_types)?;
 
     Ok(NeoType::Mapping {

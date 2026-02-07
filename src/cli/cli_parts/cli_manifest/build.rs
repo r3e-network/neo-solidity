@@ -140,7 +140,15 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
         })
         .collect();
 
-    let supported_standards = detect_supported_standards(&metadata.methods);
+    let detection = detect_supported_standards(&metadata.methods, &metadata.events);
+    let supported_standards = detection.standards;
+    for diag in &detection.diagnostics {
+        let prefix = match diag.level {
+            StandardsDiagnosticLevel::Warning => "warning",
+            StandardsDiagnosticLevel::Info => "info",
+        };
+        eprintln!("[{prefix}][{standard}] {msg}", standard = diag.standard, msg = diag.message);
+    }
     let permissions = infer_permissions(metadata, ir_module);
     // Neo N3 keeps `features` reserved for future use; Neo's manifest parser will
     // reject any populated keys. Keep the object empty for chain compatibility.
