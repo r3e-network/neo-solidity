@@ -124,7 +124,9 @@ impl ExecutionContext {
             .pending_timestamp
             .take()
             .or(Some(self.default_timestamp));
-        self.invocation_counter = 0;
+        // Neo N3 invocation counter is 1 for the first invocation of a contract
+        // within a script execution and increments on re-entry.
+        self.invocation_counter = 1;
         self.try_stack.clear();
         self.uncaught_exception = None;
         self.iterators.clear();

@@ -1,6 +1,7 @@
 use super::*;
 use hex;
-use sha2::{Digest, Sha256};
+use sha2::{Digest as Sha2Digest, Sha256};
+use sha3::Keccak256;
 
 fn metadata_script() -> Vec<u8> {
     let syscalls = [
@@ -38,6 +39,33 @@ fn test_contract_deployment() {
     let address = result.unwrap();
     assert!(address.starts_with("0x"));
     assert_eq!(address.len(), 42); // 0x + 40 hex chars
+}
+
+#[test]
+fn test_contract_deployment_addresses_are_deterministic_and_unique_per_nonce() {
+    let config = RuntimeConfig::default();
+    let mut runtime = NeoRuntime::new(config).unwrap();
+
+    let bytecode = vec![0x60, 0x01, 0x60, 0x02, 0x01];
+
+    let first = runtime
+        .deploy_contract(&bytecode, &[])
+        .expect("first deploy");
+    let second = runtime
+        .deploy_contract(&bytecode, &[])
+        .expect("second deploy");
+
+    assert_ne!(
+        first, second,
+        "nonce should make subsequent addresses unique"
+    );
+
+    let mut input = Vec::with_capacity(20 + std::mem::size_of::<u64>());
+    input.extend_from_slice(runtime.execution_context.default_account_bytes());
+    input.extend_from_slice(&0u64.to_le_bytes());
+    let hash = Keccak256::digest(&input);
+    let expected_first = format!("0x{}", hex::encode(&hash[12..32]));
+    assert_eq!(first, expected_first);
 }
 
 #[test]

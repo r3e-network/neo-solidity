@@ -5,6 +5,8 @@ impl NeoRuntime {
         bytecode: &[u8],
         constructor_args: &[u8],
     ) -> Result<String, RuntimeError> {
+        let deployer = self.execution_context.default_account.clone();
+
         // Generate contract address
         let address = self.generate_contract_address()?;
 
@@ -21,6 +23,11 @@ impl NeoRuntime {
             }
         }
 
+        // Advance deployer nonce so subsequent deployments derive a new address.
+        let nonce = self.state_manager.get_nonce(&deployer)?;
+        self.state_manager
+            .set_nonce(&deployer, nonce.saturating_add(1))?;
+
         Ok(address)
     }
 
@@ -28,16 +35,16 @@ impl NeoRuntime {
         // Generate deterministic contract address using deployer address + nonce
         use sha3::{Digest, Keccak256};
 
-        let input = format!(
-            "contract_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        );
+        let deployer = self.execution_context.default_account_bytes();
+        let nonce = self
+            .state_manager
+            .get_nonce(&self.execution_context.default_account)?;
 
-        let hash = Keccak256::digest(input.as_bytes());
+        let mut input = Vec::with_capacity(20 + std::mem::size_of::<u64>());
+        input.extend_from_slice(deployer);
+        input.extend_from_slice(&nonce.to_le_bytes());
+
+        let hash = Keccak256::digest(&input);
         Ok(format!("0x{}", hex::encode(&hash[12..32]))) // Take last 20 bytes
     }
 }
-

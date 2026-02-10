@@ -97,7 +97,7 @@ fn execution_context_reports_default_metadata() {
     }
 
     match context.pop_stack().expect("second invocation counter") {
-        StackItem::UnsignedInteger(value) => assert_eq!(value, 2),
+        StackItem::UnsignedInteger(value) => assert_eq!(value, 1),
         other => panic!("expected second invocation counter, got {:?}", other),
     }
 

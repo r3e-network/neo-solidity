@@ -27,7 +27,6 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.GetInvocationCounter" => {
-                self.invocation_counter += 1;
                 self.push_stack(StackItem::UnsignedInteger(self.invocation_counter))?;
                 Ok(true)
             }

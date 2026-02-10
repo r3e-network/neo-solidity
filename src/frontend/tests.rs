@@ -98,6 +98,7 @@ contract Test {
     }
 }
 "#;
+
     let contracts = parse_source(source).expect("should parse");
     assert_eq!(contracts.len(), 1);
     let func = &contracts[0].functions[0];
@@ -105,4 +106,89 @@ contract Test {
     assert_eq!(func.doc.params.len(), 1);
     assert_eq!(func.doc.params[0].0, "x");
     assert_eq!(func.doc.returns.len(), 1);
+}
+
+#[test]
+fn parse_source_rejects_unsupported_solidity_pragma() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.7.6;
+
+contract Test {
+    function value() public pure returns (uint256) {
+        return 1;
+    }
+}
+"#;
+
+    let err = parse_source(source).expect_err("unsupported pragma should fail");
+    assert!(matches!(err, FrontendError::UnsupportedVersion(_)));
+}
+
+#[test]
+fn parse_source_accepts_supported_solidity_pragma() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Test {
+    function value() public pure returns (uint256) {
+        return 1;
+    }
+}
+"#;
+
+    let contracts = parse_source(source).expect("supported pragma should parse");
+    assert_eq!(contracts.len(), 1);
+}
+
+#[test]
+fn parse_source_accepts_mixed_range_including_0_8() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0 <0.9.0;
+
+contract Test {
+    function value() public pure returns (uint256) {
+        return 1;
+    }
+}
+"#;
+
+    let contracts = parse_source(source).expect("0.8 range should parse");
+    assert_eq!(contracts.len(), 1);
+}
+
+#[test]
+fn parse_source_rejects_range_excluding_0_8() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.9.0;
+
+contract Test {
+    function value() public pure returns (uint256) {
+        return 1;
+    }
+}
+"#;
+
+    let err = parse_source(source).expect_err("0.9-only range should fail");
+    assert!(matches!(err, FrontendError::UnsupportedVersion(_)));
+}
+
+#[test]
+fn parse_source_rejects_disjoint_or_without_0_8() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.7.6 || ^0.9.0;
+
+contract Test {
+    function value() public pure returns (uint256) {
+        return 1;
+    }
+}
+"#;
+
+    let err = parse_source(source).expect_err("OR branches without 0.8 should fail");
+    assert!(matches!(err, FrontendError::UnsupportedVersion(_)));
 }

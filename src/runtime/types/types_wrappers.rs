@@ -47,9 +47,9 @@ impl Address {
     /// Get address bytes (20 bytes)
     pub fn to_bytes(&self) -> Vec<u8> {
         if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).unwrap_or_default()
+            hex::decode(&self.0[2..]).expect("Address::new validated a 40-char hex address")
         } else {
-            hex::decode(&self.0).unwrap_or_default()
+            hex::decode(&self.0).expect("Address::new validated a 40-char hex address")
         }
     }
 
@@ -80,9 +80,9 @@ impl TransactionHash {
     /// Get hash bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).unwrap_or_default()
+            hex::decode(&self.0[2..]).expect("TransactionHash should contain valid hex")
         } else {
-            hex::decode(&self.0).unwrap_or_default()
+            hex::decode(&self.0).expect("TransactionHash should contain valid hex")
         }
     }
 
@@ -106,9 +106,9 @@ impl BlockHash {
     /// Get hash bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).unwrap_or_default()
+            hex::decode(&self.0[2..]).expect("BlockHash should contain valid hex")
         } else {
-            hex::decode(&self.0).unwrap_or_default()
+            hex::decode(&self.0).expect("BlockHash should contain valid hex")
         }
     }
 
@@ -241,4 +241,3 @@ impl Timestamp {
         Timestamp(self.0.saturating_sub(seconds))
     }
 }
-

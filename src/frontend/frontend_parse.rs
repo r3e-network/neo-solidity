@@ -13,6 +13,9 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
 
     for part in source_unit.0.into_iter() {
         match part {
+            SourceUnitPart::PragmaDirective(pragma) => {
+                enforce_supported_pragma(&pragma)?;
+            }
             SourceUnitPart::ContractDefinition(contract) => {
                 contracts.push(convert_contract(*contract, &comment_map));
             }
@@ -37,6 +40,415 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     }
 
     Ok(contracts)
+}
+
+fn enforce_supported_pragma(
+    pragma: &solang_parser::pt::PragmaDirective,
+) -> Result<(), FrontendError> {
+    use solang_parser::pt::PragmaDirective;
+
+    let PragmaDirective::Version(_, ident, comparators) = pragma else {
+        return Ok(());
+    };
+
+    if ident.name != "solidity" {
+        return Ok(());
+    }
+
+    let spec = comparators
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // Compiler support tracks Solidity 0.8.x syntax/features.
+    // A strict semver solver is unnecessary here; block obviously incompatible majors
+    // and allow wildcard/compound comparators that include 0.8.x.
+    if pragma_supports_0_8(spec.as_str()) {
+        Ok(())
+    } else {
+        Err(FrontendError::UnsupportedVersion(spec))
+    }
+}
+
+fn pragma_supports_0_8(spec: &str) -> bool {
+    let normalized = spec.replace(' ', "").to_lowercase();
+
+    if normalized.is_empty() {
+        return true;
+    }
+
+    // Accept if any OR-branch can include a 0.8.x version.
+    normalized.split("||").any(branch_supports_0_8)
+}
+
+fn branch_supports_0_8(branch: &str) -> bool {
+    if branch.is_empty() {
+        return false;
+    }
+
+    let comparators = split_comparators(branch);
+    if comparators.is_empty() {
+        return false;
+    }
+
+    let mut lower = Bound::Unbounded;
+    let mut upper = Bound::Unbounded;
+
+    for comparator in comparators {
+        if comparator == "*" {
+            continue;
+        }
+
+        if let Some((start, end)) = parse_hyphen_range(&comparator) {
+            lower = lower.max(Bound::Inclusive(start));
+            upper = upper.min(Bound::Inclusive(end));
+            continue;
+        }
+
+        if let Some((version, level)) = parse_caret(&comparator) {
+            let upper_version = match level {
+                0 => Version {
+                    major: version.major.saturating_add(1),
+                    minor: 0,
+                    patch: 0,
+                },
+                _ => Version {
+                    major: version.major,
+                    minor: version.minor.saturating_add(1),
+                    patch: 0,
+                },
+            };
+            lower = lower.max(Bound::Inclusive(version));
+            upper = upper.min(Bound::Exclusive(upper_version));
+            continue;
+        }
+
+        if let Some(version) = parse_tilde(&comparator) {
+            let upper_version = Version {
+                major: version.major,
+                minor: version.minor.saturating_add(1),
+                patch: 0,
+            };
+            lower = lower.max(Bound::Inclusive(version));
+            upper = upper.min(Bound::Exclusive(upper_version));
+            continue;
+        }
+
+        if let Some((op, version)) = parse_operator_version(&comparator) {
+            match op {
+                ComparatorOp::Greater => lower = lower.max(Bound::Exclusive(version)),
+                ComparatorOp::GreaterEq => lower = lower.max(Bound::Inclusive(version)),
+                ComparatorOp::Less => upper = upper.min(Bound::Exclusive(version)),
+                ComparatorOp::LessEq => upper = upper.min(Bound::Inclusive(version)),
+                ComparatorOp::Exact => {
+                    lower = lower.max(Bound::Inclusive(version));
+                    upper = upper.min(Bound::Inclusive(version));
+                }
+            }
+            continue;
+        }
+
+        if let Some(version) = parse_plain_version(&comparator) {
+            lower = lower.max(Bound::Inclusive(version));
+            upper = upper.min(Bound::Inclusive(version));
+            continue;
+        }
+
+        // Unknown comparator format: reject conservatively.
+        return false;
+    }
+
+    intersects_0_8(lower, upper)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Version {
+    major: u64,
+    minor: u64,
+    patch: u64,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Bound {
+    Unbounded,
+    Inclusive(Version),
+    Exclusive(Version),
+}
+
+impl Bound {
+    fn max(self, other: Self) -> Self {
+        use Bound::{Exclusive, Inclusive, Unbounded};
+
+        match (self, other) {
+            (Unbounded, x) | (x, Unbounded) => x,
+            (Inclusive(a), Inclusive(b)) => {
+                if a >= b {
+                    Inclusive(a)
+                } else {
+                    Inclusive(b)
+                }
+            }
+            (Exclusive(a), Exclusive(b)) => {
+                if a >= b {
+                    Exclusive(a)
+                } else {
+                    Exclusive(b)
+                }
+            }
+            (Inclusive(a), Exclusive(b)) => {
+                if a > b {
+                    Inclusive(a)
+                } else if b > a {
+                    Exclusive(b)
+                } else {
+                    Exclusive(a)
+                }
+            }
+            (Exclusive(a), Inclusive(b)) => {
+                if a > b {
+                    Exclusive(a)
+                } else if b > a {
+                    Inclusive(b)
+                } else {
+                    Exclusive(a)
+                }
+            }
+        }
+    }
+
+    fn min(self, other: Self) -> Self {
+        use Bound::{Exclusive, Inclusive, Unbounded};
+
+        match (self, other) {
+            (Unbounded, x) | (x, Unbounded) => x,
+            (Inclusive(a), Inclusive(b)) => {
+                if a <= b {
+                    Inclusive(a)
+                } else {
+                    Inclusive(b)
+                }
+            }
+            (Exclusive(a), Exclusive(b)) => {
+                if a <= b {
+                    Exclusive(a)
+                } else {
+                    Exclusive(b)
+                }
+            }
+            (Inclusive(a), Exclusive(b)) => {
+                if a < b {
+                    Inclusive(a)
+                } else if b < a {
+                    Exclusive(b)
+                } else {
+                    Exclusive(a)
+                }
+            }
+            (Exclusive(a), Inclusive(b)) => {
+                if a < b {
+                    Exclusive(a)
+                } else if b < a {
+                    Inclusive(b)
+                } else {
+                    Exclusive(a)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ComparatorOp {
+    Greater,
+    GreaterEq,
+    Less,
+    LessEq,
+    Exact,
+}
+
+fn split_comparators(branch: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let chars: Vec<char> = branch.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == ',' {
+            i += 1;
+            continue;
+        }
+
+        if ch == '^' || ch == '~' {
+            let mut token = String::new();
+            token.push(ch);
+            i += 1;
+            while i < chars.len() {
+                let c = chars[i];
+                if c == ',' || c == '^' || c == '~' || c == '<' || c == '>' || c == '=' {
+                    break;
+                }
+                token.push(c);
+                i += 1;
+            }
+            tokens.push(token);
+            continue;
+        }
+
+        if ch == '<' || ch == '>' || ch == '=' {
+            let mut token = String::new();
+            token.push(ch);
+            i += 1;
+            if i < chars.len() && chars[i] == '=' {
+                token.push('=');
+                i += 1;
+            }
+            while i < chars.len() {
+                let c = chars[i];
+                if c == ',' || c == '^' || c == '~' || c == '<' || c == '>' || c == '=' {
+                    break;
+                }
+                token.push(c);
+                i += 1;
+            }
+            tokens.push(token);
+            continue;
+        }
+
+        // Plain version or hyphen range.
+        let mut token = String::new();
+        while i < chars.len() {
+            let c = chars[i];
+            if c == ',' || c == '^' || c == '~' || c == '<' || c == '>' || c == '=' {
+                break;
+            }
+            token.push(c);
+            i += 1;
+        }
+        if !token.is_empty() {
+            tokens.push(token);
+        }
+    }
+
+    tokens
+}
+
+fn parse_hyphen_range(comparator: &str) -> Option<(Version, Version)> {
+    let (left, right) = comparator.split_once('-')?;
+    let start = parse_plain_version(left)?;
+    let end = parse_plain_version(right)?;
+    Some((start, end))
+}
+
+fn parse_caret(comparator: &str) -> Option<(Version, u8)> {
+    let raw = comparator.strip_prefix('^')?;
+    let dots = raw.matches('.').count() as u8;
+    let version = parse_plain_version(raw)?;
+    Some((version, dots))
+}
+
+fn parse_tilde(comparator: &str) -> Option<Version> {
+    let raw = comparator.strip_prefix('~')?;
+    parse_plain_version(raw)
+}
+
+fn parse_operator_version(comparator: &str) -> Option<(ComparatorOp, Version)> {
+    if let Some(raw) = comparator.strip_prefix(">=") {
+        return parse_plain_version(raw).map(|v| (ComparatorOp::GreaterEq, v));
+    }
+    if let Some(raw) = comparator.strip_prefix("<=") {
+        return parse_plain_version(raw).map(|v| (ComparatorOp::LessEq, v));
+    }
+    if let Some(raw) = comparator.strip_prefix('>') {
+        return parse_plain_version(raw).map(|v| (ComparatorOp::Greater, v));
+    }
+    if let Some(raw) = comparator.strip_prefix('<') {
+        return parse_plain_version(raw).map(|v| (ComparatorOp::Less, v));
+    }
+    if let Some(raw) = comparator.strip_prefix('=') {
+        return parse_plain_version(raw).map(|v| (ComparatorOp::Exact, v));
+    }
+    None
+}
+
+fn parse_plain_version(raw: &str) -> Option<Version> {
+    if raw.is_empty() || raw == "*" {
+        return None;
+    }
+
+    let mut parts = raw.split('.');
+    let major_raw = parts.next()?;
+    let minor_raw = parts.next().unwrap_or("0");
+    let patch_raw = parts.next().unwrap_or("0");
+
+    if parts.next().is_some() {
+        return None;
+    }
+
+    // Allow wildcard suffixes like 0.8.* or 0.8.x as "any patch".
+    let major = major_raw.parse::<u64>().ok()?;
+    let minor = if minor_raw == "*" || minor_raw == "x" {
+        0
+    } else {
+        minor_raw.parse::<u64>().ok()?
+    };
+    let patch = if patch_raw == "*" || patch_raw == "x" {
+        0
+    } else {
+        patch_raw.parse::<u64>().ok()?
+    };
+
+    Some(Version {
+        major,
+        minor,
+        patch,
+    })
+}
+
+fn intersects_0_8(lower: Bound, upper: Bound) -> bool {
+    let target_start = Version {
+        major: 0,
+        minor: 8,
+        patch: 0,
+    };
+    let target_end_exclusive = Version {
+        major: 0,
+        minor: 9,
+        patch: 0,
+    };
+
+    let effective_start = match lower {
+        Bound::Unbounded => target_start,
+        Bound::Inclusive(v) => v,
+        Bound::Exclusive(v) => next_patch(v),
+    };
+
+    let effective_end_exclusive = match upper {
+        Bound::Unbounded => target_end_exclusive,
+        Bound::Inclusive(v) => next_patch(v),
+        Bound::Exclusive(v) => v,
+    };
+
+    let range_start = if effective_start > target_start {
+        effective_start
+    } else {
+        target_start
+    };
+    let range_end = if effective_end_exclusive < target_end_exclusive {
+        effective_end_exclusive
+    } else {
+        target_end_exclusive
+    };
+
+    range_start < range_end
+}
+
+fn next_patch(version: Version) -> Version {
+    Version {
+        major: version.major,
+        minor: version.minor,
+        patch: version.patch.saturating_add(1),
+    }
 }
 
 /// Build a map from source positions to their preceding Natspec comments.
@@ -196,4 +608,3 @@ fn find_preceding_doc(loc: &Loc, comment_map: &HashMap<usize, NatspecDocIR>) -> 
     }
     NatspecDocIR::default()
 }
-
