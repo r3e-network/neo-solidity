@@ -397,19 +397,25 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     ) public {
         require(signers.length >= 3, "CompleteNEP17: minimum 3 signers required");
         require(signers.length == signatures.length, "CompleteNEP17: array length mismatch");
-        
-        // Verify signatures
-        bytes32 hash = keccak256(abi.encode(
-            address(this),
-            "multiSigMint",
-            to,
-            amount,
-            block.timestamp / 3600 // Valid for 1 hour
-        ));
+
+        signatures;
         
         uint256 validSignatures = 0;
         for (uint256 i = 0; i < signers.length; i++) {
-            if (Neo.verifySignature(hash, abi.encode(signers[i]), signatures[i])) {
+            address signer = signers[i];
+            if (signer == address(0)) {
+                continue;
+            }
+
+            bool duplicate = false;
+            for (uint256 j = 0; j < i; j++) {
+                if (signers[j] == signer) {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (!duplicate && Runtime.checkWitness(signer)) {
                 validSignatures++;
             }
         }
@@ -432,19 +438,26 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         bytes[] memory signatures
     ) public {
         require(signers.length >= 3, "CompleteNEP17: minimum 3 signers required");
+        require(signers.length == signatures.length, "CompleteNEP17: array length mismatch");
         
-        // Similar signature verification as multiSigMint
-        bytes32 hash = keccak256(abi.encode(
-            address(this),
-            "multiSigBurn",
-            from,
-            amount,
-            block.timestamp / 3600
-        ));
+        signatures;
         
         uint256 validSignatures = 0;
         for (uint256 i = 0; i < signers.length; i++) {
-            if (Neo.verifySignature(hash, abi.encode(signers[i]), signatures[i])) {
+            address signer = signers[i];
+            if (signer == address(0)) {
+                continue;
+            }
+
+            bool duplicate = false;
+            for (uint256 j = 0; j < i; j++) {
+                if (signers[j] == signer) {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (!duplicate && Runtime.checkWitness(signer)) {
                 validSignatures++;
             }
         }
@@ -629,8 +642,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         address tokenMinter,
         bool tokenTransfersEnabled
     ) {
-        // Inline base NEP17.getTokenInfo() logic (super keyword not yet supported)
-        return (_name, _symbol, _decimals, _totalSupply, _maxSupply, _minter, _transfersEnabled);
+        return NEP17.getTokenInfo();
     }
     
     /**

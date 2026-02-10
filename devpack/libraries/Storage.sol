@@ -16,6 +16,7 @@ pragma solidity ^0.8.19;
 
 import "../contracts/Syscalls.sol";
 import "../contracts/NativeCalls.sol";
+import "./Runtime.sol";
 
 library Storage {
     using Syscalls for *;

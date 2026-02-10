@@ -17,6 +17,7 @@ pragma solidity ^0.8.19;
 import "../contracts/FrameworkBase.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
+import "../libraries/Storage.sol";
 
 /**
  * @title INEP17
@@ -51,6 +52,9 @@ interface INEP17Receiver {
 contract NEP17 is INEP17, FrameworkBase {
     using Neo for *;
     using Runtime for *;
+
+    // Neo N3 Oracle native contract hash.
+    address private constant ORACLE_NATIVE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
     
     // Token metadata
     string private _name;
@@ -502,7 +506,7 @@ contract NEP17 is INEP17, FrameworkBase {
     /**
      * @dev Get token info for Neo blockchain
      */
-    function getTokenInfo() public view returns (
+    function getTokenInfo() public view virtual returns (
         string memory tokenName,
         string memory tokenSymbol,
         uint8 tokenDecimals,
@@ -517,7 +521,7 @@ contract NEP17 is INEP17, FrameworkBase {
     /**
      * @dev Get contract metadata for Neo
      */
-    function getContractMetadata() public view returns (
+    function getContractMetadata() public view virtual returns (
         string memory standard,
         string memory name,
         string memory version,
@@ -536,7 +540,7 @@ contract NEP17 is INEP17, FrameworkBase {
     /**
      * @dev Emergency pause (disable transfers)
      */
-    function emergencyPause() public onlyOwner {
+    function emergencyPause() public virtual onlyOwner {
         disableTransfers();
         emit EmergencyPause(msg.sender, block.timestamp);
     }
@@ -612,15 +616,21 @@ contract NEP17 is INEP17, FrameworkBase {
         require(signers.length == signatures.length, "NEP17: array length mismatch");
         require(signers.length >= 2, "NEP17: minimum 2 signers required");
         require(signers.length <= 10, "NEP17: maximum 10 signers allowed");
-        
-        // Verify signatures
-        bytes32 hash = keccak256(abi.encode(address(this), to, amount, block.timestamp));
-        
+
+        // Off-chain signatures are collected by clients, but on-chain authorization
+        // is enforced via Neo witness checks for each declared signer.
+        signatures;
+
         for (uint256 i = 0; i < signers.length; i++) {
-            require(
-                Neo.verifySignature(hash, abi.encode(signers[i]), signatures[i]),
-                "NEP17: invalid signature"
-            );
+            address signer = signers[i];
+            require(signer != address(0), "NEP17: invalid signer");
+
+            // Prevent duplicate signers from satisfying quorum multiple times.
+            for (uint256 j = 0; j < i; j++) {
+                require(signers[j] != signer, "NEP17: duplicate signer");
+            }
+
+            require(Runtime.checkWitness(signer), "NEP17: signer witness missing");
         }
         
         // Execute transfer from multisig pool
@@ -664,7 +674,8 @@ contract NEP17 is INEP17, FrameworkBase {
         bytes calldata result,
         bytes calldata userData
     ) external {
-        require(msg.sender == address(this), "NEP17: unauthorized callback");
+        requestId; // silence unused warning in toolchains that enforce it
+        require(msg.sender == ORACLE_NATIVE_CONTRACT, "NEP17: unauthorized callback");
         
         if (code == 0) {
             // Parse oracle result to determine if condition is met

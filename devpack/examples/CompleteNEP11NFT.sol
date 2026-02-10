@@ -79,6 +79,9 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     // Governance for collection
     mapping(address => bool) private _curators;
     mapping(bytes32 => CurationProposal) private _curationProposals;
+
+    // Local monotonically-increasing id source for minted token ids.
+    uint256 private _nextTokenId = 1;
     
     struct CurationProposal {
         bytes32 id;
@@ -190,8 +193,8 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         bytes memory properties,
         RoyaltyInfo memory royalty
     ) public onlyMinter returns (bytes32 tokenId) {
-        tokenId = bytes32(_currentTokenId);
-        _currentTokenId++;
+        tokenId = bytes32(_nextTokenId);
+        _nextTokenId++;
         
         // Mint the token
         mint(to, tokenId, properties);
@@ -652,7 +655,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     /**
      * @dev Get collection statistics
      */
-    function getCollectionStats() public view returns (
+    function getCollectionStats() public view override returns (
         uint256 totalTokens,
         uint256 totalHolders,
         uint256 floorPrice,
@@ -682,7 +685,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         uint256 listingPrice
     ) {
         owner = ownerOf(tokenId);
-        properties = _tokenProperties[tokenId];
+        properties = this.properties(tokenId);
         uri = tokenURI(tokenId);
         
         royalty = _tokenRoyalties[tokenId];

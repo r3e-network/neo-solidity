@@ -87,7 +87,7 @@ module.exports = {
     clear: true,
     runOnCompile: false,
     pages: (item, file) => {
-      return file.absolutePath.startsWith(paths.sources);
+      return file.absolutePath.startsWith(module.exports.paths.sources);
     }
   },
   

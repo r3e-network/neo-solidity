@@ -17,6 +17,7 @@ pragma solidity ^0.8.19;
 import "../contracts/FrameworkBase.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
+import "../libraries/Storage.sol";
 
 /**
  * @title INEP11
@@ -324,8 +325,8 @@ contract NEP11 is INEP11, FrameworkBase {
         bytes32 tokenId,
         bytes memory data
     ) public {
+        require(ownerOf(tokenId) == from, "NEP11: transfer from incorrect owner");
         transfer(to, tokenId, data);
-        _checkOnNEP11Received(from, to, tokenId, data);
     }
     
     /**
@@ -687,7 +688,7 @@ contract NEP11 is INEP11, FrameworkBase {
     /**
      * @dev Get contract metadata for Neo
      */
-    function getContractMetadata() public view returns (
+    function getContractMetadata() public view virtual returns (
         string memory standard,
         string memory name,
         string memory version,
@@ -704,7 +705,7 @@ contract NEP11 is INEP11, FrameworkBase {
     /**
      * @dev Get collection statistics
      */
-    function getCollectionStats() public view returns (
+    function getCollectionStats() public view virtual returns (
         uint256 totalTokens,
         uint256 totalHolders,
         uint256 maxTokens,
