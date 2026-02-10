@@ -13,8 +13,10 @@ fn build_deploy_function(
     selector_registry: &SelectorRegistry,
     function_names: &HashSet<String>,
     function_overloads: &HashMap<(String, usize), String>,
+    function_param_names: &HashMap<(String, usize), Vec<String>>,
     void_functions: &HashSet<String>,
-) -> Result<Function, Vec<String>> {
+    super_method_map: &HashMap<String, String>,
+) -> Result<Function, Vec<IrDiagnostic>> {
     let parameters: Vec<ValueType> = metadata
         .parameters
         .iter()
@@ -43,7 +45,9 @@ fn build_deploy_function(
         selector_registry,
         function_names,
         function_overloads,
+        function_param_names,
         void_functions,
+        super_method_map,
     );
 
     // Lower state variable initializers (non-constant) into a deploy-time prologue.

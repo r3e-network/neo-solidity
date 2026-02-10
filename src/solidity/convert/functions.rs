@@ -4,6 +4,7 @@ fn convert_function(
     enum_types: &[EnumTypeMetadata],
     contract_types: &[String],
     has_explicit_on_nep17_payment: bool,
+    type_aliases: &std::collections::HashMap<String, String>,
 ) -> FunctionMetadata {
     if matches!(function.ty, FunctionTy::Receive) {
         if has_explicit_on_nep17_payment {
@@ -22,6 +23,8 @@ fn convert_function(
                 offset: 0,
                 body: function.body,
                 selector,
+                is_virtual: function.is_virtual,
+                is_override: function.is_override,
                 documentation: function.doc.into(),
             };
         }
@@ -69,6 +72,8 @@ fn convert_function(
             offset: 0,
             body: function.body,
             selector,
+            is_virtual: false,
+            is_override: false,
             documentation: function.doc.into(),
         };
     }
@@ -76,13 +81,13 @@ fn convert_function(
     let parameters: Vec<ParameterMetadata> = function
         .parameters
         .into_iter()
-        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types))
+        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types, type_aliases))
         .collect();
 
     let return_parameters = function
         .returns
         .into_iter()
-        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types))
+        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types, type_aliases))
         .collect();
 
     let param_signatures: Vec<String> = parameters
@@ -112,6 +117,8 @@ fn convert_function(
         offset: 0,
         body: function.body,
         selector,
+        is_virtual: function.is_virtual,
+        is_override: function.is_override,
         documentation: function.doc.into(),
     }
 }
@@ -121,9 +128,10 @@ fn convert_parameter(
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],
     contract_types: &[String],
+    type_aliases: &std::collections::HashMap<String, String>,
 ) -> ParameterMetadata {
     let ty = param.ty;
-    let neo_type = NeoType::from_solidity(&ty, struct_types, enum_types, contract_types).ok();
+    let neo_type = NeoType::from_solidity_with_aliases(&ty, struct_types, enum_types, contract_types, type_aliases).ok();
     ParameterMetadata {
         name: param.name,
         ty,

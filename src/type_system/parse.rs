@@ -101,6 +101,11 @@ impl NeoType {
             return Ok(NeoType::Any);
         }
 
+        // Fixed-point types are not supported on NeoVM.
+        if lower.starts_with("fixed") || lower.starts_with("ufixed") {
+            return Err(TypeParseError::FixedPoint(ty.to_string()));
+        }
+
         // Contract/interface-typed values are represented as Neo UInt160 addresses.
         let mut candidate = ty.trim();
         // Strip common Solidity prefixes (`contract Foo`, `interface Foo`) if present.
@@ -122,6 +127,24 @@ impl NeoType {
         }
 
         Err(TypeParseError::Unsupported(ty.to_string()))
+    }
+
+    /// Resolve user-defined value type aliases before parsing.
+    ///
+    /// If `ty` matches a key in `type_aliases`, the underlying type is used instead.
+    /// This makes `type Price is uint256` transparent to the type system.
+    pub fn from_solidity_with_aliases(
+        ty: &str,
+        structs: &[StructTypeMetadata],
+        enums: &[EnumTypeMetadata],
+        contract_types: &[String],
+        type_aliases: &std::collections::HashMap<String, String>,
+    ) -> Result<Self, TypeParseError> {
+        let stripped = strip_data_location(ty);
+        if let Some(underlying) = type_aliases.get(stripped) {
+            return Self::from_solidity(underlying, structs, enums, contract_types);
+        }
+        Self::from_solidity(ty, structs, enums, contract_types)
     }
 }
 

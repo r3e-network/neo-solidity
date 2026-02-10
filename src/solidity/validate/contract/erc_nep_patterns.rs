@@ -28,10 +28,14 @@ fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<
         .collect();
 
     check_erc20_transfer_pattern(&public_methods, &names_lower, diagnostics);
-    check_erc20_approve_pattern(&names_lower, diagnostics);
+    check_erc20_approve_pattern(&public_methods, &names_lower, diagnostics);
     check_erc721_transfer_from_pattern(&public_methods, &names_lower, diagnostics);
     check_receive_fallback_pattern(&metadata.methods, diagnostics);
     check_supports_interface_pattern(&public_methods, diagnostics);
+    check_bn254_precompile_usage(&public_methods, diagnostics);
+    check_erc1155_pattern(&public_methods, diagnostics);
+    check_erc2612_permit_pattern(&public_methods, diagnostics);
+    check_erc4626_vault_pattern(&public_methods, &names_lower, diagnostics);
 }
 
 /// Detect ERC-20 style `transfer(address, uint256)` and suggest NEP-17 4-param form.
@@ -48,38 +52,33 @@ fn check_erc20_transfer_pattern(
 
     if let Some(transfer) = public_methods
         .iter()
-        .find(|m| m.name.to_ascii_lowercase() == "transfer")
+        .find(|m| m.name.eq_ignore_ascii_case("transfer"))
     {
         let param_count = transfer.parameters.len();
         if param_count == 2 {
             // Classic ERC-20: transfer(address to, uint256 amount)
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function 'transfer' has 2 parameters (ERC-20 pattern). \
-                     NEP-17 requires 4 parameters: transfer(from, to, amount, data). \
-                     The `from` address is verified via Runtime.checkWitness() and \
-                     `data` (type Any) is forwarded to the recipient's onNEP17Payment callback. \
-                     See STANDARDS_MAPPING.md §1 for migration details."
-                ),
-            });
+            diagnostics.push(Diagnostic::warning(
+                "function 'transfer' has 2 parameters (ERC-20 pattern). \
+                 NEP-17 requires 4 parameters: transfer(from, to, amount, data). \
+                 The `from` address is verified via Runtime.checkWitness() and \
+                 `data` (type Any) is forwarded to the recipient's onNEP17Payment callback."
+            ).with_code("W101")
+             .with_suggestion("Add `from` and `data` parameters: `transfer(address from, address to, uint256 amount, bytes data)`"));
         } else if param_count == 3 {
             // Partial migration: transfer(from, to, amount) — missing `data`
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function 'transfer' has 3 parameters, but NEP-17 requires 4: \
-                     transfer(from, to, amount, data). The `data` parameter (type Any) \
-                     is forwarded to the recipient's onNEP17Payment callback. \
-                     See STANDARDS_MAPPING.md §1 for migration details."
-                ),
-            });
+            diagnostics.push(Diagnostic::warning(
+                "function 'transfer' has 3 parameters, but NEP-17 requires 4: \
+                 transfer(from, to, amount, data). The `data` parameter (type Any) \
+                 is forwarded to the recipient's onNEP17Payment callback."
+            ).with_code("W102")
+             .with_suggestion("Add `data` parameter for NEP-17 compliance: `transfer(address from, address to, uint256 amount, bytes data)`"));
         }
     }
 }
 
 /// Detect ERC-20 approve/allowance/transferFrom and note they are not in NEP-17.
 fn check_erc20_approve_pattern(
+    public_methods: &[&FunctionMetadata],
     names: &std::collections::HashSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -90,19 +89,25 @@ fn check_erc20_approve_pattern(
         .collect();
 
     if !erc20_extras.is_empty() {
-        // Only warn if the contract also looks like a token (has balanceOf or transfer)
+        // Only warn if this still looks like an ERC-20-style token surface.
+        // If a contract already exposes canonical NEP-17 transfer(from,to,amount,data)
+        // or is NFT-shaped (`ownerOf`), treat approve/allowance/transferFrom as
+        // compatibility extensions instead of migration warnings.
         let has_token_signal = names.contains("balanceof") || names.contains("transfer");
-        if has_token_signal {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "ERC-20 method(s) [{}] detected. These are not part of the NEP-17 spec; \
-                     Neo uses Runtime.checkWitness() for authorization instead of the \
-                     approve/allowance pattern. You may keep them as extensions, but they \
-                     will not contribute to NEP-17 standard detection.",
-                    erc20_extras.join(", ")
-                ),
-            });
+        let has_ownerof = names.contains("ownerof");
+        let has_nep17_transfer = public_methods
+            .iter()
+            .any(|m| m.name.eq_ignore_ascii_case("transfer") && m.parameters.len() == 4);
+
+        if has_token_signal && !has_ownerof && !has_nep17_transfer {
+            diagnostics.push(Diagnostic::warning(format!(
+                "ERC-20 method(s) [{}] detected. These are not part of the NEP-17 spec; \
+                 Neo uses Runtime.checkWitness() for authorization instead of the \
+                 approve/allowance pattern. You may keep them as extensions, but they \
+                 will not contribute to NEP-17 standard detection.",
+                erc20_extras.join(", ")
+            )).with_code("W103")
+             .with_suggestion("Remove approve/allowance or keep as optional extension alongside NEP-17 transfer"));
         }
     }
 }
@@ -118,21 +123,26 @@ fn check_erc721_transfer_from_pattern(
         return; // Not an NFT contract
     }
 
+    let has_nep11_transfer = public_methods
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case("transfer") && m.parameters.len() == 3);
+
+    if has_nep11_transfer {
+        return;
+    }
+
     if let Some(xfer_from) = public_methods
         .iter()
-        .find(|m| m.name.to_ascii_lowercase() == "transferfrom")
+        .find(|m| m.name.eq_ignore_ascii_case("transferfrom"))
     {
         let param_count = xfer_from.parameters.len();
         if param_count == 3 {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function 'transferFrom' with 3 parameters (ERC-721 pattern) detected. \
-                     NEP-11 uses transfer(to, tokenId, data) with 3 parameters instead. \
-                     Authorization is via Runtime.checkWitness(owner), not msg.sender. \
-                     See STANDARDS_MAPPING.md §2 for migration details."
-                ),
-            });
+            diagnostics.push(Diagnostic::warning(
+                "function 'transferFrom' with 3 parameters (ERC-721 pattern) detected. \
+                 NEP-11 uses transfer(to, tokenId, data) with 3 parameters instead. \
+                 Authorization is via Runtime.checkWitness(owner), not msg.sender."
+            ).with_code("W104")
+             .with_suggestion("Replace `transferFrom(from, to, id)` with `transfer(to, id, data)`"));
         }
     }
 }
@@ -144,30 +154,25 @@ fn check_receive_fallback_pattern(
 ) {
     let has_onnep17 = all_methods
         .iter()
-        .any(|m| m.name.to_ascii_lowercase() == "onnep17payment");
+        .any(|m| m.name.eq_ignore_ascii_case("onnep17payment"));
 
     for method in all_methods {
         let name_lower = method.name.to_ascii_lowercase();
         if name_lower == "receive" || name_lower == "fallback" {
             if has_onnep17 {
-                diagnostics.push(Diagnostic {
-                    severity: DiagnosticSeverity::Warning,
-                    message: format!(
-                        "function '{}' has no effect on Neo N3. The contract already defines \
-                         onNEP17Payment which is the correct Neo callback for receiving tokens.",
-                        method.name
-                    ),
-                });
+                diagnostics.push(Diagnostic::warning(format!(
+                    "function '{}' has no effect on Neo N3. The contract already defines \
+                     onNEP17Payment which is the correct Neo callback for receiving tokens.",
+                    method.name
+                )).with_code("W105")
+                 .with_suggestion("Remove — the existing onNEP17Payment handler is sufficient"));
             } else {
-                diagnostics.push(Diagnostic {
-                    severity: DiagnosticSeverity::Warning,
-                    message: format!(
-                        "function '{}' has no effect on Neo N3. Use onNEP17Payment(address from, \
-                         uint256 amount, bytes data) to handle incoming token payments. \
-                         See STANDARDS_MAPPING.md §1 for details.",
-                        method.name
-                    ),
-                });
+                diagnostics.push(Diagnostic::warning(format!(
+                    "function '{}' has no effect on Neo N3. Use onNEP17Payment(address from, \
+                     uint256 amount, bytes data) to handle incoming token payments.",
+                    method.name
+                )).with_code("W105")
+                 .with_suggestion("Replace with `function onNEP17Payment(address from, uint256 amount, bytes data)`"));
             }
         }
     }
@@ -183,14 +188,96 @@ fn check_supports_interface_pattern(
         .find(|m| m.name == "supportsInterface")
     {
         if si.parameters.len() == 1 {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: "function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. \
-                         Neo uses the manifest 'supportedstandards' array for interface \
-                         detection, which the compiler populates automatically. \
-                         See STANDARDS_MAPPING.md §5 for details."
-                    .to_string(),
-            });
+            diagnostics.push(Diagnostic::warning(
+                "function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. \
+                 Neo uses the manifest 'supportedstandards' array for interface \
+                 detection, which the compiler populates automatically."
+            ).with_code("W106")
+             .with_suggestion("Remove — Neo N3 uses manifest-based interface discovery"));
+        }
+    }
+}
+
+/// Detect ERC-1155 multi-token pattern and note Neo N3 has no direct equivalent.
+fn check_erc1155_pattern(
+    public_methods: &[&FunctionMetadata],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let has_safe_transfer = public_methods.iter().any(|m| {
+        m.name.eq_ignore_ascii_case("safeTransferFrom") && m.parameters.len() == 5
+    });
+    let has_batch_transfer = public_methods.iter().any(|m| {
+        m.name.eq_ignore_ascii_case("safeBatchTransferFrom") && m.parameters.len() == 5
+    });
+
+    if has_safe_transfer || has_batch_transfer {
+        diagnostics.push(Diagnostic::warning(
+            "ERC-1155 multi-token pattern detected. Neo N3 does not have a direct \
+             NEP equivalent for multi-token contracts."
+        ).with_code("W107")
+         .with_suggestion("Split into separate NEP-17 (fungible) and NEP-11 (non-fungible) contracts"));
+    }
+}
+
+/// Detect ERC-2612 permit pattern and note Neo uses checkWitness instead.
+fn check_erc2612_permit_pattern(
+    public_methods: &[&FunctionMetadata],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(permit) = public_methods
+        .iter()
+        .find(|m| m.name.eq_ignore_ascii_case("permit"))
+    {
+        if permit.parameters.len() == 7 {
+            diagnostics.push(Diagnostic::warning(
+                "ERC-2612 permit pattern detected (7-parameter permit function). \
+                 Neo N3 uses Runtime.checkWitness() for authorization; off-chain \
+                 signature permits are not needed."
+            ).with_code("W108")
+             .with_suggestion("Use `Runtime.checkWitness()` instead of off-chain signatures"));
+        }
+    }
+}
+
+/// Detect ERC-4626 tokenized vault pattern and suggest NEP-17 replacement.
+fn check_erc4626_vault_pattern(
+    public_methods: &[&FunctionMetadata],
+    names: &std::collections::HashSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let has_deposit = public_methods
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case("deposit") && m.parameters.len() == 2);
+    let has_withdraw = public_methods
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case("withdraw") && m.parameters.len() == 3);
+    let has_convert_shares = names.contains("converttoshares");
+    let has_convert_assets = names.contains("converttoassets");
+
+    if has_deposit && has_withdraw && (has_convert_shares || has_convert_assets) {
+        diagnostics.push(Diagnostic::warning(
+            "ERC-4626 tokenized vault pattern detected. The vault logic compiles \
+             correctly, but replace ERC-20 token interactions with NEP-17 equivalents."
+        ).with_code("W109")
+         .with_suggestion("Replace ERC-20 interactions with NEP-17 equivalents; use Runtime.checkWitness() for authorization"));
+    }
+}
+
+/// Detect BN254 elliptic curve precompile usage and suggest Neo alternatives.
+fn check_bn254_precompile_usage(
+    public_methods: &[&FunctionMetadata],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let bn254_indicators = ["ecadd", "ecmul", "ecpairing", "bn256add", "bn256scalarmul", "bn256pairing"];
+    for method in public_methods {
+        let name_lower = method.name.to_ascii_lowercase();
+        if bn254_indicators.iter().any(|ind| name_lower.contains(ind)) {
+            diagnostics.push(Diagnostic::warning(format!(
+                "function '{}' appears to use BN254 elliptic curve operations (ecAdd/ecMul/ecPairing). \
+                 These precompiles (addresses 0x06, 0x07, 0x08) are not available on Neo N3.",
+                method.name
+            )).with_code("W110")
+             .with_suggestion("Use CryptoLib BLS12-381 operations instead"));
         }
     }
 }

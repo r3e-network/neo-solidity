@@ -25,6 +25,12 @@ fn convert_contract(
     let mut state_variables = Vec::new();
     let mut structs = Vec::new();
     let mut enums = Vec::new();
+    let mut has_using_for_star = false;
+    let mut has_using_function_list = false;
+    let mut using_for_libraries: Vec<String> = Vec::new();
+    let mut has_type_definitions = false;
+    let mut type_aliases: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     for part in contract.parts.into_iter() {
         match part {
@@ -37,6 +43,34 @@ fn convert_contract(
             }
             ContractPart::StructDefinition(def) => structs.push(convert_struct(*def)),
             ContractPart::EnumDefinition(def) => enums.push(convert_enum(*def)),
+            ContractPart::Using(using) => {
+                // Collect the library name for diagnostics and dispatch tracking.
+                if let UsingList::Library(ref path) = using.list {
+                    let lib_name: String = path
+                        .identifiers
+                        .iter()
+                        .map(|id| id.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(".");
+                    if !using_for_libraries.contains(&lib_name) {
+                        using_for_libraries.push(lib_name);
+                    }
+                }
+                // Detect advanced `using` forms so we can emit targeted diagnostics.
+                if using.ty.is_none() {
+                    // `using X for *` — ty is None when the target is `*`
+                    has_using_for_star = true;
+                }
+                if matches!(using.list, UsingList::Functions(_)) {
+                    // `using { f, g } for Y`
+                    has_using_function_list = true;
+                }
+            }
+            ContractPart::TypeDefinition(td) => {
+                has_type_definitions = true;
+                let underlying = format!("{}", td.ty);
+                type_aliases.insert(td.name.name.clone(), underlying);
+            }
             _ => {}
         }
     }
@@ -51,6 +85,12 @@ fn convert_contract(
         structs,
         enums,
         doc,
+        has_using_for_star,
+        has_using_function_list,
+        using_for_libraries,
+        has_type_definitions,
+        type_aliases,
+        super_method_map: std::collections::HashMap::new(),
     }
 }
 
@@ -62,14 +102,19 @@ fn convert_function(
     let mutability = extract_mutability(&function);
     let visibility = extract_visibility(&function);
     let doc = find_preceding_doc(&function.loc, comment_map);
-    let base_or_modifiers: Vec<Base> = function
-        .attributes
-        .iter()
-        .filter_map(|attr| match attr {
-            FunctionAttribute::BaseOrModifier(_, base) => Some(base.clone()),
-            _ => None,
-        })
-        .collect();
+
+    let mut is_virtual = false;
+    let mut is_override = false;
+    let mut base_or_modifiers: Vec<Base> = Vec::new();
+
+    for attr in &function.attributes {
+        match attr {
+            FunctionAttribute::Virtual(_) => is_virtual = true,
+            FunctionAttribute::Override(_, _) => is_override = true,
+            FunctionAttribute::BaseOrModifier(_, base) => base_or_modifiers.push(base.clone()),
+            _ => {}
+        }
+    }
 
     let parameters = convert_parameters(&function.params);
     let returns = convert_parameters(&function.returns);
@@ -80,6 +125,8 @@ fn convert_function(
         returns,
         mutability,
         visibility,
+        is_virtual,
+        is_override,
         base_or_modifiers,
         body: function.body,
         doc,

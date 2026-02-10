@@ -11,6 +11,8 @@ fn method_identifiers_include_selectors() {
 
     let metadata = ContractMetadata {
         name: "Test".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![FunctionMetadata {
             name: "foo".to_string(),
             neo_name: "foo".to_string(),
@@ -30,6 +32,8 @@ fn method_identifiers_include_selectors() {
             offset: 0,
             body: None,
             selector: selector_bytes,
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         }],
         events: vec![],
@@ -40,6 +44,13 @@ fn method_identifiers_include_selectors() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let identifiers = build_method_identifiers(&metadata);

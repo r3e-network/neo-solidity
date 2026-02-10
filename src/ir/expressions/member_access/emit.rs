@@ -5,6 +5,20 @@ fn lower_member_access_expression(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
+    // `super.member` in a non-call context (e.g., reading a parent state variable).
+    // The compiler flattens inheritance so base-specific members are not separately addressable.
+    if matches!(inner, Expression::Variable(id) if id.name == "super") {
+        ctx.record_error_with_suggestion(
+            format!(
+                "super.{} is not yet supported; the compiler flattens inheritance and does not preserve base-specific member access",
+                member.name
+            ),
+            "access the member directly by name, or extract shared logic into a named internal function",
+        );
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        return false;
+    }
+
     if let Some(result) = try_lower_native_contract_constant(inner, member, instructions) {
         return result;
     }
@@ -46,6 +60,10 @@ fn lower_member_access_expression(
     }
 
     if let Some(result) = try_lower_interface_id(inner, member, ctx, instructions) {
+        return result;
+    }
+
+    if let Some(result) = try_lower_type_name(inner, member, ctx, instructions) {
         return result;
     }
 

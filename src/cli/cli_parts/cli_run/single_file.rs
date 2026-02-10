@@ -65,6 +65,14 @@ fn run_single_file(matches: &clap::ArgMatches) {
         .unwrap_or("merge");
     let json_errors = matches.get_flag("json-errors");
     let json_warnings = matches.get_flag("json-warnings");
+    let warn_suppress: Vec<String> = matches
+        .get_many::<String>("Wno")
+        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .unwrap_or_default();
+    let warn_promote: Vec<String> = matches
+        .get_many::<String>("Werror")
+        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .unwrap_or_default();
 
     let manifest_permissions = match manifest_permissions_file {
         Some(path) => match load_manifest_permissions_override(path, manifest_permissions_mode) {
@@ -287,7 +295,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
             );
         }
 
-        emit_contract_warnings(&artifacts, json_warnings);
+        emit_contract_warnings(&artifacts, json_warnings, json_errors, &warn_suppress, &warn_promote);
         let output_config = OutputConfig {
             format,
             output_prefix: &output_prefix,

@@ -121,6 +121,27 @@ fn vault_example_compiles_with_external_calls() {
     }
 }
 
+
+#[test]
+fn vault_example_compiles_under_strict_manifest_flags() {
+    let source = include_str!("../../../../examples/new/Vault.sol");
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("vault strict compilation failed");
+
+    assert_eq!(artifacts.len(), 1);
+}
+
 #[test]
 fn neo_interop_showcase_compiles_with_expected_methods() {
     let source = include_str!("../../../../examples/new/NeoInteropShowcase.sol");
@@ -177,6 +198,27 @@ fn low_level_call_showcase_compiles_with_manifest_methods() {
     }
 }
 
+
+#[test]
+fn low_level_call_showcase_compiles_under_strict_manifest_flags() {
+    let source = include_str!("../../../../examples/new/LowLevelCallShowcase.sol");
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("low-level strict compilation failed");
+
+    assert_eq!(artifacts.len(), 1);
+}
+
 #[test]
 fn enum_array_showcase_compiles_and_returns_array() {
     let source = include_str!("../../../../examples/new/EnumArrayShowcase.sol");
@@ -213,10 +255,12 @@ fn nep17_is_detected_when_core_methods_are_public_getters() {
             balanceOf[msg.sender] = totalSupply;
         }
 
-        function transfer(address to, uint256 amount) public returns (bool) {
+        function transfer(address from, address to, uint256 amount, bytes memory data) public returns (bool) {
+            data;
+            require(from == msg.sender, "bad from");
             require(to != address(0), "bad to");
-            require(balanceOf[msg.sender] >= amount, "insufficient");
-            balanceOf[msg.sender] -= amount;
+            require(balanceOf[from] >= amount, "insufficient");
+            balanceOf[from] -= amount;
             balanceOf[to] += amount;
             return true;
         }
@@ -419,4 +463,117 @@ fn interface_showcase_compiles_with_expected_methods() {
             required
         );
     }
+}
+
+#[test]
+fn upgrade_lifecycle_showcase_compiles_under_strict_manifest_flags() {
+    let source = include_str!("../../../../examples/new/UpgradeLifecycleShowcase.sol");
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("UpgradeLifecycleShowcase strict compilation failed");
+
+    assert_eq!(artifacts.len(), 1);
+    let methods = artifacts[0].manifest["abi"]["methods"]
+        .as_array()
+        .expect("methods array");
+    for required in ["transferOwnership", "upgrade", "destroyContract", "gasBalance"] {
+        assert!(
+            methods
+                .iter()
+                .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
+            "expected method '{}' in UpgradeLifecycleShowcase manifest",
+            required
+        );
+    }
+}
+
+#[test]
+fn witness_guard_showcase_compiles_under_strict_manifest_flags() {
+    let source = include_str!("../../../../examples/new/WitnessGuardShowcase.sol");
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("WitnessGuardShowcase strict compilation failed");
+
+    assert_eq!(artifacts.len(), 1);
+    let methods = artifacts[0].manifest["abi"]["methods"]
+        .as_array()
+        .expect("methods array");
+    for required in [
+        "setGuardian",
+        "lockAccount",
+        "unlockAccount",
+        "privilegedAction",
+        "isLocked",
+    ] {
+        assert!(
+            methods
+                .iter()
+                .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
+            "expected method '{}' in WitnessGuardShowcase manifest",
+            required
+        );
+    }
+}
+
+#[test]
+fn oracle_relay_showcase_compiles_under_strict_manifest_flags() {
+    let source = include_str!("../../../../examples/new/OracleRelayStrictShowcase.sol");
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("OracleRelayStrictShowcase strict compilation failed");
+
+    assert_eq!(artifacts.len(), 1);
+
+    let methods = artifacts[0].manifest["abi"]["methods"]
+        .as_array()
+        .expect("methods array");
+    for required in ["request", "onOracleResponse", "getResult"] {
+        assert!(
+            methods
+                .iter()
+                .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
+            "expected method '{}' in OracleRelayStrictShowcase manifest",
+            required
+        );
+    }
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"].as_str() != Some("*")),
+        "OracleRelayStrictShowcase should avoid wildcard contract permissions"
+    );
 }

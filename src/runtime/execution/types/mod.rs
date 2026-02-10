@@ -20,7 +20,11 @@ pub mod context;
 // Re-export commonly used types
 pub use stack::StackItem;
 pub use frame::{CallFrame, TryFrame, TryFrameState};
-pub use state::{IteratorState, ContractState, OverlayEntry, IsolatedStorageKey, StorageOverlayEntries};
+pub use state::{
+    IteratorState, ContractState, OverlayEntry, IsolatedStorageKey, StorageOverlayEntries,
+    WhitelistedFeeContract, OracleRequest, LedgerBlock, LedgerTransaction,
+    TransactionSigner, NotaryDeposit,
+};
 pub use debug::{StepResult, MemoryChange};
 pub use gas::GasTracker;
 pub use context::ExecutionContext;

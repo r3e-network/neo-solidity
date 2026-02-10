@@ -1,5 +1,5 @@
 impl Module {
-    pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<String>> {
+    pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<IrDiagnostic>> {
         let state_variables: Vec<StateVariable> = metadata
             .state_variables
             .iter()
@@ -57,10 +57,20 @@ impl Module {
             .collect();
 
         let mut function_overloads = HashMap::new();
+        let mut function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
         for method in &metadata.methods {
             function_overloads.insert(
                 (method.name.clone(), method.parameters.len()),
                 method.neo_name.clone(),
+            );
+            let param_names: Vec<String> = method
+                .parameters
+                .iter()
+                .map(|p| p.name.clone().unwrap_or_default())
+                .collect();
+            function_param_names.insert(
+                (method.name.clone(), method.parameters.len()),
+                param_names,
             );
         }
 
@@ -91,7 +101,9 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &function_param_names,
                 &void_functions,
+                &metadata.super_method_map,
             ) {
                 Ok(function) => {
                     if matches!(function.kind, FunctionKind::Constructor) {
@@ -123,7 +135,9 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &function_param_names,
                 &void_functions,
+                &metadata.super_method_map,
             ) {
                 Ok(function) => functions.push(function),
                 Err(mut errs) => errors.append(&mut errs),

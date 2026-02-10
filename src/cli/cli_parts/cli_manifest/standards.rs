@@ -117,7 +117,7 @@ fn detect_supported_standards(
         standards.push("NEP-26".to_string());
     } else if has_update && !has_destroy {
         diagnostics.push(StandardsDiagnostic {
-            level: StandardsDiagnosticLevel::Warning,
+            level: StandardsDiagnosticLevel::Info,
             standard: "NEP-26",
             message: "contract has `update` but is missing `destroy`. \
                       Add both to enable NEP-26 standard detection."
@@ -125,7 +125,7 @@ fn detect_supported_standards(
         });
     } else if !has_update && has_destroy {
         diagnostics.push(StandardsDiagnostic {
-            level: StandardsDiagnosticLevel::Warning,
+            level: StandardsDiagnosticLevel::Info,
             standard: "NEP-26",
             message: "contract has `destroy` but is missing `update`. \
                       Add both to enable NEP-26 standard detection."
@@ -181,7 +181,7 @@ fn check_transfer_params(
 ) {
     if let Some(transfer) = public_methods
         .iter()
-        .find(|m| m.name.to_ascii_lowercase() == "transfer")
+        .find(|m| m.name.eq_ignore_ascii_case("transfer"))
     {
         let actual = transfer.parameters.len();
         if actual != expected_params {

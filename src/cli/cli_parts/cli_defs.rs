@@ -23,7 +23,7 @@ pub struct CompilationArtifacts {
 pub enum CompileError {
     Diagnostics(Vec<neo_solidity::solidity::Diagnostic>),
     Semantic(Vec<neo_solidity::solidity::Diagnostic>),
-    Ir(Vec<String>),
+    Ir(Vec<neo_solidity::ir::IrDiagnostic>),
     Manifest(String),
     Message(String),
 }

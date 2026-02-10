@@ -32,14 +32,16 @@ reference ports adapted for Neo N3.
 - `new/Counter.sol`: counter with increment/decrement events.
 - `new/Bank.sol`: banking contract with deposits, withdrawals, and transfers.
 - `new/MultiSigWalletNEP17.sol`: multisig wallet for GAS/NEO via NEP-17 transfers.
-- `new/Vault.sol`: token vault with deposits/withdrawals.
+- `new/Vault.sol`: GAS-only vault using `onNEP17Payment` + strict manifest-safe transfers.
+- `new/UpgradeLifecycleShowcase.sol`: owner+witness-gated upgrade/destroy lifecycle via `NativeCalls.updateContract`/`destroyContract`.
+- `new/WitnessGuardShowcase.sol`: owner/guardian authorization with `Runtime.checkWitness` and temporary account locks.
 - `new/NFT.sol`: minimal NEP-11-style NFT implementation.
 - `new/NeoInteropShowcase.sol`: Runtime/Storage/Syscalls/NativeCalls intrinsic showcase.
 - `new/LowLevelCallShowcase.sol`: `address.call` / `address.staticcall` with `abi.encodeWith*` payloads.
 - `new/EnumArrayShowcase.sol`: dynamic enum array allocation (`new EnumType[](n)`) and return behavior.
 - `new/CustomErrorsShowcase.sol`: custom `error` definitions, `revert CustomError()`, error with parameters.
 - `new/InheritanceShowcase.sol`: abstract contracts, multiple inheritance, `super`, `virtual`/`override`.
-- `new/InterfaceShowcase.sol`: interface definition, implementation, interface inheritance, `supportsInterface`.
+- `new/InterfaceShowcase.sol`: interface definition, implementation, interface inheritance, and NEP-17-style method surfaces.
 - `new/ModifierShowcase.sol`: function modifiers, modifier chaining, modifier with arguments.
 - `new/StructMappingShowcase.sol`: nested structs, structs in mappings, struct arrays, struct return values.
 - `new/TypeCastingShowcase.sol`: explicit casts (`uint8→uint256`, `address→uint160`), `bytes` conversions, `abi.encode`/`decode`.
@@ -48,6 +50,7 @@ reference ports adapted for Neo N3.
 - `new/TryCatchShowcase.sol`: `try/catch`, catch with error data, catch panic, catch bytes.
 - `new/EventIndexedShowcase.sol`: events with indexed params, anonymous events, multi-topic events.
 - `new/OracleShowcase.sol`: Neo N3 Oracle request/callback pattern using NativeCalls.
+- `new/OracleRelayStrictShowcase.sol`: strict-manifest-safe oracle relay with request tracking and fixed `onOracleResponse` callback.
 - `new/MultiStandardToken.sol`: NEP-17 + NEP-24 combined, royalty-bearing fungible token.
 
 ### Famous DeFi/Web3 Contracts (`famous/`)
@@ -92,4 +95,34 @@ To compile all new samples:
 for f in examples/new/*.sol; do base=$(basename "$f" .sol); cargo run --quiet -- "$f" -o examples/out/$base; done
 ```
 
+To run the strict compatibility sweep (devpack + `examples/new`) in one command:
+
+```bash
+bash examples/test_strict_compatibility_sweep.sh
+```
+
+To enforce strict manifest permissions for only `examples/new` samples:
+
+```bash
+for f in examples/new/*.sol; do
+  cargo run --quiet -- "$f" -o /tmp/examples-strict     --deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods
+done
+```
+
 Manifests in `examples/out/` (ignored by git) will describe supported standards and ABI entries for inspection.
+
+### Neo-Express smoke scripts (strict-safe highlights)
+
+From the repository root, run:
+
+```bash
+# Run all three new showcase smokes
+./examples/test_neoxp_new_showcases_smoke.sh
+
+# Or run individually
+./examples/test_neoxp_upgrade_lifecycle_smoke.sh
+./examples/test_neoxp_witness_guard_smoke.sh
+./examples/test_neoxp_oracle_relay_smoke.sh
+```
+
+These scripts compile with strict manifest flags, deploy on a temporary Neo-Express chain, and run deterministic invoke checks for each showcase contract.

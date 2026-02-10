@@ -116,7 +116,10 @@ fn lower_assignment(
             if let Some(name) = parameter.name.as_ref() {
                 // Declaration: `(bool ok, uint v) = ...`
                 if ctx.is_local_in_current_scope(&name.name) {
-                    ctx.record_error(format!("local variable '{}' redeclared", name.name));
+                    ctx.record_error_with_suggestion(
+                        format!("local variable '{}' redeclared", name.name),
+                        "use a different variable name or assign to the existing variable instead of redeclaring",
+                    );
                 }
 
                 let inferred_type = infer_type_from_expression(&parameter.ty, ctx);
@@ -151,7 +154,10 @@ fn lower_assignment(
                 continue;
             }
 
-            ctx.record_error("unsupported tuple assignment target");
+            ctx.record_error_with_suggestion(
+                "unsupported tuple assignment target",
+                "Neo N3 supports single-value assignments; destructure tuple returns into separate statements",
+            );
             targets.push(TupleTarget::Invalid);
         }
 

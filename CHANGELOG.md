@@ -1,197 +1,226 @@
 # Changelog
 
-All notable changes to the Neo Solidity Compiler project will be documented in this file.
+All notable changes to the Neo Solidity Compiler will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-01-22
-
-### Architecture Refactoring
-
-#### Changed
-
-- **Unified to Rust implementation**: Archived Go reference implementation to `archive/go_implementation/`
-  - Files moved: compiler.go, code_generator.go, lexer.go, yul_parser.go, neovm_types.go, supporting_types.go
-  - Go tests moved to `archive/go_tests/`
-  - Rust is now the primary and only production implementation
-
-#### Updated
-
-- **README.md**: Revised project status with accurate completion percentages
-  - Core Compiler: ~85% complete
-  - Runtime Library: ~75% complete
-  - Testing: ~60% complete
-  - Developer Tools: ~70% complete
-  - Documentation: ~80% complete
-  - Removed overly optimistic "100% Complete" claims
-
-- **TESTING.md**: Complete rewrite based on actual test infrastructure
-  - Removed references to non-existent `neo-sol-test` binary
-  - Added documentation for actual test suite structure
-  - Documented Neo-Express smoke tests
-
-- **docs/ARCHITECTURE.md**: Complete rewrite
-  - Changed from "technical plan" to actual architecture documentation
-  - Added detailed project structure with file locations
-  - Documented all key components and their responsibilities
-  - Added clear separation between implemented and planned features
-
-#### Added
-
-- **E2E Compilation Tests** (`tests/e2e_compilation_tests.rs`):
-  - test_compile_simple_storage
-  - test_compile_erc20_token
-  - test_compile_staking
-  - test_compile_multisig_wallet
-  - test_compile_with_optimization
-  - test_nef_file_structure
-  - test_manifest_structure
-
-- **Unsafe Code Documentation**: Added detailed `# Safety` comments in `src/runtime/execution/helpers/storage.rs`
-  - Documented pointer lifetime guarantees
-  - Explained safety reasoning for unsafe blocks
-
-- **Version Synchronization**: Unified version numbers
-  - Cargo.toml: 0.9.9
-  - package.json: 0.9.9 (was 1.0.0)
-
-#### Fixed
-
-- All clippy warnings resolved (cargo clippy --workspace passes)
-- Code properly formatted (cargo fmt passes)
-- NEF3 magic bytes format in E2E tests
-
----
-
-## [0.9.9] - 2025-12-13
+## [Unreleased]
 
 ### Added
 
-- Comprehensive module-level documentation across 15+ source files
-- Integration tests for gas accounting and contract management
-- 8 new unit tests for bytecode helper functions
-- Main.rs documentation and README known limitations section
+- **Transparent EVM-to-Neo auto-mapping**: 9 previously blocked EVM-specific
+  Solidity features now compile transparently with automatic Neo N3 equivalents
+  and compile-time warnings. Developers no longer need to modify their Solidity
+  code for these features:
+  - `block.coinbase` → `address(0)` (dBFT has no miner)
+  - `block.difficulty` / `block.prevrandao` → `Runtime.getRandom()`
+  - `block.gaslimit` → `Policy.getExecFeeFactor()`
+  - `block.basefee` → `Policy.getFeePerByte()`
+  - `tx.gasprice` → `Policy.getFeePerByte()`
+  - `gasleft()` → `System.Runtime.GasLeft` syscall
+  - `blockhash(n)` → `Ledger.getBlockHash(n)`
+  - `selfdestruct(addr)` → `ContractManagement.destroy()` (addr argument dropped)
+  - `address.codehash` → contract script hash (non-contract returns `bytes32(0)`)
+
+- **`super` keyword support**: `super.method()` calls now resolve correctly
+  through inheritance flattening. Overridden base methods are preserved as
+  `__super_{methodName}` and resolved during IR lowering. Supports multi-level
+  inheritance with proper C3 linearization deduplication.
+- **User-defined value types (`type X is Y`)**: Transparent type aliases where
+  `wrap`/`unwrap` compile to no-ops on NeoVM. Supported at both file-level and
+  contract-level, with proper propagation through inheritance chains.
+- `SuperShowcase.sol` and `SuperError.sol` examples demonstrating `super`
+  keyword usage patterns.
+- `UserDefinedTypeError.sol` example now compiles successfully with `type Price
+is uint256` and `Price.wrap(...)`.
+- **`type(T).name` expression**: `type(ContractName).name` and
+  `type(uint256).name` now resolve to compile-time string constants on NeoVM.
+  Completes `type(...)` expression support alongside `.min`, `.max`, and
+  `.interfaceId`.
+- `TypeNameShowcase.sol` example demonstrating `type(T).name` patterns.
+- **`require(condition, CustomError(...))` support**: Solidity 0.8.26+ syntax
+  now compiles correctly. Error name and argument count are preserved in the
+  NeoVM THROW message for diagnostics (e.g., `"InsufficientBalance(2 args)"`).
+- `RequireCustomErrorShowcase.sol` example demonstrating the three `require`
+  forms: plain condition, string message, and custom error.
+
+- `LoweringContext` extended with `super_method_map` for `super` keyword
+  resolution during IR lowering.
+- `ContractIR` and `ContractMetadata` extended with `type_aliases` field for
+  user-defined value type support.
+- `NeoType::from_solidity_with_aliases` added as alias-aware type resolution
+  wrapper around `NeoType::from_solidity`.
+- Inheritance flattening (`flatten.rs`) now merges type aliases and preserves
+  `__super_` methods through the C3 linearization chain.
+
+## [v0.9.9] - 2026-02-09
+
+### Added
+
+- **Native contract runtime support**: Policy, Oracle, RoleManagement, Ledger,
+  Notary, and Treasury native contracts are now callable from the embedded
+  runtime, with per-contract dispatch modules and gas hints.
+- `notary.rs` and `treasury.rs` dispatch modules under
+  `src/runtime/execution/execution_impl_part2_native/`.
+- `NativeContractShowcase.sol` example demonstrating Policy, Ledger, and
+  RoleManagement calls from Solidity.
+- `OracleRelayStrictShowcase.sol` for strict Oracle request/response relay
+  patterns with on-chain callback verification.
+- `UpgradeLifecycleShowcase.sol` covering `ContractManagement.update` and
+  `ContractManagement.destroy` lifecycle operations.
+- `WitnessGuardShowcase.sol` demonstrating `Runtime.checkWitness` guard
+  patterns and multi-signer authorization.
+- Neo-Express smoke test scripts for the new showcase contracts
+  (`test_neoxp_new_showcases_smoke.sh`, `test_neoxp_oracle_relay_smoke.sh`,
+  `test_neoxp_upgrade_lifecycle_smoke.sh`, `test_neoxp_witness_guard_smoke.sh`).
+- `test_strict_compatibility_sweep.sh` for batch strict-mode compilation
+  validation across all showcase contracts.
+- `runtime_native_contract_tests.rs` integration test suite for native contract
+  dispatch coverage.
+- Diagnostic infrastructure activation: structured JSON warnings and errors
+  (`--json-warnings`, `--json-errors`) wired through the full pipeline.
+- Import path relaxation: the `-I` flag now resolves transitive imports more
+  flexibly, reducing false "file not found" errors in multi-directory layouts.
 
 ### Changed
 
-- Refactored CLI into modular crate structure
-- Extracted bytecode emitter into dedicated module
-- Removed unused compiler directory (-7,230 lines)
-- Split large modules into logical submodules using include! macro
+- `ExecutionContext` and `ExecutionState` extended with native-contract routing
+  tables and overlay storage hooks for Policy/Oracle/Ledger.
+- CI workflow (`.github/workflows/ci.yml`) updated with a dedicated
+  `neoxp-showcases` job that validates the new showcase contracts end-to-end.
+- `bridge_impl_syscalls.rs` and `bridge_impl_core/initialize.rs` updated to
+  register Notary and Treasury service endpoints.
 
 ### Fixed
 
-- All clippy warnings resolved across codebase
-- Removed placeholder comments and improved code documentation
-- Applied rustfmt formatting consistently
+- Oracle dispatch now correctly propagates callback contract hash instead of
+  defaulting to the calling contract.
+- RoleManagement `getDesignatedByRole` returns an empty array (instead of
+  panicking) when no nodes are designated for the requested role.
 
-### Improved
-
-- Code quality with production-ready documentation
-- Test coverage now at 295+ passing tests
-- Cleaner module organization following SOLID principles
-
----
-
-## [1.0.0] - 2024-08-22
+## [v0.9.8] - 2026-02-08
 
 ### Added
 
-#### Compiler Core
+- **ERC-to-NEP pattern detection**: the compiler recognizes ERC-20, ERC-721,
+  ERC-1155, ERC-2612, and ERC-4626 interface patterns and maps them to their
+  Neo equivalents (NEP-17, NEP-11) in the generated manifest.
+- BN254 (alt_bn128) precompile stubs for pairing and scalar-mul operations.
+- Comprehensive test suite expansion: `runtime_syscall_tests.rs` with syscall
+  coverage for `Runtime.checkWitness`, `Runtime.getTime`,
+  `Runtime.getInvocationCounter`, and `Runtime.getRandom`.
+- `erc_nep_patterns.rs` validation module with pattern-matching heuristics for
+  standard detection.
+- `e2e_compilation_tests.rs` expanded to cover the new showcase contracts and
+  native-call paths.
+- Metadata test suite (`src/cli/tests/metadata/erc_nep_patterns.rs`) validating
+  that manifests carry correct NEP standard annotations.
 
-- Complete Yul-to-NeoVM compiler implementation with 8,000+ lines of production Rust code
-- Full lexical analyzer supporting all Yul tokens, operators, and 100+ built-in functions
-- Comprehensive AST parser with recursive descent parsing and error recovery
-- Advanced semantic analyzer with type checking, scope analysis, and optimization hints
-- Multi-level optimizer (4 levels: 0-3) with dead code elimination, constant folding, and function inlining
-- Complete NeoVM code generator with instruction mapping and gas estimation
-- Professional CLI interface with 25+ options and multiple output formats
-- Source map generation for debugging support
-- ABI generation with function signature calculation
+### Changed
 
-#### Runtime Library
+- `semantic_model.rs` updated with ERC/NEP mapping tables used during manifest
+  generation.
+- `src/solidity/validate/contract/methods.rs` and `return_types.rs` tightened
+  to reject incompatible return-type overrides in standard interfaces.
 
-- Complete EVM semantic emulation with 2,500+ lines of production C# code
-- Advanced memory manager with 32-byte word addressing and garbage collection
-- Storage manager preserving Solidity storage layout with collision-resistant key generation
-- Complete ABI encoder/decoder supporting all Solidity types including dynamic types
-- Full cryptographic library: Keccak256, ecrecover, SHA256 with EVM compatibility
-- Event system with Runtime.Notify integration and indexed parameter support
-- Context objects (msg, tx, block) with Neo blockchain mapping
-- External call manager supporting CALL/DELEGATECALL/STATICCALL operations
-- Exception handling with proper error propagation and recovery
-- Address registry with contract discovery and EIP-165 interface tracking
+### Fixed
 
-#### Developer Tooling
+- Manifest `supportedstandards` field now correctly lists detected NEP
+  standards instead of leaving the array empty when ERC interfaces are used.
 
-- Complete Hardhat integration with compilation and deployment plugins
-- Full Foundry adapter with neo-forge, neo-cast, and neo-anvil equivalents
-- ABI compatibility layer providing drop-in ethers.js/web3.js replacement
-- Professional CLI tools with rich feature set and argument parsing
-- Project templates and scaffolding for rapid development
-- TypeScript definitions with full type safety
-- Debug tooling with source maps and breakpoint support
-- Performance profiling and gas analysis tools
+## [v0.9.7] - 2026-02-07
 
-#### Testing Framework
+### Added
 
-- Comprehensive test suite with 400+ unit tests and integration tests
-- Performance benchmarking with statistical analysis and regression detection
-- Property-based testing and fuzzing for robustness validation
-- Security analysis with 8-category vulnerability detection
-- Cross-platform testing (Linux, Windows, macOS)
-- CI/CD automation with GitHub Actions
-- Real-world contract examples with validation
+- **NEP standard detection**: contracts implementing `NEP17` or `NEP11`
+  interfaces from the devpack are automatically annotated in the manifest.
+- Type inference improvements for `address`-to-`Hash160` and `uint256`-to-
+  `Integer` conversions in cross-contract call arguments.
+- `CompleteNEP11NFT.sol` and `CompleteNEP17Token.sol` devpack examples
+  demonstrating full standard compliance.
+- `MultiStandardToken.sol` example implementing both NEP-17 and NEP-11 on a
+  single contract.
+- `EventIndexedShowcase.sol` demonstrating indexed event parameters and their
+  mapping to Neo notifications.
+- `InterfaceShowcase.sol` covering Solidity interface inheritance and virtual
+  dispatch.
+- `TypeCastingShowcase.sol` for explicit and implicit type conversion patterns.
 
-#### Examples & Documentation
+### Changed
 
-- Complete ERC20 token implementation (420 lines) with advanced features
-- Full ERC721 NFT implementation (850 lines) with enumerable and royalty support
-- Uniswap V2 AMM pair implementation (650 lines) with liquidity and swapping
-- Multi-signature wallet (720 lines) with owner management and daily limits
-- Governance token (980 lines) with voting, delegation, and proposal system
-- Comprehensive documentation with 15,000+ words
-- Complete API reference with usage examples
-- Integration guides for all supported tools
-- Performance optimization and security best practices
+- `devpack/standards/NEP11.sol` and `NEP17.sol` updated with complete method
+  signatures matching the Neo N3 standard specification.
+- `devpack/contracts/Framework.sol` extended with helper methods for standard
+  detection at compile time.
+- CLI standards module (`src/cli/cli_parts/cli_manifest/standards.rs`) rewritten
+  to support automatic and manual standard annotations.
 
-### Technical Specifications
+### Fixed
 
-#### Supported Features
+- Type inference no longer silently drops `bytes32` arguments when passed to
+  native contract methods expecting `ByteString`.
 
-- Solidity 0.8.19+ source-level compatibility
-- Complete Yul intermediate representation support
-- NeoVM versions 3.0 through 3.5+ target support
-- Multiple output formats: binary (.nef), hex, assembly, JSON, debug info
-- EVM semantic emulation with <2x performance overhead
-- Full ABI compatibility with existing Ethereum tooling ecosystem
+## [v0.9.6] - 2026-02-06
 
-#### Performance Characteristics
+### Added
 
-- Compilation time: <2 seconds for complex contracts
-- Memory usage: <100MB for large contracts
-- Runtime overhead: <2x compared to native NeoVM execution
-- Test execution: <5 minutes for complete test suite
-- Cross-platform compatibility with identical outputs
+- Six famous DeFi contract ports under `examples/famous/`:
+  WGAS, FlashLoan, SimpleAMM, TokenVesting, SimpleLending, SimpleDAO.
+- `Bank.sol` and `Vault.sol` examples demonstrating deposit/withdraw patterns
+  with NEP-17 integration.
+- `LowLevelCallShowcase.sol` demonstrating `address.call()` lowering to
+  `System.Contract.Call`.
+- Improved ERC-20 and ERC-721 example contracts with Neo-specific adaptation
+  notes.
 
-#### Security Features
+### Changed
 
-- Automated vulnerability detection with 8-category analysis
-- Bounds checking and overflow protection
-- Reentrancy detection and prevention patterns
-- Cryptographic operation validation
-- Fuzzing support for robustness testing
-- Audit-ready codebase with comprehensive test coverage
+- `examples/README.md` reorganized with categorized contract listings and
+  compilation instructions.
 
-### Project Statistics
+## [v0.9.5] - 2026-02-05
 
-- **Total Implementation**: ~40,000 lines of Rust production code
-- **Test Coverage**: Comprehensive unit and integration tests
-- **Documentation**: Complete with examples and reference
-- **Examples**: 5 real-world contracts (SimpleStorage, ERC20Token, Staking, MultiSigWallet, NameService)
-- **Platform Support**: Linux, macOS, Windows
+### Added
+
+- Enhanced devpack libraries: `Runtime.sol`, `Storage.sol`, `Neo.sol` updated
+  with additional helper methods and NatSpec documentation.
+- `NativeCalls.sol` extended with `gasTransfer`, `neoTransfer`, and
+  `getContract` wrappers.
+- `NEP17Rescue.sol` utility contract for recovering stuck NEP-17 tokens.
+- `Syscalls.sol` updated with complete syscall constant definitions.
+- `devpack/README.md` rewritten with usage examples and import instructions.
+
+### Changed
+
+- Devpack library method signatures aligned with Neo N3 reference
+  implementation parameter names.
+
+## [v0.9.4] - 2026-02-04
+
+### Fixed
+
+- **MEMCPY codegen bug**: memory-copy operations for dynamic `bytes` and
+  `string` types now emit correct NeoVM `MEMCPY` sequences instead of
+  truncating at 32-byte boundaries.
+- **Void DROP bug**: functions returning `void` no longer emit a spurious `DROP`
+  opcode that corrupted the evaluation stack when called as statements.
+- **LogicalNot codegen bug**: the `!` (logical not) operator now correctly emits
+  `NZ` + `NOT` instead of a bare `NOT`, which previously produced incorrect
+  results for non-boolean integer operands.
+
+### Changed
+
+- `src/ir/expressions/calls/type_constructors.rs` and
+  `src/ir/expressions/variable.rs` refactored to centralize type-width
+  validation during IR lowering.
 
 ---
 
-For detailed technical documentation, see [README.md](README.md) and the `/docs` directory.
+[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.9.9...HEAD
+[v0.9.9]: https://github.com/r3e-network/neo-solidity/compare/v0.9.8...v0.9.9
+[v0.9.8]: https://github.com/r3e-network/neo-solidity/compare/v0.9.7...v0.9.8
+[v0.9.7]: https://github.com/r3e-network/neo-solidity/compare/v0.9.6...v0.9.7
+[v0.9.6]: https://github.com/r3e-network/neo-solidity/compare/v0.9.5...v0.9.6
+[v0.9.5]: https://github.com/r3e-network/neo-solidity/compare/v0.9.4...v0.9.5
+[v0.9.4]: https://github.com/r3e-network/neo-solidity/releases/tag/v0.9.4

@@ -8,7 +8,7 @@ contract SimpleNFT {
     mapping(uint256 => address) private owners;
     mapping(address => uint256) private balances;
 
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId, bytes data);
 
     function ownerOf(uint256 tokenId) public view returns (address) {
         address owner = owners[tokenId];
@@ -28,17 +28,23 @@ contract SimpleNFT {
         owners[tokenId] = to;
         balances[to] += 1;
 
-        emit Transfer(address(0), to, tokenId);
+        emit Transfer(address(0), to, tokenId, "");
     }
 
-    function transferFrom(address from, address to, uint256 tokenId) public {
+    function transfer(address to, uint256 tokenId, bytes memory data) public {
         require(to != address(0), "zero address");
+        address from = ownerOf(tokenId);
         require(msg.sender == from, "only owner can transfer");
-        require(ownerOf(tokenId) == from, "not owner");
 
         owners[tokenId] = to;
         balances[from] -= 1;
         balances[to] += 1;
-        emit Transfer(from, to, tokenId);
+        emit Transfer(from, to, tokenId, data);
+    }
+
+    // Compatibility wrapper for familiar ERC-721 UX.
+    function transferFrom(address from, address to, uint256 tokenId) public {
+        require(from == ownerOf(tokenId), "not owner");
+        transfer(to, tokenId, "");
     }
 }

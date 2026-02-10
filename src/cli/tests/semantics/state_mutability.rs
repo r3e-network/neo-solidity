@@ -16,7 +16,7 @@ fn view_functions_reject_state_writes() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.contains("declared view/pure")),
+                messages.iter().any(|m| m.message.contains("declared view/pure")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -44,7 +44,7 @@ fn view_functions_reject_event_emission() {
             assert!(
                 messages
                     .iter()
-                    .any(|m| m.contains("emits events/notifications")),
+                    .any(|m| m.message.contains("emits events/notifications")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -72,7 +72,7 @@ fn view_functions_reject_low_level_call() {
             assert!(
                 messages
                     .iter()
-                    .any(|m| m.contains("address.call(...) is not allowed in view/pure")),
+                    .any(|m| m.message.contains("address.call(...) is not allowed in view/pure")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -108,7 +108,7 @@ fn view_functions_reject_unsafe_internal_calls() {
             assert!(
                 messages
                     .iter()
-                    .any(|m| m.contains("performs non-readonly contract calls")),
+                    .any(|m| m.message.contains("performs non-readonly contract calls")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -134,13 +134,13 @@ fn pure_functions_reject_state_reads() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.contains("declared pure")),
+                messages.iter().any(|m| m.message.contains("declared pure")),
                 "unexpected error messages: {messages:?}"
             );
             assert!(
                 messages
                     .iter()
-                    .any(|m| m.contains("reads contract storage")),
+                    .any(|m| m.message.contains("reads contract storage")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -164,13 +164,13 @@ fn pure_functions_reject_environment_reads() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.contains("declared pure")),
+                messages.iter().any(|m| m.message.contains("declared pure")),
                 "unexpected error messages: {messages:?}"
             );
             assert!(
                 messages
                     .iter()
-                    .any(|m| m.contains("reads the execution environment")),
+                    .any(|m| m.message.contains("reads the execution environment")),
                 "unexpected error messages: {messages:?}"
             );
         }

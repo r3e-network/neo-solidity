@@ -7,4 +7,6 @@ include!("execution_impl_part2_native/oracle.rs");
 include!("execution_impl_part2_native/contract_management.rs");
 include!("execution_impl_part2_native/role_management.rs");
 include!("execution_impl_part2_native/ledger.rs");
+include!("execution_impl_part2_native/notary.rs");
+include!("execution_impl_part2_native/treasury.rs");
 include!("execution_impl_part2_native/dispatch.rs");

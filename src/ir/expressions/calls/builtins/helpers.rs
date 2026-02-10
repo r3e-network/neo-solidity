@@ -56,7 +56,7 @@ fn extract_abi_encode_args(expr: &Expression) -> Option<&[Expression]> {
         return None;
     };
 
-    if base.name == "abi" && (member.name == "encode" || member.name == "encodePacked") {
+    if base.name == "abi" && (member.name == "encode" || member.name == "encodePacked" || member.name == "encodeCall") {
         Some(args.as_slice())
     } else {
         None

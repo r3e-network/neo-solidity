@@ -38,6 +38,22 @@ interface INEP11 {
 }
 
 /**
+ * @title INEP11Divisible
+ * @dev Extended interface for divisible NEP-11 tokens.
+ *
+ * Divisible NFTs allow fractional ownership. In addition to the base INEP11
+ * methods, divisible tokens expose:
+ *   - balanceOf(owner, tokenId): fractional balance per token
+ *   - transfer(from, to, amount, tokenId, data): fractional transfer
+ *   - ownerOf(tokenId): returns ALL owners (not a single address)
+ */
+interface INEP11Divisible is INEP11 {
+    function balanceOf(address owner, bytes32 tokenId) external view returns (uint256);
+    function transfer(address from, address to, uint256 amount, bytes32 tokenId, bytes calldata data) external returns (bool);
+    function ownersOf(bytes32 tokenId) external view returns (address[] memory);
+}
+
+/**
  * @title INEP11Receiver
  * @dev Interface for contracts that can receive NEP-11 tokens
  */
@@ -667,14 +683,6 @@ contract NEP11 is INEP11, FrameworkBase {
     }
     
     // ========== Neo Integration Functions ==========
-    
-    /**
-     * @dev Check NEP-11 compliance
-     */
-    function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
-        return interfaceId == type(INEP11).interfaceId ||
-               interfaceId == 0x01ffc9a7; // ERC165
-    }
     
     /**
      * @dev Get contract metadata for Neo

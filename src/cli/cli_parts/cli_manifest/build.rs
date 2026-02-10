@@ -147,7 +147,11 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
             StandardsDiagnosticLevel::Warning => "warning",
             StandardsDiagnosticLevel::Info => "info",
         };
-        eprintln!("[{prefix}][{standard}] {msg}", standard = diag.standard, msg = diag.message);
+        eprintln!(
+            "[{prefix}][{standard}] {msg}",
+            standard = diag.standard,
+            msg = diag.message
+        );
     }
     let permissions = infer_permissions(metadata, ir_module);
     // Neo N3 keeps `features` reserved for future use; Neo's manifest parser will

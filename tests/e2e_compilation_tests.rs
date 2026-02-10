@@ -91,6 +91,59 @@ fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
     Ok((nef_path, manifest_path))
 }
 
+fn compile_contract_strict(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
+    let compiler = get_compiler_path();
+
+    if !compiler.exists() {
+        return Err(format!(
+            "Compiler not found at {}. Run 'cargo build --release' first.",
+            compiler.display()
+        ));
+    }
+
+    let contract_path = get_example_path(contract_path);
+    let output_dir = std::env::temp_dir().join("neo-sol-test-strict");
+
+    std::fs::create_dir_all(&output_dir)
+        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+
+    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+
+    let output = Command::new(&compiler)
+        .arg(&contract_path)
+        .arg("-I")
+        .arg("devpack")
+        .arg("-O2")
+        .arg("--deny-wildcard-permissions")
+        .arg("--deny-wildcard-contracts")
+        .arg("--deny-wildcard-methods")
+        .arg("-o")
+        .arg(&output_prefix)
+        .output()
+        .map_err(|e| format!("Failed to run compiler: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Strict compilation failed: {}", stderr));
+    }
+
+    let nef_path = output_prefix.with_extension("nef");
+    let manifest_path = output_prefix.with_extension("manifest.json");
+
+    if !nef_path.exists() {
+        return Err(format!("NEF file not generated: {}", nef_path.display()));
+    }
+
+    if !manifest_path.exists() {
+        return Err(format!(
+            "Manifest not generated: {}",
+            manifest_path.display()
+        ));
+    }
+
+    Ok((nef_path, manifest_path))
+}
+
 #[test]
 fn test_compile_simple_storage() {
     let result = compile_contract("SimpleStorage.sol");
@@ -608,6 +661,16 @@ fn test_compile_new_try_catch_showcase() {
 }
 
 #[test]
+fn test_compile_new_catch_panic_showcase() {
+    let result = compile_contract("new/CatchPanicShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile CatchPanicShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 fn test_compile_new_event_indexed_showcase() {
     let result = compile_contract("new/EventIndexedShowcase.sol");
     assert!(
@@ -637,16 +700,42 @@ fn test_compile_new_multi_standard_token() {
     );
 }
 
+#[test]
+fn test_compile_new_upgrade_lifecycle_showcase_strict() {
+    let result = compile_contract_strict("new/UpgradeLifecycleShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed strict compilation for UpgradeLifecycleShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_witness_guard_showcase_strict() {
+    let result = compile_contract_strict("new/WitnessGuardShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed strict compilation for WitnessGuardShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_compile_new_oracle_relay_strict_showcase_strict() {
+    let result = compile_contract_strict("new/OracleRelayStrictShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed strict compilation for OracleRelayStrictShowcase: {:?}",
+        result.err()
+    );
+}
+
 // ========== Famous DeFi/Web3 contracts ==========
 
 #[test]
 fn test_compile_famous_wgas() {
     let result = compile_contract("famous/WGAS.sol");
-    assert!(
-        result.is_ok(),
-        "Failed to compile WGAS: {:?}",
-        result.err()
-    );
+    assert!(result.is_ok(), "Failed to compile WGAS: {:?}", result.err());
 }
 
 #[test]
@@ -695,6 +784,397 @@ fn test_compile_famous_simple_dao() {
     assert!(
         result.is_ok(),
         "Failed to compile SimpleDAO: {:?}",
+        result.err()
+    );
+}
+
+// ========== Native contract integration tests (Phase 7c) ==========
+
+#[test]
+fn test_compile_native_contract_showcase() {
+    let result = compile_contract("new/NativeContractShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile NativeContractShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_native_contract_showcase_manifest_methods() {
+    let result = compile_contract("new/NativeContractShowcase.sol");
+    assert!(result.is_ok(), "Failed to compile NativeContractShowcase");
+
+    let (_, manifest_path) = result.unwrap();
+    let manifest_data = std::fs::read_to_string(&manifest_path)
+        .expect("Failed to read manifest");
+
+    let json: serde_json::Value =
+        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+
+    let methods = json["abi"]["methods"]
+        .as_array()
+        .expect("ABI methods should be an array");
+
+    let method_names: Vec<&str> = methods
+        .iter()
+        .filter_map(|m| m["name"].as_str())
+        .collect();
+
+    // Verify key methods from each native contract section are present
+    let expected = [
+        "policyFeePerByte",
+        "oraclePrice",
+        "ledgerCurrentIndex",
+        "ledgerCurrentHash",
+        "notaryBalance",
+        "treasuryIsValid",
+        "isNative",
+    ];
+
+    for name in &expected {
+        assert!(
+            method_names.contains(name),
+            "Manifest should contain method '{}', found: {:?}",
+            name,
+            method_names
+        );
+    }
+}
+
+#[test]
+fn test_native_contract_showcase_manifest_permissions() {
+    let result = compile_contract("new/NativeContractShowcase.sol");
+    assert!(result.is_ok(), "Failed to compile NativeContractShowcase");
+
+    let (_, manifest_path) = result.unwrap();
+    let manifest_data = std::fs::read_to_string(&manifest_path)
+        .expect("Failed to read manifest");
+
+    let json: serde_json::Value =
+        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+
+    let permissions = json["permissions"]
+        .as_array()
+        .expect("Permissions should be an array");
+
+    // Contract calls native contracts → permissions must be non-empty
+    assert!(
+        !permissions.is_empty(),
+        "NativeContractShowcase should have non-empty permissions for native contract calls"
+    );
+}
+
+#[test]
+fn test_native_contract_showcase_nef_valid() {
+    let result = compile_contract("new/NativeContractShowcase.sol");
+    assert!(result.is_ok(), "Failed to compile NativeContractShowcase");
+
+    let (nef_path, _) = result.unwrap();
+    let nef_data = std::fs::read(&nef_path).expect("Failed to read NEF");
+
+    assert!(!nef_data.is_empty(), "NEF should not be empty");
+    assert_eq!(
+        &nef_data[..4],
+        b"NEF3",
+        "NEF should have correct magic bytes"
+    );
+    assert!(
+        nef_data.len() > 50,
+        "NEF should contain meaningful bytecode, got {} bytes",
+        nef_data.len()
+    );
+}
+
+// ========== EVM compatibility error tests ==========
+
+/// Compile a contract and assert that compilation fails with stderr containing
+/// the expected error substring.
+fn assert_compile_error_contains(contract_path: &str, expected_error: &str) {
+    let compiler = get_compiler_path();
+    assert!(compiler.exists(), "Compiler not found");
+
+    let contract_path = get_example_path(contract_path);
+    let output_dir = std::env::temp_dir().join("neo-sol-evm-compat-test");
+    std::fs::create_dir_all(&output_dir).unwrap();
+    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+
+    let output = Command::new(&compiler)
+        .arg(&contract_path)
+        .arg("-I")
+        .arg("devpack")
+        .arg("-O2")
+        .arg("-o")
+        .arg(&output_prefix)
+        .output()
+        .expect("Failed to run compiler");
+
+    assert!(
+        !output.status.success(),
+        "Expected compilation to fail for {:?}",
+        contract_path
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(expected_error),
+        "Expected stderr to contain '{}', got:\n{}",
+        expected_error,
+        stderr
+    );
+}
+
+/// Compile a contract and assert that compilation succeeds but stderr contains
+/// the expected warning substring.
+fn assert_compile_warns(contract_path: &str, expected_warning: &str) {
+    let compiler = get_compiler_path();
+    assert!(compiler.exists(), "Compiler not found");
+
+    let contract_path = get_example_path(contract_path);
+    let output_dir = std::env::temp_dir().join("neo-sol-evm-compat-test");
+    std::fs::create_dir_all(&output_dir).unwrap();
+    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+
+    let output = Command::new(&compiler)
+        .arg(&contract_path)
+        .arg("-I")
+        .arg("devpack")
+        .arg("-O2")
+        .arg("-o")
+        .arg(&output_prefix)
+        .output()
+        .expect("Failed to run compiler");
+
+    assert!(
+        output.status.success(),
+        "Expected compilation to succeed for {:?}, stderr:\n{}",
+        contract_path,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(expected_warning),
+        "Expected stderr to contain warning '{}', got:\n{}",
+        expected_warning,
+        stderr
+    );
+}
+
+// block.coinbase/difficulty/gaslimit/basefee are now auto-mapped to Neo N3
+// equivalents (address(0), Runtime.getRandom, Policy.getExecFeeFactor,
+// Policy.getFeePerByte) with compile-time warnings instead of errors.
+#[test]
+fn test_evm_compat_block_auto_mapped() {
+    assert_compiles("new/EvmCompatBlockErrors.sol");
+}
+
+// blockhash() is now auto-mapped to Ledger.getBlockHash() with warning.
+#[test]
+fn test_evm_compat_blockhash_auto_mapped() {
+    assert_compiles("new/EvmCompatBlockhashError.sol");
+}
+
+// address.codehash is now auto-mapped to contract script hash with warning.
+#[test]
+fn test_evm_compat_address_codehash_auto_mapped() {
+    assert_compiles("new/EvmCompatAddressCodehash.sol");
+}
+
+// selfdestruct() is now auto-mapped to ContractManagement.destroy() with warning.
+#[test]
+fn test_evm_compat_selfdestruct_auto_mapped() {
+    assert_compiles("new/EvmCompatSelfdestructError.sol");
+}
+
+#[test]
+fn test_evm_compat_ether_units_error() {
+    assert_compile_error_contains(
+        "new/EvmCompatEtherUnits.sol",
+        "ether units (wei/gwei/ether) are not applicable on Neo N3",
+    );
+}
+
+#[test]
+fn test_evm_compat_msg_sig_error() {
+    assert_compile_error_contains(
+        "new/EvmCompatMsgSig.sol",
+        "msg.sig is not available on Neo N3",
+    );
+}
+
+#[test]
+fn test_evm_compat_tx_origin_warning() {
+    assert_compile_warns(
+        "new/EvmCompatTxOrigin.sol",
+        "tx.origin has different semantics on Neo N3",
+    );
+}
+
+// ── Phase 3: Showcase compilation tests ──────────────────────────────────
+
+#[test]
+fn test_expression_showcase_compiles() {
+    assert_compiles("new/ExpressionShowcase.sol");
+}
+
+#[test]
+fn test_storage_concat_showcase_compiles() {
+    assert_compiles("new/StorageConcatShowcase.sol");
+}
+
+// ── Function polish: payable, receive, fallback, modifiers, overloading ──
+
+#[test]
+fn test_compile_function_polish_showcase() {
+    let result = compile_contract("new/FunctionPolishShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile FunctionPolishShowcase: {:?}",
+        result.err()
+    );
+}
+
+// ── Unchecked block support ───────────────────────────────────────────────
+
+#[test]
+fn test_compile_unchecked_showcase() {
+    let result = compile_contract("new/UncheckedShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile UncheckedShowcase: {:?}",
+        result.err()
+    );
+}
+
+// ── Virtual/override inheritance enforcement ─────────────────────────────
+
+#[test]
+fn test_compile_virtual_override_showcase() {
+    // Multi-contract file: compiler suffixes output with contract names
+    assert_compiles("new/VirtualOverrideShowcase.sol");
+}
+
+// ── Library support ──────────────────────────────────────────────────────
+
+#[test]
+fn test_compile_library_showcase() {
+    let result = compile_contract("new/LibraryShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile LibraryShowcase: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_library_showcase_manifest_has_compute_method() {
+    let result = compile_contract("new/LibraryShowcase.sol");
+    assert!(result.is_ok(), "Failed to compile LibraryShowcase");
+
+    let (_, manifest_path) = result.unwrap();
+    let manifest_data =
+        std::fs::read_to_string(&manifest_path).expect("Failed to read manifest");
+    let json: serde_json::Value =
+        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+
+    let methods = json["abi"]["methods"]
+        .as_array()
+        .expect("ABI methods should be an array");
+    let method_names: Vec<&str> = methods
+        .iter()
+        .filter_map(|m| m["name"].as_str())
+        .collect();
+
+    assert!(
+        method_names.contains(&"compute"),
+        "Manifest should contain 'compute' method, found: {:?}",
+        method_names
+    );
+}
+
+#[test]
+fn test_library_external_function_error() {
+    assert_compile_error_contains(
+        "new/LibraryExternalError.sol",
+        "external library functions are not supported on NeoVM",
+    );
+}
+
+#[test]
+fn test_library_state_variable_error() {
+    assert_compile_error_contains(
+        "new/LibraryStateVarError.sol",
+        "cannot have state variable",
+    );
+}
+
+#[test]
+fn test_library_constructor_error() {
+    assert_compile_error_contains(
+        "new/LibraryConstructorError.sol",
+        "cannot have a constructor",
+    );
+}
+
+// ── Type system error tests ─────────────────────────────────────────────
+
+#[test]
+fn test_fixed_point_type_error() {
+    assert_compile_error_contains(
+        "new/FixedPointError.sol",
+        "fixed-point type",
+    );
+}
+
+#[test]
+fn test_fixed_point_suggestion() {
+    assert_compile_error_contains(
+        "new/FixedPointError.sol",
+        "not supported on NeoVM",
+    );
+}
+
+#[test]
+fn test_user_defined_value_type_compiles() {
+    // `type Price is uint256` with `Price.wrap(...)` is now supported.
+    // User-defined value types are transparent aliases; wrap/unwrap are no-ops.
+    assert_compiles("new/UserDefinedTypeError.sol");
+}
+
+#[test]
+fn test_type_name_expression_compiles() {
+    // `type(Contract).name` and `type(uint256).name` resolve to compile-time
+    // string constants on NeoVM.
+    assert_compiles("new/TypeNameShowcase.sol");
+}
+
+// ── Super keyword diagnostic tests ──────────────────────────────────────
+
+#[test]
+fn test_compile_super_showcase_workaround() {
+    // SuperShowcase.sol demonstrates the internal-helper workaround pattern
+    // for the `super` keyword. It must compile successfully.
+    assert_compiles("new/SuperShowcase.sol");
+}
+
+#[test]
+fn test_super_keyword_compiles() {
+    // SuperError.sol uses `super.greet()` which is now supported via
+    // inheritance flattening with __super_ method preservation.
+    assert_compiles("new/SuperError.sol");
+}
+
+// ── require(condition, CustomError(...)) support ────────────────────────
+
+#[test]
+fn test_require_custom_error_compiles() {
+    // Solidity 0.8.26+ `require(cond, CustomError(args))` syntax.
+    // On NeoVM the error name and arg count are preserved in the THROW message.
+    let result = compile_contract("new/RequireCustomErrorShowcase.sol");
+    assert!(
+        result.is_ok(),
+        "Failed to compile RequireCustomErrorShowcase: {:?}",
         result.err()
     );
 }

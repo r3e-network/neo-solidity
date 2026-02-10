@@ -45,10 +45,48 @@ fn try_lower_runtime_member_access(
             }
             None
         }
+        "sig" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "msg" {
+                    ctx.record_error_with_suggestion(
+                        "msg.sig is not available on Neo N3. Neo dispatches by method name, not 4-byte function selectors",
+                        "use string-based method identification instead",
+                    );
+                    return Some(false);
+                }
+            }
+            None
+        }
         "origin" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "tx" {
+                    // Non-fatal warning: tx.origin compiles but has different semantics on Neo.
+                    eprintln!(
+                        "warning: tx.origin has different semantics on Neo N3. \
+                         Neo uses multi-signature witnesses instead of a single origin. \
+                         Consider using msg.sender or Runtime.CheckWitness() instead."
+                    );
                     instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::TxOrigin));
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "gasprice" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "tx" {
+                    // Neo N3 auto-compat: tx.gasprice → Policy.getFeePerByte()
+                    eprintln!(
+                        "warning: tx.gasprice auto-mapped to Policy.getFeePerByte() \
+                         on Neo N3. Neo fees are determined by script size and syscall costs."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Policy,
+                            method: "getFeePerByte".to_string(),
+                        },
+                        arg_count: 0,
+                    });
                     return Some(true);
                 }
             }
@@ -80,6 +118,84 @@ fn try_lower_runtime_member_access(
                     // closest equivalent.
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::Syscall("System.Runtime.GetNetwork".to_string()),
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "coinbase" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.coinbase → address(0)
+                    // dBFT has no miner; return zero address as safe default.
+                    eprintln!(
+                        "warning: block.coinbase auto-mapped to address(0) on Neo N3 \
+                         (dBFT consensus has no miner). Use NativeCalls.getNextBlockValidators() \
+                         for validator info."
+                    );
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                        [0u8; 20].to_vec(),
+                    )));
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "difficulty" | "prevrandao" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.difficulty/prevrandao → Runtime.getRandom()
+                    eprintln!(
+                        "warning: block.{} auto-mapped to Runtime.getRandom() on Neo N3 \
+                         (dBFT consensus has no PoW difficulty).",
+                        member.name
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::Syscall(
+                            "System.Runtime.GetRandom".to_string(),
+                        ),
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "gaslimit" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.gaslimit → Policy.getExecFeeFactor()
+                    eprintln!(
+                        "warning: block.gaslimit auto-mapped to Policy.getExecFeeFactor() \
+                         on Neo N3. Neo uses GAS token for fees, not per-block gas limits."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Policy,
+                            method: "getExecFeeFactor".to_string(),
+                        },
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "basefee" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.basefee → Policy.getFeePerByte()
+                    eprintln!(
+                        "warning: block.basefee auto-mapped to Policy.getFeePerByte() \
+                         on Neo N3. Neo uses a fixed fee structure, not EIP-1559 base fees."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Policy,
+                            method: "getFeePerByte".to_string(),
+                        },
                         arg_count: 0,
                     });
                     return Some(true);

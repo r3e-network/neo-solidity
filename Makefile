@@ -2,7 +2,8 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-solidity
 
-.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
+.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
+.PHONY: test-compile-strict production-gate
 
 all: build
 
@@ -21,6 +22,21 @@ test-all: test tooling-test tooling-lint
 
 test-all-full: test tooling-test runtime-test
 	@echo "✅ Full test suites complete"
+
+test-compile-strict:
+	@echo "🧭 Running strict compatibility compilation sweep..."
+	bash examples/test_strict_compatibility_sweep.sh
+
+production-gate:
+	@echo "🛡️  Running production readiness gate..."
+	cargo fmt --all -- --check
+	cargo clippy --all-targets --all-features -- -D warnings
+	cargo build --release
+	cargo test --workspace --all-features
+	cargo test --test e2e_compilation_tests -- --test-threads=4
+	$(MAKE) test-compile-strict
+	$(MAKE) test-deploy-smoke-full
+	@echo "✅ Production readiness gate passed"
 
 test-deploy-smoke:
 	@echo "🚀 Running Neo-Express deploy smoke test..."
@@ -82,7 +98,11 @@ test-deploy-delete-smoke:
 	@echo "🗑️  Running Neo-Express delete smoke test..."
 	bash examples/test_neoxp_delete_smoke.sh
 
-test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke
+test-deploy-new-showcases-smoke:
+	@echo "🧪 Running Neo-Express new showcase smoke suite..."
+	bash examples/test_neoxp_new_showcases_smoke.sh
+
+test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke
 	@echo "✅ Neo-Express smoke tests complete"
 
 # ========== Famous DeFi/Web3 contract smoke tests ==========
@@ -214,6 +234,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build           - Build the compiler"
 	@echo "  test            - Run all tests"
+	@echo "  production-gate - Run release readiness gates"
 	@echo "  clean           - Clean build artifacts"
 	@echo "  format          - Format code"
 	@echo "  lint            - Lint code"
@@ -229,7 +250,10 @@ help:
 	@echo ""
 	@echo "Testing targets:"
 	@echo "  test-deploy-smoke      - Basic deployment test"
+	@echo "  test-deploy-new-showcases-smoke - New strict-safe showcase smoke suite"
 	@echo "  test-deploy-smoke-full - All deployment smoke tests"
+	@echo "  test-compile-strict - Strict compile sweep (devpack + examples/new)"
+	@echo "  production-gate - Full production readiness verification"
 	@echo ""
 	@echo "Tooling targets:"
 	@echo "  tooling-install  - Install Node.js tooling"

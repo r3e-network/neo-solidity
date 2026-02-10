@@ -22,7 +22,10 @@ fn lower_compound_assignment(
                 mapping.key_types.get(index).cloned(),
             );
             if !lower_expression(key_expr, ctx, instructions) {
-                ctx.record_error("failed to lower mapping key in compound assignment");
+                ctx.record_error_with_suggestion(
+                    "failed to lower mapping key in compound assignment",
+                    "ensure the mapping key expression is a supported type (integer, string, bytes, or address)",
+                );
                 return false;
             }
             instructions.push(Instruction::StoreLocal(local));
@@ -193,6 +196,9 @@ fn lower_compound_assignment(
         return true;
     }
 
-    ctx.record_error("unsupported compound assignment target");
+    ctx.record_error_with_suggestion(
+        "unsupported compound assignment target",
+        "compound assignment (+=, -=, etc.) is only supported for local variables, state variables, and mapping/array elements",
+    );
     false
 }

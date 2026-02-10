@@ -10,14 +10,11 @@ fn validate_events(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic
             .insert(event.normalized_name.clone());
 
         if event.parameters.len() > 16 {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "event '{}' has {} parameters which exceeds Neo ABI limits",
-                    event.name,
-                    event.parameters.len()
-                ),
-            });
+            diagnostics.push(Diagnostic::warning(format!(
+                "event '{}' has {} parameters which exceeds Neo ABI limits",
+                event.name,
+                event.parameters.len()
+            )));
         }
     }
 
@@ -27,14 +24,11 @@ fn validate_events(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic
         if signatures.len() > 1 {
             let mut sigs: Vec<_> = signatures.into_iter().collect();
             sigs.sort();
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
-                message: format!(
-                    "event '{event_name}' is overloaded ({} distinct signatures): {}. Neo N3 requires unique event names",
-                    sigs.len(),
-                    sigs.join(", ")
-                ),
-            });
+            diagnostics.push(Diagnostic::error(format!(
+                "event '{event_name}' is overloaded ({} distinct signatures): {}. Neo N3 requires unique event names",
+                sigs.len(),
+                sigs.join(", ")
+            )));
         }
     }
 }

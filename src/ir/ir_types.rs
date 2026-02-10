@@ -369,6 +369,7 @@ pub enum BuiltinCall {
     RuntimeCheckWitness,
     AbiEncode,
     AbiEncodePacked,
+    AbiEncodeCall,
     AbiEncodeWithSignature,
     AbiDecode,
     Keccak256,
@@ -401,4 +402,6 @@ pub enum BuiltinCall {
     },
     Syscall(String),
     TypeOf,
+    /// `bytes.concat(a, b, ...)` / `string.concat(a, b, ...)` — chains NeoVM CAT opcodes.
+    BytesConcat,
 }

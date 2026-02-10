@@ -38,6 +38,7 @@ fn convert_contract(
                 &enum_type_info,
                 contract_types,
                 has_explicit_on_nep17_payment,
+                &contract.type_aliases,
             )
         })
         .collect();
@@ -86,7 +87,7 @@ fn convert_contract(
     let state_variables: Vec<StateVariableMetadata> = contract
         .state_variables
         .into_iter()
-        .map(|var| convert_state_variable(var, &struct_type_info, &enum_type_info, contract_types))
+        .map(|var| convert_state_variable(var, &struct_type_info, &enum_type_info, contract_types, &contract.type_aliases))
         .collect();
 
     // Synthesize public state variable getters to match Solidity ABI behavior.
@@ -94,6 +95,8 @@ fn convert_contract(
 
     ContractMetadata {
         name: contract.name,
+        is_abstract: matches!(contract.kind, ContractKind::AbstractContract),
+        is_library: matches!(contract.kind, ContractKind::Library),
         methods,
         events,
         uses_storage: state_variables.iter().any(|state| !state.is_constant),
@@ -103,6 +106,13 @@ fn convert_contract(
         contract_types: contract_types.to_vec(),
         selector_registry,
         documentation: contract.doc.into(),
+        has_using_for_star: contract.has_using_for_star,
+        has_using_function_list: contract.has_using_function_list,
+        using_for_libraries: contract.using_for_libraries.clone(),
+        has_type_definitions: contract.has_type_definitions,
+        type_aliases: contract.type_aliases,
+        flatten_warnings: Vec::new(),
+        super_method_map: contract.super_method_map,
     }
 }
 
@@ -148,6 +158,8 @@ fn synthesize_public_getters(
             offset: 0,
             body: Some(Statement::Return(Default::default(), Some(expr))),
             selector,
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         });
     }
@@ -158,9 +170,10 @@ fn convert_state_variable(
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],
     contract_types: &[String],
+    type_aliases: &std::collections::HashMap<String, String>,
 ) -> StateVariableMetadata {
     let ty = var.ty;
-    let neo_type = NeoType::from_solidity(&ty, struct_types, enum_types, contract_types).ok();
+    let neo_type = NeoType::from_solidity_with_aliases(&ty, struct_types, enum_types, contract_types, type_aliases).ok();
     let initializer = var.initializer;
     StateVariableMetadata {
         name: var.name,

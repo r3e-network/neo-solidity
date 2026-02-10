@@ -16,7 +16,7 @@ fn runtime_notify_rejects_argument_count_mismatch() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.contains("expects 1 argument(s)")),
+                messages.iter().any(|m| m.message.contains("expects 1 argument(s)")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -42,7 +42,7 @@ fn runtime_notify_rejects_argument_type_mismatch() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.contains("incompatible type")),
+                messages.iter().any(|m| m.message.contains("incompatible type")),
                 "unexpected error messages: {messages:?}"
             );
         }

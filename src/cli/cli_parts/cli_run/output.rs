@@ -1,14 +1,34 @@
-fn emit_contract_warnings(artifacts: &[CompilationArtifacts], json_warnings: bool) {
+fn emit_contract_warnings(
+    artifacts: &[CompilationArtifacts],
+    json_warnings: bool,
+    json_errors: bool,
+    suppress_prefixes: &[String],
+    promote_prefixes: &[String],
+) {
     for artifact in artifacts {
         for warning in &artifact.warnings {
-            emit_warning(
+            let code = warning.code.as_deref().unwrap_or_else(|| {
+                // Fallback: infer a code from the message text
+                standard_json::infer_validation_code(&warning.message, warning.severity)
+            });
+
+            // --Wno-<prefix>: suppress warnings whose code starts with prefix
+            if suppress_prefixes.iter().any(|p| code.starts_with(p.as_str())) {
+                continue;
+            }
+
+            // --Werror=<prefix>: promote matching warnings to errors
+            if promote_prefixes.iter().any(|p| code.starts_with(p.as_str())) {
+                emit_error(&warning.message, code, json_errors);
+                continue;
+            }
+
+            emit_warning_with_suggestion(
                 &warning.message,
                 Some(&artifact.metadata.name),
                 json_warnings,
-                Some(standard_json::infer_validation_code(
-                    &warning.message,
-                    warning.severity,
-                )),
+                Some(code),
+                warning.suggestion.as_deref(),
             );
         }
     }

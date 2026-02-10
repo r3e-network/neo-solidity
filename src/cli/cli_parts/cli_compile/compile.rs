@@ -152,13 +152,10 @@ fn compile_metadata(
         let has_deserialize = manifest_allows_permission(&manifest, &stdlib_contract, "deserialize");
 
         if !(has_json_deserialize && has_deserialize) {
-            warnings.push(neo_solidity::solidity::Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
+            warnings.push(neo_solidity::solidity::Diagnostic::warning(format!(
                     "contract '{}' has a parameterised constructor; deploy it by passing constructor args through `_deploy(data, update)`. Neo-Express: pass a JSON array string via `-d '[7]'`; SDKs that support StackItems may pass an Array directly. The injected deploy prologue uses `StdLib.jsonDeserialize` with a `StdLib.deserialize` fallback, so the manifest must allow these methods.",
                     metadata.name
-                ),
-            });
+                )));
         }
     }
 
@@ -174,7 +171,7 @@ fn compile_metadata(
             let mut wildcard_methods = false;
             let mut full_wildcard = false;
             let mut wildcard_contract_only_nep_callbacks = true;
-            const NEP_CALLBACK_METHODS: [&str; 2] = ["onNEP11Payment", "onNEP17Payment"];
+            const NEP_CALLBACK_METHODS: [&str; 3] = ["onNEP11Payment", "onNEP17Payment", "onOracleResponse"];
             for entry in permissions {
                 let contract_is_wildcard = entry["contract"] == "*";
                 let methods_is_wildcard = entry["methods"] == "*";
@@ -220,24 +217,18 @@ fn compile_metadata(
         {
             return Err(CompileError::Manifest(message));
         }
-        warnings.push(neo_solidity::solidity::Diagnostic {
-            severity: DiagnosticSeverity::Warning,
-            message,
-        });
+        warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
     } else {
         if has_wildcard_contract {
             let message = format!(
                 "contract '{}' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error.",
                 metadata.name
             );
-            if options.deny_wildcard_contracts {
+            if options.deny_wildcard_contracts && !wildcard_contract_only_nep_callbacks {
                 return Err(CompileError::Manifest(message));
             }
             if !wildcard_contract_only_nep_callbacks {
-                warnings.push(neo_solidity::solidity::Diagnostic {
-                    severity: DiagnosticSeverity::Warning,
-                    message,
-                });
+                warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
             }
         }
 
@@ -249,10 +240,7 @@ fn compile_metadata(
             if options.deny_wildcard_methods {
                 return Err(CompileError::Manifest(message));
             }
-            warnings.push(neo_solidity::solidity::Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message,
-            });
+            warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
         }
     }
 

@@ -115,33 +115,24 @@ fn check_return_statements(
             }
         }
         Statement::Return(_, expr) => match (expected_count, expr) {
-            (0, Some(_)) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function '{}' returns a value but is declared without return type",
-                    function_name
-                ),
-            }),
+            (0, Some(_)) => diagnostics.push(Diagnostic::warning(format!(
+                "function '{}' returns a value but is declared without return type",
+                function_name
+            ))),
             (0, None) => {}
-            (1, None) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function '{}' declares a return value but returns without one",
-                    function_name
-                ),
-            }),
+            (1, None) => diagnostics.push(Diagnostic::warning(format!(
+                "function '{}' declares a return value but returns without one",
+                function_name
+            ))),
             (1, Some(_)) => {}
             (expected, Some(expr)) => {
                 if let Expression::List(_, list) = expr {
                     let actual = list.len();
                     if actual != expected {
-                        diagnostics.push(Diagnostic {
-                            severity: DiagnosticSeverity::Warning,
-                            message: format!(
-                                "function '{}' expected {} return values but found {}",
-                                function_name, expected, actual
-                            ),
-                        });
+                        diagnostics.push(Diagnostic::warning(format!(
+                            "function '{}' expected {} return values but found {}",
+                            function_name, expected, actual
+                        )));
                     }
                 } else {
                     let inferred = match expr {
@@ -162,32 +153,23 @@ fn check_return_statements(
 
                     if let Some(actual) = inferred {
                         if actual != expected {
-                            diagnostics.push(Diagnostic {
-                                severity: DiagnosticSeverity::Warning,
-                                message: format!(
-                                    "function '{}' expected {} return values but call returns {}",
-                                    function_name, expected, actual
-                                ),
-                            });
+                            diagnostics.push(Diagnostic::warning(format!(
+                                "function '{}' expected {} return values but call returns {}",
+                                function_name, expected, actual
+                            )));
                         }
                     } else {
-                        diagnostics.push(Diagnostic {
-                            severity: DiagnosticSeverity::Warning,
-                            message: format!(
-                                "function '{}' should return {} values but expression does not match tuple",
-                                function_name, expected
-                            ),
-                        });
+                        diagnostics.push(Diagnostic::warning(format!(
+                            "function '{}' should return {} values but expression does not match tuple",
+                            function_name, expected
+                        )));
                     }
                 }
             }
-            (expected, None) => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Warning,
-                message: format!(
-                    "function '{}' declares {} return values but returns without one",
-                    function_name, expected
-                ),
-            }),
+            (expected, None) => diagnostics.push(Diagnostic::warning(format!(
+                "function '{}' declares {} return values but returns without one",
+                function_name, expected
+            ))),
         },
         _ => {}
     }

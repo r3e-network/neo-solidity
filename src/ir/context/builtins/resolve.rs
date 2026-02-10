@@ -47,7 +47,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "loadScript",
             "initializeServices",
         ]),
-        "abi" => Some(&["encode", "encodePacked", "encodeWithSignature", "decode"]),
+        "abi" => Some(&["encode", "encodePacked", "encodeCall", "encodeWithSignature", "decode"]),
         "Storage" => Some(&[
             "find",
             "put",
@@ -311,6 +311,7 @@ fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "encode" => Some(BuiltinCall::AbiEncode),
         "encodePacked" => Some(BuiltinCall::AbiEncodePacked),
+        "encodeCall" => Some(BuiltinCall::AbiEncodeCall),
         "encodeWithSignature" => Some(BuiltinCall::AbiEncodeWithSignature),
         "decode" => Some(BuiltinCall::AbiDecode),
         _ => None,

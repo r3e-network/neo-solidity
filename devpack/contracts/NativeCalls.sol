@@ -16,6 +16,10 @@ pragma solidity ^0.8.19;
  * - Notary: Notary deposit services
  * - Treasury: Treasury funds management
  * - Ledger: Blockchain data access
+ *
+ * CryptoLib and StdLib methods are exposed through `Syscalls.sol` directly
+ * (e.g. `Syscalls.sha256()`, `Syscalls.serialize()`, `Syscalls.base64Encode()`).
+ * Their contract hash constants are defined here for reference.
  */
 
 import "./Syscalls.sol";
@@ -947,21 +951,13 @@ library NativeCalls {
      * @dev Batch native contract calls
      */
     function batchNativeCalls(
-        address[] memory contracts,
-        string[] memory methods,
-        bytes[] memory params
-    ) internal returns (bytes[] memory results) {
-        require(contracts.length == methods.length, "NativeCalls: array length mismatch");
-        require(contracts.length == params.length, "NativeCalls: array length mismatch");
-        require(contracts.length > 0, "NativeCalls: empty arrays");
-        require(contracts.length <= 10, "NativeCalls: too many calls");
-        
-        results = new bytes[](contracts.length);
-        
-        for (uint256 i = 0; i < contracts.length; i++) {
-            require(isNativeContract(contracts[i]), "NativeCalls: not a native contract");
-            results[i] = Syscalls.contractCall(contracts[i], methods[i], params[i]);
-        }
+        address[] memory /*contracts*/,
+        string[] memory /*methods*/,
+        bytes[] memory /*params*/
+    ) internal pure returns (bytes[] memory /*results*/) {
+        revert(
+            "NativeCalls: batchNativeCalls is disabled in strict-manifest mode; call explicit native wrappers"
+        );
     }
     
     /**
@@ -1053,27 +1049,21 @@ library NativeCalls {
      * @dev Safe native contract call with error handling
      */
     function safeNativeCall(
-        address contractHash,
-        string memory method,
-        bytes memory params
-    ) internal returns (bool success, bytes memory result) {
-        require(isNativeContract(contractHash), "NativeCalls: not a native contract");
-        
-        try this.externalNativeCall(contractHash, method, params) returns (bytes memory data) {
-            return (true, data);
-        } catch {
-            return (false, "");
-        }
+        address /*contractHash*/,
+        string memory /*method*/,
+        bytes memory /*params*/
+    ) internal pure returns (bool success, bytes memory result) {
+        return (false, "");
     }
     
     /**
      * @dev External wrapper for try/catch
      */
     function externalNativeCall(
-        address contractHash,
-        string calldata method,
-        bytes calldata params
-    ) external returns (bytes memory) {
-        return Syscalls.contractCall(contractHash, method, params);
+        address /*contractHash*/,
+        string calldata /*method*/,
+        bytes calldata /*params*/
+    ) external pure returns (bytes memory) {
+        revert("NativeCalls: externalNativeCall disabled in strict-manifest mode");
     }
 }

@@ -515,14 +515,6 @@ contract NEP17 is INEP17, FrameworkBase {
     }
     
     /**
-     * @dev Check NEP-17 compliance
-     */
-    function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
-        return interfaceId == type(INEP17).interfaceId ||
-               interfaceId == 0x01ffc9a7; // ERC165
-    }
-    
-    /**
      * @dev Get contract metadata for Neo
      */
     function getContractMetadata() public view returns (

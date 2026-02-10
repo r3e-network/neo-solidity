@@ -26,25 +26,58 @@ fn lower_try_statement(
 
     let success_stmt = handler_stmt.or(inline_success);
 
-    // Choose a catch clause to lower. Prefer a plain `catch {}` when present.
+    // Choose a catch clause to lower.
+    //
+    // NeoVM has a single exception type — there is no way to distinguish
+    // `Error(string)` from `Panic(uint256)` or raw `bytes` at the VM level.
+    // We select the BEST catch clause using a priority system:
+    //   1. `catch Error(string reason)` — most common, best diagnostics
+    //   2. `catch (bytes lowLevelData)`  — low-level catch with parameter binding
+    //   3. `catch Panic(uint256 code)`   — NeoVM cannot provide real panic codes
+    //   4. bare `catch {}`               — fallback when nothing else exists
     let mut selected_catch: Option<(&solang_parser::pt::CatchClause, &Statement)> = None;
+    let mut selected_priority: u8 = 0; // 0 = none, higher = better
+    let mut catch_count = 0usize;
     for clause in catches {
-        match clause {
+        catch_count += 1;
+        let (priority, stmt) = match clause {
+            solang_parser::pt::CatchClause::Named(_, ident, _, stmt) => {
+                let p = if ident.name == "Error" {
+                    4 // highest: catch Error(string)
+                } else if ident.name == "Panic" {
+                    2 // low: NeoVM has no panic code distinction
+                } else {
+                    3 // custom named catch — treat as medium
+                };
+                (p, stmt)
+            }
             solang_parser::pt::CatchClause::Simple(_, param, stmt) => {
-                if param.is_none() {
-                    selected_catch = Some((clause, stmt));
-                    break;
+                if param.is_some() {
+                    (3, stmt) // catch (bytes) with parameter binding
+                } else {
+                    (1, stmt) // bare catch {} — lowest priority
                 }
-                selected_catch.get_or_insert((clause, stmt));
             }
-            solang_parser::pt::CatchClause::Named(_, _, _, stmt) => {
-                selected_catch.get_or_insert((clause, stmt));
-            }
+        };
+        if priority > selected_priority {
+            selected_priority = priority;
+            selected_catch = Some((clause, stmt));
         }
     }
 
+    if catch_count > 1 {
+        eprintln!(
+            "warning: NeoVM supports only one catch handler; \
+             selected best-matching clause and ignoring {} additional clause(s)",
+            catch_count - 1
+        );
+    }
+
     if selected_catch.is_none() {
-        ctx.record_error("try statement without catch clause is not supported");
+        ctx.record_error_with_suggestion(
+            "try statement without catch clause is not supported",
+            "add a catch clause: try expr { ... } catch { ... }",
+        );
         if lower_expression(call_expr, ctx, instructions) {
             instructions.push(Instruction::Drop(ValueType::Any));
         }
@@ -69,12 +102,18 @@ fn lower_try_statement(
                 instructions.push(Instruction::StoreLocal(tmp));
                 try_return_slot = Some((tmp, inferred_type));
             } else {
-                ctx.record_error("try returns(...) parameter is missing");
+                ctx.record_error_with_suggestion(
+                    "try returns(...) parameter is missing",
+                    "specify a return parameter: try func() returns (uint256 result) { ... }",
+                );
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
         } else {
             if !handler_params.is_empty() {
-                ctx.record_error("try returns(...) with multiple values is not supported");
+                ctx.record_error_with_suggestion(
+                    "try returns(...) with multiple values is not supported",
+                    "use a single return value or a struct to aggregate multiple values",
+                );
             }
             instructions.push(Instruction::Drop(ValueType::Any));
         }
@@ -104,7 +143,16 @@ fn lower_try_statement(
                     }
                 }
             }
-            solang_parser::pt::CatchClause::Named(_, _, param, _) => {
+            solang_parser::pt::CatchClause::Named(_, ident, param, _) => {
+                // NeoVM does not distinguish Solidity error selectors.
+                // For `catch Panic(uint256 code)` the VM exception value is
+                // bound as-is — it will NOT be a standard Solidity panic code.
+                if ident.name == "Panic" {
+                    eprintln!(
+                        "warning: catch Panic(uint256) — NeoVM binds the raw exception value; \
+                         EVM panic code semantics do not apply on Neo N3"
+                    );
+                }
                 if let Some(name) = param.name.as_ref().map(|id| id.name.clone()) {
                     let inferred =
                         infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);

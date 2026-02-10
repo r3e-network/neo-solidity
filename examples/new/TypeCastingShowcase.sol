@@ -45,7 +45,8 @@ contract TypeCastingShowcase {
         pure
         returns (uint256, address, string memory)
     {
-        return abi.decode(data, (uint256, address, string));
+        (uint256 a, address b, string memory c) = abi.decode(data, (uint256, address, string));
+        return (a, b, c);
     }
 
     function signedCast(int256 signed) public pure returns (uint256) {

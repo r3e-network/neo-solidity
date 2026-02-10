@@ -4,6 +4,9 @@ fn lower_statement(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     match statement {
+        // NeoVM uses BigInteger arithmetic — no overflow is possible — so
+        // `unchecked { }` blocks are semantically identical to normal blocks.
+        // The `..` pattern safely ignores the `unchecked: bool` field.
         Statement::Block { statements, .. } => {
             lower_block_statement(statements, ctx, instructions)
         }
@@ -43,7 +46,10 @@ fn lower_statement(
             lower_revert_named_args(ident.as_ref(), args, ctx, instructions)
         }
         _ => {
-            ctx.record_error(format!("unsupported statement '{:?}'", statement));
+            ctx.record_error_with_suggestion(
+                format!("unsupported statement '{:?}'", statement),
+                "this Solidity statement type is not yet supported by the Neo N3 compiler",
+            );
             false
         }
     }

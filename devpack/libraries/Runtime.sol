@@ -649,7 +649,7 @@ library Runtime {
      * @dev Placeholder for standalone primary execution.
      * @notice Always reverts. Use Solidity `try/catch` for error recovery.
      */
-    function executePrimary(function() internal /*operation*/) external {
+    function executePrimary(function() internal /*operation*/) internal {
         revert("Runtime: executePrimary unsupported in standalone mode");
     }
     

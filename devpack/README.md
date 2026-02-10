@@ -40,6 +40,15 @@ The compiler includes built-in diagnostics to help migrate Ethereum contracts to
 See [`standards/STANDARDS_MAPPING.md`](standards/STANDARDS_MAPPING.md) for the complete EIP↔NEP mapping
 with method signatures, event mappings, migration checklists, and code examples.
 
+> **ERC-20 `approve`/`allowance` on Neo N3:**
+> The ERC-20 approve/allowance pattern **does not exist** in NEP-17. On Neo N3,
+> authorization is handled by `Runtime.checkWitness(account)`, which verifies that
+> the transaction was signed by the given account. If your Ethereum contract relies
+> on `approve` + `transferFrom`, replace it with a direct `transfer(from, to, amount, data)`
+> call where the caller proves ownership via witness verification. The NEP-17 base
+> contract in this devpack includes `Runtime.checkWitness` checks in its `transfer`
+> implementation. See `devpack/standards/NEP17.sol` line 236 for the reference pattern.
+
 ### ✅ Advanced Features
 
 - **Cross-Contract Calls**: `Syscalls.contractCall{WithFlags}` and optional `CALLT` token emission
@@ -100,9 +109,20 @@ devpack/
 │   ├── Storage.sol    # Advanced storage operations
 │   └── Runtime.sol    # Runtime services
 └── examples/           # Complete contract examples
-    ├── CompleteNEP17Token.sol # Full NEP-17 token
-    └── CompleteNEP11NFT.sol   # Full NEP-11 NFT
+    ├── CompleteNEP17Token.sol # Full NEP-17 token (strict-manifest compatible)
+    ├── CompleteNEP11NFT.sol   # Full NEP-11 NFT (strict-manifest compatible)
+    └── VaultPattern.sol       # ERC-4626-style vault adapted for Neo N3
 ```
+
+## 🧪 Additional Strict-Safe Examples
+
+Beyond `devpack/examples/*`, the repository includes focused feature samples in `examples/new/*`:
+
+- `UpgradeLifecycleShowcase.sol`: owner+witness gated `NativeCalls.updateContract`/`destroyContract` lifecycle
+- `WitnessGuardShowcase.sol`: role-based access control and emergency locks with `Runtime.checkWitness`
+- `OracleRelayStrictShowcase.sol`: oracle request/callback relay using fixed `onOracleResponse` callback
+
+All are designed to compile with strict manifest flags (`--deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods`).
 
 ## 📖 API Reference
 
@@ -110,17 +130,63 @@ devpack/
 
 `neo-solidity` lowers calls to a supported subset of these libraries:
 
-- `Runtime`: `notify`, `notifyIndexed`, `checkWitness`, `gasLeft`, `burnGas`, `log`, `getTime`, `getTrigger`
-- `Storage`: `get`, `put`, `remove`, `find`
-- `Syscalls`: `contractCall{WithFlags}`, `createStandardAccount`, `createMultisigAccount`, `System.Runtime.*`, `System.Storage.*`, crypto/json/base64, iterator helpers
-- `NativeCalls`: NEO/GAS token calls, ContractManagement, Policy, Oracle, RoleManagement helpers
+#### Runtime (`devpack/libraries/Runtime.sol`)
 
-For exact Solidity signatures, see:
+| Method                       | Neo Syscall                   | Description                    |
+| ---------------------------- | ----------------------------- | ------------------------------ |
+| `checkWitness(address)`      | `System.Runtime.CheckWitness` | Verify transaction signer      |
+| `notify(string, ...)`        | `System.Runtime.Notify`       | Emit Neo event                 |
+| `notifyIndexed(string, ...)` | `System.Runtime.Notify`       | Emit event with indexed params |
+| `gasLeft()`                  | `System.Runtime.GasLeft`      | Remaining GAS for execution    |
+| `burnGas(uint256)`           | `System.Runtime.BurnGas`      | Burn GAS (anti-spam)           |
+| `log(string)`                | `System.Runtime.Log`          | Debug log message              |
+| `getTime()`                  | `System.Runtime.GetTime`      | Current block timestamp        |
+| `getTrigger()`               | `System.Runtime.GetTrigger`   | Invocation trigger type        |
 
-- `devpack/contracts/Syscalls.sol`
-- `devpack/contracts/NativeCalls.sol`
-- `devpack/libraries/Runtime.sol`
-- `devpack/libraries/Storage.sol`
+#### Storage (`devpack/libraries/Storage.sol`)
+
+| Method              | Neo Syscall             | Description            |
+| ------------------- | ----------------------- | ---------------------- |
+| `get(bytes)`        | `System.Storage.Get`    | Read value by key      |
+| `put(bytes, bytes)` | `System.Storage.Put`    | Write key-value pair   |
+| `remove(bytes)`     | `System.Storage.Delete` | Delete key             |
+| `find(bytes)`       | `System.Storage.Find`   | Iterate keys by prefix |
+
+Additional helpers: `putUint256`, `getUint256`, `putAddress`, `getAddress`, `putString`,
+`getString`, `putBool`, `getBool`, `batchPut`, `batchGet`, `batchDelete`, `putSecure`,
+`getSecure`, `putWithExpiration`, `getWithExpiration`.
+
+#### Syscalls (`devpack/contracts/Syscalls.sol`)
+
+| Method                                                 | Neo Syscall                             | Description                |
+| ------------------------------------------------------ | --------------------------------------- | -------------------------- |
+| `contractCall(address, string, bytes)`                 | `System.Contract.Call`                  | Cross-contract call        |
+| `contractCallWithFlags(address, string, bytes, uint8)` | `System.Contract.Call`                  | Call with CallFlags        |
+| `createStandardAccount(bytes)`                         | `System.Contract.CreateStandardAccount` | Derive address from pubkey |
+| `createMultisigAccount(uint8, bytes[])`                | `System.Contract.CreateMultisigAccount` | Create multisig address    |
+| `sha256(bytes)`                                        | `CryptoLib.sha256`                      | SHA-256 hash               |
+| `ripemd160(bytes)`                                     | `CryptoLib.ripemd160`                   | RIPEMD-160 hash            |
+| `base64Encode(bytes)` / `base64Decode(string)`         | `StdLib.base64Encode/Decode`            | Base64 encoding            |
+| `jsonSerialize(bytes)` / `jsonDeserialize(string)`     | `StdLib.jsonSerialize/Deserialize`      | JSON encoding              |
+
+#### NativeCalls (`devpack/contracts/NativeCalls.sol`)
+
+| Category               | Key Methods                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| **NEO token**          | `neoBalanceOf`, `neoTransfer`, `neoTotalSupply`, `neoDecimals`       |
+| **GAS token**          | `gasBalanceOf`, `gasTransfer`, `gasTotalSupply`, `gasDecimals`       |
+| **ContractManagement** | `deployContract`, `updateContract`, `destroyContract`, `getContract` |
+| **Policy**             | `getGasPrice`, `getStoragePrice`, `getFeePerByte`, `isBlocked`       |
+| **Oracle**             | `requestOracleData` (callback-based)                                 |
+| **RoleManagement**     | `getDesignatedByRole`                                                |
+
+#### NEP Standards (`devpack/standards/`)
+
+| Standard | File        | Description                                                                          |
+| -------- | ----------- | ------------------------------------------------------------------------------------ |
+| NEP-17   | `NEP17.sol` | Fungible token (symbol, decimals, totalSupply, balanceOf, transfer + Transfer event) |
+| NEP-11   | `NEP11.sol` | Non-fungible token with non-divisible and divisible variants                         |
+| NEP-24   | `NEP24.sol` | NFT royalty standard (royaltyInfo per token or default)                              |
 
 > Note: These files are primarily for Solidity tooling ergonomics (types/signatures/docs) over
 > compiler intrinsics. Most members compile standalone, but callback/function-pointer helpers
@@ -141,6 +207,16 @@ Neo N3 manifests must declare cross-contract call permissions. The compiler can 
   - `--deny-wildcard-permissions` (blocks `{"contract":"*","methods":"*"}`)
   - `--deny-wildcard-contracts` (blocks any `contract:"*"`)
   - `--deny-wildcard-methods` (blocks any `methods:"*"`)
+- Strict-mode check for devpack + strict-safe showcase contracts:
+  ```bash
+  bash examples/test_strict_compatibility_sweep.sh
+  ```
+- If you only want `devpack/examples/*`:
+  ```bash
+  for f in devpack/examples/*.sol; do
+    cargo run --quiet -- "$f" -o /tmp/devpack-strict       --deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods
+  done
+  ```
 - If you intentionally need dynamic calls, provide an explicit allowlist:
 
 ```json

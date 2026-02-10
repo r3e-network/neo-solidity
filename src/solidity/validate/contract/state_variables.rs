@@ -10,16 +10,10 @@ fn validate_state_variables(
         match &state.name {
             Some(name) => {
                 if !state_names.insert(name.clone()) {
-                    diagnostics.push(Diagnostic {
-                        severity: DiagnosticSeverity::Error,
-                        message: format!("duplicate state variable '{}'", name),
-                    });
+                    diagnostics.push(Diagnostic::error(format!("duplicate state variable '{}'", name)));
                 }
             }
-            None => diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
-                message: "state variable declared without a name".to_string(),
-            }),
+            None => diagnostics.push(Diagnostic::error("state variable declared without a name")),
         }
 
         if state
@@ -30,36 +24,41 @@ fn validate_state_variables(
         {
             if let Some(name) = state.name.as_deref() {
                 if method_name_counts.get(name).copied().unwrap_or(0) > 1 {
-                    diagnostics.push(Diagnostic {
-                        severity: DiagnosticSeverity::Error,
-                        message: format!(
-                            "public state variable '{}' conflicts with a function of the same name",
-                            name
-                        ),
-                    });
+                    diagnostics.push(Diagnostic::error(format!(
+                        "public state variable '{}' conflicts with a function of the same name",
+                        name
+                    )));
                 }
             }
         }
 
         if state.neo_type.is_none() {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
-                message: format!(
+            let lower_ty = state.ty.to_ascii_lowercase();
+            if lower_ty.starts_with("fixed") || lower_ty.starts_with("ufixed") {
+                diagnostics.push(
+                    Diagnostic::error(format!(
+                        "state variable '{}' uses fixed-point type '{}' which is not supported on NeoVM",
+                        state.name.as_deref().unwrap_or("<unnamed>"),
+                        state.ty
+                    ))
+                    .with_suggestion(
+                        "use scaled integer arithmetic instead (e.g., multiply by 10^18 for 18 decimal places)"
+                    ),
+                );
+            } else {
+                diagnostics.push(Diagnostic::error(format!(
                     "state variable '{}' has unsupported type '{}'",
                     state.name.as_deref().unwrap_or("<unnamed>"),
                     state.ty
-                ),
-            });
+                )));
+            }
         }
 
         if state.is_constant && !state.has_initializer {
-            diagnostics.push(Diagnostic {
-                severity: DiagnosticSeverity::Error,
-                message: format!(
-                    "constant state variable '{}' must have an initializer",
-                    state.name.as_deref().unwrap_or("<unnamed>")
-                ),
-            });
+            diagnostics.push(Diagnostic::error(format!(
+                "constant state variable '{}' must have an initializer",
+                state.name.as_deref().unwrap_or("<unnamed>")
+            )));
         }
     }
 }

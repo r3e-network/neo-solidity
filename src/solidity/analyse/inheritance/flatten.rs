@@ -1,7 +1,7 @@
 fn flatten_contract_inheritance(
     contract: ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
-) -> Result<ContractIR, SolidityError> {
+) -> Result<(ContractIR, Vec<String>), SolidityError> {
     let order = contract_linearization_base_to_derived(&contract.name, contract_map)?;
 
     let mut functions: Vec<FunctionIR> = Vec::new();
@@ -17,13 +17,32 @@ fn flatten_contract_inheritance(
     let mut enums: Vec<EnumIR> = Vec::new();
     let mut enum_index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
+    let mut warnings: Vec<String> = Vec::new();
+
+    // Merge user-defined value type aliases from the inheritance chain.
+    let mut type_aliases: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+
+    // Maps original method name → renamed super-method name for `super.method()` resolution.
+    let mut super_method_map: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+
     for ancestor_name in &order {
         let Some(ancestor) = contract_map.get(ancestor_name) else {
             continue;
         };
 
+        let ancestor_is_interface = matches!(ancestor.kind, ContractKind::Interface);
+
         // Preserve Solidity storage layout order: base state variables first, then derived.
         state_variables.extend(ancestor.state_variables.clone());
+
+        // Merge user-defined value type aliases (base-first, derived wins on conflict).
+        for (alias_name, underlying) in &ancestor.type_aliases {
+            type_aliases
+                .entry(alias_name.clone())
+                .or_insert_with(|| underlying.clone());
+        }
 
         for s in &ancestor.structs {
             if let Some(idx) = struct_index.get(&s.name).copied() {
@@ -59,8 +78,59 @@ fn flatten_contract_inheritance(
                     // emit a proper DUPLICATE_SIGNATURE diagnostic.
                     functions.push(func.clone());
                 }
-                Some((_origin, idx)) => {
+                Some((base_origin, idx)) => {
                     let idx = *idx;
+                    let base_func = &functions[idx];
+                    let base_origin = base_origin.clone();
+
+                    // Determine if the base contract is an interface.
+                    let base_is_interface = contract_map
+                        .get(&base_origin)
+                        .map(|c| matches!(c.kind, ContractKind::Interface))
+                        .unwrap_or(false);
+
+                    // Virtual/override enforcement:
+                    // - Base function must be `virtual` (or from an interface, which is implicitly virtual)
+                    // - Derived function must be marked `override`
+                    if !base_is_interface && !base_func.is_virtual {
+                        warnings.push(format!(
+                            "function '{}' in '{}' overrides '{}::{}' which is not marked 'virtual'",
+                            func.name, ancestor_name, base_origin, func.name
+                        ));
+                    }
+
+                    if !ancestor_is_interface && !func.is_override {
+                        warnings.push(format!(
+                            "function '{}' in '{}' overrides a base function but is not marked 'override'",
+                            func.name, ancestor_name
+                        ));
+                    }
+
+                    // Preserve the base method as a renamed internal function so that
+                    // `super.method()` can resolve to it during IR lowering.
+                    // Only preserve if the base function has a body (skip interface stubs).
+                    // In multi-level inheritance (A→B→C), only keep the most recent
+                    // base version — replace any existing `__super_*` entry.
+                    if base_func.body.is_some() {
+                        let super_name = format!("__super_{}", func.name);
+                        let mut super_func = base_func.clone();
+                        super_func.name = super_name.clone();
+                        super_func.visibility = VisibilityKind::Internal;
+                        super_func.is_virtual = false;
+                        super_func.is_override = false;
+
+                        // Replace existing __super_ entry if present, otherwise append.
+                        if let Some(existing_idx) = functions
+                            .iter()
+                            .position(|f| f.name == super_name)
+                        {
+                            functions[existing_idx] = super_func;
+                        } else {
+                            functions.push(super_func);
+                        }
+                        super_method_map.insert(func.name.clone(), super_name);
+                    }
+
                     functions[idx] = func.clone();
                     function_index.insert(key, (ancestor.name.clone(), idx));
                 }
@@ -101,7 +171,7 @@ fn flatten_contract_inheritance(
         }
     }
 
-    Ok(ContractIR {
+    Ok((ContractIR {
         name: contract.name,
         kind: contract.kind,
         bases: contract.bases,
@@ -111,7 +181,13 @@ fn flatten_contract_inheritance(
         structs,
         enums,
         doc: contract.doc,
-    })
+        has_using_for_star: contract.has_using_for_star,
+        has_using_function_list: contract.has_using_function_list,
+        using_for_libraries: contract.using_for_libraries,
+        has_type_definitions: contract.has_type_definitions,
+        type_aliases,
+        super_method_map,
+    }, warnings))
 }
 
 fn inheritance_contract_chain(

@@ -117,30 +117,25 @@ fn devpack_syscalls_library_compiles_standalone() {
 }
 
 #[test]
-fn devpack_nativecalls_rejects_unsupported_return_types() {
+fn devpack_nativecalls_library_compiles_with_syscalls() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
     ]
     .join("\n");
 
-    // NativeCalls uses Syscalls.Iterator, Syscalls.Block, etc. which are
-    // unsupported return types — the compiler correctly rejects them.
-    let result = compile_contracts(&source, false, 2);
+    let artifacts = compile_contracts(&source, false, 2).expect("NativeCalls compilation failed");
+
     assert!(
-        result.is_err(),
-        "NativeCalls standalone should fail due to unsupported return types"
-    );
-    let err_msg = format!("{:?}", result.unwrap_err());
-    assert!(
-        err_msg.contains("unsupported"),
-        "error should mention unsupported types, got: {}",
-        err_msg
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "NativeCalls"),
+        "expected NativeCalls artifact"
     );
 }
 
 #[test]
-fn devpack_runtime_library_rejects_unsupported_nativecalls_types() {
+fn devpack_runtime_library_compiles_with_dependencies() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
@@ -148,16 +143,18 @@ fn devpack_runtime_library_rejects_unsupported_nativecalls_types() {
     ]
     .join("\n");
 
-    // Fails because NativeCalls includes unsupported return types.
-    let result = compile_contracts(&source, false, 2);
+    let artifacts = compile_contracts(&source, false, 2).expect("Runtime compilation failed");
+
     assert!(
-        result.is_err(),
-        "Runtime + NativeCalls standalone should fail due to unsupported return types"
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "Runtime"),
+        "expected Runtime artifact"
     );
 }
 
 #[test]
-fn devpack_storage_library_rejects_unsupported_nativecalls_types() {
+fn devpack_storage_library_compiles_with_dependencies() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
@@ -166,10 +163,221 @@ fn devpack_storage_library_rejects_unsupported_nativecalls_types() {
     ]
     .join("\n");
 
-    // Fails because NativeCalls includes unsupported return types.
-    let result = compile_contracts(&source, false, 2);
+    let artifacts = compile_contracts(&source, false, 2).expect("Storage compilation failed");
+
     assert!(
-        result.is_err(),
-        "Storage + NativeCalls standalone should fail due to unsupported return types"
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "Storage"),
+        "expected Storage artifact"
+    );
+}
+
+
+#[test]
+fn devpack_complete_nep17_example_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP17.sol"),
+        include_str!("../../../../devpack/examples/CompleteNEP17Token.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict CompleteNEP17 compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "CompleteNEP17Token"),
+        "expected CompleteNEP17Token artifact"
+    );
+}
+
+#[test]
+fn devpack_complete_nep11_example_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP11.sol"),
+        include_str!("../../../../devpack/examples/CompleteNEP11NFT.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict CompleteNEP11 compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "CompleteNEP11NFT"),
+        "expected CompleteNEP11NFT artifact"
+    );
+}
+
+#[test]
+fn devpack_nativecalls_contract_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict NativeCalls compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "NativeCalls"),
+        "expected NativeCalls artifact"
+    );
+}
+
+#[test]
+fn devpack_framework_contract_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/contracts/Framework.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict Framework compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "Framework"),
+        "expected Framework artifact"
+    );
+}
+
+#[test]
+fn devpack_nep17_rescue_contract_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP17.sol"),
+        include_str!("../../../../devpack/contracts/NEP17Rescue.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict NEP17Rescue compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "NEP17Rescue"),
+        "expected NEP17Rescue artifact"
+    );
+}
+
+#[test]
+fn devpack_oracle_service_compiles_under_strict_manifest_flags() {
+    let source = [
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
+        include_str!("../../../../devpack/libraries/Storage.sol"),
+        include_str!("../../../../devpack/libraries/Runtime.sol"),
+        include_str!("../../../../devpack/libraries/Neo.sol"),
+        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/contracts/OracleService.sol"),
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts_with_options(
+        &source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("strict OracleService compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "OracleService"),
+        "expected OracleService artifact"
     );
 }

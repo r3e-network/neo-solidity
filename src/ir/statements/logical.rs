@@ -4,7 +4,10 @@ fn lower_require(
     instructions: &mut Vec<Instruction>,
 ) {
     if args.is_empty() {
-        ctx.record_error("require() expects at least one argument");
+        ctx.record_error_with_suggestion(
+            "require() expects at least one argument",
+            "usage: require(condition) or require(condition, \"error message\")",
+        );
         return;
     }
 
@@ -19,6 +22,38 @@ fn lower_require(
 
     instructions.push(Instruction::Label(fail_label));
     if args.len() > 1 {
+        // Solidity 0.8.x supports three forms:
+        //   require(cond)              -> THROW null
+        //   require(cond, "message")   -> THROW "message"
+        //   require(cond, CustomError(args)) -> THROW "CustomError"
+        //
+        // For the custom error form, the second argument is a FunctionCall whose callee is
+        // a Variable naming the error type. We extract the name and serialize the error
+        // arguments into the thrown string for better diagnostics. NeoVM has no ABI-encoded
+        // error data, so we format as "ErrorName(arg_count)" to preserve maximum context.
+        if let Expression::FunctionCall(_, callee, error_args) = &args[1] {
+            if let Expression::Variable(error_ident) = callee.as_ref() {
+                // Build a diagnostic string: "ErrorName(N args)" where N is the arg count.
+                // We still evaluate args for side effects, then drop them.
+                for error_arg in error_args {
+                    if lower_expression(error_arg, ctx, instructions) {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                }
+                let msg = if error_args.is_empty() {
+                    error_ident.name.clone()
+                } else {
+                    format!("{}({} args)", error_ident.name, error_args.len())
+                };
+                instructions.push(Instruction::PushLiteral(LiteralValue::String(
+                    msg.as_bytes().to_vec(),
+                )));
+                instructions.push(Instruction::Throw);
+                instructions.push(Instruction::Label(ok_label));
+                return;
+            }
+        }
+
         // Preserve diagnostics/type checking for the revert message expression and surface it
         // in the VM fault state when possible (NeoVM THROW).
         if lower_expression(&args[1], ctx, instructions) {
@@ -36,7 +71,10 @@ fn lower_require(
 
 fn lower_assert(args: &[Expression], ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     if args.len() != 1 {
-        ctx.record_error("assert() expects exactly one argument");
+        ctx.record_error_with_suggestion(
+            "assert() expects exactly one argument",
+            "usage: assert(condition)",
+        );
         return;
     }
 

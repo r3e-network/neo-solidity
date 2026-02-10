@@ -16,9 +16,18 @@ pragma solidity ^0.8.19;
  */
 
 import "../standards/NEP11.sol";
-import "../contracts/OracleService.sol";
+import "../contracts/NativeCalls.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Storage.sol";
+
+interface IOracleServiceReceiver {
+    function onOracleResponse(
+        uint256 requestId,
+        uint256 code,
+        bytes calldata result,
+        bytes calldata userData
+    ) external;
+}
 
 contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     using Neo for *;
@@ -49,7 +58,8 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     bytes32[] private _activeListings;
     
     // Oracle integration for metadata
-    OracleService private _oracle;
+    address private constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
+    bool private _oracleEnabled;
     mapping(bytes32 => string) private _metadataURLs;
     mapping(bytes32 => uint256) private _lastMetadataUpdate;
     
@@ -155,9 +165,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
             totalSales: 0
         });
         
-        if (oracleAddress != address(0)) {
-            _oracle = OracleService(oracleAddress);
-        }
+        _oracleEnabled = oracleAddress != address(0);
         
         // Set default royalty to 2.5%
         _defaultRoyalty = RoyaltyInfo({
@@ -411,11 +419,18 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         bytes32 tokenId,
         string memory metadataURL
     ) public onlyCurator tokenExists(tokenId) returns (uint256 requestId) {
-        require(address(_oracle) != address(0), "CompleteNEP11: oracle not configured");
-        
+        require(_oracleEnabled, "CompleteNEP11: oracle not configured");
+
         _metadataURLs[tokenId] = metadataURL;
-        
-        return _oracle.request(metadataURL, "", abi.encode(tokenId), 20_000_000);
+
+        NativeCalls.requestOracleData(
+            metadataURL,
+            "",
+            "onOracleResponse",
+            abi.encode(tokenId),
+            20_000_000
+        );
+        requestId = block.timestamp;
     }
     
     /**
@@ -425,7 +440,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         external
         override
     {
-        require(msg.sender == address(_oracle), "CompleteNEP11: unauthorized oracle response");
+        require(msg.sender == ORACLE_CONTRACT, "CompleteNEP11: unauthorized oracle response");
         
         if (code == 0) {
             bytes32 tokenId = abi.decode(userData, (bytes32));
@@ -545,29 +560,13 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Combine fractionalized shares back to NFT
      */
     function combine(
-        bytes32 tokenId,
-        address shareContract,
-        uint256 shareCount
-    ) public {
-        // Verify caller owns all shares by checking balance in share contract
-        (bool success, bytes memory result) = shareContract.call(
-            abi.encodeWithSignature("balanceOf(address)", msg.sender)
+        bytes32 /*tokenId*/,
+        address /*shareContract*/,
+        uint256 /*shareCount*/
+    ) public pure {
+        revert(
+            "CompleteNEP11: combine requires dynamic share-contract calls; use explicit manifest permissions"
         );
-        
-        require(success, "CompleteNEP11: failed to check share balance");
-        uint256 ownedShares = abi.decode(result, (uint256));
-        require(ownedShares >= shareCount, "CompleteNEP11: insufficient shares");
-        
-        // Burn all shares
-        (bool burnSuccess, ) = shareContract.call(
-            abi.encodeWithSignature("burnFrom(address,uint256)", msg.sender, shareCount)
-        );
-        require(burnSuccess, "CompleteNEP11: failed to burn shares");
-        
-        // Transfer NFT back to caller
-        _transfer(shareContract, msg.sender, tokenId, "");
-
-        emit TokenCombined(tokenId, msg.sender, shareContract);
     }
     
     /**

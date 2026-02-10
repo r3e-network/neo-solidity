@@ -75,20 +75,24 @@ fn resolve_solidity_sources_with_imports(
                     // `import { Foo } from "foo.sol";` is common and can be treated as a normal
                     // dependency include for our compiler (we don't implement namespace scoping).
                     //
-                    // Aliases (`Foo as Bar`) are not supported because they'd require rewriting.
+                    // Aliases (`Foo as Bar`) are ignored — original names remain available
+                    // in the source concatenation model.
                     if renames.iter().any(|(_, alias)| alias.is_some()) {
-                        return Err(format!(
-                            "unsupported import aliasing in '{}': use `import \"...\";` instead",
+                        eprintln!(
+                            "warning[W201]: import aliasing in '{}' is ignored \
+                             (source concatenation model); original names remain available",
                             file.display()
-                        ));
+                        );
                     }
                     imports.push(extract_import_path_string(path, file)?);
                 }
-                Import::GlobalSymbol(_, _, _) => {
-                    return Err(format!(
-                        "unsupported import form in '{}': `import * as X from \"...\"`",
+                Import::GlobalSymbol(path, _, _) => {
+                    eprintln!(
+                        "warning[W202]: wildcard import in '{}' is treated as plain import; \
+                         namespace alias is ignored",
                         file.display()
-                    ));
+                    );
+                    imports.push(extract_import_path_string(path, file)?);
                 }
             }
         }

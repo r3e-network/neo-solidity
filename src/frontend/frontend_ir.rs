@@ -31,6 +31,35 @@ pub struct ContractIR {
     pub enums: Vec<EnumIR>,
     /// Natspec documentation for this contract
     pub doc: NatspecDocIR,
+    /// Whether this contract contains `using X for Y` directives.
+    ///
+    /// The compiler merges library functions into the contract wholesale,
+    /// so basic `using LibName for Type` works implicitly. This flag is
+    /// set when advanced forms (`using X for *`, `using { f, g } for Y`)
+    /// are present so that diagnostics can be emitted.
+    pub has_using_for_star: bool,
+    pub has_using_function_list: bool,
+    /// Library names referenced by `using X for Y` directives.
+    ///
+    /// The compiler merges all non-builtin library functions into the contract
+    /// wholesale, so `using LibName for Type` member-call syntax (e.g. `x.add(y)`)
+    /// resolves to `LibName.add(x, y)` automatically. This list is kept for
+    /// diagnostic purposes.
+    pub using_for_libraries: Vec<String>,
+    /// Whether this contract contains `type X is Y` definitions.
+    pub has_type_definitions: bool,
+    /// User-defined value type aliases (`type X is Y`).
+    ///
+    /// Maps the user-defined type name to its underlying Solidity type string.
+    /// During type resolution, `X` is transparently replaced by `Y`.
+    /// `X.wrap(v)` and `X.unwrap(v)` compile to no-ops.
+    pub type_aliases: std::collections::HashMap<String, String>,
+    /// Mapping from original method name to the renamed super-method name.
+    ///
+    /// When inheritance flattening detects an override, the base version of the
+    /// function is preserved as `__super_{methodName}` and this map records the
+    /// relationship so that `super.method()` can be resolved during IR lowering.
+    pub super_method_map: std::collections::HashMap<String, String>,
 }
 
 /// Classification of contract kinds.
@@ -51,6 +80,10 @@ pub struct FunctionIR {
     pub returns: Vec<ParameterIR>,
     pub mutability: MutabilityKind,
     pub visibility: VisibilityKind,
+    /// Whether this function is marked `virtual`.
+    pub is_virtual: bool,
+    /// Whether this function is marked `override`.
+    pub is_override: bool,
     /// Modifier applications and constructor base invocations.
     pub base_or_modifiers: Vec<Base>,
     pub body: Option<Statement>,

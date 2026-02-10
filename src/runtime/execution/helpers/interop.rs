@@ -10,6 +10,58 @@ impl ExecutionContext {
         }
     }
 
+    /// Convert a StackItem to an integer value.
+    fn stack_item_to_int(item: StackItem) -> i64 {
+        match item {
+            StackItem::Integer(v) => v,
+            StackItem::UnsignedInteger(v) => v as i64,
+            StackItem::Boolean(v) => v as i64,
+            StackItem::ByteArray(bytes) => {
+                let b = bytes.borrow();
+                let mut buf = [0u8; 8];
+                for (i, byte) in b.iter().take(8).enumerate() {
+                    buf[i] = *byte;
+                }
+                i64::from_le_bytes(buf)
+            }
+            _ => 0,
+        }
+    }
+
+    /// Extract the first integer argument from a params StackItem (Array wrapper).
+    fn extract_first_int(params: &StackItem) -> u64 {
+        if let StackItem::Array(args) = params {
+            let borrowed = args.borrow();
+            if let Some(item) = borrowed.first() {
+                return match item {
+                    StackItem::UnsignedInteger(v) => *v,
+                    StackItem::Integer(v) => *v as u64,
+                    StackItem::ByteArray(bytes) => {
+                        let b = bytes.borrow();
+                        let mut buf = [0u8; 8];
+                        for (i, byte) in b.iter().take(8).enumerate() {
+                            buf[i] = *byte;
+                        }
+                        u64::from_le_bytes(buf)
+                    }
+                    _ => 0,
+                };
+            }
+        }
+        0
+    }
+
+    /// Extract the first byte-array argument from a params StackItem (Array wrapper).
+    fn extract_first_bytes(params: &StackItem) -> Vec<u8> {
+        if let StackItem::Array(args) = params {
+            let borrowed = args.borrow();
+            if let Some(item) = borrowed.first() {
+                return Self::stack_item_to_bytes(item.clone());
+            }
+        }
+        Vec::new()
+    }
+
     fn interop_id_bytes(name: &str) -> [u8; 4] {
         let mut hasher = Sha256::new();
         hasher.update(name.as_bytes());

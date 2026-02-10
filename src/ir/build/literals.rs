@@ -201,6 +201,20 @@ fn unit_multiplier(unit: &Identifier) -> Option<BigInt> {
     }
 }
 
+fn is_ether_unit(name: &str) -> bool {
+    matches!(name, "wei" | "gwei" | "szabo" | "finney" | "ether")
+}
+
+fn has_ether_unit(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(_, _, _, Some(unit)) => is_ether_unit(&unit.name),
+        Expression::HexNumberLiteral(_, _, Some(unit)) => is_ether_unit(&unit.name),
+        Expression::RationalNumberLiteral(_, _, _, _, Some(unit)) => is_ether_unit(&unit.name),
+        Expression::Parenthesis(_, inner) => has_ether_unit(inner),
+        _ => false,
+    }
+}
+
 fn pow10(exp: u32) -> BigInt {
     let ten = BigInt::from(10u8);
     ten.pow(exp)

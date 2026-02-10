@@ -92,6 +92,10 @@ contract UpdateSmoke {
     // Neo-Express `contract update` expects a public `update(nef, manifest)` entrypoint.
     // It is the contract's responsibility to restrict this method in production deployments.
     // Neo-Express passes update data as the 3rd argument (even if it is `null`).
+    function update(bytes calldata nef, string calldata manifest) public {
+        NativeCalls.updateContract(nef, manifest, "");
+    }
+
     function update(bytes calldata nef, string calldata manifest, bytes calldata data) public {
         NativeCalls.updateContract(nef, manifest, data);
     }

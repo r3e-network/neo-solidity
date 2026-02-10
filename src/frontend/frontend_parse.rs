@@ -7,10 +7,32 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     let comment_map = build_comment_map(&comments, source);
 
     let mut contracts = Vec::new();
+    // Collect file-level `type X is Y` definitions so they can be injected into all contracts.
+    let mut file_level_type_aliases: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     for part in source_unit.0.into_iter() {
-        if let SourceUnitPart::ContractDefinition(contract) = part {
-            contracts.push(convert_contract(*contract, &comment_map));
+        match part {
+            SourceUnitPart::ContractDefinition(contract) => {
+                contracts.push(convert_contract(*contract, &comment_map));
+            }
+            SourceUnitPart::TypeDefinition(td) => {
+                let underlying = format!("{}", td.ty);
+                file_level_type_aliases.insert(td.name.name, underlying);
+            }
+            _ => {}
+        }
+    }
+
+    // Inject file-level type aliases into every contract in the file.
+    if !file_level_type_aliases.is_empty() {
+        for contract in &mut contracts {
+            for (name, underlying) in &file_level_type_aliases {
+                contract
+                    .type_aliases
+                    .entry(name.clone())
+                    .or_insert_with(|| underlying.clone());
+            }
         }
     }
 

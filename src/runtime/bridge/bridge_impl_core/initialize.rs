@@ -59,5 +59,9 @@ impl VMBridge {
             .insert("ecrecover".to_string(), Self::syscall_ecrecover);
         self.system_calls
             .insert("verify".to_string(), Self::syscall_verify);
+        self.system_calls
+            .insert("blake2f".to_string(), Self::syscall_blake2f);
+        self.system_calls
+            .insert("modexp".to_string(), Self::syscall_modexp);
     }
 }

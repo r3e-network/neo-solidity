@@ -49,17 +49,22 @@ contract Bank {
         return balances[msg.sender];
     }
 
-    /// @notice Transfer funds to another account
+    /// @notice Transfer funds to another account (NEP-17 style)
+    /// @param from Sender address (must match witness)
     /// @param to Recipient address
     /// @param amount Amount to transfer
-    function transfer(address to, uint256 amount) public {
+    /// @param data Arbitrary transfer payload for callback compatibility
+    function transfer(address from, address to, uint256 amount, bytes memory data) public returns (bool) {
+        data;
+        require(from == msg.sender, "from must be caller");
         require(amount > 0, "Transfer amount must be positive");
-        require(balances[msg.sender] >= amount, "Insufficient balance");
+        require(balances[from] >= amount, "Insufficient balance");
         require(to != address(0), "Cannot transfer to zero address");
 
-        balances[msg.sender] -= amount;
+        balances[from] -= amount;
         balances[to] += amount;
-        emit Transfer(msg.sender, to, amount);
+        emit Transfer(from, to, amount);
+        return true;
     }
 
     /// @notice Get total deposits in the bank

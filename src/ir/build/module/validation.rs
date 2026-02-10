@@ -18,7 +18,7 @@ fn compute_transitive_hazard_map(functions: &[Function]) -> HashMap<String, Haza
 fn validate_safe_methods(
     metadata: &ContractMetadata,
     hazards: &HashMap<String, Hazards>,
-) -> Vec<String> {
+) -> Vec<IrDiagnostic> {
     let mut errors = Vec::new();
 
     for method in &metadata.methods {
@@ -36,24 +36,30 @@ fn validate_safe_methods(
         }
 
         if hazards.writes_state {
-            errors.push(format!(
-                "function '{}' declared view/pure but writes contract storage",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared view/pure but writes contract storage".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.notifies {
-            errors.push(format!(
-                "function '{}' declared view/pure but emits events/notifications",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared view/pure but emits events/notifications".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.unsafe_contract_call {
-            errors.push(format!(
-                "function '{}' declared view/pure but performs non-readonly contract calls",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared view/pure but performs non-readonly contract calls".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
     }
 
@@ -63,7 +69,7 @@ fn validate_safe_methods(
 fn validate_pure_methods(
     metadata: &ContractMetadata,
     hazards: &HashMap<String, Hazards>,
-) -> Vec<String> {
+) -> Vec<IrDiagnostic> {
     let mut errors = Vec::new();
 
     for method in &metadata.methods {
@@ -81,31 +87,39 @@ fn validate_pure_methods(
         }
 
         if hazards.writes_state {
-            errors.push(format!(
-                "function '{}' declared pure but writes contract storage",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared pure but writes contract storage".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.notifies {
-            errors.push(format!(
-                "function '{}' declared pure but emits events/notifications",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared pure but emits events/notifications".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.reads_state {
-            errors.push(format!(
-                "function '{}' declared pure but reads contract storage",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared pure but reads contract storage".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.reads_environment {
-            errors.push(format!(
-                "function '{}' declared pure but reads the execution environment",
-                method.neo_name
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: "declared pure but reads the execution environment".to_string(),
+                suggestion: None,
+                code: None,
+            });
         }
 
         if hazards.contract_calls {
@@ -114,10 +128,12 @@ fn validate_pure_methods(
             } else {
                 "performs contract calls"
             };
-            errors.push(format!(
-                "function '{}' declared pure but {}",
-                method.neo_name, label
-            ));
+            errors.push(IrDiagnostic {
+                function_name: method.neo_name.clone(),
+                message: format!("declared pure but {}", label),
+                suggestion: None,
+                code: None,
+            });
         }
     }
 

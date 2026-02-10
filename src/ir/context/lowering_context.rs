@@ -1,3 +1,27 @@
+/// Structured diagnostic emitted during IR lowering.
+///
+/// Captures the originating function name, a human-readable message, and an
+/// optional actionable suggestion so that CLI consumers can render richer
+/// error output than a bare string.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct IrDiagnostic {
+    pub function_name: String,
+    pub message: String,
+    pub suggestion: Option<String>,
+    pub code: Option<String>,
+}
+
+impl IrDiagnostic {
+    /// Format as a human-readable error string.
+    pub fn display(&self) -> String {
+        let mut out = format!("function '{}': {}", self.function_name, self.message);
+        if let Some(ref suggestion) = self.suggestion {
+            out.push_str(&format!("\n  help: {}", suggestion));
+        }
+        out
+    }
+}
+
 struct LoweringContext<'a> {
     function_name: String,
     is_safe: bool,
@@ -20,9 +44,15 @@ struct LoweringContext<'a> {
     selector_registry: &'a SelectorRegistry,
     function_names: &'a HashSet<String>,
     function_overloads: &'a HashMap<(String, usize), String>,
+    /// Ordered parameter names for each function overload, keyed by (name, arg_count).
+    /// Used to reorder named function call arguments into positional order.
+    function_param_names: &'a HashMap<(String, usize), Vec<String>>,
     /// Functions that return void (empty return_parameters). Used to avoid
     /// emitting DROP after calling a void internal function as a statement.
     void_functions: &'a HashSet<String>,
+    /// Mapping from original method name to renamed super-method name.
+    /// Used to resolve `super.method()` calls during IR lowering.
+    super_method_map: &'a HashMap<String, String>,
     local_index_map: HashMap<String, Vec<usize>>,
     local_types: HashMap<usize, ValueType>,
     scope_stack: Vec<Vec<String>>,
@@ -31,7 +61,7 @@ struct LoweringContext<'a> {
     local_count: u16,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
-    errors: Vec<String>,
+    errors: Vec<IrDiagnostic>,
 }
 
 impl<'a> LoweringContext<'a> {
@@ -52,7 +82,9 @@ impl<'a> LoweringContext<'a> {
         selector_registry: &'a SelectorRegistry,
         function_names: &'a HashSet<String>,
         function_overloads: &'a HashMap<(String, usize), String>,
+        function_param_names: &'a HashMap<(String, usize), Vec<String>>,
         void_functions: &'a HashSet<String>,
+        super_method_map: &'a HashMap<String, String>,
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
@@ -72,7 +104,9 @@ impl<'a> LoweringContext<'a> {
             selector_registry,
             function_names,
             function_overloads,
+            function_param_names,
             void_functions,
+            super_method_map,
             local_index_map: HashMap::new(),
             local_types: HashMap::new(),
             scope_stack: vec![Vec::new()],
@@ -124,9 +158,25 @@ impl<'a> LoweringContext<'a> {
     }
 
     fn record_error(&mut self, message: impl Into<String>) {
-        let msg = message.into();
-        self.errors
-            .push(format!("function '{}': {}", self.function_name, msg));
+        self.errors.push(IrDiagnostic {
+            function_name: self.function_name.clone(),
+            message: message.into(),
+            suggestion: None,
+            code: None,
+        });
+    }
+
+    fn record_error_with_suggestion(
+        &mut self,
+        message: impl Into<String>,
+        suggestion: impl Into<String>,
+    ) {
+        self.errors.push(IrDiagnostic {
+            function_name: self.function_name.clone(),
+            message: message.into(),
+            suggestion: Some(suggestion.into()),
+            code: None,
+        });
     }
 
     fn set_call_data_local(&mut self, local_index: usize, method: String) {
@@ -220,9 +270,21 @@ impl<'a> LoweringContext<'a> {
             .cloned()
     }
 
+    /// Returns the ordered parameter names for a function overload, if known.
+    fn get_function_param_names(&self, name: &str, arg_count: usize) -> Option<&[String]> {
+        self.function_param_names
+            .get(&(name.to_string(), arg_count))
+            .map(|v| v.as_slice())
+    }
+
     /// Returns true if the named function returns void (no return values).
     fn is_void_function(&self, name: &str) -> bool {
         self.void_functions.contains(name)
+    }
+
+    /// Returns the renamed super-method name for `super.method()` resolution.
+    fn super_method_name(&self, method_name: &str) -> Option<&str> {
+        self.super_method_map.get(method_name).map(|s| s.as_str())
     }
 
     fn event_signature(&self, event_name: &str) -> Option<&[ManifestType]> {

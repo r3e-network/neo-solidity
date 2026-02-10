@@ -102,5 +102,7 @@ pub struct StructFieldType {
 pub enum TypeParseError {
     #[error("unsupported Solidity type '{0}'")]
     Unsupported(String),
+    #[error("fixed-point types are not supported on NeoVM: '{0}'")]
+    FixedPoint(String),
 }
 

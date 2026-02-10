@@ -54,6 +54,43 @@ impl ExecutionContext {
             contract_registry: HashMap::new(),
             next_contract_id: 1,
             strict_arithmetic: config.strict_mode,
+
+            // ── Policy native contract defaults (Neo N3 MainNet) ──
+            policy_fee_per_byte: 1000,
+            policy_exec_fee_factor: 30,
+            policy_storage_price: 100_000,
+            policy_milliseconds_per_block: 15_000,
+            policy_max_valid_until_block_increment: 5760,
+            policy_max_traceable_blocks: 2_102_400,
+            policy_attribute_fees: HashMap::new(),
+            policy_blocked_accounts: HashSet::new(),
+            policy_whitelisted_fee_contracts: Vec::new(),
+
+            // ── Oracle native contract defaults ──
+            oracle_price: 50_000_000,
+            oracle_requests: HashMap::new(),
+            oracle_next_request_id: 0,
+
+            // ── RoleManagement ──
+            role_designations: HashMap::new(),
+
+            // ── Ledger ──
+            ledger_blocks: HashMap::new(),
+            ledger_transactions: HashMap::new(),
+            ledger_current_hash: [0u8; 32],
+
+            // ── Notary ──
+            notary_deposits: HashMap::new(),
+            notary_max_not_valid_before_delta: 140,
+
+            // ── Treasury ──
+            treasury_nep17_balances: HashMap::new(),
+            treasury_nep11_tokens: HashMap::new(),
+
+            // ── Syscall hardening ──
+            witness_signers: Vec::new(),
+            random_seed: None,
+            random_counter: 0,
         })
     }
 

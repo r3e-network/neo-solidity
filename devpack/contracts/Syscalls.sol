@@ -526,6 +526,19 @@ library Syscalls {
         return abi.decode(result, (bytes20));
     }
 
+    /**
+     * @dev Keccak-256 hash (CryptoLib native call, added at Neo N3 Cockatrice hardfork)
+     *
+     * NOTE: Solidity's built-in `keccak256()` is also lowered to this native call
+     * by the neo-solidity compiler. This explicit wrapper is provided for
+     * discoverability when calling through the Syscalls namespace.
+     */
+    function neoKeccak256(bytes memory data) internal view returns (bytes32) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(CRYPTO_LIB, "keccak256", params);
+        return abi.decode(result, (bytes32));
+    }
+
     // NamedCurveHash values (Neo.SmartContract.Native.NamedCurveHash)
     uint8 constant SECP256K1_SHA256 = 22;
     uint8 constant SECP256R1_SHA256 = 23;

@@ -24,6 +24,8 @@ fn supported_standards_flags_nep17() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -65,6 +67,8 @@ fn supported_standards_flags_nep17() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         },
     ];
@@ -97,6 +101,8 @@ fn supported_standards_flags_nep24() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -123,6 +129,8 @@ fn standards_not_detected_when_incomplete() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         },
         FunctionMetadata {
@@ -136,6 +144,8 @@ fn standards_not_detected_when_incomplete() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         },
     ];
@@ -160,6 +170,8 @@ fn near_miss_nep17_warns_on_missing_methods() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -199,6 +211,8 @@ fn near_miss_nep11_warns_ownerof_without_transfer() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -235,6 +249,8 @@ fn near_miss_nep26_warns_partial() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -266,6 +282,8 @@ fn event_validation_warns_missing_transfer_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -305,6 +323,8 @@ fn event_validation_accepts_correct_transfer_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 

@@ -29,20 +29,25 @@ contract EventIndexedShowcase {
     event AnonymousLog(uint256 data) anonymous;
 
     mapping(address => uint256) public balances;
+    mapping(address => mapping(address => uint256)) public allowances;
 
     function mint(address to, uint256 amount) public {
         balances[to] += amount;
         emit Transfer(address(0), to, amount);
     }
 
-    function transfer(address to, uint256 amount) public {
-        require(balances[msg.sender] >= amount, "insufficient");
-        balances[msg.sender] -= amount;
+    function transfer(address from, address to, uint256 amount, bytes memory data) public returns (bool) {
+        data;
+        require(from == msg.sender, "from must be caller");
+        require(balances[from] >= amount, "insufficient");
+        balances[from] -= amount;
         balances[to] += amount;
-        emit Transfer(msg.sender, to, amount);
+        emit Transfer(from, to, amount);
+        return true;
     }
 
     function approve(address spender, uint256 value) public {
+        allowances[msg.sender][spender] = value;
         emit Approval(msg.sender, spender, value);
     }
 

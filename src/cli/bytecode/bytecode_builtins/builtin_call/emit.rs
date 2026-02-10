@@ -16,7 +16,7 @@ fn emit_builtin_call(
         ir::BuiltinCall::StoragePut => emit_storage_put(bytecode),
         ir::BuiltinCall::StorageGet => emit_storage_get(bytecode),
         ir::BuiltinCall::StorageDelete => emit_storage_delete(bytecode),
-        ir::BuiltinCall::AbiEncode | ir::BuiltinCall::AbiEncodePacked => {
+        ir::BuiltinCall::AbiEncode | ir::BuiltinCall::AbiEncodePacked | ir::BuiltinCall::AbiEncodeCall => {
             emit_abi_encode(bytecode, arg_count, use_callt, token_patches)
         }
         ir::BuiltinCall::AbiDecode => emit_abi_decode(bytecode, use_callt, token_patches),
@@ -48,5 +48,18 @@ fn emit_builtin_call(
             emit_get_neo_account_state(bytecode, use_callt, token_patches)
         }
         ir::BuiltinCall::TypeOf | ir::BuiltinCall::AbiEncodeWithSignature => {}
+        ir::BuiltinCall::BytesConcat => {
+            // bytes.concat(a, b, c, ...) → chain NeoVM CAT opcodes.
+            // Args are already on the stack. For N args we need N-1 CAT ops.
+            // CAT pops two byte arrays and pushes their concatenation.
+            for _ in 1..arg_count {
+                bytecode.push(0x8B); // CAT opcode
+            }
+            // If zero args, push empty byte array.
+            if arg_count == 0 {
+                bytecode.push(0x00); // PUSH0 (empty buffer)
+                bytecode.push(0x28); // NEWBUFFER
+            }
+        }
     }
 }

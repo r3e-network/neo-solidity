@@ -223,3 +223,42 @@ fn manifest_permissions_replace_wildcards_allows_deny_wildcard_contracts() {
         "expected explicit allowlist entry for the target contract"
     );
 }
+
+#[test]
+fn address_constants_in_contract_calls_infer_explicit_contract_permissions() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract ConstantTargetCallHarness {
+        address constant TARGET = 0xd2a4cff31913016155e38e474a2c06d08be276cf;
+
+        function callSupply() public view returns (bytes memory) {
+            return Syscalls.contractCall(TARGET, "totalSupply", abi.encode());
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == Value::String("0xd2a4cff31913016155e38e474a2c06d08be276cf".into())
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "totalSupply"))
+        }),
+        "expected explicit GAS contract permission for totalSupply"
+    );
+
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into())),
+        "address constants should not degrade into wildcard contract permissions"
+    );
+}

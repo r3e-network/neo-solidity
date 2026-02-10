@@ -8,7 +8,10 @@ use crate::neo::MethodToken;
 use crate::runtime::{storage, LogEntry};
 use super::stack::StackItem;
 use super::frame::{CallFrame, TryFrame};
-use super::state::{IteratorState, ContractState, OverlayEntry};
+use super::state::{
+    IteratorState, ContractState, OverlayEntry,
+    WhitelistedFeeContract, OracleRequest, LedgerBlock, LedgerTransaction, NotaryDeposit,
+};
 use std::collections::{HashMap, HashSet};
 use std::ptr::NonNull;
 
@@ -65,4 +68,47 @@ pub struct ExecutionContext {
     pub(crate) next_contract_id: u32,
     /// When true, arithmetic overflow/underflow will return an error instead of wrapping
     pub(crate) strict_arithmetic: bool,
+
+    // ── Policy native contract state ──
+    pub(crate) policy_fee_per_byte: u64,
+    pub(crate) policy_exec_fee_factor: u32,
+    pub(crate) policy_storage_price: u64,
+    pub(crate) policy_milliseconds_per_block: u32,
+    pub(crate) policy_max_valid_until_block_increment: u32,
+    pub(crate) policy_max_traceable_blocks: u32,
+    pub(crate) policy_attribute_fees: HashMap<u8, u64>,
+    pub(crate) policy_blocked_accounts: HashSet<Vec<u8>>,
+    pub(crate) policy_whitelisted_fee_contracts: Vec<WhitelistedFeeContract>,
+
+    // ── Oracle native contract state ──
+    pub(crate) oracle_price: u64,
+    pub(crate) oracle_requests: HashMap<u64, OracleRequest>,
+    pub(crate) oracle_next_request_id: u64,
+
+    // ── RoleManagement native contract state ──
+    /// Maps role id → list of designated public keys
+    pub(crate) role_designations: HashMap<u8, Vec<Vec<u8>>>,
+
+    // ── Ledger native contract state ──
+    pub(crate) ledger_blocks: HashMap<u64, LedgerBlock>,
+    pub(crate) ledger_transactions: HashMap<[u8; 32], LedgerTransaction>,
+    pub(crate) ledger_current_hash: [u8; 32],
+
+    // ── Notary native contract state ──
+    pub(crate) notary_deposits: HashMap<Vec<u8>, NotaryDeposit>,
+    pub(crate) notary_max_not_valid_before_delta: u32,
+
+    // ── Treasury native contract state ──
+    /// NEP-17 balances tracked by treasury: contract_hash → amount
+    pub(crate) treasury_nep17_balances: HashMap<Vec<u8>, u64>,
+    /// NEP-11 tokens tracked by treasury: contract_hash → set of token_ids
+    pub(crate) treasury_nep11_tokens: HashMap<Vec<u8>, Vec<Vec<u8>>>,
+
+    // ── Syscall hardening state ──
+    /// Witness signers for CheckWitness verification
+    pub(crate) witness_signers: Vec<Vec<u8>>,
+    /// Seed for deterministic random number generation
+    pub(crate) random_seed: Option<[u8; 32]>,
+    /// Counter for sequential random number generation
+    pub(crate) random_counter: u64,
 }

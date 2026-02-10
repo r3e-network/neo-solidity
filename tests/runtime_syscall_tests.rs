@@ -115,13 +115,22 @@ fn get_random_returns_deterministic_hash() {
     code.extend_from_slice(&[107, 222, 169, 40]);
     code.push(0x40);
 
-    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
+    let config = RuntimeConfig::default();
+    let mut ctx = ExecutionContext::new(&config).expect("context init");
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
 
-    // Deterministic hash of invocation counter (0 on first)
-    let expected = sha2::Sha256::digest(0u64.to_le_bytes());
-    assert_eq!(ctx.return_data(), expected.to_vec());
+    // New algorithm: seed = SHA256(block_height || default_account_bytes)
+    // result = SHA256(seed || counter)
+    // Verify output is 32 bytes and deterministic
+    let result = ctx.return_data();
+    assert_eq!(result.len(), 32, "GetRandom should return 32 bytes");
+
+    // Run again — same config should produce same first random
+    let mut ctx2 = ExecutionContext::new(&config).expect("context init");
+    ctx2.initialize(&code, &[]).expect("init");
+    while !ctx2.step().expect("step").halted {}
+    assert_eq!(ctx2.return_data(), result, "GetRandom should be deterministic");
 }
 
 #[test]

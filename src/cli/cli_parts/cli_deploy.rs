@@ -60,6 +60,8 @@ fn ensure_deploy_stub(metadata: &mut ContractMetadata) -> Result<(), CompileErro
         offset: 0,
         body: None,
         selector,
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     });
 

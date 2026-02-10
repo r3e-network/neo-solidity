@@ -74,10 +74,19 @@ pub fn build_semantic_model(metadata: &ContractMetadata) -> Result<SemanticModel
 
 fn convert_function(function: &FunctionMetadata) -> Result<FunctionSymbol, Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
+    let allow_unsupported_internal_types = !matches!(
+        function.visibility,
+        VisibilityKind::Public | VisibilityKind::External
+    );
 
     let mut parameters = Vec::new();
     for param in &function.parameters {
-        match convert_parameter(param, FunctionSide::Parameter, &function.name) {
+        match convert_parameter(
+            param,
+            FunctionSide::Parameter,
+            &function.name,
+            allow_unsupported_internal_types,
+        ) {
             Ok(symbol) => parameters.push(symbol),
             Err(diag) => diagnostics.push(diag),
         }
@@ -85,7 +94,12 @@ fn convert_function(function: &FunctionMetadata) -> Result<FunctionSymbol, Vec<D
 
     let mut returns = Vec::new();
     for param in &function.return_parameters {
-        match convert_parameter(param, FunctionSide::Return, &function.name) {
+        match convert_parameter(
+            param,
+            FunctionSide::Return,
+            &function.name,
+            allow_unsupported_internal_types,
+        ) {
             Ok(symbol) => returns.push(symbol),
             Err(diag) => diagnostics.push(diag),
         }
@@ -119,14 +133,11 @@ fn convert_state_variable(
             is_immutable: state.is_immutable,
             visibility: state.visibility.clone(),
         }),
-        None => Err(vec![Diagnostic {
-            severity: DiagnosticSeverity::Error,
-            message: format!(
-                "state variable '{}' has unsupported type '{}'",
-                state.name.as_deref().unwrap_or("<unnamed>"),
-                state.ty
-            ),
-        }]),
+        None => Err(vec![Diagnostic::error(format!(
+            "state variable '{}' has unsupported type '{}'",
+            state.name.as_deref().unwrap_or("<unnamed>"),
+            state.ty
+        ))]),
     }
 }
 
@@ -139,6 +150,7 @@ fn convert_parameter(
     param: &ParameterMetadata,
     side: FunctionSide,
     function_name: &str,
+    allow_unsupported_internal_types: bool,
 ) -> Result<ParameterSymbol, Diagnostic> {
     match &param.neo_type {
         Some(neo_type) => Ok(ParameterSymbol {
@@ -146,23 +158,25 @@ fn convert_parameter(
             ty: neo_type.clone(),
             storage: param.storage.clone(),
         }),
-        None => Err(Diagnostic {
-            severity: DiagnosticSeverity::Error,
-            message: match side {
-                FunctionSide::Parameter => format!(
-                    "function '{}' parameter '{}' uses unsupported type '{}'",
-                    function_name,
-                    param
-                        .name
-                        .clone()
-                        .unwrap_or_else(|| "<unnamed>".to_string()),
-                    param.ty
-                ),
-                FunctionSide::Return => format!(
-                    "function '{}' return type '{}' is unsupported",
-                    function_name, param.ty
-                ),
-            },
+        None if allow_unsupported_internal_types => Ok(ParameterSymbol {
+            name: param.name.clone(),
+            ty: NeoType::Any,
+            storage: param.storage.clone(),
         }),
+        None => Err(Diagnostic::error(match side {
+            FunctionSide::Parameter => format!(
+                "function '{}' parameter '{}' uses unsupported type '{}'",
+                function_name,
+                param
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| "<unnamed>".to_string()),
+                param.ty
+            ),
+            FunctionSide::Return => format!(
+                "function '{}' return type '{}' is unsupported",
+                function_name, param.ty
+            ),
+        })),
     }
 }

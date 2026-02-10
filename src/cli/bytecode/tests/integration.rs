@@ -94,6 +94,8 @@ fn empty_contract_emits_ret_instruction() {
     // No functions other than constructors -> should produce a single RET (0x40)
     let mut metadata = ContractMetadata {
         name: "Empty".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![FunctionMetadata {
             name: "constructor".to_string(),
             neo_name: "constructor".to_string(),
@@ -105,6 +107,8 @@ fn empty_contract_emits_ret_instruction() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         }],
         events: vec![],
@@ -115,6 +119,13 @@ fn empty_contract_emits_ret_instruction() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let ir_module = ir::Module {
@@ -133,6 +144,8 @@ fn empty_contract_emits_ret_instruction() {
 fn call_fixups_patch_offsets() {
     let mut metadata = ContractMetadata {
         name: "Callers".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![
             FunctionMetadata {
                 name: "foo".to_string(),
@@ -145,6 +158,8 @@ fn call_fixups_patch_offsets() {
                 offset: 0,
                 body: None,
                 selector: [0u8; 4],
+                is_virtual: false,
+                is_override: false,
                 documentation: NatspecDoc::default(),
             },
             FunctionMetadata {
@@ -158,6 +173,8 @@ fn call_fixups_patch_offsets() {
                 offset: 0,
                 body: None,
                 selector: [0u8; 4],
+                is_virtual: false,
+                is_override: false,
                 documentation: NatspecDoc::default(),
             },
         ],
@@ -169,6 +186,13 @@ fn call_fixups_patch_offsets() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let mut module = ir::Module {

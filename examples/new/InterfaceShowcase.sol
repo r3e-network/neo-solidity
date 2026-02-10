@@ -8,9 +8,11 @@ pragma solidity ^0.8.19;
  */
 
 interface INEP17 {
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
-    function transfer(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address from, address to, uint256 amount, bytes calldata data) external returns (bool);
 }
 
 interface INEP17Metadata is INEP17 {
@@ -52,15 +54,12 @@ contract SimpleToken is INEP17Metadata {
         return _balances[account];
     }
 
-    function transfer(address from, address to, uint256 amount) external override returns (bool) {
+    function transfer(address from, address to, uint256 amount, bytes calldata data) external override returns (bool) {
+        data;
         require(_balances[from] >= amount, "insufficient balance");
         _balances[from] -= amount;
         _balances[to] += amount;
+        emit Transfer(from, to, amount);
         return true;
-    }
-
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(INEP17).interfaceId ||
-               interfaceId == type(INEP17Metadata).interfaceId;
     }
 }

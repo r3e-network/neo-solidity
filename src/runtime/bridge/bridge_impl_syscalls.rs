@@ -164,6 +164,62 @@ impl VMBridge {
         Ok(vec![StackItem::Boolean(verification_result)])
     }
 
+    fn syscall_blake2f(
+        _bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
+        if args.len() != 1 {
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 1,
+                got: args.len(),
+            });
+        }
+
+        use blake2::{Blake2b512, Digest};
+
+        let input = extract_bytes(&args[0])?;
+        let hash = Blake2b512::digest(&input);
+
+        Ok(vec![StackItem::byte_array(hash[..].to_vec())])
+    }
+
+    fn syscall_modexp(
+        _bridge: &mut VMBridge,
+        args: &[StackItem],
+    ) -> Result<Vec<StackItem>, VMBridgeError> {
+        if args.len() != 3 {
+            return Err(VMBridgeError::InvalidArguments {
+                expected: 3,
+                got: args.len(),
+            });
+        }
+
+        use num_bigint::BigUint;
+
+        let base_bytes = extract_bytes(&args[0])?;
+        let exp_bytes = extract_bytes(&args[1])?;
+        let mod_bytes = extract_bytes(&args[2])?;
+
+        let base = BigUint::from_bytes_be(&base_bytes);
+        let exp = BigUint::from_bytes_be(&exp_bytes);
+        let modulus = BigUint::from_bytes_be(&mod_bytes);
+
+        if modulus == BigUint::ZERO {
+            return Ok(vec![StackItem::byte_array(vec![0u8; 32])]);
+        }
+
+        let result = base.modpow(&exp, &modulus);
+        let result_bytes = result.to_bytes_be();
+
+        // Pad to 32 bytes (left-padded with zeros)
+        let mut padded = vec![0u8; 32];
+        let start = 32usize.saturating_sub(result_bytes.len());
+        let copy_len = result_bytes.len().min(32);
+        padded[start..start + copy_len].copy_from_slice(&result_bytes[..copy_len]);
+
+        Ok(vec![StackItem::byte_array(padded)])
+    }
+
     fn keccak256(&self, data: &[u8]) -> [u8; 32] {
         use sha3::{Digest, Keccak256};
         let hash = Keccak256::digest(data);

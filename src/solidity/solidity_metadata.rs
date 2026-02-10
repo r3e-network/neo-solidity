@@ -14,6 +14,10 @@ pub struct SelectorRegistry {
 #[derive(Debug, Clone)]
 pub struct ContractMetadata {
     pub name: String,
+    /// Whether this contract was declared `abstract`.
+    pub is_abstract: bool,
+    /// Whether this contract was declared as a `library`.
+    pub is_library: bool,
     pub methods: Vec<FunctionMetadata>,
     pub events: Vec<EventMetadata>,
     pub uses_storage: bool,
@@ -31,6 +35,22 @@ pub struct ContractMetadata {
     pub selector_registry: std::sync::Arc<SelectorRegistry>,
     /// Natspec documentation for the contract
     pub documentation: NatspecDoc,
+    /// Whether this contract contains `using X for *` directives.
+    pub has_using_for_star: bool,
+    /// Whether this contract contains `using { f, g } for Y` directives.
+    pub has_using_function_list: bool,
+    /// Library names referenced by `using X for Y` directives.
+    pub using_for_libraries: Vec<String>,
+    /// Whether this contract contains `type X is Y` definitions.
+    pub has_type_definitions: bool,
+    /// User-defined value type aliases (`type X is Y`).
+    /// Maps type name to underlying Solidity type string.
+    pub type_aliases: std::collections::HashMap<String, String>,
+    /// Warnings collected during inheritance flattening (e.g. virtual/override checks).
+    pub flatten_warnings: Vec<String>,
+    /// Mapping from original method name to the renamed super-method name.
+    /// Populated during inheritance flattening so `super.method()` can resolve.
+    pub super_method_map: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +67,10 @@ pub struct FunctionMetadata {
     pub offset: u32,
     pub body: Option<Statement>,
     pub selector: [u8; 4],
+    /// Whether this function is marked `virtual`.
+    pub is_virtual: bool,
+    /// Whether this function is marked `override`.
+    pub is_override: bool,
     /// Natspec documentation for the function
     pub documentation: NatspecDoc,
 }
@@ -133,4 +157,40 @@ pub enum DiagnosticSeverity {
 pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub message: String,
+    pub code: Option<String>,
+    pub suggestion: Option<String>,
+}
+
+impl Diagnostic {
+    /// Create a warning diagnostic.
+    pub fn warning(message: impl Into<String>) -> Self {
+        Self {
+            severity: DiagnosticSeverity::Warning,
+            message: message.into(),
+            code: None,
+            suggestion: None,
+        }
+    }
+
+    /// Create an error diagnostic.
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            severity: DiagnosticSeverity::Error,
+            message: message.into(),
+            code: None,
+            suggestion: None,
+        }
+    }
+
+    /// Attach a diagnostic code (e.g. "W101", "E042").
+    pub fn with_code(mut self, code: impl Into<String>) -> Self {
+        self.code = Some(code.into());
+        self
+    }
+
+    /// Attach an actionable fix suggestion.
+    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
+        self.suggestion = Some(suggestion.into());
+        self
+    }
 }

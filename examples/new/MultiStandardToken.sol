@@ -53,7 +53,8 @@ contract MultiStandardToken {
         return _balances[account];
     }
 
-    function transfer(address from, address to, uint256 amount) public returns (bool) {
+    function transfer(address from, address to, uint256 amount, bytes memory data) public returns (bool) {
+        data;
         require(Syscalls.checkWitness(from), "no witness");
         require(_balances[from] >= amount, "insufficient balance");
 

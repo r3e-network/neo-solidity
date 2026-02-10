@@ -18,6 +18,63 @@ fn try_lower_member_call(
     }
 
     if let Expression::MemberAccess(_, inner, member) = func {
+        // `super.method()` — resolve to the renamed base method preserved during
+        // inheritance flattening. The flattener stores overridden base methods as
+        // `__super_{methodName}` and records the mapping in `super_method_map`.
+        if matches!(inner.as_ref(), Expression::Variable(id) if id.name == "super") {
+            if let Some(super_name) = ctx.super_method_name(&member.name) {
+                let super_name = super_name.to_string();
+                let mut success = true;
+                for arg in args {
+                    if !lower_expression(arg, ctx, instructions) {
+                        success = false;
+                    }
+                }
+                if success {
+                    let neo_name = ctx
+                        .neo_function_name(&super_name, args.len())
+                        .unwrap_or_else(|| super_name.clone());
+                    instructions.push(Instruction::CallFunction {
+                        name: neo_name,
+                        arg_count: args.len(),
+                    });
+                }
+                if ctx.is_void_function(&super_name) {
+                    return Some(false);
+                }
+                return Some(success);
+            }
+
+            // No super method found — the method was not overridden or has no body.
+            ctx.record_error_with_suggestion(
+                format!(
+                    "super.{}() cannot be resolved; no overridden base method with a body was found",
+                    member.name
+                ),
+                "ensure the base contract defines this function with a body and marks it 'virtual'",
+            );
+            instructions.push(Instruction::PushLiteral(
+                LiteralValue::Integer(BigInt::zero()),
+            ));
+            return Some(false);
+        }
+
+        // User-defined value type `wrap`/`unwrap` — compile as no-ops.
+        // `TypeName.wrap(value)` and `TypeName.unwrap(value)` are identity operations
+        // on NeoVM since user-defined value types are transparent type aliases.
+        if (member.name == "wrap" || member.name == "unwrap") && args.len() == 1 {
+            if let Expression::Variable(type_id) = inner.as_ref() {
+                let is_type_alias = !ctx.param_index_map.contains_key(&type_id.name)
+                    && ctx.resolve_local(&type_id.name).is_none()
+                    && !ctx.state_index_map.contains_key(&type_id.name);
+                if is_type_alias {
+                    // No-op: just lower the single argument — the value passes through.
+                    let ok = lower_expression(&args[0], ctx, instructions);
+                    return Some(ok);
+                }
+            }
+        }
+
         // Fallback: treat unresolved member calls on address-like values as external
         // contract calls. Lower to System.Contract.Call with default flags.
         let is_external_target = matches!(
@@ -40,10 +97,15 @@ fn try_lower_member_call(
 
         if is_external_target {
             if is_low_level_evm_member(&member.name) {
-                ctx.record_error(format!(
-                    "unsupported low-level EVM call '{}'",
-                    member.name
-                ));
+                let suggestion = match member.name.as_str() {
+                    "delegatecall" => "delegatecall is not available on Neo N3; Neo contracts have isolated storage. Use Syscalls.contractCall() for cross-contract calls",
+                    "staticcall" => "staticcall is not available on Neo N3; use view/pure functions or Syscalls.contractCallWithFlags() with ReadOnly flags",
+                    _ => "Neo N3 does not support low-level EVM calls; use NativeCalls.sol for contract-to-contract interactions",
+                };
+                ctx.record_error_with_suggestion(
+                    format!("unsupported low-level EVM call '{}'", member.name),
+                    suggestion,
+                );
                 return Some(false);
             }
 

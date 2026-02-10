@@ -2,6 +2,8 @@
 fn bytecode_peephole_reduces_size_at_o3() {
     let mut metadata = ContractMetadata {
         name: "Peephole".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![FunctionMetadata {
             name: "foo".to_string(),
             neo_name: "foo".to_string(),
@@ -13,6 +15,8 @@ fn bytecode_peephole_reduces_size_at_o3() {
             offset: 0,
             body: None,
             selector: [0u8; 4],
+            is_virtual: false,
+            is_override: false,
             documentation: NatspecDoc::default(),
         }],
         events: vec![],
@@ -23,6 +27,13 @@ fn bytecode_peephole_reduces_size_at_o3() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let module = Module {

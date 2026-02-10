@@ -180,6 +180,33 @@ jobs:
           jq -e '.name and .abi and .permissions' TestERC20.manifest.json > /dev/null || exit 1
           echo "✅ Manifest structure validation passed"
 
+
+  # ================================
+  # Neo-Express Showcase Smoke Tests
+  # ================================
+  neoxp-showcases:
+    name: Neo-Express Showcases
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run new showcase Neo-Express smoke suite
+        run: bash examples/test_neoxp_new_showcases_smoke.sh
+
   # ================================
   # Security Analysis
   # ================================
@@ -325,7 +352,7 @@ jobs:
     name: Release Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, test, build, contracts, security, e2e-tests]
+    needs: [lint, test, build, contracts, neoxp-showcases, security, e2e-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:

@@ -18,7 +18,10 @@ fn lower_return_statement(
         }
 
         if return_slots.iter().any(|slot| slot.is_none()) {
-            ctx.record_error("return without value requires named return variables for this function");
+            ctx.record_error_with_suggestion(
+                "return without value requires named return variables for this function",
+                "either use named return variables (e.g. function f() returns (uint256 result)) or provide an explicit return value",
+            );
         }
 
         if return_types.len() == 1 {

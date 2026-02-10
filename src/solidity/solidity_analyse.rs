@@ -40,6 +40,33 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         Vec::new()
     };
 
+    // Validate user libraries before merging. Convert each library to metadata
+    // and run the standard validation pipeline to catch library-specific errors
+    // (state variables, constructors, external functions) early.
+    for lib in &libraries {
+        let lib_metadata = convert_contract(
+            lib.clone(),
+            &[],
+            &[],
+            std::sync::Arc::new(SelectorRegistry::default()),
+        );
+        let lib_diagnostics = validate_contract(&lib_metadata);
+        let lib_errors: Vec<Diagnostic> = lib_diagnostics
+            .into_iter()
+            .filter(|d| matches!(d.severity, DiagnosticSeverity::Error))
+            .collect();
+        if !lib_errors.is_empty() {
+            let messages: Vec<String> = lib_errors.iter().map(|d| {
+                let mut msg = d.message.clone();
+                if let Some(suggestion) = &d.suggestion {
+                    msg.push_str(&format!("\n  suggestion: {}", suggestion));
+                }
+                msg
+            }).collect();
+            return Err(SolidityError::analysis(messages.join("\n")));
+        }
+    }
+
     // Merge library definitions into primary contracts so that library functions
     // (including `using for`-style member calls) can be lowered as internal calls.
     if has_primary && !libraries.is_empty() {
@@ -93,6 +120,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         let selector_contract = match contract.kind {
             ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
                 flatten_contract_inheritance(contract.clone(), &contract_map)
+                    .map(|(ir, _warnings)| ir)
                     .unwrap_or_else(|_| contract.clone())
             }
             ContractKind::Library => contract.clone(),
@@ -140,14 +168,17 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
 
     let mut metadatas = Vec::new();
     for contract in selected.drain(..) {
-        let mut flattened = flatten_contract_inheritance(contract, &contract_map)?;
+        let (mut flattened, flatten_warnings) =
+            flatten_contract_inheritance(contract, &contract_map)?;
         apply_modifiers_and_base_constructors(&mut flattened, &contract_map)?;
-        metadatas.push(convert_contract(
+        let mut metadata = convert_contract(
             flattened,
             &[],
             &contract_types,
             selector_registry.clone(),
-        ));
+        );
+        metadata.flatten_warnings = flatten_warnings;
+        metadatas.push(metadata);
     }
 
     Ok(metadatas)

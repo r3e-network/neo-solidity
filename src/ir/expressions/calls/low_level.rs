@@ -321,7 +321,10 @@ fn try_lower_low_level_address_call(
 				return Some(true);
 			}
 
-			ctx.record_error(format!("unsupported low-level EVM call '{}'", member_name));
+			ctx.record_error_with_suggestion(
+				format!("unsupported low-level EVM call '{}'", member_name),
+				"Neo N3 does not support low-level EVM calls; use NativeCalls.sol for contract-to-contract interactions",
+			);
 			return Some(false);
 		}
 	}

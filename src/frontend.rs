@@ -10,7 +10,7 @@ use solang_parser::{
         Base, Comment, ContractDefinition, ContractPart, ContractTy, EnumDefinition,
         EventDefinition, Expression, FunctionAttribute, FunctionDefinition, FunctionTy, Identifier,
         Loc, Mutability, ParameterList, SourceUnitPart, Statement, StorageLocation,
-        StructDefinition, VariableAttribute, VariableDefinition, Visibility,
+        StructDefinition, UsingList, VariableAttribute, VariableDefinition, Visibility,
     },
 };
 use std::collections::HashMap;

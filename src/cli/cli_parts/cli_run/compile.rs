@@ -30,7 +30,7 @@ fn compile_input_or_exit(
         }
         Err(CompileError::Ir(errors)) => {
             for error in errors {
-                emit_error(&error, "IR_GENERATION_ERROR", json_errors);
+                emit_error(&error.display(), "IR_GENERATION_ERROR", json_errors);
             }
             std::process::exit(1);
         }

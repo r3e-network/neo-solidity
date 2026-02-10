@@ -16,10 +16,19 @@ pragma solidity ^0.8.19;
  */
 
 import "../standards/NEP17.sol";
-import "../contracts/OracleService.sol";
+import "../contracts/NativeCalls.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Storage.sol";
 import "../libraries/Runtime.sol";
+
+interface IOracleServiceReceiver {
+    function onOracleResponse(
+        uint256 requestId,
+        uint256 code,
+        bytes calldata result,
+        bytes calldata userData
+    ) external;
+}
 
 contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     using Neo for *;
@@ -79,7 +88,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     }
     
     // Oracle integration
-    OracleService private _oracle;
+    address private constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
     mapping(string => uint256) private _externalPrices;
     
     // Events
@@ -141,9 +150,6 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
             currentPrice: 0
         });
         
-        if (_config.oracleEnabled) {
-            _oracle = OracleService(oracleAddress);
-        }
         
         // Store contract metadata in Neo storage
         Storage.putContractMetadata(
@@ -251,7 +257,14 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         );
 
         string memory url = string(abi.encodePacked("https://example.com/prices/", symbol()));
-        return _oracle.request(url, "", abi.encode(symbol()), 20_000_000);
+        NativeCalls.requestOracleData(
+            url,
+            "",
+            "onOracleResponse",
+            abi.encode(symbol()),
+            20_000_000
+        );
+        requestId = block.timestamp;
     }
     
     /**
@@ -261,7 +274,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         external
         override
     {
-        require(msg.sender == address(_oracle), "CompleteNEP17: unauthorized oracle response");
+        require(msg.sender == ORACLE_CONTRACT, "CompleteNEP17: unauthorized oracle response");
         
         if (code == 0) {
             uint256 newPrice = abi.decode(result, (uint256));
@@ -542,13 +555,15 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     function emergencyPause() public override {
         require(Runtime.checkWitness(msg.sender), "CompleteNEP17: invalid witness");
         require(msg.sender == owner() || Neo.isCommittee(msg.sender), "CompleteNEP17: unauthorized");
-        
-        super.emergencyPause();
-        
+
+        // Inline base NEP17.emergencyPause() logic (super keyword not yet supported)
+        disableTransfers();
+        emit EmergencyPause(msg.sender, block.timestamp);
+
         // Additional emergency actions
         _config.stakingEnabled = false;
         _config.oracleEnabled = false;
-        
+
         emit EmergencyPauseComplete(msg.sender, block.timestamp);
     }
     
@@ -557,12 +572,14 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
      */
     function emergencyRecover() public onlyOwner {
         require(Runtime.checkWitness(msg.sender), "CompleteNEP17: invalid witness");
-        
-        // Restore normal operations
-        super.emergencyUnpause();
+
+        // Inline base NEP17.emergencyUnpause() logic (super keyword not yet supported)
+        enableTransfers();
+        emit EmergencyUnpause(msg.sender, block.timestamp);
+
         _config.stakingEnabled = true;
         _config.oracleEnabled = _config.oracleContract != address(0);
-        
+
         emit EmergencyRecovery(msg.sender, block.timestamp);
     }
     
@@ -593,7 +610,6 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         
         address oldOracle = _config.oracleContract;
         _config.oracleContract = newOracleContract;
-        _oracle = OracleService(newOracleContract);
         _config.oracleEnabled = true;
         
         emit OracleConfigUpdated(oldOracle, newOracleContract);
@@ -613,7 +629,8 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         address tokenMinter,
         bool tokenTransfersEnabled
     ) {
-        return super.getTokenInfo();
+        // Inline base NEP17.getTokenInfo() logic (super keyword not yet supported)
+        return (_name, _symbol, _decimals, _totalSupply, _maxSupply, _minter, _transfersEnabled);
     }
     
     /**

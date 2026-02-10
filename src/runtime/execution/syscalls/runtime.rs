@@ -48,13 +48,16 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.LoadScript" => {
-                // Call signature: LoadScript(script, callFlags, args)
-                // The embedded runtime doesn't support dynamic script loading. We still
-                // consume the arguments to keep stack discipline.
+                // The embedded runtime does not support dynamic script loading.
+                // Consume arguments to maintain stack discipline, then return error.
                 let _args = self.pop_stack()?;
                 let _call_flags = self.pop_stack()?;
                 let _script = self.pop_stack()?;
-                Ok(true)
+                return Err(RuntimeError::ExecutionError {
+                    message: "System.Runtime.LoadScript is not supported in the embedded \
+                             runtime. Use System.Contract.Call for inter-contract calls."
+                        .to_string(),
+                });
             }
             "System.Runtime.GetScriptContainer" => {
                 // Return a Transaction-like array matching the Neo devpack field order:
@@ -83,8 +86,22 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.GetRandom" => {
-                let seed = self.invocation_counter.to_le_bytes().to_vec();
-                let hash = Sha256::digest(&seed);
+                // Initialize seed on first call from block hash + tx context
+                if self.random_seed.is_none() {
+                    let height = self.block_height.unwrap_or(self.default_block_height);
+                    let mut seed_input = height.to_le_bytes().to_vec();
+                    seed_input.extend_from_slice(&self.default_account_bytes);
+                    let hash = Sha256::digest(&seed_input);
+                    let mut seed = [0u8; 32];
+                    seed.copy_from_slice(&hash);
+                    self.random_seed = Some(seed);
+                }
+                // Hash seed || counter for each call
+                let seed = self.random_seed.unwrap();
+                let mut input = seed.to_vec();
+                input.extend_from_slice(&self.random_counter.to_le_bytes());
+                self.random_counter += 1;
+                let hash = Sha256::digest(&input);
                 self.push_stack(StackItem::byte_array(hash[..].to_vec()))?;
                 Ok(true)
             }
@@ -118,14 +135,24 @@ impl ExecutionContext {
                     .caller_account
                     .clone()
                     .unwrap_or_else(|| self.default_account_bytes.clone());
+
+                let check_bytes = |bytes: &[u8]| -> bool {
+                    // If witness_signers is populated, check against it
+                    if !self.witness_signers.is_empty() {
+                        return self.witness_signers.iter().any(|s| s == bytes);
+                    }
+                    // Fall back to default account / caller check
+                    bytes == caller_bytes || bytes == self.default_account_bytes
+                };
+
                 let is_match = match witness_item {
                     StackItem::Array(items) => items.borrow().iter().any(|w| {
                         let bytes = Self::stack_item_to_bytes(w.clone());
-                        bytes == caller_bytes || bytes == self.default_account_bytes
+                        check_bytes(&bytes)
                     }),
                     other => {
                         let bytes = Self::stack_item_to_bytes(other);
-                        bytes == caller_bytes || bytes == self.default_account_bytes
+                        check_bytes(&bytes)
                     }
                 };
                 self.push_stack(StackItem::Boolean(is_match))?;

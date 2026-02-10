@@ -124,6 +124,30 @@ fn try_lower_type_bound_min(
     None
 }
 
+fn try_lower_type_name(
+    inner: &Expression,
+    member: &Identifier,
+    _ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    if member.name != "name" {
+        return None;
+    }
+
+    let type_arg = typeof_argument(inner)?;
+
+    let name_str = match type_arg {
+        Expression::Variable(id) => id.name.clone(),
+        Expression::Type(_, pt_type) => format!("{pt_type}"),
+        _ => return None,
+    };
+
+    instructions.push(Instruction::PushLiteral(LiteralValue::String(
+        name_str.into_bytes(),
+    )));
+    Some(true)
+}
+
 fn try_lower_interface_id(
     inner: &Expression,
     member: &Identifier,
@@ -137,10 +161,13 @@ fn try_lower_interface_id(
     if let Some(type_arg) = typeof_argument(inner) {
         if let Expression::Variable(type_name) = type_arg {
             if !ctx.is_interface_type_name(&type_name.name) {
-                ctx.record_error(format!(
-                    "type({}).interfaceId is only supported for interface types",
-                    type_name.name
-                ));
+                ctx.record_error_with_suggestion(
+                    format!(
+                        "type({}).interfaceId is only supported for interface types",
+                        type_name.name
+                    ),
+                    "interfaceId can only be computed for interface definitions, not contracts or other types",
+                );
                 return Some(false);
             }
 
@@ -151,10 +178,13 @@ fn try_lower_interface_id(
                 return Some(true);
             }
 
-            ctx.record_error(format!(
-                "unable to compute interfaceId for '{}'",
-                type_name.name
-            ));
+            ctx.record_error_with_suggestion(
+                format!(
+                    "unable to compute interfaceId for '{}'",
+                    type_name.name
+                ),
+                "ensure the interface has at least one function declaration",
+            );
             return Some(false);
         }
 

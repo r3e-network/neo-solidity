@@ -158,6 +158,50 @@ fn try_lower_code_property(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
+    if member.name == "codehash" {
+        if matches!(
+            infer_type_from_expression(inner, ctx),
+            Some(ValueType::Address)
+        ) {
+            // Neo N3 auto-compat: address.codehash → the address itself (script hash)
+            // On Neo, a contract's "code hash" IS its script hash (UInt160), which is
+            // the same as the address. For non-contract addresses, return bytes32(0).
+            eprintln!(
+                "warning: address.codehash auto-mapped to the contract script hash \
+                 on Neo N3. For contract addresses this returns the address itself; \
+                 for non-contract addresses it returns bytes32(0)."
+            );
+            if !lower_expression(inner, ctx, instructions) {
+                return Some(false);
+            }
+            // Duplicate the address for the isContract check
+            instructions.push(Instruction::Dup);
+            instructions.push(Instruction::CallBuiltin {
+                builtin: BuiltinCall::NativeCall {
+                    contract: NativeContract::ContractManagement,
+                    method: "isContract".to_string(),
+                },
+                arg_count: 1,
+            });
+            let not_contract_label = ctx.next_label();
+            let end_label = ctx.next_label();
+            instructions.push(Instruction::JumpIf {
+                target: not_contract_label,
+            });
+            // Is a contract: address IS the script hash — leave it on stack
+            instructions.push(Instruction::Jump { target: end_label });
+            instructions.push(Instruction::Label(not_contract_label));
+            // Not a contract: drop address, push zero bytes
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                vec![0u8; 32],
+            )));
+            instructions.push(Instruction::Label(end_label));
+            return Some(true);
+        }
+        return None;
+    }
+
     if member.name != "code" {
         return None;
     }

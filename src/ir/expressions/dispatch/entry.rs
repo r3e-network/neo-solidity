@@ -30,10 +30,22 @@ fn lower_expression(
     }
 
     if let Some(literal) = literal_from_expression(expr) {
+        // Warn when Solidity ether units are used -- the numeric conversion is
+        // technically correct (wei=1, gwei=10^9, ether=10^18) but semantically
+        // misleading on Neo N3 where the native token is GAS with 10^8 decimals.
+        if has_ether_unit(expr) {
+            ctx.record_error_with_suggestion(
+                "ether units (wei/gwei/ether) are not applicable on Neo N3",
+                "use GAS token with 10^8 decimals (1 GAS = 100_000_000 fractions)",
+            );
+        }
         instructions.push(Instruction::PushLiteral(literal));
         true
     } else {
-        ctx.record_error(format!("unsupported expression '{:?}'", expr));
+        ctx.record_error_with_suggestion(
+            format!("unsupported expression '{:?}'", expr),
+            "Neo N3 supports: int, string, bytes, bool, address, arrays, maps, structs",
+        );
         false
     }
 }

@@ -7,15 +7,24 @@ impl CompileError {
                 .collect(),
             CompileError::Ir(errors) => errors
                 .into_iter()
-                .map(|message| {
-                    json!({
+                .map(|diag| {
+                    let formatted = diag.display();
+                    let mut obj = json!({
                         "component": "neo-solidity",
                         "severity": "error",
                         "type": "IrGeneration",
                         "sourceLocation": { "file": file },
-                        "formattedMessage": message,
-                        "message": message,
-                    })
+                        "formattedMessage": formatted,
+                        "message": diag.message,
+                        "functionName": diag.function_name,
+                    });
+                    if let Some(suggestion) = &diag.suggestion {
+                        obj["suggestion"] = json!(suggestion);
+                    }
+                    if let Some(code) = &diag.code {
+                        obj["errorCode"] = json!(code);
+                    }
+                    obj
                 })
                 .collect(),
             CompileError::Manifest(message) => vec![json!({

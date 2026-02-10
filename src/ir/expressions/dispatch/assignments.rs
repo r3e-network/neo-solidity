@@ -230,7 +230,10 @@ fn lower_delete(
         }
     }
 
-    ctx.record_error("unsupported delete target");
+    ctx.record_error_with_suggestion(
+        "unsupported delete target",
+        "delete is supported for state variables, mapping entries, and local variables",
+    );
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
     true
 }

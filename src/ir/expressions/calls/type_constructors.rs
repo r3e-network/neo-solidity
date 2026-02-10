@@ -187,6 +187,13 @@ fn try_lower_type_constructor_call(
                 }
                 return Some(true);
             }
+            PtType::Rational => {
+                ctx.record_error_with_suggestion(
+                    "fixed-point types (fixed/ufixed) are not supported on NeoVM",
+                    "use scaled integer arithmetic instead (e.g., multiply by 10^18 for 18 decimal places)",
+                );
+                return Some(false);
+            }
             _ => {}
         }
     }
@@ -259,4 +266,10 @@ fn coerce_to_fixed_bytes(
     } else {
         instructions.push(Instruction::LoadLocal(dst_local));
     }
+
+    // Canonicalize fixed-byte casts to ByteString so equality checks against
+    // storage loads (also ByteString) are value-based and deterministic.
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
 }

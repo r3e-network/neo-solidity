@@ -50,5 +50,105 @@ impl IsolatedStorageKey {
     }
 }
 
+/// Whitelisted fee contract for Policy native contract
+#[derive(Debug, Clone)]
+pub struct WhitelistedFeeContract {
+    /// Script hash of the whitelisted contract
+    pub(crate) contract_hash: Vec<u8>,
+    /// Maximum fee allowed (in GAS fractions)
+    pub(crate) max_fee: u64,
+}
+
+/// Oracle request record for Oracle native contract
+#[derive(Debug, Clone)]
+pub struct OracleRequest {
+    /// Unique request identifier
+    pub(crate) id: u64,
+    /// Original transaction hash that created the request
+    pub(crate) original_tx_hash: Vec<u8>,
+    /// URL to fetch data from
+    pub(crate) url: String,
+    /// JSONPath or other filter expression
+    pub(crate) filter: String,
+    /// Callback contract script hash
+    pub(crate) callback_contract: Vec<u8>,
+    /// Callback method name
+    pub(crate) callback_method: String,
+    /// User-provided data forwarded to callback
+    pub(crate) user_data: Vec<u8>,
+    /// GAS deposited for the request
+    pub(crate) gas_for_response: u64,
+}
+
+/// Ledger block interop struct matching Neo N3 Block
+#[derive(Debug, Clone)]
+pub struct LedgerBlock {
+    /// Block hash (32 bytes)
+    pub(crate) hash: [u8; 32],
+    /// Block version
+    pub(crate) version: u32,
+    /// Hash of the previous block
+    pub(crate) prev_hash: [u8; 32],
+    /// Merkle root of transactions
+    pub(crate) merkle_root: [u8; 32],
+    /// Block timestamp (milliseconds since epoch)
+    pub(crate) timestamp: u64,
+    /// Nonce for consensus
+    pub(crate) nonce: u64,
+    /// Block index (height)
+    pub(crate) index: u64,
+    /// Primary consensus node index
+    pub(crate) primary_index: u8,
+    /// Script hash of the next consensus group
+    pub(crate) next_consensus: Vec<u8>,
+    /// Number of transactions in the block
+    pub(crate) transaction_count: u32,
+}
+
+/// Ledger transaction interop struct matching Neo N3 Transaction
+#[derive(Debug, Clone)]
+pub struct LedgerTransaction {
+    /// Transaction hash (32 bytes)
+    pub(crate) hash: [u8; 32],
+    /// Transaction version
+    pub(crate) version: u8,
+    /// Random nonce
+    pub(crate) nonce: u32,
+    /// Sender script hash (20 bytes)
+    pub(crate) sender: Vec<u8>,
+    /// System fee (in GAS fractions)
+    pub(crate) system_fee: u64,
+    /// Network fee (in GAS fractions)
+    pub(crate) network_fee: u64,
+    /// Block index after which the tx is invalid
+    pub(crate) valid_until_block: u32,
+    /// Transaction script bytecode
+    pub(crate) script: Vec<u8>,
+}
+
+/// Transaction signer matching Neo N3 Signer interop struct
+#[derive(Debug, Clone)]
+pub struct TransactionSigner {
+    /// Signer account script hash (20 bytes)
+    pub(crate) account: Vec<u8>,
+    /// Witness scope flags
+    pub(crate) scopes: u8,
+    /// Allowed contracts (for CustomContracts scope)
+    pub(crate) allowed_contracts: Vec<Vec<u8>>,
+    /// Allowed groups (for CustomGroups scope)
+    pub(crate) allowed_groups: Vec<Vec<u8>>,
+}
+
+/// Notary deposit tracking for Notary native contract
+#[derive(Debug, Clone)]
+pub struct NotaryDeposit {
+    /// Depositor account script hash
+    pub(crate) account: Vec<u8>,
+    /// Deposited GAS amount (in fractions)
+    pub(crate) amount: u64,
+    /// Block index until which the deposit is locked
+    pub(crate) till: u32,
+}
+
 /// Type alias for storage overlay entries
 pub type StorageOverlayEntries = Vec<(Vec<u8>, Option<Vec<u8>>)>;

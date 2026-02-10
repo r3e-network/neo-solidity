@@ -21,7 +21,7 @@ fn try_lower_resolved_builtin_call(
         BuiltinCall::RuntimeNotify => (2, Some(2)),
         BuiltinCall::RuntimeCheckWitness => (1, Some(1)),
         // Solidity allows abi.encode()/encodePacked() with zero arguments.
-        BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked => (0, None),
+        BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked | BuiltinCall::AbiEncodeCall => (0, None),
         BuiltinCall::AbiEncodeWithSignature => (1, None),
         BuiltinCall::AbiDecode => (2, None),
         BuiltinCall::Keccak256 => (1, Some(1)),
@@ -39,6 +39,7 @@ fn try_lower_resolved_builtin_call(
         BuiltinCall::NativeCall { .. } => (0, None),
         BuiltinCall::Syscall(_) => (0, None),
         BuiltinCall::TypeOf => (1, Some(1)),
+        BuiltinCall::BytesConcat => (0, None),
     };
 
     if args.len() < min_args || max_args.is_some_and(|max| args.len() > max) {
@@ -77,6 +78,7 @@ fn try_lower_resolved_builtin_call(
             | BuiltinCall::RuntimeCheckWitness
             | BuiltinCall::AbiEncode
             | BuiltinCall::AbiEncodePacked
+            | BuiltinCall::AbiEncodeCall
             | BuiltinCall::AbiDecode
             | BuiltinCall::Keccak256
             | BuiltinCall::Ecrecover
@@ -92,7 +94,8 @@ fn try_lower_resolved_builtin_call(
             | BuiltinCall::GetContractScript
             | BuiltinCall::GetNeoAccountState
             | BuiltinCall::NativeCall { .. }
-            | BuiltinCall::Syscall(_) => {
+            | BuiltinCall::Syscall(_)
+            | BuiltinCall::BytesConcat => {
                 instructions.push(Instruction::CallBuiltin {
                     builtin,
                     arg_count: args.len(),

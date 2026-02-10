@@ -148,4 +148,20 @@ fn build_cli_command() -> Command {
                 .help("Emit compiler warnings as JSON lines on stderr")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("Wno")
+                .long("Wno")
+                .value_name("CODE")
+                .help("Suppress warnings with the given code prefix (e.g. --Wno W101)")
+                .num_args(1)
+                .action(ArgAction::Append),
+        )
+        .arg(
+            Arg::new("Werror")
+                .long("Werror")
+                .value_name("CODE")
+                .help("Promote warnings with the given code prefix to errors (e.g. --Werror W101)")
+                .num_args(1)
+                .action(ArgAction::Append),
+        )
 }

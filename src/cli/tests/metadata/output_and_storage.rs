@@ -57,6 +57,8 @@ fn contract_output_prefix_ignores_dots_in_parent_directories() {
 fn storage_map_assigns_slots_and_names() {
     let metadata = ContractMetadata {
         name: "StorageExample".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![],
         events: vec![],
         uses_storage: true,
@@ -97,6 +99,13 @@ fn storage_map_assigns_slots_and_names() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let map = build_storage_map(&metadata);
@@ -141,6 +150,8 @@ fn standard_abi_includes_constructor_and_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
@@ -168,11 +179,15 @@ fn standard_abi_includes_constructor_and_event() {
         offset: 0,
         body: None,
         selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
         documentation: NatspecDoc::default(),
     };
 
     let metadata = ContractMetadata {
         name: "Token".to_string(),
+        is_abstract: false,
+        is_library: false,
         methods: vec![constructor, regular],
         events: vec![EventMetadata {
             name: "Mint".to_string(),
@@ -197,6 +212,13 @@ fn standard_abi_includes_constructor_and_event() {
         contract_types: vec![],
         selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
+        has_using_for_star: false,
+        has_using_function_list: false,
+        using_for_libraries: vec![],
+        has_type_definitions: false,
+        type_aliases: std::collections::HashMap::new(),
+        flatten_warnings: Vec::new(),
+        super_method_map: std::collections::HashMap::new(),
     };
 
     let abi = build_standard_abi(&metadata);

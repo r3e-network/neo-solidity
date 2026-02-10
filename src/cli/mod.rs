@@ -34,8 +34,6 @@ use neo_solidity::solidity::{
     analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, EventMetadata,
     FunctionKind, FunctionMetadata, NatspecDoc, ParameterMetadata, StateMutability,
 };
-#[cfg(test)]
-use neo_solidity::solidity::EventParameter;
 use neo_solidity::type_system::NeoType;
 use serde_json::{json, Value};
 use sha3::{Digest, Keccak256};

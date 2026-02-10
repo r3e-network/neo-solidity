@@ -33,7 +33,10 @@ fn lower_variable_definition_statement(
 ) -> bool {
     if let Some(ident) = &decl.name {
         if ctx.is_local_in_current_scope(&ident.name) {
-            ctx.record_error(format!("local variable '{}' redeclared", ident.name));
+            ctx.record_error_with_suggestion(
+                format!("local variable '{}' redeclared", ident.name),
+                "use a different variable name or assign to the existing variable instead of redeclaring",
+            );
         } else {
             let is_storage_reference = matches!(decl.storage, Some(PtStorageLocation::Storage(_)));
             let mut inferred_type = if is_storage_reference {
@@ -111,7 +114,10 @@ fn lower_variable_definition_statement(
             }
         }
     } else {
-        ctx.record_error("variable declaration missing identifier");
+        ctx.record_error_with_suggestion(
+            "variable declaration missing identifier",
+            "every variable declaration must have a name: e.g. uint256 myVar = 0",
+        );
     }
     false
 }
@@ -127,7 +133,10 @@ fn lower_emit_statement(
 
 fn lower_assembly_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     if !lower_special_assembly(ctx, instructions) {
-        ctx.record_error("inline assembly is not supported");
+        ctx.record_error_with_suggestion(
+            "inline assembly is not supported",
+            "Neo N3 uses NeoVM opcodes; use NativeCalls.sol for low-level operations",
+        );
     }
     false
 }
