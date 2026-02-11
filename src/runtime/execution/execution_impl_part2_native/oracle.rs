@@ -40,7 +40,7 @@ impl ExecutionContext {
                     callback_contract: cb_contract,
                     callback_method: String::from_utf8_lossy(&cb_method).to_string(),
                     user_data,
-                    gas_for_response: gas_for_response,
+                    gas_for_response,
                 };
                 self.oracle_requests.insert(id, request);
 

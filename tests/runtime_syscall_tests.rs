@@ -130,7 +130,11 @@ fn get_random_returns_deterministic_hash() {
     let mut ctx2 = ExecutionContext::new(&config).expect("context init");
     ctx2.initialize(&code, &[]).expect("init");
     while !ctx2.step().expect("step").halted {}
-    assert_eq!(ctx2.return_data(), result, "GetRandom should be deterministic");
+    assert_eq!(
+        ctx2.return_data(),
+        result,
+        "GetRandom should be deterministic"
+    );
 }
 
 #[test]

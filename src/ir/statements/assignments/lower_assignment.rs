@@ -14,6 +14,13 @@ fn lower_assignment(
     }
 
     if let Some(reference) = resolve_storage_reference(lhs, ctx) {
+        if !ctx.ensure_state_writable(reference.state_index) {
+            if lower_expression(rhs, ctx, instructions) {
+                instructions.push(Instruction::Drop(ValueType::Any));
+            }
+            return;
+        }
+
         if let ValueType::Struct { name, fields } = &reference.value_type {
             // Support struct construction on the RHS for storage assignments, both
             // named and positional: `S({a:1,b:2})` or `S(1,2)`.
@@ -101,16 +108,16 @@ fn lower_assignment(
             ExistingLocal(usize),
             ExistingState(usize),
             Storage(StorageReference),
+            Nested(Vec<TupleTarget>),
             Invalid,
         }
 
-        let mut targets: Vec<TupleTarget> = Vec::with_capacity(params.len());
-
-        // First pass: allocate locals for declarations and resolve assignment targets.
-        for (_, param) in params.iter() {
-            let Some(parameter) = param else {
-                targets.push(TupleTarget::Ignore);
-                continue;
+        fn resolve_optional_tuple_target(
+            parameter: &Option<solang_parser::pt::Parameter>,
+            ctx: &mut LoweringContext,
+        ) -> TupleTarget {
+            let Some(parameter) = parameter else {
+                return TupleTarget::Ignore;
             };
 
             if let Some(name) = parameter.name.as_ref() {
@@ -124,53 +131,58 @@ fn lower_assignment(
 
                 let inferred_type = infer_type_from_expression(&parameter.ty, ctx);
                 let local_index = ctx.allocate_local(name.name.clone(), inferred_type.clone());
-                targets.push(TupleTarget::DeclaredLocal {
+                return TupleTarget::DeclaredLocal {
                     local_index,
                     inferred_type,
-                });
-                continue;
+                };
+            }
+
+            if let Expression::List(_, nested_params) = &parameter.ty {
+                let children = nested_params
+                    .iter()
+                    .map(|(_, param)| resolve_optional_tuple_target(param, ctx))
+                    .collect();
+                return TupleTarget::Nested(children);
             }
 
             // Assignment to an existing lvalue: `(ok, v) = ...`
             if let Some(reference) = resolve_storage_reference(&parameter.ty, ctx) {
-                targets.push(TupleTarget::Storage(reference));
-                continue;
+                return TupleTarget::Storage(reference);
             }
 
             if let Expression::Variable(identifier) = &parameter.ty {
                 if let Some(local_index) = ctx.resolve_local(&identifier.name) {
-                    targets.push(TupleTarget::ExistingLocal(local_index));
-                } else if let Some(state_index) =
-                    ctx.state_index_map.get(&identifier.name).copied()
-                {
-                    targets.push(TupleTarget::ExistingState(state_index));
-                } else {
-                    ctx.record_error(format!(
-                        "unknown identifier '{}' in tuple assignment",
-                        identifier.name
-                    ));
-                    targets.push(TupleTarget::Invalid);
+                    return TupleTarget::ExistingLocal(local_index);
                 }
-                continue;
+
+                if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {
+                    return TupleTarget::ExistingState(state_index);
+                }
+
+                ctx.record_error(format!(
+                    "unknown identifier '{}' in tuple assignment",
+                    identifier.name
+                ));
+                return TupleTarget::Invalid;
             }
 
             ctx.record_error_with_suggestion(
                 "unsupported tuple assignment target",
                 "Neo N3 supports single-value assignments; destructure tuple returns into separate statements",
             );
-            targets.push(TupleTarget::Invalid);
+            TupleTarget::Invalid
         }
 
-        // Lower RHS into a temporary buffer so failures don't leave partial stack state.
-        let mut rhs_instrs = Vec::new();
-        if !lower_expression(rhs, ctx, &mut rhs_instrs) {
-            // Ensure declared locals exist with default values to avoid cascading errors.
-            for target in targets {
-                if let TupleTarget::DeclaredLocal {
+        fn initialize_declared_tuple_targets(
+            target: &TupleTarget,
+            ctx: &mut LoweringContext,
+            instructions: &mut Vec<Instruction>,
+        ) {
+            match target {
+                TupleTarget::DeclaredLocal {
                     local_index,
                     inferred_type,
-                } = target
-                {
+                } => {
                     if let Some(ty) = inferred_type.as_ref() {
                         push_default_for_value_type(ty, ctx, instructions);
                     } else {
@@ -178,8 +190,89 @@ fn lower_assignment(
                             BigInt::zero(),
                         )));
                     }
-                    instructions.push(Instruction::StoreLocal(local_index));
+                    instructions.push(Instruction::StoreLocal(*local_index));
                 }
+                TupleTarget::Nested(children) => {
+                    for child in children {
+                        initialize_declared_tuple_targets(child, ctx, instructions);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        fn emit_tuple_element_load(
+            tuple_local: usize,
+            path: &[usize],
+            instructions: &mut Vec<Instruction>,
+        ) {
+            instructions.push(Instruction::LoadLocal(tuple_local));
+            for index in path {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                    *index as u64,
+                ))));
+                instructions.push(Instruction::ArrayGet);
+            }
+        }
+
+        fn assign_tuple_target(
+            tuple_local: usize,
+            path: &mut Vec<usize>,
+            target: &TupleTarget,
+            ctx: &mut LoweringContext,
+            instructions: &mut Vec<Instruction>,
+        ) {
+            match target {
+                TupleTarget::Ignore => {}
+                TupleTarget::Nested(children) => {
+                    for (index, child) in children.iter().enumerate() {
+                        path.push(index);
+                        assign_tuple_target(tuple_local, path, child, ctx, instructions);
+                        path.pop();
+                    }
+                }
+                TupleTarget::DeclaredLocal { local_index, .. }
+                | TupleTarget::ExistingLocal(local_index) => {
+                    emit_tuple_element_load(tuple_local, path, instructions);
+                    ctx.clear_call_data_local(*local_index);
+                    instructions.push(Instruction::StoreLocal(*local_index));
+                }
+                TupleTarget::ExistingState(state_index) => {
+                    emit_tuple_element_load(tuple_local, path, instructions);
+                    if ctx.ensure_state_writable(*state_index) {
+                        instructions.push(Instruction::StoreState(*state_index));
+                    } else {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                }
+                TupleTarget::Storage(reference) => {
+                    emit_tuple_element_load(tuple_local, path, instructions);
+                    if ctx.ensure_state_writable(reference.state_index) {
+                        if !emit_storage_store(reference, ctx, instructions) {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                    } else {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                }
+                TupleTarget::Invalid => {
+                    emit_tuple_element_load(tuple_local, path, instructions);
+                    instructions.push(Instruction::Drop(ValueType::Any));
+                }
+            }
+        }
+
+        let targets: Vec<TupleTarget> = params
+            .iter()
+            .map(|(_, parameter)| resolve_optional_tuple_target(parameter, ctx))
+            .collect();
+
+        // Lower RHS into a temporary buffer so failures don't leave partial stack state.
+        let mut rhs_instrs = Vec::new();
+        if !lower_expression(rhs, ctx, &mut rhs_instrs) {
+            // Ensure declared locals exist with default values to avoid cascading errors.
+            for target in &targets {
+                initialize_declared_tuple_targets(target, ctx, instructions);
             }
             return;
         }
@@ -189,35 +282,8 @@ fn lower_assignment(
         instructions.push(Instruction::StoreLocal(tuple_local));
 
         for (index, target) in targets.iter().enumerate() {
-            if matches!(target, TupleTarget::Ignore) {
-                continue;
-            }
-
-            instructions.push(Instruction::LoadLocal(tuple_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::from(index as u64),
-            )));
-            instructions.push(Instruction::ArrayGet);
-
-            match target {
-                TupleTarget::Ignore => unreachable!(),
-                TupleTarget::DeclaredLocal { local_index, .. }
-                | TupleTarget::ExistingLocal(local_index) => {
-                    ctx.clear_call_data_local(*local_index);
-                    instructions.push(Instruction::StoreLocal(*local_index));
-                }
-                TupleTarget::ExistingState(state_index) => {
-                    instructions.push(Instruction::StoreState(*state_index));
-                }
-                TupleTarget::Storage(reference) => {
-                    if !emit_storage_store(reference, ctx, instructions) {
-                        instructions.push(Instruction::Drop(ValueType::Any));
-                    }
-                }
-                TupleTarget::Invalid => {
-                    instructions.push(Instruction::Drop(ValueType::Any));
-                }
-            }
+            let mut path = vec![index];
+            assign_tuple_target(tuple_local, &mut path, target, ctx, instructions);
         }
 
         return;
@@ -233,7 +299,7 @@ fn lower_assignment(
             match parse_low_level_call_data(rhs, ctx) {
                 Ok(Some((method_name, encode_args))) => {
                     let mut lowered = true;
-                    for arg in encode_args {
+                    for arg in &encode_args {
                         if !lower_expression(arg, ctx, instructions) {
                             lowered = false;
                         }
@@ -263,7 +329,11 @@ fn lower_assignment(
         }
         if let Some(index) = ctx.state_index_map.get(&identifier.name) {
             if lower_expression(rhs, ctx, instructions) {
-                instructions.push(Instruction::StoreState(*index));
+                if ctx.ensure_state_writable(*index) {
+                    instructions.push(Instruction::StoreState(*index));
+                } else {
+                    instructions.push(Instruction::Drop(ValueType::Any));
+                }
             }
             return;
         }
@@ -272,7 +342,7 @@ fn lower_assignment(
         match parse_low_level_call_data(rhs, ctx) {
             Ok(Some((method_name, encode_args))) => {
                 let mut lowered = true;
-                for arg in encode_args {
+                for arg in &encode_args {
                     if !lower_expression(arg, ctx, instructions) {
                         lowered = false;
                     }

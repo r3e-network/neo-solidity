@@ -17,6 +17,52 @@ fn try_lower_member_call(
         )
     }
 
+    fn resolve_static_library_base(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+        match inner {
+            Expression::Variable(lib_id)
+                if !ctx.param_index_map.contains_key(&lib_id.name)
+                    && ctx.resolve_local(&lib_id.name).is_none()
+                    && !ctx.state_index_map.contains_key(&lib_id.name) =>
+            {
+                Some(lib_id.name.clone())
+            }
+            Expression::MemberAccess(_, namespace_expr, imported_symbol)
+                if matches!(
+                    namespace_expr.as_ref(),
+                    Expression::Variable(namespace_id)
+                        if !ctx.param_index_map.contains_key(&namespace_id.name)
+                            && ctx.resolve_local(&namespace_id.name).is_none()
+                            && !ctx.state_index_map.contains_key(&namespace_id.name)
+                            && !ctx.is_contract_type_name(&namespace_id.name)
+                ) && ctx.is_contract_type_name(&imported_symbol.name) =>
+            {
+                Some(imported_symbol.name.clone())
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_contract_type_name(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+        match inner {
+            Expression::Variable(type_id) if ctx.is_contract_type_name(&type_id.name) => {
+                Some(type_id.name.clone())
+            }
+            Expression::MemberAccess(_, namespace_expr, type_id)
+                if matches!(
+                    namespace_expr.as_ref(),
+                    Expression::Variable(namespace_id)
+                        if !ctx.param_index_map.contains_key(&namespace_id.name)
+                            && ctx.resolve_local(&namespace_id.name).is_none()
+                            && !ctx.state_index_map.contains_key(&namespace_id.name)
+                            && !ctx.is_contract_type_name(&namespace_id.name)
+                ) && ctx.is_contract_type_name(&type_id.name) =>
+            {
+                Some(type_id.name.clone())
+            }
+            _ => None,
+        }
+    }
+
     if let Expression::MemberAccess(_, inner, member) = func {
         // `super.method()` — resolve to the renamed base method preserved during
         // inheritance flattening. The flattener stores overridden base methods as
@@ -84,11 +130,7 @@ fn try_lower_member_call(
             inner.as_ref(),
             Expression::FunctionCall(_, cast_func, cast_args)
                 if cast_args.len() == 1
-                    && matches!(
-                        cast_func.as_ref(),
-                        Expression::Variable(id)
-                            if ctx.is_contract_type_name(&id.name)
-                    )
+                    && resolve_contract_type_name(cast_func.as_ref(), ctx).is_some()
                     && (matches!(
                         infer_type_from_expression(&cast_args[0], ctx),
                         Some(ValueType::Address)
@@ -221,31 +263,21 @@ fn try_lower_member_call(
 
         // Attempt to lower member calls as internal/library calls.
         if ctx.function_names.contains(&member.name) {
-            let is_library_static = matches!(
-                inner.as_ref(),
-                Expression::Variable(lib_id)
-                    if !ctx.param_index_map.contains_key(&lib_id.name)
-                        && ctx.resolve_local(&lib_id.name).is_none()
-                        && !ctx.state_index_map.contains_key(&lib_id.name)
-            );
+            let static_library_base = resolve_static_library_base(inner.as_ref(), ctx);
+            let is_library_static = static_library_base.is_some();
 
             let mut success = true;
             if is_library_static {
                 // Built-in libraries are lowered directly as compiler intrinsics. If builtin
                 // resolution didn't match the member, do not fall back to calling an internal
                 // function with the same name (which can silently miscompile into recursion).
-                if matches!(
-                    inner.as_ref(),
-                    Expression::Variable(lib_id)
-                        if matches!(
-                            lib_id.name.as_str(),
-                            "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
-                        )
-                ) {
-                    let base = match inner.as_ref() {
-                        Expression::Variable(lib_id) => lib_id.name.as_str(),
-                        _ => "<library>",
-                    };
+                if static_library_base.as_deref().is_some_and(|base| {
+                    matches!(
+                        base,
+                        "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
+                    )
+                }) {
+                    let base = static_library_base.as_deref().unwrap_or("<library>");
                     let mut message =
                         format!("unsupported builtin library call '{base}.{}'", member.name);
                     if let Some(supported) = builtin_library_supported_members(base) {
@@ -354,21 +386,16 @@ fn try_lower_member_call(
         // directly by the compiler. When a call targets one of these libraries but does not map
         // to a supported intrinsic, emit a targeted diagnostic rather than a generic
         // "unsupported external/library call" error.
-        if let Expression::Variable(lib_id) = inner.as_ref() {
-            let is_library_static = !ctx.param_index_map.contains_key(&lib_id.name)
-                && ctx.resolve_local(&lib_id.name).is_none()
-                && !ctx.state_index_map.contains_key(&lib_id.name);
-            if is_library_static {
-                if let Some(supported) = builtin_library_supported_members(lib_id.name.as_str()) {
-                    ctx.record_error(format!(
-                        "unsupported builtin library call '{}.{}'; supported {} intrinsics: {}. (Builtin devpack libraries are compiler intrinsics; their Solidity bodies are not compiled.)",
-                        lib_id.name,
-                        member.name,
-                        lib_id.name,
-                        format_builtin_member_list(supported)
-                    ));
-                    return Some(false);
-                }
+        if let Some(base) = resolve_static_library_base(inner.as_ref(), ctx) {
+            if let Some(supported) = builtin_library_supported_members(base.as_str()) {
+                ctx.record_error(format!(
+                    "unsupported builtin library call '{}.{}'; supported {} intrinsics: {}. (Builtin devpack libraries are compiler intrinsics; their Solidity bodies are not compiled.)",
+                    base,
+                    member.name,
+                    base,
+                    format_builtin_member_list(supported)
+                ));
+                return Some(false);
             }
         }
 

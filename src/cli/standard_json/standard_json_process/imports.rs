@@ -106,16 +106,7 @@ fn build_combined_source_with_import_validation(
                         );
                     }
                 }
-                Import::Rename(path, renames, _) => {
-                    if renames.iter().any(|(_, alias)| alias.is_some()) {
-                        push_error(
-                            errors,
-                            file_name,
-                            "UnsupportedImportSyntax",
-                            "unsupported import aliasing (use `import \"...\";` instead)".to_string(),
-                        );
-                        continue;
-                    }
+                Import::Rename(path, _renames, _) => {
                     if let ImportPath::Filename(lit) = path {
                         imports.push(lit.string.clone());
                     } else {
@@ -127,13 +118,17 @@ fn build_combined_source_with_import_validation(
                         );
                     }
                 }
-                Import::GlobalSymbol(_, _, _) => {
-                    push_error(
-                        errors,
-                        file_name,
-                        "UnsupportedImportSyntax",
-                        "unsupported import form: `import * as X from \"...\"`".to_string(),
-                    );
+                Import::GlobalSymbol(path, _, _) => {
+                    if let ImportPath::Filename(lit) = path {
+                        imports.push(lit.string.clone());
+                    } else {
+                        push_error(
+                            errors,
+                            file_name,
+                            "UnsupportedImportPath",
+                            "unsupported import path kind (path imports are not supported)".to_string(),
+                        );
+                    }
                 }
             }
         }

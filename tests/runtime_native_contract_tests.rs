@@ -20,12 +20,12 @@ fn push_data(script: &mut Vec<u8>, data: &[u8]) {
 /// Push a small integer (0..16) onto the NeoVM stack.
 fn push_int(script: &mut Vec<u8>, val: u8) {
     match val {
-        0 => script.push(0x10),  // PUSH0
-        1 => script.push(0x11),  // PUSH1
-        2 => script.push(0x12),  // PUSH2
-        3 => script.push(0x13),  // PUSH3
-        4 => script.push(0x14),  // PUSH4
-        5 => script.push(0x15),  // PUSH5
+        0 => script.push(0x10),                // PUSH0
+        1 => script.push(0x11),                // PUSH1
+        2 => script.push(0x12),                // PUSH2
+        3 => script.push(0x13),                // PUSH3
+        4 => script.push(0x14),                // PUSH4
+        5 => script.push(0x15),                // PUSH5
         n if n <= 16 => script.push(0x10 + n), // PUSH0..PUSH16
         _ => panic!("push_int only supports 0..16"),
     }
@@ -208,7 +208,11 @@ fn policy_block_and_unblock_account() {
 
     // isBlocked → false
     let result = run_on(&mut ctx, &check_code);
-    assert_eq!(result, vec![0], "isBlocked should return false after unblock");
+    assert_eq!(
+        result,
+        vec![0],
+        "isBlocked should return false after unblock"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -250,7 +254,10 @@ fn oracle_set_and_get_price() {
         }
         buf
     });
-    assert_eq!(val, 100_000_000, "oracle price should be 100000000 after set");
+    assert_eq!(
+        val, 100_000_000,
+        "oracle price should be 100000000 after set"
+    );
 }
 
 #[test]
@@ -310,7 +317,7 @@ fn role_management_designate_and_query() {
     push_data(&mut code, &key1);
     push_int(&mut code, 2);
     code.push(0xC0); // PACK → [key1, key2]
-    // Outer array: push [keys], role so PACK(2) → [role, [keys]]
+                     // Outer array: push [keys], role so PACK(2) → [role, [keys]]
     push_int(&mut code, 4);
     push_int(&mut code, 2);
     code.push(0xC0); // PACK → [4, [key1, key2]]
@@ -324,7 +331,11 @@ fn role_management_designate_and_query() {
 
     // Query role 4
     let query_params = single_int_param(4);
-    let query_code = build_native_call(&ROLE_MANAGEMENT_HASH_LE, "getDesignatedByRole", &query_params);
+    let query_code = build_native_call(
+        &ROLE_MANAGEMENT_HASH_LE,
+        "getDesignatedByRole",
+        &query_params,
+    );
     let result = run_on(&mut ctx, &query_code);
     // Result should be non-empty (serialized array)
     assert!(
@@ -365,7 +376,11 @@ fn ledger_current_index_returns_default_height() {
         buf
     });
     // Default block height is typically 0 or a small number
-    assert!(val < 1_000_000, "currentIndex should be a reasonable height, got {}", val);
+    assert!(
+        val < 1_000_000,
+        "currentIndex should be a reasonable height, got {}",
+        val
+    );
 }
 
 #[test]

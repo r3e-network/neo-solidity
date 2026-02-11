@@ -1,3 +1,73 @@
+fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
+    match value_type {
+        ValueType::Any => None,
+        ValueType::Boolean => Some(ConvertTarget::Boolean),
+        ValueType::Integer { .. } => Some(ConvertTarget::Integer),
+        ValueType::String | ValueType::Address | ValueType::ByteArray { .. } => {
+            Some(ConvertTarget::ByteArray)
+        }
+        ValueType::Array(_) | ValueType::Struct { .. } => Some(ConvertTarget::Array),
+        ValueType::Mapping { .. } => Some(ConvertTarget::Map),
+    }
+}
+
+fn catch_clause_param(clause: &solang_parser::pt::CatchClause) -> Option<&solang_parser::pt::Parameter> {
+    match clause {
+        solang_parser::pt::CatchClause::Simple(_, param, _) => param.as_ref(),
+        solang_parser::pt::CatchClause::Named(_, _, param, _) => Some(param),
+    }
+}
+
+fn catch_clause_statement(clause: &solang_parser::pt::CatchClause) -> &Statement {
+    match clause {
+        solang_parser::pt::CatchClause::Simple(_, _, stmt) => stmt,
+        solang_parser::pt::CatchClause::Named(_, _, _, stmt) => stmt,
+    }
+}
+
+fn is_bare_catch_clause(clause: &solang_parser::pt::CatchClause) -> bool {
+    matches!(clause, solang_parser::pt::CatchClause::Simple(_, None, _))
+}
+
+fn catch_clause_guard_target(
+    clause: &solang_parser::pt::CatchClause,
+    ctx: &mut LoweringContext,
+) -> Option<ConvertTarget> {
+    if let Some(parameter) = catch_clause_param(clause) {
+        return infer_type_from_expression(&parameter.ty, ctx)
+            .as_ref()
+            .and_then(value_type_to_catch_guard);
+    }
+
+    if let solang_parser::pt::CatchClause::Named(_, ident, _, _) = clause {
+        if ident.name == "Panic" {
+            return Some(ConvertTarget::Integer);
+        }
+    }
+
+    None
+}
+
+fn bind_catch_clause_parameter(
+    clause: &solang_parser::pt::CatchClause,
+    catch_local: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let Some(parameter) = catch_clause_param(clause) else {
+        return;
+    };
+
+    let Some(name) = parameter.name.as_ref().map(|id| id.name.clone()) else {
+        return;
+    };
+
+    let inferred = infer_type_from_expression(&parameter.ty, ctx).unwrap_or(ValueType::Any);
+    let slot = ctx.allocate_local(name, Some(inferred));
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::StoreLocal(slot));
+}
+
 fn lower_try_statement(
     expr: &Expression,
     handler: &Option<(solang_parser::pt::ParameterList, Box<Statement>)>,
@@ -7,8 +77,7 @@ fn lower_try_statement(
 ) -> bool {
     // Solidity try/catch is only defined for external calls and contract creation.
     // NeoVM supports structured exception handling via TRY/ENDTRY/ENDFINALLY, so we can
-    // map it directly. The NeoVM catch handler receives the thrown value on the stack;
-    // Solidity catch blocks do not, so we either drop it or bind it to a catch parameter.
+    // map it directly.
 
     let catch_label = ctx.next_label();
     let success_label = ctx.next_label();
@@ -26,54 +95,7 @@ fn lower_try_statement(
 
     let success_stmt = handler_stmt.or(inline_success);
 
-    // Choose a catch clause to lower.
-    //
-    // NeoVM has a single exception type — there is no way to distinguish
-    // `Error(string)` from `Panic(uint256)` or raw `bytes` at the VM level.
-    // We select the BEST catch clause using a priority system:
-    //   1. `catch Error(string reason)` — most common, best diagnostics
-    //   2. `catch (bytes lowLevelData)`  — low-level catch with parameter binding
-    //   3. `catch Panic(uint256 code)`   — NeoVM cannot provide real panic codes
-    //   4. bare `catch {}`               — fallback when nothing else exists
-    let mut selected_catch: Option<(&solang_parser::pt::CatchClause, &Statement)> = None;
-    let mut selected_priority: u8 = 0; // 0 = none, higher = better
-    let mut catch_count = 0usize;
-    for clause in catches {
-        catch_count += 1;
-        let (priority, stmt) = match clause {
-            solang_parser::pt::CatchClause::Named(_, ident, _, stmt) => {
-                let p = if ident.name == "Error" {
-                    4 // highest: catch Error(string)
-                } else if ident.name == "Panic" {
-                    2 // low: NeoVM has no panic code distinction
-                } else {
-                    3 // custom named catch — treat as medium
-                };
-                (p, stmt)
-            }
-            solang_parser::pt::CatchClause::Simple(_, param, stmt) => {
-                if param.is_some() {
-                    (3, stmt) // catch (bytes) with parameter binding
-                } else {
-                    (1, stmt) // bare catch {} — lowest priority
-                }
-            }
-        };
-        if priority > selected_priority {
-            selected_priority = priority;
-            selected_catch = Some((clause, stmt));
-        }
-    }
-
-    if catch_count > 1 {
-        eprintln!(
-            "warning: NeoVM supports only one catch handler; \
-             selected best-matching clause and ignoring {} additional clause(s)",
-            catch_count - 1
-        );
-    }
-
-    if selected_catch.is_none() {
+    if catches.is_empty() {
         ctx.record_error_with_suggestion(
             "try statement without catch clause is not supported",
             "add a catch clause: try expr { ... } catch { ... }",
@@ -125,51 +147,64 @@ fn lower_try_statement(
         target: success_label,
     });
 
-    // Catch handler: bind or drop the thrown value, then execute the catch body.
+    // Catch handler: bind or drop the thrown value, then execute the matching catch body.
     instructions.push(Instruction::Label(catch_label));
     ctx.enter_scope();
 
-    if let Some((clause, catch_stmt)) = selected_catch {
-        let mut bound = false;
-        match clause {
-            solang_parser::pt::CatchClause::Simple(_, param, _) => {
-                if let Some(param) = param {
-                    if let Some(name) = param.name.as_ref().map(|id| id.name.clone()) {
-                        let inferred =
-                            infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);
-                        let slot = ctx.allocate_local(name, Some(inferred));
-                        instructions.push(Instruction::StoreLocal(slot));
-                        bound = true;
-                    }
+    if catches.len() == 1 && is_bare_catch_clause(&catches[0]) {
+        // Preserve existing compact lowering for a lone `catch { ... }`.
+        instructions.push(Instruction::Drop(ValueType::Any));
+        let _ = lower_statement(catch_clause_statement(&catches[0]), ctx, instructions);
+    } else {
+        let catch_local = ctx.allocate_local("__catch_exception".to_string(), None);
+        instructions.push(Instruction::StoreLocal(catch_local));
+
+        let mut fallback_clause: Option<&solang_parser::pt::CatchClause> = None;
+
+        for clause in catches {
+            if is_bare_catch_clause(clause) {
+                if fallback_clause.is_none() {
+                    fallback_clause = Some(clause);
                 }
+                continue;
             }
-            solang_parser::pt::CatchClause::Named(_, ident, param, _) => {
-                // NeoVM does not distinguish Solidity error selectors.
-                // For `catch Panic(uint256 code)` the VM exception value is
-                // bound as-is — it will NOT be a standard Solidity panic code.
+
+            let next_clause_label = ctx.next_label();
+            if let Some(guard_target) = catch_clause_guard_target(clause, ctx) {
+                instructions.push(Instruction::LoadLocal(catch_local));
+                instructions.push(Instruction::IsType {
+                    target: guard_target,
+                });
+                instructions.push(Instruction::JumpIf {
+                    target: next_clause_label,
+                });
+            }
+
+            if let solang_parser::pt::CatchClause::Named(_, ident, _, _) = clause {
                 if ident.name == "Panic" {
                     eprintln!(
-                        "warning: catch Panic(uint256) — NeoVM binds the raw exception value; \
-                         EVM panic code semantics do not apply on Neo N3"
+                        "warning: catch Panic(uint256) uses NeoVM stack-item integer checks; EVM panic code semantics do not fully apply on Neo N3"
                     );
                 }
-                if let Some(name) = param.name.as_ref().map(|id| id.name.clone()) {
-                    let inferred =
-                        infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);
-                    let slot = ctx.allocate_local(name, Some(inferred));
-                    instructions.push(Instruction::StoreLocal(slot));
-                    bound = true;
-                }
             }
+
+            ctx.enter_scope();
+            bind_catch_clause_parameter(clause, catch_local, ctx, instructions);
+            let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+            ctx.exit_scope();
+            instructions.push(Instruction::Jump { target: end_label });
+            instructions.push(Instruction::Label(next_clause_label));
         }
 
-        if !bound {
-            instructions.push(Instruction::Drop(ValueType::Any));
+        if let Some(clause) = fallback_clause {
+            ctx.enter_scope();
+            let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+            ctx.exit_scope();
+        } else {
+            // No fallback clause and no type guard matched: rethrow the original exception.
+            instructions.push(Instruction::LoadLocal(catch_local));
+            instructions.push(Instruction::Throw);
         }
-
-        let _ = lower_statement(catch_stmt, ctx, instructions);
-    } else {
-        instructions.push(Instruction::Drop(ValueType::Any));
     }
 
     ctx.exit_scope();

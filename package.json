@@ -1,6 +1,6 @@
 {
   "name": "@r3e-network/neo-solidity",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "Production-ready Solidity-to-NeoVM compilation system",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

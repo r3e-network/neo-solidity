@@ -5,7 +5,7 @@ pub(crate) fn build_compiled_contract_value(
     settings: &Value,
     source_keccak: Option<&str>,
     nef_source: Option<&str>,
-) -> Value {
+) -> Result<Value, String> {
     let raw_source = nef_source.unwrap_or(file_name);
     let (source_field, _) = clamp_nef_source_with_flag(raw_source);
     let script_hex = hex::encode(&artifact.bytecode);
@@ -42,7 +42,7 @@ pub(crate) fn build_compiled_contract_value(
         source_field.as_ref(),
         &artifact.tokens,
     )
-    .expect("validated bytecode should produce valid NEF");
+    .map_err(|err| format!("failed to build NEF image for standard JSON output: {err}"))?;
     let checksum = if nef_bytes.len() >= 4 {
         hex::encode(&nef_bytes[nef_bytes.len() - 4..])
     } else {
@@ -50,7 +50,7 @@ pub(crate) fn build_compiled_contract_value(
     };
     let nef_image = hex::encode(nef_bytes);
 
-    json!({
+    Ok(json!({
         "abi": abi_entries,
         "metadata": metadata_blob,
         "evm": {
@@ -85,7 +85,7 @@ pub(crate) fn build_compiled_contract_value(
                 "functions": Value::Object(Map::new())
             }
         }
-    })
+    }))
 }
 
 pub(crate) fn build_metadata_blob(

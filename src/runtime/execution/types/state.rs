@@ -60,6 +60,7 @@ pub struct WhitelistedFeeContract {
 }
 
 /// Oracle request record for Oracle native contract
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct OracleRequest {
     /// Unique request identifier
@@ -127,6 +128,7 @@ pub struct LedgerTransaction {
 }
 
 /// Transaction signer matching Neo N3 Signer interop struct
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TransactionSigner {
     /// Signer account script hash (20 bytes)
@@ -140,6 +142,7 @@ pub struct TransactionSigner {
 }
 
 /// Notary deposit tracking for Notary native contract
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct NotaryDeposit {
     /// Depositor account script hash

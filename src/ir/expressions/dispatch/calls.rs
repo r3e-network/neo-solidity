@@ -89,47 +89,26 @@ fn lower_new_expression(
                 instructions.push(Instruction::NewBuffer);
                 return true;
             }
-
-            // `new T[](n)` dynamic arrays.
-            if let Expression::ArraySubscript(_, _, index) = func.as_ref() {
-                if index.is_some() {
-                    ctx.record_error("new fixed-size arrays are not supported");
-                    for arg in args {
-                        if lower_expression(arg, ctx, instructions) {
-                            instructions.push(Instruction::Drop(ValueType::Any));
+            // `new T[](n)` dynamic arrays and `new T[N]()` fixed-size arrays.
+            if let Expression::ArraySubscript(_, array_type_expr, index) = func.as_ref() {
+                if let Some(fixed_len_expr) = index.as_ref() {
+                    if !args.is_empty() {
+                        ctx.record_error("new fixed-size array constructor does not accept runtime arguments");
+                        for arg in args {
+                            if lower_expression(arg, ctx, instructions) {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
                         }
                     }
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                        BigInt::zero(),
-                    )));
-                    instructions.push(Instruction::NewArray {
-                        element_type: ValueType::Any,
-                    });
-                    return true;
+
+                    return lower_new_array_allocation(
+                        array_type_expr.as_ref(),
+                        fixed_len_expr.as_ref(),
+                        ctx,
+                        instructions,
+                    );
                 }
 
-                let Some(ValueType::Array(element_type)) = infer_type_from_expression(func, ctx)
-                else {
-                    ctx.record_error(format!(
-                        "unable to infer element type for new array allocation (`new {}`)",
-                        func.as_ref()
-                    ));
-                    for arg in args {
-                        if lower_expression(arg, ctx, instructions) {
-                            instructions.push(Instruction::Drop(ValueType::Any));
-                        }
-                    }
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                        BigInt::zero(),
-                    )));
-                    instructions.push(Instruction::NewArray {
-                        element_type: ValueType::Any,
-                    });
-                    return true;
-                };
-
-                let tmp_id = ctx.next_label();
-                let len_local = ctx.allocate_local(format!("__new_array_len_{tmp_id}"), None);
                 if args.len() != 1 {
                     ctx.record_error("new array expects exactly one length argument");
                     for arg in args {
@@ -137,58 +116,27 @@ fn lower_new_expression(
                             instructions.push(Instruction::Drop(ValueType::Any));
                         }
                     }
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                        BigInt::zero(),
-                    )));
-                } else if !lower_expression(&args[0], ctx, instructions) {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                        BigInt::zero(),
-                    )));
+
+                    let zero = Expression::NumberLiteral(
+                        Default::default(),
+                        "0".to_string(),
+                        "".to_string(),
+                        None,
+                    );
+                    return lower_new_array_allocation(
+                        array_type_expr.as_ref(),
+                        &zero,
+                        ctx,
+                        instructions,
+                    );
                 }
-                instructions.push(Instruction::StoreLocal(len_local));
 
-                let array_type = ValueType::Array(element_type.clone());
-                let array_local =
-                    ctx.allocate_local(format!("__new_array_{tmp_id}"), Some(array_type));
-
-                instructions.push(Instruction::LoadLocal(len_local));
-                instructions.push(Instruction::NewArray {
-                    element_type: (*element_type).clone(),
-                });
-                instructions.push(Instruction::StoreLocal(array_local));
-
-                // Solidity initializes new memory arrays with element defaults. NeoVM NEWARRAY
-                // fills with nulls, so explicitly write default values for value types.
-                let idx_local = ctx.allocate_local(format!("__new_array_idx_{tmp_id}"), None);
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                    BigInt::zero(),
-                )));
-                instructions.push(Instruction::StoreLocal(idx_local));
-
-                let loop_label = ctx.next_label();
-                let end_label = ctx.next_label();
-
-                instructions.push(Instruction::Label(loop_label));
-                instructions.push(Instruction::LoadLocal(idx_local));
-                instructions.push(Instruction::LoadLocal(len_local));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-                instructions.push(Instruction::JumpIf { target: end_label });
-
-                instructions.push(Instruction::LoadLocal(array_local));
-                instructions.push(Instruction::LoadLocal(idx_local));
-                push_default_for_value_type(element_type.as_ref(), ctx, instructions);
-                instructions.push(Instruction::ArraySet);
-
-                instructions.push(Instruction::LoadLocal(idx_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
-                instructions.push(Instruction::StoreLocal(idx_local));
-
-                instructions.push(Instruction::Jump { target: loop_label });
-                instructions.push(Instruction::Label(end_label));
-
-                instructions.push(Instruction::LoadLocal(array_local));
-                return true;
+                return lower_new_array_allocation(
+                    array_type_expr.as_ref(),
+                    &args[0],
+                    ctx,
+                    instructions,
+                );
             }
 
             // `new Contract(...)` isn't supported on Neo N3 (no contract creation from within contracts).
@@ -213,7 +161,7 @@ fn lower_new_expression(
 
             ctx.record_error_with_suggestion(
                 "unsupported `new` expression",
-                "Neo N3 supports `new bytes(n)`, `new string(n)`, and `new T[](n)` for dynamic arrays; use ContractManagement for contract deployment",
+                "Neo N3 supports `new bytes(n)`, `new string(n)`, `new T[](n)`, and `new T[N]`; use ContractManagement for contract deployment",
             );
             for arg in args {
                 if lower_expression(arg, ctx, instructions) {
@@ -222,6 +170,9 @@ fn lower_new_expression(
             }
             instructions.push(Instruction::PushLiteral(LiteralValue::Null));
             true
+        }
+        Expression::ArraySubscript(_, array_type_expr, Some(length_expr)) => {
+            lower_new_array_allocation(array_type_expr.as_ref(), length_expr.as_ref(), ctx, instructions)
         }
         Expression::FunctionCallBlock(_, _, _) => {
             ctx.record_error_with_suggestion(
@@ -234,12 +185,87 @@ fn lower_new_expression(
         _ => {
             ctx.record_error_with_suggestion(
                 "unsupported `new` expression",
-                "Neo N3 supports `new bytes(n)`, `new string(n)`, and `new T[](n)` for dynamic arrays",
+                "Neo N3 supports `new bytes(n)`, `new string(n)`, `new T[](n)`, and `new T[N]`",
             );
             instructions.push(Instruction::PushLiteral(LiteralValue::Null));
             true
         }
     }
+}
+
+fn lower_new_array_allocation(
+    array_type_expr: &Expression,
+    length_expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let Some(element_type) = infer_type_from_expression(array_type_expr, ctx) else {
+        ctx.record_error(format!(
+            "unable to infer element type for new array allocation (`new {}`)",
+            array_type_expr
+        ));
+        if lower_expression(length_expr, ctx, instructions) {
+            instructions.push(Instruction::Drop(ValueType::Any));
+        }
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
+        instructions.push(Instruction::NewArray {
+            element_type: ValueType::Any,
+        });
+        return true;
+    };
+
+    let tmp_id = ctx.next_label();
+    let len_local = ctx.allocate_local(format!("__new_array_len_{tmp_id}"), None);
+    if !lower_expression(length_expr, ctx, instructions) {
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
+    }
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    let array_type = ValueType::Array(Box::new(element_type.clone()));
+    let array_local = ctx.allocate_local(format!("__new_array_{tmp_id}"), Some(array_type));
+
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::NewArray {
+        element_type: element_type.clone(),
+    });
+    instructions.push(Instruction::StoreLocal(array_local));
+
+    // Solidity initializes new memory arrays with element defaults. NeoVM NEWARRAY
+    // fills with nulls, so explicitly write default values for value types.
+    let idx_local = ctx.allocate_local(format!("__new_array_idx_{tmp_id}"), None);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    let loop_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    instructions.push(Instruction::Label(loop_label));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: end_label });
+
+    instructions.push(Instruction::LoadLocal(array_local));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    push_default_for_value_type(&element_type, ctx, instructions);
+    instructions.push(Instruction::ArraySet);
+
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    instructions.push(Instruction::Jump { target: loop_label });
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(array_local));
+    true
 }
 
 /// Reorder named function call arguments into positional order and delegate

@@ -177,6 +177,7 @@ fn emit_ir_function(
                     emit_event_by_name(&mut local, name, *arg_count)
                 }
                 ir::Instruction::Convert { target } => emit_convert(&mut local, *target),
+                ir::Instruction::IsType { target } => emit_is_type(&mut local, *target),
                 ir::Instruction::NewBuffer => emit_new_buffer(&mut local),
                 ir::Instruction::NewArray { .. } => emit_new_array(&mut local),
                 ir::Instruction::ArrayGet => emit_array_get(&mut local),

@@ -29,6 +29,54 @@ fn self_contract_calls_do_not_require_wildcard_permissions() {
 }
 
 #[test]
+fn self_contract_calls_preserve_state_for_following_calls() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract SelfThenNative {
+        function run() public returns (bytes memory) {
+            bytes memory params = abi.encode(uint256(1));
+            bytes memory ignored = Syscalls.contractCall(address(this), "localPing", params);
+            return Syscalls.contractCall(NativeCalls.GAS_CONTRACT, "totalSupply", ignored);
+        }
+
+        function localPing(uint256 value) public pure returns (uint256) {
+            return value + 1;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
+
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == Value::String(gas_contract.clone())
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "totalSupply"))
+        }),
+        "expected explicit permission for the native GAS totalSupply call"
+    );
+
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| !(entry["contract"] == Value::String("*".into())
+                && entry["methods"] == "*")),
+        "self call followed by native call should not degrade to full wildcard permissions"
+    );
+}
+
+#[test]
 fn syscalls_contract_call_dynamic_method_restricts_to_contract() {
     let source = r#"
     pragma solidity ^0.8.19;

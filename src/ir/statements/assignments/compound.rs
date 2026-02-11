@@ -12,6 +12,10 @@ fn lower_compound_assignment(
     // - The expression result is the stored value (so statement lowering can safely DROP it).
 
     if let Some(mapping) = resolve_mapping_access(lhs, ctx) {
+        if !ctx.ensure_state_writable(mapping.state_index) {
+            return false;
+        }
+
         // Evaluate keys left-to-right (Solidity semantics) and store them so we can reuse them
         // for both the load and the store without re-evaluating side effects.
         let tmp_id = ctx.next_label();
@@ -66,6 +70,10 @@ fn lower_compound_assignment(
     }
 
     if let Some(reference) = resolve_storage_reference(lhs, ctx) {
+        if !ctx.ensure_state_writable(reference.state_index) {
+            return false;
+        }
+
         if let Some(field) = reference.field_path.last() {
             let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
             let tmp_id = ctx.next_label();
@@ -168,8 +176,11 @@ fn lower_compound_assignment(
     if let Expression::Variable(identifier) = lhs {
         let store_instr = if let Some(local) = ctx.resolve_local(&identifier.name) {
             Instruction::StoreLocal(local)
-        } else if let Some(state) = ctx.state_index_map.get(&identifier.name) {
-            Instruction::StoreState(*state)
+        } else if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {
+            if !ctx.ensure_state_writable(state_index) {
+                return false;
+            }
+            Instruction::StoreState(state_index)
         } else {
             let local = ctx.ensure_local(&identifier.name);
             Instruction::StoreLocal(local)

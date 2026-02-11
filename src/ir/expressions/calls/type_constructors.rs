@@ -4,6 +4,33 @@ fn try_lower_type_constructor_call(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
+    // `import * as NS` namespace-qualified contract/interface casts:
+    // `NS.IFoo(target)` should behave like `IFoo(target)`.
+    if let Expression::MemberAccess(_, namespace_expr, type_id) = func {
+        let is_namespace = matches!(
+            namespace_expr.as_ref(),
+            Expression::Variable(namespace_id)
+                if !ctx.param_index_map.contains_key(&namespace_id.name)
+                    && ctx.resolve_local(&namespace_id.name).is_none()
+                    && !ctx.state_index_map.contains_key(&namespace_id.name)
+                    && !ctx.is_contract_type_name(&namespace_id.name)
+        );
+
+        if is_namespace && ctx.is_contract_type_name(&type_id.name) && args.len() == 1 {
+            if matches!(
+                infer_type_from_expression(&args[0], ctx),
+                Some(ValueType::Address)
+            ) {
+                return Some(lower_expression(&args[0], ctx, instructions));
+            }
+
+            if let Some(bytes) = address_bytes_le_from_expression(&args[0]) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                return Some(true);
+            }
+        }
+    }
+
     if let Expression::Type(_, ty) = func {
         match ty {
             PtType::Address | PtType::AddressPayable => {

@@ -190,3 +190,425 @@ fn standard_json_reports_missing_import_error() {
         "expected MissingImport error"
     );
 }
+
+#[test]
+fn standard_json_accepts_import_aliasing_for_dependency_resolution() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import { Lib as MathLib } from "./Lib.sol";
+
+    contract A {
+        function ok() public pure returns (uint256) {
+            return Lib.add(1, 2);
+        }
+    }
+    "#;
+
+    let lib = r#"
+    pragma solidity ^0.8.19;
+
+    library Lib {
+        function add(uint256 a, uint256 b) internal pure returns (uint256) {
+            return a + b;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "Lib.sol": { "content": lib }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output
+        .get("errors")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    assert!(
+        !errors
+            .iter()
+            .any(|e| e.get("type").and_then(Value::as_str) == Some("UnsupportedImportSyntax")),
+        "alias import should not emit UnsupportedImportSyntax: {errors:?}"
+    );
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}
+
+#[test]
+fn standard_json_accepts_global_symbol_import_for_dependency_resolution() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import * as LibNS from "./Lib.sol";
+
+    contract A {
+        function ok() public pure returns (uint256) {
+            return Lib.add(1, 2);
+        }
+    }
+    "#;
+
+    let lib = r#"
+    pragma solidity ^0.8.19;
+
+    library Lib {
+        function add(uint256 a, uint256 b) internal pure returns (uint256) {
+            return a + b;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "Lib.sol": { "content": lib }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output
+        .get("errors")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    assert!(
+        !errors
+            .iter()
+            .any(|e| e.get("type").and_then(Value::as_str) == Some("UnsupportedImportSyntax")),
+        "global-symbol import should not emit UnsupportedImportSyntax: {errors:?}"
+    );
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}
+
+#[test]
+fn standard_json_resolves_aliased_symbol_binding() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import { Lib as MathLib } from "./Lib.sol";
+
+    contract A {
+        function ok() public pure returns (uint256) {
+            return MathLib.add(1, 2);
+        }
+    }
+    "#;
+
+    let lib = r#"
+    pragma solidity ^0.8.19;
+
+    library Lib {
+        function add(uint256 a, uint256 b) internal pure returns (uint256) {
+            return a + b;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "Lib.sol": { "content": lib }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}
+
+#[test]
+fn standard_json_resolves_wildcard_namespace_symbol_binding() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import * as LibNS from "./Lib.sol";
+
+    contract A {
+        function ok() public pure returns (uint256) {
+            return LibNS.Lib.add(1, 2);
+        }
+    }
+    "#;
+
+    let lib = r#"
+    pragma solidity ^0.8.19;
+
+    library Lib {
+        function add(uint256 a, uint256 b) internal pure returns (uint256) {
+            return a + b;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "Lib.sol": { "content": lib }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}
+
+#[test]
+fn standard_json_resolves_wildcard_namespace_type_cast_binding() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import * as LibNS from "./IFoo.sol";
+
+    contract A {
+        function ping(address target) public {
+            LibNS.IFoo(target).foo();
+        }
+    }
+    "#;
+
+    let iface = r#"
+    pragma solidity ^0.8.19;
+
+    interface IFoo {
+        function foo() external;
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "IFoo.sol": { "content": iface }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}
+
+#[test]
+fn standard_json_resolves_wildcard_namespace_selector_binding() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+    import * as LibNS from "./IFoo.sol";
+
+    contract A {
+        function selectorOfFoo() public pure returns (bytes4) {
+            return LibNS.IFoo.foo.selector;
+        }
+    }
+    "#;
+
+    let iface = r#"
+    pragma solidity ^0.8.19;
+
+    interface IFoo {
+        function foo() external;
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source },
+            "IFoo.sol": { "content": iface }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    assert!(
+        output["contracts"]["A.sol"]["A"].is_object(),
+        "expected compiled contract artifact for A.sol/A"
+    );
+}

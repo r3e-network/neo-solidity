@@ -806,20 +806,15 @@ fn test_native_contract_showcase_manifest_methods() {
     assert!(result.is_ok(), "Failed to compile NativeContractShowcase");
 
     let (_, manifest_path) = result.unwrap();
-    let manifest_data = std::fs::read_to_string(&manifest_path)
-        .expect("Failed to read manifest");
+    let manifest_data = std::fs::read_to_string(&manifest_path).expect("Failed to read manifest");
 
-    let json: serde_json::Value =
-        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+    let json: serde_json::Value = serde_json::from_str(&manifest_data).expect("Invalid JSON");
 
     let methods = json["abi"]["methods"]
         .as_array()
         .expect("ABI methods should be an array");
 
-    let method_names: Vec<&str> = methods
-        .iter()
-        .filter_map(|m| m["name"].as_str())
-        .collect();
+    let method_names: Vec<&str> = methods.iter().filter_map(|m| m["name"].as_str()).collect();
 
     // Verify key methods from each native contract section are present
     let expected = [
@@ -848,11 +843,9 @@ fn test_native_contract_showcase_manifest_permissions() {
     assert!(result.is_ok(), "Failed to compile NativeContractShowcase");
 
     let (_, manifest_path) = result.unwrap();
-    let manifest_data = std::fs::read_to_string(&manifest_path)
-        .expect("Failed to read manifest");
+    let manifest_data = std::fs::read_to_string(&manifest_path).expect("Failed to read manifest");
 
-    let json: serde_json::Value =
-        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+    let json: serde_json::Value = serde_json::from_str(&manifest_data).expect("Invalid JSON");
 
     let permissions = json["permissions"]
         .as_array()
@@ -1073,18 +1066,13 @@ fn test_library_showcase_manifest_has_compute_method() {
     assert!(result.is_ok(), "Failed to compile LibraryShowcase");
 
     let (_, manifest_path) = result.unwrap();
-    let manifest_data =
-        std::fs::read_to_string(&manifest_path).expect("Failed to read manifest");
-    let json: serde_json::Value =
-        serde_json::from_str(&manifest_data).expect("Invalid JSON");
+    let manifest_data = std::fs::read_to_string(&manifest_path).expect("Failed to read manifest");
+    let json: serde_json::Value = serde_json::from_str(&manifest_data).expect("Invalid JSON");
 
     let methods = json["abi"]["methods"]
         .as_array()
         .expect("ABI methods should be an array");
-    let method_names: Vec<&str> = methods
-        .iter()
-        .filter_map(|m| m["name"].as_str())
-        .collect();
+    let method_names: Vec<&str> = methods.iter().filter_map(|m| m["name"].as_str()).collect();
 
     assert!(
         method_names.contains(&"compute"),
@@ -1103,10 +1091,7 @@ fn test_library_external_function_error() {
 
 #[test]
 fn test_library_state_variable_error() {
-    assert_compile_error_contains(
-        "new/LibraryStateVarError.sol",
-        "cannot have state variable",
-    );
+    assert_compile_error_contains("new/LibraryStateVarError.sol", "cannot have state variable");
 }
 
 #[test]
@@ -1121,18 +1106,12 @@ fn test_library_constructor_error() {
 
 #[test]
 fn test_fixed_point_type_error() {
-    assert_compile_error_contains(
-        "new/FixedPointError.sol",
-        "fixed-point type",
-    );
+    assert_compile_error_contains("new/FixedPointError.sol", "fixed-point type");
 }
 
 #[test]
 fn test_fixed_point_suggestion() {
-    assert_compile_error_contains(
-        "new/FixedPointError.sol",
-        "not supported on NeoVM",
-    );
+    assert_compile_error_contains("new/FixedPointError.sol", "not supported on NeoVM");
 }
 
 #[test]

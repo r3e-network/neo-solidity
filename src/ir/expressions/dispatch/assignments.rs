@@ -98,6 +98,10 @@ fn lower_delete(
 ) -> bool {
     // Storage delete: reset to the storage-default value.
     if let Some(reference) = resolve_storage_reference(target, ctx) {
+        if !ctx.ensure_state_writable(reference.state_index) {
+            return false;
+        }
+
         // Solidity allows `delete` on mappings, but it cannot clear all keys; treat as a no-op.
         if matches!(reference.value_type, ValueType::Mapping { .. }) {
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
@@ -138,6 +142,10 @@ fn lower_delete(
         }
 
         if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {
+            if !ctx.ensure_state_writable(state_index) {
+                return false;
+            }
+
             if let Some(state_type) = ctx.state_type(state_index).cloned() {
                 if matches!(state_type, ValueType::Mapping { .. }) {
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(

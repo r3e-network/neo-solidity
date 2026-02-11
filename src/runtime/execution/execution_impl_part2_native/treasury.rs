@@ -35,7 +35,7 @@ impl ExecutionContext {
                     let tokens = self
                         .treasury_nep11_tokens
                         .entry(from)
-                        .or_insert_with(Vec::new);
+                        .or_default();
                     tokens.push(token_id);
                 }
                 StackItem::Null

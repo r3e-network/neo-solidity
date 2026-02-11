@@ -52,11 +52,11 @@ impl ExecutionContext {
                 let _args = self.pop_stack()?;
                 let _call_flags = self.pop_stack()?;
                 let _script = self.pop_stack()?;
-                return Err(RuntimeError::ExecutionError {
+                Err(RuntimeError::ExecutionError {
                     message: "System.Runtime.LoadScript is not supported in the embedded \
                              runtime. Use System.Contract.Call for inter-contract calls."
                         .to_string(),
-                });
+                })
             }
             "System.Runtime.GetScriptContainer" => {
                 // Return a Transaction-like array matching the Neo devpack field order:

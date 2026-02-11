@@ -66,12 +66,12 @@ impl ExecutionContext {
     /// Generate a deterministic synthetic block from an index using SHA-256.
     fn generate_synthetic_block(index: u64) -> LedgerBlock {
         let seed = index.to_le_bytes();
-        let hash_bytes = Sha256::digest(&seed);
+        let hash_bytes = Sha256::digest(seed);
         let mut hash = [0u8; 32];
         hash.copy_from_slice(&hash_bytes);
 
         let prev_seed = index.wrapping_sub(1).to_le_bytes();
-        let prev_bytes = Sha256::digest(&prev_seed);
+        let prev_bytes = Sha256::digest(prev_seed);
         let mut prev_hash = [0u8; 32];
         prev_hash.copy_from_slice(&prev_bytes);
 

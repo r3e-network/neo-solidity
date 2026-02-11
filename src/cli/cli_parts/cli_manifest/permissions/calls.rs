@@ -68,6 +68,12 @@ fn analyze_contract_calls(function: &ir::Function) -> Vec<ContractCallRequiremen
                         //
                         // Note: native contract calls are still tracked separately and will
                         // emit explicit permissions as required.
+                        if apply_instruction(&mut state, instr).is_err() {
+                            state.stack.clear();
+                            for slot in &mut state.locals {
+                                *slot = AbstractValue::Unknown;
+                            }
+                        }
                         continue;
                     }
 

@@ -36,7 +36,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `break`                | Supported | Loop exit                                                                                                                                   |
 | `continue`             | Supported | Loop skip                                                                                                                                   |
 | `return`               | Supported | Single and multi-value returns                                                                                                              |
-| `try` / `catch`        | Supported | `catch Error(string)`, `catch (bytes)`, `catch Panic(uint256)` all supported; NeoVM binds raw exception value (no EVM selector distinction) |
+| `try` / `catch`        | Supported | Multi-clause dispatch lowered via runtime `ISTYPE` guards; selector-level EVM error distinction is not available on NeoVM |
 | `revert`               | Supported | With and without error message                                                                                                              |
 | `revert` custom errors | Supported | `error MyError(uint256)` syntax                                                                                                             |
 | `require`              | Supported | With optional message string or `CustomError(...)` (Solidity 0.8.26+)                                                                       |
@@ -81,7 +81,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | ------------------------- | --------- | ------------------------------------------------------ |
 | State variables           | Supported | Persisted via Neo Storage syscalls                     |
 | `constant`                | Supported | Inlined at compile time                                |
-| `immutable`               | Partial   | Treated as constant; set-once semantics in constructor |
+| `immutable`               | Partial   | Writes outside constructor/deploy initialization are rejected |
 | Nested mappings           | Supported | Prefix-based key concatenation                         |
 | Dynamic arrays in storage | Supported | Length-prefixed with index keys                        |
 | `delete`                  | Supported | Resets to default value / removes storage key          |
@@ -101,8 +101,8 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | ---------------------------------- | --------- | ---------------------------------------- |
 | Plain import (`import "file.sol"`) | Supported | Resolved via `-I` include paths          |
 | Named import (`import {X} from`)   | Supported | Selective symbol import                  |
-| Aliased import (`import {X as Y}`) | Supported | Renamed symbol binding                   |
-| Wildcard import (`import * as X`)  | Supported | Namespace-style import (warning emitted) |
+| Aliased import (`import {X as Y}`) | Partial   | Dependency resolution and many aliased static symbol calls are supported; aliased contract/interface casts, selector forms, and `abi.encodeCall` function references remain limited |
+| Wildcard import (`import * as X`)  | Partial   | Dependency resolution plus `X.Symbol.member(...)` static calls, `X.Symbol(addr)` casts, and `X.Symbol.method.selector` are supported; broader namespace rewriting remains limited |
 | Remappings                         | Partial   | `-I` flag provides basic path remapping  |
 
 ## ABI Encoding

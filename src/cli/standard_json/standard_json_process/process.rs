@@ -160,14 +160,27 @@ pub(crate) fn process_standard_json_content(
                             }));
                         }
 
-                        let compiled_contract = build_compiled_contract_value(
+                        let compiled_contract = match build_compiled_contract_value(
                             &target_file,
                             &artifact,
                             &abi_entries,
                             &request.settings,
                             source_keccak,
                             Some(source_field.as_ref()),
-                        );
+                        ) {
+                            Ok(value) => value,
+                            Err(message) => {
+                                errors.push(json!({
+                                    "component": "neo-solidity",
+                                    "severity": "error",
+                                    "type": "StandardJsonOutput",
+                                    "sourceLocation": { "file": target_file },
+                                    "formattedMessage": message,
+                                    "message": message,
+                                }));
+                                continue;
+                            }
+                        };
 
                         let per_file_value = contracts_output
                             .entry(target_file.clone())

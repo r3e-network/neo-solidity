@@ -378,3 +378,240 @@ fn syscalls_contract_call_defaults_to_read_only_in_view_functions() {
         "expected view-context Syscalls.contractCall lowering to push CallFlags.ReadOnly (0x05)"
     );
 }
+
+#[test]
+fn low_level_call_supports_bytes_wrapped_inline_call_data() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract WrappedInlineHarness {
+        function run(address target) public returns (bool ok) {
+            (bool success, bytes memory out) = target.call(bytes(abi.encodeWithSignature("foo(uint256)", 7)));
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "WrappedInlineHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level call lowering to use ContractCall for bytes-wrapped inline payload"
+    );
+}
+
+#[test]
+fn low_level_call_supports_bytes_wrapped_call_data_variable() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract WrappedVariableHarness {
+        function run(address target) public returns (bool ok) {
+            bytes memory data = bytes(abi.encodeWithSignature("foo(uint256)", 7));
+            (bool success, bytes memory out) = target.call(bytes(data));
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "WrappedVariableHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level call lowering to use ContractCall for bytes-wrapped variable payload"
+    );
+}
+
+#[test]
+fn low_level_call_supports_encode_call_inline_payload() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    interface IFoo {
+        function bar(uint256 x) external returns (bool);
+    }
+
+    contract EncodeCallInlineHarness {
+        function run(address target) public returns (bool ok) {
+            (bool success, bytes memory out) = target.call(abi.encodeCall(IFoo.bar, (7)));
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "EncodeCallInlineHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::String(bytes)) if bytes == b"bar"
+        )),
+        "expected encodeCall lowering to recover method name 'bar'"
+    );
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level encodeCall lowering to use ContractCall"
+    );
+}
+
+#[test]
+fn low_level_call_supports_encode_call_variable_payload() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    interface IFoo {
+        function bar(uint256 x) external returns (bool);
+    }
+
+    contract EncodeCallVariableHarness {
+        function run(address target) public returns (bool ok) {
+            bytes memory data = abi.encodeCall(IFoo.bar, (7));
+            (bool success, bytes memory out) = target.call(data);
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "EncodeCallVariableHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::String(bytes)) if bytes == b"bar"
+        )),
+        "expected encodeCall variable lowering to recover method name 'bar'"
+    );
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::CallBuiltin {
+                builtin: ir::BuiltinCall::ContractCall,
+                ..
+            }
+        )),
+        "expected low-level encodeCall variable lowering to use ContractCall"
+    );
+}
+
+#[test]
+fn low_level_call_rejects_encode_call_non_function_reference() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract CallHarness {
+        struct S {
+            uint256 x;
+        }
+
+        function run(address target) public returns (bool ok, bytes memory out) {
+            S memory s = S({ x: 1 });
+            (ok, out) = target.call(abi.encodeCall(s.x, (7)));
+        }
+    }
+    "#;
+
+    let err = compile_contracts(source, false, 0).expect_err("expected compilation failure");
+    match err {
+        CompileError::Ir(messages) => {
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.message.contains("abi.encodeCall has an unsupported function reference")),
+                "unexpected IR diagnostics: {messages:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}

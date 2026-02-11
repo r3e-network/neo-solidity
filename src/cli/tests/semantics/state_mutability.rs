@@ -177,3 +177,56 @@ fn pure_functions_reject_environment_reads() {
         other => panic!("unexpected error variant: {other:?}"),
     }
 }
+#[test]
+fn immutable_state_reassignment_outside_constructor_is_rejected() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract ImmutableWrite {
+        uint256 immutable seed;
+
+        constructor() {
+            seed = 1;
+        }
+
+        function rewrite() public {
+            seed = 2;
+        }
+    }
+    "#;
+
+    let err = compile_contracts(source, false, 0).expect_err("expected compilation failure");
+    match err {
+        CompileError::Ir(messages) => {
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.message.contains("immutable state variable")),
+                "unexpected error messages: {messages:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn immutable_state_assignment_in_constructor_is_allowed() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract ImmutableCtor {
+        uint256 immutable seed;
+
+        constructor(uint256 value) {
+            seed = value;
+        }
+
+        function get() public view returns (uint256) {
+            return seed;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+}

@@ -30,58 +30,176 @@ fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext) -> Option<
 	}
 }
 
+fn is_single_argument_bytes_or_type_wrapper(func: &Expression, args: &[Expression]) -> bool {
+	if args.len() != 1 {
+		return false;
+	}
+
+	match func {
+		Expression::Type(_, _) => true,
+		Expression::Variable(id) => id.name == "bytes" || id.name == "string",
+		_ => false,
+	}
+}
+
+fn is_contract_type_reference(expr: &Expression, ctx: &LoweringContext) -> bool {
+	match expr {
+		Expression::Variable(type_id) => ctx.is_contract_type_name(&type_id.name),
+		Expression::MemberAccess(_, namespace_expr, type_id) => {
+			matches!(
+				namespace_expr.as_ref(),
+				Expression::Variable(namespace_id)
+					if !ctx.param_index_map.contains_key(&namespace_id.name)
+						&& ctx.resolve_local(&namespace_id.name).is_none()
+						&& !ctx.state_index_map.contains_key(&namespace_id.name)
+						&& !ctx.is_contract_type_name(&namespace_id.name)
+			) && ctx.is_contract_type_name(&type_id.name)
+		}
+		_ => false,
+	}
+}
+
+fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+	if let Some(name) = resolve_selector_method_name(expr, ctx) {
+		if !name.trim().is_empty() {
+			return Some(name);
+		}
+	}
+
+	match expr {
+		Expression::Parenthesis(_, inner) => resolve_encode_call_method_name(inner, ctx),
+		Expression::FunctionCall(_, func, args)
+			if is_single_argument_bytes_or_type_wrapper(func.as_ref(), args.as_slice()) =>
+		{
+			resolve_encode_call_method_name(&args[0], ctx)
+		}
+		Expression::MemberAccess(_, inner, member) => {
+			if member.name == "selector" {
+				if let Expression::MemberAccess(_, type_expr, function_member) = inner.as_ref() {
+					if is_contract_type_reference(type_expr.as_ref(), ctx) {
+						let function_name = function_member.name.trim();
+						if !function_name.is_empty() {
+							return Some(function_name.to_string());
+						}
+					}
+				}
+				return None;
+			}
+
+			if !is_contract_type_reference(inner.as_ref(), ctx) {
+				return None;
+			}
+
+			let name = member.name.trim();
+			if name.is_empty() {
+				None
+			} else {
+				Some(name.to_string())
+			}
+		}
+		_ => None,
+	}
+}
+
+fn extract_encode_call_arguments<'a>(expr: &'a Expression) -> Option<Vec<&'a Expression>> {
+	match expr {
+		Expression::Parenthesis(_, inner) => extract_encode_call_arguments(inner),
+		Expression::FunctionCall(_, func, args)
+			if is_single_argument_bytes_or_type_wrapper(func.as_ref(), args.as_slice()) =>
+		{
+			extract_encode_call_arguments(&args[0])
+		}
+		Expression::List(_, params) => {
+			let mut arguments = Vec::with_capacity(params.len());
+			for (_, param) in params {
+				let param = param.as_ref()?;
+				arguments.push(&param.ty);
+			}
+			Some(arguments)
+		}
+		_ => Some(vec![expr]),
+	}
+}
+
 fn parse_low_level_call_data<'a>(
 	expr: &'a Expression,
 	ctx: &LoweringContext,
-) -> Result<Option<(String, &'a [Expression])>, String> {
-	let Expression::FunctionCall(_, func, args) = expr else {
-		return Ok(None);
-	};
-
-	let Expression::MemberAccess(_, inner, member) = func.as_ref() else {
-		return Ok(None);
-	};
-
-	if !matches!(inner.as_ref(), Expression::Variable(id) if id.name == "abi") {
-		return Ok(None);
-	}
-
-	match member.name.as_str() {
-		"encodeWithSignature" => {
-			let Some((first, rest)) = args.split_first() else {
-				return Err("abi.encodeWithSignature requires a signature argument".to_string());
-			};
-
-			let signature = resolve_signature_string(first, ctx).ok_or_else(|| {
-				"abi.encodeWithSignature signature must be a string literal or a constant string"
-					.to_string()
-			})?;
-
-			let name = signature
-				.split('(')
-				.next()
-				.unwrap_or(signature.as_str())
-				.trim()
-				.to_string();
-			if name.is_empty() {
-				return Err(
-					"abi.encodeWithSignature signature must include a function name".to_string(),
-				);
-			}
-			Ok(Some((name, rest)))
+) -> Result<Option<(String, Vec<&'a Expression>)>, String> {
+	match expr {
+		Expression::Parenthesis(_, inner) => parse_low_level_call_data(inner, ctx),
+		Expression::FunctionCall(_, func, args)
+			if is_single_argument_bytes_or_type_wrapper(func.as_ref(), args.as_slice()) =>
+		{
+			parse_low_level_call_data(&args[0], ctx)
 		}
-		"encodeWithSelector" => {
-			let Some((first, rest)) = args.split_first() else {
-				return Err("abi.encodeWithSelector requires a selector argument".to_string());
+		Expression::FunctionCall(_, func, args) => {
+			let Expression::MemberAccess(_, inner, member) = func.as_ref() else {
+				return Ok(None);
 			};
 
-			let name = resolve_selector_method_name(first, ctx).ok_or_else(|| {
-				"abi.encodeWithSelector has an unsupported selector".to_string()
-			})?;
-			if name.trim().is_empty() {
-				return Err("abi.encodeWithSelector selector resolves to an empty name".to_string());
+			if !matches!(inner.as_ref(), Expression::Variable(id) if id.name == "abi") {
+				return Ok(None);
 			}
-			Ok(Some((name, rest)))
+
+			match member.name.as_str() {
+				"encodeWithSignature" => {
+					let Some((first, rest)) = args.split_first() else {
+						return Err("abi.encodeWithSignature requires a signature argument".to_string());
+					};
+
+					let signature = resolve_signature_string(first, ctx).ok_or_else(|| {
+						"abi.encodeWithSignature signature must be a string literal or a constant string"
+							.to_string()
+					})?;
+
+					let name = signature
+						.split('(')
+						.next()
+						.unwrap_or(signature.as_str())
+						.trim()
+						.to_string();
+					if name.is_empty() {
+						return Err(
+							"abi.encodeWithSignature signature must include a function name".to_string(),
+						);
+					}
+					Ok(Some((name, rest.iter().collect())))
+				}
+				"encodeWithSelector" => {
+					let Some((first, rest)) = args.split_first() else {
+						return Err("abi.encodeWithSelector requires a selector argument".to_string());
+					};
+
+					let name = resolve_selector_method_name(first, ctx).ok_or_else(|| {
+						"abi.encodeWithSelector has an unsupported selector".to_string()
+					})?;
+					if name.trim().is_empty() {
+						return Err(
+							"abi.encodeWithSelector selector resolves to an empty name".to_string(),
+						);
+					}
+					Ok(Some((name, rest.iter().collect())))
+				}
+				"encodeCall" => {
+					if args.len() != 2 {
+						return Err(
+							"abi.encodeCall requires function selector and tuple argument list"
+								.to_string(),
+						);
+					}
+
+					let method_name = resolve_encode_call_method_name(&args[0], ctx)
+						.ok_or_else(|| "abi.encodeCall has an unsupported function reference".to_string())?;
+
+					let call_args = extract_encode_call_arguments(&args[1]).ok_or_else(|| {
+						"abi.encodeCall tuple argument list must contain positional expressions"
+							.to_string()
+					})?;
+
+					Ok(Some((method_name, call_args)))
+				}
+				_ => Ok(None),
+			}
 		}
 		_ => Ok(None),
 	}
@@ -90,6 +208,11 @@ fn parse_low_level_call_data<'a>(
 fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(usize, String)> {
 	match expr {
 		Expression::Parenthesis(_, inner) => resolve_call_data_local(inner, ctx),
+		Expression::FunctionCall(_, func, args)
+			if is_single_argument_bytes_or_type_wrapper(func.as_ref(), args.as_slice()) =>
+		{
+			resolve_call_data_local(&args[0], ctx)
+		}
 		Expression::Variable(identifier) => {
 			let slot = ctx.resolve_local(&identifier.name)?;
 			let method = ctx.call_data_method_for_local(slot)?.to_string();
@@ -98,7 +221,6 @@ fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(
 		_ => None,
 	}
 }
-
 fn try_lower_low_level_address_call(
 	func: &Expression,
 	args: &[Expression],
@@ -150,7 +272,7 @@ fn try_lower_low_level_address_call(
 					)));
 
 					let mut lowered = true;
-					for call_arg in encode_args {
+					for call_arg in &encode_args {
 						if !lower_expression(call_arg, ctx, instructions) {
 							lowered = false;
 						}

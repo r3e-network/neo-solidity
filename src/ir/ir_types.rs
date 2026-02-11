@@ -156,6 +156,10 @@ pub enum Instruction {
     Convert {
         target: ConvertTarget,
     },
+    /// NeoVM `ISTYPE` opcode. Checks whether the top stack item matches a StackItemType and pushes a boolean.
+    IsType {
+        target: ConvertTarget,
+    },
     /// Allocate a new mutable buffer (NeoVM `NEWBUFFER`) whose length is taken from the stack.
     /// Used to implement Solidity `new bytes(n)` / `new string(n)` allocations.
     NewBuffer,

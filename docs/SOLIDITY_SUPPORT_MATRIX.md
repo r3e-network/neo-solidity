@@ -1,9 +1,9 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.9.9
+> **Compiler**: neo-solidity v0.9.10
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
-> **Audit date**: 2026-02-09
+> **Audit date**: 2026-02-11
 
 Legend:
 
@@ -30,7 +30,7 @@ Legend:
 | `struct`                                 | ✅     | Full struct support with nested fields; `StructDefinition` converted  |
 | `mapping(K => V)`                        | ✅     | Storage mappings with Neo StorageMap; key type validation enforced    |
 | `T[]` (dynamic array)                    | ✅     | `new T[](n)` allocation supported                                     |
-| `T[N]` (fixed array)                     | ⚠️     | Parsed; `new T[N]` blocked with error — use dynamic arrays            |
+| `T[N]` (fixed array)                     | ⚠️     | Parsed; `new T[N]` supported when `N` is compile-time constant         |
 | `fixed` / `ufixed`                       | ❌     | Not supported (also unsupported in mainline Solidity)                 |
 | User-defined value types (`type X is Y`) | ✅     | Transparent type aliases; `wrap`/`unwrap` compile to no-ops           |
 | `bytes.concat(...)`                      | ✅     | Chains NeoVM CAT opcodes; zero args produce empty byte array          |
@@ -53,7 +53,7 @@ Legend:
 | Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                       |
 | `delete`                                      | ✅     | State vars, mapping entries, locals, array elements, struct fields      |
 | Tuple expressions `(a, b, c)`                 | ✅     | `Expression::List` lowered to NeoVM arrays                              |
-| Tuple destructuring `(a, b) = f()`            | ⚠️     | Basic support; complex nested destructuring may fail                    |
+| Tuple destructuring `(a, b) = f()`            | ⚠️     | Nested destructuring assignment supported; some complex target forms still require intermediate locals |
 | Type casting                                  | ✅     | `TypeCastingShowcase.sol` example compiles                              |
 | `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                             |
 | `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                    |
@@ -88,7 +88,7 @@ Legend:
 | `assembly { ... }`        | 🚫     | Blocked: "inline assembly is not supported — use NativeCalls.sol"              |
 | `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                        |
 | `catch Error(string)`     | ✅     | Named catch with parameter binding                                             |
-| `catch Panic(uint256)`    | ⚠️     | Parsed but NeoVM has no panic code distinction                                 |
+| `catch Panic(uint256)`    | ⚠️     | Lowered with runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes |
 | `catch (bytes)`           | ✅     | Low-level catch with raw bytes                                                 |
 
 ---
@@ -164,7 +164,7 @@ Legend:
 | Custom error definitions (`error X(...)`) | ✅     | Parsed and used in revert statements                      |
 | `try` / `catch`                           | ✅     | NeoVM TRY/ENDTRY structured exception handling            |
 | `try` with return binding                 | ✅     | `try f() returns (uint r) { ... }` supported              |
-| Multiple catch clauses                    | ⚠️     | Only one catch clause selected (prefers plain `catch {}`) |
+| Multiple catch clauses                    | ⚠️     | Lowered with runtime stack-item type guards (`ISTYPE`); selector-level `Error`/`Panic` distinction remains limited |
 
 ---
 

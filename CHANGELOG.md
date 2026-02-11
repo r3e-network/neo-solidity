@@ -54,6 +54,38 @@ is uint256` and `Price.wrap(...)`.
 - Inheritance flattening (`flatten.rs`) now merges type aliases and preserves
   `__super_` methods through the C3 linearization chain.
 
+## [v0.9.10] - 2026-02-11
+
+### Added
+
+- **Import support expansion**: wildcard namespace bindings now support
+  static member calls, namespace-qualified contract/interface casts, and
+  selector access forms such as `NS.IFoo.foo.selector`.
+- Standard JSON regression coverage for alias/wildcard import behavior,
+  including namespace cast and selector forms.
+- Low-level call regression coverage for `abi.encodeCall(...)` inline,
+  local-variable, and invalid-reference cases.
+
+### Changed
+
+- Low-level call parsing now accepts `abi.encodeCall(...)` payloads in the
+  same lowering path as `encodeWithSignature/encodeWithSelector`, including
+  simple wrapper forms like `bytes(...)` / `string(...)`.
+- `try/catch` lowering now emits runtime type-guard dispatch (`ISTYPE`) for
+  multi-clause catch handling, with clearer NeoVM-specific Panic diagnostics.
+- `immutable` state variable enforcement tightened to constructor / `_deploy`
+  initialization only.
+- Feature matrices and README support notes updated to reflect current import,
+  low-level call, and catch-clause behavior.
+
+### Fixed
+
+- **Low-level `abi.encodeCall` validation bug**: non-function member
+  expressions (e.g. `s.x`) are no longer accepted as function references for
+  dynamic low-level calls.
+- Fixed-size `new T[N]` allocations now lower correctly for compile-time sizes.
+- Nested tuple destructuring lowering reliability improved for mixed targets.
+
 ## [v0.9.9] - 2026-02-09
 
 ### Added
@@ -217,7 +249,8 @@ is uint256` and `Price.wrap(...)`.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.9.9...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.9.10...HEAD
+[v0.9.10]: https://github.com/r3e-network/neo-solidity/compare/v0.9.9...v0.9.10
 [v0.9.9]: https://github.com/r3e-network/neo-solidity/compare/v0.9.8...v0.9.9
 [v0.9.8]: https://github.com/r3e-network/neo-solidity/compare/v0.9.7...v0.9.8
 [v0.9.7]: https://github.com/r3e-network/neo-solidity/compare/v0.9.6...v0.9.7

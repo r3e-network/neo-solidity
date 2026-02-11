@@ -74,7 +74,7 @@ fn lower_variable_definition_statement(
                             // Support `bytes data = abi.encodeWithSignature/encodeWithSelector(...)`
                             // for subsequent `address.call(data)` lowering.
                             let mut lowered = true;
-                            for arg in encode_args {
+                            for arg in &encode_args {
                                 if !lower_expression(arg, ctx, instructions) {
                                     lowered = false;
                                 }

@@ -234,6 +234,39 @@ impl<'a> LoweringContext<'a> {
         self.state_variables.get(index)
     }
 
+    fn can_write_state(&self, state_index: usize) -> bool {
+        let Some(meta) = self.state_metadata(state_index) else {
+            return true;
+        };
+
+        if !meta.is_immutable {
+            return true;
+        }
+
+        self.function_name == "constructor" || self.function_name == "_deploy"
+    }
+
+    fn ensure_state_writable(&mut self, state_index: usize) -> bool {
+        if self.can_write_state(state_index) {
+            return true;
+        }
+
+        let variable_name = self
+            .state_metadata(state_index)
+            .and_then(|meta| meta.name.as_deref())
+            .unwrap_or("<unnamed>")
+            .to_string();
+
+        self.record_error_with_suggestion(
+            format!(
+                "cannot assign to immutable state variable '{}' outside constructor/deploy initialization",
+                variable_name
+            ),
+            "initialize immutable values in the declaration or constructor only",
+        );
+        false
+    }
+
     fn parameter_type(&self, name: &str) -> Option<&ValueType> {
         self.param_index_map
             .get(name)

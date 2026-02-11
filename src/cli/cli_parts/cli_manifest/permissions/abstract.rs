@@ -103,6 +103,10 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
             pop_value(&mut state.stack)?;
             state.stack.push(AbstractValue::Unknown);
         }
+        IsType { .. } => {
+            pop_value(&mut state.stack)?;
+            state.stack.push(AbstractValue::Unknown);
+        }
         NewBuffer => {
             pop_value(&mut state.stack)?;
             state.stack.push(AbstractValue::Unknown);

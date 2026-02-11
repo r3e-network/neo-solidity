@@ -92,10 +92,15 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     let mut contract_types: Vec<String> = Vec::new();
     let mut seen_contract_types = std::collections::HashSet::new();
     for contract in contract_map.values() {
-        if matches!(
-            contract.kind,
-            ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface
-        ) && seen_contract_types.insert(contract.name.to_ascii_lowercase())
+        let include_as_contract_type = match contract.kind {
+            ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
+                true
+            }
+            ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
+        };
+
+        if include_as_contract_type
+            && seen_contract_types.insert(contract.name.to_ascii_lowercase())
         {
             contract_types.push(contract.name.clone());
         }
