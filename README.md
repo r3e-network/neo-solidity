@@ -945,16 +945,19 @@ make publish
 - 🔄 Fuzzing framework (planned)
 - 🔄 Differential testing (EVM vs NeoVM) (planned)
 
-#### **Developer Tools (~85% Complete)**
+#### **Developer Tools (~95% Complete)**
 
 - ✅ CLI tools (neo-solc) - fully functional
 - ✅ Hardhat integration (@neo-solidity/hardhat-solc-neo)
 - ✅ Hardhat deployer (@neo-solidity/hardhat-neo-deployer)
-- ✅ Foundry adapter scaffolding (@neo-solidity/neo-foundry)
+- ✅ Foundry adapter (@neo-solidity/neo-foundry)
 - ✅ ABI router (@neo-solidity/abi-router)
 - ✅ Shared types (@neo-solidity/types)
 - ✅ CLI tools package (@neo-solidity/cli-tools)
-- 🔄 Debug tooling (planned)
+- ✅ Debug tooling (@neo-solidity/types/debugger)
+- ✅ Network configurations for Neo TestNet/MainNet
+- ✅ Artifact management
+- ✅ Source map support
 
 #### **Documentation (~95% Complete)**
 
