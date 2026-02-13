@@ -72,8 +72,8 @@ jobs:
 
       - name: Run code coverage
         run: |
-          cargo install cargo-tarpaulin --version 0.30.0
-          cargo tarpaulin --out Lcov --output-dir coverage
+          cargo install cargo-tarpaulin --locked
+          cargo tarpaulin --out Lcov --output-dir coverage --locked
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -179,7 +179,6 @@ jobs:
         run: |
           jq -e '.name and .abi and .permissions' TestERC20.manifest.json > /dev/null || exit 1
           echo "✅ Manifest structure validation passed"
-
 
   # ================================
   # Neo-Express Showcase Smoke Tests
