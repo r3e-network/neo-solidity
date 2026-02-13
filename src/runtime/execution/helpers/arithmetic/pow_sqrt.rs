@@ -22,9 +22,19 @@ impl ExecutionContext {
         };
 
         match a {
-            StackItem::Integer(base) => Ok(StackItem::Integer(base.wrapping_pow(exponent))),
+            StackItem::Integer(base) => {
+                base.checked_pow(exponent).map(StackItem::Integer).ok_or_else(|| {
+                    RuntimeError::ExecutionError {
+                        message: format!("POW overflow: {base}^{exponent}"),
+                    }
+                })
+            }
             StackItem::UnsignedInteger(base) => {
-                Ok(StackItem::UnsignedInteger(base.wrapping_pow(exponent)))
+                base.checked_pow(exponent).map(StackItem::UnsignedInteger).ok_or_else(|| {
+                    RuntimeError::ExecutionError {
+                        message: format!("POW overflow: {base}^{exponent}"),
+                    }
+                })
             }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid base for POW".to_string(),

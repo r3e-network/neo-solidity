@@ -63,6 +63,7 @@ This means the generated manifest will include permission entries for `StdLib.js
 ## 📚 Core Components
 
 ### 🏗️ FrameworkBase.sol
+
 Base framework providing Neo N3 integration with minimally-permissioned manifests.
 
 ```solidity
@@ -73,13 +74,13 @@ contract MyContract is FrameworkBase {
 
     function myFunction() public withWitness {
         // Function requires valid witness (signature)
-        
+
         // Access Neo blockchain data
         (uint256 blockIndex, bytes32 hash, uint256 timestamp,) = getCurrentBlock();
-        
+
         // Interact with native contracts
         uint256 gasBalance = getBalance();
-        
+
         // Emit Neo-compatible events
         emit MyEvent("data");
     }
@@ -87,6 +88,7 @@ contract MyContract is FrameworkBase {
 ```
 
 ### ⚠️ Framework.sol (Dynamic Calls)
+
 `Framework.sol` extends `FrameworkBase.sol` and exposes `callContract(...)`, which performs fully
 dynamic contract calls (dynamic target + method). This requires full wildcard permissions in the
 Neo N3 manifest (`{"contract":"*","methods":"*"}`) and should be used only when you explicitly
@@ -107,11 +109,15 @@ Example `permissions.json`:
 
 ```json
 [
-  { "contract": "0x0102030405060708090a0b0c0d0e0f1011121314", "methods": ["ping"] }
+  {
+    "contract": "0x0102030405060708090a0b0c0d0e0f1011121314",
+    "methods": ["ping"]
+  }
 ]
 ```
 
 ### 🔧 Syscalls.sol
+
 Neo N3 syscall (and syscall-like) integration used by `neo-solidity`:
 
 ```solidity
@@ -119,7 +125,7 @@ import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
 
 contract MySyscallContract {
     using Syscalls for *;
-    
+
     function useBlockchain() public view {
         // Runtime / blockchain information
         uint256 currentHeight = Syscalls.getCurrentIndex();
@@ -138,6 +144,7 @@ contract MySyscallContract {
 ```
 
 ### 🏛️ NativeCalls.sol
+
 Direct integration with Neo native contracts:
 
 ```solidity
@@ -145,21 +152,21 @@ import "@r3e-network/neo-solidity-devpack/contracts/NativeCalls.sol";
 
 contract MyNativeContract {
     using NativeCalls for *;
-    
+
     function useNativeContracts() public {
         // NEO token operations
         uint256 neoBalance = NativeCalls.neoBalanceOf(msg.sender);
         bool success = NativeCalls.neoTransfer(msg.sender, address(this), 1, "");
-        
+
         // GAS token operations
         uint256 gasBalance = NativeCalls.gasBalanceOf(msg.sender);
-        
+
         // Contract management
         address newContract = NativeCalls.deployContract(nefData, manifestData);
-        
+
         // Policy queries
         uint256 storagePrice = NativeCalls.getStoragePrice();
-        
+
         // Oracle requests
         NativeCalls.requestOracleData("https://api.example.com", "$.price", "callback", "", 10000000);
     }
@@ -179,10 +186,10 @@ contract MyNEP17Token is NEP17 {
     }
 
     event CustomMint(address indexed to, uint256 amount);
-    
+
     function customMint(address to, uint256 amount) public onlyMinter {
         mint(to, amount);
-        
+
         // Emit custom event
         emit CustomMint(to, amount);
     }
@@ -198,7 +205,7 @@ contract MyNEP11NFT is NEP11 {
     constructor() NEP11("My NFT", "MNFT", 0, "https://api.mynft.com/", 10000, false) {
         // Indivisible NFT with 10k max supply
     }
-    
+
     function mintNFT(address to, bytes memory metadata) public onlyMinter returns (bytes32) {
         bytes32 tokenId = bytes32(_currentTokenId++);
         mint(to, tokenId, metadata);
@@ -231,19 +238,19 @@ import "@r3e-network/neo-solidity-devpack/libraries/Runtime.sol";
 contract MyContract {
     using Neo for *;
     using Runtime for *;
-    
+
     function advancedOperations() public {
         // Account management (native contracts)
         uint256 neoBalance = Neo.getNeoBalance(msg.sender);
         uint256 gasBalance = Neo.getGasBalance(msg.sender);
-        
+
         // Governance helpers (committee/validators are derived from public keys)
         bool isCommittee = Neo.isCommittee(msg.sender);
-        address[] memory committee = Neo.getCommittee();
-        
+        bytes[] memory committee = Neo.getCommittee(); // ECPoint public keys (33 bytes each)
+
         // Contract interaction
         bytes memory result = Neo.callContract(targetContract, "method", params);
-        
+
         // Security (Neo witness check)
         bool verified = Runtime.checkWitness(msg.sender);
         uint256 random = Neo.getRandom();
@@ -267,7 +274,7 @@ import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
 
 contract MyStorageContract {
     using Storage for *;
-    
+
     function advancedStorage() public {
         // Basic operations (lowered to System.Storage.*)
         Storage.put("key", abi.encode(uint256(123)));
@@ -297,12 +304,12 @@ contract MyRuntimeContract {
     using Runtime for *;
 
     event MyEvent(string data);
-    
+
     function runtimeOperations() public {
         // Event emission (recommended)
         emit MyEvent("data");
         // Advanced: Runtime.notify("MyEvent", abi.encode("data")) (requires matching event declaration)
-        
+
         // Authorization (Neo witness check)
         bool ok = Runtime.checkWitness(msg.sender);
 
@@ -322,6 +329,7 @@ contract MyRuntimeContract {
 ### 💰 Advanced NEP-17 Token
 
 See [`examples/CompleteNEP17Token.sol`](./examples/CompleteNEP17Token.sol) for:
+
 - ✅ Full NEP-17 compliance
 - ✅ Staking system with rewards
 - ✅ Oracle price integration
@@ -333,6 +341,7 @@ See [`examples/CompleteNEP17Token.sol`](./examples/CompleteNEP17Token.sol) for:
 ### 🖼️ Advanced NEP-11 NFT
 
 See [`examples/CompleteNEP11NFT.sol`](./examples/CompleteNEP11NFT.sol) for:
+
 - ✅ Full NEP-11 compliance
 - ✅ Royalty system
 - ✅ Marketplace integration
@@ -354,7 +363,7 @@ contract SimpleToken is NEP17 {
     constructor() NEP17("Simple Token", "SIMPLE", 8, 1000000, 0) {
         // 1M tokens with 8 decimals, no max supply
     }
-    
+
     // Token is ready to use with all Neo N3 features!
 }
 ```
@@ -370,7 +379,7 @@ contract SimpleNFT is NEP11 {
     constructor() NEP11("Simple NFT", "SNFT", 0, "https://api.simple.nft/", 1000, false) {
         // Collection with 1000 max supply, indivisible
     }
-    
+
     function mintNFT(address to, string memory metadata) public onlyMinter returns (bytes32) {
         bytes32 tokenId = generateTokenId(msg.sender, block.timestamp);
         mint(to, tokenId, bytes(metadata));
@@ -425,12 +434,12 @@ contract SecureContract is Framework {
         // Function automatically verifies witness
         // Only callable with valid signature
     }
-    
+
     function manualWitnessCheck() public {
         require(Runtime.checkWitness(msg.sender), "Invalid witness");
         // Manual witness verification
     }
-    
+
     function multiSigOperation(uint256 m, bytes[] memory publicKeys) public {
         // Neo witness checks work with standard and multisig account script hashes.
         address multisig = Syscalls.createMultisigAccount(m, publicKeys);
@@ -446,7 +455,7 @@ contract GasOptimizedContract is Framework {
     function expensiveOperation() public withGasLimit(50000000) { // Require ~0.5 GAS
         // Gas-intensive operation
     }
-    
+
     function conditionalOperation() public {
         // Guard expensive work with a gas check.
         if (Runtime.gasLeft() < 10000000) {
@@ -463,7 +472,7 @@ contract GasOptimizedContract is Framework {
 ```solidity
 contract SecureStorageContract is Framework {
     using Storage for *;
-    
+
     function secureStorage() public {
         // Secure storage with checksum (implement in-contract using Storage.put/get + keccak256).
         bytes memory value = abi.encode(secretValue);
@@ -499,7 +508,7 @@ contract OptimizedContract is NEP17 {
         uint256[] memory amounts = [100, 200, 300];
         batchTransfer(recipients, amounts, new bytes[](3));
     }
-    
+
     function batchStorage() public {
         // Batch storage operations (simple loop)
         bytes[] memory keys = [key1, key2, key3];
@@ -532,7 +541,7 @@ contract GasOptimized is Framework {
 
 ```javascript
 // hardhat.config.js
-require('@r3e-network/neo-solidity-devpack');
+require("@r3e-network/neo-solidity-devpack");
 
 module.exports = {
   solidity: {
@@ -543,16 +552,16 @@ module.exports = {
         devpack: true,
         syscalls: "all",
         nativeContracts: "all",
-        nepStandards: ["NEP-17", "NEP-11", "NEP-24"]
-      }
-    }
+        nepStandards: ["NEP-17", "NEP-11", "NEP-24"],
+      },
+    },
   },
   networks: {
     neo_testnet: {
       url: "http://seed1t5.neo.org:20332",
-      accounts: ["your-private-key"]
-    }
-  }
+      accounts: ["your-private-key"],
+    },
+  },
 };
 ```
 
@@ -566,17 +575,17 @@ async function main() {
   // Deploy NEP-17 token
   const Token = await ethers.getContractFactory("CompleteNEP17Token");
   const token = await Token.deploy(
-    "My Token",     // name
-    "MTK",          // symbol
-    18,             // decimals
-    1000000,        // initial supply
-    10000000,       // max supply
-    oracleAddress   // oracle contract
+    "My Token", // name
+    "MTK", // symbol
+    18, // decimals
+    1000000, // initial supply
+    10000000, // max supply
+    oracleAddress, // oracle contract
   );
-  
+
   await token.deployed();
   console.log("Token deployed to:", token.address);
-  
+
   // Deploy NFT collection
   const NFT = await ethers.getContractFactory("CompleteNEP11NFT");
   const nft = await NFT.deploy(
@@ -585,9 +594,9 @@ async function main() {
     "Premium NFT collection",
     "https://api.mynft.com/",
     1000,
-    oracleAddress
+    oracleAddress,
   );
-  
+
   await nft.deployed();
   console.log("NFT deployed to:", nft.address);
 }
@@ -622,9 +631,16 @@ describe("NEP-17 Token", function () {
 
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
-    
+
     const Token = await ethers.getContractFactory("CompleteNEP17Token");
-    token = await Token.deploy("Test Token", "TEST", 18, 1000000, 0, ethers.constants.AddressZero);
+    token = await Token.deploy(
+      "Test Token",
+      "TEST",
+      18,
+      1000000,
+      0,
+      ethers.constants.AddressZero,
+    );
     await token.deployed();
   });
 
@@ -643,10 +659,10 @@ describe("NEP-17 Token", function () {
   it("Should integrate with Neo features", async function () {
     // Test Neo-specific features
     const blockInfo = await token.getCurrentBlock();
-    expect(blockInfo.index).to.be.a('number');
-    
+    expect(blockInfo.index).to.be.a("number");
+
     const gasBalance = await token.getBalance();
-    expect(gasBalance).to.be.a('number');
+    expect(gasBalance).to.be.a("number");
   });
 });
 ```
@@ -658,7 +674,7 @@ describe("Neo Integration", function () {
   it("Should generate correct Neo contract files", async function () {
     // Test compilation outputs
     const artifacts = await hre.artifacts.readArtifact("CompleteNEP17Token");
-    
+
     expect(artifacts.nef).to.exist;
     expect(artifacts.manifest).to.exist;
     expect(artifacts.manifest.abi.methods).to.have.length.greaterThan(0);
@@ -675,31 +691,31 @@ describe("Neo Integration", function () {
 
 ### Framework Methods
 
-| Method | Description | Gas Cost |
-|--------|-------------|----------|
-| `getCurrentBlock()` | Get current block info | Low |
-| `getBalance()` | Get contract GAS balance | Low |
-| `transferGas()` | Transfer GAS tokens | Medium |
-| `callContract()` | Call another contract | High |
-| `deployContract()` | Deploy new contract | Very High |
+| Method              | Description              | Gas Cost  |
+| ------------------- | ------------------------ | --------- |
+| `getCurrentBlock()` | Get current block info   | Low       |
+| `getBalance()`      | Get contract GAS balance | Low       |
+| `transferGas()`     | Transfer GAS tokens      | Medium    |
+| `callContract()`    | Call another contract    | High      |
+| `deployContract()`  | Deploy new contract      | Very High |
 
 ### Storage Methods
 
-| Method | Description | Gas Cost |
-|--------|-------------|----------|
-| `put(key, value)` | Store value | Medium |
-| `get(key)` | Retrieve value | Low |
-| `find(prefix)` | Find keys with prefix | High |
-| `batchPut()` | Batch store operations | Medium |
+| Method            | Description            | Gas Cost |
+| ----------------- | ---------------------- | -------- |
+| `put(key, value)` | Store value            | Medium   |
+| `get(key)`        | Retrieve value         | Low      |
+| `find(prefix)`    | Find keys with prefix  | High     |
+| `batchPut()`      | Batch store operations | Medium   |
 
 ### Runtime Methods
 
-| Method | Description | Gas Cost |
-|--------|-------------|----------|
-| `notify()` | Emit event | Low |
-| `checkWitness()` | Verify signature | Medium |
-| `gasLeft()` | Get remaining gas | Low |
-| `log()` | Write to logs | Low |
+| Method           | Description       | Gas Cost |
+| ---------------- | ----------------- | -------- |
+| `notify()`       | Emit event        | Low      |
+| `checkWitness()` | Verify signature  | Medium   |
+| `gasLeft()`      | Get remaining gas | Low      |
+| `log()`          | Write to logs     | Low      |
 
 ## 🚨 Error Handling
 
@@ -716,11 +732,11 @@ contract ErrorHandling is Framework {
             Runtime.log("Unknown error occurred");
         }
     }
-    
+
     function riskyOperation() external {
         require(Runtime.gasLeft() > 1000000, "Insufficient gas");
         require(Runtime.checkWitness(msg.sender), "Invalid witness");
-        
+
         // Operation that might fail
     }
 }
@@ -729,6 +745,7 @@ contract ErrorHandling is Framework {
 ## 📈 Best Practices
 
 ### 1. Always Use Witness Verification
+
 ```solidity
 function secureFunction() public withWitness {
     // Secure by default
@@ -736,6 +753,7 @@ function secureFunction() public withWitness {
 ```
 
 ### 2. Optimize Gas Usage
+
 ```solidity
 function batchOperation() public {
     // Prefer explicit batching + early exit when gas is low.
@@ -747,6 +765,7 @@ function batchOperation() public {
 ```
 
 ### 3. Use Typed Storage
+
 ```solidity
 // Store typed values using abi.encode / abi.decode (NeoVM serialization),
 // or prefer Solidity state variables/mappings when possible.
@@ -754,6 +773,7 @@ Storage.put("balance", abi.encode(amount));
 ```
 
 ### 4. Handle Oracle Responses
+
 ```solidity
 function oracleCallback(uint256 requestId, uint256 code, bytes calldata result, bytes calldata userData) external {
     if (code == 0) {
@@ -766,6 +786,7 @@ function oracleCallback(uint256 requestId, uint256 code, bytes calldata result, 
 ```
 
 ### 5. Implement Emergency Controls
+
 ```solidity
 event EmergencyStop(address caller, uint256 timestamp);
 
@@ -811,4 +832,4 @@ function emergencyStop() public onlyOwner withWitness {
 
 **Built with ❤️ by R3E Network**
 
-*Bringing Ethereum's developer ecosystem to Neo blockchain with full N3 integration*
+_Bringing Ethereum's developer ecosystem to Neo blockchain with full N3 integration_

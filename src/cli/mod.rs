@@ -44,7 +44,7 @@ use std::path::Path;
 mod bytecode;
 pub(crate) use bytecode::generate_contract_bytecode;
 #[cfg(test)]
-pub(crate) use bytecode::interop_id_bytes;
+pub(crate) use crate::codegen::interop_id_bytes;
 mod ir_optimize;
 pub(crate) use ir_optimize::optimize_ir;
 mod standard_json;

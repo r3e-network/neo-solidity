@@ -62,13 +62,6 @@ impl ExecutionContext {
         Vec::new()
     }
 
-    fn interop_id_bytes(name: &str) -> [u8; 4] {
-        let mut hasher = Sha256::new();
-        hasher.update(name.as_bytes());
-        let digest = hasher.finalize();
-        [digest[0], digest[1], digest[2], digest[3]]
-    }
-
     fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
         let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);

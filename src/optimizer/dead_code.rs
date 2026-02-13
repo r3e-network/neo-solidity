@@ -105,9 +105,10 @@ impl Optimizer {
     /// Check if a statement is a control flow terminator
     fn is_terminator(&self, node: &AstNode) -> bool {
         match &node.node_type {
+            AstNodeType::Leave | AstNodeType::Break | AstNodeType::Continue => true,
             AstNodeType::FunctionCall { name, .. } => {
-                matches!(name.as_str(), 
-                    "return" | "revert" | "stop" | "invalid" | 
+                matches!(name.as_str(),
+                    "return" | "revert" | "stop" | "invalid" |
                     "selfdestruct" | "abort" | "throw"
                 )
             }

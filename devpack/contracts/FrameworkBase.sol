@@ -67,10 +67,6 @@ contract FrameworkBase {
         _version = 1;
         _initialized = true;
 
-        // Initialize Neo integration
-        Storage.initializeContext();
-        Runtime.initializeServices();
-
         emit FrameworkInitialized(_owner, _version);
     }
 
@@ -177,10 +173,11 @@ contract FrameworkBase {
         // but its shape does not map 1:1 to EVM transaction fields.
         //
         // Provide a minimal, deterministic subset that is safe for diagnostics-style use.
-        hash = txHash;
-        nonce = 0;
-        sender = address(0);
-        gasLimit = 0;
+        Syscalls.Transaction memory tx = Syscalls.getTransaction(txHash);
+        hash = tx.hash;
+        nonce = tx.nonce;
+        sender = tx.sender;
+        gasLimit = tx.systemFee;
         gasPrice = Neo.getGasPrice();
     }
 
@@ -257,20 +254,17 @@ contract FrameworkBase {
     }
 
     /**
-     * @dev Get contract information
+     * @dev Get contract information via ContractManagement.getContract
      */
     function getContractInfo(address contractHash)
         public
         view
         returns (string memory name, bytes memory script, bytes memory manifest)
     {
-        // ContractManagement.getContract returns a native ContractState structure whose
-        // fields are not yet exposed as Solidity structs by neo-solidity.
-        //
-        // Return a minimal placeholder triple for now.
-        name = "Contract";
-        script = "";
-        manifest = "";
+        NativeCalls.ContractState memory state = NativeCalls.getContract(contractHash);
+        name = "Contract"; // Neo N3 ContractState does not expose a name field
+        script = state.nef;
+        manifest = state.manifest;
     }
 
     /**
@@ -295,19 +289,13 @@ contract FrameworkBase {
      * @dev Check if account is committee member
      */
     function isCommittee(address account) public view returns (bool) {
-        address[] memory committee = Neo.getCommittee();
-        for (uint256 i = 0; i < committee.length; i++) {
-            if (committee[i] == account) {
-                return true;
-            }
-        }
-        return false;
+        return NativeCalls.isCommittee(account);
     }
 
     /**
      * @dev Get current committee members
      */
-    function getCommittee() public view returns (address[] memory) {
+    function getCommittee() public view returns (bytes[] memory) {
         return Neo.getCommittee();
     }
 
@@ -366,14 +354,12 @@ contract FrameworkBase {
             uint256 currentBlock,
             uint256 gasBalance,
             uint256 neoBalance,
-            uint256 storageUsage,
             bool isCommitteeMember
         )
     {
         currentBlock = block.number;
         gasBalance = Neo.getGasBalance(address(this));
         neoBalance = Neo.getNeoBalance(address(this));
-        storageUsage = Storage.getUsage();
         isCommitteeMember = isCommittee(address(this));
     }
 

@@ -2,20 +2,22 @@ impl GasTracker {
     /// Create new gas tracker
     pub fn new(limit: u64) -> Self {
         let mut operation_costs = HashMap::new();
-        operation_costs.insert("ADD".to_string(), 3);
-        operation_costs.insert("SUB".to_string(), 3);
-        operation_costs.insert("MUL".to_string(), 5);
-        operation_costs.insert("DIV".to_string(), 5);
+        // NeoVM opcode fees (in GAS fractions)
+        operation_costs.insert("ADD".to_string(), 8);
+        operation_costs.insert("SUB".to_string(), 8);
+        operation_costs.insert("MUL".to_string(), 8);
+        operation_costs.insert("DIV".to_string(), 8);
         operation_costs.insert("PUSH".to_string(), 1);
-        operation_costs.insert("POP".to_string(), 2);
-        operation_costs.insert("CALL".to_string(), 700);
-        operation_costs.insert("SSTORE".to_string(), 20000);
-        operation_costs.insert("SLOAD".to_string(), 800);
+        operation_costs.insert("POP".to_string(), 1);
+        // Syscall fees
+        operation_costs.insert("CALL".to_string(), 512);
+        operation_costs.insert("SSTORE".to_string(), 200);
+        operation_costs.insert("SLOAD".to_string(), 100);
 
         Self {
             limit,
             used: 0,
-            base_cost: 21000, // Base transaction cost
+            base_cost: 0, // NeoVM has no base transaction cost in execution context
             operation_costs,
         }
     }
@@ -23,7 +25,7 @@ impl GasTracker {
     /// Reset gas tracker
     pub fn reset(&mut self, new_limit: u64) {
         self.limit = new_limit;
-        self.used = self.base_cost;
+        self.used = 0;
     }
 
     /// Consume gas for operation
@@ -57,7 +59,7 @@ impl GasTracker {
 
     /// Sync gas usage with execution context accounting.
     pub fn sync_from_execution(&mut self, execution_used: u64) {
-        self.used = self.base_cost.saturating_add(execution_used);
+        self.used = execution_used;
     }
 
     /// Base transaction cost that seeds gas tracking.

@@ -35,6 +35,9 @@ impl AstNode {
             AstNodeType::Assignment { .. } => "assignment",
             AstNodeType::Identifier { .. } => "identifier",
             AstNodeType::Literal { .. } => "literal",
+            AstNodeType::Leave => "leave",
+            AstNodeType::Break => "break",
+            AstNodeType::Continue => "continue",
         }
     }
 }
@@ -83,6 +86,9 @@ pub enum AstNodeType {
     Literal {
         value: String,
     },
+    Leave,
+    Break,
+    Continue,
 }
 
 /// Switch case in a switch statement

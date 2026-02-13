@@ -275,7 +275,7 @@ library Neo {
     /**
      * @dev Get committee members
      */
-    function getCommittee() internal view returns (address[] memory) {
+    function getCommittee() internal view returns (bytes[] memory) {
         return NativeCalls.getCommittee();
     }
     
@@ -430,7 +430,7 @@ library Neo {
         bool isHealthy
     ) {
         blockHeight = getBlockHeight();
-        address[] memory committee = getCommittee();
+        bytes[] memory committee = getCommittee();
         address[] memory validators = getValidators();
         committeeSize = committee.length;
         validatorCount = validators.length;

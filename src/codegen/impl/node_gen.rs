@@ -4,7 +4,7 @@ impl CodeGenerator {
         &mut self,
         node: &AstNode,
         bytecode: &mut Vec<u8>,
-        functions: &mut Vec<String>,
+        functions: &mut Vec<FunctionMeta>,
         events: &mut Vec<String>,
         estimated_gas: &mut u64,
     ) -> Result<(), CompilerError> {
@@ -16,11 +16,18 @@ impl CodeGenerator {
             }
             AstNodeType::Function {
                 name,
-                params: _,
-                returns: _,
+                params,
+                returns,
                 body,
             } => {
-                functions.push(name.clone());
+                // Record the bytecode offset before emitting this function's entry.
+                let raw_offset = bytecode.len();
+                functions.push(FunctionMeta {
+                    name: name.clone(),
+                    params: params.clone(),
+                    returns: returns.clone(),
+                    raw_offset,
+                });
 
                 // Function entry
                 bytecode.push(0x0C); // PUSHDATA1
@@ -30,7 +37,7 @@ impl CodeGenerator {
                 // Generate function body
                 self.generate_node(body, bytecode, functions, events, estimated_gas)?;
 
-                *estimated_gas += 50; // Function call overhead
+                *estimated_gas += 512; // NeoVM CALL opcode cost
             }
             AstNodeType::Assignment { targets, value } => {
                 // Generate value expression
@@ -41,10 +48,10 @@ impl CodeGenerator {
                     bytecode.push(0x0C); // PUSHDATA1
                     bytecode.push(target.len() as u8);
                     bytecode.extend_from_slice(target.as_bytes());
-                    bytecode.push(0x51); // PUSH1 for variable storage
+                    bytecode.push(0x11); // PUSH1 for variable storage
                 }
 
-                *estimated_gas += targets.len() as u64 * 10;
+                *estimated_gas += targets.len() as u64 * 8; // NeoVM STLOC cost
             }
             AstNodeType::FunctionCall { name, arguments } => {
                 // Generate arguments
@@ -56,34 +63,36 @@ impl CodeGenerator {
                 match name.as_str() {
                     "add" => {
                         bytecode.push(0x9E); // ADD
-                        *estimated_gas += 3;
+                        *estimated_gas += 8; // NeoVM arithmetic cost
                     }
                     "sub" => {
                         bytecode.push(0x9F); // SUB
-                        *estimated_gas += 3;
+                        *estimated_gas += 8;
                     }
                     "mul" => {
                         bytecode.push(0xA0); // MUL
-                        *estimated_gas += 5;
+                        *estimated_gas += 8;
                     }
                     "div" => {
                         bytecode.push(0xA1); // DIV
-                        *estimated_gas += 5;
+                        *estimated_gas += 8;
                     }
                     "keccak256" => {
+                        // Keccak256 is a CryptoLib native method, route via System.Contract.Call
+                        bytecode.push(0x0C); // PUSHDATA1
+                        bytecode.push("keccak256".len() as u8);
+                        bytecode.extend_from_slice("keccak256".as_bytes());
                         bytecode.push(0x41); // SYSCALL
-                        bytecode.extend_from_slice(&interop_id_bytes("Neo.Crypto.Keccak256"));
-                        *estimated_gas += 30;
-                    }
-                    "sstore" => {
+                        bytecode.extend_from_slice(&interop_id_bytes("System.Contract.Call"));
+                        *estimated_gas += 512; // NeoVM contract call cost
                         bytecode.push(0x41); // SYSCALL
                         bytecode.extend_from_slice(&interop_id_bytes("System.Storage.Put"));
-                        *estimated_gas += 20000;
+                        *estimated_gas += 200; // NeoVM StoragePut cost
                     }
                     "sload" => {
                         bytecode.push(0x41); // SYSCALL
                         bytecode.extend_from_slice(&interop_id_bytes("System.Storage.Get"));
-                        *estimated_gas += 800;
+                        *estimated_gas += 100; // NeoVM StorageGet cost
                     }
                     _ => {
                         // Generic function call
@@ -92,19 +101,13 @@ impl CodeGenerator {
                         bytecode.extend_from_slice(name.as_bytes());
                         bytecode.push(0x41); // SYSCALL
                         bytecode.extend_from_slice(&interop_id_bytes("System.Contract.Call"));
-                        *estimated_gas += 1000;
+                        *estimated_gas += 512; // NeoVM contract call cost
                     }
                 }
             }
             AstNodeType::Literal { value } => {
-                if let Ok(num) = value.parse::<u8>() {
-                    if num <= 16 {
-                        bytecode.push(0x50 + num); // PUSH0-PUSH16
-                    } else {
-                        bytecode.push(0x0C); // PUSHDATA1
-                        bytecode.push(0x01);
-                        bytecode.push(num);
-                    }
+                if let Ok(num) = value.parse::<i64>() {
+                    bytecode.extend_from_slice(&crate::codegen_helpers::encode_small_int(num));
                 } else {
                     // String or hex literal
                     let data = if let Some(stripped) = value.strip_prefix("0x") {
@@ -112,13 +115,11 @@ impl CodeGenerator {
                     } else {
                         value.as_bytes().to_vec()
                     };
-
                     bytecode.push(0x0C); // PUSHDATA1
                     bytecode.push(data.len() as u8);
                     bytecode.extend_from_slice(&data);
                 }
-
-                *estimated_gas += 3;
+                *estimated_gas += 1; // NeoVM PUSH cost
             }
             AstNodeType::Identifier { name } => {
                 // Load variable by pushing identifier
@@ -126,7 +127,7 @@ impl CodeGenerator {
                 bytecode.push(name.len() as u8);
                 bytecode.extend_from_slice(name.as_bytes());
 
-                *estimated_gas += 3;
+                *estimated_gas += 1; // NeoVM PUSH cost
             }
             AstNodeType::If {
                 condition,
@@ -137,7 +138,7 @@ impl CodeGenerator {
                 self.generate_node(condition, bytecode, functions, events, estimated_gas)?;
 
                 // JMPIFNOT to else/end
-                bytecode.push(0x23); // JMPIFNOT
+                bytecode.push(0x26); // JMPIFNOT
                 let else_jump_pos = bytecode.len();
                 bytecode.push(0x00); // Jump offset (patched below)
 
@@ -151,7 +152,7 @@ impl CodeGenerator {
                     bytecode.push(0x00); // Jump offset (patched below)
 
                     // Update else jump offset
-                    bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos - 1) as u8;
+                    bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos + 1) as u8;
 
                     // Generate else branch
                     if let Some(else_stmt) = else_branch {
@@ -159,13 +160,22 @@ impl CodeGenerator {
                     }
 
                     // Update end jump offset
-                    bytecode[end_jump_pos] = (bytecode.len() - end_jump_pos - 1) as u8;
+                    bytecode[end_jump_pos] = (bytecode.len() - end_jump_pos + 1) as u8;
                 } else {
                     // Update else jump offset to end
-                    bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos - 1) as u8;
+                    bytecode[else_jump_pos] = (bytecode.len() - else_jump_pos + 1) as u8;
                 }
 
-                *estimated_gas += 10;
+                *estimated_gas += 8; // NeoVM JMP cost
+            }
+            AstNodeType::Leave => {
+                bytecode.push(0x40); // RET
+                *estimated_gas += 1;
+            }
+            AstNodeType::Break | AstNodeType::Continue => {
+                // Break/continue require loop context tracking
+                // Placeholder - full implementation needs loop stack
+                *estimated_gas += 1;
             }
             _ => {
                 // Handle other node types

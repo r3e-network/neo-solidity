@@ -522,18 +522,18 @@ contract NEP11 is INEP11, FrameworkBase {
      */
     function _transfer(address from, address to, bytes32 tokenId, bytes memory data) internal {
         require(ownerOf(tokenId) == from, "NEP11: transfer from incorrect owner");
-        
+
         // Clear approvals
         _approve(address(0), tokenId);
-        
-        // Update balances
+
+        // Update enumeration BEFORE balance changes (enumeration uses balanceOf())
+        _removeTokenFromOwnerEnumeration(from, tokenId);
+        _addTokenToOwnerEnumeration(to, tokenId);
+
+        // Update balances and ownership
         _balances[from] -= 1;
         _balances[to] += 1;
         _owners[tokenId] = to;
-        
-        // Update enumeration
-        _removeTokenFromOwnerEnumeration(from, tokenId);
-        _addTokenToOwnerEnumeration(to, tokenId);
         
         emit Transfer(from, to, 1, tokenId);
         
@@ -553,18 +553,18 @@ contract NEP11 is INEP11, FrameworkBase {
     function _mint(address to, bytes32 tokenId, bytes memory properties) internal {
         require(to != address(0), "NEP11: mint to zero address");
         require(_owners[tokenId] == address(0), "NEP11: token already minted");
-        
+
+        // Update enumeration BEFORE balance changes (enumeration uses balanceOf())
+        _addTokenToAllTokensEnumeration(tokenId);
+        _addTokenToOwnerEnumeration(to, tokenId);
+
         // Update state
         _balances[to] += 1;
         _owners[tokenId] = to;
         _totalSupply += 1;
-        
+
         // Set properties
         _tokenProperties[tokenId] = properties;
-        
-        // Update enumeration
-        _addTokenToAllTokensEnumeration(tokenId);
-        _addTokenToOwnerEnumeration(to, tokenId);
         
         emit Transfer(address(0), to, 1, tokenId);
         emit Mint(to, tokenId);
@@ -584,20 +584,20 @@ contract NEP11 is INEP11, FrameworkBase {
      */
     function _burn(bytes32 tokenId) internal {
         address owner = ownerOf(tokenId);
-        
+
         // Clear approvals
         _approve(address(0), tokenId);
-        
+
+        // Update enumeration BEFORE balance changes (enumeration uses balanceOf())
+        _removeTokenFromOwnerEnumeration(owner, tokenId);
+        _removeTokenFromAllTokensEnumeration(tokenId);
+
         // Update state
         _balances[owner] -= 1;
         delete _owners[tokenId];
         delete _tokenProperties[tokenId];
         delete _tokenURIs[tokenId];
         _totalSupply -= 1;
-        
-        // Update enumeration
-        _removeTokenFromOwnerEnumeration(owner, tokenId);
-        _removeTokenFromAllTokensEnumeration(tokenId);
         
         emit Transfer(owner, address(0), 1, tokenId);
         emit Burn(tokenId);

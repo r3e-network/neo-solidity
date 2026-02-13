@@ -25,6 +25,8 @@ pub struct CompilerConfig {
     pub validate_only: bool,
     pub analyze_only: bool,
     pub verbose: bool,
+    pub warnings_as_errors: bool,
+    pub max_contract_size: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +61,8 @@ impl Default for CompilerConfig {
             validate_only: false,
             analyze_only: false,
             verbose: false,
+            warnings_as_errors: false,
+            max_contract_size: 512 * 1024,
         }
     }
 }
@@ -132,6 +136,16 @@ impl CompilerConfigBuilder {
 
     pub fn gas_model(mut self, model: GasModel) -> Self {
         self.config.gas_model = model;
+        self
+    }
+
+    pub fn warnings_as_errors(mut self, enabled: bool) -> Self {
+        self.config.warnings_as_errors = enabled;
+        self
+    }
+
+    pub fn max_contract_size(mut self, size: usize) -> Self {
+        self.config.max_contract_size = size;
         self
     }
 

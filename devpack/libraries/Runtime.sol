@@ -20,41 +20,11 @@ import "../contracts/NativeCalls.sol";
 library Runtime {
     using Syscalls for *;
     
-    // Runtime configuration
-    struct Config {
-        bool initialized;
-        uint256 notificationCount;
-        uint256 totalGasUsed;
-        mapping(string => uint256) eventCounts;
-    }
-    
-    // Global runtime configuration
-    Config private _config;
-    
     // Events
     event RuntimeInitialized();
     event NotificationEmitted(string indexed eventName, bytes data);
     event WitnessVerified(address indexed account, bool success);
     event GasOptimization(uint256 saved, string technique);
-    
-    // ========== Initialization ==========
-    
-    /**
-     * @dev Initialize runtime services
-     */
-    function initializeServices() internal {
-        if (!_config.initialized) {
-            _config.initialized = true;
-            emit RuntimeInitialized();
-        }
-    }
-    
-    /**
-     * @dev Check if runtime is initialized
-     */
-    function isInitialized() internal view returns (bool) {
-        return _config.initialized;
-    }
     
     // ========== Event and Notification System ==========
     
@@ -62,16 +32,10 @@ library Runtime {
      * @dev Emit notification (maps to Runtime.Notify)
      */
     function notify(string memory eventName, bytes memory data) internal {
-        require(_config.initialized, "Runtime: not initialized");
-        
         // Call Neo Runtime.Notify
         bytes memory notificationData = abi.encode(eventName, data);
         Syscalls.notify(notificationData);
-        
-        // Track statistics
-        _config.notificationCount++;
-        _config.eventCounts[eventName]++;
-        
+
         emit NotificationEmitted(eventName, data);
     }
     
@@ -410,35 +374,16 @@ library Runtime {
     }
     
     // ========== Statistics and Monitoring ==========
-    
+
     /**
      * @dev Get runtime statistics
      */
     function getStats() internal view returns (
-        uint256 notifications,
-        uint256 gasUsed,
         uint256 currentBlock,
         uint256 invocations
     ) {
-        notifications = _config.notificationCount;
-        gasUsed = _config.totalGasUsed;
         currentBlock = getBlockIndex();
         invocations = Syscalls.getInvocationCounter();
-    }
-    
-    /**
-     * @dev Get event count for specific event
-     */
-    function getEventCount(string memory eventName) internal view returns (uint256) {
-        return _config.eventCounts[eventName];
-    }
-    
-    /**
-     * @dev Reset statistics (admin only)
-     */
-    function resetStats() internal {
-        _config.notificationCount = 0;
-        _config.totalGasUsed = 0;
     }
     
     // ========== Utility Functions ==========
@@ -558,19 +503,14 @@ library Runtime {
     
     /**
      * @dev Role-based access control
+     * @notice Neo N3 RoleManagement does not expose a generic hasRole method.
+     *         This falls back to witness verification. For role-specific checks,
+     *         use NativeCalls.getDesignatedByRole() directly.
      */
     function hasRole(address account, bytes32 role) internal view returns (bool) {
-        // Integrate with RoleManagement native contract
-        address roleManagement = 0x49cf4e5378ffcd4dec034fd98a174c5491e395e2;
-        
-        bytes memory params = abi.encode(account, bytes1(uint8(uint256(role))));
-        bytes memory result = Syscalls.contractCall(roleManagement, "hasRole", params);
-        
-        if (result.length > 0) {
-            return abi.decode(result, (bool));
-        }
-        
-        // Fallback to witness check
+        // Neo N3 RoleManagement only supports getDesignatedByRole/designateAsRole,
+        // not arbitrary role checks. Fall back to witness verification.
+        role; // silence unused parameter warning
         return checkWitness(account);
     }
     
@@ -578,14 +518,7 @@ library Runtime {
      * @dev Committee member check
      */
     function isCommitteeMember(address account) internal view returns (bool) {
-        // Check if account is in committee
-        address[] memory committee = NativeCalls.getCommittee();
-        for (uint256 i = 0; i < committee.length; i++) {
-            if (committee[i] == account) {
-                return true;
-            }
-        }
-        return false;
+        return NativeCalls.isCommittee(account);
     }
     
     /**

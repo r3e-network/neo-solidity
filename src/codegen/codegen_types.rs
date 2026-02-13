@@ -27,33 +27,19 @@ impl CompilationResult {
     }
 }
 
-/// NeoVM opcode constants
-pub mod opcodes {
-    pub const PUSHDATA1: u8 = 0x0C;
-    pub const PUSH0: u8 = 0x10;
-    pub const PUSH1: u8 = 0x11;
-    pub const RET: u8 = 0x40;
-    pub const SYSCALL: u8 = 0x41;
-    pub const JMP: u8 = 0x22;
-    pub const JMPIFNOT: u8 = 0x23;
-    pub const ADD: u8 = 0x9E;
-    pub const SUB: u8 = 0x9F;
-    pub const MUL: u8 = 0xA0;
-    pub const DIV: u8 = 0xA1;
+/// Metadata for a compiled function, collected during bytecode generation.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunctionMeta {
+    pub name: String,
+    pub params: Vec<String>,
+    pub returns: Vec<String>,
+    /// Bytecode offset before the init-marker prefix is inserted.
+    /// The final offset in the emitted binary is `raw_offset + INIT_MARKER_LEN`.
+    pub raw_offset: usize,
 }
 
-/// Gas costs for common operations
-pub mod gas {
-    pub const PUSH: u64 = 3;
-    pub const ARITHMETIC: u64 = 3;
-    pub const MUL_DIV: u64 = 5;
-    pub const JUMP: u64 = 10;
-    pub const FUNCTION_CALL: u64 = 50;
-    pub const STORAGE_GET: u64 = 800;
-    pub const STORAGE_PUT: u64 = 20000;
-    pub const CRYPTO_HASH: u64 = 30;
-    pub const CONTRACT_CALL: u64 = 1000;
-}
+/// Length of the init marker prepended to bytecode (PUSHDATA1 + len + b"init").
+pub const INIT_MARKER_LEN: usize = 6;
 
 /// Code generator for Yul AST to NeoVM bytecode
 pub struct CodeGenerator {

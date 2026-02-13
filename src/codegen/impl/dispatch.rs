@@ -7,7 +7,7 @@ impl CodeGenerator {
 
     pub fn generate(&mut self, ast: &AstNode) -> Result<CompilationResult, CompilerError> {
         let mut bytecode = Vec::new();
-        let mut functions = Vec::new();
+        let mut functions: Vec<FunctionMeta> = Vec::new();
         let mut events = Vec::new();
         let mut estimated_gas = 0;
 
@@ -20,29 +20,50 @@ impl CodeGenerator {
             &mut estimated_gas,
         )?;
 
-        // Add contract initialization
-        bytecode.insert(0, 0x0C); // PUSHDATA1
-        bytecode.insert(1, 0x04); // Length
-        bytecode.extend_from_slice(b"init"); // Initialization marker
+        // Add contract initialization (prepended, shifts all offsets by INIT_MARKER_LEN)
+        let mut prefix = vec![0x0C, 0x04]; // PUSHDATA1 + length
+        prefix.extend_from_slice(b"init"); // "init" marker
+        prefix.append(&mut bytecode);      // move original bytecode after prefix
+        bytecode = prefix;
 
         // Add final return
         bytecode.push(0x40); // RET
 
-        let mut unique_functions = Vec::new();
+        // Deduplicate functions, keeping first occurrence (and its metadata)
+        let mut unique_functions: Vec<FunctionMeta> = Vec::new();
         let mut seen_funcs = HashSet::new();
-        for name in &functions {
-            if seen_funcs.insert(name.clone()) {
-                unique_functions.push(name.clone());
+        for func in &functions {
+            if seen_funcs.insert(func.name.clone()) {
+                unique_functions.push(func.clone());
             }
         }
 
+        // Derive contract name from input filename (strip extension, fallback to "Contract")
+        let contract_name = self
+            ._config
+            .input_file
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Contract")
+            .to_string();
+
         let abi_functions: Vec<_> = unique_functions
             .iter()
-            .map(|name| {
+            .map(|func| {
+                let inputs: Vec<_> = func
+                    .params
+                    .iter()
+                    .map(|p| serde_json::json!({"name": p, "type": "Any"}))
+                    .collect();
+                let outputs: Vec<_> = func
+                    .returns
+                    .iter()
+                    .map(|r| serde_json::json!({"name": r, "type": "Any"}))
+                    .collect();
                 serde_json::json!({
-                    "name": name,
-                    "inputs": [],
-                    "outputs": [],
+                    "name": func.name,
+                    "inputs": inputs,
+                    "outputs": outputs,
                     "stateMutability": "nonpayable"
                 })
             })
@@ -65,13 +86,31 @@ impl CodeGenerator {
 
         let manifest_methods: Vec<_> = unique_functions
             .iter()
-            .enumerate()
-            .map(|(idx, name)| {
+            .map(|func| {
+                // Real offset = raw_offset + INIT_MARKER_LEN (init marker is prepended)
+                let offset = func.raw_offset + INIT_MARKER_LEN;
+                let parameters: Vec<_> = func
+                    .params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| {
+                        serde_json::json!({
+                            "name": p,
+                            "type": "Any",
+                            "index": i
+                        })
+                    })
+                    .collect();
+                let returntype = if func.returns.is_empty() {
+                    "Void"
+                } else {
+                    "Any"
+                };
                 serde_json::json!({
-                    "name": name,
-                    "offset": (idx * 16) as u32,
-                    "parameters": [],
-                    "returntype": "Any",
+                    "name": func.name,
+                    "offset": offset,
+                    "parameters": parameters,
+                    "returntype": returntype,
                     "safe": false
                 })
             })
@@ -88,7 +127,7 @@ impl CodeGenerator {
             .collect();
 
         let manifest = serde_json::json!({
-            "name": "GeneratedContract",
+            "name": contract_name,
             "groups": [],
             "features": {},
             "supportedstandards": [],
@@ -96,7 +135,9 @@ impl CodeGenerator {
                 "methods": manifest_methods,
                 "events": manifest_events,
             },
-            "permissions": [{"contract": "*", "methods": "*"}],
+            // Least-privilege default: no permissions granted.
+            // Contracts should explicitly declare needed permissions.
+            "permissions": [],
             "trusts": [],
             "extra": {
                 "Author": "Jimmy <jimmy@r3e.network>",
@@ -109,6 +150,9 @@ impl CodeGenerator {
         let source_map = self.generate_source_map(ast);
         let ast_node_count = self.count_ast_nodes(ast);
 
+        // Collect function names for debug_info (backward-compatible)
+        let function_names: Vec<String> = functions.iter().map(|f| f.name.clone()).collect();
+
         Ok(CompilationResult {
             bytecode,
             assembly,
@@ -117,11 +161,10 @@ impl CodeGenerator {
             estimated_gas,
             source_map,
             debug_info: serde_json::json!({
-                "functions": functions,
+                "functions": function_names,
                 "events": events,
                 "ast_nodes": ast_node_count
             }),
         })
     }
 }
-

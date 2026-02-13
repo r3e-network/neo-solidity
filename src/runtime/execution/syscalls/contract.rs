@@ -29,7 +29,7 @@ impl ExecutionContext {
                 }
                 script.extend_from_slice(&pubkey);
                 script.push(0x41); // SYSCALL
-                script.extend_from_slice(&Self::interop_id_bytes("System.Crypto.CheckSig"));
+                script.extend_from_slice(&crate::codegen::interop_id_bytes("System.Crypto.CheckSig"));
 
                 // UInt160 = RIPEMD160(SHA256(script))
                 let sha = Sha256::digest(&script);

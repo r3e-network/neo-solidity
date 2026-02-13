@@ -16,7 +16,7 @@ pragma solidity ^0.8.19;
 
 library Syscalls {
 
-    // Native contract script hashes (Neo N3 MainNet)
+    // Native contract script hashes (deterministic, identical on all Neo N3 networks)
     address constant CONTRACT_MANAGEMENT = 0xfffdc93764dbaddd97c48f252a53ea4643faa3fd;
     address constant POLICY_CONTRACT = 0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b;
     address constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;

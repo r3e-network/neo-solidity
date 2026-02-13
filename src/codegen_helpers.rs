@@ -14,7 +14,13 @@ pub fn encode_small_int(n: i64) -> Vec<u8> {
 fn encode_varint(n: i64) -> Vec<u8> {
     let bytes = n.to_le_bytes();
     let len = minimal_bytes(n);
-    let mut result = vec![len as u8];
+    let opcode = match len {
+        1 => 0x00, // PUSHINT8
+        2 => 0x01, // PUSHINT16
+        4 => 0x02, // PUSHINT32
+        _ => 0x03, // PUSHINT64
+    };
+    let mut result = vec![opcode];
     result.extend_from_slice(&bytes[..len]);
     result
 }

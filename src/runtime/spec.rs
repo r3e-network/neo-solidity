@@ -1,8 +1,9 @@
 //! Neo N3 opcode/syscall/native-contract registry
 
 use once_cell::sync::Lazy;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+
+use crate::codegen::interop_id_bytes;
 
 /// Opcode metadata (lightweight – only what the runtime needs today).
 #[derive(Debug, Clone, Copy)]
@@ -55,13 +56,6 @@ impl NativeContractSpec {
     pub fn hash_hex(&self) -> String {
         hex::encode(self.hash)
     }
-}
-
-fn interop_id_bytes(name: &str) -> [u8; 4] {
-    let mut hasher = Sha256::new();
-    hasher.update(name.as_bytes());
-    let digest = hasher.finalize();
-    [digest[0], digest[1], digest[2], digest[3]]
 }
 
 include!("spec/opcodes.rs");

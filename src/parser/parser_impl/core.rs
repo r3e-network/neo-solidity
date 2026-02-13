@@ -33,6 +33,18 @@ impl Parser {
             TokenType::For => self.parse_for(),
             TokenType::Switch => self.parse_switch(),
             TokenType::Function => self.parse_function(),
+            TokenType::Leave => {
+                let token = self.advance()?;
+                Ok(Some(AstNode::new(AstNodeType::Leave, token.line, token.column)))
+            }
+            TokenType::Break => {
+                let token = self.advance()?;
+                Ok(Some(AstNode::new(AstNodeType::Break, token.line, token.column)))
+            }
+            TokenType::Continue => {
+                let token = self.advance()?;
+                Ok(Some(AstNode::new(AstNodeType::Continue, token.line, token.column)))
+            }
             TokenType::Identifier => self.parse_expression_statement(),
             _ => {
                 self.advance()?;

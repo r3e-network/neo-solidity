@@ -163,12 +163,5 @@ fn native_method_has_return_value(contract: ir::NativeContract, method: &str) ->
 
 fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
     bytecode.push(0x41);
-    bytecode.extend_from_slice(&interop_id_bytes(name));
-}
-
-pub(crate) fn interop_id_bytes(name: &str) -> [u8; 4] {
-    let mut hasher = Sha256::new();
-    hasher.update(name.as_bytes());
-    let digest = hasher.finalize();
-    [digest[0], digest[1], digest[2], digest[3]]
+    bytecode.extend_from_slice(&crate::codegen::interop_id_bytes(name));
 }

@@ -27,7 +27,7 @@ import "./Syscalls.sol";
 library NativeCalls {
     using Syscalls for *;
     
-    // Native contract script hashes (Neo N3 MainNet)
+    // Native contract script hashes (deterministic, identical on all Neo N3 networks)
     address constant NEO_CONTRACT = 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5;
     address constant GAS_CONTRACT = 0xd2a4cff31913016155e38e474a2c06d08be276cf;
     address constant CONTRACT_MANAGEMENT = 0xfffdc93764dbaddd97c48f252a53ea4643faa3fd;
@@ -988,9 +988,9 @@ library NativeCalls {
     /**
      * @dev Get committee members
      */
-    function getCommittee() internal view returns (address[] memory) {
+    function getCommittee() internal view returns (bytes[] memory) {
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getCommittee", "");
-        return abi.decode(result, (address[]));
+        return abi.decode(result, (bytes[]));
     }
 
     /**
@@ -1013,12 +1013,11 @@ library NativeCalls {
      * @dev Check if address is committee member
      */
     function isCommittee(address account) internal view returns (bool) {
-        address[] memory committee = getCommittee();
-        for (uint256 i = 0; i < committee.length; i++) {
-            if (committee[i] == account) {
-                return true;
-            }
-        }
+        // Delegate to committee address check - verifies if account
+        // matches the committee multi-sig address
+        address committeeAddr = getCommitteeAddress();
+        if (account == committeeAddr) return true;
+        // For individual member check, use witness verification
         return false;
     }
     

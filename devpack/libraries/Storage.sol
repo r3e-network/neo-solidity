@@ -21,49 +21,17 @@ import "./Runtime.sol";
 library Storage {
     using Syscalls for *;
     
-    // Storage configuration
-    struct Config {
-        bool initialized;
-        address contextContract;
-        uint256 totalOperations;
-        uint256 totalBytes;
-        mapping(bytes => bool) keyExists;
-    }
-    
-    // Global storage configuration
-    Config private _config;
-    
     // Events for storage operations
     event StorageInitialized(address indexed contract_);
     event StorageOperation(string indexed operation, bytes key, uint256 size);
     event BatchStorageOperation(uint256 operations, uint256 totalSize);
     
-    // ========== Initialization ==========
-    
-    /**
-     * @dev Initialize storage context
-     */
-    function initializeContext() internal {
-        if (!_config.initialized) {
-            _config.contextContract = address(this);
-            _config.initialized = true;
-            emit StorageInitialized(address(this));
-        }
-    }
-    
-    /**
-     * @dev Set storage context to specific contract
-     */
-    function setContext(address contractHash) internal {
-        _config.contextContract = contractHash;
-        _config.initialized = true;
-    }
-    
+    // ========== Context ==========
+
     /**
      * @dev Get current storage context
      */
     function getContext() internal view returns (Syscalls.StorageContext memory) {
-        require(_config.initialized, "Storage: not initialized");
         return Syscalls.getStorageContext();
     }
     
@@ -91,16 +59,9 @@ library Storage {
      * @dev Store value by key
      */
     function put(bytes memory key, bytes memory value) internal {
-        require(_config.initialized, "Storage: not initialized");
-        
         Syscalls.StorageContext memory context = getContext();
         Syscalls.storagePut(context, key, value);
-        
-        // Track usage
-        _config.totalOperations++;
-        _config.totalBytes += value.length;
-        _config.keyExists[key] = true;
-        
+
         emit StorageOperation("PUT", key, value.length);
     }
     
@@ -108,8 +69,6 @@ library Storage {
      * @dev Get value by key
      */
     function get(bytes memory key) internal view returns (bytes memory) {
-        require(_config.initialized, "Storage: not initialized");
-        
         Syscalls.StorageContext memory context = getReadOnlyContext();
         return Syscalls.storageGet(context, key);
     }
@@ -118,15 +77,9 @@ library Storage {
      * @dev Remove value by key
      */
     function remove(bytes memory key) internal {
-        require(_config.initialized, "Storage: not initialized");
-        
         Syscalls.StorageContext memory context = getContext();
         Syscalls.storageDelete(context, key);
-        
-        // Track usage
-        _config.totalOperations++;
-        _config.keyExists[key] = false;
-        
+
         emit StorageOperation("DELETE", key, 0);
     }
     
@@ -144,14 +97,7 @@ library Storage {
      * @dev Store value by key (local context)
      */
     function putLocal(bytes memory key, bytes memory value) internal {
-        require(_config.initialized, "Storage: not initialized");
-
         Syscalls.storagePutLocal(key, value);
-
-        // Track usage
-        _config.totalOperations++;
-        _config.totalBytes += value.length;
-        _config.keyExists[key] = true;
 
         emit StorageOperation("PUT_LOCAL", key, value.length);
     }
@@ -160,8 +106,6 @@ library Storage {
      * @dev Get value by key (local context)
      */
     function getLocal(bytes memory key) internal view returns (bytes memory) {
-        require(_config.initialized, "Storage: not initialized");
-
         return Syscalls.storageGetLocal(key);
     }
 
@@ -169,13 +113,7 @@ library Storage {
      * @dev Remove value by key (local context)
      */
     function removeLocal(bytes memory key) internal {
-        require(_config.initialized, "Storage: not initialized");
-
         Syscalls.storageDeleteLocal(key);
-
-        // Track usage
-        _config.totalOperations++;
-        _config.keyExists[key] = false;
 
         emit StorageOperation("DELETE_LOCAL", key, 0);
     }
@@ -186,8 +124,6 @@ library Storage {
      * @dev Find all keys with prefix
      */
     function find(bytes memory prefix) internal view returns (Iterator memory) {
-        require(_config.initialized, "Storage: not initialized");
-        
         Syscalls.StorageContext memory context = getReadOnlyContext();
         return Syscalls.storageFind(context, prefix);
     }
@@ -196,8 +132,6 @@ library Storage {
      * @dev Find all keys with prefix (local context)
      */
     function findLocal(bytes memory prefix) internal view returns (Iterator memory) {
-        require(_config.initialized, "Storage: not initialized");
-
         return Syscalls.storageFindLocal(prefix);
     }
     
@@ -206,18 +140,17 @@ library Storage {
      */
     function findValues(bytes memory prefix) internal view returns (bytes[] memory values) {
         Iterator memory iterator = find(prefix);
+        bytes[] memory temp = new bytes[](1000);
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
+            temp[count] = iterator.value();
             count++;
         }
 
         values = new bytes[](count);
-        iterator = find(prefix);
-
         for (uint256 i = 0; i < count; i++) {
-            require(iterator.next(), "Storage: iterator out of range");
-            values[i] = iterator.value();
+            values[i] = temp[i];
         }
     }
 
@@ -226,18 +159,17 @@ library Storage {
      */
     function findLocalValues(bytes memory prefix) internal view returns (bytes[] memory values) {
         Iterator memory iterator = findLocal(prefix);
+        bytes[] memory temp = new bytes[](1000);
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
+            temp[count] = iterator.value();
             count++;
         }
 
         values = new bytes[](count);
-        iterator = findLocal(prefix);
-
         for (uint256 i = 0; i < count; i++) {
-            require(iterator.next(), "Storage: iterator out of range");
-            values[i] = iterator.value();
+            values[i] = temp[i];
         }
     }
     
@@ -246,18 +178,17 @@ library Storage {
      */
     function findKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
         Iterator memory iterator = find(prefix);
+        bytes[] memory temp = new bytes[](1000);
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
+            temp[count] = iterator.currentKey;
             count++;
         }
 
         keys = new bytes[](count);
-        iterator = find(prefix);
-
         for (uint256 i = 0; i < count; i++) {
-            require(iterator.next(), "Storage: iterator out of range");
-            keys[i] = iterator.currentKey;
+            keys[i] = temp[i];
         }
     }
 
@@ -266,18 +197,17 @@ library Storage {
      */
     function findLocalKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
         Iterator memory iterator = findLocal(prefix);
+        bytes[] memory temp = new bytes[](1000);
         uint256 count = 0;
 
         while (iterator.next() && count < 1000) {
+            temp[count] = iterator.currentKey;
             count++;
         }
 
         keys = new bytes[](count);
-        iterator = findLocal(prefix);
-
         for (uint256 i = 0; i < count; i++) {
-            require(iterator.next(), "Storage: iterator out of range");
-            keys[i] = iterator.currentKey;
+            keys[i] = temp[i];
         }
     }
     
@@ -452,35 +382,13 @@ library Storage {
     }
     
     // ========== Storage Analytics ==========
-    
-    /**
-     * @dev Get storage usage statistics
-     */
-    function getUsage() internal view returns (uint256) {
-        return _config.totalBytes;
-    }
-    
-    /**
-     * @dev Get total operations count
-     */
-    function getOperationCount() internal view returns (uint256) {
-        return _config.totalOperations;
-    }
-    
+
     /**
      * @dev Estimate storage cost for operation
      */
     function estimateCost(uint256 dataSize) internal view returns (uint256) {
         uint256 storagePrice = NativeCalls.getStoragePrice();
         return dataSize * storagePrice;
-    }
-    
-    /**
-     * @dev Get storage efficiency ratio
-     */
-    function getEfficiencyRatio() internal view returns (uint256) {
-        if (_config.totalOperations == 0) return 0;
-        return _config.totalBytes / _config.totalOperations;
     }
     
     // ========== Utility Functions ==========
@@ -490,7 +398,21 @@ library Storage {
      */
     function clearPrefix(bytes memory prefix) internal {
         bytes[] memory keys = findKeys(prefix);
-        batchDelete(keys);
+        uint256 i = 0;
+        while (i < keys.length) {
+            // Calculate batch size (max 100)
+            uint256 batchSize = keys.length - i;
+            if (batchSize > 100) {
+                batchSize = 100;
+            }
+            // Create batch
+            bytes[] memory batch = new bytes[](batchSize);
+            for (uint256 j = 0; j < batchSize; j++) {
+                batch[j] = keys[i + j];
+            }
+            batchDelete(batch);
+            i += batchSize;
+        }
     }
     
     /**
@@ -545,7 +467,7 @@ library Storage {
             }
             
             // Store run-length encoded data
-            if (runLength >= 4 || currentByte == 0x00) {
+            if (runLength >= 4 || currentByte == 0x00 || currentByte == 0xFF) {
                 // Use RLE for runs of 4+ or zeros
                 compressed[compressedIndex++] = 0xFF; // Escape byte
                 compressed[compressedIndex++] = bytes1(uint8(runLength));

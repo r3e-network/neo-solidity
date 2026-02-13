@@ -101,7 +101,7 @@ fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> 
 	}
 }
 
-fn extract_encode_call_arguments<'a>(expr: &'a Expression) -> Option<Vec<&'a Expression>> {
+fn extract_encode_call_arguments(expr: &Expression) -> Option<Vec<&Expression>> {
 	match expr {
 		Expression::Parenthesis(_, inner) => extract_encode_call_arguments(inner),
 		Expression::FunctionCall(_, func, args)

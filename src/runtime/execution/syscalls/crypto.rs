@@ -14,15 +14,53 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Crypto.CheckMultisig" => {
-                let sigs = Self::stack_item_to_bytes(self.pop_stack()?);
-                let pubs = Self::stack_item_to_bytes(self.pop_stack()?);
-                // Use the current transaction/message hash for verification
+                let sigs_item = self.pop_stack()?;
+                let pubs_item = self.pop_stack()?;
                 let msg_hash = self.get_current_message_hash();
-                // Treat as true only if both blobs can be split into at least one valid pair
-                let ok = !pubs.is_empty()
-                    && !sigs.is_empty()
-                    && Self::verify_secp256k1_with_message(&msg_hash, &pubs, &sigs);
-                self.push_stack(StackItem::Boolean(ok))?;
+
+                // Extract individual items from arrays
+                let pub_items = match pubs_item {
+                    StackItem::Array(items) => {
+                        let items = items.borrow();
+                        items.clone()
+                    }
+                    _ => {
+                        // Fallback: treat as single pubkey
+                        vec![pubs_item]
+                    }
+                };
+                let sig_items = match sigs_item {
+                    StackItem::Array(items) => {
+                        let items = items.borrow();
+                        items.clone()
+                    }
+                    _ => {
+                        vec![sigs_item]
+                    }
+                };
+
+                // M-of-N verification: each sig must match a pubkey in order
+                let mut pub_idx = 0;
+                let mut all_valid = !sig_items.is_empty() && !pub_items.is_empty();
+
+                for sig_item in &sig_items {
+                    let sig = Self::stack_item_to_bytes(sig_item.clone());
+                    let mut found = false;
+                    while pub_idx < pub_items.len() {
+                        let pubkey = Self::stack_item_to_bytes(pub_items[pub_idx].clone());
+                        pub_idx += 1;
+                        if Self::verify_secp256k1_with_message(&msg_hash, &pubkey, &sig) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        all_valid = false;
+                        break;
+                    }
+                }
+
+                self.push_stack(StackItem::Boolean(all_valid))?;
                 Ok(true)
             }
             _ => Ok(false),

@@ -32,7 +32,6 @@ use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata};
 use neo_solidity::solidity::NatspecDoc;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 include!("bytecode/bytecode_core.rs");

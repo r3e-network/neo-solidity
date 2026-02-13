@@ -93,6 +93,15 @@ impl ExecutionContext {
 
     fn shift_left(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
         let amount = self.extract_shift_amount(shift)?;
+        if amount >= 64 {
+            return match value {
+                StackItem::Integer(_) => Ok(StackItem::Integer(0)),
+                StackItem::UnsignedInteger(_) => Ok(StackItem::UnsignedInteger(0)),
+                _ => Err(RuntimeError::ExecutionError {
+                    message: "Invalid operands for shift left".to_string(),
+                }),
+            };
+        }
         match value {
             StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shl(amount))),
             StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shl(amount))),
@@ -104,6 +113,15 @@ impl ExecutionContext {
 
     fn shift_right(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
         let amount = self.extract_shift_amount(shift)?;
+        if amount >= 64 {
+            return match value {
+                StackItem::Integer(_) => Ok(StackItem::Integer(0)),
+                StackItem::UnsignedInteger(_) => Ok(StackItem::UnsignedInteger(0)),
+                _ => Err(RuntimeError::ExecutionError {
+                    message: "Invalid operands for shift right".to_string(),
+                }),
+            };
+        }
         match value {
             StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shr(amount))),
             StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shr(amount))),
@@ -120,11 +138,23 @@ impl ExecutionContext {
                     Err(RuntimeError::ExecutionError {
                         message: "Shift amount must be non-negative".to_string(),
                     })
+                } else if v > 255 {
+                    Err(RuntimeError::ExecutionError {
+                        message: "Shift amount exceeds maximum (255)".to_string(),
+                    })
                 } else {
-                    Ok((v as u64).min(63) as u32)
+                    Ok(v as u32)
                 }
             }
-            StackItem::UnsignedInteger(v) => Ok((v.min(63)) as u32),
+            StackItem::UnsignedInteger(v) => {
+                if v > 255 {
+                    Err(RuntimeError::ExecutionError {
+                        message: "Shift amount exceeds maximum (255)".to_string(),
+                    })
+                } else {
+                    Ok(v as u32)
+                }
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid shift amount".to_string(),
             }),

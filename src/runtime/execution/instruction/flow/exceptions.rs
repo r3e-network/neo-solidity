@@ -22,13 +22,12 @@ impl ExecutionContext {
                 // THROW
                 let message = Self::stack_item_to_bytes(self.pop_stack()?);
                 let message = String::from_utf8_lossy(&message);
-                return Err(RuntimeError::ExecutionError {
-                    message: if message.is_empty() {
-                        "THROW".to_string()
-                    } else {
-                        format!("THROW: {message}")
-                    },
-                });
+                let message = if message.is_empty() {
+                    "THROW".to_string()
+                } else {
+                    format!("THROW: {message}")
+                };
+                self.dispatch_exception(message)?;
             }
             _ => return Ok(false),
         }

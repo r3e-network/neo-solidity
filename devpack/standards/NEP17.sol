@@ -19,6 +19,9 @@ import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
 import "../libraries/Storage.sol";
 
+/// @dev Neo N3 Any type - represents any stack item type in NeoVM
+type Any is bytes;
+
 /**
  * @title INEP17
  * @dev Interface for NEP-17 fungible token standard
@@ -462,9 +465,10 @@ contract NEP17 is INEP17, FrameworkBase {
         
         unchecked {
             _balances[from] = accountBalance - amount;
-            _totalSupply -= amount;
         }
-        
+        // Keep totalSupply decrement checked for defense-in-depth
+        _totalSupply -= amount;
+
         emit Transfer(from, address(0), amount);
         emit Burn(from, amount);
     }
