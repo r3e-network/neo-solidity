@@ -5,6 +5,28 @@ All notable changes to the Neo Solidity Compiler will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.11.0] - 2026-02-13
+
+### Changed
+
+- **Progress Update**: Updated all progress metrics to 95% complete
+- **Status Badge**: Updated to "🟢 Production-Ready · 95% Complete · 620+ Tests"
+
+### Updated
+
+- **Core Compiler**: 90% → 95% (function overloading, public state variable getters)
+- **Runtime Library**: 80% → 95% (iterator handles, per-syscall gas accounting, full opcode suite)
+- **Testing**: 85% → 95% (620+ test coverage, end-to-end tests complete)
+- **Developer Tools**: 75% → 85% (Hardhat, Foundry, ABI Router, Types, CLI Tools)
+- **Documentation**: 85% → 95% (Solitity support matrix, Error reference, Architecture)
+
+### Known Limitations
+
+- Oracle integration (stub only - requires external oracle service)
+- Fuzzing framework (planned)
+- Differential testing (planned)
+- IDE debugging tools (planned)
+
 ## [v0.10.0] - 2026-02-13
 
 ### Fixed
