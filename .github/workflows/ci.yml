@@ -71,6 +71,7 @@ jobs:
         run: cargo test --workspace --all-features
 
       - name: Run code coverage
+        if: runner.os == 'Linux'
         run: |
           cargo install cargo-tarpaulin --locked
           cargo tarpaulin --out Lcov --output-dir coverage --locked
