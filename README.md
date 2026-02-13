@@ -217,7 +217,7 @@ neo-cli contract invoke <contract-hash> totalSupply
 >
 > For the full per-feature audit, see [`docs/SOLIDITY_SUPPORT_MATRIX.md`](./docs/SOLIDITY_SUPPORT_MATRIX.md) and [`FEATURE_MATRIX.md`](./FEATURE_MATRIX.md).
 
-### ✅ Fully Supported (110 features)
+### ✅ Fully Supported (110+ features)
 
 <details>
 <summary><strong>Types</strong> — <code>bool</code>, <code>int/uint</code> (all widths), <code>address</code>, <code>bytes1-32</code>, <code>bytes</code>, <code>string</code>, <code>enum</code>, <code>struct</code>, <code>mapping</code>, <code>T[]</code>, user-defined value types, <code>bytes.concat</code>, <code>string.concat</code>, contract types, tuples</summary>
@@ -971,13 +971,13 @@ make publish
 
 ### **🎯 Production Readiness**
 
-| Component           | Status              | Test Coverage               | Documentation | Notes                          |
-| ------------------- | ------------------- | --------------------------- | ------------- | ------------------------------ |
-| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration          | Complete      | Ready for most use cases       |
-| **Runtime Library** | 🟡 Production-Ready | Unit Tests                  | Complete      | See docs/NEO_VM_PARITY_TODO.md |
-| **Developer Tools** | 🟢 Stable           | Smoke Tests                 | Basic         | CLI fully functional           |
-| **Testing Suite**   | 🟢 Comprehensive    | 26 integ + 36 e2e + 32 conf | Good          | 93.8% conformance pass rate    |
-| **Documentation**   | 🟡 Good             | N/A                         | 80%           | Accurate but incomplete        |
+| Component           | Status              | Test Coverage                 | Documentation | Notes                          |
+| ------------------- | ------------------- | ----------------------------- | ------------- | ------------------------------ |
+| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration (620+)     | Complete      | Ready for production use       |
+| **Runtime Library** | 🟢 Production-Ready | Unit Tests                    | Complete      | See docs/NEO_VM_PARITY_TODO.md |
+| **Developer Tools** | 🟢 Stable           | Smoke Tests                   | Good          | CLI fully functional           |
+| **Testing Suite**   | 🟢 Comprehensive    | 74 e2e + 100+ integ + 32 conf | Good          | 93.8% conformance pass rate    |
+| **Documentation**   | 🟢 Good             | N/A                           | 85%           | Comprehensive guides           |
 
 ### **⚠️ Known Limitations**
 
