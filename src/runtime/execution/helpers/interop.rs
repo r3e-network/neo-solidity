@@ -5,7 +5,9 @@ impl ExecutionContext {
             StackItem::Integer(value) => value.to_le_bytes().to_vec(),
             StackItem::UnsignedInteger(value) => value.to_le_bytes().to_vec(),
             StackItem::Boolean(value) => vec![value as u8],
-            StackItem::Map(_) | StackItem::Array(_) => serde_json::to_vec(&item).unwrap_or_default(),
+            StackItem::Map(_) | StackItem::Array(_) => {
+                serde_json::to_vec(&item).unwrap_or_default()
+            }
             StackItem::Null => Vec::new(),
         }
     }
@@ -65,7 +67,7 @@ impl ExecutionContext {
     fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
         let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
-        if without_prefix.len() % 2 != 0 {
+        if !without_prefix.len().is_multiple_of(2) {
             return Err(RuntimeError::ConfigurationError {
                 message: "contract account hex string has odd length".to_string(),
             });
