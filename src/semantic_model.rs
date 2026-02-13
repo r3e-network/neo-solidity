@@ -13,6 +13,38 @@ pub struct SemanticModel {
     pub state_variables: Vec<StateVariableSymbol>,
 }
 
+impl SemanticModel {
+    /// Get all public functions
+    pub fn public_functions(&self) -> Vec<&FunctionSymbol> {
+        self.functions
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f.visibility,
+                    VisibilityKind::Public | VisibilityKind::External
+                )
+            })
+            .collect()
+    }
+
+    /// Get a function by name
+    pub fn get_function(&self, name: &str) -> Option<&FunctionSymbol> {
+        self.functions.iter().find(|f| f.name == name)
+    }
+
+    /// Get all state variables
+    pub fn get_state_variables(&self) -> &[StateVariableSymbol] {
+        &self.state_variables
+    }
+
+    /// Check if this is a payable contract
+    pub fn is_payable(&self) -> bool {
+        self.functions
+            .iter()
+            .any(|f| f.state_mutability == StateMutability::Payable)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FunctionSymbol {
     pub name: String,

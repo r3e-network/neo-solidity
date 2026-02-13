@@ -9,7 +9,9 @@ impl Optimizer {
             AstNodeType::Object { statements } => {
                 let optimized = self.process_statement_list(statements);
                 AstNode {
-                    node_type: AstNodeType::Object { statements: optimized },
+                    node_type: AstNodeType::Object {
+                        statements: optimized,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -17,22 +19,27 @@ impl Optimizer {
             AstNodeType::Block { statements } => {
                 let optimized = self.process_statement_list(statements);
                 AstNode {
-                    node_type: AstNodeType::Block { statements: optimized },
+                    node_type: AstNodeType::Block {
+                        statements: optimized,
+                    },
                     line: node.line,
                     column: node.column,
                 }
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 // Recursively process branches
                 let opt_then = self.eliminate_dead_code_recursive(*then_branch, false);
-                let opt_else = else_branch.map(|eb| 
-                    Box::new(self.eliminate_dead_code_recursive(*eb, false))
-                );
-                
+                let opt_else =
+                    else_branch.map(|eb| Box::new(self.eliminate_dead_code_recursive(*eb, false)));
+
                 // Check for empty branches
                 let then_empty = self.is_empty_block(&opt_then);
                 let else_empty = opt_else.as_ref().is_none_or(|eb| self.is_empty_block(eb));
-                
+
                 if then_empty && else_empty {
                     // Both branches empty - eliminate entire if
                     self.stats.eliminated_instructions += 1;
@@ -53,7 +60,12 @@ impl Optimizer {
                     }
                 }
             }
-            AstNodeType::Function { name, params, body, returns } => {
+            AstNodeType::Function {
+                name,
+                params,
+                body,
+                returns,
+            } => {
                 let opt_body = self.eliminate_dead_code_recursive(*body, false);
                 AstNode {
                     node_type: AstNodeType::Function {
@@ -107,9 +119,9 @@ impl Optimizer {
         match &node.node_type {
             AstNodeType::Leave | AstNodeType::Break | AstNodeType::Continue => true,
             AstNodeType::FunctionCall { name, .. } => {
-                matches!(name.as_str(),
-                    "return" | "revert" | "stop" | "invalid" |
-                    "selfdestruct" | "abort" | "throw"
+                matches!(
+                    name.as_str(),
+                    "return" | "revert" | "stop" | "invalid" | "selfdestruct" | "abort" | "throw"
                 )
             }
             _ => false,
@@ -117,9 +129,9 @@ impl Optimizer {
     }
 
     /// Check if a node is a label (should be preserved)
-    /// Note: Current AST does not have Label variant, so always returns false
+    /// Note: Labels are not currently supported in this compiler's AST.
+    /// This function exists for future extension when label support is added.
     fn is_label(&self, _node: &AstNode) -> bool {
-        // AstNodeType does not have a Label variant in this parser
         false
     }
 
@@ -152,13 +164,32 @@ impl Optimizer {
             AstNodeType::FunctionCall { name, arguments } => {
                 // Pure operations
                 let pure_ops = [
-                    "add", "sub", "mul", "div", "mod", "exp",
-                    "eq", "lt", "gt", "slt", "sgt", "le", "ge",
-                    "and", "or", "xor", "not", "shl", "shr", "sar",
-                    "iszero", "byte", "signextend",
+                    "add",
+                    "sub",
+                    "mul",
+                    "div",
+                    "mod",
+                    "exp",
+                    "eq",
+                    "lt",
+                    "gt",
+                    "slt",
+                    "sgt",
+                    "le",
+                    "ge",
+                    "and",
+                    "or",
+                    "xor",
+                    "not",
+                    "shl",
+                    "shr",
+                    "sar",
+                    "iszero",
+                    "byte",
+                    "signextend",
                 ];
-                pure_ops.contains(&name.as_str()) && 
-                    arguments.iter().all(|a| self.is_pure_expression(a))
+                pure_ops.contains(&name.as_str())
+                    && arguments.iter().all(|a| self.is_pure_expression(a))
             }
             _ => false,
         }
@@ -174,7 +205,9 @@ impl Optimizer {
                     .filter(|s| !self.is_empty_block(s))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Block { statements: filtered },
+                    node_type: AstNodeType::Block {
+                        statements: filtered,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -186,7 +219,9 @@ impl Optimizer {
                     .filter(|s| !self.is_empty_block(s))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Object { statements: filtered },
+                    node_type: AstNodeType::Object {
+                        statements: filtered,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -195,4 +230,3 @@ impl Optimizer {
         }
     }
 }
-

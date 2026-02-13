@@ -90,6 +90,22 @@ impl CompilerConfig {
     pub fn is_debug_enabled(&self) -> bool {
         self.include_debug_info || self.verbose
     }
+
+    /// Check if optimization is enabled
+    pub fn is_optimized(&self) -> bool {
+        self.optimization_level > 0
+    }
+
+    /// Get optimization passes based on level
+    pub fn optimization_passes(&self) -> u32 {
+        match self.optimization_level {
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            _ => 2,
+        }
+    }
 }
 
 /// Builder for CompilerConfig with fluent API
@@ -146,6 +162,26 @@ impl CompilerConfigBuilder {
 
     pub fn max_contract_size(mut self, size: usize) -> Self {
         self.config.max_contract_size = size;
+        self
+    }
+
+    pub fn include_abi(mut self, enabled: bool) -> Self {
+        self.config.include_abi = enabled;
+        self
+    }
+
+    pub fn include_source_map(mut self, enabled: bool) -> Self {
+        self.config.include_source_map = enabled;
+        self
+    }
+
+    pub fn validate_only(mut self, enabled: bool) -> Self {
+        self.config.validate_only = enabled;
+        self
+    }
+
+    pub fn analyze_only(mut self, enabled: bool) -> Self {
+        self.config.analyze_only = enabled;
         self
     }
 

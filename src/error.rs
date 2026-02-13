@@ -285,6 +285,9 @@ pub enum ErrorCode {
     GasLimitExceeded = 3004,
     ContractTooLarge = 3005,
     InvalidOpcode = 3006,
+    BreakOutsideLoop = 3007,
+    ContinueOutsideLoop = 3008,
+    InvalidJumpOffset = 3009,
 
     // IO errors (4xxx)
     FileNotFound = 4001,
@@ -345,6 +348,9 @@ impl ErrorCode {
             Self::GasLimitExceeded => "gas limit exceeded",
             Self::ContractTooLarge => "contract too large",
             Self::InvalidOpcode => "invalid opcode",
+            Self::BreakOutsideLoop => "break statement outside of loop",
+            Self::ContinueOutsideLoop => "continue statement outside of loop",
+            Self::InvalidJumpOffset => "invalid jump offset in bytecode",
             Self::FileNotFound => "file not found",
             Self::PermissionDenied => "permission denied",
             Self::ImportNotFound => "import not found",

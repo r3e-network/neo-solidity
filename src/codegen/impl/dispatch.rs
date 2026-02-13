@@ -1,10 +1,4 @@
 impl CodeGenerator {
-    pub fn new(config: &CompilerConfig) -> Self {
-        Self {
-            _config: config.clone(),
-        }
-    }
-
     pub fn generate(&mut self, ast: &AstNode) -> Result<CompilationResult, CompilerError> {
         let mut bytecode = Vec::new();
         let mut functions: Vec<FunctionMeta> = Vec::new();
@@ -23,7 +17,7 @@ impl CodeGenerator {
         // Add contract initialization (prepended, shifts all offsets by INIT_MARKER_LEN)
         let mut prefix = vec![0x0C, 0x04]; // PUSHDATA1 + length
         prefix.extend_from_slice(b"init"); // "init" marker
-        prefix.append(&mut bytecode);      // move original bytecode after prefix
+        prefix.append(&mut bytecode); // move original bytecode after prefix
         bytecode = prefix;
 
         // Add final return

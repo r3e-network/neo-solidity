@@ -31,3 +31,80 @@ fn test_function_compilation() {
     "#;
     assert!(compile_contracts(source, false, 2).is_ok());
 }
+
+#[test]
+fn test_for_loop_compiles() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Loop {
+        function sum(uint256 n) public pure returns (uint256) {
+            uint256 total = 0;
+            for (uint256 i = 0; i < n; i++) {
+                total = total + i;
+            }
+            return total;
+        }
+    }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
+}
+
+#[test]
+fn test_while_loop_compiles() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Loop {
+        function countdown(uint256 n) public pure returns (uint256) {
+            uint256 count = 0;
+            while (n > 0) {
+                n--;
+                count++;
+            }
+            return count;
+        }
+    }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
+}
+
+#[test]
+fn test_break_statement_compiles() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Loop {
+        function findFirst(uint256[] memory arr, uint256 target) public pure returns (uint256) {
+            for (uint256 i = 0; i < arr.length; i++) {
+                if (arr[i] == target) {
+                    break;
+                }
+            }
+            return 0;
+        }
+    }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
+}
+
+#[test]
+fn test_continue_statement_compiles() {
+    let source = r#"
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
+    contract Loop {
+        function countEven(uint256[] memory arr) public pure returns (uint256) {
+            uint256 count = 0;
+            for (uint256 i = 0; i < arr.length; i++) {
+                if (arr[i] % 2 != 0) {
+                    continue;
+                }
+                count++;
+            }
+            return count;
+        }
+    }
+    "#;
+    assert!(compile_contracts(source, false, 2).is_ok());
+}

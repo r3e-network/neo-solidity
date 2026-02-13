@@ -72,26 +72,42 @@ impl SemanticAnalyzer {
     }
 
     fn estimate_gas_usage(&self, ast: &AstNode) -> u64 {
-        let mut gas = 0;
+        let mut gas = 0u64;
 
         self.visit_node(ast, &mut |node, _depth| {
             match &node.node_type {
                 AstNodeType::FunctionCall { name, arguments } => {
-                    // Estimate gas based on function type
+                    // Estimate gas based on function type - more accurate NeoVM values
                     gas += match name.as_str() {
-                        "keccak256" => 30,
-                        "sha256" => 60,
-                        "ecrecover" => 3000,
-                        "sstore" => 20000,
-                        "sload" => 800,
-                        "mstore" | "mload" => 3,
-                        _ => 3, // Basic operation
+                        // Cryptographic operations (expensive on NeoVM)
+                        "keccak256" => 700000,
+                        "sha256" => 700000,
+                        "ripemd160" => 700000,
+                        "ecrecover" => 1100000,
+                        // Storage operations
+                        "sstore" => 1000000,
+                        "sload" => 100000,
+                        // Memory operations
+                        "mstore" | "mload" => 10,
+                        // External calls
+                        "call" | "delegatecall" | "staticcall" => 10000,
+                        // Arithmetic (cheap)
+                        "add" | "sub" | "mul" => 10,
+                        "div" | "mod" => 10,
+                        // Comparison
+                        "eq" | "lt" | "gt" | "slt" | "sgt" => 10,
+                        // Bitwise
+                        "and" | "or" | "xor" => 10,
+                        "shl" | "shr" | "sar" => 10,
+                        // Other
+                        _ => 10,
                     };
-                    gas += arguments.len() as u64 * 3; // Argument handling
+                    gas += arguments.len() as u64 * 10;
                 }
-                AstNodeType::For { .. } => gas += 100, // Loop overhead
-                AstNodeType::If { .. } => gas += 10,   // Conditional overhead
-                _ => gas += 1,                         // Basic instruction
+                AstNodeType::For { .. } => gas += 100,
+                AstNodeType::If { .. } => gas += 10,
+                AstNodeType::Assignment { .. } => gas += 10,
+                _ => gas += 1,
             }
         });
 
@@ -99,20 +115,50 @@ impl SemanticAnalyzer {
     }
 
     fn check_undefined_variables(&self, ast: &AstNode, errors: &mut Vec<String>) {
-        let mut defined_vars = std::collections::HashSet::new();
+        // Use a scope stack to properly track variable definitions
+        let mut scope_stack: Vec<std::collections::HashSet<String>> =
+            vec![std::collections::HashSet::new()];
 
-        self.visit_node(ast, &mut |node, _depth| match &node.node_type {
-            AstNodeType::Assignment { targets, .. } => {
-                for target in targets {
-                    defined_vars.insert(target.clone());
+        self.visit_node(ast, &mut |node, _depth| {
+            // Enter new scope for blocks and functions
+            match &node.node_type {
+                AstNodeType::Function { params, .. } => {
+                    // Add function parameters to a new scope
+                    let mut function_scope = std::collections::HashSet::new();
+                    for param in params {
+                        function_scope.insert(param.clone());
+                    }
+                    scope_stack.push(function_scope);
                 }
-            }
-            AstNodeType::Identifier { name } => {
-                if !defined_vars.contains(name) && !self.is_builtin(name) {
-                    errors.push(format!("Undefined variable: {}", name));
+                AstNodeType::Block { .. } | AstNodeType::Object { .. } => {
+                    // Enter a new block scope
+                    scope_stack.push(std::collections::HashSet::new());
                 }
+                _ => {}
             }
-            _ => {}
+
+            match &node.node_type {
+                AstNodeType::Assignment { targets, .. } => {
+                    // Add assigned variables to current scope
+                    if let Some(current_scope) = scope_stack.last_mut() {
+                        for target in targets {
+                            current_scope.insert(target.clone());
+                        }
+                    }
+                }
+                AstNodeType::Identifier { name } => {
+                    // Check if identifier is defined in any scope
+                    let is_defined = scope_stack.iter().any(|scope| scope.contains(name));
+                    if !is_defined && !self.is_builtin(name) {
+                        // Only report if we're not in a function parameter context
+                        // (functions create their own scope, so parameters should be there)
+                        if !matches!(node.node_type, AstNodeType::Function { .. }) {
+                            errors.push(format!("Undefined variable: {}", name));
+                        }
+                    }
+                }
+                _ => {}
+            }
         });
     }
 
@@ -197,4 +243,3 @@ impl SemanticAnalyzer {
         });
     }
 }
-

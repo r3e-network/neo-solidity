@@ -5,6 +5,34 @@ All notable changes to the Neo Solidity Compiler will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.10.0] - 2026-02-13
+
+### Fixed
+
+- **Code generation**: Fixed variable assignment to emit correct `STLOC` instructions
+- **Loop control**: Implemented `break`/`continue` with proper loop context tracking
+- **Variable handling**: Added variable index table for efficient local variable access
+- **Semantic analysis**: Improved variable scope tracking with scope stack
+
+### Added
+
+- **CompilerConfig builder methods**: Added `include_abi()`, `include_source_map()`, `validate_only()`, `analyze_only()`
+- **Optimization helpers**: Added `is_optimized()` and `optimization_passes()` methods
+- **SemanticModel methods**: Added `public_functions()`, `get_function()`, `get_state_variables()`, `is_payable()`
+- **Error codes**: Added `BreakOutsideLoop`, `ContinueOutsideLoop`, `InvalidJumpOffset`
+- **Helper functions**: Added `emit_ldloc()` and `emit_stloc()` for proper NeoVM bytecode generation
+
+### Refactored
+
+- **Code generator**: Improved variable handling with proper index-based storage
+- **Optimizer**: Better code structure with clearer separation of concerns
+- **Error handling**: More specific error codes for better debugging
+
+### Changed
+
+- **Gas estimation**: Updated to use more accurate NeoVM cost values (crypto: 700000, storage: 1000000)
+- **Devpack documentation**: Clarified `contractCallWithFlags` flags parameter status
+
 ## [Unreleased]
 
 ### Added

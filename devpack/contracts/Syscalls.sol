@@ -139,6 +139,13 @@ library Syscalls {
     
     /**
      * @dev Call contract with flags
+     * @notice Neo N3 does not have System.Contract.CallEx. The flags parameter is
+     *         accepted for API compatibility but currently has no effect.
+     * @param scriptHash The target contract script hash
+     * @param method The method name to call
+     * @param params The encoded parameters
+     * @param flags Call flags (currently ignored - reserved for future use)
+     * @return The result of the contract call
      */
     function contractCallWithFlags(
         address scriptHash,
@@ -146,8 +153,9 @@ library Syscalls {
         bytes memory params,
         uint8 flags
     ) internal returns (bytes memory) {
+        // Flags parameter is reserved for future use when Neo N3 adds CallEx support
+        // Currently ignored - passed in data for forward compatibility
         bytes memory data = abi.encode(scriptHash, method, params, flags);
-        // Neo N3 has no `System.Contract.CallEx`; flags are passed to `System.Contract.Call`.
         return _syscallBytes("System.Contract.Call", data);
     }
 
