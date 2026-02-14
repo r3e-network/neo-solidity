@@ -187,7 +187,7 @@ Legend:
 | `tx.gasprice`                           | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                        |
 | `gasleft()`                             | ✅     | Auto-mapped to `System.Runtime.GasLeft` syscall                             |
 | `blockhash(n)`                          | ✅     | Auto-mapped to `Ledger.getBlockHash()` with warning                         |
-| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.sha256` (Neo equivalent)                                 |
+| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                                |
 | `sha256(...)`                           | ✅     | Maps to `CryptoLib.sha256`                                                  |
 | `ecrecover(...)`                        | ✅     | Maps to `CryptoLib.verifyWithECDsa`                                         |
 | `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                  |
