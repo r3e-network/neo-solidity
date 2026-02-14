@@ -53,13 +53,13 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `private`            | Supported     | Contract-scoped only                                                         |
 | `view`               | Supported     | Manifest safe annotation                                                     |
 | `pure`               | Supported     | No storage access                                                            |
-| `payable`            | Partial       | Accepted syntactically; use `onNEP17Payment` for value receipt               |
+| `payable`            | Partial       | Accepted with warning; use `onNEP17Payment` for value receipt                |
 | `modifiers`          | Supported     | `_` placeholder expansion                                                    |
 | Function overloading | Partial       | Different arg counts supported; same arg count rejected (Neo ABI limitation) |
 | Named arguments      | Supported     | `f({x: 1, y: 2})` reordered to positional order at compile time              |
 | Default parameters   | Not Supported | Not part of Solidity spec                                                    |
-| `fallback()`         | Partial       | Compiled but Neo has no equivalent fallback dispatch                         |
-| `receive()`          | Partial       | Compiled but Neo uses `onNEP17Payment` for value receipt                     |
+| `fallback()`         | Partial       | Compiled with warning; Neo uses `onNEP17Payment` for value receipt           |
+| `receive()`          | Partial       | Compiled with warning; Neo uses `onNEP17Payment` for value receipt           |
 | `constructor`        | Supported     | Mapped to `_deploy(data, update)`                                            |
 
 ## Object-Oriented
@@ -167,7 +167,14 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `block.parenthash`                      | Supported     | Auto-mapped to Ledger.currentHash                                |
 | `block.sha3`                            | Supported     | Auto-mapped to Runtime.getRandom with warning                    |
 | `address.codehash`                      | Supported     | Auto-mapped to contract script hash with warning                 |
+| `address.balance`                       | Supported     | Auto-mapped to Gas.balanceOf                                     |
+| `address.call`                          | Supported     | Auto-mapped to System.Contract.Call                              |
+| `address.staticcall`                    | Supported     | Auto-mapped to System.Contract.Call (read-only)                  |
+| `address.transfer`                      | Supported     | Auto-mapped to Gas.transfer                                      |
+| `address.send`                          | Supported     | Auto-mapped to Gas.transfer                                      |
 | `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere |
+| `msg.data`                              | Not Supported | No equivalent on Neo N3 (uses typed parameters)                  |
+| `msg.sig`                               | Not Supported | No equivalent on Neo N3 (method dispatch by name)                |
 | Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                            |
 | User-defined value types                | Supported     | `type X is Y` transparent aliases; `wrap`/`unwrap` are no-ops    |
 | Transient storage (`tstore`/`tload`)    | Not Supported | EIP-1153; no Neo equivalent                                      |
