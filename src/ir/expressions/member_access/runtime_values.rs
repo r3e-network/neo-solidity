@@ -11,8 +11,7 @@ fn try_lower_runtime_member_access(
                     if ctx.function_name == "onNEP17Payment" {
                         instructions.push(Instruction::LoadParameter(0));
                     } else {
-                        instructions
-                            .push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
+                        instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
                     }
                     return Some(true);
                 }
@@ -92,6 +91,26 @@ fn try_lower_runtime_member_access(
             }
             None
         }
+        "hash" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "tx" {
+                    // Neo N3 auto-compat: tx.hash → System.Runtime.GetScriptContainer
+                    // Returns the transaction that triggered execution
+                    eprintln!(
+                        "warning: tx.hash auto-mapped to System.Runtime.GetScriptContainer on Neo N3. \
+                         This returns the current transaction as a ScriptContainer."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::Syscall(
+                            "System.Runtime.GetScriptContainer".to_string(),
+                        ),
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
         "timestamp" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
@@ -128,16 +147,19 @@ fn try_lower_runtime_member_access(
         "coinbase" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
-                    // Neo N3 auto-compat: block.coinbase → address(0)
-                    // dBFT has no miner; return zero address as safe default.
+                    // Neo N3 auto-compat: block.coinbase → Neo.getNextBlockValidators()
+                    // dBFT has no miner; return next block validators for useful info
                     eprintln!(
-                        "warning: block.coinbase auto-mapped to address(0) on Neo N3 \
-                         (dBFT consensus has no miner). Use NativeCalls.getNextBlockValidators() \
-                         for validator info."
+                        "warning: block.coinbase auto-mapped to Neo.getNextBlockValidators() on Neo N3 \
+                         (dBFT consensus has no miner). Returns array of validator script hashes."
                     );
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                        [0u8; 20].to_vec(),
-                    )));
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Neo,
+                            method: "getNextBlockValidators".to_string(),
+                        },
+                        arg_count: 0,
+                    });
                     return Some(true);
                 }
             }
@@ -153,9 +175,7 @@ fn try_lower_runtime_member_access(
                         member.name
                     );
                     instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::Syscall(
-                            "System.Runtime.GetRandom".to_string(),
-                        ),
+                        builtin: BuiltinCall::Syscall("System.Runtime.GetRandom".to_string()),
                         arg_count: 0,
                     });
                     return Some(true);

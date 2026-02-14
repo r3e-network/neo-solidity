@@ -67,8 +67,12 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
         "getScriptContainer" => Some(BuiltinCall::Syscall(
             "System.Runtime.GetScriptContainer".to_string(),
         )),
-        "loadScript" => Some(BuiltinCall::Syscall("System.Runtime.LoadScript".to_string())),
-        "getStorageContext" => Some(BuiltinCall::Syscall("System.Storage.GetContext".to_string())),
+        "loadScript" => Some(BuiltinCall::Syscall(
+            "System.Runtime.LoadScript".to_string(),
+        )),
+        "getStorageContext" => Some(BuiltinCall::Syscall(
+            "System.Storage.GetContext".to_string(),
+        )),
         "getReadOnlyStorageContext" => Some(BuiltinCall::Syscall(
             "System.Storage.GetReadOnlyContext".to_string(),
         )),
@@ -84,12 +88,18 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
         "storageDeleteLocal" => Some(BuiltinCall::Syscall(
             "System.Storage.Local.Delete".to_string(),
         )),
-        "storageFindLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Find".to_string())),
-        "checkWitness" => Some(BuiltinCall::Syscall("System.Runtime.CheckWitness".to_string())),
+        "storageFindLocal" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Find".to_string(),
+        )),
+        "checkWitness" => Some(BuiltinCall::Syscall(
+            "System.Runtime.CheckWitness".to_string(),
+        )),
         "getTime" => Some(BuiltinCall::Syscall("System.Runtime.GetTime".to_string())),
         "gasLeft" => Some(BuiltinCall::Syscall("System.Runtime.GasLeft".to_string())),
         "getPlatform" => Some(BuiltinCall::Syscall("System.Runtime.Platform".to_string())),
-        "getTrigger" => Some(BuiltinCall::Syscall("System.Runtime.GetTrigger".to_string())),
+        "getTrigger" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetTrigger".to_string(),
+        )),
         "getNotifications" => Some(BuiltinCall::Syscall(
             "System.Runtime.GetNotifications".to_string(),
         )),
@@ -152,6 +162,30 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
         "bls12381Pairing" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::CryptoLib,
             method: "bls12381Pairing".to_string(),
+        }),
+        "bls12381G1Add" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G1Add".to_string(),
+        }),
+        "bls12381G1Mul" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G1Mul".to_string(),
+        }),
+        "bls12381G2Add" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G2Add".to_string(),
+        }),
+        "bls12381G2Mul" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G2Mul".to_string(),
+        }),
+        "bls12381G1Neg" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G1Neg".to_string(),
+        }),
+        "bls12381G2Neg" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "bls12381G2Neg".to_string(),
         }),
         "serialize" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::StdLib,
@@ -236,7 +270,9 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
         "iteratorNext" => Some(BuiltinCall::Syscall("System.Iterator.Next".to_string())),
         "iteratorValue" => Some(BuiltinCall::Syscall("System.Iterator.Value".to_string())),
         "getCurrentRandom" => Some(BuiltinCall::Syscall("System.Runtime.GetRandom".to_string())),
-        "getNetwork" => Some(BuiltinCall::Syscall("System.Runtime.GetNetwork".to_string())),
+        "getNetwork" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetNetwork".to_string(),
+        )),
         "getAddressVersion" => Some(BuiltinCall::Syscall(
             "System.Runtime.GetAddressVersion".to_string(),
         )),

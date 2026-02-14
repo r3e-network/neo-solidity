@@ -49,6 +49,7 @@ fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<
         &metadata.methods,
         diagnostics,
     );
+    check_payable_modifier(&public_methods, diagnostics);
 }
 
 /// Detect ERC-20 style `transfer(address, uint256)` and suggest NEP-17 4-param form.
@@ -439,5 +440,30 @@ fn check_nft_payment_callback(
                 "Add onNEP11Payment(address from, uint256 amount, bytes32 tokenId, bytes data)",
             ),
         );
+    }
+}
+
+/// Detect payable modifier usage and warn about Neo N3 differences.
+fn check_payable_modifier(public_methods: &[&FunctionMetadata], diagnostics: &mut Vec<Diagnostic>) {
+    use crate::solidity::StateMutability;
+
+    for method in public_methods {
+        // Check if function is marked payable but is not onNEP17Payment
+        if method.state_mutability == StateMutability::Payable
+            && !method.name.eq_ignore_ascii_case("onnep17payment")
+            && !method.name.eq_ignore_ascii_case("onnep11payment")
+        {
+            diagnostics.push(
+                Diagnostic::warning(format!(
+                    "function '{}' has payable modifier which has no effect on Neo N3. \
+                 Use onNEP17Payment callback to receive token payments.",
+                    method.name
+                ))
+                .with_code("W116")
+                .with_suggestion(
+                    "Remove payable or implement onNEP17Payment(address, uint256, bytes)",
+                ),
+            );
+        }
     }
 }

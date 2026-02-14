@@ -156,7 +156,8 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `selfdestruct`                          | Supported     | Auto-mapped to `ContractManagement.destroy()` with warning       |
 | `create` / `create2`                    | Not Supported | Use `ContractManagement.deploy` instead                          |
 | `tx.origin`                             | Partial       | Compiles with warning; Neo uses multi-sig witnesses              |
-| `block.coinbase`                        | Supported     | Auto-mapped to `address(0)` with warning (dBFT has no miner)     |
+| `tx.hash`                               | Supported     | Auto-mapped to System.Runtime.GetScriptContainer                 |
+| `block.coinbase`                        | Supported     | Auto-mapped to getNextBlockValidators (dBFT has no miner)        |
 | `block.difficulty` / `block.prevrandao` | Supported     | Auto-mapped to `Runtime.getRandom()` with warning                |
 | `gasleft()`                             | Supported     | Auto-mapped to `System.Runtime.GasLeft` syscall                  |
 | `block.gaslimit`                        | Supported     | Auto-mapped to `Policy.getExecFeeFactor()` with warning          |
