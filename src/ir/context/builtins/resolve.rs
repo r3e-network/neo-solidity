@@ -273,6 +273,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "getTransactionFromBlock",
             "getTransactionSigners",
             "getTransactionVMState",
+            "getBlockSystemFee",
             "notaryVerify",
             "notaryBalanceOf",
             "notaryExpirationOf",

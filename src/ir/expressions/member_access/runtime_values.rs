@@ -223,6 +223,45 @@ fn try_lower_runtime_member_access(
             }
             None
         }
+        "parenthash" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.parenthash → Ledger.getBlock(currentIndex-1).prevHash
+                    // This requires getting the previous block hash
+                    eprintln!(
+                        "warning: block.parenthash auto-mapped to Ledger.currentHash on Neo N3. \
+                         For previous block hash, use Ledger.getBlock(currentIndex-1).prevHash."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Ledger,
+                            method: "currentHash".to_string(),
+                        },
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
+        "sha3" => {
+            if let Expression::Variable(base) = inner {
+                if base.name == "block" {
+                    // Neo N3 auto-compat: block.sha3 → Keccak256 of current block
+                    // This is essentially the block hash
+                    eprintln!(
+                        "warning: block.sha3 is not directly available on Neo N3. \
+                         Use Runtime.getRandom() or Ledger.currentHash() as alternative."
+                    );
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::Syscall("System.Runtime.GetRandom".to_string()),
+                        arg_count: 0,
+                    });
+                    return Some(true);
+                }
+            }
+            None
+        }
         _ => None,
     }
 }

@@ -164,6 +164,8 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `block.basefee`                         | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning             |
 | `tx.gasprice`                           | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning             |
 | `blockhash()`                           | Supported     | Auto-mapped to `Ledger.getBlockHash()` with warning              |
+| `block.parenthash`                      | Supported     | Auto-mapped to Ledger.currentHash                                |
+| `block.sha3`                            | Supported     | Auto-mapped to Runtime.getRandom with warning                    |
 | `address.codehash`                      | Supported     | Auto-mapped to contract script hash with warning                 |
 | `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere |
 | Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                            |

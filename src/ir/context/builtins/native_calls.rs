@@ -320,6 +320,10 @@ fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Ledger,
             method: "getTransactionVMState".to_string(),
         }),
+        "getBlockSystemFee" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getBlockSystemFee".to_string(),
+        }),
 
         // ========== Helpers ==========
         "externalNativeCall" => Some(BuiltinCall::ContractCall),

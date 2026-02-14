@@ -50,6 +50,7 @@ fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<
         diagnostics,
     );
     check_payable_modifier(&public_methods, diagnostics);
+    check_block_timestamp_dependency(&public_methods, diagnostics);
 }
 
 /// Detect ERC-20 style `transfer(address, uint256)` and suggest NEP-17 4-param form.
@@ -464,6 +465,29 @@ fn check_payable_modifier(public_methods: &[&FunctionMetadata], diagnostics: &mu
                     "Remove payable or implement onNEP17Payment(address, uint256, bytes)",
                 ),
             );
+        }
+    }
+}
+
+/// Detect heavy dependence on block.timestamp which can be manipulated in Neo N3.
+fn check_block_timestamp_dependency(
+    public_methods: &[&FunctionMetadata],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for method in public_methods {
+        let name_lower = method.name.to_ascii_lowercase();
+        let time_sensitive = name_lower.contains("auition")
+            || name_lower.contains("timelock")
+            || name_lower.contains("deadline")
+            || name_lower.contains("expire");
+
+        if time_sensitive {
+            diagnostics.push(Diagnostic::warning(format!(
+                "function '{}' appears to be time-sensitive. block.timestamp on Neo N3 is \
+                 deterministic but can be affected by block production timing.",
+                method.name
+            )).with_code("W117")
+             .with_suggestion("Consider adding additional verification mechanisms for time-critical operations"));
         }
     }
 }
