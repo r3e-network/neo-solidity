@@ -18,7 +18,9 @@ obj/
 **/obj/
 
 # Generated documentation
-docs/api/
+docs/public/api/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # Example outputs
 examples/out/

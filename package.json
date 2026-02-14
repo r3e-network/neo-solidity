@@ -35,7 +35,10 @@
     "format": "prettier --write .",
     "dev": "turbo run dev",
     "clean": "turbo run clean",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "workspaces": [
     "tooling/packages/*"
@@ -44,7 +47,8 @@
     "@turbo/gen": "^1.10.7",
     "prettier": "^3.0.0",
     "turbo": "^1.10.7",
-    "typescript": "^5.1.6"
+    "typescript": "^5.1.6",
+    "vitepress": "^1.6.3"
   },
   "engines": {
     "node": ">=16.0.0",

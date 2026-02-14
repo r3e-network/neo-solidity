@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+
+:root {
+  --vp-font-family-base: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+
+  --vp-c-brand-1: #0f4c81;
+  --vp-c-brand-2: #1264a3;
+  --vp-c-brand-3: #1f78bf;
+  --vp-c-brand-soft: rgba(15, 76, 129, 0.18);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #0f4c81 0%, #15967d 55%, #ec6d33 100%);
+  --vp-home-hero-image-background-image: radial-gradient(circle at 25% 25%, rgba(21, 150, 125, 0.35), transparent 60%),
+    radial-gradient(circle at 75% 35%, rgba(15, 76, 129, 0.45), transparent 62%),
+    radial-gradient(circle at 60% 75%, rgba(236, 109, 51, 0.3), transparent 58%);
+  --vp-home-hero-image-filter: blur(42px);
+}
+
+.dark {
+  --vp-c-bg: #0c141d;
+  --vp-c-bg-soft: #132334;
+  --vp-c-bg-alt: #0f1b29;
+  --vp-c-text-1: #edf4fb;
+  --vp-c-text-2: #b8ccdf;
+  --vp-c-brand-1: #4fb2ff;
+  --vp-c-brand-2: #7cc4ff;
+  --vp-c-brand-3: #9fd4ff;
+  --vp-c-brand-soft: rgba(79, 178, 255, 0.2);
+}
+
+.VPHomeHero .text,
+.VPHomeHero .tagline {
+  max-width: 56rem;
+}
+
+.VPHomeHero .name {
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  letter-spacing: 0.01em;
+}
+
+.VPFeature {
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 24%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vp-c-brand-1) 9%, transparent), transparent 50%);
+}
+
+.VPFeature:hover {
+  border-color: color-mix(in srgb, var(--vp-c-brand-1) 50%, transparent);
+  transition: border-color 0.2s ease;
+}
+
+.vp-doc h2 {
+  border-top: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 20%, transparent);
+  padding-top: 1rem;
+}
+
+.vp-doc a {
+  font-weight: 600;
+}

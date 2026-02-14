@@ -163,6 +163,6 @@ Use `--json-errors` for machine-readable diagnostics:
 
 ## Getting Help
 
-- Check [README.md](../README.md) for quick start
-- Review [examples/](../examples/) for working contracts
+- Check [Getting Started](/getting-started/overview) for quick start
+- Review [examples](https://github.com/r3e-network/neo-solidity/tree/main/examples) for working contracts
 - Report issues: https://github.com/r3e-network/neo-solidity/issues

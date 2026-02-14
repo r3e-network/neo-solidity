@@ -2,7 +2,7 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-solidity
 
-.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
+.PHONY: all build clean test test-all test-all-full test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs docs-api docs-site install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
 .PHONY: test-compile-strict production-gate
 
 all: build
@@ -223,6 +223,22 @@ docs:
 	cargo doc --no-deps
 	@echo "✅ Documentation built"
 
+docs-api:
+	@echo "📚 Building API documentation payload..."
+	cargo doc --no-deps --document-private-items
+	rm -rf docs/public/api/rust
+	mkdir -p docs/public/api/rust
+	cp -r target/doc/* docs/public/api/rust/ || true
+	bash scripts/generate_ts_docs.sh
+	bash scripts/generate_cs_docs.sh
+	@echo "✅ API documentation payload built"
+
+docs-site: docs-api
+	@echo "🌐 Building VitePress documentation site..."
+	npm install
+	npm run docs:build
+	@echo "✅ Documentation site built at docs/.vitepress/dist"
+
 release: clean build test
 	@echo "🚀 Creating release..."
 	cargo package
@@ -241,7 +257,9 @@ help:
 	@echo "  coverage        - Generate HTML coverage report"
 	@echo "  coverage-ci     - Generate LCOV coverage for CI"
 	@echo "  check-coverage  - Check minimum coverage threshold (70%)"
-	@echo "  docs            - Build documentation"
+	@echo "  docs            - Build Rust API docs only (cargo doc)"
+	@echo "  docs-api        - Build Rust/TypeScript/C# API docs payload in docs/public/api"
+	@echo "  docs-site       - Build full VitePress docs site"
 	@echo "  install         - Install neo-solc binary"
 	@echo "  release         - Create release package"
 	@echo "  help            - Show this help message"

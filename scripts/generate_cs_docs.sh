@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_DIR="$REPO_ROOT/src/Neo.Sol.Runtime"
-DOCS_DIR="$REPO_ROOT/docs/api/csharp"
+DOCS_DIR="$REPO_ROOT/docs/public/api/csharp"
 
 if [[ ! -d "$RUNTIME_DIR" ]]; then
   echo "Neo.Sol.Runtime directory not found; skipping C# documentation."

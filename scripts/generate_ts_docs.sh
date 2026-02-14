@@ -3,14 +3,14 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLING_DIR="$REPO_ROOT/tooling"
-DOCS_DIR="$REPO_ROOT/docs/api/typescript"
+DOCS_DIR="$REPO_ROOT/docs/public/api/typescript"
 
 if [[ ! -d "$TOOLING_DIR" ]]; then
   echo "Tooling workspace not found; skipping TypeScript documentation generation."
   exit 0
 fi
 
-mkdir -p "$REPO_ROOT/docs/api"
+mkdir -p "$REPO_ROOT/docs/public/api"
 rm -rf "$DOCS_DIR"
 mkdir -p "$DOCS_DIR"
 
