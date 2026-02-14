@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main]
+  schedule:
+    - cron: "0 0 * * *"
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,8 +16,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  daily-gate:
+    name: Daily Run Gate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+
+    steps:
+      - name: Allow only one CI run per UTC day
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const workflow_id = 'ci.yml';
+            const now = new Date();
+            const startOfUtcDay = new Date(Date.UTC(
+              now.getUTCFullYear(),
+              now.getUTCMonth(),
+              now.getUTCDate(),
+              0, 0, 0
+            ));
+
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id,
+              per_page: 100
+            });
+
+            const runsToday = data.workflow_runs.filter((run) => {
+              if (run.id === context.runId) return false;
+              const createdAt = new Date(run.created_at);
+              return createdAt >= startOfUtcDay;
+            });
+
+            const shouldRun = runsToday.length === 0;
+            core.info(`Found ${runsToday.length} existing CI run(s) today (UTC).`);
+            core.setOutput('should_run', shouldRun ? 'true' : 'false');
+
   core:
     name: Core CI
+    needs: daily-gate
+    if: needs.daily-gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
