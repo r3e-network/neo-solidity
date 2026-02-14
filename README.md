@@ -1,7 +1,7 @@
 # Neo Solidity Compiler
 
 <p align="center">
-  <img src="docs/assets/neo-solidity-logo.svg" alt="Neo Solidity Compiler logo" width="240">
+  <img src="docs/assets/neo-solidity-banner.png" alt="Neo Solidity Compiler Banner" width="100%">
 </p>
 
 [![Build Status](https://github.com/r3e-network/neo-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-solidity/actions)
@@ -350,6 +350,10 @@ These features are **detected at compile time** with actionable error messages p
 ### **🏗️ Architecture Overview**
 
 The Neo Solidity Compiler consists of several integrated components:
+
+<p align="center">
+  <img src="docs/assets/compiler-architecture.png" alt="Compiler Architecture" width="80%">
+</p>
 
 ```mermaid
 graph TB

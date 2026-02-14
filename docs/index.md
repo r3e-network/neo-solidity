@@ -1,67 +1,157 @@
 ---
 layout: home
 
-title: Neo Solidity Documentation
-titleTemplate: Solidity to Neo N3
+title: Neo Solidity
+titleTemplate: Compile Solidity to Neo N3
 
 hero:
-  name: "Neo Solidity"
-  text: "Solidity to Neo N3 Compiler + Devpack"
-  tagline: "Compile Solidity contracts into production-ready NeoVM artifacts (.nef + .manifest.json), with explicit EVM→Neo mapping and deploy/test workflows."
-  actions:
-    - theme: brand
-      text: Start Here
-      link: /getting-started/overview
-    - theme: alt
-      text: Compile and Deploy Guide
-      link: /workflows/compile
+    name: "Neo Solidity"
+    text: "Compile Solidity to Neo N3"
+    tagline: "Production-grade compiler that transforms Solidity 0.8.x contracts into deployable NeoVM artifacts (.nef + .manifest.json) with full EVM-to-Neo semantic mapping, permission hardening, and deploy/test workflows."
+    image:
+        src: /assets/neo-solidity-logo.png
+        alt: Neo Solidity Compiler
+    actions:
+        - theme: brand
+          text: Get Started
+          link: /getting-started/overview
+        - theme: alt
+          text: Compile & Deploy
+          link: /workflows/compile
+        - theme: alt
+          text: GitHub
+          link: https://github.com/r3e-network/neo-solidity
 
 features:
-  - title: Compiler + Runtime Semantics
-    details: The documentation tracks actual compiler behavior, diagnostics, manifest generation, and NeoVM execution semantics.
+    - icon: "\U0001F527"
+      title: Compiler Pipeline
+      details: "8-stage Solidity-to-NeoVM compilation: lexing, parsing, semantic analysis, IR lowering, optimization (O0\u2013O3), code generation, manifest emission, and NEF packaging."
+      link: /reference/architecture
+      linkText: Architecture docs
 
-  - title: End-to-End Operational Guides
-    details: Complete workflows for compiling, deploying, and testing contracts on Neo N3 and Neo-Express with production readiness checks.
+    - icon: "\U0001F4CB"
+      title: "Solidity 0.8.x"
+      details: "142 audited features -- 111 fully supported, 19 partial with Neo solutions, 3 unsupported, 9 intentionally blocked with actionable diagnostics."
+      link: /solidity/feature-support
+      linkText: Feature matrix
 
-  - title: Solidity to NeoVM Mapping
-    details: Clear, explicit mapping of Solidity syntax/features to NeoVM functionality, including warnings where EVM semantics differ.
+    - icon: "\U0001F504"
+      title: "EVM \u2192 NeoVM Mapping"
+      details: "Transparent semantic mapping of EVM globals, opcodes, and patterns to Neo N3 equivalents. 9 auto-mapped features compile with warnings, zero code changes."
+      link: /mapping/evm-to-neovm
+      linkText: Mapping reference
 
-  - title: Devpack and Standards
-    details: NEP-17/NEP-11 and companion libraries are documented with strict-safe examples and manifest permission expectations.
+    - icon: "\U0001F4E6"
+      title: Devpack & Standards
+      details: "NEP-17, NEP-11, and NEP-24 token standards with strict-safe examples. Runtime, Storage, NativeCalls, and Syscalls intrinsic libraries included."
+      link: /devpack/overview
+      linkText: Devpack docs
+
+    - icon: "\U0001F512"
+      title: Manifest Security
+      details: "Permission hardening with --deny-wildcard-permissions, --deny-wildcard-contracts, and --deny-wildcard-methods. NatSpec-driven manifest overrides for groups, trusts, and extras."
+      link: /manifests/manifest-spec
+      linkText: Manifest spec
+
+    - icon: "\U0001F9EA"
+      title: Testing & Deployment
+      details: "660+ tests across unit, integration, and E2E suites. Neo-Express smoke tests, constructor arg validation, and a one-command production-gate for CI."
+      link: /workflows/test
+      linkText: Testing guide
 ---
 
-## What This Project Is
+<div class="vp-doc home-section">
 
-Neo Solidity is a production-grade compiler and toolchain that translates Solidity contracts to Neo N3 artifacts:
+## What is Neo Solidity?
 
-- `.nef` executable bytecode for NeoVM
-- `.manifest.json` contract manifest (ABI, permissions, standards, metadata)
+Neo Solidity is a **Rust-based compiler and toolchain** that translates Solidity smart contracts into Neo N3 artifacts. It produces two files per contract:
 
-The compiler is designed for practical deployability and auditability:
+- **`.nef`** -- NeoVM executable bytecode, ready for on-chain deployment
+- **`.manifest.json`** -- contract manifest with ABI, permissions, supported standards, and metadata
 
-- strict manifest permission controls
-- explicit compatibility diagnostics for EVM-only behavior
-- Neo-Express smoke suites and production-gate verification
+The compiler is designed for **practical deployability and auditability**. It enforces strict manifest permission controls, emits explicit compatibility diagnostics where EVM semantics diverge from Neo, and integrates with Neo-Express for local smoke testing before mainnet deployment.
 
-## Documentation Scope
+Unlike transpilation approaches that attempt to emulate EVM behavior on NeoVM, Neo Solidity performs **native semantic mapping** -- translating Solidity constructs directly to their Neo N3 equivalents while preserving developer intent.
 
-This site is organized to support both contract developers and compiler integrators:
+<p align="center">
+  <img src="/assets/evm-neovm-mapping.png" alt="EVM to NeoVM Mapping" width="80%">
+</p>
 
-1. **Getting Started**: installation and first compilation.
-2. **Workflows**: compile, deploy, test, and production hardening.
-3. **Solidity on Neo**: feature support and syntax behavior.
-4. **EVM→NeoVM Mapping**: semantic mapping and limitations.
-5. **NeoVM Integration**: native contracts, syscalls, and runtime behavior.
-6. **Manifest + Devpack**: standards, permissions, and metadata.
-7. **Reference**: CLI, errors, architecture, runtime spec, parity notes.
+## Quick Stats
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <span class="stat-value">111 / 142</span>
+    <span class="stat-label">Supported Features (78%)</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">660+</span>
+    <span class="stat-label">Test Cases</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">v0.12.0</span>
+    <span class="stat-label">Latest Release</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">8</span>
+    <span class="stat-label">Pipeline Stages</span>
+  </div>
+</div>
+
+## Compiler Architecture
+
+The compilation pipeline processes Solidity source through eight stages to produce deployment-ready Neo N3 artifacts:
+
+<div class="pipeline">
+  <span class="stage">.sol Source</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">Lexer</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">Parser</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">Semantic Analysis</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">IR Lowering</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">Optimizer</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">CodeGen</span>
+  <span class="arrow">&rarr;</span>
+  <span class="stage">.nef + .manifest.json</span>
+</div>
+
+Each stage produces diagnostics. The optimizer supports four levels (O0--O3), and the code generator emits both NeoVM bytecode and the contract manifest in a single pass.
+
+## Quick Start
+
+```bash
+# Install from source
+git clone https://github.com/r3e-network/neo-solidity.git
+cd neo-solidity && cargo install --path .
+
+# Compile a contract
+neo-solc contract.sol -O2 -o contract
+
+# Deploy to Neo-Express (local)
+neoxp contract deploy contract.nef contract.manifest.json
+
+# Run production gate (format + lint + build + tests + deploy smokes)
+make production-gate
+```
 
 ## Quick Links
 
-- [Getting Started](/getting-started/overview)
-- [Compile Contracts](/workflows/compile)
-- [Deploy Contracts](/workflows/deploy)
-- [Test Contracts](/workflows/test)
-- [Solidity Feature Support](/solidity/feature-support)
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm)
-- [Manifest System](/manifests/manifest-spec)
-- [Devpack Overview](/devpack/overview)
+<div class="links-grid">
+  <a href="/getting-started/overview">Getting Started</a>
+  <a href="/workflows/compile">Compile Contracts</a>
+  <a href="/workflows/deploy">Deploy Contracts</a>
+  <a href="/workflows/test">Test Contracts</a>
+  <a href="/solidity/feature-support">Solidity Feature Support</a>
+  <a href="/mapping/evm-to-neovm">EVM to NeoVM Mapping</a>
+  <a href="/manifests/manifest-spec">Manifest System</a>
+  <a href="/devpack/overview">Devpack Overview</a>
+  <a href="/reference/cli">CLI Reference</a>
+  <a href="/reference/architecture">Architecture</a>
+</div>
+
+</div>

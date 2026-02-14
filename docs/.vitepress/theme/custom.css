@@ -1,59 +1,281 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* ============================================================
+   Neo Solidity -- VitePress Custom Theme
+   Brand: #00E599 (Neo green) / #00AF92 (accent) / #0B1426 (dark bg)
+   ============================================================ */
 
 :root {
-  --vp-font-family-base: 'Source Sans 3', 'Segoe UI', sans-serif;
-  --vp-font-family-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+  /* Typography */
+  --vp-font-family-base: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
 
-  --vp-c-brand-1: #0f4c81;
-  --vp-c-brand-2: #1264a3;
-  --vp-c-brand-3: #1f78bf;
-  --vp-c-brand-soft: rgba(15, 76, 129, 0.18);
+  /* Brand palette -- light mode */
+  --vp-c-brand-1: #00af92;
+  --vp-c-brand-2: #00c9a7;
+  --vp-c-brand-3: #00e599;
+  --vp-c-brand-soft: rgba(0, 229, 153, 0.14);
 
+  /* Hero gradient */
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #0f4c81 0%, #15967d 55%, #ec6d33 100%);
-  --vp-home-hero-image-background-image: radial-gradient(circle at 25% 25%, rgba(21, 150, 125, 0.35), transparent 60%),
-    radial-gradient(circle at 75% 35%, rgba(15, 76, 129, 0.45), transparent 62%),
-    radial-gradient(circle at 60% 75%, rgba(236, 109, 51, 0.3), transparent 58%);
-  --vp-home-hero-image-filter: blur(42px);
+  --vp-home-hero-name-background: linear-gradient(135deg, #00e599 0%, #00af92 50%, #008f76 100%);
+  --vp-home-hero-image-background-image:
+    radial-gradient(circle at 30% 30%, rgba(0, 229, 153, 0.25), transparent 55%),
+    radial-gradient(circle at 70% 40%, rgba(0, 175, 146, 0.3), transparent 55%),
+    radial-gradient(circle at 50% 80%, rgba(0, 143, 118, 0.15), transparent 50%);
+  --vp-home-hero-image-filter: blur(56px);
+
+  /* Button overrides */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #0b1426;
+  --vp-button-brand-bg: #00e599;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #0b1426;
+  --vp-button-brand-hover-bg: #00c9a7;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #0b1426;
+  --vp-button-brand-active-bg: #00af92;
 }
 
+/* ---- Dark mode ---- */
 .dark {
-  --vp-c-bg: #0c141d;
-  --vp-c-bg-soft: #132334;
-  --vp-c-bg-alt: #0f1b29;
-  --vp-c-text-1: #edf4fb;
-  --vp-c-text-2: #b8ccdf;
-  --vp-c-brand-1: #4fb2ff;
-  --vp-c-brand-2: #7cc4ff;
-  --vp-c-brand-3: #9fd4ff;
-  --vp-c-brand-soft: rgba(79, 178, 255, 0.2);
+  --vp-c-bg: #0b1426;
+  --vp-c-bg-soft: #0f1d33;
+  --vp-c-bg-alt: #0d1829;
+  --vp-c-text-1: #e8f4ee;
+  --vp-c-text-2: #a3c4b8;
+  --vp-c-brand-1: #00e599;
+  --vp-c-brand-2: #33ebad;
+  --vp-c-brand-3: #66f0c2;
+  --vp-c-brand-soft: rgba(0, 229, 153, 0.16);
+
+  --vp-button-brand-text: #0b1426;
+  --vp-button-brand-hover-text: #0b1426;
+  --vp-button-brand-active-text: #0b1426;
 }
 
-.VPHomeHero .text,
-.VPHomeHero .tagline {
-  max-width: 56rem;
+/* ============================================================
+   Hero Section
+   ============================================================ */
+.VPHero .name {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  letter-spacing: -0.01em;
 }
 
-.VPHomeHero .name {
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
-  letter-spacing: 0.01em;
+.VPHero .text {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  font-weight: 600;
+  max-width: 52rem;
 }
 
+.VPHero .tagline {
+  max-width: 48rem;
+  line-height: 1.6;
+  font-size: 1.1rem;
+}
+
+/* ============================================================
+   Feature Cards
+   ============================================================ */
 .VPFeature {
-  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 24%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--vp-c-brand-1) 9%, transparent), transparent 50%);
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 20%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vp-c-brand-1) 6%, transparent), transparent 60%);
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .VPFeature:hover {
-  border-color: color-mix(in srgb, var(--vp-c-brand-1) 50%, transparent);
-  transition: border-color 0.2s ease;
+  border-color: color-mix(in srgb, var(--vp-c-brand-1) 45%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--vp-c-brand-1) 10%, transparent);
+}
+
+.VPFeature .title {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Content Typography
+   ============================================================ */
+.vp-doc h1 {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  letter-spacing: -0.02em;
 }
 
 .vp-doc h2 {
-  border-top: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 20%, transparent);
-  padding-top: 1rem;
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  border-top: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 18%, transparent);
+  padding-top: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.vp-doc h3 {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
 }
 
 .vp-doc a {
+  font-weight: 500;
+  text-decoration-color: color-mix(in srgb, var(--vp-c-brand-1) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s ease;
+}
+
+.vp-doc a:hover {
+  text-decoration-color: var(--vp-c-brand-1);
+}
+
+/* ============================================================
+   Code Blocks
+   ============================================================ */
+.vp-doc div[class*="language-"] {
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 12%, transparent);
+  border-radius: 8px;
+}
+
+.vp-doc div[class*="language-"] code {
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.vp-doc :not(pre) > code {
+  background: color-mix(in srgb, var(--vp-c-brand-1) 8%, var(--vp-c-bg-soft));
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  color: var(--vp-c-brand-1);
+}
+
+/* ============================================================
+   Custom Containers (tip, warning, danger, info)
+   ============================================================ */
+.vp-doc .custom-block.tip {
+  border-color: var(--vp-c-brand-1);
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.VPSidebar .group .title {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-weight: 600;
+}
+
+/* ============================================================
+   Nav bar
+   ============================================================ */
+.VPNavBar .title {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Home page -- custom markdown sections below the fold
+   ============================================================ */
+.vp-doc .home-section {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.vp-doc .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.vp-doc .stat-card {
+  text-align: center;
+  padding: 1.25rem 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 18%, transparent);
+  background: color-mix(in srgb, var(--vp-c-brand-1) 4%, var(--vp-c-bg-soft));
+}
+
+.vp-doc .stat-card .stat-value {
+  font-family: "Space Grotesk", var(--vp-font-family-base);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--vp-c-brand-1);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.vp-doc .stat-card .stat-label {
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+}
+
+/* Pipeline diagram */
+.vp-doc .pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  font-family: "JetBrains Mono", var(--vp-font-family-mono);
+  font-size: 0.8rem;
+}
+
+.vp-doc .pipeline .stage {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 25%, transparent);
+  background: color-mix(in srgb, var(--vp-c-brand-1) 6%, var(--vp-c-bg-soft));
+  white-space: nowrap;
+}
+
+.vp-doc .pipeline .arrow {
+  color: var(--vp-c-brand-1);
+  font-weight: 700;
+}
+
+/* Quick links grid */
+.vp-doc .links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.vp-doc .links-grid a {
+  display: block;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 15%, transparent);
+  background: color-mix(in srgb, var(--vp-c-brand-1) 3%, var(--vp-c-bg-soft));
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.vp-doc .links-grid a:hover {
+  border-color: color-mix(in srgb, var(--vp-c-brand-1) 40%, transparent);
+  background: color-mix(in srgb, var(--vp-c-brand-1) 8%, var(--vp-c-bg-soft));
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 640px) {
+  .VPHero .tagline {
+    font-size: 1rem;
+  }
+
+  .vp-doc .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .vp-doc .pipeline {
+    font-size: 0.7rem;
+  }
+
+  .vp-doc .pipeline .stage {
+    padding: 0.35rem 0.5rem;
+  }
 }

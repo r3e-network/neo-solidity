@@ -4,26 +4,51 @@ const isCI = process.env.GITHUB_ACTIONS === 'true';
 
 export default defineConfig({
   title: 'Neo Solidity',
-  description: 'Production-grade Solidity to Neo N3 compiler and devpack documentation',
+  description:
+    'Production-grade Solidity to Neo N3 compiler — compile .sol to .nef + .manifest.json with EVM-to-Neo semantic mapping',
   lang: 'en-US',
   base: isCI ? '/neo-solidity/' : '/',
   cleanUrls: true,
   lastUpdated: true,
-  srcExclude: ['archive/**'],
+  srcExclude: [
+    'archive/**',
+    'ARCHITECTURE.md',
+    'RUNTIME_SPEC.md',
+    'ERROR_REFERENCE.md',
+    'EXCELLENCE_ASSESSMENT.md',
+    'mapping_lowering_design.md',
+    'NEO_VM_PARITY_TODO.md',
+    'README.md',
+    'SOLIDITY_SUPPORT_MATRIX.md',
+    'public/**/*.md'
+  ],
   head: [
-    ['meta', { name: 'theme-color', content: '#0f4c81' }],
-    ['meta', { property: 'og:title', content: 'Neo Solidity Documentation' }],
+    ['meta', { name: 'theme-color', content: '#00E599' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: 'Neo Solidity — Compile Solidity to Neo N3' }],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'Compile Solidity to Neo N3 (.nef + .manifest.json), with complete deployment and runtime guidance.'
+          'Production-grade compiler that transforms Solidity 0.8.x contracts into deployable NeoVM artifacts (.nef + .manifest.json) with full EVM-to-Neo semantic mapping.'
       }
-    ]
+    ],
+    ['meta', { property: 'og:image', content: '/assets/neo-solidity-logo.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+    ['meta', { name: 'twitter:title', content: 'Neo Solidity — Compile Solidity to Neo N3' }],
+    [
+      'meta',
+      {
+        name: 'twitter:description',
+        content:
+          'Production-grade Solidity to Neo N3 compiler with 113+ supported features, manifest hardening, and Neo-Express integration.'
+      }
+    ],
+    ['link', { rel: 'icon', type: 'image/png', href: '/assets/neo-solidity-logo.png' }]
   ],
   themeConfig: {
-    logo: '/assets/neo-solidity-logo.svg',
+    logo: '/assets/neo-solidity-logo.png',
     siteTitle: 'Neo Solidity',
     nav: [
       { text: 'Getting Started', link: '/getting-started/overview' },
@@ -101,11 +126,11 @@ export default defineConfig({
           text: 'Reference',
           items: [
             { text: 'CLI Reference', link: '/reference/cli' },
-            { text: 'Manifest Reference', link: '/manifests/manifest-spec' },
             { text: 'Error Reference', link: '/reference/errors' },
             { text: 'Runtime Specification', link: '/reference/runtime' },
             { text: 'Architecture', link: '/reference/architecture' },
-            { text: 'Parity and Limitations', link: '/reference/parity-limitations' }
+            { text: 'Parity and Limitations', link: '/reference/parity-limitations' },
+            { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
         }
       ]

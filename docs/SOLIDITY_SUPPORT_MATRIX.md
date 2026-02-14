@@ -1,6 +1,6 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.9.10
+> **Compiler**: neo-solidity v0.12.0
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
 > **Audit date**: 2026-02-11
@@ -30,7 +30,7 @@ Legend:
 | `struct`                                 | ✅     | Full struct support with nested fields; `StructDefinition` converted  |
 | `mapping(K => V)`                        | ✅     | Storage mappings with Neo StorageMap; key type validation enforced    |
 | `T[]` (dynamic array)                    | ✅     | `new T[](n)` allocation supported                                     |
-| `T[N]` (fixed array)                     | ⚠️     | Parsed; `new T[N]` supported when `N` is compile-time constant         |
+| `T[N]` (fixed array)                     | ⚠️     | Parsed; `new T[N]` supported when `N` is compile-time constant        |
 | `fixed` / `ufixed`                       | ❌     | Not supported (also unsupported in mainline Solidity)                 |
 | User-defined value types (`type X is Y`) | ✅     | Transparent type aliases; `wrap`/`unwrap` compile to no-ops           |
 | `bytes.concat(...)`                      | ✅     | Chains NeoVM CAT opcodes; zero args produce empty byte array          |
@@ -42,54 +42,54 @@ Legend:
 
 ## B. Expressions
 
-| Feature                                       | Status | Notes                                                                   |
-| --------------------------------------------- | ------ | ----------------------------------------------------------------------- |
-| Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                        |
-| Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                  |
-| Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                |
-| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support                                                    |
-| Unary (`++`, `--`, `-`, `!`)                  | ✅     | Pre/post increment/decrement                                            |
-| Ternary (`? :`)                               | ✅     | `ConditionalOperator` lowered with labels                               |
-| Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                       |
-| `delete`                                      | ✅     | State vars, mapping entries, locals, array elements, struct fields      |
-| Tuple expressions `(a, b, c)`                 | ✅     | `Expression::List` lowered to NeoVM arrays                              |
+| Feature                                       | Status | Notes                                                                                                  |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                                                       |
+| Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                                                 |
+| Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                                               |
+| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support                                                                                   |
+| Unary (`++`, `--`, `-`, `!`)                  | ✅     | Pre/post increment/decrement                                                                           |
+| Ternary (`? :`)                               | ✅     | `ConditionalOperator` lowered with labels                                                              |
+| Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                                                      |
+| `delete`                                      | ✅     | State vars, mapping entries, locals, array elements, struct fields                                     |
+| Tuple expressions `(a, b, c)`                 | ✅     | `Expression::List` lowered to NeoVM arrays                                                             |
 | Tuple destructuring `(a, b) = f()`            | ⚠️     | Nested destructuring assignment supported; some complex target forms still require intermediate locals |
-| Type casting                                  | ✅     | `TypeCastingShowcase.sol` example compiles                              |
-| `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                             |
-| `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                    |
-| `type(I).interfaceId`                         | ✅     | Computed from selector XOR of interface methods                         |
-| `abi.encode(...)`                             | ⚠️     | Supported in context of `address.call`/`staticcall`; standalone limited |
-| `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding              |
-| `abi.encodeWithSignature(...)`                | ✅     | Lowered to Neo `System.Contract.Call`                                   |
-| `abi.encodeWithSelector(...)`                 | ✅     | Lowered to Neo `System.Contract.Call`                                   |
-| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize` (same as `abi.encode`)                       |
-| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument    |
-| Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                    |
+| Type casting                                  | ✅     | `TypeCastingShowcase.sol` example compiles                                                             |
+| `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                                                            |
+| `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                                                   |
+| `type(I).interfaceId`                         | ✅     | Computed from selector XOR of interface methods                                                        |
+| `abi.encode(...)`                             | ⚠️     | Supported in context of `address.call`/`staticcall`; standalone limited                                |
+| `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding                                             |
+| `abi.encodeWithSignature(...)`                | ✅     | Lowered to Neo `System.Contract.Call`                                                                  |
+| `abi.encodeWithSelector(...)`                 | ✅     | Lowered to Neo `System.Contract.Call`                                                                  |
+| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize` (same as `abi.encode`)                                                      |
+| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument                                   |
+| Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                                                   |
 
 ---
 
 ## C. Statements
 
-| Feature                   | Status | Notes                                                                          |
-| ------------------------- | ------ | ------------------------------------------------------------------------------ |
-| `if` / `else`             | ✅     | Standard conditional branching                                                 |
-| `for` loop                | ✅     | Init, condition, post, body all lowered                                        |
-| `while` loop              | ✅     | Condition + body                                                               |
-| `do...while` loop         | ✅     | Body + condition                                                               |
-| `break`                   | ✅     | Loop break                                                                     |
-| `continue`                | ✅     | Loop continue                                                                  |
-| `return`                  | ✅     | Single and multi-value returns                                                 |
-| `emit Event(...)`         | ✅     | Maps to `Runtime.Notify`; indexed params supported                             |
-| `revert(...)`             | ✅     | Maps to NeoVM `ABORT` with message                                             |
-| `revert CustomError(...)` | ✅     | Named revert with args; `RevertNamedArgs` also handled                         |
-| Variable declaration      | ✅     | Local variable definitions with optional initializer                           |
-| Block `{ ... }`           | ✅     | Scoped statement blocks                                                        |
-| `unchecked { ... }`       | ✅     | NeoVM uses BigInteger (no overflow); unchecked blocks compile as normal blocks |
-| `assembly { ... }`        | 🚫     | Blocked: "inline assembly is not supported — use NativeCalls.sol"              |
-| `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                        |
-| `catch Error(string)`     | ✅     | Named catch with parameter binding                                             |
+| Feature                   | Status | Notes                                                                                                       |
+| ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| `if` / `else`             | ✅     | Standard conditional branching                                                                              |
+| `for` loop                | ✅     | Init, condition, post, body all lowered                                                                     |
+| `while` loop              | ✅     | Condition + body                                                                                            |
+| `do...while` loop         | ✅     | Body + condition                                                                                            |
+| `break`                   | ✅     | Loop break                                                                                                  |
+| `continue`                | ✅     | Loop continue                                                                                               |
+| `return`                  | ✅     | Single and multi-value returns                                                                              |
+| `emit Event(...)`         | ✅     | Maps to `Runtime.Notify`; indexed params supported                                                          |
+| `revert(...)`             | ✅     | Maps to NeoVM `ABORT` with message                                                                          |
+| `revert CustomError(...)` | ✅     | Named revert with args; `RevertNamedArgs` also handled                                                      |
+| Variable declaration      | ✅     | Local variable definitions with optional initializer                                                        |
+| Block `{ ... }`           | ✅     | Scoped statement blocks                                                                                     |
+| `unchecked { ... }`       | ✅     | NeoVM uses BigInteger (no overflow); unchecked blocks compile as normal blocks                              |
+| `assembly { ... }`        | 🚫     | Blocked: "inline assembly is not supported — use NativeCalls.sol"                                           |
+| `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                                                     |
+| `catch Error(string)`     | ✅     | Named catch with parameter binding                                                                          |
 | `catch Panic(uint256)`    | ⚠️     | Lowered with runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes |
-| `catch (bytes)`           | ✅     | Low-level catch with raw bytes                                                 |
+| `catch (bytes)`           | ✅     | Low-level catch with raw bytes                                                                              |
 
 ---
 
@@ -152,18 +152,18 @@ Legend:
 
 ## G. Error Handling
 
-| Feature                                   | Status | Notes                                                     |
-| ----------------------------------------- | ------ | --------------------------------------------------------- |
-| `require(condition)`                      | ✅     | Maps to NeoVM ASSERT                                      |
-| `require(condition, "msg")`               | ✅     | ASSERT with message                                       |
-| `require(condition, CustomError(...))`    | ✅     | Error name and arg count preserved in NeoVM THROW message |
-| `assert(condition)`                       | ✅     | Maps to NeoVM ASSERT                                      |
-| `revert()`                                | ✅     | Maps to NeoVM ABORT                                       |
-| `revert("message")`                       | ✅     | ABORT with message                                        |
-| `revert CustomError(...)`                 | ✅     | Named revert with arguments                               |
-| Custom error definitions (`error X(...)`) | ✅     | Parsed and used in revert statements                      |
-| `try` / `catch`                           | ✅     | NeoVM TRY/ENDTRY structured exception handling            |
-| `try` with return binding                 | ✅     | `try f() returns (uint r) { ... }` supported              |
+| Feature                                   | Status | Notes                                                                                                              |
+| ----------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `require(condition)`                      | ✅     | Maps to NeoVM ASSERT                                                                                               |
+| `require(condition, "msg")`               | ✅     | ASSERT with message                                                                                                |
+| `require(condition, CustomError(...))`    | ✅     | Error name and arg count preserved in NeoVM THROW message                                                          |
+| `assert(condition)`                       | ✅     | Maps to NeoVM ASSERT                                                                                               |
+| `revert()`                                | ✅     | Maps to NeoVM ABORT                                                                                                |
+| `revert("message")`                       | ✅     | ABORT with message                                                                                                 |
+| `revert CustomError(...)`                 | ✅     | Named revert with arguments                                                                                        |
+| Custom error definitions (`error X(...)`) | ✅     | Parsed and used in revert statements                                                                               |
+| `try` / `catch`                           | ✅     | NeoVM TRY/ENDTRY structured exception handling                                                                     |
+| `try` with return binding                 | ✅     | `try f() returns (uint r) { ... }` supported                                                                       |
 | Multiple catch clauses                    | ⚠️     | Lowered with runtime stack-item type guards (`ISTYPE`); selector-level `Error`/`Panic` distinction remains limited |
 
 ---
@@ -187,7 +187,7 @@ Legend:
 | `tx.gasprice`                           | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                        |
 | `gasleft()`                             | ✅     | Auto-mapped to `System.Runtime.GasLeft` syscall                             |
 | `blockhash(n)`                          | ✅     | Auto-mapped to `Ledger.getBlockHash()` with warning                         |
-| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                                |
+| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                               |
 | `sha256(...)`                           | ✅     | Maps to `CryptoLib.sha256`                                                  |
 | `ecrecover(...)`                        | ✅     | Maps to `CryptoLib.verifyWithECDsa`                                         |
 | `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                  |
