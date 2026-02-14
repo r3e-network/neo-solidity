@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["arithmetic_op","divmod_op"],"mod":["types"]};

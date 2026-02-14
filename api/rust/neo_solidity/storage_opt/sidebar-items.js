@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["pack_variables"],"struct":["StorageSlot"]};

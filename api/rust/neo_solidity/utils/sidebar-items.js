@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["canonical_param_type","canonical_param_type_simple"]};

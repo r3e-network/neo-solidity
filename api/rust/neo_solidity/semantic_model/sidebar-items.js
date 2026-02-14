@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FunctionSide"],"fn":["build_semantic_model","convert_function","convert_parameter","convert_state_variable"],"struct":["FunctionSymbol","ParameterSymbol","SemanticModel","StateVariableSymbol"]};

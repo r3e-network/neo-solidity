@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo Solidity Compiler Documentation</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header { 
+            text-align: center; 
+            margin-bottom: 40px;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+            margin: 40px 0;
+        }
+        .card { 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            padding: 20px;
+            background: #f9f9f9;
+            transition: transform 0.2s;
+        }
+        .card:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .card h3 { 
+            margin-top: 0; 
+            color: #5a67d8;
+        }
+        a { 
+            color: #5a67d8; 
+            text-decoration: none; 
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Neo Solidity Compiler</h1>
+        <p>Complete Documentation & API Reference</p>
+        <p><strong>Author:</strong> Jimmy &lt;jimmy@r3e.network&gt;</p>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <h3>📚 User Guides</h3>
+            <ul>
+                <li><a href="../README.md">Getting Started</a></li>
+                <li><a href="../CONTRIBUTING.md">Contributing Guide</a></li>
+                <li><a href="../devpack/DEVPACK_GUIDE.md">Devpack Guide</a></li>
+                <li><a href="../DEPLOYMENT_VALIDATION.md">Deployment Guide</a></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>🔧 API Documentation</h3>
+            <ul>
+                <li><a href="api/rust/neo_solidity/index.html">Rust Compiler API</a></li>
+                <li><a href="api/typescript/index.html">TypeScript Tooling API</a></li>
+                <li><a href="api/csharp/index.html">C# Runtime API</a></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>🎨 Examples</h3>
+            <ul>
+                <li><a href="../examples/ERC20Token.sol">ERC20 Token</a></li>
+                <li><a href="../examples/ERC721Token.sol">ERC721 NFT</a></li>
+                <li><a href="../devpack/examples/CompleteNEP17Token.sol">Advanced NEP-17</a></li>
+                <li><a href="../devpack/examples/CompleteNEP11NFT.sol">Advanced NEP-11</a></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>📊 Analysis Reports</h3>
+            <ul>
+                <li><a href="../CODE_ANALYSIS_REPORT.md">Code Analysis</a></li>
+                <li><a href="../PRODUCTION_READINESS_AUDIT.md">Production Audit</a></li>
+                <li><a href="../ZERO_PLACEHOLDERS_CERTIFICATION.md">Quality Certification</a></li>
+                <li><a href="../FINAL_PRODUCTION_CERTIFICATION.md">Production Certification</a></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>🚀 Quick Start</h3>
+            <pre><code># Install Neo Solidity Compiler
+            curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64 -o neo-solc
+            chmod +x neo-solc
+
+            # Compile Solidity to Neo N3
+            ./neo-solc MyContract.sol -o MyContract
+
+            # Deploy to Neo blockchain
+            neo-cli contract deploy MyContract.nef MyContract.manifest.json</code></pre>
+        </div>
+        
+        <div class="card">
+            <h3>🔗 Resources</h3>
+            <ul>
+                <li><a href="https://github.com/r3e-network/neo-solidity">GitHub Repository</a></li>
+                <li><a href="https://github.com/r3e-network/neo-solidity/releases">Releases</a></li>
+                <li><a href="https://github.com/r3e-network/neo-solidity/issues">Issues & Support</a></li>
+                <li><a href="mailto:jimmy@r3e.network">Contact Author</a></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p><strong>Neo Solidity Compiler</strong> - Bringing Ethereum's developer ecosystem to Neo blockchain</p>
+        <p>Built with ❤️ by <strong>R3E Network</strong></p>
+        <p><a href="https://r3e.network">r3e.network</a> • <a href="mailto:jimmy@r3e.network">jimmy@r3e.network</a></p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Severity"],"struct":["ComplexityMetrics","PerformanceMetrics","SecurityIssue","SemanticAnalyzer","SemanticResult"]};

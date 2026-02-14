@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["native_contract_name","opcode_gas","opcode_name","syscall_gas_table","syscall_name"],"macro":["op"],"static":["NATIVE_CONTRACTS","OPCODES","SYSCALLS"],"struct":["NativeContractSpec","OpcodeSpec","SyscallSpec"]};

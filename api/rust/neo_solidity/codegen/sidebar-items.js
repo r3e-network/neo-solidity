@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INIT_MARKER_LEN"],"fn":["emit_ldloc","emit_stloc","interop_id_bytes"],"struct":["CodeGenerator","CompilationResult","FunctionMeta","LoopContext","VariableInfo"]};

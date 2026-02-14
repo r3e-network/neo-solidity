@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CompilerError","ErrorCode","ErrorSeverity"],"struct":["DiagnosticBuilder","DiagnosticData","FixSuggestion","RelatedInfo","SourceLocation"]};

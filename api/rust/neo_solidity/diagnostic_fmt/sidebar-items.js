@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DiagnosticFormat"],"fn":["format_compact","format_error","format_human","format_json"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AbiHint"],"fn":["is_fixed_size"]};

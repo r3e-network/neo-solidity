@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["encode_small_int","encode_varint","minimal_bytes"]};

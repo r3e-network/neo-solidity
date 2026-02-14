@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["dedupe_labels","evaluate_binary_literal","fold_constant_binary_ops","neovm_bool_optimize","neovm_peephole_optimize","neovm_simplify_identity_ops","optimize_ir","remove_trivial_jumps","retarget_jumps","try_identity_elimination"]};
