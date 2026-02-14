@@ -46,8 +46,21 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "getScriptContainer",
             "loadScript",
             "initializeServices",
+            "getNetwork",
+            "getPlatform",
+            "getAddressVersion",
+            "getRandom",
+            "getExecutingScriptHash",
+            "getCallingScriptHash",
+            "getEntryScriptHash",
         ]),
-        "abi" => Some(&["encode", "encodePacked", "encodeCall", "encodeWithSignature", "decode"]),
+        "abi" => Some(&[
+            "encode",
+            "encodePacked",
+            "encodeCall",
+            "encodeWithSignature",
+            "decode",
+        ]),
         "Storage" => Some(&[
             "find",
             "put",
@@ -63,6 +76,18 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "getReadOnlyContext",
             "getUsage",
             "putContractMetadata",
+            "batchPut",
+            "batchGet",
+            "batchDelete",
+            "count",
+            "countLocal",
+            "findValues",
+            "findLocalValues",
+            "findKeys",
+            "findLocalKeys",
+            "clearPrefix",
+            "exists",
+            "isValidKey",
         ]),
         "Syscalls" => Some(&[
             "contractCall",
@@ -172,6 +197,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "neoTransfer",
             "neoDecimals",
             "neoSymbol",
+            "neoName",
             "vote",
             "getCandidates",
             "registerCandidate",
@@ -194,6 +220,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "gasTransfer",
             "gasDecimals",
             "gasSymbol",
+            "gasName",
             "deployContract",
             "updateContract",
             "destroyContract",
@@ -232,11 +259,15 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "setOraclePrice",
             "oracleFinish",
             "oracleVerify",
+            "oracleRequest",
             "designateAsRole",
             "getDesignatedByRole",
             "currentIndex",
             "currentHash",
             "getBlock",
+            "getBlockHash",
+            "getBlockByIndex",
+            "getBlockByHash",
             "getTransaction",
             "getTransactionHeight",
             "getTransactionFromBlock",
@@ -276,6 +307,18 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "isCommittee",
             "isValidator",
             "getRandom",
+            "getBlockHeight",
+            "getCurrentBlock",
+            "getCurrentBlock",
+            "getBlockByIndex",
+            "getBlockTime",
+            "getTransaction",
+            "getTransactionHeight",
+            "transactionExists",
+            "getNetworkMagic",
+            "verifyWithWitness",
+            "sha256Hash",
+            "ripemd160Hash",
         ]),
         _ => None,
     }
@@ -289,7 +332,9 @@ fn resolve_runtime_member(member: &str) -> Option<BuiltinCall> {
         "burnGas" => Some(BuiltinCall::Syscall("System.Runtime.BurnGas".to_string())),
         "log" => Some(BuiltinCall::Syscall("System.Runtime.Log".to_string())),
         "getTime" => Some(BuiltinCall::Syscall("System.Runtime.GetTime".to_string())),
-        "getTrigger" => Some(BuiltinCall::Syscall("System.Runtime.GetTrigger".to_string())),
+        "getTrigger" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetTrigger".to_string(),
+        )),
         "getInvocationCounter" => Some(BuiltinCall::Syscall(
             "System.Runtime.GetInvocationCounter".to_string(),
         )),
@@ -302,7 +347,26 @@ fn resolve_runtime_member(member: &str) -> Option<BuiltinCall> {
         "getScriptContainer" => Some(BuiltinCall::Syscall(
             "System.Runtime.GetScriptContainer".to_string(),
         )),
-        "loadScript" => Some(BuiltinCall::Syscall("System.Runtime.LoadScript".to_string())),
+        "loadScript" => Some(BuiltinCall::Syscall(
+            "System.Runtime.LoadScript".to_string(),
+        )),
+        "getNetwork" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetNetwork".to_string(),
+        )),
+        "getPlatform" => Some(BuiltinCall::Syscall("System.Runtime.Platform".to_string())),
+        "getAddressVersion" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetAddressVersion".to_string(),
+        )),
+        "getRandom" => Some(BuiltinCall::Syscall("System.Runtime.GetRandom".to_string())),
+        "getExecutingScriptHash" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetExecutingScriptHash".to_string(),
+        )),
+        "getCallingScriptHash" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetCallingScriptHash".to_string(),
+        )),
+        "getEntryScriptHash" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetEntryScriptHash".to_string(),
+        )),
         _ => None,
     }
 }
@@ -324,16 +388,45 @@ fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
         "put" => Some(BuiltinCall::StoragePut),
         "get" => Some(BuiltinCall::StorageGet),
         "remove" => Some(BuiltinCall::StorageDelete),
-        "findLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Find".to_string())),
+        "findLocal" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Find".to_string(),
+        )),
         "putLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Put".to_string())),
         "getLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Get".to_string())),
-        "removeLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Delete".to_string())),
-        "initializeContext" => Some(BuiltinCall::Syscall("System.Storage.GetContext".to_string())),
-        "getContext" => Some(BuiltinCall::Syscall("System.Storage.GetContext".to_string())),
+        "removeLocal" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Delete".to_string(),
+        )),
+        "initializeContext" => Some(BuiltinCall::Syscall(
+            "System.Storage.GetContext".to_string(),
+        )),
+        "getContext" => Some(BuiltinCall::Syscall(
+            "System.Storage.GetContext".to_string(),
+        )),
         "getReadOnlyContext" => Some(BuiltinCall::Syscall(
             "System.Storage.GetReadOnlyContext".to_string(),
         )),
-        "asReadOnly" => Some(BuiltinCall::Syscall("System.Storage.AsReadOnly".to_string())),
+        "asReadOnly" => Some(BuiltinCall::Syscall(
+            "System.Storage.AsReadOnly".to_string(),
+        )),
+        "getUsage" => Some(BuiltinCall::Syscall("System.Storage.GetUsage".to_string())),
+        "batchPut" => Some(BuiltinCall::Syscall("System.Storage.Put".to_string())),
+        "batchGet" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
+        "batchDelete" => Some(BuiltinCall::Syscall("System.Storage.Delete".to_string())),
+        "count" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
+        "countLocal" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Find".to_string(),
+        )),
+        "findValues" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
+        "findLocalValues" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Find".to_string(),
+        )),
+        "findKeys" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
+        "findLocalKeys" => Some(BuiltinCall::Syscall(
+            "System.Storage.Local.Find".to_string(),
+        )),
+        "clearPrefix" => Some(BuiltinCall::Syscall("System.Storage.Delete".to_string())),
+        "exists" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
+        "isValidKey" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
         _ => None,
     }
 }
@@ -363,7 +456,52 @@ fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Neo,
             method: "getCommittee".to_string(),
         }),
+        "getValidators" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Neo,
+            method: "getNextBlockValidators".to_string(),
+        }),
+        "isCommittee" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Neo,
+            method: "getCommittee".to_string(),
+        }),
+        "isValidator" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Neo,
+            method: "getNextBlockValidators".to_string(),
+        }),
         "getRandom" => Some(BuiltinCall::Syscall("System.Runtime.GetRandom".to_string())),
+        "getBlockHeight" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "currentIndex".to_string(),
+        }),
+        "getCurrentBlock" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "currentIndex".to_string(),
+        }),
+        "transactionExists" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getTransaction".to_string(),
+        }),
+        "getNetworkMagic" => Some(BuiltinCall::Syscall(
+            "System.Runtime.GetNetwork".to_string(),
+        )),
+        "getBlockByIndex" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getBlock".to_string(),
+        }),
+        "getBlockTime" => Some(BuiltinCall::Syscall("System.Runtime.GetTime".to_string())),
+        "getTransaction" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getTransaction".to_string(),
+        }),
+        "getTransactionHeight" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getTransactionHeight".to_string(),
+        }),
+        "verifyWithWitness" => Some(BuiltinCall::Syscall(
+            "System.Runtime.CheckWitness".to_string(),
+        )),
+        "sha256Hash" => Some(BuiltinCall::Syscall("System.Crypto.SHA256".to_string())),
+        "ripemd160Hash" => Some(BuiltinCall::Syscall("System.Crypto.RIPEMD160".to_string())),
         _ => None,
     }
 }

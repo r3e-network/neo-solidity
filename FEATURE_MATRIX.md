@@ -27,21 +27,21 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 ## Control Flow
 
-| Solidity Feature       | Status    | Notes                                                                                                                                       |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `if` / `else`          | Supported | Standard conditional branching                                                                                                              |
-| `for` loop             | Supported | Including `for(;;)` infinite loops                                                                                                          |
-| `while` loop           | Supported | Pre-condition loop                                                                                                                          |
-| `do...while` loop      | Supported | Post-condition loop                                                                                                                         |
-| `break`                | Supported | Loop exit                                                                                                                                   |
-| `continue`             | Supported | Loop skip                                                                                                                                   |
-| `return`               | Supported | Single and multi-value returns                                                                                                              |
+| Solidity Feature       | Status    | Notes                                                                                                                     |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `if` / `else`          | Supported | Standard conditional branching                                                                                            |
+| `for` loop             | Supported | Including `for(;;)` infinite loops                                                                                        |
+| `while` loop           | Supported | Pre-condition loop                                                                                                        |
+| `do...while` loop      | Supported | Post-condition loop                                                                                                       |
+| `break`                | Supported | Loop exit                                                                                                                 |
+| `continue`             | Supported | Loop skip                                                                                                                 |
+| `return`               | Supported | Single and multi-value returns                                                                                            |
 | `try` / `catch`        | Supported | Multi-clause dispatch lowered via runtime `ISTYPE` guards; selector-level EVM error distinction is not available on NeoVM |
-| `revert`               | Supported | With and without error message                                                                                                              |
-| `revert` custom errors | Supported | `error MyError(uint256)` syntax                                                                                                             |
-| `require`              | Supported | With optional message string or `CustomError(...)` (Solidity 0.8.26+)                                                                       |
-| `assert`               | Supported | Maps to NeoVM ABORT on failure                                                                                                              |
-| Ternary `? :`          | Supported | Conditional expression                                                                                                                      |
+| `revert`               | Supported | With and without error message                                                                                            |
+| `revert` custom errors | Supported | `error MyError(uint256)` syntax                                                                                           |
+| `require`              | Supported | With optional message string or `CustomError(...)` (Solidity 0.8.26+)                                                     |
+| `assert`               | Supported | Maps to NeoVM ABORT on failure                                                                                            |
+| Ternary `? :`          | Supported | Conditional expression                                                                                                    |
 
 ## Functions
 
@@ -77,14 +77,14 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 ## Storage
 
-| Solidity Feature          | Status    | Notes                                                  |
-| ------------------------- | --------- | ------------------------------------------------------ |
-| State variables           | Supported | Persisted via Neo Storage syscalls                     |
-| `constant`                | Supported | Inlined at compile time                                |
+| Solidity Feature          | Status    | Notes                                                         |
+| ------------------------- | --------- | ------------------------------------------------------------- |
+| State variables           | Supported | Persisted via Neo Storage syscalls                            |
+| `constant`                | Supported | Inlined at compile time                                       |
 | `immutable`               | Partial   | Writes outside constructor/deploy initialization are rejected |
-| Nested mappings           | Supported | Prefix-based key concatenation                         |
-| Dynamic arrays in storage | Supported | Length-prefixed with index keys                        |
-| `delete`                  | Supported | Resets to default value / removes storage key          |
+| Nested mappings           | Supported | Prefix-based key concatenation                                |
+| Dynamic arrays in storage | Supported | Length-prefixed with index keys                               |
+| `delete`                  | Supported | Resets to default value / removes storage key                 |
 
 ## Events
 
@@ -97,13 +97,13 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 ## Imports
 
-| Solidity Feature                   | Status    | Notes                                    |
-| ---------------------------------- | --------- | ---------------------------------------- |
-| Plain import (`import "file.sol"`) | Supported | Resolved via `-I` include paths          |
-| Named import (`import {X} from`)   | Supported | Selective symbol import                  |
+| Solidity Feature                   | Status    | Notes                                                                                                                                                                               |
+| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plain import (`import "file.sol"`) | Supported | Resolved via `-I` include paths                                                                                                                                                     |
+| Named import (`import {X} from`)   | Supported | Selective symbol import                                                                                                                                                             |
 | Aliased import (`import {X as Y}`) | Partial   | Dependency resolution and many aliased static symbol calls are supported; aliased contract/interface casts, selector forms, and `abi.encodeCall` function references remain limited |
-| Wildcard import (`import * as X`)  | Partial   | Dependency resolution plus `X.Symbol.member(...)` static calls, `X.Symbol(addr)` casts, and `X.Symbol.method.selector` are supported; broader namespace rewriting remains limited |
-| Remappings                         | Partial   | `-I` flag provides basic path remapping  |
+| Wildcard import (`import * as X`)  | Partial   | Dependency resolution plus `X.Symbol.member(...)` static calls, `X.Symbol(addr)` casts, and `X.Symbol.method.selector` are supported; broader namespace rewriting remains limited   |
+| Remappings                         | Partial   | `-I` flag provides basic path remapping                                                                                                                                             |
 
 ## ABI Encoding
 
@@ -124,9 +124,19 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `Runtime.getTime`                | Supported | Block timestamp                                |
 | `Runtime.getInvocationCounter`   | Supported | Call depth counter                             |
 | `Runtime.getRandom`              | Supported | On-chain randomness (mock in embedded runtime) |
+| `Runtime.getNetwork`             | Supported | Network ID (mainnet/testnet)                   |
+| `Runtime.getPlatform`            | Supported | Platform info                                  |
+| `Runtime.getAddressVersion`      | Supported | Address version                                |
+| `Runtime.getExecutingScriptHash` | Supported | Current contract hash                          |
+| `Runtime.getCallingScriptHash`   | Supported | Caller contract hash                           |
+| `Runtime.getEntryScriptHash`     | Supported | Entry script hash                              |
 | `Storage.get` / `Storage.put`    | Supported | Key-value storage syscalls                     |
 | `Storage.find`                   | Supported | Iterator-based prefix search                   |
+| `Storage.batchPut/Get/Delete`    | Supported | Batch storage operations                       |
+| `Storage.count/Local`            | Supported | Count entries in prefix                        |
+| `Storage.findValues/Keys`        | Supported | Find values or keys by prefix                  |
 | Native contract calls (GAS, NEO) | Supported | Via `NativeCalls.sol` wrappers                 |
+| `NativeCalls.neoName/gasName`    | Supported | Get native token names                         |
 | Policy contract                  | Supported | Fee and blocked-account queries                |
 | Oracle contract                  | Supported | Request/response pattern with callback         |
 | RoleManagement                   | Supported | Designated node queries                        |

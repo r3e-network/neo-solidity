@@ -21,6 +21,10 @@ fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Neo,
             method: "symbol".to_string(),
         }),
+        "neoName" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Neo,
+            method: "name".to_string(),
+        }),
         "vote" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Neo,
             method: "vote".to_string(),
@@ -99,6 +103,10 @@ fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
         "gasSymbol" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Gas,
             method: "symbol".to_string(),
+        }),
+        "gasName" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Gas,
+            method: "name".to_string(),
         }),
 
         // ========== ContractManagement native contract ==========
@@ -252,6 +260,10 @@ fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Oracle,
             method: "verify".to_string(),
         }),
+        "oracleRequest" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Oracle,
+            method: "request".to_string(),
+        }),
 
         // ========== RoleManagement native contract ==========
         "designateAsRole" => Some(BuiltinCall::NativeCall {
@@ -273,6 +285,18 @@ fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             method: "currentHash".to_string(),
         }),
         "getBlock" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getBlock".to_string(),
+        }),
+        "getBlockHash" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getBlockHash".to_string(),
+        }),
+        "getBlockByIndex" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Ledger,
+            method: "getBlock".to_string(),
+        }),
+        "getBlockByHash" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Ledger,
             method: "getBlock".to_string(),
         }),
