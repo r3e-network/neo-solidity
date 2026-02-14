@@ -38,9 +38,9 @@ fn try_lower_variable_call(
         }
 
         if identifier.name == "blockhash" {
-            // Neo N3 auto-compat: blockhash(n) → Ledger.getBlock(n) hash field
+            // Neo N3 auto-compat: blockhash(n) → Ledger.getBlockHash(n)
             eprintln!(
-                "warning: blockhash() auto-mapped to Ledger.getBlock(index).hash \
+                "warning: blockhash() auto-mapped to Ledger.getBlockHash() \
                  on Neo N3. Returns the block hash for the given index."
             );
             if args.len() == 1 {

@@ -968,6 +968,14 @@ fn test_evm_compat_blockhash_auto_mapped() {
     assert_compiles("new/EvmCompatBlockhashError.sol");
 }
 
+#[test]
+fn test_evm_compat_blockhash_warning() {
+    assert_compile_warns(
+        "new/EvmCompatBlockhashError.sol",
+        "blockhash() auto-mapped to Ledger.getBlockHash() on Neo N3",
+    );
+}
+
 // address.codehash is now auto-mapped to contract script hash with warning.
 #[test]
 fn test_evm_compat_address_codehash_auto_mapped() {

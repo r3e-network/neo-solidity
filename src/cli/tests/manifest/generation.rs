@@ -83,3 +83,117 @@ fn manifest_events_do_not_include_indexed_fields() {
         }
     }
 }
+
+#[test]
+fn manifest_contains_all_required_top_level_fields() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract MinimalManifest {
+        function ping() public {}
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let manifest = &artifacts[0].manifest;
+    assert!(
+        manifest.get("name").and_then(Value::as_str).is_some(),
+        "manifest must include 'name'"
+    );
+    assert!(
+        manifest.get("groups").and_then(Value::as_array).is_some(),
+        "manifest must include 'groups' array"
+    );
+    assert!(
+        manifest.get("features").and_then(Value::as_object).is_some(),
+        "manifest must include 'features' object"
+    );
+    assert!(
+        manifest
+            .get("supportedstandards")
+            .and_then(Value::as_array)
+            .is_some(),
+        "manifest must include 'supportedstandards' array"
+    );
+    assert!(
+        manifest.get("abi").and_then(Value::as_object).is_some(),
+        "manifest must include 'abi' object"
+    );
+    assert!(
+        manifest
+            .get("permissions")
+            .and_then(Value::as_array)
+            .is_some(),
+        "manifest must include 'permissions' array"
+    );
+    assert!(
+        manifest.get("trusts").is_some(),
+        "manifest must include 'trusts'"
+    );
+    assert!(
+        manifest.get("extra").and_then(Value::as_object).is_some(),
+        "manifest must include 'extra' object"
+    );
+}
+
+#[test]
+fn manifest_supports_natspec_manifest_field_overrides() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    /**
+     * @custom:neo.manifest.features {"storage":true}
+     * @custom:neo.manifest.supportedstandards ["NEP-17","NEP-26"]
+     * @custom:neo.manifest.groups [{"pubkey":"03aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","signature":"AQID"}]
+     * @custom:neo.manifest.trusts ["0x1111111111111111111111111111111111111111"]
+     * @custom:neo.manifest.extra.Repository "https://github.com/r3e-network/neo-solidity"
+     * @custom:neo.manifest.extra.Build {"commit":"abc123"}
+     */
+    contract ManifestOverrides {
+        function ping() public {}
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let manifest = &artifacts[0].manifest;
+    assert_eq!(
+        manifest["features"]["storage"],
+        Value::Bool(true),
+        "expected natspec manifest.features override"
+    );
+
+    let standards = manifest["supportedstandards"]
+        .as_array()
+        .expect("supportedstandards array");
+    assert_eq!(standards.len(), 2);
+    assert!(standards.iter().any(|v| v == "NEP-17"));
+    assert!(standards.iter().any(|v| v == "NEP-26"));
+
+    let groups = manifest["groups"].as_array().expect("groups array");
+    assert_eq!(groups.len(), 1, "expected one custom group");
+    assert_eq!(
+        groups[0]["pubkey"].as_str(),
+        Some("03aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    );
+
+    let trusts = manifest["trusts"].as_array().expect("trusts array");
+    assert_eq!(trusts.len(), 1, "expected one custom trust");
+    assert_eq!(
+        trusts[0].as_str(),
+        Some("0x1111111111111111111111111111111111111111")
+    );
+
+    let extra = manifest["extra"].as_object().expect("extra object");
+    assert_eq!(
+        extra.get("Repository").and_then(Value::as_str),
+        Some("https://github.com/r3e-network/neo-solidity")
+    );
+    assert_eq!(
+        extra.get("Build").and_then(|v| v.get("commit")).and_then(Value::as_str),
+        Some("abc123")
+    );
+}

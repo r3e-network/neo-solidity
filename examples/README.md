@@ -102,7 +102,8 @@ bash examples/test_strict_compatibility_sweep.sh
 ```
 
 The sweep excludes intentionally failing diagnostic fixtures (for example fixed-point
-or unsupported EVM-only samples) and validates strict-safe contracts only.
+or unsupported EVM-only samples) and validates strict-safe contracts only. It also
+checks that excluded negative fixtures still fail under strict flags.
 
 To enforce strict manifest permissions for only `examples/new` samples:
 

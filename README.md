@@ -492,6 +492,31 @@ Structured diagnostics (stderr):
 > - `--json-errors` emits errors as JSON lines on stderr (codes: `VALIDATION_ERROR`, `IR_GENERATION_ERROR`, `GENERIC_ERROR`, `IO_ERROR`).  
 >   These flags do not alter file outputs; they only change how diagnostics are printed.
 
+#### Manifest Field Overrides (NatSpec)
+
+Use NatSpec custom tags on a contract to override selected Neo manifest fields at compile time:
+
+```solidity
+/**
+ * @custom:neo.manifest.groups [{"pubkey":"03...","signature":"AQID"}]
+ * @custom:neo.manifest.features {"storage":true}
+ * @custom:neo.manifest.supportedstandards ["NEP-17","NEP-26"]
+ * @custom:neo.manifest.trusts ["0x1111111111111111111111111111111111111111"]
+ * @custom:neo.manifest.extra.Repository "https://github.com/acme/project"
+ * @custom:neo.manifest.extra.Build {"commit":"abc123","pipeline":"ci"}
+ */
+contract MyContract { }
+```
+
+Supported tag prefixes: `@custom:neo.manifest.*` and `@custom:manifest.*`.
+Supported fields:
+- `name` (string)
+- `groups` (JSON array)
+- `features` (JSON object)
+- `supportedstandards` (JSON array)
+- `trusts` (JSON array or `"*"`)
+- `extra.<Key>` (any JSON value, or plain string)
+
 #### Batch Operations
 
 ```bash

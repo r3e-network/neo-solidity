@@ -115,6 +115,10 @@ failures=0
 warnings=0
 skipped=0
 unexpected_warnings=0
+negative_checked=0
+negative_expected_failures=0
+negative_unexpected_passes=0
+negative_missing=0
 
 for file in "${FILES[@]}"; do
   rel="${file#"$ROOT_DIR"/}"
@@ -159,13 +163,47 @@ for file in "${FILES[@]}"; do
   fi
 done
 
+# Verify intentionally negative fixtures still fail under strict flags.
+for rel in "${NEGATIVE_FIXTURES[@]}"; do
+  file="$ROOT_DIR/$rel"
+  if [ ! -f "$file" ]; then
+    echo "❌ missing negative fixture: $rel"
+    negative_missing=$((negative_missing + 1))
+    continue
+  fi
+
+  negative_checked=$((negative_checked + 1))
+  stem="${rel//\//__}"
+  stem="${stem%.sol}"
+  prefix="$WORK_DIR/${stem}.negative"
+  out="$WORK_DIR/${stem}.negative.out"
+  err="$WORK_DIR/${stem}.negative.err"
+
+  if "$NEO_SOLC" "$file" -I "$ROOT_DIR/devpack" "${STRICT_FLAGS[@]}" -o "$prefix" >"$out" 2>"$err"; then
+    echo "❌ negative fixture unexpectedly compiled: $rel"
+    sed -n '1,80p' "$out"
+    sed -n '1,80p' "$err"
+    negative_unexpected_passes=$((negative_unexpected_passes + 1))
+  else
+    negative_expected_failures=$((negative_expected_failures + 1))
+  fi
+done
+
 echo "strict_sweep_total=${#FILES[@]}"
 echo "strict_sweep_skipped=$skipped"
 echo "strict_sweep_failures=$failures"
 echo "strict_sweep_warning_contracts=$warnings"
 echo "strict_sweep_unexpected_warning_contracts=$unexpected_warnings"
+echo "strict_sweep_negative_checked=$negative_checked"
+echo "strict_sweep_negative_expected_failures=$negative_expected_failures"
+echo "strict_sweep_negative_unexpected_passes=$negative_unexpected_passes"
+echo "strict_sweep_negative_missing=$negative_missing"
 
 if [ "$failures" -ne 0 ]; then
+  exit 1
+fi
+
+if [ "$negative_unexpected_passes" -ne 0 ] || [ "$negative_missing" -ne 0 ]; then
   exit 1
 fi
 

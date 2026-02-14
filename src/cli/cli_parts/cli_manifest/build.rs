@@ -1,3 +1,117 @@
+fn parse_json_value(raw: &str, tag: &str) -> Option<Value> {
+    match serde_json::from_str::<Value>(raw) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            eprintln!(
+                "warning: ignoring @custom:{tag} because its value is not valid JSON: {err}"
+            );
+            None
+        }
+    }
+}
+
+fn parse_json_or_string(raw: &str) -> Value {
+    serde_json::from_str::<Value>(raw).unwrap_or_else(|_| Value::String(raw.to_string()))
+}
+
+fn upsert_manifest_extra(manifest: &mut Value) -> Option<&mut serde_json::Map<String, Value>> {
+    let object = manifest.as_object_mut()?;
+    let entry = object
+        .entry("extra".to_string())
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+
+    if !entry.is_object() {
+        *entry = Value::Object(serde_json::Map::new());
+    }
+
+    entry.as_object_mut()
+}
+
+fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMetadata) {
+    for (tag, raw_value) in &metadata.documentation.custom {
+        let raw = raw_value.trim();
+        if raw.is_empty() {
+            continue;
+        }
+
+        let Some(field) = tag
+            .strip_prefix("neo.manifest.")
+            .or_else(|| tag.strip_prefix("manifest."))
+        else {
+            continue;
+        };
+
+        match field {
+            "name" => {
+                let parsed = parse_json_or_string(raw);
+                let name = parsed
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| raw.to_string());
+                manifest["name"] = Value::String(name);
+            }
+            "groups" => {
+                let Some(value) = parse_json_value(raw, tag) else {
+                    continue;
+                };
+                if value.is_array() {
+                    manifest["groups"] = value;
+                } else {
+                    eprintln!(
+                        "warning: ignoring @custom:{tag}; expected a JSON array for manifest.groups"
+                    );
+                }
+            }
+            "features" => {
+                let Some(value) = parse_json_value(raw, tag) else {
+                    continue;
+                };
+                if value.is_object() {
+                    manifest["features"] = value;
+                } else {
+                    eprintln!(
+                        "warning: ignoring @custom:{tag}; expected a JSON object for manifest.features"
+                    );
+                }
+            }
+            "supportedstandards" => {
+                let Some(value) = parse_json_value(raw, tag) else {
+                    continue;
+                };
+                if value.is_array() {
+                    manifest["supportedstandards"] = value;
+                } else {
+                    eprintln!(
+                        "warning: ignoring @custom:{tag}; expected a JSON array for manifest.supportedstandards"
+                    );
+                }
+            }
+            "trusts" => {
+                let Some(value) = parse_json_value(raw, tag) else {
+                    continue;
+                };
+                if value.is_array() || value.is_string() {
+                    manifest["trusts"] = value;
+                } else {
+                    eprintln!(
+                        "warning: ignoring @custom:{tag}; expected a JSON array or string for manifest.trusts"
+                    );
+                }
+            }
+            _ => {
+                if let Some(extra_key) = field.strip_prefix("extra.") {
+                    if extra_key.is_empty() {
+                        continue;
+                    }
+                    if let Some(extra) = upsert_manifest_extra(manifest) {
+                        extra.insert(extra_key.to_string(), parse_json_or_string(raw));
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_json::Value {
     fn neotype_to_manifest_type(neotype: Option<&NeoType>, solidity_type: &str) -> &'static str {
         match neotype {
@@ -158,7 +272,7 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
     // reject any populated keys. Keep the object empty for chain compatibility.
     let features = serde_json::Map::new();
 
-    json!({
+    let mut manifest = json!({
         "name": metadata.name,
         "groups": [],
         "features": features,
@@ -175,5 +289,8 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
             "Version": compiler_version_string_4(),
             "Compiler": COMPILER_ID,
         }
-    })
+    });
+
+    apply_manifest_custom_overrides(&mut manifest, metadata);
+    manifest
 }
