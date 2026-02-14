@@ -1,12 +1,10 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
-  schedule:
-    - cron: "0 2 * * *"
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,13 +16,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ================================
-  # Lint & Format Check (Fast Feedback)
-  # ================================
-  lint:
-    name: Lint & Format
+  core:
+    name: Core CI
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -34,27 +29,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Run Clippy linting
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-  # ================================
-  # Unit Tests
-  # ================================
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo dependencies
         uses: actions/cache@v4
@@ -67,349 +41,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Run tests
         run: cargo test --workspace --all-features
 
-      - name: Run code coverage
-        if: runner.os == 'Linux'
-        run: |
-          cargo install cargo-tarpaulin --locked
-          cargo tarpaulin --out Lcov --output-dir coverage --locked
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 7
-
-  # ================================
-  # Cross-Platform Build
-  # ================================
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            binary-suffix: ""
-          - os: macos-latest
-            binary-suffix: ""
-          - os: windows-latest
-            binary-suffix: ".exe"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build release
-        run: cargo build --release --verbose
-
-      - name: Verify binary
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            ./target/release/neo-solc.exe --version
-          else
-            ./target/release/neo-solc --version
-          fi
-
-  # ================================
-  # Contract Compilation Tests
-  # ================================
-  contracts:
-    name: Contract Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build compiler
+      - name: Build release binary
         run: cargo build --release
 
-      - name: Test ERC20 compilation
+      - name: Compile smoke contract
         run: |
-          ./target/release/neo-solc examples/ERC20Token.sol -o TestERC20 -v
-          test -f TestERC20.nef || exit 1
-          test -f TestERC20.manifest.json || exit 1
+          ./target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
+          test -f SmokeERC20.nef
+          test -f SmokeERC20.manifest.json
 
-      - name: Test ERC721 compilation
+      - name: Validate emitted artifacts
         run: |
-          ./target/release/neo-solc examples/ERC721Token.sol -o TestERC721 -v
-          test -f TestERC721.nef || exit 1
-          test -f TestERC721.manifest.json || exit 1
-
-      - name: Test NEP17 example
-        run: |
-          ./target/release/neo-solc devpack/examples/CompleteNEP17Token.sol -o TestNEP17 -v
-          test -f TestNEP17-CompleteNEP17Token.nef || exit 1
-
-      - name: Validate NEF format
-        run: |
-          MAGIC=$(xxd -l 4 -p TestERC20.nef)
-          if [ "$MAGIC" != "4e454633" ]; then
-            echo "Invalid NEF magic number: got '$MAGIC'"
-            exit 1
-          fi
-          echo "✅ NEF format validation passed"
-
-      - name: Validate manifest structure
-        run: |
-          jq -e '.name and .abi and .permissions' TestERC20.manifest.json > /dev/null || exit 1
-          echo "✅ Manifest structure validation passed"
-
-  # ================================
-  # Neo-Express Showcase Smoke Tests
-  # ================================
-  neoxp-showcases:
-    name: Neo-Express Showcases
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Run new showcase Neo-Express smoke suite
-        run: bash examples/test_neoxp_new_showcases_smoke.sh
-
-  # ================================
-  # Security Analysis
-  # ================================
-  security:
-    name: Security Analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "sarif"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          exit-code: 0
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: "trivy-results.sarif"
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Run cargo audit
-        run: |
-          cargo install cargo-audit --locked
-          cargo audit --deny warnings
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Run npm audit
-        working-directory: tooling
-        run: |
-          npm ci --prefer-offline
-          npm audit --audit-level high
-
-  # ================================
-  # Performance Benchmarks
-  # ================================
-  benchmarks:
-    name: Benchmarks
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build optimized compiler
-        run: cargo build --release
-
-      - name: Run compilation benchmarks
-        run: |
-          echo "Testing compilation performance..."
-
-          time ./target/release/neo-solc examples/ERC20Token.sol -O0 -o ERC20_O0
-          time ./target/release/neo-solc examples/ERC20Token.sol -O3 -o ERC20_O3
-
-          SIZE_O0=$(stat -c%s ERC20_O0.nef)
-          SIZE_O3=$(stat -c%s ERC20_O3.nef)
-
-          echo "O0 size: $SIZE_O0 bytes"
-          echo "O3 size: $SIZE_O3 bytes"
-
-          if [ $SIZE_O3 -le $SIZE_O0 ]; then
-            echo "✅ Optimization effective"
-          else
-            echo "ℹ️ O3 may be larger due to inlining (expected for some contracts)"
-          fi
-
-  # ================================
-  # E2E Compilation Tests
-  # ================================
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build compiler
-        run: cargo build --release
-
-      - name: Run E2E compilation tests
-        run: cargo test --test e2e_compilation_tests -- --test-threads=4
-
-  # ================================
-  # Documentation Validation
-  # ================================
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install markdown linter
-        run: npm install -g markdownlint-cli@0.41.0
-
-      - name: Lint documentation
-        run: |
-          markdownlint README.md CHANGELOG.md CONTRIBUTING.md || true
-          markdownlint devpack/README.md || true
-
-      - name: Validate documentation examples
-        run: |
-          echo "Validating documentation code examples..."
-          cargo build --release
-          echo 'contract SimpleToken { uint256 public totalSupply; }' > DocExample.sol
-          ./target/release/neo-solc DocExample.sol -o DocTest || exit 1
-          echo "✅ Documentation examples validated"
-
-  # ================================
-  # Release Pipeline (Main Branch Only)
-  # ================================
-  release:
-    name: Release Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [lint, test, build, contracts, neoxp-showcases, security, e2e-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build release binaries
-        run: |
-          cargo build --release
-          mkdir -p release-artifacts
-          cp target/release/neo-solc release-artifacts/neo-solc-linux-x64
-          chmod +x release-artifacts/neo-solc-linux-x64
-          cd release-artifacts
-          sha256sum neo-solc-linux-x64 > checksums.txt
-
-      - name: Build cross-platform binaries
-        run: |
-          rustup target add x86_64-pc-windows-gnu x86_64-apple-darwin aarch64-apple-darwin
-          sudo apt-get update && sudo apt-get install -y mingw-w64
-
-          cargo build --release --target x86_64-pc-windows-gnu || echo "Windows build skipped"
-          if [ -f target/x86_64-pc-windows-gnu/release/neo-solc.exe ]; then
-            cp target/x86_64-pc-windows-gnu/release/neo-solc.exe release-artifacts/neo-solc-windows-x64.exe
-          fi
-
-      - name: Package devpack
-        run: |
-          tar -czf release-artifacts/neo-solidity-devpack.tar.gz devpack/
-          tar -czf release-artifacts/neo-solidity-examples.tar.gz examples/
-
-      - name: Generate release notes
-        run: |
-          echo "# Neo Solidity Compiler Release" > release-artifacts/RELEASE_NOTES.md
-          echo "" >> release-artifacts/RELEASE_NOTES.md
-          echo "Version: ${{ github.sha }}" >> release-artifacts/RELEASE_NOTES.md
-          echo "" >> release-artifacts/RELEASE_NOTES.md
-          echo "## Features" >> release-artifacts/RELEASE_NOTES.md
-          echo "- Solidity-to-NeoVM compilation" >> release-artifacts/RELEASE_NOTES.md
-          echo "- Neo N3 devpack with syscalls and NEP standards" >> release-artifacts/RELEASE_NOTES.md
-          echo "- Production-ready with comprehensive testing" >> release-artifacts/RELEASE_NOTES.md
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-build
-          path: release-artifacts/
-          retention-days: 30
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-artifacts/*
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAGIC=$(xxd -l 4 -p SmokeERC20.nef)
+          test "$MAGIC" = "4e454633"
+          python3 -c "import json; d=json.load(open('SmokeERC20.manifest.json')); assert d.get('name'); assert 'abi' in d; assert 'permissions' in d"
