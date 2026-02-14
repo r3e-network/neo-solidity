@@ -945,7 +945,7 @@ library Syscalls {
             return 0;
         } else if (methodHash == keccak256("System.Runtime.CheckWitness")) {
             address account = abi.decode(params, (address));
-            return account == tx.origin ? 1 : 0;
+            return account == msg.sender ? 1 : 0;
         }
         
         return 0;

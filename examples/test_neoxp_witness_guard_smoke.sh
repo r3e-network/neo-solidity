@@ -128,7 +128,7 @@ fi
   -o "$WORK_DIR/WitnessGuardShowcase" \
   --deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods >/dev/null
 
-DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d '[[]]' "$WORK_DIR/WitnessGuardShowcase.nef" node1 -j)"
+DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d "[\"$NODE1_HASH\",[]]" "$WORK_DIR/WitnessGuardShowcase.nef" node1 -j)"
 CONTRACT_HASH="$(echo "$DEPLOY_OUT" | jq -r '.["contract-hash"]' | tr -d '\r')"
 DEPLOY_TX="$(echo "$DEPLOY_OUT" | jq -r '.["tx-hash"]' | tr -d '\r')"
 

@@ -17,6 +17,8 @@ contract WitnessGuardShowcase {
     event PrivilegedAction(address indexed actor, uint256 value, bytes32 memoHash);
 
     error Unauthorized();
+    error InvalidOwner(address account);
+    error InvalidOwnerHex();
     error InvalidWitness(address account);
     error AccountLockedError(address account, uint256 untilTimestamp);
 
@@ -32,8 +34,10 @@ contract WitnessGuardShowcase {
         _;
     }
 
-    constructor(address[] memory initialGuardians) {
-        owner = tx.origin;
+    constructor(string memory initialOwnerHex, address[] memory initialGuardians) {
+        address initialOwner = _parseHexAddress(initialOwnerHex);
+        if (initialOwner == address(0)) revert InvalidOwner(initialOwner);
+        owner = initialOwner;
 
         for (uint256 i = 0; i < initialGuardians.length; i++) {
             address guardian = initialGuardians[i];
@@ -82,5 +86,38 @@ contract WitnessGuardShowcase {
 
     function isLocked(address account) external view returns (bool) {
         return lockedUntil[account] > block.timestamp;
+    }
+
+    function _parseHexAddress(string memory raw) private pure returns (address) {
+        bytes memory text = bytes(raw);
+        uint256 offset = 0;
+        if (
+            text.length == 42 &&
+            text[0] == bytes1("0") &&
+            (text[1] == bytes1("x") || text[1] == bytes1("X"))
+        ) {
+            offset = 2;
+        } else if (text.length != 40) {
+            revert InvalidOwnerHex();
+        }
+
+        uint160 value = 0;
+        for (uint256 i = 0; i < 40; i++) {
+            value = (value << 4) | uint160(_hexNibble(uint8(text[offset + i])));
+        }
+        return address(value);
+    }
+
+    function _hexNibble(uint8 c) private pure returns (uint8) {
+        if (c >= uint8(bytes1("0")) && c <= uint8(bytes1("9"))) {
+            return c - uint8(bytes1("0"));
+        }
+        if (c >= uint8(bytes1("a")) && c <= uint8(bytes1("f"))) {
+            return c - uint8(bytes1("a")) + 10;
+        }
+        if (c >= uint8(bytes1("A")) && c <= uint8(bytes1("F"))) {
+            return c - uint8(bytes1("A")) + 10;
+        }
+        revert InvalidOwnerHex();
     }
 }

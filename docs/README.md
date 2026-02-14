@@ -26,13 +26,10 @@ This index provides an overview of all documentation available in the Neo Solidi
 | ------------------------------------------------------------- | -------------------------------------------- |
 | [docs/mapping_lowering_design.md](mapping_lowering_design.md) | Design for Solidity mapping storage lowering |
 
-## Archived Documents
+## Archive
 
-| Document                                                                                              | Description                     |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------- |
-| [docs/archive/NEO_N3_COMPREHENSIVE_FEATURE_MATRIX.md](archive/NEO_N3_COMPREHENSIVE_FEATURE_MATRIX.md) | Feature matrix (archived)       |
-| [docs/archive/PROJECT_SUMMARY.md](archive/PROJECT_SUMMARY.md)                                         | Project summary (archived)      |
-| [docs/archive/YUL_TO_NEOVM_COMPILATION_STRATEGY.md](archive/YUL_TO_NEOVM_COMPILATION_STRATEGY.md)     | Compilation strategy (archived) |
+Historical documents were removed during repository cleanup to keep the project focused on
+active compiler/devpack documentation. See [`docs/archive/README.md`](archive/README.md).
 
 ## Quick Links
 
@@ -61,7 +58,7 @@ When updating documentation:
 - Update this index if adding new documents
 - Keep README.md as the primary entry point
 - Add document metadata (author, date) for design docs
-- Review archived documents for relevance
+- Keep `docs/archive/README.md` up to date when archiving/removing docs
 
 ## Version Compatibility
 

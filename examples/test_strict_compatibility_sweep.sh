@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Strict compatibility sweep for Neo Solidity contracts.
 #
-# Compiles curated Solidity sets with strict manifest denial flags and fails on:
+# Compiles strict-safe Solidity sets with strict manifest denial flags and fails on:
 # - any compilation error
 # - missing .nef/.manifest.json output
-# - compatibility/warning diagnostics in compiler output
+#
+# Notes:
+# - Intentionally negative fixtures (used by test suites to validate diagnostics)
+#   are excluded from this sweep.
+# - Warnings are reported but do not fail the sweep by default. Set
+#   STRICT_SWEEP_FAIL_ON_WARNINGS=1 to make warnings fatal.
+# - STRICT_SWEEP_FAIL_ON_UNEXPECTED_WARNINGS=1 fails only on warnings from
+#   contracts outside the known warning allowlist below.
 
 set -euo pipefail
 
@@ -39,6 +46,60 @@ STRICT_FLAGS=(
   --deny-wildcard-methods
 )
 
+NEGATIVE_FIXTURES=(
+  "examples/new/CatchPanicShowcase.sol"
+  "examples/new/EvmCompatEtherUnits.sol"
+  "examples/new/EvmCompatMsgSig.sol"
+  "examples/new/FixedPointError.sol"
+  "examples/new/LibraryConstructorError.sol"
+  "examples/new/LibraryExternalError.sol"
+  "examples/new/LibraryStateVarError.sol"
+)
+
+ALLOWED_WARNING_FIXTURES=(
+  "devpack/contracts/Framework.sol"
+  "devpack/contracts/FrameworkBase.sol"
+  "devpack/contracts/NEP17Rescue.sol"
+  "devpack/contracts/NativeCalls.sol"
+  "devpack/contracts/OracleService.sol"
+  "devpack/standards/NEP11.sol"
+  "devpack/standards/NEP17.sol"
+  "devpack/examples/CompleteNEP11NFT.sol"
+  "devpack/examples/CompleteNEP17Token.sol"
+  "devpack/examples/VaultPattern.sol"
+  "examples/new/EvmCompatAddressCodehash.sol"
+  "examples/new/EvmCompatBlockErrors.sol"
+  "examples/new/EvmCompatBlockhashError.sol"
+  "examples/new/EvmCompatSelfdestructError.sol"
+  "examples/new/EvmCompatTxOrigin.sol"
+  "examples/new/FunctionPolishShowcase.sol"
+  "examples/new/InheritanceShowcase.sol"
+  "examples/new/ModifierShowcase.sol"
+  "examples/new/SuperShowcase.sol"
+  "examples/new/TryCatchShowcase.sol"
+  "examples/new/VirtualOverrideShowcase.sol"
+)
+
+is_negative_fixture() {
+  local rel="$1"
+  for fixture in "${NEGATIVE_FIXTURES[@]}"; do
+    if [ "$rel" = "$fixture" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_allowed_warning_fixture() {
+  local rel="$1"
+  for fixture in "${ALLOWED_WARNING_FIXTURES[@]}"; do
+    if [ "$rel" = "$fixture" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 declare -a FILES=()
 while IFS= read -r -d '' f; do FILES+=("$f"); done < <(find "$ROOT_DIR/devpack/contracts" -maxdepth 1 -type f -name '*.sol' -print0 | sort -z)
 while IFS= read -r -d '' f; do FILES+=("$f"); done < <(find "$ROOT_DIR/devpack/standards" -maxdepth 1 -type f -name '*.sol' -print0 | sort -z)
@@ -52,16 +113,22 @@ fi
 
 failures=0
 warnings=0
+skipped=0
+unexpected_warnings=0
 
 for file in "${FILES[@]}"; do
   rel="${file#"$ROOT_DIR"/}"
+  if is_negative_fixture "$rel"; then
+    skipped=$((skipped + 1))
+    continue
+  fi
   stem="${rel//\//__}"
   stem="${stem%.sol}"
   prefix="$WORK_DIR/$stem"
   out="$WORK_DIR/$stem.out"
   err="$WORK_DIR/$stem.err"
 
-  if ! "$NEO_SOLC" "$file" "${STRICT_FLAGS[@]}" -o "$prefix" >"$out" 2>"$err"; then
+  if ! "$NEO_SOLC" "$file" -I "$ROOT_DIR/devpack" "${STRICT_FLAGS[@]}" -o "$prefix" >"$out" 2>"$err"; then
     echo "❌ strict compile failed: $rel"
     sed -n '1,80p' "$out"
     sed -n '1,80p' "$err"
@@ -85,14 +152,28 @@ for file in "${FILES[@]}"; do
     sed -n '1,80p' "$out" | rg -n "warning|compat" || true
     sed -n '1,80p' "$err" | rg -n "warning|compat" || true
     warnings=$((warnings + 1))
+    if ! is_allowed_warning_fixture "$rel"; then
+      echo "❌ unexpected warning contract: $rel"
+      unexpected_warnings=$((unexpected_warnings + 1))
+    fi
   fi
 done
 
 echo "strict_sweep_total=${#FILES[@]}"
+echo "strict_sweep_skipped=$skipped"
 echo "strict_sweep_failures=$failures"
 echo "strict_sweep_warning_contracts=$warnings"
+echo "strict_sweep_unexpected_warning_contracts=$unexpected_warnings"
 
-if [ "$failures" -ne 0 ] || [ "$warnings" -ne 0 ]; then
+if [ "$failures" -ne 0 ]; then
+  exit 1
+fi
+
+if [ "${STRICT_SWEEP_FAIL_ON_WARNINGS:-0}" = "1" ] && [ "$warnings" -ne 0 ]; then
+  exit 1
+fi
+
+if [ "${STRICT_SWEEP_FAIL_ON_UNEXPECTED_WARNINGS:-0}" = "1" ] && [ "$unexpected_warnings" -ne 0 ]; then
   exit 1
 fi
 

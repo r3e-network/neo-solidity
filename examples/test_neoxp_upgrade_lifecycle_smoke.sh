@@ -117,11 +117,17 @@ CHAIN="$WORK_DIR/chain.neo-express"
 run_neoxp create -f -o "$CHAIN" >/dev/null
 run_neoxp transfer -i "$CHAIN" 100 GAS genesis node1 >/dev/null
 
+NODE1_HASH="$(run_neoxp wallet list -j -i "$CHAIN" | jq -r '.node1[0]["script-hash"]' | tr -d '\r' | sed 's/^0x//')"
+if [ -z "$NODE1_HASH" ] || [ "$NODE1_HASH" = "null" ]; then
+  echo "error: failed to resolve node1 script hash" >&2
+  exit 1
+fi
+
 "$NEO_SOLC_BIN" "$ROOT_DIR/examples/new/UpgradeLifecycleShowcase.sol" \
   -o "$WORK_DIR/UpgradeLifecycleShowcase" \
   --deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods >/dev/null
 
-DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d '[5]' "$WORK_DIR/UpgradeLifecycleShowcase.nef" node1 -j)"
+DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d "[5,\"$NODE1_HASH\"]" "$WORK_DIR/UpgradeLifecycleShowcase.nef" node1 -j)"
 CONTRACT_HASH="$(echo "$DEPLOY_OUT" | jq -r '.["contract-hash"]' | tr -d '\r')"
 DEPLOY_TX="$(echo "$DEPLOY_OUT" | jq -r '.["tx-hash"]' | tr -d '\r')"
 

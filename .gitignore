@@ -41,8 +41,14 @@ examples/out/
 *.nef
 *.manifest.json
 *.asm
-!examples/**/*.nef
-!examples/**/*.manifest.json
+
+# LaTeX build artifacts
+spec/*.aux
+spec/*.fdb_latexmk
+spec/*.fls
+spec/*.log
+spec/*.out
+spec/*.toc
 
 # Temporary files
 *.tmp
@@ -57,4 +63,4 @@ coverage/
 *.lcov
 
 # Archived files (Go implementation)
-archive/
+/archive/

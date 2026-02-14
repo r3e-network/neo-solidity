@@ -2,8 +2,8 @@
 
 This folder contains reference Solidity contracts you can compile with the Neo Solidity compiler (`neo-solc`).
 
-The repo keeps a small set of compiled artifacts (e.g. `TestContract.nef` / `TestContract.manifest.json`)
-checked in for quick inspection. Larger/iterative outputs should go under `examples/out/` (ignored by git).
+Compiled artifacts are not committed. Use `examples/out/` (ignored by git) or `/tmp` for generated
+`.nef` / `.manifest.json` outputs.
 
 ## Quick compile
 
@@ -100,6 +100,9 @@ To run the strict compatibility sweep (devpack + `examples/new`) in one command:
 ```bash
 bash examples/test_strict_compatibility_sweep.sh
 ```
+
+The sweep excludes intentionally failing diagnostic fixtures (for example fixed-point
+or unsupported EVM-only samples) and validates strict-safe contracts only.
 
 To enforce strict manifest permissions for only `examples/new` samples:
 
