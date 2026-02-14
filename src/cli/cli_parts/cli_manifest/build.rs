@@ -66,11 +66,18 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 let Some(value) = parse_json_value(raw, tag) else {
                     continue;
                 };
-                if value.is_object() {
+                if !value.is_object() {
+                    eprintln!(
+                        "warning: ignoring @custom:{tag}; expected a JSON object for manifest.features"
+                    );
+                } else if value
+                    .as_object()
+                    .is_some_and(|features| features.is_empty())
+                {
                     manifest["features"] = value;
                 } else {
                     eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON object for manifest.features"
+                        "warning: ignoring @custom:{tag}; Neo N3 requires manifest.features to be an empty object"
                     );
                 }
             }

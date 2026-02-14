@@ -499,7 +499,7 @@ Use NatSpec custom tags on a contract to override selected Neo manifest fields a
 ```solidity
 /**
  * @custom:neo.manifest.groups [{"pubkey":"03...","signature":"AQID"}]
- * @custom:neo.manifest.features {"storage":true}
+ * @custom:neo.manifest.features {}
  * @custom:neo.manifest.supportedstandards ["NEP-17","NEP-26"]
  * @custom:neo.manifest.trusts ["0x1111111111111111111111111111111111111111"]
  * @custom:neo.manifest.extra.Repository "https://github.com/acme/project"
@@ -516,6 +516,9 @@ Supported fields:
 - `supportedstandards` (JSON array)
 - `trusts` (JSON array or `"*"`)
 - `extra.<Key>` (any JSON value, or plain string)
+
+For Neo N3 compatibility, `features` must remain an empty object (`{}`); populated
+feature keys are ignored because Neo rejects them at deploy time.
 
 #### Batch Operations
 

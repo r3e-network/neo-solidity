@@ -161,9 +161,9 @@ fn manifest_supports_natspec_manifest_field_overrides() {
 
     let manifest = &artifacts[0].manifest;
     assert_eq!(
-        manifest["features"]["storage"],
-        Value::Bool(true),
-        "expected natspec manifest.features override"
+        manifest["features"],
+        Value::Object(serde_json::Map::new()),
+        "Neo N3 requires manifest.features to remain empty"
     );
 
     let standards = manifest["supportedstandards"]
@@ -195,5 +195,29 @@ fn manifest_supports_natspec_manifest_field_overrides() {
     assert_eq!(
         extra.get("Build").and_then(|v| v.get("commit")).and_then(Value::as_str),
         Some("abc123")
+    );
+}
+
+#[test]
+fn manifest_non_empty_features_override_is_ignored_for_neo_compatibility() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    /**
+     * @custom:neo.manifest.features {"storage":true}
+     */
+    contract FeaturesMustStayEmpty {
+        function ping() public {}
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let manifest = &artifacts[0].manifest;
+    assert_eq!(
+        manifest["features"],
+        Value::Object(serde_json::Map::new()),
+        "Neo N3 rejects populated manifest.features; compiler must keep it empty"
     );
 }
