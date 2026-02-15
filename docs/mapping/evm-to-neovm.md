@@ -154,10 +154,10 @@ Neo's CryptoLib native contract supports both secp256k1 (Ethereum-compatible) an
 | `address.call(...)`         | `System.Contract.Call`             |   ✅   | Cross-contract call with full call flags.                                 |
 | `address.staticcall(...)`   | `System.Contract.Call` (read-only) |   ✅   | Cross-contract call with read-only flag.                                  |
 | `address.delegatecall(...)` | —                                  |   🚫   | Blocked. NeoVM has no delegate call mechanism.                            |
-| `address.transfer(amount)`  | —                                  |   🚫   | Blocked. Use NEP-17 `transfer()`.                                         |
-| `address.send(amount)`      | —                                  |   🚫   | Blocked. Use NEP-17 `transfer()`.                                         |
-| `address.balance`           | —                                  |   🚫   | Blocked. Use `NativeCalls.neoBalanceOf()` / `NativeCalls.gasBalanceOf()`. |
-| `address.code`              | —                                  |   🚫   | Blocked. Use `ContractManagement.getContract()`.                          |
+| `address.transfer(amount)`  | `GAS.transfer(from,to,amount,data)`|   ✅   | Auto-mapped. Uses executing script hash as `from`; aborts on failure.     |
+| `address.send(amount)`      | `GAS.transfer(from,to,amount,data)`|   ✅   | Auto-mapped. Uses executing script hash as `from`; returns bool.           |
+| `address.balance`           | `GAS.balanceOf(address)`           |   ✅   | Auto-mapped to GAS token balance query.                                   |
+| `address.code`              | Empty bytes / existence probe      |   ⚠️   | `address.code` returns empty bytes; `address.code.length` is 0/1 contract check. |
 
 ### Cross-Contract Calls
 
@@ -189,16 +189,17 @@ EVM's `delegatecall` executes code from another contract in the caller's storage
 // ContractManagement.update(newNef, newManifest, data);
 ```
 
-### Why transfer/send Are Blocked
+### How transfer/send Are Mapped
 
 EVM's `address.transfer()` and `address.send()` forward a fixed gas stipend (2300 gas) with native Ether. Neo does not have native value transfer through address members. Token transfers on Neo use the NEP-17 standard.
 
 ```solidity
-// 🚫 Blocked — no native value transfer
+// ✅ Auto-mapped by neo-solidity:
 // payable(recipient).transfer(1 ether);
+// payable(recipient).send(1 ether);
 
-// ✅ Neo alternative: NEP-17 transfer
-// NativeCalls.gasTransfer(address(this), recipient, amount, "");
+// Lowered to GAS.transfer(address(this), recipient, amount, "")
+// (transfer aborts on failure; send returns bool)
 ```
 
 ---
@@ -565,7 +566,7 @@ Wildcard permissions (`"contract": "*"` or `"methods": "*"`) allow the contract 
 
 ## Further Reading
 
-- [Feature Support](/solidity/feature-support) — complete 141-feature support matrix
+- [Feature Support](/solidity/feature-support) — complete 142-feature support matrix
 - [Syntax and Behavior](/solidity/syntax-and-behavior) — detailed behavioral semantics on NeoVM
 - [Standards Mapping](/devpack/standards) — detailed ERC to NEP migration guides with checklists
 - [Native Contracts](/neovm/native-contracts) — Neo native contract reference

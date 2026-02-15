@@ -64,15 +64,13 @@ error[E3001]: unsupported feature: delegatecall
 | Blocked Feature        | Error | Neo Alternative                                 |
 | ---------------------- | ----- | ----------------------------------------------- |
 | `delegatecall`         | E3001 | `ContractManagement.update()` for upgrades      |
-| `address.transfer()`   | E3001 | `NativeCalls.gasTransfer()`                     |
-| `address.send()`       | E3001 | `NativeCalls.gasTransfer()`                     |
-| `address.balance`      | E3001 | `NativeCalls.gasBalanceOf()` / `neoBalanceOf()` |
-| `address.code`         | E3001 | `ContractManagement.getContract()`              |
 | `assembly { ... }`     | E3001 | Use devpack libraries instead                   |
-| `try/catch` (external) | E3001 | Check return values directly                    |
+| `new Contract(...)`    | E3001 | `ContractManagement.deploy(...)`                |
+| `type(X).creationCode` | E3001 | Deploy via `ContractManagement.deploy(...)`     |
+| `type(X).runtimeCode`  | E3001 | No Neo equivalent                               |
 
 ::: warning
-These features are fundamentally incompatible with NeoVM. There is no workaround — you must refactor to use Neo-native patterns.
+These constructs have no safe 1:1 NeoVM equivalent. Refactor to the listed Neo-native patterns.
 :::
 
 ---

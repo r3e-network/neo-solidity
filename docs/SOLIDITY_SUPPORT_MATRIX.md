@@ -3,7 +3,7 @@
 > **Compiler**: neo-solidity v0.12.0
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
-> **Audit date**: 2026-02-11
+> **Audit date**: 2026-02-15
 
 Legend:
 
@@ -194,10 +194,10 @@ Legend:
 | `address.call(...)`                     | ✅     | Maps to `System.Contract.Call`                                              |
 | `address.staticcall(...)`               | ✅     | Maps to `System.Contract.Call` (read-only flag)                             |
 | `address.delegatecall(...)`             | 🚫     | Blocked: no delegate call on Neo                                            |
-| `address.transfer(amount)`              | 🚫     | Blocked: use NEP-17 `transfer()`                                            |
-| `address.send(amount)`                  | 🚫     | Blocked: use NEP-17 `transfer()`                                            |
-| `address.balance`                       | 🚫     | Blocked: use `NativeCalls.neoBalanceOf()` / `NativeCalls.gasBalanceOf()`    |
-| `address.code`                          | 🚫     | Blocked: use `ContractManagement.getContract()`                             |
+| `address.transfer(amount)`              | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer fail |
+| `address.send(amount)`                  | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool            |
+| `address.balance`                       | ✅     | Auto-mapped to `GAS.balanceOf(address)`                                     |
+| `address.code`                          | ⚠️     | Returns empty bytes; `address.code.length` maps to contract-existence check |
 | `address.codehash`                      | ✅     | Auto-mapped to contract script hash with warning; non-contract → bytes32(0) |
 | Ether units (`wei`, `gwei`, `ether`)    | ⚠️     | Parsed; warning that Neo uses GAS token (10^8 decimals)                     |
 | Time units (`seconds`, `minutes`, etc.) | ✅     | Compile-time constants (normalized to seconds)                              |
@@ -216,6 +216,7 @@ Legend:
 | ERC-20 `approve`/`allowance` | N/A                           | ⚠️     | Warning: not part of NEP-17 spec; Neo uses `Runtime.checkWitness()`           |
 | ERC-165 `supportsInterface`  | Manifest `supportedstandards` | ⚠️     | Warning: unnecessary on Neo; manifest-based discovery                         |
 | ERC-4626 (Tokenized Vault)   | NEP-17                        | ⚠️     | Vault logic compiles; ERC-20 interactions must use NEP-17 equivalents         |
+| ERC-2981 (Royalty)           | NEP-24                        | ✅     | Auto-detected; multiple royalty recipients supported                           |
 | `receive()` / `fallback()`   | `onNEP17Payment()`            | ⚠️     | Diagnostic suggests callback pattern                                          |
 
 ---
@@ -231,13 +232,13 @@ Legend:
 | E. OOP Features     | 9       | 1      | 0     | 0     |
 | F. Storage & Memory | 12      | 0      | 0     | 1     |
 | G. Error Handling   | 9       | 1      | 0     | 0     |
-| H. EVM-Specific     | 20      | 3      | 2     | 7     |
-| I. ERC-NEP Mapping  | 2       | 4      | 0     | 0     |
-| **Total**           | **110** | **19** | **3** | **9** |
+| H. EVM-Specific     | 23      | 4      | 2     | 3     |
+| I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
+| **Total**           | **114** | **20** | **3** | **5** |
 
-**Total features audited: 141**
+**Total features audited: 142**
 
-- ✅ Fully supported: 110 (78%)
-- ⚠️ Partial support: 19 (13%)
+- ✅ Fully supported: 114 (80%)
+- ⚠️ Partial support: 20 (14%)
 - ❌ Not supported: 3 (2%)
-- 🚫 Intentionally blocked: 9 (6%)
+- 🚫 Intentionally blocked: 5 (4%)

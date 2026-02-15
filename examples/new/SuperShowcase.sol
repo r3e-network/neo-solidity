@@ -3,10 +3,8 @@ pragma solidity ^0.8.19;
 
 /**
  * @title SuperShowcase
- * @notice Demonstrates that the `super` keyword produces a clear diagnostic
- *         error with a workaround suggestion. The compiler flattens the
- *         inheritance hierarchy via C3 linearization, so base method bodies
- *         are not preserved as separate call targets.
+ * @notice Demonstrates the internal-helper pattern as an alternative to
+ *         `super` calls when you want explicit shared logic reuse.
  *
  * Workaround: extract shared logic into a named internal function that both
  * base and derived contracts can call directly.
@@ -35,7 +33,7 @@ contract Child is Base {
         return "Child";
     }
 
-    /// @dev Instead of `super.setValue(v)`, call the extracted helper directly.
+    /// @dev Explicitly call the extracted helper directly.
     function setValue(uint256 v) public override {
         _baseSetValue(v);
         // Child-specific logic can go here

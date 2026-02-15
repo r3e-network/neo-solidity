@@ -10,10 +10,10 @@ fn lower_member_access_expression(
     if matches!(inner, Expression::Variable(id) if id.name == "super") {
         ctx.record_error_with_suggestion(
             format!(
-                "super.{} is not yet supported; the compiler flattens inheritance and does not preserve base-specific member access",
+                "super.{} member access is not supported; use super.method() calls only",
                 member.name
             ),
-            "access the member directly by name, or extract shared logic into a named internal function",
+            "access the member directly by name, call super.method(), or extract shared logic into a named internal function",
         );
         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
         return false;

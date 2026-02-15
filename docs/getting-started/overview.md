@@ -82,16 +82,16 @@ Each stage is a distinct module in the Rust codebase, making the compiler easy t
 
 ## Solidity Feature Coverage
 
-The compiler supports 111 of 142 audited Solidity features (78%):
+The compiler supports 114 of 142 audited Solidity features (80%):
 
 | Category              | Status                                                     |
 | --------------------- | ---------------------------------------------------------- |
-| Fully supported       | 111 features (78%)                                         |
-| Partially supported   | 19 features (13%) -- with Neo-specific workarounds         |
+| Fully supported       | 114 features (80%)                                         |
+| Partially supported   | 20 features (14%) -- with Neo-specific workarounds         |
 | Unsupported           | 3 features (2%) -- also unimplemented in mainline Solidity |
-| Intentionally blocked | 9 features (6%) -- EVM-only concepts with Neo alternatives |
+| Intentionally blocked | 5 features (4%) -- EVM-only concepts with Neo alternatives |
 
-Blocked features produce compile-time errors with actionable messages pointing to the Neo equivalent. For example, `address.transfer(amt)` tells you to use `NativeCalls.gasTransfer()`.
+Blocked features produce compile-time errors with actionable messages pointing to the Neo equivalent. For example, `address.delegatecall(...)` directs you to use explicit cross-contract call patterns.
 
 For the full matrix, see [Solidity Feature Support](/solidity/feature-support).
 

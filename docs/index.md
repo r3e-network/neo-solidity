@@ -31,7 +31,7 @@ features:
 
     - icon: "\U0001F4CB"
       title: "Solidity 0.8.x"
-      details: "142 audited features -- 111 fully supported, 19 partial with Neo solutions, 3 unsupported, 9 intentionally blocked with actionable diagnostics."
+      details: "142 audited features -- 114 fully supported, 20 partial with Neo solutions, 3 unsupported, 5 intentionally blocked with actionable diagnostics."
       link: /solidity/feature-support
       linkText: Feature matrix
 
@@ -81,8 +81,8 @@ Unlike transpilation approaches that attempt to emulate EVM behavior on NeoVM, N
 
 <div class="stats-grid">
   <div class="stat-card">
-    <span class="stat-value">111 / 142</span>
-    <span class="stat-label">Supported Features (78%)</span>
+    <span class="stat-value">114 / 142</span>
+    <span class="stat-label">Supported Features (80%)</span>
   </div>
   <div class="stat-card">
     <span class="stat-value">660+</span>

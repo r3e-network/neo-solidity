@@ -44,7 +44,7 @@ contract Dog is Animal, Domestic {
     }
 
     function setCaret(address _c) public override {
-        // Inline base Domestic.setCaret() logic (super keyword not yet supported)
+        // Inline base Domestic.setCaret() logic explicitly.
         caretaker = _c;
     }
 

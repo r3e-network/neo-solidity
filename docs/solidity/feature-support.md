@@ -9,10 +9,10 @@ This page is the human-readable companion to the canonical machine-audited matri
 | Metric                 | Count | Percentage |
 | ---------------------- | ----: | ---------: |
 | Total audited features |   142 |       100% |
-| Fully supported        |   111 |        78% |
-| Partial support        |    19 |        13% |
+| Fully supported        |   114 |        80% |
+| Partial support        |    20 |        14% |
 | Not supported          |     3 |         2% |
-| Intentionally blocked  |     9 |         6% |
+| Intentionally blocked  |     5 |         4% |
 
 Status icons used throughout this page:
 
@@ -31,7 +31,7 @@ Status icons used throughout this page:
 | `int8` .. `int256`        |   ✅   | All widths parsed. NeoVM uses arbitrary-precision BigInteger internally.                                                      |
 | `uint8` .. `uint256`      |   ✅   | All widths parsed. NeoVM uses arbitrary-precision BigInteger internally.                                                      |
 | `address`                 |   ✅   | Maps to Neo UInt160 (Hash160, 20 bytes).                                                                                      |
-| `address payable`         |   ⚠️   | Parsed and canonicalized to `address`. The `.transfer()` and `.send()` members are blocked — use NEP-17 `transfer()` instead. |
+| `address payable`         |   ⚠️   | Parsed and canonicalized to `address`. `.transfer()` / `.send()` auto-map to GAS transfer semantics (not EVM-attached value). |
 | `bytes1` .. `bytes32`     |   ✅   | Fixed-length byte arrays via `NeoType::ByteArray { fixed_len }`.                                                              |
 | `bytes` (dynamic)         |   ✅   | Dynamic byte array.                                                                                                           |
 | `string`                  |   ✅   | UTF-8 string type.                                                                                                            |
@@ -49,7 +49,7 @@ Status icons used throughout this page:
 
 ### Partial type details
 
-**`address payable`** — The type is accepted and treated identically to `address`. However, the EVM-specific members `.transfer(amount)` and `.send(amount)` are blocked with a diagnostic directing you to use NEP-17 `transfer()`. Code that only uses `address payable` as a type annotation compiles without issue.
+**`address payable`** — The type is accepted and treated identically to `address`. On Neo, `.transfer(amount)` / `.send(amount)` compile via GAS NEP-17 transfer lowering (`transfer(from,to,amount,data)`), so behavior is close but not identical to EVM attached-value calls.
 
 **`T[N]` (fixed array)** — Fixed-size arrays compile when the size `N` is a compile-time constant. Runtime-computed sizes require dynamic arrays (`T[]`).
 
@@ -316,10 +316,10 @@ These features reference EVM runtime concepts. The compiler maps them to Neo equ
 | `address.call(...)`                     |   ✅   | `System.Contract.Call`.                                                              |
 | `address.staticcall(...)`               |   ✅   | `System.Contract.Call` with read-only flag.                                          |
 | `address.delegatecall(...)`             |   🚫   | Blocked: no delegate call on Neo.                                                    |
-| `address.transfer(amount)`              |   🚫   | Blocked: use NEP-17 `transfer()`.                                                    |
-| `address.send(amount)`                  |   🚫   | Blocked: use NEP-17 `transfer()`.                                                    |
-| `address.balance`                       |   🚫   | Blocked: use `NativeCalls.neoBalanceOf()` / `NativeCalls.gasBalanceOf()`.            |
-| `address.code`                          |   🚫   | Blocked: use `ContractManagement.getContract()`.                                     |
+| `address.transfer(amount)`              |   ✅   | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer failure.      |
+| `address.send(amount)`                  |   ✅   | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool.                    |
+| `address.balance`                       |   ✅   | Auto-mapped to `GAS.balanceOf(address)`.                                              |
+| `address.code`                          |   ⚠️   | Returns empty bytes; `address.code.length` maps to contract-existence check.          |
 | `address.codehash`                      |   ✅   | Auto-mapped to contract script hash with warning. Non-contract returns `bytes32(0)`. |
 | Ether units (`wei`, `gwei`, `ether`)    |   ⚠️   | Parsed. Warning that Neo uses GAS token (10^8 decimals).                             |
 | Time units (`seconds`, `minutes`, etc.) |   ✅   | Compile-time constants normalized to seconds.                                        |
@@ -347,6 +347,8 @@ function deposit() public payable {
 **`tx.origin`** — Maps to the first signer's script hash in the Neo transaction. The compiler emits a warning because `tx.origin`-based authorization is considered an anti-pattern on both EVM and Neo. Use `msg.sender` (which maps to `Runtime.GetCallingScriptHash()`) or `Runtime.checkWitness()` instead.
 
 **Ether units** — The literal multipliers (`1 ether = 10^18`, `1 gwei = 10^9`, etc.) are parsed for source compatibility, but a warning is emitted because Neo GAS uses 10^8 decimals, not 10^18. Adjust your constants accordingly.
+
+**`address.code`** — Neo does not expose contract bytecode bytes at runtime. For compatibility, `address.code` lowers to an empty byte array, while `address.code.length` lowers to a contract-existence check (0 for non-contract, 1 for contract). Use `ContractManagement.getContract()` when you need metadata rather than EVM-style code bytes.
 
 ### Auto-mapping warnings
 
@@ -392,9 +394,9 @@ For detailed standard migration guides, see the [Standards Mapping](/devpack/sta
 | E. OOP Features     |       9 |      1 |     0 |     0 |
 | F. Storage & Memory |      12 |      0 |     0 |     1 |
 | G. Error Handling   |       9 |      1 |     0 |     0 |
-| H. EVM-Specific     |      20 |      3 |     2 |     7 |
+| H. EVM-Specific     |      23 |      4 |     2 |     3 |
 | I. ERC-NEP Mapping  |       3 |      4 |     0 |     0 |
-| **Total**           | **111** | **19** | **3** | **9** |
+| **Total**           | **114** | **20** | **3** | **5** |
 
 ---
 

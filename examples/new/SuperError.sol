@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-/// @dev This file intentionally uses `super` to verify the compiler
-///      produces a clear diagnostic error with a workaround suggestion.
+/// @dev This file intentionally uses `super` to verify it compiles
+///      through inheritance flattening with preserved base methods.
 
 contract Base {
     function greet() public pure virtual returns (string memory) {

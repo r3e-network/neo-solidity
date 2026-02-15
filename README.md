@@ -213,11 +213,11 @@ neo-cli contract invoke <contract-hash> totalSupply
 
 ## 🧩 **Solidity Feature Support on NeoVM**
 
-> **141 Solidity features audited** — ✅ 110 fully supported (78%) · ⚠️ 19 partial (13%) · ❌ 3 unsupported (2%) · 🚫 9 intentionally blocked (6%)
+> **142 Solidity features audited** — ✅ 114 fully supported (80%) · ⚠️ 20 partial (14%) · ❌ 3 unsupported (2%) · 🚫 5 intentionally blocked (4%)
 >
 > For the full per-feature audit, see [`docs/SOLIDITY_SUPPORT_MATRIX.md`](./docs/SOLIDITY_SUPPORT_MATRIX.md) and [`FEATURE_MATRIX.md`](./FEATURE_MATRIX.md).
 
-### ✅ Fully Supported (110+ features)
+### ✅ Fully Supported (114+ features)
 
 <details>
 <summary><strong>Types</strong> — <code>bool</code>, <code>int/uint</code> (all widths), <code>address</code>, <code>bytes1-32</code>, <code>bytes</code>, <code>string</code>, <code>enum</code>, <code>struct</code>, <code>mapping</code>, <code>T[]</code>, user-defined value types, <code>bytes.concat</code>, <code>string.concat</code>, contract types, tuples</summary>
@@ -271,7 +271,7 @@ State variables persist via Neo Storage syscalls with prefix-based keys. `callda
 <details>
 <summary><strong>EVM Globals</strong> — <code>msg.sender</code>, <code>block.timestamp</code>, <code>block.number</code>, <code>block.chainid</code>, <code>keccak256</code>, <code>sha256</code>, <code>ecrecover</code>, <code>address.call</code>, <code>address.staticcall</code>, <code>this</code>, time units, plus 9 auto-mapped EVM features</summary>
 
-`msg.sender` → `Runtime.GetCallingScriptHash()`. `block.timestamp` → `Runtime.GetTime()`. `keccak256`/`sha256` → `CryptoLib.sha256`. `this` → `Runtime.GetExecutingScriptHash()`.
+`msg.sender` → `Runtime.GetCallingScriptHash()`. `block.timestamp` → `Runtime.GetTime()`. `keccak256` → `CryptoLib.keccak256`, `sha256` → `CryptoLib.sha256`. `this` → `Runtime.GetExecutingScriptHash()`.
 
 **Transparent EVM auto-mappings** (compile with warning, no code changes needed):
 
@@ -291,11 +291,11 @@ State variables persist via Neo Storage syscalls with prefix-based keys. `callda
 
 ---
 
-### ⚠️ Partially Supported (19 features) — with Neo Solutions
+### ⚠️ Partially Supported (20 features) — with Neo Solutions
 
 | Feature                              | Limitation                                     | Neo Solution / Workaround                                                                                     |
 | ------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `address payable`                    | `transfer`/`send` are EVM-only                 | Use `NativeCalls.gasTransfer()` or `NativeCalls.neoTransfer()` for value transfers                            |
+| `address payable`                    | Value-transfer semantics differ from EVM        | `.transfer()` / `.send()` auto-map to GAS NEP-17 transfer; prefer explicit `NativeCalls.*Transfer()`          |
 | `T[N]` (fixed-size array)            | Length must be compile-time constant           | `new T[N]` is supported for fixed memory arrays; use dynamic arrays `T[]` when runtime sizing is required     |
 | `abi.encode` (standalone)            | Maps to `StdLib.serialize`, not EVM ABI format | Works correctly for Neo cross-contract calls; not byte-compatible with EVM                                    |
 | `abi.encodePacked`                   | Same as `abi.encode` on Neo                    | Concatenation-based; sufficient for Neo use cases                                                             |
@@ -309,6 +309,7 @@ State variables persist via Neo Storage syscalls with prefix-based keys. `callda
 | `library` (user-defined)             | External library calls unsupported             | Internal library functions are fully inlined; refactor external functions to internal                         |
 | `immutable`                          | Partial constructor-style semantics            | Writes outside constructor/deploy initialization are rejected; initialize in declaration or constructor       |
 | `msg.value`                          | Only available inside `onNEP17Payment`         | Access the `amount` parameter of `onNEP17Payment(from, amount, data)` directly                                |
+| `address.code`                       | Neo does not expose raw runtime bytecode        | `address.code` returns empty bytes; use `ContractManagement.getContract()` for metadata                         |
 | `tx.origin`                          | Compiles with warning                          | Neo uses multi-sig witnesses; use `Runtime.checkWitness(addr)` for authorization                              |
 | Ether units (`wei`, `gwei`, `ether`) | Parsed with warning                            | Neo uses GAS token with 10⁸ decimals (1 GAS = 100,000,000 fractions)                                          |
 | ERC-20 `approve`/`allowance`         | Not part of NEP-17 spec                        | Use `Runtime.checkWitness(owner)` for authorization; Neo's witness model replaces approvals                   |
@@ -327,7 +328,7 @@ State variables persist via Neo Storage syscalls with prefix-based keys. `callda
 
 ---
 
-### 🚫 Intentionally Blocked EVM Features (9 features) — with Neo Alternatives
+### 🚫 Intentionally Blocked EVM Features (5 features) — with Neo Alternatives
 
 These features are **detected at compile time** with actionable error messages pointing to the Neo equivalent:
 
@@ -335,10 +336,6 @@ These features are **detected at compile time** with actionable error messages p
 | ----------------------- | --------------------------------------- | ------------------------------------------------------------------- |
 | `assembly { }`          | "inline assembly is not supported"      | Use `NativeCalls.sol` devpack for low-level Neo syscalls            |
 | `address.delegatecall`  | "no delegate call on Neo"               | Neo contracts have isolated storage; use `address.call()` instead   |
-| `address.transfer(amt)` | "use NEP-17 transfer()"                 | `NativeCalls.gasTransfer(from, to, amount)`                         |
-| `address.send(amt)`     | "use NEP-17 transfer()"                 | `NativeCalls.gasTransfer(from, to, amount)`                         |
-| `address.balance`       | "use NativeCalls"                       | `NativeCalls.neoBalanceOf(addr)` / `NativeCalls.gasBalanceOf(addr)` |
-| `address.code`          | "use ContractManagement"                | `ContractManagement.getContract(hash)`                              |
 | `new Contract(...)`     | "use ContractManagement for deployment" | `ContractManagement.deploy(nef, manifest, data)`                    |
 | `type(X).creationCode`  | "no bytecode access on Neo"             | Deploy via `ContractManagement.deploy()` with NEF bytes             |
 | `type(X).runtimeCode`   | "no bytecode access on Neo"             | No equivalent; Neo contracts are opaque after deployment            |
@@ -944,7 +941,7 @@ make publish
 - ✅ Error handling and reporting
 - ✅ CLI interface with 25+ options
 - ✅ Neo N3 native formats (.nef and .manifest.json)
-- ✅ Full Solidity 0.8.x support (110 features supported)
+- ✅ Full Solidity 0.8.x support (114 features supported)
 - ✅ Variable handling with proper index-based storage
 - ✅ Loop control (break/continue) with context tracking
 - ✅ Function overloading support (different arg counts)
@@ -1009,7 +1006,7 @@ make publish
 - **⚡ Performance**: Optimized code generation with multi-level optimization
 - **🔒 Security**: Basic security analysis; external audit recommended for production
 - **📚 Documentation**: Comprehensive guides and reference documentation
-- **🛠️ Compatibility**: Solidity 0.8.x (110 features supported), NeoVM 3.0+
+- **🛠️ Compatibility**: Solidity 0.8.x (114 features supported), NeoVM 3.0+
 
 ### **🎯 Production Readiness**
 
@@ -1211,8 +1208,8 @@ We welcome contributions from the community! Check out our:
 
 - **👥 [Contributing Guide](./CONTRIBUTING.md)**
 - **🎯 [Good First Issues](https://github.com/r3e-network/neo-solidity/labels/good%20first%20issue)**
-- **🏗️ [Development Setup](./DEVELOPMENT.md)**
-- **📋 [Code of Conduct](./CODE_OF_CONDUCT.md)**
+- **🏗️ [Testing and Local Validation](./TESTING.md)**
+- **🔐 [Security Policy](./SECURITY.md)**
 
 ## 📄 **License**
 

@@ -802,10 +802,10 @@ function emergencyStop() public onlyOwner withWitness {
 
 ### Step-by-Step Tutorials
 
-1. **[Basic Token](./tutorials/basic-token.md)** - Create your first NEP-17 token
-2. **[NFT Collection](./tutorials/nft-collection.md)** - Build complete NFT marketplace
-3. **[Oracle Integration](./tutorials/oracle-integration.md)** - Use external data sources
-4. **[DeFi Protocol](./tutorials/defi-protocol.md)** - Build advanced DeFi applications
+1. **[Basic Token](./examples/CompleteNEP17Token.sol)** - Create your first NEP-17 token
+2. **[NFT Collection](./examples/CompleteNEP11NFT.sol)** - Build complete NFT marketplace
+3. **[Oracle Integration](./contracts/OracleService.sol)** - Use external data sources
+4. **[DeFi Protocol](./examples/VaultPattern.sol)** - Build advanced DeFi applications
 
 ### Code Examples
 

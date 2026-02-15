@@ -569,7 +569,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         require(Runtime.checkWitness(msg.sender), "CompleteNEP17: invalid witness");
         require(msg.sender == owner() || Neo.isCommittee(msg.sender), "CompleteNEP17: unauthorized");
 
-        // Inline base NEP17.emergencyPause() logic (super keyword not yet supported)
+        // Inline base NEP17.emergencyPause() to preserve custom committee-or-owner auth semantics.
         disableTransfers();
         emit EmergencyPause(msg.sender, block.timestamp);
 
@@ -586,7 +586,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     function emergencyRecover() public onlyOwner {
         require(Runtime.checkWitness(msg.sender), "CompleteNEP17: invalid witness");
 
-        // Inline base NEP17.emergencyUnpause() logic (super keyword not yet supported)
+        // Inline base NEP17.emergencyUnpause() to preserve custom committee-or-owner auth semantics.
         enableTransfers();
         emit EmergencyUnpause(msg.sender, block.timestamp);
 

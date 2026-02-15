@@ -481,7 +481,7 @@ DEBUG=neo-foundry:* neo-forge build
 
 ## 🤝 Contributing
 
-Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
 ### Development Setup
 
@@ -502,7 +502,7 @@ npm run test:coverage    # Coverage report
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](../LICENSE) for details.
 
 ---
 
