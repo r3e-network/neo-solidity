@@ -83,7 +83,8 @@ if ! command -v xxd >/dev/null 2>&1; then
 fi
 
 reverse_hex_bytes() {
-  local hex="${1,,}"
+  local hex="$1"
+  hex="$(printf '%s' "$hex" | tr '[:upper:]' '[:lower:]')"
   local out=""
   while [ -n "$hex" ]; do
     out="${hex:0:2}$out"
@@ -191,7 +192,9 @@ if [ "$(echo "$SENDER_OUT" | jq -r '.stack[0].type')" != "ByteString" ]; then
   exit 1
 fi
 SENDER_HEX="$(echo "$SENDER_OUT" | jq -r '.stack[0].value' | base64 -d | hexdump -v -e '/1 "%02x"')"
-if [ "${SENDER_HEX,,}" != "${NODE1_HASH_LE,,}" ]; then
+SENDER_HEX_LC="$(printf '%s' "$SENDER_HEX" | tr '[:upper:]' '[:lower:]')"
+NODE1_HASH_LE_LC="$(printf '%s' "$NODE1_HASH_LE" | tr '[:upper:]' '[:lower:]')"
+if [ "$SENDER_HEX_LC" != "$NODE1_HASH_LE_LC" ]; then
   echo "error: msg.sender mismatch"
   echo "  got (LE):  ${SENDER_HEX}"
   echo "  want (LE): ${NODE1_HASH_LE}"

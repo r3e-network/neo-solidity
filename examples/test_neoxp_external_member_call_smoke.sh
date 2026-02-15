@@ -71,7 +71,8 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 reverse_hex_bytes() {
-  local hex="${1,,}"
+  local hex="$1"
+  hex="$(printf '%s' "$hex" | tr '[:upper:]' '[:lower:]')"
   local out=""
   while [ -n "$hex" ]; do
     out="${hex:0:2}$out"
