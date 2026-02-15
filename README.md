@@ -107,6 +107,34 @@ To run all Neo-Express smoke tests:
 make test-deploy-smoke-full
 ```
 
+### Deploy Famous Upstream EVM Contracts on Neo N3
+
+To demonstrate compiler capability on widely used upstream contracts (OpenZeppelin, Aave, Safe, Uniswap, Chainlink), run:
+
+```bash
+npm run deploy:famous-contracts:neoxp
+```
+
+This command compiles + deploys a curated set of upstream contracts to a fresh local Neo N3 chain (`neoxp`), then generates:
+
+- `docs/data/famous-contracts-neoxp-deploy-results.json`
+- `docs/solidity/famous-contracts-neoxp-deploy.md`
+
+It auto-installs Neo Express `3.9.1` into `build/dotnet-tools/` when missing.
+
+For strict **type-3** verification (deploy + state-changing invoke + post-state assertion), run:
+
+```bash
+npm run verify:famous-contracts:neoxp-runtime
+```
+
+This generates:
+
+- `docs/data/famous-contracts-neoxp-runtime-results.json`
+- `docs/solidity/famous-contracts-neoxp-runtime.md`
+
+Use this runtime report when you need executable correctness proof, not deploy-only coverage.
+
 For the strict-safe new showcase suite specifically (wired in CI as `neoxp-showcases`):
 
 ```bash
