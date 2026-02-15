@@ -32,7 +32,7 @@ impl Address {
         if address.len() == 42 && address.starts_with("0x") {
             Ok(Address(address))
         } else if address.len() == 40 {
-            Ok(Address(format!("0x{}", address)))
+            Ok(Address(format!("0x{address}")))
         } else {
             Err("Invalid address format")
         }

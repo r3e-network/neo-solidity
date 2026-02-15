@@ -10,7 +10,7 @@ fn validate_state_variables(
         match &state.name {
             Some(name) => {
                 if !state_names.insert(name.clone()) {
-                    diagnostics.push(Diagnostic::error(format!("duplicate state variable '{}'", name)));
+                    diagnostics.push(Diagnostic::error(format!("duplicate state variable '{name}'")));
                 }
             }
             None => diagnostics.push(Diagnostic::error("state variable declared without a name")),
@@ -25,8 +25,7 @@ fn validate_state_variables(
             if let Some(name) = state.name.as_deref() {
                 if method_name_counts.get(name).copied().unwrap_or(0) > 1 {
                     diagnostics.push(Diagnostic::error(format!(
-                        "public state variable '{}' conflicts with a function of the same name",
-                        name
+                        "public state variable '{name}' conflicts with a function of the same name"
                     )));
                 }
             }

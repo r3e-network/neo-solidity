@@ -205,9 +205,7 @@ fn gas_never_zero_after_operations() {
         let consumed = gas_after - gas_before;
         assert!(
             consumed > 0,
-            "Operation {} should consume gas, got {}",
-            i,
-            consumed
+            "Operation {i} should consume gas, got {consumed}"
         );
     }
 }

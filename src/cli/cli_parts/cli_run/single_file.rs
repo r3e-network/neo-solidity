@@ -148,7 +148,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
 
     if verbose {
         println!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
-        println!("Format: {}", format);
+        println!("Format: {format}");
     }
 
     let deployer_le = match deployer {
@@ -175,7 +175,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
         if verbose {
             println!("Batch mode: {} input file(s)", sources.len());
             if let Some(output) = &output_arg {
-                println!("Output directory: {}", output);
+                println!("Output directory: {output}");
             }
         }
     }
@@ -184,7 +184,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
 
     for (file_index, input_file) in sources.iter().enumerate() {
         if sources.len() > 1 {
-            println!("(info) compiling {}", input_file);
+            println!("(info) compiling {input_file}");
         }
 
         let resolved = match resolve_solidity_sources_with_imports(
@@ -241,7 +241,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
                 );
             }
             if verbose && !had_any_contracts {
-                eprintln!("warning: No contracts were found in {}", input_file);
+                eprintln!("warning: No contracts were found in {input_file}");
             }
             continue;
         }
@@ -284,8 +284,8 @@ fn run_single_file(matches: &clap::ArgMatches) {
         };
 
         if verbose {
-            println!("Input: {}", input_file);
-            println!("Output prefix: {}", output_prefix);
+            println!("Input: {input_file}");
+            println!("Output prefix: {output_prefix}");
         }
 
         if artifacts.len() > 1 {

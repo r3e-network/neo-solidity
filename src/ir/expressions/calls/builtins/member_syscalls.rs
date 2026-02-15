@@ -38,8 +38,7 @@ fn try_lower_syscalls_member_builtin(
                     ValueType::Address | ValueType::ByteArray { .. } | ValueType::Any
                 ) {
                     ctx.record_error(format!(
-                        "Syscalls.scriptHashToAddress expects a 20-byte ByteArray/Hash160-like value, got {:?}",
-                        arg_ty
+                        "Syscalls.scriptHashToAddress expects a 20-byte ByteArray/Hash160-like value, got {arg_ty:?}"
                     ));
                     return Some(false);
                 }
@@ -62,8 +61,7 @@ fn try_lower_syscalls_member_builtin(
                     ValueType::Address | ValueType::ByteArray { .. } | ValueType::Any
                 ) {
                     ctx.record_error(format!(
-                        "Syscalls.addressToScriptHash expects an address/Hash160-like value, got {:?}",
-                        arg_ty
+                        "Syscalls.addressToScriptHash expects an address/Hash160-like value, got {arg_ty:?}"
                     ));
                     return Some(false);
                 }
@@ -86,8 +84,7 @@ fn try_lower_syscalls_member_builtin(
                     ValueType::Address | ValueType::ByteArray { .. } | ValueType::Any
                 ) {
                     ctx.record_error(format!(
-                        "Syscalls.isValidAddress expects an address/Hash160-like value, got {:?}",
-                        arg_ty
+                        "Syscalls.isValidAddress expects an address/Hash160-like value, got {arg_ty:?}"
                     ));
                     return Some(false);
                 }

@@ -86,8 +86,7 @@ fn write_nef_file(
     let (clamped, truncated) = clamp_nef_source_with_flag(&resolved_source);
     if truncated {
         let msg = format!(
-            "NEF source exceeds {} bytes and was truncated",
-            NEF_SOURCE_MAX_BYTES
+            "NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated"
         );
         emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
     }
@@ -138,8 +137,7 @@ fn write_json_file(
     let (clamped, truncated) = clamp_nef_source_with_flag(&resolved_source);
     if truncated {
         let msg = format!(
-            "NEF source exceeds {} bytes and was truncated",
-            NEF_SOURCE_MAX_BYTES
+            "NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated"
         );
         emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
     }

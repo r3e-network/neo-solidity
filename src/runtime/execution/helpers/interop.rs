@@ -81,7 +81,7 @@ impl ExecutionContext {
             });
         }
         let lower = without_prefix.to_ascii_lowercase();
-        Ok(format!("0x{}", lower))
+        Ok(format!("0x{lower}"))
     }
 
     fn account_string_to_bytes(account: &str) -> Result<Vec<u8>, RuntimeError> {

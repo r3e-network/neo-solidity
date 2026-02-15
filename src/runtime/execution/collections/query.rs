@@ -92,7 +92,7 @@ impl ExecutionContext {
             StackItem::Map(map) => map.borrow().values().cloned().collect(),
             other => {
                 return Err(RuntimeError::ExecutionError {
-                    message: format!("UNPACK: unsupported target {:?}", other),
+                    message: format!("UNPACK: unsupported target {other:?}"),
                 })
             }
         };

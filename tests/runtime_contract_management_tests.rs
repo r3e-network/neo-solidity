@@ -160,9 +160,7 @@ fn update_increments_counter_multiple_times() {
         assert_eq!(
             ctx.contract_update_counter(hash),
             Some(i),
-            "update counter should be {} after {} updates",
-            i,
-            i
+            "update counter should be {i} after {i} updates"
         );
     }
 }

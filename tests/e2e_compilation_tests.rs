@@ -55,7 +55,7 @@ fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
     let output_dir = std::env::temp_dir().join("neo-sol-test");
 
     std::fs::create_dir_all(&output_dir)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+        .map_err(|e| format!("Failed to create output directory: {e}"))?;
 
     let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
 
@@ -67,11 +67,11 @@ fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
         .arg("-o")
         .arg(&output_prefix)
         .output()
-        .map_err(|e| format!("Failed to run compiler: {}", e))?;
+        .map_err(|e| format!("Failed to run compiler: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Compilation failed: {}", stderr));
+        return Err(format!("Compilation failed: {stderr}"));
     }
 
     let nef_path = output_prefix.with_extension("nef");
@@ -105,7 +105,7 @@ fn compile_contract_strict(contract_path: &str) -> Result<(PathBuf, PathBuf), St
     let output_dir = std::env::temp_dir().join("neo-sol-test-strict");
 
     std::fs::create_dir_all(&output_dir)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+        .map_err(|e| format!("Failed to create output directory: {e}"))?;
 
     let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
 
@@ -120,11 +120,11 @@ fn compile_contract_strict(contract_path: &str) -> Result<(PathBuf, PathBuf), St
         .arg("-o")
         .arg(&output_prefix)
         .output()
-        .map_err(|e| format!("Failed to run compiler: {}", e))?;
+        .map_err(|e| format!("Failed to run compiler: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Strict compilation failed: {}", stderr));
+        return Err(format!("Strict compilation failed: {stderr}"));
     }
 
     let nef_path = output_prefix.with_extension("nef");
@@ -242,7 +242,7 @@ fn test_nef_file_structure() {
 
     let (nef_path, _) = result.unwrap();
     let nef_data = std::fs::read(&nef_path)
-        .map_err(|e| format!("Failed to read NEF: {}", e))
+        .map_err(|e| format!("Failed to read NEF: {e}"))
         .unwrap();
 
     assert!(!nef_data.is_empty(), "NEF should not be empty");
@@ -266,11 +266,11 @@ fn test_manifest_structure() {
 
     let (_, manifest_path) = result.unwrap();
     let manifest_data = std::fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("Failed to read manifest: {}", e))
+        .map_err(|e| format!("Failed to read manifest: {e}"))
         .unwrap();
 
     let json: serde_json::Value = serde_json::from_str(&manifest_data)
-        .map_err(|e| format!("Invalid JSON: {}", e))
+        .map_err(|e| format!("Invalid JSON: {e}"))
         .unwrap();
 
     assert!(json.is_object(), "Manifest should be JSON object");
@@ -447,11 +447,11 @@ fn test_manifest_has_valid_abi() {
 
     let (_, manifest_path) = result.unwrap();
     let manifest_data = std::fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("Failed to read manifest: {}", e))
+        .map_err(|e| format!("Failed to read manifest: {e}"))
         .unwrap();
 
     let json: serde_json::Value = serde_json::from_str(&manifest_data)
-        .map_err(|e| format!("Invalid JSON: {}", e))
+        .map_err(|e| format!("Invalid JSON: {e}"))
         .unwrap();
 
     let abi = json.get("abi").expect("Manifest should have ABI");
@@ -830,9 +830,7 @@ fn test_native_contract_showcase_manifest_methods() {
     for name in &expected {
         assert!(
             method_names.contains(name),
-            "Manifest should contain method '{}', found: {:?}",
-            name,
-            method_names
+            "Manifest should contain method '{name}', found: {method_names:?}"
         );
     }
 }
@@ -904,16 +902,13 @@ fn assert_compile_error_contains(contract_path: &str, expected_error: &str) {
 
     assert!(
         !output.status.success(),
-        "Expected compilation to fail for {:?}",
-        contract_path
+        "Expected compilation to fail for {contract_path:?}"
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains(expected_error),
-        "Expected stderr to contain '{}', got:\n{}",
-        expected_error,
-        stderr
+        "Expected stderr to contain '{expected_error}', got:\n{stderr}"
     );
 }
 
@@ -948,9 +943,7 @@ fn assert_compile_warns(contract_path: &str, expected_warning: &str) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains(expected_warning),
-        "Expected stderr to contain warning '{}', got:\n{}",
-        expected_warning,
-        stderr
+        "Expected stderr to contain warning '{expected_warning}', got:\n{stderr}"
     );
 }
 
@@ -1084,8 +1077,7 @@ fn test_library_showcase_manifest_has_compute_method() {
 
     assert!(
         method_names.contains(&"compute"),
-        "Manifest should contain 'compute' method, found: {:?}",
-        method_names
+        "Manifest should contain 'compute' method, found: {method_names:?}"
     );
 }
 

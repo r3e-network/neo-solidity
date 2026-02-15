@@ -44,7 +44,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::ByteArray(dst))
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("MEMCPY: unsupported destination {:?}", other),
+                message: format!("MEMCPY: unsupported destination {other:?}"),
             }),
         }
     }

@@ -43,7 +43,7 @@ fn lower_expression(
         true
     } else {
         ctx.record_error_with_suggestion(
-            format!("unsupported expression '{:?}'", expr),
+            format!("unsupported expression '{expr:?}'"),
             "Neo N3 supports: int, string, bytes, bool, address, arrays, maps, structs",
         );
         false

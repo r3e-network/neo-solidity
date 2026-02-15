@@ -63,7 +63,7 @@ impl ExecutionContext {
                     })
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("PICKITEM: unsupported target {:?}", other),
+                message: format!("PICKITEM: unsupported target {other:?}"),
             }),
         }
     }
@@ -138,7 +138,7 @@ impl ExecutionContext {
                 Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("SETITEM: unsupported target {:?}", other),
+                message: format!("SETITEM: unsupported target {other:?}"),
             }),
         }
     }

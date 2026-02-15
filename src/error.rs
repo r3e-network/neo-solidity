@@ -148,7 +148,7 @@ impl std::fmt::Display for FixSuggestion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "help: {}", self.message)?;
         if let Some(ref replacement) = self.replacement {
-            write!(f, "\n  suggestion: `{}`", replacement)?;
+            write!(f, "\n  suggestion: `{replacement}`")?;
         }
         Ok(())
     }

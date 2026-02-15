@@ -52,9 +52,7 @@ fn emit_binary_op_emits_correct_opcodes() {
         assert_eq!(
             bytecode,
             vec![expected_opcode],
-            "operator {:?} should emit opcode 0x{:02X}",
-            op,
-            expected_opcode
+            "operator {op:?} should emit opcode 0x{expected_opcode:02X}"
         );
     }
 }
@@ -112,7 +110,7 @@ fn push_integer_bigint_handles_special_values() {
     for i in 1..=16u8 {
         bytecode.clear();
         push_integer_bigint(&mut bytecode, &BigInt::from(i));
-        assert_eq!(bytecode, vec![0x10 + i], "PUSH{}", i);
+        assert_eq!(bytecode, vec![0x10 + i], "PUSH{i}");
     }
 
     // Larger positive

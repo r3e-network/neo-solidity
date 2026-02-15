@@ -267,8 +267,7 @@ fn parse_mapping_type(
     match &key {
         NeoType::Array(_) | NeoType::Struct { .. } | NeoType::Mapping { .. } => {
             return Err(TypeParseError::Unsupported(format!(
-                "invalid mapping key type '{}'; only elementary types are allowed",
-                key_str
+                "invalid mapping key type '{key_str}'; only elementary types are allowed"
             )));
         }
         _ => {}

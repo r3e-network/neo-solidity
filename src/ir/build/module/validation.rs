@@ -130,7 +130,7 @@ fn validate_pure_methods(
             };
             errors.push(IrDiagnostic {
                 function_name: method.neo_name.clone(),
-                message: format!("declared pure but {}", label),
+                message: format!("declared pure but {label}"),
                 suggestion: None,
                 code: None,
             });

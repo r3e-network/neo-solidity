@@ -201,8 +201,7 @@ fn lower_new_array_allocation(
 ) -> bool {
     let Some(element_type) = infer_type_from_expression(array_type_expr, ctx) else {
         ctx.record_error(format!(
-            "unable to infer element type for new array allocation (`new {}`)",
-            array_type_expr
+            "unable to infer element type for new array allocation (`new {array_type_expr}`)"
         ));
         if lower_expression(length_expr, ctx, instructions) {
             instructions.push(Instruction::Drop(ValueType::Any));

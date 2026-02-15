@@ -113,8 +113,7 @@ pub(crate) fn generate_contract_bytecode(
 
         if verbose {
             println!(
-                "  • Emitting method '{}' at offset {} ({} IR instruction(s))",
-                method_name, offset, instruction_count
+                "  • Emitting method '{method_name}' at offset {offset} ({instruction_count} IR instruction(s))"
             );
         }
 

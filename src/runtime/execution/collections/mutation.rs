@@ -13,7 +13,7 @@ impl ExecutionContext {
                 Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("APPEND: unsupported target {:?}", other),
+                message: format!("APPEND: unsupported target {other:?}"),
             }),
         }
     }
@@ -50,7 +50,7 @@ impl ExecutionContext {
                 Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("REMOVE: unsupported target {:?}", other),
+                message: format!("REMOVE: unsupported target {other:?}"),
             }),
         }
     }
@@ -71,7 +71,7 @@ impl ExecutionContext {
                 Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("CLEARITEMS: unsupported target {:?}", other),
+                message: format!("CLEARITEMS: unsupported target {other:?}"),
             }),
         }
     }
@@ -95,7 +95,7 @@ impl ExecutionContext {
                 message: "POPITEM: unsupported for maps".to_string(),
             }),
             other => Err(RuntimeError::ExecutionError {
-                message: format!("POPITEM: unsupported target {:?}", other),
+                message: format!("POPITEM: unsupported target {other:?}"),
             }),
         }
     }
@@ -112,7 +112,7 @@ impl ExecutionContext {
                 Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
-                message: format!("REVERSEITEMS: unsupported target {:?}", other),
+                message: format!("REVERSEITEMS: unsupported target {other:?}"),
             }),
         }
     }

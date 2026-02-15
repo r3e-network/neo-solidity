@@ -98,12 +98,12 @@ fn execution_context_reports_default_metadata() {
 
     match context.pop_stack().expect("second invocation counter") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, 1),
-        other => panic!("expected second invocation counter, got {:?}", other),
+        other => panic!("expected second invocation counter, got {other:?}"),
     }
 
     match context.pop_stack().expect("first invocation counter") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, 1),
-        other => panic!("expected first invocation counter, got {:?}", other),
+        other => panic!("expected first invocation counter, got {other:?}"),
     }
 
     match context.pop_stack().expect("calling script hash") {
@@ -113,17 +113,17 @@ fn execution_context_reports_default_metadata() {
             expected.reverse();
             assert_eq!(bytes.borrow().as_slice(), expected.as_slice());
         }
-        other => panic!("expected calling script hash bytes, got {:?}", other),
+        other => panic!("expected calling script hash bytes, got {other:?}"),
     }
 
     match context.pop_stack().expect("timestamp") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, config.default_timestamp),
-        other => panic!("expected timestamp, got {:?}", other),
+        other => panic!("expected timestamp, got {other:?}"),
     }
 
     match context.pop_stack().expect("block height") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, config.default_block_height),
-        other => panic!("expected block height, got {:?}", other),
+        other => panic!("expected block height, got {other:?}"),
     }
 
     assert_eq!(context.stack_depth(), 0);
@@ -162,17 +162,17 @@ fn execution_context_applies_metadata_overrides() {
             expected.reverse();
             assert_eq!(bytes.borrow().as_slice(), expected.as_slice());
         }
-        other => panic!("expected caller script hash, got {:?}", other),
+        other => panic!("expected caller script hash, got {other:?}"),
     }
 
     match context.pop_stack().expect("timestamp") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, 1_111),
-        other => panic!("expected override timestamp, got {:?}", other),
+        other => panic!("expected override timestamp, got {other:?}"),
     }
 
     match context.pop_stack().expect("block height") {
         StackItem::UnsignedInteger(value) => assert_eq!(value, 77),
-        other => panic!("expected override block height, got {:?}", other),
+        other => panic!("expected override block height, got {other:?}"),
     }
 
     assert_eq!(context.stack_depth(), 0);

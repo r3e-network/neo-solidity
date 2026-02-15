@@ -63,6 +63,6 @@ fn test_optimization_levels() {
     // Test different optimization levels
     for level in 0..=3 {
         let result = compile_contracts(source, false, level);
-        assert!(result.is_ok(), "Should compile at O{}", level);
+        assert!(result.is_ok(), "Should compile at O{level}");
     }
 }

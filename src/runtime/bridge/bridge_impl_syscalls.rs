@@ -66,14 +66,14 @@ impl VMBridge {
         let message =
             Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
-                message: format!("Invalid hash: {}", e),
+                message: format!("Invalid hash: {e}"),
             })?;
 
         let rec_id = match v {
             27 | 28 => RecoveryId::from_i32((v - 27) as i32).map_err(|e| {
                 VMBridgeError::SystemCallFailed {
                     name: "ecrecover".to_string(),
-                    message: format!("Invalid recovery id: {}", e),
+                    message: format!("Invalid recovery id: {e}"),
                 }
             })?,
             _ => {
@@ -91,14 +91,14 @@ impl VMBridge {
         let signature = RecoverableSignature::from_compact(&sig_bytes, rec_id).map_err(|e| {
             VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
-                message: format!("Invalid signature: {}", e),
+                message: format!("Invalid signature: {e}"),
             }
         })?;
 
         let public_key = secp.recover_ecdsa(&message, &signature).map_err(|e| {
             VMBridgeError::SystemCallFailed {
                 name: "ecrecover".to_string(),
-                message: format!("Recovery failed: {}", e),
+                message: format!("Recovery failed: {e}"),
             }
         })?;
 
@@ -140,14 +140,14 @@ impl VMBridge {
         let message =
             Message::from_slice(&hash[..32]).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
-                message: format!("Invalid hash: {}", e),
+                message: format!("Invalid hash: {e}"),
             })?;
 
         // Parse signature
         let sig = Signature::from_compact(&signature[..64]).map_err(|e| {
             VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
-                message: format!("Invalid signature: {}", e),
+                message: format!("Invalid signature: {e}"),
             }
         })?;
 
@@ -155,7 +155,7 @@ impl VMBridge {
         let pubkey =
             PublicKey::from_slice(&public_key).map_err(|e| VMBridgeError::SystemCallFailed {
                 name: "verify".to_string(),
-                message: format!("Invalid public key: {}", e),
+                message: format!("Invalid public key: {e}"),
             })?;
 
         // Verify signature

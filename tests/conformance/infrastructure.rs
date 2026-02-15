@@ -79,7 +79,7 @@ impl ConformanceRunner {
                 if !vector.expected_success {
                     return TestResult::pass(&vector.name);
                 }
-                return TestResult::fail(&vector.name, &format!("Compilation failed: {:?}", e));
+                return TestResult::fail(&vector.name, &format!("Compilation failed: {e:?}"));
             }
         };
 
@@ -95,17 +95,14 @@ impl ConformanceRunner {
         let mut runtime = match NeoRuntime::new(RuntimeConfig::default()) {
             Ok(r) => r,
             Err(e) => {
-                return TestResult::fail(
-                    &vector.name,
-                    &format!("Runtime creation failed: {:?}", e),
-                );
+                return TestResult::fail(&vector.name, &format!("Runtime creation failed: {e:?}"));
             }
         };
 
         let execution_result = match runtime.execute(&artifact.bytecode, &[]) {
             Ok(r) => r,
             Err(e) => {
-                return TestResult::fail(&vector.name, &format!("Execution failed: {:?}", e));
+                return TestResult::fail(&vector.name, &format!("Execution failed: {e:?}"));
             }
         };
 
@@ -117,10 +114,7 @@ impl ConformanceRunner {
                     .as_ref()
                     .map(|e| e.message.as_str())
                     .unwrap_or("unknown error");
-                return TestResult::fail(
-                    &vector.name,
-                    &format!("Expected success but got: {}", msg),
-                );
+                return TestResult::fail(&vector.name, &format!("Expected success but got: {msg}"));
             }
 
             // Check return value if specified

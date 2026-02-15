@@ -210,9 +210,9 @@ impl std::fmt::Display for ConfigError {
         match self {
             Self::MissingInputFile => write!(f, "input file is required"),
             Self::InvalidOptimizationLevel(l) => {
-                write!(f, "optimization level {} is invalid (must be 0-3)", l)
+                write!(f, "optimization level {l} is invalid (must be 0-3)")
             }
-            Self::InvalidTargetVersion(v) => write!(f, "invalid target version: {}", v),
+            Self::InvalidTargetVersion(v) => write!(f, "invalid target version: {v}"),
         }
     }
 }

@@ -21,7 +21,7 @@ impl ExecutionContext {
 
         if !handled {
             return Err(RuntimeError::ExecutionError {
-                message: format!("Unsupported opcode: 0x{:02X}", opcode),
+                message: format!("Unsupported opcode: 0x{opcode:02X}"),
             });
         }
 

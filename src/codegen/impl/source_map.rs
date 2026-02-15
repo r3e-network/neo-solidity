@@ -9,6 +9,7 @@ impl CodeGenerator {
 
     /// Estimate the bytecode size a node will produce, mirroring the emission
     /// logic in node_gen.rs so source map offsets track real bytecode positions.
+    #[allow(clippy::only_used_in_recursion)]
     fn estimate_node_bytecode_size(&self, node: &AstNode) -> usize {
         match &node.node_type {
             AstNodeType::Object { statements } | AstNodeType::Block { statements } => {

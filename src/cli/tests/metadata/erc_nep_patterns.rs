@@ -27,7 +27,7 @@ fn build_test_contract(name: &str, methods: Vec<FunctionMetadata>) -> ContractMe
 fn build_public_method(name: &str, param_count: usize) -> FunctionMetadata {
     let parameters: Vec<ParameterMetadata> = (0..param_count)
         .map(|i| ParameterMetadata {
-            name: Some(format!("arg{}", i)),
+            name: Some(format!("arg{i}")),
             ty: "uint256".to_string(),
             neo_type: Some(NeoType::Integer {
                 signed: false,

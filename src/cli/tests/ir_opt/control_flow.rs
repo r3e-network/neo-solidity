@@ -141,7 +141,7 @@ fn deduped_labels_retarget_jumps() {
         Instruction::Jump { target } => {
             assert_eq!(*target, 1, "jump should retarget to canonical label")
         }
-        other => panic!("expected jump after label, got {:?}", other),
+        other => panic!("expected jump after label, got {other:?}"),
     }
     let label_count = instrs
         .iter()
@@ -183,7 +183,7 @@ fn deduped_labels_retarget_jumps_across_blocks() {
             *target, 1,
             "jump should retarget to canonical label across blocks"
         ),
-        other => panic!("expected jump instruction, got {:?}", other),
+        other => panic!("expected jump instruction, got {other:?}"),
     }
     let label_instrs = &optimized.functions[0].basic_blocks[1].instructions;
     assert!(

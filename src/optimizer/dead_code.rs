@@ -136,6 +136,7 @@ impl Optimizer {
     }
 
     /// Check if a block is empty or contains only empty blocks
+    #[allow(clippy::only_used_in_recursion)]
     fn is_empty_block(&self, node: &AstNode) -> bool {
         match &node.node_type {
             AstNodeType::Block { statements } => {
@@ -158,6 +159,7 @@ impl Optimizer {
     }
 
     /// Check if an expression has no side effects
+    #[allow(clippy::only_used_in_recursion)]
     fn is_pure_expression(&self, node: &AstNode) -> bool {
         match &node.node_type {
             AstNodeType::Literal { .. } | AstNodeType::Identifier { .. } => true,

@@ -61,9 +61,8 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
                 Some(LiteralValue::Integer(numerator / denominator))
             } else {
                 eprintln!(
-                    "warning: non-integer rational literal {}.{} cannot be represented \
-                     as an integer; fractional values are not supported on NeoVM",
-                    integer, fraction
+                    "warning: non-integer rational literal {integer}.{fraction} cannot be represented \
+                     as an integer; fractional values are not supported on NeoVM"
                 );
                 None
             }
@@ -123,7 +122,7 @@ fn address_bytes_le_from_expression(expr: &Expression) -> Option<Vec<u8>> {
             }
 
             if hex.len() < 40 {
-                hex = format!("{:0>40}", hex);
+                hex = format!("{hex:0>40}");
             }
 
             let mut bytes = hex_decode(&hex).ok()?;

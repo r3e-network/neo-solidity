@@ -14,7 +14,7 @@ fn conformance_basic_vectors() {
     let results = runner.run_all();
 
     let summary = ConformanceRunner::summary(&results);
-    println!("\n{}", summary);
+    println!("\n{summary}");
 
     let mut failures = Vec::new();
     for result in &results {
@@ -26,7 +26,7 @@ fn conformance_basic_vectors() {
     if !failures.is_empty() {
         println!("\nFailed tests:");
         for failure in &failures {
-            println!("{}", failure);
+            println!("{failure}");
         }
     }
 

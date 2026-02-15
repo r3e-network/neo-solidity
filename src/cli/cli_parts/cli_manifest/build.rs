@@ -211,7 +211,7 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
                         "name": param
                             .name
                             .clone()
-                            .unwrap_or_else(|| format!("arg{}", param_index)),
+                            .unwrap_or_else(|| format!("arg{param_index}")),
                         "type": neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty),
                     })
                 })
@@ -248,7 +248,7 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
                         "name": param
                             .name
                             .clone()
-                            .unwrap_or_else(|| format!("param{}", idx)),
+                            .unwrap_or_else(|| format!("param{idx}")),
                         "type": standard_json::solidity_to_manifest_type(&param.ty),
                     })
                 })

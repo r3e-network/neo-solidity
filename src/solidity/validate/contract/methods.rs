@@ -64,7 +64,7 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                 let signature = format!("{}({})", function.name, param_signature.join(","));
 
                 if !signatures.insert(signature.clone()) {
-                    diagnostics.push(Diagnostic::error(format!("duplicate function signature '{}'", signature)));
+                    diagnostics.push(Diagnostic::error(format!("duplicate function signature '{signature}'")));
                 }
             }
         }

@@ -51,13 +51,11 @@ fn base_constructor_is_inlined_into_derived_constructor() {
     let instrs = &ctor.basic_blocks[0].instructions;
     assert!(
         instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreState(idx) if *idx == x_index)),
-        "expected base constructor assignment to store state variable 'x'; instrs: {:?}",
-        instrs
+        "expected base constructor assignment to store state variable 'x'; instrs: {instrs:?}"
     );
     assert!(
         instrs.iter().any(|instr| matches!(instr, ir::Instruction::StoreState(idx) if *idx == y_index)),
-        "expected derived constructor assignment to store state variable 'y'; instrs: {:?}",
-        instrs
+        "expected derived constructor assignment to store state variable 'y'; instrs: {instrs:?}"
     );
 }
 
@@ -122,7 +120,6 @@ fn base_constructor_args_from_intermediate_contract_are_applied() {
 
     assert!(
         found,
-        "expected base constructor arg 7 to be stored into 'x'; instrs: {:?}",
-        instrs
+        "expected base constructor arg 7 to be stored into 'x'; instrs: {instrs:?}"
     );
 }

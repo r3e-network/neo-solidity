@@ -60,7 +60,7 @@ impl VMBridge {
                 x.checked_div(y)
                     .map(StackItem::Integer)
                     .ok_or_else(|| VMBridgeError::StackOperationFailed {
-                        message: format!("Signed integer overflow in DIV: {} / {}", x, y),
+                        message: format!("Signed integer overflow in DIV: {x} / {y}"),
                     })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
@@ -88,7 +88,7 @@ impl VMBridge {
                 x.checked_rem(y)
                     .map(StackItem::Integer)
                     .ok_or_else(|| VMBridgeError::StackOperationFailed {
-                        message: format!("Signed integer overflow in MOD: {} % {}", x, y),
+                        message: format!("Signed integer overflow in MOD: {x} % {y}"),
                     })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {

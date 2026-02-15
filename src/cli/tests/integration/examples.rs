@@ -84,8 +84,7 @@ fn nft_example_advertises_nep11() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 
@@ -95,8 +94,7 @@ fn nft_example_advertises_nep11() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected public getter '{}' in manifest",
-            required
+            "expected public getter '{required}' in manifest"
         );
     }
 }
@@ -115,8 +113,7 @@ fn vault_example_compiles_with_external_calls() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 }
@@ -162,8 +159,7 @@ fn neo_interop_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 
@@ -192,8 +188,7 @@ fn low_level_call_showcase_compiles_with_manifest_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 }
@@ -293,8 +288,7 @@ fn custom_errors_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 }
@@ -313,8 +307,7 @@ fn modifier_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in ModifierShowcase manifest",
-            required
+            "expected method '{required}' in ModifierShowcase manifest"
         );
     }
 }
@@ -333,8 +326,7 @@ fn struct_mapping_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in StructMappingShowcase manifest",
-            required
+            "expected method '{required}' in StructMappingShowcase manifest"
         );
     }
 }
@@ -353,8 +345,7 @@ fn type_casting_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in TypeCastingShowcase manifest",
-            required
+            "expected method '{required}' in TypeCastingShowcase manifest"
         );
     }
 }
@@ -373,8 +364,7 @@ fn bitwise_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in BitwiseShowcase manifest",
-            required
+            "expected method '{required}' in BitwiseShowcase manifest"
         );
     }
 }
@@ -393,8 +383,7 @@ fn constants_immutable_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in ConstantsImmutableShowcase manifest",
-            required
+            "expected method '{required}' in ConstantsImmutableShowcase manifest"
         );
     }
 }
@@ -435,8 +424,7 @@ fn try_catch_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in TryCatchShowcase manifest",
-            required
+            "expected method '{required}' in TryCatchShowcase manifest"
         );
     }
 }
@@ -459,8 +447,7 @@ fn interface_showcase_compiles_with_expected_methods() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in SimpleToken manifest",
-            required
+            "expected method '{required}' in SimpleToken manifest"
         );
     }
 }
@@ -491,8 +478,7 @@ fn upgrade_lifecycle_showcase_compiles_under_strict_manifest_flags() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in UpgradeLifecycleShowcase manifest",
-            required
+            "expected method '{required}' in UpgradeLifecycleShowcase manifest"
         );
     }
 }
@@ -529,8 +515,7 @@ fn witness_guard_showcase_compiles_under_strict_manifest_flags() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in WitnessGuardShowcase manifest",
-            required
+            "expected method '{required}' in WitnessGuardShowcase manifest"
         );
     }
 }
@@ -562,8 +547,7 @@ fn oracle_relay_showcase_compiles_under_strict_manifest_flags() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in OracleRelayStrictShowcase manifest",
-            required
+            "expected method '{required}' in OracleRelayStrictShowcase manifest"
         );
     }
 

@@ -354,8 +354,7 @@ fn role_management_empty_role_returns_empty() {
     let result_str = String::from_utf8_lossy(&result);
     assert!(
         result.is_empty() || result_str.contains("[]"),
-        "undesignated role should return empty array, got {:?}",
-        result_str
+        "undesignated role should return empty array, got {result_str:?}"
     );
 }
 
@@ -378,8 +377,7 @@ fn ledger_current_index_returns_default_height() {
     // Default block height is typically 0 or a small number
     assert!(
         val < 1_000_000,
-        "currentIndex should be a reasonable height, got {}",
-        val
+        "currentIndex should be a reasonable height, got {val}"
     );
 }
 

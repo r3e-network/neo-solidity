@@ -112,8 +112,7 @@ impl Parser {
     fn error_eof(&self) -> CompilerError {
         let (line, column) = self.last_position();
         CompilerError::ParseError(format!(
-            "Unexpected end of input at {}:{}",
-            line, column
+            "Unexpected end of input at {line}:{column}"
         ))
     }
 

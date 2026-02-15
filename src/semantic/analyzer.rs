@@ -153,7 +153,7 @@ impl SemanticAnalyzer {
                         // Only report if we're not in a function parameter context
                         // (functions create their own scope, so parameters should be there)
                         if !matches!(node.node_type, AstNodeType::Function { .. }) {
-                            errors.push(format!("Undefined variable: {}", name));
+                            errors.push(format!("Undefined variable: {name}"));
                         }
                     }
                 }
@@ -173,13 +173,12 @@ impl SemanticAnalyzer {
             {
                 if params.is_empty() && returns.is_empty() {
                     warnings.push(format!(
-                        "Function '{}' has no parameters or return values",
-                        name
+                        "Function '{name}' has no parameters or return values"
                     ));
                 }
 
                 if name.len() > 32 {
-                    warnings.push(format!("Function name '{}' is very long", name));
+                    warnings.push(format!("Function name '{name}' is very long"));
                 }
             }
         });
@@ -222,8 +221,7 @@ impl SemanticAnalyzer {
 
                     if constant_expressions[&expr_key] > 1 {
                         opportunities.push(format!(
-                            "Constant expression '{}' appears multiple times",
-                            expr_key
+                            "Constant expression '{expr_key}' appears multiple times"
                         ));
                     }
                 }

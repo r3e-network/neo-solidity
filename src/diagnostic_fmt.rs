@@ -22,13 +22,13 @@ pub fn format_error(err: &CompilerError, fmt: DiagnosticFormat) -> String {
 }
 
 fn format_human(err: &CompilerError) -> String {
-    format!("{}", err)
+    format!("{err}")
 }
 
 fn format_json(err: &CompilerError) -> String {
-    format!("{{\"error\": \"{}\"}}", err)
+    format!("{{\"error\": \"{err}\"}}")
 }
 
 fn format_compact(err: &CompilerError) -> String {
-    format!("{}", err)
+    format!("{err}")
 }

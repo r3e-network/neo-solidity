@@ -75,12 +75,12 @@ impl NeoType {
     /// Get the type name as a string
     pub fn type_name(&self) -> String {
         match self {
-            Self::Integer { signed: true, bits } => format!("int{}", bits),
-            Self::Integer { signed: false, bits } => format!("uint{}", bits),
+            Self::Integer { signed: true, bits } => format!("int{bits}"),
+            Self::Integer { signed: false, bits } => format!("uint{bits}"),
             Self::Boolean => "bool".to_string(),
             Self::String => "string".to_string(),
             Self::Address => "address".to_string(),
-            Self::ByteArray { fixed_len: Some(n) } => format!("bytes{}", n),
+            Self::ByteArray { fixed_len: Some(n) } => format!("bytes{n}"),
             Self::ByteArray { fixed_len: None } => "bytes".to_string(),
             Self::Array(inner) => format!("{}[]", inner.type_name()),
             Self::Mapping { key, value } => {

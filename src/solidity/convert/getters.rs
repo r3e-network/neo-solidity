@@ -2,16 +2,16 @@ fn solidity_type_from_neotype(neotype: &NeoType) -> String {
     match neotype {
         NeoType::Integer { signed, bits } => {
             if *signed {
-                format!("int{}", bits)
+                format!("int{bits}")
             } else {
-                format!("uint{}", bits)
+                format!("uint{bits}")
             }
         }
         NeoType::Boolean => "bool".to_string(),
         NeoType::String => "string".to_string(),
         NeoType::Address => "address".to_string(),
         NeoType::ByteArray { fixed_len } => match fixed_len {
-            Some(len) => format!("bytes{}", len),
+            Some(len) => format!("bytes{len}"),
             None => "bytes".to_string(),
         },
         NeoType::Array(inner) => format!("{}[]", solidity_type_from_neotype(inner.as_ref())),

@@ -68,7 +68,7 @@ pub fn find_function<'a>(module: &'a ir::Module, name: &str) -> &'a ir::Function
         .functions
         .iter()
         .find(|f| f.name == name)
-        .unwrap_or_else(|| panic!("function '{}' not found", name))
+        .unwrap_or_else(|| panic!("function '{name}' not found"))
 }
 
 /// Get all instructions from a function's basic blocks.
@@ -113,12 +113,11 @@ pub fn assert_execution_returns(result: &ExecutionResult, expected: i64, message
         .as_ref()
         .map(|ex| ex.message.as_str())
         .unwrap_or("<no exception>");
-    assert!(result.is_success(), "{}: got {}", message, failure);
+    assert!(result.is_success(), "{message}: got {failure}");
     assert_eq!(
         result.return_data,
         expected.to_le_bytes().to_vec(),
-        "{}",
-        message
+        "{message}"
     );
 }
 
@@ -133,7 +132,7 @@ pub fn assert_execution_success(result: &ExecutionResult, message: &str) {
         .as_ref()
         .map(|ex| ex.message.as_str())
         .unwrap_or("<no exception>");
-    assert!(result.is_success(), "{}: got {}", message, failure);
+    assert!(result.is_success(), "{message}: got {failure}");
 }
 
 /// Assert that execution failed with an exception.
@@ -144,7 +143,6 @@ pub fn assert_execution_success(result: &ExecutionResult, message: &str) {
 pub fn assert_execution_failed(result: &ExecutionResult, message: &str) {
     assert!(
         !result.is_success(),
-        "{}: expected failure but got success",
-        message
+        "{message}: expected failure but got success"
     );
 }

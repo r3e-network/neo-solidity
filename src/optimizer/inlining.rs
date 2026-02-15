@@ -37,6 +37,7 @@ impl Optimizer {
         counts
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn count_calls_recursive(&self, node: &AstNode, counts: &mut HashMap<String, usize>) {
         match &node.node_type {
             AstNodeType::FunctionCall { name, arguments } => {
@@ -106,6 +107,7 @@ impl Optimizer {
     }
 
     /// Check if body contains a call to the named function (recursion check)
+    #[allow(clippy::only_used_in_recursion)]
     fn contains_call_to(&self, node: &AstNode, target: &str) -> bool {
         match &node.node_type {
             AstNodeType::FunctionCall { name, arguments } => {

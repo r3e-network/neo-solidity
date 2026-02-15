@@ -50,7 +50,7 @@ fn test_key_fragment_clone() {
 #[test]
 fn test_key_fragment_debug() {
     let frag = KeyFragment::boolean(true);
-    let debug_str = format!("{:?}", frag);
+    let debug_str = format!("{frag:?}");
     assert!(debug_str.contains("Boolean"));
     assert!(debug_str.contains("true"));
 }

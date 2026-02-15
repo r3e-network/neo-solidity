@@ -32,7 +32,7 @@ fn parses_simple_struct_type() {
                 }
             ));
         }
-        other => panic!("expected struct type, got {:?}", other),
+        other => panic!("expected struct type, got {other:?}"),
     }
 }
 
@@ -55,7 +55,7 @@ fn strips_data_location_suffixes() {
         NeoType::Mapping { value, .. } => {
             assert!(matches!(*value, NeoType::Struct { .. }));
         }
-        other => panic!("expected mapping type, got {:?}", other),
+        other => panic!("expected mapping type, got {other:?}"),
     }
 }
 
@@ -76,13 +76,13 @@ fn parses_arrays_before_scalar_prefixes() {
                 }
             ));
         }
-        other => panic!("expected array type, got {:?}", other),
+        other => panic!("expected array type, got {other:?}"),
     }
 
     let fixed_array = NeoType::from_solidity("bool[3]", &structs, &[], &contract_types)
         .expect("fixed array type");
     match fixed_array {
         NeoType::Array(element) => assert!(matches!(*element, NeoType::Boolean)),
-        other => panic!("expected array type, got {:?}", other),
+        other => panic!("expected array type, got {other:?}"),
     }
 }

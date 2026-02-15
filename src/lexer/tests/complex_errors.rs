@@ -86,7 +86,7 @@ fn test_error_position() {
     let result = lexer.tokenize();
     assert!(result.is_err());
     if let Err(e) = result {
-        let msg = format!("{}", e);
+        let msg = format!("{e}");
         assert!(msg.contains("line"));
         assert!(msg.contains("column"));
     }

@@ -47,7 +47,7 @@ fn lower_statement(
         }
         _ => {
             ctx.record_error_with_suggestion(
-                format!("unsupported statement '{:?}'", statement),
+                format!("unsupported statement '{statement:?}'"),
                 "this Solidity statement type is not yet supported by the Neo N3 compiler",
             );
             false

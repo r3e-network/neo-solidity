@@ -57,7 +57,7 @@ impl ExecutionContext {
                     v.checked_add(1)
                         .map(StackItem::Integer)
                         .ok_or(RuntimeError::ExecutionError {
-                            message: format!("Integer overflow in INC: {}", v),
+                            message: format!("Integer overflow in INC: {v}"),
                         })
                 } else {
                     Ok(StackItem::Integer(v.wrapping_add(1)))
@@ -68,7 +68,7 @@ impl ExecutionContext {
                     v.checked_add(1)
                         .map(StackItem::UnsignedInteger)
                         .ok_or(RuntimeError::ExecutionError {
-                            message: format!("Unsigned integer overflow in INC: {}", v),
+                            message: format!("Unsigned integer overflow in INC: {v}"),
                         })
                 } else {
                     Ok(StackItem::UnsignedInteger(v.wrapping_add(1)))
@@ -87,7 +87,7 @@ impl ExecutionContext {
                     v.checked_sub(1)
                         .map(StackItem::Integer)
                         .ok_or(RuntimeError::ExecutionError {
-                            message: format!("Integer underflow in DEC: {}", v),
+                            message: format!("Integer underflow in DEC: {v}"),
                         })
                 } else {
                     Ok(StackItem::Integer(v.wrapping_sub(1)))
@@ -98,7 +98,7 @@ impl ExecutionContext {
                     v.checked_sub(1)
                         .map(StackItem::UnsignedInteger)
                         .ok_or(RuntimeError::ExecutionError {
-                            message: format!("Unsigned integer underflow in DEC: {}", v),
+                            message: format!("Unsigned integer underflow in DEC: {v}"),
                         })
                 } else {
                     Ok(StackItem::UnsignedInteger(v.wrapping_sub(1)))

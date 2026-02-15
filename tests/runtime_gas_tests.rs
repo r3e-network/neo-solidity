@@ -151,7 +151,6 @@ fn storage_operations_consume_significant_gas() {
     let gas_used = ctx.gas_used();
     assert!(
         gas_used > 100,
-        "storage operations should consume significant gas (used: {})",
-        gas_used
+        "storage operations should consume significant gas (used: {gas_used})"
     );
 }

@@ -59,8 +59,7 @@ impl ExecutionContext {
                 if arg_count > self.stack.len() {
                     return Err(RuntimeError::ExecutionError {
                         message: format!(
-                            "CALLT: insufficient stack items for {} argument(s)",
-                            arg_count
+                            "CALLT: insufficient stack items for {arg_count} argument(s)"
                         ),
                     });
                 }

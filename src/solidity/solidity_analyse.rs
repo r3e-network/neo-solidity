@@ -59,7 +59,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             let messages: Vec<String> = lib_errors.iter().map(|d| {
                 let mut msg = d.message.clone();
                 if let Some(suggestion) = &d.suggestion {
-                    msg.push_str(&format!("\n  suggestion: {}", suggestion));
+                    msg.push_str(&format!("\n  suggestion: {suggestion}"));
                 }
                 msg
             }).collect();

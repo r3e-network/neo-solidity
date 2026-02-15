@@ -17,7 +17,7 @@ impl CodeGenerator {
                         i += 1;
                         if i + len <= bytecode.len() {
                             let data = &bytecode[i..i + len];
-                            assembly.push_str(&format!("{:02X?}\n", data));
+                            assembly.push_str(&format!("{data:02X?}\n"));
                             i += len;
                         }
                     }
@@ -42,7 +42,7 @@ impl CodeGenerator {
                     i += 1;
                     if i < bytecode.len() {
                         let offset = bytecode[i] as i8;
-                        assembly.push_str(&format!("JMP {}\n", offset));
+                        assembly.push_str(&format!("JMP {offset}\n"));
                         i += 1;
                     } else {
                         assembly.push_str("JMP ??\n");
@@ -52,7 +52,7 @@ impl CodeGenerator {
                     i += 1;
                     if i + 4 <= bytecode.len() {
                         let offset = i32::from_le_bytes([bytecode[i], bytecode[i+1], bytecode[i+2], bytecode[i+3]]);
-                        assembly.push_str(&format!("JMP_L {}\n", offset));
+                        assembly.push_str(&format!("JMP_L {offset}\n"));
                         i += 4;
                     } else {
                         assembly.push_str("JMP_L ??\n");
@@ -62,7 +62,7 @@ impl CodeGenerator {
                     i += 1;
                     if i < bytecode.len() {
                         let offset = bytecode[i] as i8;
-                        assembly.push_str(&format!("JMPIFNOT {}\n", offset));
+                        assembly.push_str(&format!("JMPIFNOT {offset}\n"));
                         i += 1;
                     } else {
                         assembly.push_str("JMPIFNOT ??\n");

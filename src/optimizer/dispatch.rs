@@ -61,6 +61,7 @@ impl Optimizer {
     }
 
     /// Count AST nodes for statistics
+    #[allow(clippy::only_used_in_recursion)]
     fn count_nodes(&self, node: &AstNode) -> usize {
         let mut count = 1;
         match &node.node_type {
@@ -91,4 +92,3 @@ impl Optimizer {
         count
     }
 }
-

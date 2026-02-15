@@ -122,8 +122,7 @@ fn parse_manifest_permissions_from_manifest(manifest: &Value) -> Result<Manifest
     match manifest.get("permissions") {
         Some(Value::Array(_)) => parse_manifest_permissions_array(&manifest["permissions"]),
         Some(other) => Err(format!(
-            "manifest 'permissions' must be an array (got {})",
-            other
+            "manifest 'permissions' must be an array (got {other})"
         )),
         None => Ok(ManifestPermissionMap::new()),
     }

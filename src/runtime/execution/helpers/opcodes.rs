@@ -3,7 +3,7 @@ impl ExecutionContext {
         if let Some(name) = spec::opcode_name(opcode) {
             name.to_string()
         } else {
-            format!("UNKNOWN_{:02X}", opcode)
+            format!("UNKNOWN_{opcode:02X}")
         }
     }
 

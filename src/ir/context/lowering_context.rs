@@ -16,7 +16,7 @@ impl IrDiagnostic {
     pub fn display(&self) -> String {
         let mut out = format!("function '{}': {}", self.function_name, self.message);
         if let Some(ref suggestion) = self.suggestion {
-            out.push_str(&format!("\n  help: {}", suggestion));
+            out.push_str(&format!("\n  help: {suggestion}"));
         }
         out
     }
@@ -259,8 +259,7 @@ impl<'a> LoweringContext<'a> {
 
         self.record_error_with_suggestion(
             format!(
-                "cannot assign to immutable state variable '{}' outside constructor/deploy initialization",
-                variable_name
+                "cannot assign to immutable state variable '{variable_name}' outside constructor/deploy initialization"
             ),
             "initialize immutable values in the declaration or constructor only",
         );

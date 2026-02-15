@@ -136,7 +136,7 @@ impl StateManager {
     ) -> Result<(), RuntimeError> {
         if self.accounts.contains_key(address) {
             return Err(RuntimeError::StateError {
-                message: format!("Account {} already exists", address),
+                message: format!("Account {address} already exists"),
             });
         }
 

@@ -12,7 +12,7 @@ pub(crate) fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
             .map(str::to_string)
             .unwrap_or_else(|| format!("OP_{opcode:02X}"));
 
-        out.push_str(&format!("{offset:0width$X}: {opname}", width = width));
+        out.push_str(&format!("{offset:0width$X}: {opname}"));
 
         match opcode {
             // Push immediates

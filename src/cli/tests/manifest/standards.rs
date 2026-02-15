@@ -71,8 +71,7 @@ fn erc721_manifest_advertises_nep11() {
             methods
                 .iter()
                 .any(|m| m.get("name").and_then(Value::as_str) == Some(required)),
-            "expected method '{}' in manifest",
-            required
+            "expected method '{required}' in manifest"
         );
     }
 }
