@@ -10,6 +10,19 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-test.XXXXXX")"
 
+file_size_bytes() {
+  local file="$1"
+  if stat -f%z "$file" >/dev/null 2>&1; then
+    stat -f%z "$file"
+    return
+  fi
+  if stat -c%s "$file" >/dev/null 2>&1; then
+    stat -c%s "$file"
+    return
+  fi
+  wc -c < "$file" | tr -d ' '
+}
+
 cleanup() {
   rm -rf "$WORK_DIR"
 }
@@ -128,7 +141,7 @@ echo "--------------------------------------------"
 # Verify outputs
 if [ -f "TestContract.nef" ]; then
     echo "✅ TestContract.nef generated successfully"
-    echo "   Size: $(stat -c%s TestContract.nef) bytes"
+    echo "   Size: $(file_size_bytes TestContract.nef) bytes"
 else
     echo "❌ TestContract.nef not found"
     exit 1
@@ -136,7 +149,7 @@ fi
 
 if [ -f "TestContract.manifest.json" ]; then
     echo "✅ TestContract.manifest.json generated successfully"
-    echo "   Size: $(stat -c%s TestContract.manifest.json) bytes"
+    echo "   Size: $(file_size_bytes TestContract.manifest.json) bytes"
     
     # Validate manifest structure
     if jq -e '.abi.methods' TestContract.manifest.json > /dev/null; then
@@ -161,7 +174,7 @@ echo "----------------------"
 
 if [ -f "TestOnly.nef" ]; then
     echo "✅ NEF-only output generated successfully"
-    echo "   Size: $(stat -c%s TestOnly.nef) bytes"
+    echo "   Size: $(file_size_bytes TestOnly.nef) bytes"
 else
     echo "❌ NEF-only output failed"
     exit 1
@@ -175,7 +188,7 @@ echo "---------------------------"
 
 if [ -f "TestOnly.manifest.json" ]; then
     echo "✅ Manifest-only output generated successfully"
-    echo "   Size: $(stat -c%s TestOnly.manifest.json) bytes"
+    echo "   Size: $(file_size_bytes TestOnly.manifest.json) bytes"
 else
     echo "❌ Manifest-only output failed"
     exit 1
@@ -189,7 +202,7 @@ echo "---------------------------"
 
 if [ -f "TestContract.json" ]; then
     echo "✅ JSON output generated successfully"
-    echo "   Size: $(stat -c%s TestContract.json) bytes"
+    echo "   Size: $(file_size_bytes TestContract.json) bytes"
     
     # Validate JSON structure
     if jq -e '.nef' TestContract.json > /dev/null; then
@@ -214,8 +227,8 @@ if [ -f "TestContractOptimized.nef" ] && [ -f "TestContractOptimized.manifest.js
     echo "✅ Optimized compilation successful"
     
     # Compare sizes
-    ORIGINAL_SIZE=$(stat -c%s TestContract.nef)
-    OPTIMIZED_SIZE=$(stat -c%s TestContractOptimized.nef)
+    ORIGINAL_SIZE=$(file_size_bytes TestContract.nef)
+    OPTIMIZED_SIZE=$(file_size_bytes TestContractOptimized.nef)
     
     echo "   Original NEF size: $ORIGINAL_SIZE bytes"
     echo "   Optimized NEF size: $OPTIMIZED_SIZE bytes"
@@ -263,8 +276,8 @@ if [ -f "$ROOT_DIR/examples/ERC20Token.sol" ]; then
     
     if [ -f "ERC20.nef" ] && [ -f "ERC20.manifest.json" ]; then
         echo "✅ ERC20 contract compiled successfully"
-        echo "   NEF size: $(stat -c%s ERC20.nef) bytes"
-        echo "   Manifest size: $(stat -c%s ERC20.manifest.json) bytes"
+        echo "   NEF size: $(file_size_bytes ERC20.nef) bytes"
+        echo "   Manifest size: $(file_size_bytes ERC20.manifest.json) bytes"
         
         # Check for ERC20 methods in manifest
         TRANSFER_METHOD=$(jq '.abi.methods[] | select(.name == "transfer")' ERC20.manifest.json)
