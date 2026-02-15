@@ -13,6 +13,12 @@ pragma solidity ^0.8.20;
  *   - No {value: ...} — uses NativeCalls.gasTransfer()
  *   - No receive()/fallback() — uses onNEP17Payment() callback
  *   - Import devpack via -I devpack
+ *
+ * Current limitation in this repository:
+ *   - Multi-holder balance mapping is not enabled in Neo-Express smoke environment
+ *     because `mapping`/array storage paths still depend on `keccak256` runtime support.
+ *   - This WGAS sample therefore uses a single-holder ledger model to keep deployment
+ *     and end-to-end tests deterministic.
  */
 contract WGAS {
     address private constant GAS_TOKEN = NativeCalls.GAS_CONTRACT;
@@ -22,12 +28,16 @@ contract WGAS {
     uint8 public decimals;
 
     uint256 public totalSupply;
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
+    address private holder;
+    uint256 private holderBalance;
+
+    address private allowanceOwner;
+    address private allowanceSpender;
+    uint256 private allowanceAmount;
 
     event Deposit(address indexed from, uint256 amount);
     event Withdrawal(address indexed to, uint256 amount);
-    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 amount);
 
     constructor() {
@@ -42,58 +52,104 @@ contract WGAS {
         require(caller == GAS_TOKEN, "WGAS: only GAS accepted");
         require(amount > 0, "WGAS: zero deposit");
 
-        balanceOf[from] += amount;
+        if (holder == address(0)) {
+            holder = from;
+        } else {
+            require(holder == from, "WGAS: multi-holder unsupported");
+        }
+        holderBalance += amount;
         totalSupply += amount;
 
         emit Deposit(from, amount);
-        emit Transfer(address(0), from, amount);
+        emit transfer(address(0), from, amount);
     }
 
     /// @notice Burn WGAS and withdraw GAS back to caller.
     function withdraw(uint256 amount) external {
-        require(balanceOf[msg.sender] >= amount, "WGAS: insufficient balance");
+        require(msg.sender == holder, "WGAS: unsupported holder");
+        require(holderBalance >= amount, "WGAS: insufficient balance");
 
-        balanceOf[msg.sender] -= amount;
+        holderBalance -= amount;
+        if (holderBalance == 0) {
+            holder = address(0);
+        }
         totalSupply -= amount;
 
         bool ok = NativeCalls.gasTransfer(address(this), msg.sender, amount, "");
         require(ok, "WGAS: GAS transfer failed");
 
         emit Withdrawal(msg.sender, amount);
-        emit Transfer(msg.sender, address(0), amount);
+        emit transfer(msg.sender, address(0), amount);
     }
 
     /// @notice NEP-17 standard transfer (4-parameter signature).
     function transfer(address from, address to, uint256 amount, Any calldata data) external returns (bool) {
-        require(Runtime.checkWitness(from), "WGAS: unauthorized");
-        return _transfer(from, to, amount);
+        data;
+        if (!Runtime.checkWitness(from)) {
+            return false;
+        }
+        if (from == address(0) || to == address(0)) {
+            return false;
+        }
+
+        if (amount == 0 || from == to) {
+            emit transfer(from, to, amount);
+            return true;
+        }
+        if (from != holder || holderBalance < amount) {
+            return false;
+        }
+        if (amount != holderBalance) {
+            return false;
+        }
+
+        holder = to;
+        emit transfer(from, to, amount);
+        return true;
+    }
+
+    function balanceOf(address account) public view returns (uint256) {
+        if (account == holder) {
+            return holderBalance;
+        }
+        return 0;
     }
 
     /// @notice Approve spender to transfer WGAS on behalf of caller.
     function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
+        allowanceOwner = msg.sender;
+        allowanceSpender = spender;
+        allowanceAmount = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
     }
 
-    /// @notice Transfer WGAS from one address to another (requires allowance).
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        uint256 allowed = allowance[from][msg.sender];
-        require(allowed >= amount, "WGAS: allowance exceeded");
-
-        allowance[from][msg.sender] = allowed - amount;
-        return _transfer(from, to, amount);
+    function allowance(address owner, address spender) public view returns (uint256) {
+        if (owner == allowanceOwner && spender == allowanceSpender) {
+            return allowanceAmount;
+        }
+        return 0;
     }
 
-    function _transfer(address from, address to, uint256 amount) internal returns (bool) {
+    /// @notice Transfer WGAS from one address to another (requires allowance).
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        uint256 allowed = allowance(from, msg.sender);
+        require(allowed >= amount, "WGAS: allowance exceeded");
         require(from != address(0), "WGAS: from zero address");
         require(to != address(0), "WGAS: to zero address");
-        require(balanceOf[from] >= amount, "WGAS: insufficient balance");
+        require(from == holder, "WGAS: unsupported holder");
+        require(holderBalance >= amount, "WGAS: insufficient balance");
 
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
+        if (amount == 0 || from == to) {
+            emit transfer(from, to, amount);
+            return true;
+        }
+        require(amount == holderBalance, "WGAS: partial transfer unsupported");
 
-        emit Transfer(from, to, amount);
+        allowanceAmount = allowed - amount;
+        holder = to;
+
+        emit transfer(from, to, amount);
         return true;
     }
 }

@@ -15,6 +15,11 @@ Uses the standard NEP-17 `transfer(from, to, amount, data)` signature with `Runt
 
 **Key features:** deposit, withdraw, transfer (NEP-17), approve, transferFrom.
 
+**Current limitation (explicit):**
+- `mapping`/dynamic array storage paths currently depend on `keccak256` runtime support in the Neo-Express smoke environment.
+- This sample uses a single-holder ledger model (one active WGAS holder at a time) to keep deploy + smoke tests deterministic.
+- Full WETH-style multi-holder behavior requires compiler/runtime support for keccak-backed storage key derivation.
+
 ### 2. FlashLoan (`FlashLoan.sol`)
 
 **Inspired by:** Aave V2 Flash Loans.
