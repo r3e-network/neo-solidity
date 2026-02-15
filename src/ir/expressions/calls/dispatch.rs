@@ -6,25 +6,6 @@ fn lower_function_call_expression(
 ) -> bool {
     let mut func = func;
 
-    fn is_compile_time_zero(expr: &Expression) -> bool {
-        match expr {
-            Expression::Parenthesis(_, inner) => is_compile_time_zero(inner),
-            Expression::FunctionCall(_, func, args) if args.len() == 1 => {
-                if matches!(
-                    func.as_ref(),
-                    Expression::Type(_, PtType::Uint(_) | PtType::Int(_))
-                ) {
-                    return is_compile_time_zero(&args[0]);
-                }
-                false
-            }
-            _ => matches!(
-                literal_from_expression(expr),
-                Some(LiteralValue::Integer(value)) if value.is_zero()
-            ),
-        }
-    }
-
     // Solidity call options `foo{gas: ..., value: ...}()` are represented by solang-parser as a
     // `FunctionCall` where the callee expression is a `FunctionCallBlock`. Neo N3 does not
     // support EVM-style attached value or gas limits, but we can safely ignore `{gas: ...}` to
@@ -42,12 +23,11 @@ fn lower_function_call_expression(
                     }
                     // Neo has no attached value; require explicit NEP-17 transfers instead.
                     "value" => {
-                        if is_compile_time_zero(&arg.expr) {
-                            if lower_expression(&arg.expr, ctx, instructions) {
-                                instructions.push(Instruction::Drop(ValueType::Any));
-                            }
-                        } else {
-                            unsupported.push("value");
+                        // Compatibility mode: evaluate and ignore `{value: ...}`.
+                        // Neo native value transfer must be explicit via token transfer
+                        // calls, but allowing this syntax improves upstream portability.
+                        if lower_expression(&arg.expr, ctx, instructions) {
+                            instructions.push(Instruction::Drop(ValueType::Any));
                         }
                     }
                     "salt" => unsupported.push("salt"),

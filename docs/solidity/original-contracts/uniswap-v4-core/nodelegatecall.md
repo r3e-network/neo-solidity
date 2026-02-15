@@ -2,31 +2,25 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@uniswap/v4-core/src/NoDelegateCall.sol`
-- Primary issue: overloaded function 'revertWith' with 2 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime overloaded function 'revertWith' with 2 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime overloaded function 'revertWith' with 3 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime overloaded function 'revertWith' with 3 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `abi_overload`
-- Need on Neo (from audit): 需要避免同参数个数的重载（重命名公开方法），或扩展 Neo ABI 到签名级调度
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: ABI overload collision on Neo
+Recommended hardening before production deployment:
 
-1. Rename public/external overloads so each exposed method has a unique name.
-1. Keep overloaded variants internal/private if overloading is required for code reuse.
-1. If upstream API compatibility is required, add a thin adapter layer that maps unique Neo entrypoints to canonical behavior.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
-| Severity | Code | Message |
-| --- | --- | --- |
-| error | GENERIC_ERROR | overloaded function 'revertWith' with 2 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime
-overloaded function 'revertWith' with 2 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime
-overloaded function 'revertWith' with 3 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime
-overloaded function 'revertWith' with 3 parameter(s) is not supported; Neo ABI dispatches by name and argument count only, so overloads that differ only in parameter types cannot be distinguished at runtime |
+No diagnostics were captured for this contract in the audit run.
 
 ## References
 

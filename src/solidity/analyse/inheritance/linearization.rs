@@ -106,8 +106,12 @@ fn contract_linearization_mro(
         }
     }
 
+    // Solidity gives precedence to right-most bases (`contract C is A, B` => B
+    // overrides A). Feed C3 with bases in that precedence order.
+    let precedence_bases: Vec<String> = direct_bases.iter().rev().cloned().collect();
+
     let mut sequences: Vec<Vec<String>> = Vec::new();
-    for base_name in &direct_bases {
+    for base_name in &precedence_bases {
         sequences.push(contract_linearization_mro(
             base_name,
             contract_map,
@@ -115,7 +119,7 @@ fn contract_linearization_mro(
             cache,
         )?);
     }
-    sequences.push(direct_bases.clone());
+    sequences.push(precedence_bases);
 
     let merged = c3_merge(contract_name, sequences)?;
     let mut linearization = Vec::with_capacity(1 + merged.len());

@@ -1,13 +1,8 @@
 fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) -> usize {
     use std::collections::{HashMap, HashSet};
 
-    fn is_intrinsic_library(name: &str) -> bool {
-        matches!(name, "Runtime" | "Storage" | "Syscalls" | "NativeCalls" | "Neo" | "abi")
-    }
-
     let mut signatures = HashSet::new();
-    let mut overload_counts: HashSet<(String, usize)> = HashSet::new();
-    let mut overload_has_exposed: HashMap<(String, usize), bool> = HashMap::new();
+    let mut exposed_overload_counts: HashSet<(String, usize)> = HashSet::new();
     let mut constructor_count = 0usize;
 
     // Used to reduce false-positive diagnostics for `return foo();` in
@@ -36,25 +31,19 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
             }
             FunctionKind::Regular => {
                 let count_key = (function.name.clone(), function.parameters.len());
-                let has_exposed = overload_has_exposed
-                    .get(&count_key)
-                    .copied()
-                    .unwrap_or(false);
-
-                let intrinsic_internal_overload = is_intrinsic_library(&metadata.name)
-                    && !is_exposed
-                    && !has_exposed;
-
-                if !overload_counts.insert(count_key.clone()) && !intrinsic_internal_overload {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "overloaded function '{}' with {} parameter(s) is not supported; \
-                         Neo ABI dispatches by name and argument count only, so overloads \
-                         that differ only in parameter types cannot be distinguished at runtime",
-                        count_key.0, count_key.1
-                    )));
+                if is_exposed && !exposed_overload_counts.insert(count_key.clone()) {
+                    diagnostics.push(
+                        Diagnostic::warning(format!(
+                            "overloaded function '{}' with {} parameter(s) uses Neo overload mangling; \
+                             external callers must invoke the generated Neo method names",
+                            count_key.0, count_key.1
+                        ))
+                        .with_code("W130")
+                        .with_suggestion(
+                            "use generated neo_name entries (e.g. functionName(type1,type2)) when invoking this contract from Neo",
+                        ),
+                    );
                 }
-
-                overload_has_exposed.insert(count_key.clone(), has_exposed || is_exposed);
 
                 let param_signature: Vec<String> = function
                     .parameters
@@ -63,7 +52,10 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                     .collect();
                 let signature = format!("{}({})", function.name, param_signature.join(","));
 
-                if !signatures.insert(signature.clone()) {
+                // Internal/private helper methods may be merged from multiple
+                // libraries for compatibility; only enforce duplicate-signature
+                // errors on externally visible ABI methods.
+                if is_exposed && !signatures.insert(signature.clone()) {
                     diagnostics.push(Diagnostic::error(format!("duplicate function signature '{signature}'")));
                 }
             }

@@ -44,10 +44,19 @@ fn resolve_selector_method_name(expr: &Expression, ctx: &LoweringContext) -> Opt
         }
         Expression::MemberAccess(_, inner, member) => {
             if member.name == "selector" {
-                if let Expression::MemberAccess(_, _, function_name) = inner.as_ref() {
-                    if !function_name.name.trim().is_empty() {
-                        return Some(function_name.name.clone());
+                match inner.as_ref() {
+                    Expression::MemberAccess(_, _, function_name) => {
+                        if !function_name.name.trim().is_empty() {
+                            return Some(function_name.name.clone());
+                        }
                     }
+                    // Custom-error pattern: `ErrorName.selector`
+                    Expression::Variable(function_name) => {
+                        if !function_name.name.trim().is_empty() {
+                            return Some(function_name.name.clone());
+                        }
+                    }
+                    _ => {}
                 }
             }
             None

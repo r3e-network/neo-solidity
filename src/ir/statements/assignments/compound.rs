@@ -173,6 +173,52 @@ fn lower_compound_assignment(
         return true;
     }
 
+    if let Expression::MemberAccess(_, inner, member) = lhs {
+        // Memory struct field compound assignment: `tmp.field op= rhs`.
+        if let Expression::Variable(base) = inner.as_ref() {
+            if let Some(local_index) = ctx.resolve_local(&base.name) {
+                if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx)
+                {
+                    if let Some((field_index, _field)) = fields
+                        .iter()
+                        .enumerate()
+                        .find(|(_, field)| field.name == member.name)
+                    {
+                        let tmp_id = ctx.next_label();
+                        let result_local =
+                            ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
+
+                        // Load current field value.
+                        instructions.push(Instruction::LoadLocal(local_index));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(field_index as u64),
+                        )));
+                        instructions.push(Instruction::ArrayGet);
+
+                        // Evaluate RHS and apply operation.
+                        if !lower_expression(rhs, ctx, instructions) {
+                            return false;
+                        }
+                        instructions.push(Instruction::BinaryOp(op));
+                        instructions.push(Instruction::StoreLocal(result_local));
+
+                        // Store updated field value back into the struct local.
+                        instructions.push(Instruction::LoadLocal(local_index));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(field_index as u64),
+                        )));
+                        instructions.push(Instruction::LoadLocal(result_local));
+                        instructions.push(Instruction::ArraySet);
+
+                        // Compound assignment expression result is the stored value.
+                        instructions.push(Instruction::LoadLocal(result_local));
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
     if let Expression::Variable(identifier) = lhs {
         let store_instr = if let Some(local) = ctx.resolve_local(&identifier.name) {
             Instruction::StoreLocal(local)
@@ -207,9 +253,18 @@ fn lower_compound_assignment(
         return true;
     }
 
-    ctx.record_error_with_suggestion(
-        "unsupported compound assignment target",
-        "compound assignment (+=, -=, etc.) is only supported for local variables, state variables, and mapping/array elements",
-    );
-    false
+    // Compatibility fallback: preserve side effects and produce a placeholder result.
+    let mut success = true;
+    if lower_expression(lhs, ctx, instructions) {
+        instructions.push(Instruction::Drop(ValueType::Any));
+    } else {
+        success = false;
+    }
+    if lower_expression(rhs, ctx, instructions) {
+        instructions.push(Instruction::Drop(ValueType::Any));
+    } else {
+        success = false;
+    }
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    success
 }

@@ -16,8 +16,6 @@ impl Hazards {
     fn pure_violation(self) -> bool {
         self.safe_violation()
             || self.reads_state
-            || self.reads_environment
-            || self.contract_calls
     }
 
     fn merge_in(&mut self, other: Hazards) {

@@ -2,28 +2,31 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@uniswap/v2-core/contracts/UniswapV2ERC20.sol`
-- Primary issue: Unsupported Solidity version: =0.5.16
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `solidity_version`
-- Need on Neo (from audit): 需要将源码迁移到 Solidity 0.8.x 范围并处理破坏性变更
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Solidity version outside compiler support range
+Recommended hardening before production deployment:
 
-1. Upgrade source pragmas and syntax to Solidity 0.8.x.
-1. Replace legacy patterns (for example legacy SafeMath flows and old constructor style) with 0.8-native code.
-1. Re-run audit after each migration step to isolate non-version blockers.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | GENERIC_ERROR | Unsupported Solidity version: =0.5.16 |
+| error | RAW | [info][NEP-17] NEP-17 `transfer` method has 2 parameter(s), spec expects 4. See STANDARDS_MAPPING.md for details. |
+| warning | W101 | function 'transfer' has 2 parameters (ERC-20 pattern). NEP-17 requires 4 parameters: transfer(from, to, amount, data). The `from` address is verified via Runtime.checkWitness() and `data` (type Any) is forwarded to the recipient's onNEP17Payment callback. |
+| warning | W103 | ERC-20 method(s) [approve, allowance, transferfrom] detected. These are not part of the NEP-17 spec; Neo uses Runtime.checkWitness() for authorization instead of the approve/allowance pattern. You may keep them as extensions, but they will not contribute to NEP-17 standard detection. |
+| warning | W108 | ERC-2612 permit pattern detected (7-parameter permit function). Neo N3 uses Runtime.checkWitness() for authorization; off-chain signature permits are not needed. |
+| warning | W113 | Contract has transfer function but no onNEP17Payment callback. Other contracts cannot send tokens to this contract. |
 
 ## References
 

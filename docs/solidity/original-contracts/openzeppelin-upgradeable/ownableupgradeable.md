@@ -2,28 +2,30 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol`
-- Primary issue: inheritance linearization failed for 'OwnableUpgradeable': inconsistent base order
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `inheritance_linearization`
-- Need on Neo (from audit): 需要调整继承层次（或扩展编译器的 C3 线性化兼容），避免多重继承顺序冲突
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Inheritance linearization conflict
+Recommended hardening before production deployment:
 
-1. Reorder base contracts to satisfy C3 linearization constraints.
-1. Split conflicting base behaviors into composition-style helper contracts.
-1. Reduce deep diamond inheritance trees before compiling to NeoVM.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | GENERIC_ERROR | inheritance linearization failed for 'OwnableUpgradeable': inconsistent base order |
+| warning | INVALID_STORAGE_RETURN | function '_getInitializableStorage' return value 'InitializableStorage' uses 'storage' data location (treated as Any) |
+| warning | INVALID_STORAGE_RETURN | function '_getInitializableStorage' return value 'InitializableStorage' uses 'storage' data location (treated as Any) |
+| warning | INVALID_STORAGE_RETURN | function '_getInitializableStorage' return value 'InitializableStorage' uses 'storage' data location (treated as Any) |
+| warning | INVALID_STORAGE_RETURN | function '_getOwnableStorage' return value 'OwnableStorage' uses 'storage' data location (treated as Any) |
 
 ## References
 

@@ -11,6 +11,60 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         )
     }
 
+    fn normalize_library_for_neo(mut contract: ContractIR) -> ContractIR {
+        if !matches!(contract.kind, ContractKind::Library) {
+            return contract;
+        }
+
+        // Neo N3 libraries are inlined into contracts; treat externally visible
+        // library functions as internal helper functions to avoid exposing them
+        // through the contract ABI.
+        for function in &mut contract.functions {
+            if !matches!(function.ty, FunctionTy::Function) {
+                continue;
+            }
+            if matches!(
+                function.visibility,
+                VisibilityKind::External | VisibilityKind::Public
+            ) {
+                function.visibility = VisibilityKind::Internal;
+            }
+        }
+
+        // Keep merged library state as internal implementation detail.
+        // Public library constants would otherwise synthesize contract-level
+        // getters and create ABI/name collisions in the consuming contract.
+        for state in &mut contract.state_variables {
+            state.visibility = Some("internal".to_string());
+        }
+
+        contract
+    }
+
+    fn collect_contract_types(
+        contract_map: &std::collections::HashMap<String, ContractIR>,
+    ) -> Vec<String> {
+        let mut contract_types: Vec<String> = Vec::new();
+        let mut seen_contract_types = std::collections::HashSet::new();
+
+        for contract in contract_map.values() {
+            let include_as_contract_type = match contract.kind {
+                ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
+                    true
+                }
+                ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
+            };
+
+            if include_as_contract_type
+                && seen_contract_types.insert(contract.name.to_ascii_lowercase())
+            {
+                contract_types.push(contract.name.clone());
+            }
+        }
+
+        contract_types
+    }
+
     let mut primary = Vec::new();
     let mut fallback = Vec::new();
 
@@ -26,6 +80,13 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     }
 
     let has_primary = !primary.is_empty();
+    let pre_merge_contract_map: std::collections::HashMap<String, ContractIR> = primary
+        .iter()
+        .chain(fallback.iter())
+        .map(|contract| (contract.name.clone(), contract.clone()))
+        .collect();
+    let contract_types = collect_contract_types(&pre_merge_contract_map);
+
     let libraries: Vec<ContractIR> = if has_primary {
         fallback
             .iter()
@@ -35,6 +96,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             // may contain EVM-only stubs or unsupported constructs, and they would bloat bytecode.
             .filter(|contract| !is_builtin_library_name(contract.name.as_str()))
             .cloned()
+            .map(normalize_library_for_neo)
             .collect()
     } else {
         Vec::new()
@@ -47,7 +109,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         let lib_metadata = convert_contract(
             lib.clone(),
             &[],
-            &[],
+            &contract_types,
             std::sync::Arc::new(SelectorRegistry::default()),
         );
         let lib_diagnostics = validate_contract(&lib_metadata);
@@ -80,31 +142,63 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         }
     }
 
+    // Make non-inherited enum/struct namespaces visible across compilation
+    // units so expressions like `Enum.Operation.DelegateCall` can resolve even
+    // when the defining type lives in another top-level contract/library file.
+    if has_primary {
+        let shared_type_defs: Vec<(String, Vec<StructIR>, Vec<EnumIR>)> = pre_merge_contract_map
+            .values()
+            .filter(|contract| {
+                !matches!(contract.kind, ContractKind::Library)
+                    || !is_builtin_library_name(contract.name.as_str())
+            })
+            .map(|contract| {
+                (
+                    contract.name.clone(),
+                    contract.structs.clone(),
+                    contract.enums.clone(),
+                )
+            })
+            .collect();
+
+        for contract in primary.iter_mut() {
+            let mut seen_structs: std::collections::HashSet<String> = contract
+                .structs
+                .iter()
+                .map(|item| item.name.to_ascii_lowercase())
+                .collect();
+            let mut seen_enums: std::collections::HashSet<String> = contract
+                .enums
+                .iter()
+                .map(|item| item.name.to_ascii_lowercase())
+                .collect();
+
+            for (owner_name, structs, enums) in &shared_type_defs {
+                if owner_name == &contract.name {
+                    continue;
+                }
+                for item in structs {
+                    let key = item.name.to_ascii_lowercase();
+                    if seen_structs.insert(key) {
+                        contract.structs.push(item.clone());
+                    }
+                }
+                for item in enums {
+                    let key = item.name.to_ascii_lowercase();
+                    if seen_enums.insert(key) {
+                        contract.enums.push(item.clone());
+                    }
+                }
+            }
+        }
+    }
+
     // Build a lookup map for inheritance flattening and modifier expansion.
     let contract_map: std::collections::HashMap<String, ContractIR> = primary
         .iter()
         .chain(fallback.iter())
         .map(|contract| (contract.name.clone(), contract.clone()))
         .collect();
-
-    // Track known contract/interface names so contract-typed variables can be
-    // represented as Neo addresses (UInt160) during type lowering.
-    let mut contract_types: Vec<String> = Vec::new();
-    let mut seen_contract_types = std::collections::HashSet::new();
-    for contract in contract_map.values() {
-        let include_as_contract_type = match contract.kind {
-            ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
-                true
-            }
-            ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
-        };
-
-        if include_as_contract_type
-            && seen_contract_types.insert(contract.name.to_ascii_lowercase())
-        {
-            contract_types.push(contract.name.clone());
-        }
-    }
 
     // Build a shared selector registry so `.selector` expressions can resolve against
     // any contract/interface visible to this compilation unit (including those defined

@@ -10,6 +10,8 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     // Collect file-level `type X is Y` definitions so they can be injected into all contracts.
     let mut file_level_type_aliases: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let mut file_level_structs: Vec<StructIR> = Vec::new();
+    let mut file_level_enums: Vec<EnumIR> = Vec::new();
 
     for part in source_unit.0.into_iter() {
         match part {
@@ -23,6 +25,12 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                 let underlying = format!("{}", td.ty);
                 file_level_type_aliases.insert(td.name.name, underlying);
             }
+            SourceUnitPart::StructDefinition(def) => {
+                file_level_structs.push(convert_struct(*def));
+            }
+            SourceUnitPart::EnumDefinition(def) => {
+                file_level_enums.push(convert_enum(*def));
+            }
             _ => {}
         }
     }
@@ -35,6 +43,34 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                     .type_aliases
                     .entry(name.clone())
                     .or_insert_with(|| underlying.clone());
+            }
+        }
+    }
+
+    if !file_level_structs.is_empty() {
+        for contract in &mut contracts {
+            for file_struct in &file_level_structs {
+                if !contract
+                    .structs
+                    .iter()
+                    .any(|existing| existing.name == file_struct.name)
+                {
+                    contract.structs.push(file_struct.clone());
+                }
+            }
+        }
+    }
+
+    if !file_level_enums.is_empty() {
+        for contract in &mut contracts {
+            for file_enum in &file_level_enums {
+                if !contract
+                    .enums
+                    .iter()
+                    .any(|existing| existing.name == file_enum.name)
+                {
+                    contract.enums.push(file_enum.clone());
+                }
             }
         }
     }
@@ -61,28 +97,29 @@ fn enforce_supported_pragma(
         .collect::<Vec<_>>()
         .join(" ");
 
-    // Compiler support tracks Solidity 0.8.x syntax/features.
-    // A strict semver solver is unnecessary here; block obviously incompatible majors
-    // and allow wildcard/compound comparators that include 0.8.x.
-    if pragma_supports_0_8(spec.as_str()) {
+    // Compiler compatibility targets mainstream modern Solidity ranges used by
+    // upstream protocols. We accept pragmas that intersect 0.5.x through 0.8.x.
+    if pragma_supports_neo_solidity(spec.as_str()) {
         Ok(())
     } else {
         Err(FrontendError::UnsupportedVersion(spec))
     }
 }
 
-fn pragma_supports_0_8(spec: &str) -> bool {
+fn pragma_supports_neo_solidity(spec: &str) -> bool {
     let normalized = spec.replace(' ', "").to_lowercase();
 
     if normalized.is_empty() {
         return true;
     }
 
-    // Accept if any OR-branch can include a 0.8.x version.
-    normalized.split("||").any(branch_supports_0_8)
+    // Accept if any OR-branch can include a supported compiler range.
+    normalized
+        .split("||")
+        .any(branch_supports_neo_solidity)
 }
 
-fn branch_supports_0_8(branch: &str) -> bool {
+fn branch_supports_neo_solidity(branch: &str) -> bool {
     if branch.is_empty() {
         return false;
     }
@@ -159,7 +196,7 @@ fn branch_supports_0_8(branch: &str) -> bool {
         return false;
     }
 
-    intersects_0_8(lower, upper)
+    intersects_supported_neo_range(lower, upper)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -405,17 +442,32 @@ fn parse_plain_version(raw: &str) -> Option<Version> {
     })
 }
 
-fn intersects_0_8(lower: Bound, upper: Bound) -> bool {
-    let target_start = Version {
-        major: 0,
-        minor: 8,
-        patch: 0,
-    };
-    let target_end_exclusive = Version {
-        major: 0,
-        minor: 9,
-        patch: 0,
-    };
+fn intersects_supported_neo_range(lower: Bound, upper: Bound) -> bool {
+    // Supported upstream Solidity ranges for this compiler compatibility layer.
+    (5u64..=8).any(|minor| {
+        intersects_semver_window(
+            lower,
+            upper,
+            Version {
+                major: 0,
+                minor,
+                patch: 0,
+            },
+            Version {
+                major: 0,
+                minor: minor + 1,
+                patch: 0,
+            },
+        )
+    })
+}
+
+fn intersects_semver_window(
+    lower: Bound,
+    upper: Bound,
+    target_start: Version,
+    target_end_exclusive: Version,
+) -> bool {
 
     let effective_start = match lower {
         Bound::Unbounded => target_start,

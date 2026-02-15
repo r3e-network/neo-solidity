@@ -67,5 +67,9 @@ fn lower_member_access_expression(
         return result;
     }
 
+    if let Some(result) = try_lower_type_code(inner, member, ctx, instructions) {
+        return result;
+    }
+
     lower_generic_member_access(expr, inner, member, ctx, instructions)
 }

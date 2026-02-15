@@ -2,35 +2,27 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@aave/core-v3/contracts/misc/AaveOracle.sol`
-- Primary issue: function '_setAssetsSources': unknown identifier 'Errors' help: check spelling or ensure the variable is declared in the same contract or an imported library
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `name_resolution`
-- Need on Neo (from audit): 需要补齐对应语义 lowering（命名解析/继承展平），或对源码做 Neo 兼容重写
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Name resolution / symbol flattening gap
+Recommended hardening before production deployment:
 
-1. Fully qualify symbol access and reduce implicit inheritance lookups.
-1. Refactor ambiguous symbols into explicit library/internal calls.
-1. Minimize cross-file wildcard imports to simplify resolution.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | IR_GENERATION_ERROR | function '_setAssetsSources': unknown identifier 'Errors'
-  help: check spelling or ensure the variable is declared in the same contract or an imported library |
-| error | IR_GENERATION_ERROR | function 'getAssetPrice': unsupported external/library call 'latestAnswer' |
-| error | IR_GENERATION_ERROR | function '_onlyAssetListingOrPoolAdmins': unsupported function call 'IACLManager'
-  help: check spelling or ensure the function is declared in the same contract |
-| error | IR_GENERATION_ERROR | function '_onlyAssetListingOrPoolAdmins': unsupported external/library call 'isAssetListingAdmin' |
-| error | IR_GENERATION_ERROR | function '_onlyAssetListingOrPoolAdmins': unknown identifier 'Errors'
-  help: check spelling or ensure the variable is declared in the same contract or an imported library |
+| warning | MANIFEST_WILDCARD_CONTRACT | contract 'AaveOracle' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error. |
 
 ## References
 

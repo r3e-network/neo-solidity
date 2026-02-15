@@ -98,18 +98,39 @@ fn resolve_solidity_sources_with_imports(
         from_file: &Path,
         include_paths: &[PathBuf],
     ) -> Result<PathBuf, String> {
-        let import = Path::new(import_path);
+        fn import_aliases(import_path: &str) -> Vec<String> {
+            let mut aliases = vec![import_path.to_string()];
+
+            if let Some(rest) = import_path.strip_prefix("openzeppelin-contracts/contracts/") {
+                aliases.push(format!("@openzeppelin/contracts/{rest}"));
+            } else if let Some(rest) =
+                import_path.strip_prefix("openzeppelin-contracts-upgradeable/contracts/")
+            {
+                aliases.push(format!("@openzeppelin/contracts-upgradeable/{rest}"));
+            } else if let Some(rest) = import_path.strip_prefix("openzeppelin-contracts/") {
+                aliases.push(format!("@openzeppelin/contracts/{rest}"));
+            } else if let Some(rest) =
+                import_path.strip_prefix("openzeppelin-contracts-upgradeable/")
+            {
+                aliases.push(format!("@openzeppelin/contracts-upgradeable/{rest}"));
+            }
+
+            aliases
+        }
 
         let mut candidates: Vec<PathBuf> = Vec::new();
-        if import.is_absolute() {
-            candidates.push(import.to_path_buf());
-        } else {
-            let from_dir = from_file.parent().unwrap_or_else(|| Path::new("."));
-            candidates.push(from_dir.join(import));
-            for include_dir in include_paths {
-                candidates.push(include_dir.join(import));
+        for candidate_import in import_aliases(import_path) {
+            let import = Path::new(&candidate_import);
+            if import.is_absolute() {
+                candidates.push(import.to_path_buf());
+            } else {
+                let from_dir = from_file.parent().unwrap_or_else(|| Path::new("."));
+                candidates.push(from_dir.join(import));
+                for include_dir in include_paths {
+                    candidates.push(include_dir.join(import));
+                }
+                candidates.push(import.to_path_buf());
             }
-            candidates.push(import.to_path_buf());
         }
 
         for candidate in candidates {
@@ -139,12 +160,9 @@ fn resolve_solidity_sources_with_imports(
         }
 
         if !visiting.insert(canonical.clone()) {
-            let mut chain = stack
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>();
-            chain.push(canonical.display().to_string());
-            return Err(format!("import cycle detected: {}", chain.join(" -> ")));
+            // Solidity allows cyclic import graphs as long as symbols resolve.
+            // Skip this back-edge and let the already-in-progress unit finish.
+            return Ok(());
         }
 
         stack.push_back(canonical.clone());

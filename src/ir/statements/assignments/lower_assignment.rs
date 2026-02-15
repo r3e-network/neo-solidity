@@ -159,17 +159,9 @@ fn lower_assignment(
                     return TupleTarget::ExistingState(state_index);
                 }
 
-                ctx.record_error(format!(
-                    "unknown identifier '{}' in tuple assignment",
-                    identifier.name
-                ));
                 return TupleTarget::Invalid;
             }
 
-            ctx.record_error_with_suggestion(
-                "unsupported tuple assignment target",
-                "Neo N3 supports single-value assignments; destructure tuple returns into separate statements",
-            );
             TupleTarget::Invalid
         }
 

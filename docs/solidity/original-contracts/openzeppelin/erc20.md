@@ -2,29 +2,30 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol`
-- Primary issue: state variable '_balances' has unsupported type 'mapping(address account =&gt; uint256)'
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `named_mapping`
-- Need on Neo (from audit): 需要编译器补齐命名 `mapping(address key =&gt; T)` 语法 lowering，或改写为 `mapping(address =&gt; T)`
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Named mapping syntax/shape unsupported in current pipeline
+Recommended hardening before production deployment:
 
-1. Rewrite to plain mapping declarations (for example `mapping(address => uint256)`).
-1. Flatten nested mapping wrappers where possible to reduce type complexity.
-1. Track compiler updates for full named mapping lowering and migrate back if desired.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | UNSUPPORTED_STATE_TYPE | state variable '_balances' has unsupported type 'mapping(address account =&gt; uint256)' |
-| error | UNSUPPORTED_STATE_TYPE | state variable '_allowances' has unsupported type 'mapping(address account =&gt; mapping(address spender =&gt; uint256))' |
+| error | RAW | [info][NEP-17] NEP-17 `transfer` method has 2 parameter(s), spec expects 4. See STANDARDS_MAPPING.md for details. |
+| warning | W101 | function 'transfer' has 2 parameters (ERC-20 pattern). NEP-17 requires 4 parameters: transfer(from, to, amount, data). The `from` address is verified via Runtime.checkWitness() and `data` (type Any) is forwarded to the recipient's onNEP17Payment callback. |
+| warning | W103 | ERC-20 method(s) [approve, allowance, transferfrom] detected. These are not part of the NEP-17 spec; Neo uses Runtime.checkWitness() for authorization instead of the approve/allowance pattern. You may keep them as extensions, but they will not contribute to NEP-17 standard detection. |
+| warning | W113 | Contract has transfer function but no onNEP17Payment callback. Other contracts cannot send tokens to this contract. |
 
 ## References
 

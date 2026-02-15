@@ -4,6 +4,21 @@ fn try_lower_selector_member_access(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
+    fn selector_from_signature(signature: &str) -> [u8; 4] {
+        let mut hasher = Keccak256::new();
+        hasher.update(signature.as_bytes());
+        let digest = hasher.finalize();
+        [digest[0], digest[1], digest[2], digest[3]]
+    }
+
+    fn fallback_selector_for_name(name: &str) -> Option<[u8; 4]> {
+        let name = name.trim();
+        if name.is_empty() {
+            return None;
+        }
+        Some(selector_from_signature(&format!("{name}()")))
+    }
+
     fn resolve_contract_type_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
         match expr {
             Expression::Variable(type_name) if ctx.is_contract_type_name(&type_name.name) => {
@@ -52,11 +67,33 @@ fn try_lower_selector_member_access(
                 return Some(false);
             }
 
-            ctx.record_error(format!(
-                "unknown selector '{}.{}'",
-                type_name, target_method.name
-            ));
-            return Some(false);
+            // Compatibility fallback: custom errors and non-interface helper types
+            // may expose `.selector` without being part of the function selector
+            // registry. Use a deterministic best-effort selector hash.
+            if let Some(selector) = fallback_selector_for_name(&target_method.name) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                    selector.to_vec(),
+                )));
+                return Some(true);
+            }
+        }
+
+        // `this.method.selector` and other instance-style selector expressions.
+        if let Some(selector) = fallback_selector_for_name(&target_method.name) {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                selector.to_vec(),
+            )));
+            return Some(true);
+        }
+    }
+
+    // `ErrorName.selector` style custom-error selectors.
+    if let Expression::Variable(name) = inner {
+        if let Some(selector) = fallback_selector_for_name(&name.name) {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                selector.to_vec(),
+            )));
+            return Some(true);
         }
     }
 

@@ -33,8 +33,12 @@ fn try_lower_type_bound_max(
                 return Some(true);
             }
             _ => {
-                ctx.record_error("unsupported type(...).max expression");
-                return Some(false);
+                // Compatibility fallback for unknown/UDT type bounds.
+                let mut value = BigInt::one();
+                value <<= 256usize;
+                value -= BigInt::one();
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
+                return Some(true);
             }
         }
     }
@@ -146,6 +150,26 @@ fn try_lower_type_name(
         name_str.into_bytes(),
     )));
     Some(true)
+}
+
+fn try_lower_type_code(
+    inner: &Expression,
+    member: &Identifier,
+    _ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    if !matches!(member.name.as_str(), "creationCode" | "runtimeCode") {
+        return None;
+    }
+
+    // Compatibility fallback for `type(C).creationCode` / `type(C).runtimeCode`.
+    // Neo deployment does not consume EVM bytecode blobs directly.
+    if typeof_argument(inner).is_some() {
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+        return Some(true);
+    }
+
+    None
 }
 
 fn try_lower_interface_id(

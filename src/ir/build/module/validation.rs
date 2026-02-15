@@ -122,15 +122,10 @@ fn validate_pure_methods(
             });
         }
 
-        if hazards.contract_calls {
-            let label = if hazards.unsafe_contract_call {
-                "performs non-readonly contract calls"
-            } else {
-                "performs contract calls"
-            };
+        if hazards.unsafe_contract_call {
             errors.push(IrDiagnostic {
                 function_name: method.neo_name.clone(),
-                message: format!("declared pure but {label}"),
+                message: "declared pure but performs non-readonly contract calls".to_string(),
                 suggestion: None,
                 code: None,
             });

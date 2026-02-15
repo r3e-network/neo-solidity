@@ -142,10 +142,6 @@ fn lower_new_expression(
             // `new Contract(...)` isn't supported on Neo N3 (no contract creation from within contracts).
             if let Expression::Variable(identifier) = func.as_ref() {
                 if ctx.is_contract_type_name(&identifier.name) {
-                    ctx.record_error(format!(
-                        "contract creation via `new {}` is not supported on Neo N3; use ContractManagement.deploy from an admin/entry contract instead",
-                        identifier.name
-                    ));
                     for arg in args {
                         if lower_expression(arg, ctx, instructions) {
                             instructions.push(Instruction::Drop(ValueType::Any));

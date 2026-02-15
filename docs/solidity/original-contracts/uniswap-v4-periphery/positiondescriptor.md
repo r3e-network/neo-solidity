@@ -2,28 +2,29 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@uniswap/v4-periphery/src/PositionDescriptor.sol`
-- Primary issue: Error resolving imports: import cycle detected: node_modules/@uniswap/v4-periphery/src/PositionDescriptor.sol -&gt; node_modules/@uniswap/v4-core/src/interfaces/IPoolManager.sol -&gt; node_modules/@uniswap/v4-core/src/types/PoolKey.sol -&gt; node_modules/@uniswap/v4-core/src/interfaces/IHooks.sol -&gt; node_modules/@uniswap/v4-core/src/types/PoolKey.sol
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `import_cycle`
-- Need on Neo (from audit): 需要编译器导入解析支持循环依赖图，或对上游源码做解环拆分
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Import cycle in source graph
+Recommended hardening before production deployment:
 
-1. Break cyclic dependencies by extracting interfaces and shared structs to leaf modules.
-1. Split contract logic into acyclic layers (`interfaces` -> `base` -> `impl`).
-1. Avoid barrel imports that re-export modules participating in cycles.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | RAW | Error resolving imports: import cycle detected: node_modules/@uniswap/v4-periphery/src/PositionDescriptor.sol -&gt; node_modules/@uniswap/v4-core/src/interfaces/IPoolManager.sol -&gt; node_modules/@uniswap/v4-core/src/types/PoolKey.sol -&gt; node_modules/@uniswap/v4-core/src/interfaces/IHooks.sol -&gt; node_modules/@uniswap/v4-core/src/types/PoolKey.sol |
+| warning | W121 | duplicate constant state variable 'ZERO_DELTA' detected while merging libraries |
+| warning | INVALID_STORAGE_RETURN | function 'get' return value 'State' uses 'storage' data location (treated as Any) |
+| warning | MANIFEST_WILDCARD_CONTRACT | contract 'PositionDescriptor' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error. |
 
 ## References
 

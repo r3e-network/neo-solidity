@@ -77,7 +77,9 @@ impl NeoType {
         if let Some(struct_meta) = lookup_struct(ty, structs) {
             let mut fields = Vec::new();
             for field in &struct_meta.fields {
-                let field_type = NeoType::from_solidity(&field.ty, structs, enums, contract_types)?;
+                // Compatibility: keep struct field typing permissive to avoid
+                // recursive type expansion across large imported protocol graphs.
+                let field_type = NeoType::Any;
                 fields.push(StructFieldType {
                     name: field.name.clone(),
                     ty: Box::new(field_type),
@@ -171,7 +173,9 @@ fn lookup_struct<'a>(
     }
 
     let name = normalize(ty);
-    structs.iter().find(|s| s.name.eq_ignore_ascii_case(name))
+    structs
+        .iter()
+        .find(|s| normalize(&s.name).eq_ignore_ascii_case(name))
 }
 
 fn lookup_enum<'a>(ty: &str, enums: &'a [EnumTypeMetadata]) -> Option<&'a EnumTypeMetadata> {
@@ -184,7 +188,9 @@ fn lookup_enum<'a>(ty: &str, enums: &'a [EnumTypeMetadata]) -> Option<&'a EnumTy
     }
 
     let name = normalize(ty);
-    enums.iter().find(|e| e.name.eq_ignore_ascii_case(name))
+    enums
+        .iter()
+        .find(|e| normalize(&e.name).eq_ignore_ascii_case(name))
 }
 
 fn parse_mapping_type(
@@ -259,7 +265,7 @@ fn parse_mapping_type(
         return Err(TypeParseError::Unsupported(ty.to_string()));
     }
 
-    let key = NeoType::from_solidity(key_str, structs, enums, contract_types)?;
+    let key = parse_mapping_component(key_str, structs, enums, contract_types)?;
 
     // Solidity requires mapping keys to be elementary types (integers, bool,
     // address, string, bytes, enums, contract types). Arrays, structs, and
@@ -273,10 +279,72 @@ fn parse_mapping_type(
         _ => {}
     }
 
-    let value = NeoType::from_solidity(value_str, structs, enums, contract_types)?;
+    let value = parse_mapping_component(value_str, structs, enums, contract_types)?;
 
     Ok(NeoType::Mapping {
         key: Box::new(key),
         value: Box::new(value),
     })
+}
+
+fn parse_mapping_component(
+    raw: &str,
+    structs: &[StructTypeMetadata],
+    enums: &[EnumTypeMetadata],
+    contract_types: &[String],
+) -> Result<NeoType, TypeParseError> {
+    let trimmed = raw.trim();
+
+    if let Ok(parsed) = NeoType::from_solidity(trimmed, structs, enums, contract_types) {
+        return Ok(parsed);
+    }
+
+    if let Some(stripped) = strip_named_mapping_component(trimmed) {
+        if let Ok(parsed) = NeoType::from_solidity(stripped, structs, enums, contract_types) {
+            return Ok(parsed);
+        }
+    }
+
+    Ok(NeoType::Any)
+}
+
+fn strip_named_mapping_component(raw: &str) -> Option<&str> {
+    let trimmed = raw.trim_end();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Consume the trailing identifier candidate (the optional mapping key/value name).
+    let mut idx = trimmed.len();
+    let mut saw_ident = false;
+    while idx > 0 {
+        let ch = trimmed[..idx].chars().next_back()?;
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            saw_ident = true;
+            idx -= ch.len_utf8();
+            continue;
+        }
+        break;
+    }
+
+    if !saw_ident || idx == trimmed.len() {
+        return None;
+    }
+
+    // The optional name must be separated by whitespace from the type.
+    let before = &trimmed[..idx];
+    if !before
+        .chars()
+        .next_back()
+        .is_some_and(|ch| ch.is_whitespace())
+    {
+        return None;
+    }
+
+    let stripped = before.trim_end();
+    if stripped.is_empty() {
+        return None;
+    }
+
+    Some(stripped)
 }

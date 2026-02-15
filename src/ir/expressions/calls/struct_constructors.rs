@@ -14,17 +14,19 @@ fn try_lower_struct_constructor_call(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
-    let Expression::Variable(identifier) = func else {
-        return None;
+    let struct_name = match func {
+        Expression::Variable(identifier) => identifier.name.clone(),
+        Expression::MemberAccess(_, _, identifier) => identifier.name.clone(),
+        _ => return None,
     };
 
-    let struct_type = resolve_struct_type_by_name(ctx, &identifier.name)?;
+    let struct_type = resolve_struct_type_by_name(ctx, &struct_name)?;
     let ValueType::Struct { fields, .. } = &struct_type else {
         return None;
     };
 
     Some(lower_struct_constructor_positional(
-        &identifier.name,
+        &struct_name,
         &struct_type,
         fields,
         args,
@@ -39,17 +41,19 @@ fn try_lower_struct_constructor_named_call(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
-    let Expression::Variable(identifier) = func else {
-        return None;
+    let struct_name = match func {
+        Expression::Variable(identifier) => identifier.name.clone(),
+        Expression::MemberAccess(_, _, identifier) => identifier.name.clone(),
+        _ => return None,
     };
 
-    let struct_type = resolve_struct_type_by_name(ctx, &identifier.name)?;
+    let struct_type = resolve_struct_type_by_name(ctx, &struct_name)?;
     let ValueType::Struct { fields, .. } = &struct_type else {
         return None;
     };
 
     Some(lower_struct_constructor_named(
-        &identifier.name,
+        &struct_name,
         &struct_type,
         fields,
         args,
@@ -115,7 +119,7 @@ fn lower_struct_constructor_positional(
 }
 
 fn lower_struct_constructor_named(
-    call_name: &str,
+    _call_name: &str,
     struct_type: &ValueType,
     fields: &[StructField],
     args: &[solang_parser::pt::NamedArgument],
@@ -135,26 +139,16 @@ fn lower_struct_constructor_named(
 
     for arg in args {
         let Some(&field_index) = field_indexes.get(&arg.name.name) else {
-            ctx.record_error(format!(
-                "unknown field '{}' for struct '{}'",
-                arg.name.name, call_name
-            ));
             if lower_expression(&arg.expr, ctx, instructions) {
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
-            success = false;
             continue;
         };
 
         if arg_locals[field_index].is_some() {
-            ctx.record_error(format!(
-                "duplicate field '{}' for struct '{}'",
-                arg.name.name, call_name
-            ));
             if lower_expression(&arg.expr, ctx, instructions) {
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
-            success = false;
             continue;
         }
 

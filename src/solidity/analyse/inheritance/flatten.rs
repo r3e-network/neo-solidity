@@ -5,7 +5,7 @@ fn flatten_contract_inheritance(
     let order = contract_linearization_base_to_derived(&contract.name, contract_map)?;
 
     let mut functions: Vec<FunctionIR> = Vec::new();
-    let mut function_index: std::collections::HashMap<(u8, String, usize), (String, usize)> =
+    let mut function_index: std::collections::HashMap<(u8, String, Vec<String>), (String, usize)> =
         std::collections::HashMap::new();
 
     let mut events: Vec<EventIR> = Vec::new();
@@ -71,7 +71,14 @@ fn flatten_contract_inheritance(
                 continue;
             }
 
-            let key = (function_ty_key(func.ty), func.name.clone(), func.parameters.len());
+            let key = (
+                function_ty_key(func.ty),
+                func.name.clone(),
+                func.parameters
+                    .iter()
+                    .map(|param| crate::utils::canonical_param_type(&param.ty))
+                    .collect::<Vec<_>>(),
+            );
             match function_index.get(&key) {
                 Some((origin, _)) if origin == &ancestor.name => {
                     // Duplicate definition within the same contract; preserve it so validation can

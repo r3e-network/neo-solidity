@@ -2,29 +2,27 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@aave/core-v3/contracts/flashloan/base/FlashLoanReceiverBase.sol`
-- Primary issue: function 'constructor': unsupported function call 'IPool' help: check spelling or ensure the function is declared in the same contract
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `other`
-- Need on Neo (from audit): 需要扩展 neo-solidity 对该语义的 IR lowering，或用 Neo 等价模式重写该模块
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: General compiler compatibility gap
+Recommended hardening before production deployment:
 
-1. Use diagnostics to isolate the minimal failing construct.
-1. Refactor toward Neo-native patterns (`Runtime`, `Syscalls`, `NativeCalls`).
-1. Open a focused compiler issue with a minimized reproducer when behavior should be supported.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | IR_GENERATION_ERROR | function 'constructor': unsupported function call 'IPool'
-  help: check spelling or ensure the function is declared in the same contract |
+| warning | MANIFEST_WILDCARD_CONTRACT | contract 'FlashLoanReceiverBase' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error. |
 
 ## References
 

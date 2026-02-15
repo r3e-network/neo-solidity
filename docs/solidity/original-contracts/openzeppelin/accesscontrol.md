@@ -2,28 +2,28 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@openzeppelin/contracts/access/AccessControl.sol`
-- Primary issue: state variable '_roles' has unsupported type 'mapping(bytes32 role =&gt; RoleData)'
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `named_mapping`
-- Need on Neo (from audit): 需要编译器补齐命名 `mapping(address key =&gt; T)` 语法 lowering，或改写为 `mapping(address =&gt; T)`
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Named mapping syntax/shape unsupported in current pipeline
+Recommended hardening before production deployment:
 
-1. Rewrite to plain mapping declarations (for example `mapping(address => uint256)`).
-1. Flatten nested mapping wrappers where possible to reduce type complexity.
-1. Track compiler updates for full named mapping lowering and migrate back if desired.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | UNSUPPORTED_STATE_TYPE | state variable '_roles' has unsupported type 'mapping(bytes32 role =&gt; RoleData)' |
+| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
+| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
 
 ## References
 

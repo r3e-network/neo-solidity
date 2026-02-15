@@ -18,6 +18,7 @@ const NPM_PACKAGES = [
   '@aave/core-v3@1.19.3',
   '@safe-global/safe-contracts@1.4.1-2',
   '@chainlink/contracts@1.5.0',
+  'solmate',
   '@uniswap/v4-core@1.0.2',
   '@uniswap/v4-periphery@1.0.3',
   '@uniswap/v3-core@1.0.1',
@@ -30,6 +31,7 @@ const REQUIRED_PACKAGE_PROBES = [
   '@aave/core-v3/package.json',
   '@safe-global/safe-contracts/package.json',
   '@chainlink/contracts/package.json',
+  'solmate/package.json',
   '@uniswap/v2-core/package.json',
   '@uniswap/v4-core/package.json',
   '@uniswap/v4-periphery/package.json'
@@ -123,6 +125,33 @@ function ensureOpenZeppelinVersionAliases() {
         // noop
       }
       fs.symlinkSync(`contracts-upgradeable-${version}`, upgradeableAlias);
+    }
+  }
+}
+
+function ensurePermit2Alias() {
+  const nodeModulesDir = path.join(AUDIT_DIR, 'node_modules');
+  const vendoredPermit2Dir = path.join(
+    nodeModulesDir,
+    '@uniswap',
+    'v4-periphery',
+    'lib',
+    'permit2'
+  );
+  const aliasPermit2Dir = path.join(nodeModulesDir, 'permit2');
+
+  if (!fs.existsSync(vendoredPermit2Dir)) {
+    return;
+  }
+
+  try {
+    if (fs.existsSync(aliasPermit2Dir)) {
+      return;
+    }
+    fs.symlinkSync(vendoredPermit2Dir, aliasPermit2Dir, 'dir');
+  } catch {
+    if (!fs.existsSync(aliasPermit2Dir)) {
+      fs.cpSync(vendoredPermit2Dir, aliasPermit2Dir, { recursive: true });
     }
   }
 }
@@ -487,6 +516,7 @@ function main() {
   const neoSolc = ensureNeoSolc();
   ensureAuditWorkspace();
   ensureOpenZeppelinVersionAliases();
+  ensurePermit2Alias();
 
   const versionResult = runCommand(neoSolc, ['--version'], { cwd: ROOT });
   const neoSolcVersion = versionResult.status === 0 ? versionResult.stdout : 'neo-solc (version unavailable)';

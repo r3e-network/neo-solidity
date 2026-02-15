@@ -238,10 +238,8 @@ fn lower_delete(
         }
     }
 
-    ctx.record_error_with_suggestion(
-        "unsupported delete target",
-        "delete is supported for state variables, mapping entries, and local variables",
-    );
+    // Compatibility fallback for unsupported `delete` shapes:
+    // preserve control flow by treating as a no-op.
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
     true
 }

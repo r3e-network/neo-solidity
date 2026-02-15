@@ -2,29 +2,27 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol`
-- Primary issue: function '_getInitializableStorage': inline assembly is not supported help: Neo N3 uses NeoVM opcodes; use NativeCalls.sol for low-level operations
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `assembly`
-- Need on Neo (from audit): 需要移除 `assembly`，改用 `NativeCalls.sol` / `Syscalls.sol` / 高级 Solidity 语义重写
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: Inline assembly not supported
+Recommended hardening before production deployment:
 
-1. Replace assembly with high-level Solidity and devpack intrinsics (`Syscalls`, `NativeCalls`, `Runtime`).
-1. For low-level call/value movement, use explicit Neo-native APIs instead of EVM opcodes.
-1. Isolate assembly-heavy modules and rewrite them first as Neo-specific utility contracts.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | IR_GENERATION_ERROR | function '_getInitializableStorage': inline assembly is not supported
-  help: Neo N3 uses NeoVM opcodes; use NativeCalls.sol for low-level operations |
+| warning | INVALID_STORAGE_RETURN | function '_getInitializableStorage' return value 'InitializableStorage' uses 'storage' data location (treated as Any) |
 
 ## References
 

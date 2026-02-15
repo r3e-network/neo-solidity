@@ -22,28 +22,51 @@ fn build_combined_source_with_import_validation(
     }
 
     fn resolve_import_key(from_file: &str, import_path: &str, available: &HashSet<String>) -> Option<String> {
-        let import = Path::new(import_path);
-        if import.is_absolute() && available.contains(import_path) {
-            return Some(import_path.to_string());
+        fn import_aliases(import_path: &str) -> Vec<String> {
+            let mut aliases = vec![import_path.to_string()];
+
+            if let Some(rest) = import_path.strip_prefix("openzeppelin-contracts/contracts/") {
+                aliases.push(format!("@openzeppelin/contracts/{rest}"));
+            } else if let Some(rest) =
+                import_path.strip_prefix("openzeppelin-contracts-upgradeable/contracts/")
+            {
+                aliases.push(format!("@openzeppelin/contracts-upgradeable/{rest}"));
+            } else if let Some(rest) = import_path.strip_prefix("openzeppelin-contracts/") {
+                aliases.push(format!("@openzeppelin/contracts/{rest}"));
+            } else if let Some(rest) =
+                import_path.strip_prefix("openzeppelin-contracts-upgradeable/")
+            {
+                aliases.push(format!("@openzeppelin/contracts-upgradeable/{rest}"));
+            }
+
+            aliases
         }
 
         let from_dir = Path::new(from_file).parent().unwrap_or_else(|| Path::new(""));
-        let candidate = normalize_virtual_path(&from_dir.join(import));
-        if available.contains(&candidate) {
-            return Some(candidate);
-        }
 
-        // Fallbacks when sources use canonicalized/trimmed paths.
-        if available.contains(import_path) {
-            return Some(import_path.to_string());
-        }
-        if let Some(stripped) = import_path.strip_prefix("./") {
-            let candidate = normalize_virtual_path(&from_dir.join(stripped));
+        for candidate_import in import_aliases(import_path) {
+            let import = Path::new(&candidate_import);
+            if import.is_absolute() && available.contains(candidate_import.as_str()) {
+                return Some(candidate_import);
+            }
+
+            let candidate = normalize_virtual_path(&from_dir.join(import));
             if available.contains(&candidate) {
                 return Some(candidate);
             }
-            if available.contains(stripped) {
-                return Some(stripped.to_string());
+
+            // Fallbacks when sources use canonicalized/trimmed paths.
+            if available.contains(candidate_import.as_str()) {
+                return Some(candidate_import);
+            }
+            if let Some(stripped) = candidate_import.strip_prefix("./") {
+                let candidate = normalize_virtual_path(&from_dir.join(stripped));
+                if available.contains(&candidate) {
+                    return Some(candidate);
+                }
+                if available.contains(stripped) {
+                    return Some(stripped.to_string());
+                }
             }
         }
 
@@ -167,14 +190,8 @@ fn build_combined_source_with_import_validation(
             return;
         }
         if !visiting.insert(node.to_string()) {
-            let mut chain: Vec<String> = stack.iter().cloned().collect();
-            chain.push(node.to_string());
-            push_error(
-                errors,
-                node,
-                "ImportCycle",
-                format!("import cycle detected: {}", chain.join(" -> ")),
-            );
+            // Solidity source graphs can be cyclic; this is a back-edge.
+            // Do not fail import resolution on cycles.
             return;
         }
 

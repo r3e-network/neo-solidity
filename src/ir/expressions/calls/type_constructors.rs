@@ -4,6 +4,51 @@ fn try_lower_type_constructor_call(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
+    fn lower_contract_like_cast(
+        args: &[Expression],
+        ctx: &mut LoweringContext,
+        instructions: &mut Vec<Instruction>,
+    ) -> bool {
+        if let Some(arg) = args.first() {
+            if matches!(
+                infer_type_from_expression(arg, ctx),
+                Some(ValueType::Address)
+            ) {
+                return lower_expression(arg, ctx, instructions);
+            }
+
+            if let Some(bytes) = address_bytes_le_from_expression(arg) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                return true;
+            }
+
+            if lower_expression(arg, ctx, instructions) {
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::ByteArray,
+                });
+                coerce_to_fixed_bytes(20, false, ctx, instructions);
+            } else {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                    vec![0u8; 20],
+                )));
+            }
+        } else {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                vec![0u8; 20],
+            )));
+        }
+
+        true
+    }
+
+    // Contract/interface casts represented as plain identifiers:
+    // `IFoo(target)` should behave like `address(target)` at runtime.
+    if let Expression::Variable(type_id) = func {
+        if ctx.is_contract_type_name(&type_id.name) && args.len() == 1 {
+            return Some(lower_contract_like_cast(args, ctx, instructions));
+        }
+    }
+
     // `import * as NS` namespace-qualified contract/interface casts:
     // `NS.IFoo(target)` should behave like `IFoo(target)`.
     if let Expression::MemberAccess(_, namespace_expr, type_id) = func {
@@ -17,17 +62,7 @@ fn try_lower_type_constructor_call(
         );
 
         if is_namespace && ctx.is_contract_type_name(&type_id.name) && args.len() == 1 {
-            if matches!(
-                infer_type_from_expression(&args[0], ctx),
-                Some(ValueType::Address)
-            ) {
-                return Some(lower_expression(&args[0], ctx, instructions));
-            }
-
-            if let Some(bytes) = address_bytes_le_from_expression(&args[0]) {
-                instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
-                return Some(true);
-            }
+            return Some(lower_contract_like_cast(args, ctx, instructions));
         }
     }
 

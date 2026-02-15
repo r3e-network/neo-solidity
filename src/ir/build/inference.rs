@@ -148,6 +148,31 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                 None
             }
         }
+        Expression::FunctionCall(_, func, args) if args.len() == 1 => {
+            // Contract/interface type-casts like `IPool(addr)` and namespace-qualified
+            // imports like `NS.IPool(addr)` evaluate to an address-like value.
+            if let Expression::Variable(type_id) = func.as_ref() {
+                if ctx.is_contract_type_name(&type_id.name) {
+                    return Some(ValueType::Address);
+                }
+            }
+
+            if let Expression::MemberAccess(_, namespace_expr, type_id) = func.as_ref() {
+                if matches!(
+                    namespace_expr.as_ref(),
+                    Expression::Variable(namespace_id)
+                        if !ctx.param_index_map.contains_key(&namespace_id.name)
+                            && ctx.resolve_local(&namespace_id.name).is_none()
+                            && !ctx.state_index_map.contains_key(&namespace_id.name)
+                            && !ctx.is_contract_type_name(&namespace_id.name)
+                ) && ctx.is_contract_type_name(&type_id.name)
+                {
+                    return Some(ValueType::Address);
+                }
+            }
+
+            None
+        }
         Expression::FunctionCall(_, func, _) => {
             if let Expression::MemberAccess(_, inner, member) = func.as_ref() {
                 if let Expression::Variable(base) = inner.as_ref() {
@@ -182,6 +207,8 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
         }
         Expression::Variable(identifier) => {
             if identifier.name == "this" {
+                Some(ValueType::Address)
+            } else if ctx.is_contract_type_name(&identifier.name) {
                 Some(ValueType::Address)
             } else if ctx.enum_variant_map.contains_key(&identifier.name) {
                 // Solidity enums lower to unsigned integers. We model enum-typed values as

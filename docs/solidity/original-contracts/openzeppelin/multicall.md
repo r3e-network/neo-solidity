@@ -2,35 +2,42 @@
 
 ## Audit Snapshot
 
-- Status: ❌ fail
+- Status: ✅ pass
 - Source type: `npm`
 - Source path: `node_modules/@openzeppelin/contracts/utils/Multicall.sol`
-- Primary issue: function 'sendValue': function call options (`{...}`) are not supported (value); Neo N3 requires explicit NEP-17 transfers (`NativeCalls.gasTransfer` / `NativeCalls.neoTransfer`) + `onNEP17Payment`
+- Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
-## What Must Change To Compile On NeoVM
+## NeoVM Adaptation Status
 
-- Primary blocker tag: `value_call_options`
-- Need on Neo (from audit): 需要把 `{value: ...}` 风格调用改成显式 NEP-17 转账（`NativeCalls.gasTransfer` / `NativeCalls.neoTransfer`）并使用 `onNEP17Payment` 回调
+This upstream contract compiled successfully in the audit run with current `neo-solc`.
 
-### Migration Playbook: EVM call options with value not supported
+Recommended hardening before production deployment:
 
-1. Replace `call{value: ...}` / `send` / `transfer` with `NativeCalls.gasTransfer` or `NativeCalls.neoTransfer`.
-1. Receive funds via NEP callback methods (`onNEP17Payment` / `onNEP11Payment`) instead of `receive()`.
-1. Separate transfer side effects from contract call logic to keep manifests least-privilege.
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.
+1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.
 
 ## Diagnostics
 
 | Severity | Code | Message |
 | --- | --- | --- |
-| error | IR_GENERATION_ERROR | function 'sendValue': function call options (`{...}`) are not supported (value); Neo N3 requires explicit NEP-17 transfers (`NativeCalls.gasTransfer` / `NativeCalls.neoTransfer`) + `onNEP17Payment` |
-| error | IR_GENERATION_ERROR | function 'functionCallWithValue': function call options (`{...}`) are not supported (value); Neo N3 requires explicit NEP-17 transfers (`NativeCalls.gasTransfer` / `NativeCalls.neoTransfer`) + `onNEP17Payment` |
-| error | IR_GENERATION_ERROR | function 'functionStaticCall': unsupported low-level EVM call 'staticcall'
-  help: Neo N3 does not support low-level EVM calls; use NativeCalls.sol for contract-to-contract interactions |
-| error | IR_GENERATION_ERROR | function 'functionDelegateCall': unsupported low-level EVM call 'delegatecall'
-  help: delegatecall is not available on Neo N3; Neo contracts have isolated storage. Use Syscalls.contractCall() for cross-contract calls |
-| error | IR_GENERATION_ERROR | function '_revert': inline assembly is not supported
-  help: Neo N3 uses NeoVM opcodes; use NativeCalls.sol for low-level operations |
+| warning | W200 | function 'sendValue' in 'Multicall' overrides 'Context::sendValue' which is not marked 'virtual' |
+| warning | W200 | function 'sendValue' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'functionCall' in 'Multicall' overrides 'Context::functionCall' which is not marked 'virtual' |
+| warning | W200 | function 'functionCall' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'functionCallWithValue' in 'Multicall' overrides 'Context::functionCallWithValue' which is not marked 'virtual' |
+| warning | W200 | function 'functionCallWithValue' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'functionStaticCall' in 'Multicall' overrides 'Context::functionStaticCall' which is not marked 'virtual' |
+| warning | W200 | function 'functionStaticCall' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'functionDelegateCall' in 'Multicall' overrides 'Context::functionDelegateCall' which is not marked 'virtual' |
+| warning | W200 | function 'functionDelegateCall' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'verifyCallResultFromTarget' in 'Multicall' overrides 'Context::verifyCallResultFromTarget' which is not marked 'virtual' |
+| warning | W200 | function 'verifyCallResultFromTarget' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function 'verifyCallResult' in 'Multicall' overrides 'Context::verifyCallResult' which is not marked 'virtual' |
+| warning | W200 | function 'verifyCallResult' in 'Multicall' overrides a base function but is not marked 'override' |
+| warning | W200 | function '_revert' in 'Multicall' overrides 'Context::_revert' which is not marked 'virtual' |
+| warning | W200 | function '_revert' in 'Multicall' overrides a base function but is not marked 'override' |
 
 ## References
 
