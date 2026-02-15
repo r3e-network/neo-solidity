@@ -4,6 +4,8 @@ The `neo-solidity` compiler parses Solidity 0.8.x source code and lowers it to N
 
 This page is the human-readable companion to the canonical machine-audited matrix at [`docs/SOLIDITY_SUPPORT_MATRIX.md`](https://github.com/r3e-network/neo-solidity/blob/main/docs/SOLIDITY_SUPPORT_MATRIX.md).
 
+For protocol-level migration status on well-known production contracts, see [Famous Contracts Audit](/solidity/famous-contracts-neo-audit).
+
 ## Summary
 
 | Metric                 | Count | Percentage |

@@ -87,7 +87,8 @@ export default defineConfig({
           text: 'Solidity on Neo',
           items: [
             { text: 'Feature Support', link: '/solidity/feature-support' },
-            { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' }
+            { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' },
+            { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' }
           ]
         }
       ],

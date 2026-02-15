@@ -36,6 +36,7 @@
     "dev": "turbo run dev",
     "clean": "turbo run clean",
     "typecheck": "turbo run typecheck",
+    "audit:famous-contracts": "node scripts/famous_contracts_audit.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
