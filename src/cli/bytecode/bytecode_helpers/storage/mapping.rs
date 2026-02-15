@@ -96,13 +96,31 @@ fn emit_load_mapping(
     );
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Get");
-    if let Some(ir::StateVariable {
-        ty: ValueType::Mapping { value, .. },
-        ..
-    }) = module.state_variables.get(state_index)
-    {
-        emit_coerce_storage_value(bytecode, value);
+    if let Some(value_type) = resolve_loaded_mapping_value_type(module, state_index, key_types.len()) {
+        emit_coerce_storage_value(bytecode, value_type);
     }
+}
+
+fn resolve_loaded_mapping_value_type<'a>(
+    module: &'a ir::Module,
+    state_index: usize,
+    key_depth: usize,
+) -> Option<&'a ValueType> {
+    let mut current = &module.state_variables.get(state_index)?.ty;
+
+    for _ in 0..key_depth {
+        match current {
+            ValueType::Mapping { value, .. } => {
+                current = value.as_ref();
+            }
+            ValueType::Array(element) => {
+                current = element.as_ref();
+            }
+            _ => return Some(current),
+        }
+    }
+
+    Some(current)
 }
 
 fn emit_store_mapping(

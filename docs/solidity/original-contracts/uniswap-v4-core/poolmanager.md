@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `node_modules/@uniswap/v4-core/src/PoolManager.sol`
+- Source path: `third_party/famous-contracts/sources/@uniswap/v4-core/src/PoolManager.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -2585,4 +2585,4 @@ Recommended hardening before production deployment:
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `node_modules/@uniswap/v4-core/src/PoolManager.sol`
+- Upstream contract path: `third_party/famous-contracts/sources/@uniswap/v4-core/src/PoolManager.sol`

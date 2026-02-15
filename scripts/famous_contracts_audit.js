@@ -11,6 +11,7 @@ const REPORT_MD_PATH = path.join(ROOT, 'docs/solidity/famous-contracts-neo-audit
 const REPORT_JSON_PATH = path.join(ROOT, 'docs/data/famous-contracts-audit-results.json');
 const AUDIT_DIR = process.env.NEO_FAMOUS_AUDIT_DIR || '/tmp/neo-famous-contracts-audit';
 const BUILD_DIR = process.env.NEO_FAMOUS_BUILD_DIR || '/tmp/neo-famous-contracts-build';
+const VENDORED_SOURCES_ROOT = path.join(ROOT, 'third_party/famous-contracts/sources');
 
 const NPM_PACKAGES = [
   '@openzeppelin/contracts@5.4.0',
@@ -314,11 +315,22 @@ function sanitizeName(input) {
   return input.replace(/[^a-zA-Z0-9_.-]+/g, '_');
 }
 
+function resolveSourcePath(target) {
+  if (target.source === 'repo') {
+    return path.join(ROOT, target.path);
+  }
+
+  if (target.source === 'npm') {
+    return path.join(AUDIT_DIR, 'node_modules', target.path);
+  }
+
+  return path.join(ROOT, target.path || '');
+}
+
 function compileTarget(neoSolc, target, index, total) {
-  const isRepoSource = target.source === 'repo';
-  const sourcePath = isRepoSource
-    ? path.join(ROOT, target.path)
-    : path.join(AUDIT_DIR, 'node_modules', target.path);
+  const sourcePath = resolveSourcePath(target);
+  const vendoredSourcePath =
+    target.source === 'npm' ? path.join(VENDORED_SOURCES_ROOT, target.path) : null;
 
   const progress = `[${String(index + 1).padStart(2, '0')}/${total}]`;
 
@@ -371,6 +383,7 @@ function compileTarget(neoSolc, target, index, total) {
   return {
     ...target,
     sourcePath,
+    vendoredSourcePath: vendoredSourcePath && fs.existsSync(vendoredSourcePath) ? vendoredSourcePath : null,
     status,
     exitCode: result.status,
     diagnostics,
@@ -404,17 +417,25 @@ function cleanPathText(text) {
     return '';
   }
   return String(text)
+    .replaceAll(
+      `${VENDORED_SOURCES_ROOT.split(path.sep).join('/')}/`,
+      'third_party/famous-contracts/sources/'
+    )
     .replaceAll('/private/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/')
     .replaceAll('/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
 }
 
 function sourceForReport(row) {
-  if (row.source === 'npm') {
-    return `node_modules/${row.path}`;
+  if (row.vendoredSourcePath && row.vendoredSourcePath.startsWith(ROOT)) {
+    return path.relative(ROOT, row.vendoredSourcePath).split(path.sep).join('/');
   }
 
   if (row.sourcePath && row.sourcePath.startsWith(ROOT)) {
     return path.relative(ROOT, row.sourcePath).split(path.sep).join('/');
+  }
+
+  if (row.source === 'npm') {
+    return `third_party/famous-contracts/sources/${row.path}`;
   }
 
   if (row.path) {
@@ -438,7 +459,7 @@ function generateMarkdown(neoSolcVersion, results, generatedAt = new Date().toIS
   lines.push('');
   lines.push(`- Generated at (UTC): \`${generatedAt}\``);
   lines.push(`- Compiler: \`${neoSolcVersion.trim()}\``);
-  lines.push(`- Contracts shown in this report (upstream npm): \`${upstreamResults.length}\``);
+  lines.push(`- Contracts shown in this report (upstream, vendored in repo): \`${upstreamResults.length}\``);
   lines.push(`- Compile success: \`${upstreamPass}\``);
   lines.push(`- Compile failed: \`${upstreamFail}\``);
   if (upstreamMissing > 0) {
@@ -484,7 +505,7 @@ function generateMarkdown(neoSolcVersion, results, generatedAt = new Date().toIS
   lines.push('');
   lines.push('## Notes');
   lines.push('');
-  lines.push('- This report prioritizes **upstream famous contracts** in the main results table.');
+  lines.push('- This report prioritizes **upstream famous contracts vendored in this repository** in the main results table.');
   lines.push('- A **pass** means the contract compiled through `neo-solc` in this environment.');
   lines.push('- A **fail** does not mean the contract is impossible on Neo; it means current source + current compiler need refactor or feature work.');
   lines.push('- Use this as a migration backlog: prioritize high-value blockers (`delegatecall`, import cycles, ABI overload collisions, named mapping syntax).');

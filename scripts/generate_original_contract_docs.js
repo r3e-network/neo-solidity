@@ -144,7 +144,20 @@ function cleanPathText(value) {
 
 function normalizeSourcePath(result) {
   if (result.source === 'npm' && result.path) {
-    return `node_modules/${String(result.path).replace(/^\/+/, '')}`;
+    if (result.vendoredSourcePath) {
+      const vendored = cleanPathText(result.vendoredSourcePath);
+      if (vendored) {
+        return vendored;
+      }
+    }
+
+    if (result.sourcePath) {
+      const cleaned = cleanPathText(result.sourcePath);
+      if (cleaned && cleaned !== result.sourcePath) {
+        return cleaned;
+      }
+    }
+    return `third_party/famous-contracts/sources/${String(result.path).replace(/^\/+/, '')}`;
   }
 
   if (result.path) {
@@ -267,7 +280,7 @@ function renderIndex(data, npmResults, grouped) {
   const lines = [
     '# Original Famous Solidity Contracts (Per Contract)',
     '',
-    'This section documents **upstream famous Solidity contracts** (npm sources), not simplified demo ports.',
+    'This section documents **upstream famous Solidity contracts** (vendored in-repo sources), not simplified demo ports.',
     '',
     `- Generated at (UTC): ${asCode(generatedAt)}`,
     `- Compiler: ${asCode(compiler)}`,

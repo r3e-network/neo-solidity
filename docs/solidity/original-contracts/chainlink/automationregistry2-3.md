@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `node_modules/@chainlink/contracts/src/v0.8/automation/v2_3/AutomationRegistry2_3.sol`
+- Source path: `third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/v2_3/AutomationRegistry2_3.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -4177,4 +4177,4 @@ Recommended hardening before production deployment:
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `node_modules/@chainlink/contracts/src/v0.8/automation/v2_3/AutomationRegistry2_3.sol`
+- Upstream contract path: `third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/v2_3/AutomationRegistry2_3.sol`

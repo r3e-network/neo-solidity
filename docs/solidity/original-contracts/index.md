@@ -1,8 +1,8 @@
 # Original Famous Solidity Contracts (Per Contract)
 
-This section documents **upstream famous Solidity contracts** (npm sources), not simplified demo ports.
+This section documents **upstream famous Solidity contracts** (vendored in-repo sources), not simplified demo ports.
 
-- Generated at (UTC): `2026-02-15T08:36:40.743Z`
+- Generated at (UTC): `2026-02-15T08:56:34.043Z`
 - Compiler: `neo-solc 0.12.0`
 - Contracts in this section: `92`
 

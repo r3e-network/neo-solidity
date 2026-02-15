@@ -10,6 +10,32 @@ const ROOT = path.resolve(__dirname, '..');
 const TARGETS_PATH = path.join(ROOT, 'docs/data/famous-contracts-targets.json');
 const AUDIT_RESULTS_PATH = path.join(ROOT, 'docs/data/famous-contracts-audit-results.json');
 const AUDIT_DIR = process.env.NEO_FAMOUS_AUDIT_DIR || '/tmp/neo-famous-contracts-audit';
+const VENDORED_SOURCES_ROOT = path.join(ROOT, 'third_party/famous-contracts/sources');
+
+const NPM_PACKAGES = [
+  '@openzeppelin/contracts@5.4.0',
+  '@openzeppelin/contracts-upgradeable@5.4.0',
+  '@aave/core-v3@1.19.3',
+  '@safe-global/safe-contracts@1.4.1-2',
+  '@chainlink/contracts@1.5.0',
+  'solmate',
+  '@uniswap/v4-core@1.0.2',
+  '@uniswap/v4-periphery@1.0.3',
+  '@uniswap/v3-core@1.0.1',
+  '@uniswap/v3-periphery@1.4.4'
+];
+
+const REQUIRED_PACKAGE_PROBES = [
+  '@openzeppelin/contracts/package.json',
+  '@openzeppelin/contracts-upgradeable/package.json',
+  '@aave/core-v3/package.json',
+  '@safe-global/safe-contracts/package.json',
+  '@chainlink/contracts/package.json',
+  'solmate/package.json',
+  '@uniswap/v2-core/package.json',
+  '@uniswap/v4-core/package.json',
+  '@uniswap/v4-periphery/package.json'
+];
 
 function run(cmd, args, options = {}) {
   const res = spawnSync(cmd, args, {
@@ -21,6 +47,30 @@ function run(cmd, args, options = {}) {
     throw res.error;
   }
   return res;
+}
+
+function ensureAuditWorkspace() {
+  fs.mkdirSync(AUDIT_DIR, { recursive: true });
+  const nodeModulesDir = path.join(AUDIT_DIR, 'node_modules');
+  const hasAllPackages = REQUIRED_PACKAGE_PROBES.every((probe) =>
+    fs.existsSync(path.join(nodeModulesDir, probe))
+  );
+
+  if (hasAllPackages) {
+    return;
+  }
+
+  if (!fs.existsSync(path.join(AUDIT_DIR, 'package.json'))) {
+    const init = run('npm', ['init', '-y'], { cwd: AUDIT_DIR });
+    if (init.status !== 0) {
+      throw new Error(`npm init failed:\n${init.stdout}\n${init.stderr}`);
+    }
+  }
+
+  const install = run('npm', ['install', '--silent', ...NPM_PACKAGES], { cwd: AUDIT_DIR });
+  if (install.status !== 0) {
+    throw new Error(`npm install failed:\n${install.stdout}\n${install.stderr}`);
+  }
 }
 
 function packageFromTargetPath(targetPath) {
@@ -66,7 +116,14 @@ function packAndExtractPackage(pkgName, version) {
   return { tempDir, extractedRoot, spec };
 }
 
+function verifyRepoSoliditySource(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  return /\b(contract|interface|library)\b/.test(content);
+}
+
 function main() {
+  ensureAuditWorkspace();
+
   const targets = readJson(TARGETS_PATH);
   const audit = readJson(AUDIT_RESULTS_PATH);
 
@@ -84,7 +141,7 @@ function main() {
 
   const errors = [];
   const mismatchDetails = [];
-  let comparedFiles = 0;
+  let comparedNpmFiles = 0;
   const tempDirs = [];
 
   try {
@@ -102,15 +159,15 @@ function main() {
 
       for (const target of pkgFiles) {
         const rel = relativePathInPackage(target.path);
-        const installedFile = path.join(installedRoot, rel);
+        const vendoredFile = path.join(VENDORED_SOURCES_ROOT, target.path);
         const officialFile = path.join(extractedRoot, rel);
 
-        if (!fs.existsSync(installedFile)) {
+        if (!fs.existsSync(vendoredFile)) {
           mismatchDetails.push({
-            type: 'missing_installed_file',
+            type: 'missing_vendored_file',
             package: spec,
             target: target.contract,
-            file: rel
+            file: target.path
           });
           continue;
         }
@@ -125,16 +182,16 @@ function main() {
           continue;
         }
 
-        const installedBytes = fs.readFileSync(installedFile);
+        const vendoredBytes = fs.readFileSync(vendoredFile);
         const officialBytes = fs.readFileSync(officialFile);
-        comparedFiles += 1;
-        if (!installedBytes.equals(officialBytes)) {
+        comparedNpmFiles += 1;
+        if (!vendoredBytes.equals(officialBytes)) {
           mismatchDetails.push({
             type: 'content_mismatch',
             package: spec,
             target: target.contract,
-            file: rel,
-            installedBytes: installedBytes.length,
+            file: target.path,
+            vendoredBytes: vendoredBytes.length,
             officialBytes: officialBytes.length
           });
         }
@@ -156,8 +213,7 @@ function main() {
       errors.push(`missing repo source target: ${target.path}`);
       continue;
     }
-    const content = fs.readFileSync(sourcePath, 'utf8');
-    if (!/\b(contract|interface|library)\b/.test(content)) {
+    if (!verifyRepoSoliditySource(sourcePath)) {
       errors.push(`repo target does not look like complete Solidity source: ${target.path}`);
     }
   }
@@ -169,7 +225,7 @@ function main() {
   }
 
   if (mismatchDetails.length > 0) {
-    errors.push(`found ${mismatchDetails.length} npm source mismatches against official tarballs`);
+    errors.push(`found ${mismatchDetails.length} vendored source mismatches against official tarballs`);
   }
 
   if (errors.length > 0) {
@@ -187,7 +243,7 @@ function main() {
   }
 
   console.log('[verify] OK');
-  console.log(`- npm targets compared: ${comparedFiles}`);
+  console.log(`- npm targets compared (vendored vs official): ${comparedNpmFiles}`);
   console.log(`- repo targets checked: ${repoTargets.length}`);
   console.log(`- audit totals: ${audit.totals.pass}/${audit.totals.total} pass`);
 }
