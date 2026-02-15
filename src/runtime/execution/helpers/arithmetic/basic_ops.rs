@@ -10,12 +10,12 @@
 /// Macro to generate arithmetic operation functions (ADD, SUB, MUL).
 ///
 /// # Syntax
-/// ```ignore
+/// ```text
 /// arithmetic_op!(fn_name, op_name, op_sym, checked_fn, wrapping_fn, error_kind);
 /// ```
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// arithmetic_op!(add_stack_items, "ADD", "+", checked_add, wrapping_add, "overflow");
 /// ```
 macro_rules! arithmetic_op {

@@ -153,7 +153,14 @@ library Runtime {
         uint256 validWitnesses = 0;
         
         for (uint256 i = 0; i < signers.length; i++) {
-            if (checkWitness(signers[i])) {
+            address signer = signers[i];
+
+            // Prevent duplicate signers from satisfying quorum multiple times.
+            for (uint256 j = 0; j < i; j++) {
+                require(signers[j] != signer, "Runtime: duplicate signer");
+            }
+
+            if (checkWitness(signer)) {
                 validWitnesses++;
                 if (validWitnesses >= threshold) {
                     return true;

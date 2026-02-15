@@ -13,7 +13,7 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```text
 //! use neo_solidity::solidity::{analyse_all_sources, ContractMetadata};
 //!
 //! let sources = vec![("Contract.sol".to_string(), source_code)];

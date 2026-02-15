@@ -81,6 +81,38 @@ fn runtime_notify_requires_stdlib_serialize_and_deserialize_permissions() {
 }
 
 #[test]
+fn runtime_witness_helpers_compile_as_intrinsics() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract RuntimeWitnessHelpers {
+        function requireOne(address account) public view {
+            Runtime.requireWitness(account);
+        }
+
+        function anyOf(address[] memory accounts) public view returns (bool) {
+            return Runtime.checkAnyWitness(accounts);
+        }
+
+        function allOf(address[] memory accounts) public view returns (bool) {
+            return Runtime.checkAllWitnesses(accounts);
+        }
+
+        function threshold(address[] memory signers, uint256 minSigners)
+            public
+            view
+            returns (bool)
+        {
+            return Runtime.checkMultiSigWitness(signers, minSigners);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+}
+
+#[test]
 fn mapping_storage_requires_crypto_keccak_and_stdlib_serialize_permissions() {
     let source = r#"
     pragma solidity ^0.8.20;

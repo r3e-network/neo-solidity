@@ -238,6 +238,29 @@ fn native_calls_validators_match_neo_validator_conversion() {
 }
 
 #[test]
+fn runtime_check_multisig_rejects_duplicate_signers() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract RuntimeMultisigDuplicateHarness {
+        function run(address[] memory signers) public view returns (bool) {
+            return Runtime.checkMultiSigWitness(signers, 1);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    let message = b"Runtime: duplicate signer";
+    assert!(
+        artifacts[0]
+            .bytecode
+            .windows(message.len())
+            .any(|window| window == message),
+        "expected bytecode to include duplicate-signer guard message"
+    );
+}
+
+#[test]
 fn runtime_executes_callt_bytecode_when_tokens_are_loaded() {
     let source = r#"
     pragma solidity ^0.8.19;

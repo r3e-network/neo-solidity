@@ -55,7 +55,7 @@
 /// # Examples
 ///
 /// ## Basic storage operation
-/// ```ignore
+/// ```text
 /// // In NeoVM bytecode (simplified)
 /// PUSHDATA1 "my_key"
 /// PUSHDATA1 "my_value"
@@ -64,7 +64,7 @@
 /// ```
 ///
 /// ## Prefix search with Find
-/// ```ignore
+/// ```text
 /// PUSH0                      // options (unused)
 /// PUSHDATA1 "prefix"         // search prefix
 /// SYSCALL System.Storage.GetContext

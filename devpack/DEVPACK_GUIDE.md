@@ -775,7 +775,8 @@ Storage.put("balance", abi.encode(amount));
 ### 4. Handle Oracle Responses
 
 ```solidity
-function oracleCallback(uint256 requestId, uint256 code, bytes calldata result, bytes calldata userData) external {
+function oracleCallback(string calldata url, bytes calldata userData, uint256 code, bytes calldata result) external {
+    url; // optional: correlate callback source URL
     if (code == 0) {
         // Handle success
     } else {

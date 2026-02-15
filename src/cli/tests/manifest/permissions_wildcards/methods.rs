@@ -110,6 +110,55 @@ fn manifest_permissions_replace_wildcards_allows_deny_wildcard_methods() {
 }
 
 #[test]
+fn manifest_permissions_replace_wildcards_rejects_empty_override_for_dynamic_calls() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract FullyDynamicCalls {
+        function callAny(address target, string memory method) public returns (bytes memory) {
+            return Syscalls.contractCall(target, method, abi.encode());
+        }
+    }
+    "#;
+
+    let temp = tempdir().expect("tempdir");
+    let permissions_path = temp.path().join("permissions.json");
+    std::fs::write(&permissions_path, "[]").expect("write empty permissions");
+
+    let override_permissions = load_manifest_permissions_override(
+        permissions_path.to_str().expect("permissions path"),
+        "replace-wildcards",
+    )
+    .expect("permissions override parse");
+
+    let err = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            manifest_permissions: Some(override_permissions),
+        },
+    )
+    .expect_err("expected empty replace-wildcards override to fail");
+
+    match err {
+        CompileError::Manifest(message) => {
+            assert!(
+                message
+                    .to_ascii_lowercase()
+                    .contains("replace-wildcards"),
+                "unexpected error message: {message}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
 fn deny_full_wildcard_permissions_rejects_fully_dynamic_calls() {
     let source = r#"
     pragma solidity ^0.8.19;

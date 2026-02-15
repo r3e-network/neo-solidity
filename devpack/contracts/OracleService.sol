@@ -134,6 +134,10 @@ contract OracleService is FrameworkBase {
 
         Request storage req = _requests[requestId];
         if (req.requester == address(0)) revert OracleRequestNotFound(requestId);
+        if (req.completed) {
+            // Idempotency guard: ignore duplicate/replayed callbacks.
+            return;
+        }
 
         // Best-effort sanity check: ensure url matches the request record.
         // This avoids accidentally correlating two different requests if userData collides.

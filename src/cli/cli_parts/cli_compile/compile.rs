@@ -134,6 +134,16 @@ fn compile_metadata(
                 merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
             }
             ManifestPermissionsMode::ReplaceWildcards => {
+                let had_wildcards = inferred
+                    .iter()
+                    .any(|(contract, methods)| contract == "*" || methods.is_wildcard());
+
+                if had_wildcards && override_permissions.permissions.is_empty() {
+                    return Err(CompileError::Manifest(
+                        "manifest permissions mode 'replace-wildcards' removed inferred wildcard permissions, but the override file is empty. Provide at least one explicit permission entry (or use mode 'merge').".to_string(),
+                    ));
+                }
+
                 inferred.retain(|contract, methods| contract != "*" && !methods.is_wildcard());
                 merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
             }

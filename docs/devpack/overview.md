@@ -242,37 +242,31 @@ Storage.putLocal("internal_state", abi.encode(42));
 
 ### Runtime.sol (688 lines)
 
-Runtime services and utilities:
+Runtime services and utilities (currently supported as compiler intrinsics):
 
-| Category          | Functions                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------- |
-| Events            | `notify()`, `notifyIndexed()`, `notifyTransfer()`, `notifyApproval()`, `notifyNFTTransfer()`               |
-| Notifications     | `getNotifications()`, `getContractNotifications()`                                                         |
-| Witness           | `checkWitness()`, `requireWitness()`, `checkAnyWitness()`, `checkAllWitnesses()`, `checkMultiSigWitness()` |
-| Execution context | `getExecutionContext()`, `getCallFlags()`, `getScriptContainer()`, `loadScript()`                          |
-| Trigger           | `getTriggerType()`, `isApplicationTrigger()`                                                               |
-| Gas               | `gasLeft()`, `burnGas()`, `requireGas()`                                                                   |
-| Time/block        | Block time, platform info                                                                                  |
-| Logging           | `log()` for debug output                                                                                   |
+| Category         | Functions                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| Events           | `notify()`, `notifyIndexed()`                                                                          |
+| Witness          | `checkWitness()`, `requireWitness()`, `checkAnyWitness()`, `checkAllWitnesses()`, `checkMultiSigWitness()` |
+| Runtime context  | `gasLeft()`, `getTime()`, `getTrigger()`, `getInvocationCounter()`, `getCurrentSigners()`            |
+| Contract context | `getCallFlags()`, `getScriptContainer()`, `loadScript()`, `getExecutingScriptHash()`, `getCallingScriptHash()`, `getEntryScriptHash()` |
+| Platform         | `getNetwork()`, `getPlatform()`, `getAddressVersion()`, `getRandom()`                                 |
+| Logging          | `log()`, `burnGas()`, `initializeServices()`                                                           |
 
 ```solidity
 using Runtime for *;
 
 // Witness verification
-Runtime.requireWitness(msg.sender);
-
-// Multi-sig threshold check
-address[] memory signers = new address[](3);
-signers[0] = addr1; signers[1] = addr2; signers[2] = addr3;
-bool approved = Runtime.checkMultiSigWitness(signers, 2); // 2-of-3
+bool hasWitness = Runtime.checkWitness(msg.sender);
+require(hasWitness, "invalid witness");
 
 // Gas management
 uint256 remaining = Runtime.gasLeft();
 Runtime.burnGas(1000000); // burn 0.01 GAS
 ```
 
-::: warning Callback Limitations
-Some `Runtime.sol` methods that accept callback functions (e.g., `optimizeGasUsage`, `executeIfGasAvailable`, `tryWithFallback`) revert at runtime because NeoVM does not support first-class function callbacks. Use inline logic instead.
+::: warning Runtime Intrinsic Coverage
+`Runtime.sol` includes callback-oriented convenience helpers that are not compiler intrinsics in neo-solidity. Calls to `optimizeGasUsage`, `executeIfGasAvailable`, and `tryWithFallback` are currently rejected at compile time because NeoVM does not support first-class internal function callbacks. Use inline logic (`gasLeft` guards and `try/catch`) instead.
 :::
 
 ## Token Standards

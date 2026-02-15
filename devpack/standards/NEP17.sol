@@ -73,6 +73,7 @@ contract NEP17 is INEP17, FrameworkBase {
     bool private _transfersEnabled = true;
     address private _minter;
     uint256 private _maxSupply;
+    uint256 private _conditionalTransferNonce;
     
     // Events (NEP-17 compatible)
     event Transfer(address indexed from, address indexed to, uint256 amount);
@@ -653,18 +654,25 @@ contract NEP17 is INEP17, FrameworkBase {
         // Escrow tokens in contract until condition is met
         _transfer(msg.sender, address(this), amount, "");
         
-        // Create oracle request with callback
-        bytes memory userData = abi.encode(msg.sender, to, amount, condition);
-        bytes32 requestId = keccak256(abi.encode(msg.sender, to, amount, block.timestamp));
-        
-        // Store pending transfer
+        // Create request id and escrow record.
+        // Include a monotonic nonce to avoid collisions for repeated same-params requests.
+        uint256 nonce = _conditionalTransferNonce++;
+        bytes32 requestId = keccak256(abi.encode(msg.sender, to, amount, condition, block.timestamp, nonce));
+
+        // Store pending transfer by local request id so callbacks can be validated and replay-protected.
         Storage.put(
             abi.encode("conditional_transfer", requestId),
-            userData
+            abi.encode(msg.sender, to, amount)
         );
-        
-        // Make oracle request via syscall
-        Syscalls.oracleRequest(oracleUrl, condition, "conditionalTransferCallback", userData, 10000000);
+
+        // Pass only the local request id through oracle userData; callback must load escrowed state.
+        Syscalls.oracleRequest(
+            oracleUrl,
+            condition,
+            "conditionalTransferCallback",
+            abi.encode(requestId),
+            10000000
+        );
 
         emit ConditionalTransferCreated(requestId, msg.sender, to, amount);
     }
@@ -678,27 +686,25 @@ contract NEP17 is INEP17, FrameworkBase {
         bytes calldata result,
         bytes calldata userData
     ) external {
-        requestId; // silence unused warning in toolchains that enforce it
+        requestId; // Oracle-native request id (reserved for diagnostics)
         require(msg.sender == ORACLE_NATIVE_CONTRACT, "NEP17: unauthorized callback");
-        
-        if (code == 0) {
-            // Parse oracle result to determine if condition is met
-            bool conditionMet = abi.decode(result, (bool));
-            
-            if (conditionMet) {
-                (address from, address to, uint256 amount,) = abi.decode(userData, (address, address, uint256, string));
-                
-                // Execute transfer
-                _transfer(address(this), to, amount, "");
 
-                emit ConditionalTransferExecuted(from, to, amount);
-            } else {
-                // Return tokens to sender
-                (address from,, uint256 amount,) = abi.decode(userData, (address, address, uint256, string));
-                _transfer(address(this), from, amount, "");
+        bytes32 localRequestId = abi.decode(userData, (bytes32));
+        bytes memory pending = Storage.get(abi.encode("conditional_transfer", localRequestId));
+        require(pending.length > 0, "NEP17: conditional transfer not found");
 
-                emit ConditionalTransferFailed(from, amount);
-            }
+        (address from, address to, uint256 amount) = abi.decode(pending, (address, address, uint256));
+
+        // Consume request before state transitions to prevent callback replay.
+        Storage.remove(abi.encode("conditional_transfer", localRequestId));
+
+        if (code == 0 && abi.decode(result, (bool))) {
+            _transfer(address(this), to, amount, "");
+            emit ConditionalTransferExecuted(from, to, amount);
+        } else {
+            // Refund escrowed tokens on oracle errors or unmet conditions.
+            _transfer(address(this), from, amount, "");
+            emit ConditionalTransferFailed(from, amount);
         }
     }
     
