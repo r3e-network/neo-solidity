@@ -30,6 +30,7 @@ const REQUIRED_PACKAGE_PROBES = [
   '@aave/core-v3/package.json',
   '@safe-global/safe-contracts/package.json',
   '@chainlink/contracts/package.json',
+  '@uniswap/v2-core/package.json',
   '@uniswap/v4-core/package.json',
   '@uniswap/v4-periphery/package.json'
 ];
@@ -225,6 +226,13 @@ function classifyBlocker(message) {
     };
   }
 
+  if (lower.includes('unsupported solidity version')) {
+    return {
+      tag: 'solidity_version',
+      fix: '需要将源码迁移到 Solidity 0.8.x 范围并处理破坏性变更'
+    };
+  }
+
   if (lower.includes('function call options (`{...}`) are not supported (value)')) {
     return {
       tag: 'value_call_options',
@@ -362,26 +370,53 @@ function short(text, max = 140) {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
-function generateMarkdown(neoSolcVersion, results) {
-  const total = results.length;
-  const pass = results.filter((r) => r.status === 'pass').length;
-  const fail = results.filter((r) => r.status === 'fail').length;
-  const missing = results.filter((r) => r.status === 'missing').length;
+function cleanPathText(text) {
+  if (!text) {
+    return '';
+  }
+  return String(text)
+    .replaceAll('/private/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/')
+    .replaceAll('/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
+}
 
-  const blockers = topBlockers(results);
-  const date = new Date().toISOString();
+function sourceForReport(row) {
+  if (row.source === 'npm') {
+    return `node_modules/${row.path}`;
+  }
+
+  if (row.sourcePath && row.sourcePath.startsWith(ROOT)) {
+    return path.relative(ROOT, row.sourcePath).split(path.sep).join('/');
+  }
+
+  if (row.path) {
+    return row.path;
+  }
+
+  return row.sourcePath || '-';
+}
+
+function generateMarkdown(neoSolcVersion, results, generatedAt = new Date().toISOString()) {
+  const upstreamResults = results.filter((r) => r.source === 'npm');
+
+  const upstreamPass = upstreamResults.filter((r) => r.status === 'pass').length;
+  const upstreamFail = upstreamResults.filter((r) => r.status === 'fail').length;
+  const upstreamMissing = upstreamResults.filter((r) => r.status === 'missing').length;
+
+  const blockers = topBlockers(upstreamResults);
 
   const lines = [];
   lines.push('# Famous Solidity Contracts on NeoVM: Compatibility Audit');
   lines.push('');
-  lines.push(`- Generated at (UTC): \`${date}\``);
+  lines.push(`- Generated at (UTC): \`${generatedAt}\``);
   lines.push(`- Compiler: \`${neoSolcVersion.trim()}\``);
-  lines.push(`- Target contracts: \`${total}\``);
-  lines.push(`- Compile success: \`${pass}\``);
-  lines.push(`- Compile failed: \`${fail}\``);
-  if (missing > 0) {
-    lines.push(`- Missing source entries: \`${missing}\``);
+  lines.push(`- Contracts shown in this report (upstream npm): \`${upstreamResults.length}\``);
+  lines.push(`- Compile success: \`${upstreamPass}\``);
+  lines.push(`- Compile failed: \`${upstreamFail}\``);
+  if (upstreamMissing > 0) {
+    lines.push(`- Missing source entries: \`${upstreamMissing}\``);
   }
+  lines.push('');
+  lines.push('Primary navigation for original upstream contracts: [Original Famous Contracts (Per Contract)](/solidity/original-contracts/).');
   lines.push('');
   lines.push('## What "Need XXX to Implement" Means');
   lines.push('');
@@ -390,7 +425,7 @@ function generateMarkdown(neoSolcVersion, results) {
   lines.push('  1) compiler capability expansion, and/or');
   lines.push('  2) Solidity source refactor to Neo-native patterns (`Runtime`, `Syscalls`, `NativeCalls`, `onNEP17Payment`, etc.).');
   lines.push('');
-  lines.push('## Top Blockers');
+  lines.push('## Top Blockers (Upstream Contracts)');
   lines.push('');
 
   if (blockers.length === 0) {
@@ -402,31 +437,25 @@ function generateMarkdown(neoSolcVersion, results) {
   }
 
   lines.push('');
-  lines.push('## Per-Contract Results');
+  lines.push('## Per-Contract Results (Upstream Famous Contracts)');
   lines.push('');
   lines.push('| # | Project | Contract | Result | Primary Unsupported Point | Need on Neo | Source |');
   lines.push('|---:|---|---|---|---|---|---|');
 
-  results.forEach((row, idx) => {
+  upstreamResults.forEach((row, idx) => {
     const resultMark = row.status === 'pass' ? '✅ pass' : row.status === 'missing' ? '⚪ missing' : '❌ fail';
-    const sourceRel =
-      row.source === 'npm'
-        ? `node_modules/${row.path}`
-        : row.sourcePath.startsWith(ROOT)
-          ? path.relative(ROOT, row.sourcePath)
-          : row.sourcePath;
-
     lines.push(
-      `| ${idx + 1} | ${row.project} | ${row.contract} | ${resultMark} | ${short(row.mainIssue)} | ${short(
+      `| ${idx + 1} | ${row.project} | ${row.contract} | ${resultMark} | ${short(cleanPathText(row.mainIssue))} | ${short(
         row.neoRequirement,
         160
-      )} | \`${sourceRel}\` |`
+      )} | \`${sourceForReport(row)}\` |`
     );
   });
 
   lines.push('');
   lines.push('## Notes');
   lines.push('');
+  lines.push('- This report prioritizes **upstream famous contracts** in the main results table.');
   lines.push('- A **pass** means the contract compiled through `neo-solc` in this environment.');
   lines.push('- A **fail** does not mean the contract is impossible on Neo; it means current source + current compiler need refactor or feature work.');
   lines.push('- Use this as a migration backlog: prioritize high-value blockers (`delegatecall`, import cycles, ABI overload collisions, named mapping syntax).');
@@ -435,6 +464,24 @@ function generateMarkdown(neoSolcVersion, results) {
 }
 
 function main() {
+  if (process.argv.includes('--render-only')) {
+    if (!fs.existsSync(REPORT_JSON_PATH)) {
+      throw new Error(`render-only requested but JSON report not found: ${REPORT_JSON_PATH}`);
+    }
+
+    const reportJson = JSON.parse(fs.readFileSync(REPORT_JSON_PATH, 'utf8'));
+    fs.writeFileSync(
+      REPORT_MD_PATH,
+      generateMarkdown(
+        reportJson.compiler || 'neo-solc (version unavailable)',
+        Array.isArray(reportJson.results) ? reportJson.results : [],
+        reportJson.generatedAt || new Date().toISOString()
+      )
+    );
+    console.log(`[audit] Rendered Markdown from existing JSON: ${path.relative(ROOT, REPORT_MD_PATH)}`);
+    return;
+  }
+
   fs.mkdirSync(BUILD_DIR, { recursive: true });
 
   const neoSolc = ensureNeoSolc();
@@ -470,7 +517,7 @@ function main() {
   };
 
   fs.writeFileSync(REPORT_JSON_PATH, JSON.stringify(reportJson, null, 2));
-  fs.writeFileSync(REPORT_MD_PATH, generateMarkdown(neoSolcVersion, results));
+  fs.writeFileSync(REPORT_MD_PATH, generateMarkdown(neoSolcVersion, results, reportJson.generatedAt));
 
   console.log(`[audit] Wrote JSON: ${path.relative(ROOT, REPORT_JSON_PATH)}`);
   console.log(`[audit] Wrote Markdown: ${path.relative(ROOT, REPORT_MD_PATH)}`);

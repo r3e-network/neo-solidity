@@ -146,6 +146,7 @@ make production-gate
   <a href="/workflows/compile">Compile Contracts</a>
   <a href="/workflows/deploy">Deploy Contracts</a>
   <a href="/workflows/test">Test Contracts</a>
+  <a href="/solidity/original-contracts/">Original Famous Contracts</a>
   <a href="/solidity/feature-support">Solidity Feature Support</a>
   <a href="/mapping/evm-to-neovm">EVM to NeoVM Mapping</a>
   <a href="/manifests/manifest-spec">Manifest System</a>

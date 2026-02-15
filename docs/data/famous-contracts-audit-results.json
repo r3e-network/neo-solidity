@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-02-15T03:48:20.599Z",
+  "generatedAt": "2026-02-15T07:10:37.202Z",
   "compiler": "neo-solc 0.12.0",
   "root": "/Users/jinghuiliao/git/neo-solidity",
   "auditDir": "/tmp/neo-famous-contracts-audit",
   "buildDir": "/tmp/neo-famous-contracts-build",
   "totals": {
-    "total": 95,
+    "total": 98,
     "pass": 12,
-    "fail": 83,
+    "fail": 86,
     "missing": 0
   },
   "blockerStats": {
@@ -18,6 +18,7 @@
     "name_resolution": 6,
     "value_call_options": 4,
     "inheritance_linearization": 3,
+    "solidity_version": 3,
     "other": 2,
     "ctor_modifier_mismatch": 1,
     "unsupported_param_type": 1,
@@ -32,7 +33,13 @@
       "sourcePath": "/Users/jinghuiliao/git/neo-solidity/examples/famous/WGAS.sol",
       "status": "pass",
       "exitCode": 0,
-      "diagnostics": [],
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "code": "RAW",
+          "message": "[warning][NEP-17] NEP-17 detected but contract is missing the required `Transfer` event (3 parameters expected)."
+        }
+      ],
       "mainIssue": "",
       "blockerTag": "none",
       "neoRequirement": "可直接编译为 NeoVM（如需生产使用，仍需做 manifest 权限最小化和业务安全审计）"
@@ -7896,6 +7903,63 @@
       "mainIssue": "function 'execute': unknown identifier 'Enum' help: check spelling or ensure the variable is declared in the same contract or an imported library",
       "blockerTag": "name_resolution",
       "neoRequirement": "需要补齐对应语义 lowering（命名解析/继承展平），或对源码做 Neo 兼容重写"
+    },
+    {
+      "source": "npm",
+      "project": "Uniswap V2 Core",
+      "contract": "UniswapV2Factory",
+      "path": "@uniswap/v2-core/contracts/UniswapV2Factory.sol",
+      "sourcePath": "/tmp/neo-famous-contracts-audit/node_modules/@uniswap/v2-core/contracts/UniswapV2Factory.sol",
+      "status": "fail",
+      "exitCode": 1,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "GENERIC_ERROR",
+          "message": "Unsupported Solidity version: =0.5.16"
+        }
+      ],
+      "mainIssue": "Unsupported Solidity version: =0.5.16",
+      "blockerTag": "solidity_version",
+      "neoRequirement": "需要将源码迁移到 Solidity 0.8.x 范围并处理破坏性变更"
+    },
+    {
+      "source": "npm",
+      "project": "Uniswap V2 Core",
+      "contract": "UniswapV2Pair",
+      "path": "@uniswap/v2-core/contracts/UniswapV2Pair.sol",
+      "sourcePath": "/tmp/neo-famous-contracts-audit/node_modules/@uniswap/v2-core/contracts/UniswapV2Pair.sol",
+      "status": "fail",
+      "exitCode": 1,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "GENERIC_ERROR",
+          "message": "Unsupported Solidity version: =0.5.16"
+        }
+      ],
+      "mainIssue": "Unsupported Solidity version: =0.5.16",
+      "blockerTag": "solidity_version",
+      "neoRequirement": "需要将源码迁移到 Solidity 0.8.x 范围并处理破坏性变更"
+    },
+    {
+      "source": "npm",
+      "project": "Uniswap V2 Core",
+      "contract": "UniswapV2ERC20",
+      "path": "@uniswap/v2-core/contracts/UniswapV2ERC20.sol",
+      "sourcePath": "/tmp/neo-famous-contracts-audit/node_modules/@uniswap/v2-core/contracts/UniswapV2ERC20.sol",
+      "status": "fail",
+      "exitCode": 1,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "GENERIC_ERROR",
+          "message": "Unsupported Solidity version: =0.5.16"
+        }
+      ],
+      "mainIssue": "Unsupported Solidity version: =0.5.16",
+      "blockerTag": "solidity_version",
+      "neoRequirement": "需要将源码迁移到 Solidity 0.8.x 范围并处理破坏性变更"
     },
     {
       "source": "npm",

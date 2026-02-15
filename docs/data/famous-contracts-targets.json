@@ -71,6 +71,10 @@
   {"source":"npm","project":"Safe","contract":"MultiSendCallOnly","path":"@safe-global/safe-contracts/contracts/libraries/MultiSendCallOnly.sol"},
   {"source":"npm","project":"Safe","contract":"SignMessageLib","path":"@safe-global/safe-contracts/contracts/libraries/SignMessageLib.sol"},
 
+  {"source":"npm","project":"Uniswap V2 Core","contract":"UniswapV2Factory","path":"@uniswap/v2-core/contracts/UniswapV2Factory.sol"},
+  {"source":"npm","project":"Uniswap V2 Core","contract":"UniswapV2Pair","path":"@uniswap/v2-core/contracts/UniswapV2Pair.sol"},
+  {"source":"npm","project":"Uniswap V2 Core","contract":"UniswapV2ERC20","path":"@uniswap/v2-core/contracts/UniswapV2ERC20.sol"},
+
   {"source":"npm","project":"Uniswap V4 Core","contract":"PoolManager","path":"@uniswap/v4-core/src/PoolManager.sol"},
   {"source":"npm","project":"Uniswap V4 Core","contract":"ProtocolFees","path":"@uniswap/v4-core/src/ProtocolFees.sol"},
   {"source":"npm","project":"Uniswap V4 Core","contract":"ERC6909","path":"@uniswap/v4-core/src/ERC6909.sol"},

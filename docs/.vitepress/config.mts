@@ -88,6 +88,7 @@ export default defineConfig({
           items: [
             { text: 'Feature Support', link: '/solidity/feature-support' },
             { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' },
+            { text: 'Original Famous Contracts (Per Contract)', link: '/solidity/original-contracts/' },
             { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' }
           ]
         }
