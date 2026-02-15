@@ -2,12 +2,13 @@
   "name": "@neo-solidity/types",
   "version": "0.1.0",
   "description": "Core types and interfaces for Neo-Solidity tooling",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "require": "./dist/index.js",
       "import": "./dist/index.js",
+      "default": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },

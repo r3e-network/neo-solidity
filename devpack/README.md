@@ -88,6 +88,19 @@ contract MyToken is NEP17 {
 }
 ```
 
+## ✅ Validation Workflow
+
+```bash
+npm run build
+npm run test
+npm run test:integration
+```
+
+- `build`: compiles devpack contracts with `hardhat neo-compile`.
+- `test`: compile-smoke pass with forced Neo recompilation.
+- `test:integration`: recompiles, then runs artifact-level integration checks (build-info, manifest, ABI, permissions).
+- Integration tests intentionally validate Neo artifacts and compiler outputs, not EVM `ethers` deployment flows.
+
 ## 🏗️ Architecture
 
 ### Core Components

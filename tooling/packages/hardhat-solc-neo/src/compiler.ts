@@ -152,6 +152,11 @@ export class NeoSolidityCompiler {
       path.join(process.cwd(), `bin/neo-solc${ext}`),
       path.join(process.cwd(), `target/release/neo-solc${ext}`),
       path.join(process.cwd(), `target/debug/neo-solc${ext}`),
+      // Monorepo/devpack usage: hardhat executed from `devpack/`.
+      path.resolve(process.cwd(), `../target/release/neo-solc${ext}`),
+      path.resolve(process.cwd(), `../target/debug/neo-solc${ext}`),
+      path.resolve(process.cwd(), `../../target/release/neo-solc${ext}`),
+      path.resolve(process.cwd(), `../../target/debug/neo-solc${ext}`),
     ].filter(Boolean) as string[];
 
     for (const candidate of candidates) {

@@ -2,12 +2,13 @@
   "name": "@neo-solidity/hardhat-neo-deployer",
   "version": "0.1.0",
   "description": "Hardhat plugin for deploying contracts to Neo blockchain",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "require": "./dist/index.js",
       "import": "./dist/index.js",
+      "default": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },

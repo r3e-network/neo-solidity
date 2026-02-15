@@ -27,7 +27,7 @@ export class ArtifactManager implements IArtifactManager {
       baseDir,
       buildDir: path.join(baseDir, "contracts"),
       deploymentDir: path.join(baseDir, "deployments"),
-      buildInfoDir: path.join(baseDir, "build-info"),
+      buildInfoDir: path.join(baseDir, "neo-build-info"),
       cacheDir: path.join(baseDir, ".cache"),
       compression: {
         enabled: false,

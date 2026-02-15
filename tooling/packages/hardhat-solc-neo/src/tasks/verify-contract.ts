@@ -7,11 +7,11 @@ import { u, wallet } from "@cityofzion/neon-js";
 task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact")
   .addParam("contract", "Contract name")
   .addParam("address", "Contract address")
-  .addOptionalParam("network", "Network name")
+  .addOptionalParam("neoNetwork", "Network name")
   .addOptionalParam("constructorArgs", "Constructor arguments (JSON)")
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-    const { contract, address, network, constructorArgs } = taskArgs;
-    const networkName = network || hre.network.name;
+    const { contract, address, neoNetwork, constructorArgs } = taskArgs;
+    const networkName = neoNetwork || hre.network.name;
     
     console.log(chalk.blue(`🔍 Verifying contract ${contract} at ${address} on ${networkName}...`));
 
@@ -230,9 +230,9 @@ function compareManifests(localManifest: any, chainManifest: any): boolean {
 }
 
 task("neo-verify-all", "Verify all deployed contracts match local artifacts")
-  .addOptionalParam("network", "Network name")
+  .addOptionalParam("neoNetwork", "Network name")
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-    const networkName = taskArgs.network || hre.network.name;
+    const networkName = taskArgs.neoNetwork || hre.network.name;
     
     console.log(chalk.blue(`🔍 Verifying all contracts on ${networkName}...`));
 

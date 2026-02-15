@@ -74,17 +74,17 @@ task("neo-deploy", "Deploy contracts to Neo blockchain")
   });
 
 task("neo-deploy-batch", "Deploy multiple contracts in batch")
-  .addParam("config", "Deployment configuration file path")
+  .addParam("deployConfig", "Deployment configuration file path")
   .addFlag("verify", "Verify all contracts after deployment")
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-    const { config, verify } = taskArgs;
+    const { deployConfig, verify } = taskArgs;
     
-    console.log(chalk.blue(`📦 Batch deploying from ${config}...`));
+    console.log(chalk.blue(`📦 Batch deploying from ${deployConfig}...`));
 
     try {
       // Read deployment configuration
       const fs = await import('fs/promises');
-      const configContent = await fs.readFile(config, 'utf-8');
+      const configContent = await fs.readFile(deployConfig, 'utf-8');
       const deploymentConfig = JSON.parse(configContent);
 
       if (!Array.isArray(deploymentConfig.contracts)) {

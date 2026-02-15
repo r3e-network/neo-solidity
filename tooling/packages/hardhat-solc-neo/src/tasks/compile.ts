@@ -10,6 +10,7 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
   .addOptionalParam("quiet", "Suppress output", false, types.boolean)
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
     const { force, quiet } = taskArgs;
+    const projectRoot = hre.config.paths.root || process.cwd();
     
     if (!quiet) {
       console.log(chalk.blue("🔧 Compiling contracts with Neo-Solidity..."));
@@ -39,7 +40,9 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
       const sources: { [fileName: string]: { content: string } } = {};
       for (const filePath of sourceFiles) {
         const content = await fs.readFile(filePath, "utf-8");
-        const relativePath = path.relative(hre.config.paths.sources, filePath);
+        // Use project-root-relative source names so cross-directory imports
+        // (e.g. contracts -> ../libraries) resolve consistently.
+        const relativePath = path.relative(projectRoot, filePath).split(path.sep).join("/");
         sources[relativePath] = { content };
       }
 
@@ -53,7 +56,19 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
       const compileDurationMs = Date.now() - compileStartedAt;
 
       const compilerSettings = {
-        optimizer: hre.config.neoSolc.solidity.settings.optimizer
+        optimizer: hre.config.neoSolc.solidity.settings.optimizer,
+        outputSelection: hre.config.neoSolc.solidity.settings.outputSelection || {
+          "*": {
+            "*": [
+              "abi",
+              "evm.bytecode",
+              "evm.deployedBytecode",
+              "evm.methodIdentifiers",
+              "metadata",
+              "storageLayout"
+            ]
+          }
+        }
       };
       const compilerNeoSettings = hre.config.neoSolc.solidity.settings.neo;
 
@@ -78,7 +93,7 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
       };
 
       // Save build info for traceability/debugging.
-      const buildInfoDir = path.join(hre.config.paths.artifacts, "build-info");
+      const buildInfoDir = path.join(hre.config.paths.artifacts, "neo-build-info");
       await fs.mkdir(buildInfoDir, { recursive: true });
       await fs.writeFile(
         path.join(buildInfoDir, `${buildInfo.id}.json`),
@@ -143,6 +158,7 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
  */
 async function getSourceFiles(sourcesPath: string): Promise<string[]> {
   const files: string[] = [];
+  const discovered = new Set<string>();
   
   async function scan(dir: string) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -151,9 +167,13 @@ async function getSourceFiles(sourcesPath: string): Promise<string[]> {
       const fullPath = path.join(dir, entry.name);
       
       if (entry.isDirectory()) {
+        if (entry.name === "node_modules" || entry.name === "artifacts" || entry.name === "cache") {
+          continue;
+        }
         await scan(fullPath);
       } else if (entry.name.endsWith(".sol")) {
         files.push(fullPath);
+        discovered.add(path.resolve(fullPath));
       }
     }
   }
@@ -165,8 +185,48 @@ async function getSourceFiles(sourcesPath: string): Promise<string[]> {
       throw error;
     }
   }
-  
-  return files;
+
+  // Expand the source set with relative imports that point outside `sourcesPath`
+  // (e.g., contracts importing ../libraries or ../standards in monorepos).
+  const pending = [...files];
+  const importRegex = /^\s*import\s+(?:[^'"]+from\s+)?["']([^"']+)["'];/gm;
+
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    const content = await fs.readFile(current, "utf-8");
+    const baseDir = path.dirname(current);
+
+    importRegex.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = importRegex.exec(content)) !== null) {
+      const specifier = match[1];
+      if (!specifier.startsWith(".")) {
+        continue;
+      }
+
+      let resolved = path.resolve(baseDir, specifier);
+      if (!resolved.endsWith(".sol")) {
+        resolved += ".sol";
+      }
+
+      try {
+        await fs.access(resolved);
+      } catch {
+        continue;
+      }
+
+      const normalized = path.resolve(resolved);
+      if (discovered.has(normalized)) {
+        continue;
+      }
+
+      discovered.add(normalized);
+      files.push(normalized);
+      pending.push(normalized);
+    }
+  }
+
+  return files.sort((a, b) => a.localeCompare(b));
 }
 
 /**
