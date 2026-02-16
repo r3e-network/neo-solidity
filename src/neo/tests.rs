@@ -1,4 +1,8 @@
 use super::*;
+use super::constants::MAX_SOURCE_LENGTH;
+use super::encoding::calculate_checksum;
+use ripemd::Ripemd160;
+use sha2::{Digest, Sha256};
 
 fn read_varint(data: &[u8], offset: &mut usize) -> u64 {
     match data[*offset] {

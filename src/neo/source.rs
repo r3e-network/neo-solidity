@@ -1,3 +1,6 @@
+use super::constants::MAX_SOURCE_LENGTH;
+use std::borrow::Cow;
+
 fn clamp_utf8<'a>(value: &'a str, max_len: usize) -> Cow<'a, str> {
     if value.len() <= max_len {
         return Cow::Borrowed(value);

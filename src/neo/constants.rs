@@ -2,7 +2,7 @@
 // These constants define the limits and constraints for the Neo Executable Format.
 
 /// Maximum byte length for the NEF `source` field (URL or identifier).
-const MAX_SOURCE_LENGTH: usize = 256;
+pub(super) const MAX_SOURCE_LENGTH: usize = 256;
 
 /// Maximum number of method tokens allowed in a single NEF file.
 /// Method tokens enable optimized cross-contract calls.

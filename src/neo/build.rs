@@ -1,3 +1,8 @@
+use super::constants::{MAX_CALL_FLAGS, MAX_METHOD_TOKENS, MAX_TOKEN_METHOD_LENGTH};
+use super::encoding::{calculate_checksum, write_fixed_string, write_varint, write_varstring, write_varbytes};
+use super::method_token::MethodToken;
+use super::source::clamp_nef_source;
+
 /// Build a NEF (Neo Executable Format) file from raw NeoVM bytecode.
 ///
 /// The implementation follows the Neo N3 specification:

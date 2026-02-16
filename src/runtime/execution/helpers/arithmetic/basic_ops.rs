@@ -89,7 +89,14 @@ macro_rules! divmod_op {
                         message: $error_msg.to_string(),
                     });
                 }
-                Ok(StackItem::UnsignedInteger(x.$checked_fn(y).unwrap()))
+                x.$checked_fn(y)
+                    .map(StackItem::UnsignedInteger)
+                    .ok_or_else(|| RuntimeError::ExecutionError {
+                        message: format!(
+                            "Unsigned integer overflow in {}: {} op {}",
+                            $op_name, x, y
+                        ),
+                    })
             } else {
                 let x = self.coerce_item_to_i64(&a).ok_or_else(|| RuntimeError::ExecutionError {
                     message: concat!("Invalid operands for ", $op_name).to_string(),

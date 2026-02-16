@@ -96,7 +96,9 @@ impl ExecutionContext {
                     self.random_seed = Some(seed);
                 }
                 // Hash seed || counter for each call
-                let seed = self.random_seed.unwrap();
+                let seed = self.random_seed.ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Random seed not initialized".to_string(),
+                })?;
                 let mut input = seed.to_vec();
                 input.extend_from_slice(&self.random_counter.to_le_bytes());
                 self.random_counter += 1;

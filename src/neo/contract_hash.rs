@@ -1,4 +1,5 @@
 use ripemd::Ripemd160;
+use sha2::{Digest, Sha256};
 
 /// Compute the Neo N3 contract hash for a deployment transaction.
 ///
@@ -104,4 +105,3 @@ fn emit_push_u32(script: &mut Vec<u8>, value: u32) {
     script.push(0x03); // PUSHINT64
     script.extend_from_slice(&(value as i64).to_le_bytes());
 }
-

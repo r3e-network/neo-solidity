@@ -1,3 +1,6 @@
+use super::constants::MAX_TOKEN_METHOD_LENGTH;
+use super::encoding::write_varbytes;
+
 /// Method token for cross-contract calls in NEF format.
 ///
 /// Method tokens are used to optimize calls to other contracts by caching
@@ -39,7 +42,7 @@ impl MethodToken {
     }
 
     /// Serialize the method token to bytes
-    fn serialize(&self, buffer: &mut Vec<u8>) {
+    pub(super) fn serialize(&self, buffer: &mut Vec<u8>) {
         // Contract hash (20 bytes)
         buffer.extend_from_slice(&self.hash);
 
