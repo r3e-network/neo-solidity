@@ -1,9 +1,6 @@
-//! Common Subexpression Elimination (CSE)
-//!
-//! Identifies and eliminates redundant computations.
-
-use crate::parser::{AstNode, AstNodeType};
-use std::collections::HashMap;
+// Common Subexpression Elimination (CSE)
+//
+// Identifies and eliminates redundant computations.
 
 /// Expression hash for CSE
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

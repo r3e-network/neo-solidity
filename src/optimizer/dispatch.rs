@@ -44,6 +44,11 @@ impl Optimizer {
             self.stats.passes_run += 1;
         }
 
+        if self.enabled_passes.common_subexpression {
+            ast = self.common_subexpression_elimination(ast)?;
+            self.stats.passes_run += 1;
+        }
+
         // Track final node count
         self.stats.nodes_after = self.count_nodes(&ast);
 

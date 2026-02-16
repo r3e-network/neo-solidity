@@ -25,3 +25,5 @@ include!("optimizer/dispatch.rs");
 include!("optimizer/constant_folding.rs");
 include!("optimizer/dead_code.rs");
 include!("optimizer/inlining.rs");
+include!("optimizer/cse.rs");
+include!("optimizer/cse_pass.rs");
