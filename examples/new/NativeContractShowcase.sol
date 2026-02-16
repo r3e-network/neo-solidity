@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "contracts/NativeCalls.sol";
-import "contracts/Syscalls.sol";
+import "../../devpack/contracts/NativeCalls.sol";
+import "../../devpack/contracts/Syscalls.sol";
 
 /**
  * @title NativeContractShowcase

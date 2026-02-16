@@ -37,7 +37,7 @@ contract WGAS {
 
     event Deposit(address indexed from, uint256 amount);
     event Withdrawal(address indexed to, uint256 amount);
-    event transfer(address indexed from, address indexed to, uint256 amount);
+    event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 amount);
 
     constructor() {
@@ -61,7 +61,7 @@ contract WGAS {
         totalSupply += amount;
 
         emit Deposit(from, amount);
-        emit transfer(address(0), from, amount);
+        emit Transfer(address(0), from, amount);
     }
 
     /// @notice Burn WGAS and withdraw GAS back to caller.
@@ -79,7 +79,7 @@ contract WGAS {
         require(ok, "WGAS: GAS transfer failed");
 
         emit Withdrawal(msg.sender, amount);
-        emit transfer(msg.sender, address(0), amount);
+        emit Transfer(msg.sender, address(0), amount);
     }
 
     /// @notice NEP-17 standard transfer (4-parameter signature).
@@ -93,7 +93,7 @@ contract WGAS {
         }
 
         if (amount == 0 || from == to) {
-            emit transfer(from, to, amount);
+            emit Transfer(from, to, amount);
             return true;
         }
         if (from != holder || holderBalance < amount) {
@@ -104,7 +104,7 @@ contract WGAS {
         }
 
         holder = to;
-        emit transfer(from, to, amount);
+        emit Transfer(from, to, amount);
         return true;
     }
 
@@ -141,7 +141,7 @@ contract WGAS {
         require(holderBalance >= amount, "WGAS: insufficient balance");
 
         if (amount == 0 || from == to) {
-            emit transfer(from, to, amount);
+            emit Transfer(from, to, amount);
             return true;
         }
         require(amount == holderBalance, "WGAS: partial transfer unsupported");
@@ -149,7 +149,7 @@ contract WGAS {
         allowanceAmount = allowed - amount;
         holder = to;
 
-        emit transfer(from, to, amount);
+        emit Transfer(from, to, amount);
         return true;
     }
 }

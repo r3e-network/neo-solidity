@@ -5,6 +5,9 @@ pragma solidity ^0.8.19;
  * @title ModifierShowcase
  * @notice Demonstrates function modifiers, modifier chaining,
  *         modifiers with arguments, and the _ placeholder.
+ *
+ * Neo N3 adaptation: replaces EVM `payable` / `msg.value` patterns with
+ * explicit amount parameters, since Neo has no "attached value" concept.
  */
 contract ModifierShowcase {
     address public owner;
@@ -27,8 +30,8 @@ contract ModifierShowcase {
         _;
     }
 
-    modifier costs(uint256 minValue) {
-        require(msg.value >= minValue, "insufficient value");
+    modifier costs(uint256 amount, uint256 minValue) {
+        require(amount >= minValue, "insufficient amount");
         _;
     }
 
@@ -50,9 +53,9 @@ contract ModifierShowcase {
         value = _v;
     }
 
-    /// @notice Modifier with argument
-    function deposit() public payable costs(1) whenNotPaused counted {
-        value += msg.value;
+    /// @notice Modifier with argument — Neo N3 uses explicit amount parameter
+    function deposit(uint256 amount) public costs(amount, 1) whenNotPaused counted {
+        value += amount;
     }
 
     function getCallCount() public view returns (uint256) {

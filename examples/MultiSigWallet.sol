@@ -178,29 +178,17 @@ contract MultiSigWallet {
     /**
      * @dev Neo N3 NEP-17 token deposit hook.
      *
-     * Native GAS/NEO transfers call `onNEP17Payment`. We accept GAS deposits and emit a
-     * Deposit event.
-     *
-     * NOTE: `msg.sender` / `msg.value` / `msg.data` are mapped to (from, amount, data) by the
-     * neo-solidity compiler for this entrypoint.
+     * When a user transfers GAS to this contract via `GAS.transfer(from, this, amount, data)`,
+     * the GAS native contract invokes this callback. We accept GAS deposits and emit a
+     * Deposit event using the callback parameters directly (not msg.value, which is
+     * meaningless outside onNEP17Payment on Neo N3).
      */
-    function onNEP17Payment(address /*from*/, uint256 /*amount*/, bytes memory /*data*/) external {
+    function onNEP17Payment(address from, uint256 amount, bytes memory /*data*/) external {
         address token = Syscalls.getCallingScriptHash();
         require(token == NativeCalls.GAS_CONTRACT, "MultiSigWallet: only GAS accepted");
 
-        if (msg.value > 0) {
-            emit Deposit(msg.sender, msg.value);
-        }
-    }
-
-    /**
-     * @dev EVM-style ether receive hook (kept for Solidity source compatibility).
-     *
-     * Neo N3 has no native attached value; use NEP-17 transfers + `onNEP17Payment` instead.
-     */
-    receive() external payable {
-        if (msg.value > 0) {
-            emit Deposit(msg.sender, msg.value);
+        if (amount > 0) {
+            emit Deposit(from, amount);
         }
     }
     
