@@ -96,7 +96,9 @@ fn emit_load_mapping(
     );
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Get");
-    if let Some(value_type) = resolve_loaded_mapping_value_type(module, state_index, key_types.len()) {
+    if let Some(value_type) =
+        resolve_loaded_mapping_value_type(module, state_index, key_types.len())
+    {
         emit_coerce_storage_value(bytecode, value_type);
     }
 }

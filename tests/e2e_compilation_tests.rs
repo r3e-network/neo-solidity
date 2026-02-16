@@ -990,11 +990,8 @@ fn test_evm_compat_ether_units_error() {
 }
 
 #[test]
-fn test_evm_compat_msg_sig_error() {
-    assert_compile_error_contains(
-        "new/EvmCompatMsgSig.sol",
-        "msg.sig is not available on Neo N3",
-    );
+fn test_evm_compat_msg_sig_compiles() {
+    assert_compiles("new/EvmCompatMsgSig.sol");
 }
 
 #[test]
@@ -1082,11 +1079,8 @@ fn test_library_showcase_manifest_has_compute_method() {
 }
 
 #[test]
-fn test_library_external_function_error() {
-    assert_compile_error_contains(
-        "new/LibraryExternalError.sol",
-        "external library functions are not supported on NeoVM",
-    );
+fn test_library_external_function_compiles() {
+    assert_compiles("new/LibraryExternalError.sol");
 }
 
 #[test]

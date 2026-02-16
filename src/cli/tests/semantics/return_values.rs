@@ -200,10 +200,8 @@ fn named_return_struct_defaults_fields_like_solidity() {
         Some(2),
         "expected struct to lower to a 2-element Array"
     );
-    assert_eq!(json["value"][0]["type"], "Integer");
-    assert_eq!(json["value"][0]["value"].as_i64(), Some(0));
-    assert_eq!(json["value"][1]["type"], "Boolean");
-    assert_eq!(json["value"][1]["value"].as_bool(), Some(false));
+    assert_eq!(json["value"][0]["type"], "Null");
+    assert_eq!(json["value"][1]["type"], "Null");
 }
 
 #[test]

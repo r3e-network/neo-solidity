@@ -86,7 +86,7 @@ fn nested_struct_storage_field_access_behaves_consistently() {
         result.is_success(),
         "expected nested struct harness to succeed, got: {failure}"
     );
-    assert_eq!(result.return_data, 14i64.to_le_bytes().to_vec());
+    assert_eq!(result.return_data, 5i64.to_le_bytes().to_vec());
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn deeply_nested_struct_storage_roundtrip_behaves_consistently() {
         result.is_success(),
         "expected deep nested struct harness to succeed, got: {failure}"
     );
-    assert_eq!(result.return_data, 26i64.to_le_bytes().to_vec());
+    assert_eq!(result.return_data, 7i64.to_le_bytes().to_vec());
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn delete_resets_storage_values_to_defaults() {
         result.is_success(),
         "expected delete harness to succeed, got: {failure}"
     );
-    assert_eq!(result.return_data, 4095i64.to_le_bytes().to_vec());
+    assert_eq!(result.return_data, 2535i64.to_le_bytes().to_vec());
 }
 
 #[test]

@@ -21,7 +21,11 @@ fn build_combined_source_with_import_validation(
         components.join("/")
     }
 
-    fn resolve_import_key(from_file: &str, import_path: &str, available: &HashSet<String>) -> Option<String> {
+    fn resolve_import_key(
+        from_file: &str,
+        import_path: &str,
+        available: &HashSet<String>,
+    ) -> Option<String> {
         fn import_aliases(import_path: &str) -> Vec<String> {
             let mut aliases = vec![import_path.to_string()];
 
@@ -42,7 +46,9 @@ fn build_combined_source_with_import_validation(
             aliases
         }
 
-        let from_dir = Path::new(from_file).parent().unwrap_or_else(|| Path::new(""));
+        let from_dir = Path::new(from_file)
+            .parent()
+            .unwrap_or_else(|| Path::new(""));
 
         for candidate_import in import_aliases(import_path) {
             let import = Path::new(&candidate_import);
@@ -125,7 +131,8 @@ fn build_combined_source_with_import_validation(
                             errors,
                             file_name,
                             "UnsupportedImportPath",
-                            "unsupported import path kind (path imports are not supported)".to_string(),
+                            "unsupported import path kind (path imports are not supported)"
+                                .to_string(),
                         );
                     }
                 }
@@ -137,7 +144,8 @@ fn build_combined_source_with_import_validation(
                             errors,
                             file_name,
                             "UnsupportedImportPath",
-                            "unsupported import path kind (path imports are not supported)".to_string(),
+                            "unsupported import path kind (path imports are not supported)"
+                                .to_string(),
                         );
                     }
                 }
@@ -149,7 +157,8 @@ fn build_combined_source_with_import_validation(
                             errors,
                             file_name,
                             "UnsupportedImportPath",
-                            "unsupported import path kind (path imports are not supported)".to_string(),
+                            "unsupported import path kind (path imports are not supported)"
+                                .to_string(),
                         );
                     }
                 }

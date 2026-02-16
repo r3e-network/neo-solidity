@@ -179,7 +179,9 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                     match (base.name.as_str(), member.name.as_str()) {
                         ("Syscalls", "scriptHashToAddress") => return Some(ValueType::Address),
                         ("Syscalls", "addressToScriptHash") => {
-                            return Some(ValueType::ByteArray { fixed_len: Some(20) })
+                            return Some(ValueType::ByteArray {
+                                fixed_len: Some(20),
+                            })
                         }
                         ("Syscalls", "isValidAddress") => return Some(ValueType::Boolean),
                         _ => {}
@@ -367,9 +369,7 @@ fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
             bits: 256,
         }),
         // Mapping type: extract key/value from inner type expressions when possible.
-        PtType::Mapping {
-            key, value, ..
-        } => {
+        PtType::Mapping { key, value, .. } => {
             let key_ty = if let Expression::Type(_, inner) = key.as_ref() {
                 value_type_from_ptype(inner)?
             } else {

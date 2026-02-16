@@ -12,7 +12,7 @@
 
 **Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
 
-> **Status:** 🟢 Production-Ready · 95% Complete · 620+ Tests
+> **Status:** 🟢 Production-Ready · 95% Complete · 666 Tests
 
 ## 🎯 At a Glance
 

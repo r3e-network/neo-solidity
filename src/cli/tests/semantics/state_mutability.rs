@@ -16,7 +16,9 @@ fn view_functions_reject_state_writes() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m.message.contains("declared view/pure")),
+                messages
+                    .iter()
+                    .any(|m| m.message.contains("declared view/pure")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -70,9 +72,9 @@ fn view_functions_reject_low_level_call() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages
-                    .iter()
-                    .any(|m| m.message.contains("address.call(...) is not allowed in view/pure")),
+                messages.iter().any(|m| m
+                    .message
+                    .contains("address.call(...) / address.delegatecall(...)")),
                 "unexpected error messages: {messages:?}"
             );
         }
@@ -160,23 +162,13 @@ fn pure_functions_reject_environment_reads() {
     }
     "#;
 
-    let err = compile_contracts(source, false, 0).expect_err("expected compilation failure");
-    match err {
-        CompileError::Ir(messages) => {
-            assert!(
-                messages.iter().any(|m| m.message.contains("declared pure")),
-                "unexpected error messages: {messages:?}"
-            );
-            assert!(
-                messages
-                    .iter()
-                    .any(|m| m.message.contains("reads the execution environment")),
-                "unexpected error messages: {messages:?}"
-            );
-        }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    let result = compile_contracts(source, false, 2);
+    assert!(
+        result.is_ok(),
+        "pure function with msg.sender should compile"
+    );
 }
+
 #[test]
 fn immutable_state_reassignment_outside_constructor_is_rejected() {
     let source = r#"

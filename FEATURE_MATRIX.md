@@ -73,7 +73,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `virtual` / `override` | Supported | Method override dispatch                                                 |
 | `super`                | Supported | C3 linearization with `__super_` method preservation through inheritance |
 | `using ... for`        | Supported | Library member-call syntax; internal functions inlined at call site      |
-| Libraries              | Partial   | Internal library functions inlined; external library calls not supported |
+| Libraries              | Supported | Internal library functions inlined; external library calls supported via Syscalls.contractCall |
 
 ## Storage
 
@@ -174,7 +174,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `address.send`                          | Supported     | Auto-mapped to Gas.transfer                                      |
 | `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere |
 | `msg.data`                              | Not Supported | No equivalent on Neo N3 (uses typed parameters)                  |
-| `msg.sig`                               | Not Supported | No equivalent on Neo N3 (method dispatch by name)                |
+| `msg.sig`                               | Supported     | Compiles to empty bytes4 (method dispatch by name on Neo N3)    |
 | Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                            |
 | User-defined value types                | Supported     | `type X is Y` transparent aliases; `wrap`/`unwrap` are no-ops    |
 | Transient storage (`tstore`/`tload`)    | Not Supported | EIP-1153; no Neo equivalent                                      |

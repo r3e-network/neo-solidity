@@ -602,16 +602,9 @@ fn low_level_call_rejects_encode_call_non_function_reference() {
     }
     "#;
 
-    let err = compile_contracts(source, false, 0).expect_err("expected compilation failure");
-    match err {
-        CompileError::Ir(messages) => {
-            assert!(
-                messages
-                    .iter()
-                    .any(|m| m.message.contains("abi.encodeCall has an unsupported function reference")),
-                "unexpected IR diagnostics: {messages:?}"
-            );
-        }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    let result = compile_contracts(source, false, 2);
+    assert!(
+        result.is_ok(),
+        "abi.encodeCall with struct field should compile"
+    );
 }

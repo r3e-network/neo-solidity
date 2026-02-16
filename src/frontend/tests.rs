@@ -112,7 +112,7 @@ contract Test {
 fn parse_source_rejects_unsupported_solidity_pragma() {
     let source = r#"
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.6;
+pragma solidity ^0.4.0;
 
 contract Test {
     function value() public pure returns (uint256) {
@@ -180,7 +180,7 @@ contract Test {
 fn parse_source_rejects_disjoint_or_without_0_8() {
     let source = r#"
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.6 || ^0.9.0;
+pragma solidity ^0.4.0 || ^0.9.0;
 
 contract Test {
     function value() public pure returns (uint256) {
