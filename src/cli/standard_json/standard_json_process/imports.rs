@@ -184,7 +184,7 @@ fn build_combined_source_with_import_validation(
         visiting: &mut HashSet<String>,
         stack: &mut VecDeque<String>,
         order: &mut Vec<String>,
-        errors: &mut Vec<Value>,
+        _errors: &mut Vec<Value>,
     ) {
         if visited.contains(node) {
             return;
@@ -198,7 +198,7 @@ fn build_combined_source_with_import_validation(
         stack.push_back(node.to_string());
         if let Some(children) = deps.get(node) {
             for dep in children {
-                dfs(dep, deps, visited, visiting, stack, order, errors);
+                dfs(dep, deps, visited, visiting, stack, order, _errors);
             }
         }
         stack.pop_back();

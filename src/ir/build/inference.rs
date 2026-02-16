@@ -206,9 +206,7 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
             }
         }
         Expression::Variable(identifier) => {
-            if identifier.name == "this" {
-                Some(ValueType::Address)
-            } else if ctx.is_contract_type_name(&identifier.name) {
+            if identifier.name == "this" || ctx.is_contract_type_name(&identifier.name) {
                 Some(ValueType::Address)
             } else if ctx.enum_variant_map.contains_key(&identifier.name) {
                 // Solidity enums lower to unsigned integers. We model enum-typed values as

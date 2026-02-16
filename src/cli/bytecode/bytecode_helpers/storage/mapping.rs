@@ -101,11 +101,11 @@ fn emit_load_mapping(
     }
 }
 
-fn resolve_loaded_mapping_value_type<'a>(
-    module: &'a ir::Module,
+fn resolve_loaded_mapping_value_type(
+    module: &ir::Module,
     state_index: usize,
     key_depth: usize,
-) -> Option<&'a ValueType> {
+) -> Option<&ValueType> {
     let mut current = &module.state_variables.get(state_index)?.ty;
 
     for _ in 0..key_depth {
