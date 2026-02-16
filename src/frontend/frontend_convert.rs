@@ -32,7 +32,7 @@ fn convert_contract(
     let mut type_aliases: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
-    for part in contract.parts.into_iter() {
+    for part in contract.parts {
         match part {
             ContractPart::FunctionDefinition(def) => {
                 functions.push(convert_function(*def, comment_map))

@@ -24,7 +24,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
 
     let sources: Vec<String> = matches
         .get_many::<String>("source")
-        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
 
     if sources.is_empty() {
@@ -52,7 +52,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
         .unwrap_or_default();
     let contract_filters: Vec<String> = matches
         .get_many::<String>("contract")
-        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
     let use_callt = matches.get_flag("callt");
     let deny_wildcard_permissions = matches.get_flag("deny-wildcard-permissions");
@@ -67,11 +67,11 @@ fn run_single_file(matches: &clap::ArgMatches) {
     let json_warnings = matches.get_flag("json-warnings");
     let warn_suppress: Vec<String> = matches
         .get_many::<String>("Wno")
-        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
     let warn_promote: Vec<String> = matches
         .get_many::<String>("Werror")
-        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
 
     let manifest_permissions = match manifest_permissions_file {

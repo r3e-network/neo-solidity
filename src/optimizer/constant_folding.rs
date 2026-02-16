@@ -190,7 +190,7 @@ impl Optimizer {
                     return Some(args[0].clone());
                 }
             }
-            // x * 1 = 1 * x = x, x * 0 = 0 * x = 0
+            // x * 1 = 1 * x = x, x * 0 = 0 * x = 0, x * 2^n = shl(n, x)
             "mul" => {
                 if arg1_const == Some(1) {
                     return Some(args[1].clone());
@@ -205,11 +205,88 @@ impl Optimizer {
                         column,
                     });
                 }
+                // Strength reduction: x * 2^n → shl(n, x)
+                if let Some(val) = arg2_const {
+                    if let Some(shift) = StrengthReducer::reduce_mul_pow2(val) {
+                        return Some(AstNode {
+                            node_type: AstNodeType::FunctionCall {
+                                name: "shl".to_string(),
+                                arguments: vec![
+                                    AstNode {
+                                        node_type: AstNodeType::Literal { value: shift.to_string() },
+                                        line, column,
+                                    },
+                                    args[0].clone(),
+                                ],
+                            },
+                            line, column,
+                        });
+                    }
+                }
+                if let Some(val) = arg1_const {
+                    if let Some(shift) = StrengthReducer::reduce_mul_pow2(val) {
+                        return Some(AstNode {
+                            node_type: AstNodeType::FunctionCall {
+                                name: "shl".to_string(),
+                                arguments: vec![
+                                    AstNode {
+                                        node_type: AstNodeType::Literal { value: shift.to_string() },
+                                        line, column,
+                                    },
+                                    args[1].clone(),
+                                ],
+                            },
+                            line, column,
+                        });
+                    }
+                }
             }
-            // x / 1 = x
-            "div" | "sdiv" => {
+            // x / 1 = x, x / 2^n = shr(n, x)
+            "div" => {
                 if arg2_const == Some(1) {
                     return Some(args[0].clone());
+                }
+                if let Some(val) = arg2_const {
+                    if let Some(shift) = StrengthReducer::reduce_div_pow2(val) {
+                        return Some(AstNode {
+                            node_type: AstNodeType::FunctionCall {
+                                name: "shr".to_string(),
+                                arguments: vec![
+                                    AstNode {
+                                        node_type: AstNodeType::Literal { value: shift.to_string() },
+                                        line, column,
+                                    },
+                                    args[0].clone(),
+                                ],
+                            },
+                            line, column,
+                        });
+                    }
+                }
+            }
+            "sdiv" => {
+                if arg2_const == Some(1) {
+                    return Some(args[0].clone());
+                }
+            }
+            // x % 2^n = and(x, 2^n - 1)
+            "mod" => {
+                if let Some(val) = arg2_const {
+                    if let Some(mask) = StrengthReducer::reduce_mod_pow2(val) {
+                        return Some(AstNode {
+                            node_type: AstNodeType::FunctionCall {
+                                name: "and".to_string(),
+                                arguments: vec![
+                                    args[0].clone(),
+                                    AstNode {
+                                        node_type: AstNodeType::Literal { value: mask.to_string() },
+                                        line, column,
+                                    },
+                                ],
+                            },
+                            line, column,
+                        });
+                    }
                 }
             }
             // x & x = x, x | x = x

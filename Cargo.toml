@@ -55,3 +55,21 @@ debug = true
 [[bin]]
 name = "neo-solc"
 path = "src/main.rs"
+
+[lints.rust]
+unused_must_use = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+# Targeted checks
+enum_glob_use = "warn"
+explicit_into_iter_loop = "warn"
+flat_map_option = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "allow"
+uninlined_format_args = "warn"
+# Allow patterns common in this codebase
+map_unwrap_or = "allow"
+semicolon_if_nothing_returned = "allow"
+unused_self = "allow"

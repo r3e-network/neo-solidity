@@ -49,7 +49,7 @@ fn try_identity_elimination(
     first: &ir::Instruction,
     second: &ir::Instruction,
 ) -> Option<Option<ir::Instruction>> {
-    use ir::{Instruction::*, LiteralValue::*};
+    use ir::{Instruction::{PushLiteral, BinaryOp}, LiteralValue::Integer};
 
     match (first, second) {
         // PUSH 0, ADD -> no-op (keep original value)
@@ -77,7 +77,7 @@ fn evaluate_binary_literal(
     rhs: &ir::LiteralValue,
     op: ir::BinaryOperator,
 ) -> Option<ir::LiteralValue> {
-    use ir::LiteralValue::*;
+    use ir::LiteralValue::{Integer, Boolean};
 
     match (lhs, rhs) {
         (Integer(a), Integer(b)) => match op {

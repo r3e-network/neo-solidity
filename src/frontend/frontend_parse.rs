@@ -13,7 +13,7 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     let mut file_level_structs: Vec<StructIR> = Vec::new();
     let mut file_level_enums: Vec<EnumIR> = Vec::new();
 
-    for part in source_unit.0.into_iter() {
+    for part in source_unit.0 {
         match part {
             SourceUnitPart::PragmaDirective(pragma) => {
                 enforce_supported_pragma(&pragma)?;

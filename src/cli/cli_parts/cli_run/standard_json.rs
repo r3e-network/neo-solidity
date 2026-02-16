@@ -27,7 +27,7 @@ fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
         .unwrap_or("merge");
     let contract_names: Vec<String> = matches
         .get_many::<String>("contract")
-        .map(|vals| vals.map(|s| s.to_string()).collect())
+        .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
 
     let manifest_permissions = match manifest_permissions_file {

@@ -13,7 +13,7 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
 }
 
 fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Result<(), ()> {
-    use ir::Instruction::*;
+    use ir::Instruction::{Drop, LoadParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, ArrayGet, ArraySet, MemCpy, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
 
     match instr {
         Drop(_) => {

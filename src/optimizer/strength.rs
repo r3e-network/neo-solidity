@@ -1,8 +1,6 @@
-//! Strength Reduction Optimization
-//!
-//! Replaces expensive operations with cheaper equivalents.
-
-use crate::parser::{AstNode, AstNodeType};
+// Strength Reduction Optimization
+//
+// Replaces expensive operations with cheaper equivalents.
 
 /// Strength reduction patterns
 pub struct StrengthReducer;

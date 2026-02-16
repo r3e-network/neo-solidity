@@ -90,7 +90,7 @@ fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {
 }
 
 fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Option<bool> {
-    use ir::NativeContract::*;
+    use ir::NativeContract::{Neo, Gas, ContractManagement, Policy, Oracle, RoleManagement, Notary};
 
     let is_mutating = match (contract, method) {
         (Neo, "transfer" | "vote" | "registerCandidate" | "unregisterCandidate" | "setGasPerBlock"
@@ -116,7 +116,7 @@ fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Opti
 }
 
 fn native_method_has_return_value(contract: ir::NativeContract, method: &str) -> Option<bool> {
-    use ir::NativeContract::*;
+    use ir::NativeContract::{StdLib, CryptoLib, Ledger, Neo, Gas, ContractManagement, Policy, Oracle, RoleManagement, Notary, Treasury};
 
     let has_return = match (contract, method) {
         (StdLib, "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
