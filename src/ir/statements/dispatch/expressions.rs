@@ -136,6 +136,13 @@ fn lower_assembly_statement(ctx: &mut LoweringContext, instructions: &mut Vec<In
         // Compatibility mode: preserve compilation for contracts that use
         // inline assembly by treating unrecognized assembly blocks as no-ops.
         // Specialized handlers (e.g., extsload/exttload) still emit concrete IR.
+        ctx.record_error_with_suggestion(
+            "inline assembly block compiled as no-op: NeoVM does not support EVM \
+             assembly instructions. Any logic inside this assembly block will be silently \
+             skipped at runtime, which may cause incorrect behavior.",
+            "replace inline assembly with equivalent Solidity code, or use Neo-specific \
+             builtins (e.g., Neo.transferGas, Neo.transferNeo) for low-level operations",
+        );
     }
     false
 }

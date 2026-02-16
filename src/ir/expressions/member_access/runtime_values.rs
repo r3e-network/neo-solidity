@@ -24,6 +24,10 @@ fn try_lower_runtime_member_access(
                     if ctx.function_name == "onNEP17Payment" {
                         instructions.push(Instruction::LoadParameter(1));
                     } else {
+                        // Neo N3 has no "attached value" for calls; msg.value is only
+                        // meaningful inside onNEP17Payment(). A validation-level warning
+                        // (W110) is emitted separately; here we still emit the runtime
+                        // load so compilation succeeds for compatibility.
                         instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgValue));
                     }
                     return Some(true);
