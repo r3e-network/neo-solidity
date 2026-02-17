@@ -1,6 +1,6 @@
-use super::*;
 use super::constants::MAX_SOURCE_LENGTH;
 use super::encoding::calculate_checksum;
+use super::*;
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 

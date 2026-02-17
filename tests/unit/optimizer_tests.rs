@@ -9,17 +9,33 @@ use neo_solidity::parser::{AstNode, AstNodeType};
 // === Helper constructors ===
 
 fn lit(v: &str) -> AstNode {
-    AstNode::new(AstNodeType::Literal { value: v.to_string() }, 0, 0)
+    AstNode::new(
+        AstNodeType::Literal {
+            value: v.to_string(),
+        },
+        0,
+        0,
+    )
 }
 
 fn ident(n: &str) -> AstNode {
-    AstNode::new(AstNodeType::Identifier { name: n.to_string() }, 0, 0)
+    AstNode::new(
+        AstNodeType::Identifier {
+            name: n.to_string(),
+        },
+        0,
+        0,
+    )
 }
 
 fn call(name: &str, args: Vec<AstNode>) -> AstNode {
     AstNode::new(
-        AstNodeType::FunctionCall { name: name.to_string(), arguments: args },
-        0, 0,
+        AstNodeType::FunctionCall {
+            name: name.to_string(),
+            arguments: args,
+        },
+        0,
+        0,
     )
 }
 
@@ -83,10 +99,10 @@ fn test_constant_folding_add() {
 fn test_constant_folding_nested() {
     let mut opt = Optimizer::new(1);
     // mul(add(2, 3), 4) → 20
-    let ast = object(vec![call("mul", vec![
-        call("add", vec![lit("2"), lit("3")]),
-        lit("4"),
-    ])]);
+    let ast = object(vec![call(
+        "mul",
+        vec![call("add", vec![lit("2"), lit("3")]), lit("4")],
+    )]);
     let result = opt.optimize(ast).unwrap();
     if let AstNodeType::Object { statements } = &result.node_type {
         if let AstNodeType::Literal { value } = &statements[0].node_type {
@@ -263,7 +279,7 @@ fn test_dead_code_after_return() {
 #[test]
 fn test_cse_duplicate_expression() {
     let mut opt = Optimizer::new(3); // CSE enabled at O3
-    // block { add(x, y); add(x, y) } → second should become identifier ref
+                                     // block { add(x, y); add(x, y) } → second should become identifier ref
     let ast = object(vec![block(vec![
         call("add", vec![ident("x"), ident("y")]),
         call("add", vec![ident("x"), ident("y")]),
@@ -297,8 +313,12 @@ fn test_cse_different_expressions_unchanged() {
     let result = opt.optimize(ast).unwrap();
     if let AstNodeType::Object { statements } = &result.node_type {
         if let AstNodeType::Block { statements: inner } = &statements[0].node_type {
-            assert!(matches!(&inner[0].node_type, AstNodeType::FunctionCall { name, .. } if name == "add"));
-            assert!(matches!(&inner[1].node_type, AstNodeType::FunctionCall { name, .. } if name == "mul"));
+            assert!(
+                matches!(&inner[0].node_type, AstNodeType::FunctionCall { name, .. } if name == "add")
+            );
+            assert!(
+                matches!(&inner[1].node_type, AstNodeType::FunctionCall { name, .. } if name == "mul")
+            );
         } else {
             panic!("expected block");
         }
@@ -314,7 +334,9 @@ fn test_o0_no_optimization() {
     let result = opt.optimize(ast).unwrap();
     // At O0, add(3,4) should NOT be folded
     if let AstNodeType::Object { statements } = &result.node_type {
-        assert!(matches!(&statements[0].node_type, AstNodeType::FunctionCall { name, .. } if name == "add"));
+        assert!(
+            matches!(&statements[0].node_type, AstNodeType::FunctionCall { name, .. } if name == "add")
+        );
     } else {
         panic!("expected object");
     }
@@ -330,5 +352,8 @@ fn test_optimizer_stats() {
     let _ = opt.optimize(ast).unwrap();
     let stats = opt.get_stats();
     assert!(stats.passes_run > 0, "should have run at least one pass");
-    assert!(stats.folded_constants > 0, "should have folded at least one constant");
+    assert!(
+        stats.folded_constants > 0,
+        "should have folded at least one constant"
+    );
 }

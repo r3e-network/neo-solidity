@@ -14,22 +14,22 @@
 //! The Neo Executable Format (NEF) is the standard container for Neo N3 smart
 //! contracts, containing bytecode, metadata, and optional method tokens.
 
+mod build;
 mod constants;
+mod contract_hash;
 mod encoding;
 mod method_token;
-mod build;
 mod source;
-mod contract_hash;
 
 // Re-export public API
-pub use constants::{
-    MAX_METHOD_TOKENS, MAX_TOKEN_METHOD_LENGTH, MAX_CALL_FLAGS,
-    NEF_SOURCE_MAX_BYTES, NEF_MAGIC, NEF_HEADER_SIZE, MAX_SCRIPT_SIZE,
-};
-pub use method_token::MethodToken;
 pub use build::{build_nef, build_nef_with_tokens};
+pub use constants::{
+    MAX_CALL_FLAGS, MAX_METHOD_TOKENS, MAX_SCRIPT_SIZE, MAX_TOKEN_METHOD_LENGTH, NEF_HEADER_SIZE,
+    NEF_MAGIC, NEF_SOURCE_MAX_BYTES,
+};
+pub use contract_hash::{compute_contract_hash, format_uint160_hex_be, parse_uint160_hex_be};
+pub use method_token::MethodToken;
 pub use source::{clamp_nef_source, clamp_nef_source_with_flag};
-pub use contract_hash::{compute_contract_hash, parse_uint160_hex_be, format_uint160_hex_be};
 
 #[cfg(test)]
 mod tests;

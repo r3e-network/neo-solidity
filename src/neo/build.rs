@@ -1,5 +1,7 @@
 use super::constants::{MAX_CALL_FLAGS, MAX_METHOD_TOKENS, MAX_TOKEN_METHOD_LENGTH};
-use super::encoding::{calculate_checksum, write_fixed_string, write_varint, write_varstring, write_varbytes};
+use super::encoding::{
+    calculate_checksum, write_fixed_string, write_varbytes, write_varint, write_varstring,
+};
 use super::method_token::MethodToken;
 use super::source::clamp_nef_source;
 
