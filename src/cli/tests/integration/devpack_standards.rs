@@ -2,6 +2,7 @@
 fn devpack_nep17_standard_compiles() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -37,6 +38,7 @@ fn devpack_nep17_standard_compiles() {
 fn devpack_nep11_standard_compiles() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -72,6 +74,7 @@ fn devpack_nep11_standard_compiles() {
 fn devpack_nep24_standard_compiles() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -127,9 +130,27 @@ fn devpack_additional_nep_standards_compile() {
 }
 
 #[test]
+fn devpack_nativecontracts_library_compiles_standalone() {
+    let source = include_str!("../../../../devpack/contracts/NativeContracts.sol");
+    let artifacts =
+        compile_contracts(source, false, 2).expect("NativeContracts compilation failed");
+
+    assert!(
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "NativeContracts"),
+        "expected NativeContracts artifact"
+    );
+}
+
+#[test]
 fn devpack_syscalls_library_compiles_standalone() {
-    let source = include_str!("../../../../devpack/contracts/Syscalls.sol");
-    let artifacts = compile_contracts(source, false, 2).expect("Syscalls compilation failed");
+    let source = [
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
+        include_str!("../../../../devpack/contracts/Syscalls.sol"),
+    ]
+    .join("\n");
+    let artifacts = compile_contracts(&source, false, 2).expect("Syscalls compilation failed");
 
     assert!(
         artifacts
@@ -143,6 +164,7 @@ fn devpack_syscalls_library_compiles_standalone() {
 fn devpack_nativecalls_library_compiles_with_syscalls() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
     ]
     .join("\n");
@@ -161,6 +183,7 @@ fn devpack_nativecalls_library_compiles_with_syscalls() {
 fn devpack_runtime_library_compiles_with_dependencies() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
     ]
@@ -180,6 +203,7 @@ fn devpack_runtime_library_compiles_with_dependencies() {
 fn devpack_storage_library_compiles_with_dependencies() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
@@ -201,6 +225,7 @@ fn devpack_storage_library_compiles_with_dependencies() {
 fn devpack_complete_nep17_example_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -237,6 +262,7 @@ fn devpack_complete_nep17_example_compiles_under_strict_manifest_flags() {
 fn devpack_complete_nep11_example_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -273,6 +299,7 @@ fn devpack_complete_nep11_example_compiles_under_strict_manifest_flags() {
 fn devpack_nativecalls_contract_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
     ]
     .join("\n");
@@ -303,6 +330,7 @@ fn devpack_nativecalls_contract_compiles_under_strict_manifest_flags() {
 fn devpack_framework_contract_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -338,6 +366,7 @@ fn devpack_framework_contract_compiles_under_strict_manifest_flags() {
 fn devpack_nep17_rescue_contract_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),
@@ -374,6 +403,7 @@ fn devpack_nep17_rescue_contract_compiles_under_strict_manifest_flags() {
 fn devpack_oracle_service_compiles_under_strict_manifest_flags() {
     let source = [
         include_str!("../../../../devpack/contracts/Syscalls.sol"),
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
         include_str!("../../../../devpack/contracts/NativeCalls.sol"),
         include_str!("../../../../devpack/libraries/Storage.sol"),
         include_str!("../../../../devpack/libraries/Runtime.sol"),

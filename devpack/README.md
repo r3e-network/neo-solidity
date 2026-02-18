@@ -113,6 +113,7 @@ devpack/
 │   ├── FrameworkBase.sol # Base framework (minimally-permissioned)
 │   ├── Framework.sol    # Extended framework (dynamic calls; requires wildcard permissions)
 │   ├── OracleService.sol # Oracle native-contract wrapper (optional)
+│   ├── NativeContracts.sol # Canonical native script-hash constants
 │   ├── NativeCalls.sol # Native contract interfaces
 │   └── Syscalls.sol    # System call mappings
 ├── standards/          # NEP standard implementations
@@ -183,6 +184,13 @@ Additional helpers: `putUint256`, `getUint256`, `putAddress`, `getAddress`, `put
 | `ripemd160(bytes)`                                     | `CryptoLib.ripemd160`                   | RIPEMD-160 hash            |
 | `base64Encode(bytes)` / `base64Decode(string)`         | `StdLib.base64Encode/Decode`            | Base64 encoding            |
 | `jsonSerialize(bytes)` / `jsonDeserialize(string)`     | `StdLib.jsonSerialize/Deserialize`      | JSON encoding              |
+
+#### NativeContracts (`devpack/contracts/NativeContracts.sol`)
+
+Canonical Neo N3 native contract/script-hash constants:
+`NEO_CONTRACT`, `GAS_CONTRACT`, `CONTRACT_MANAGEMENT`, `POLICY_CONTRACT`,
+`ORACLE_CONTRACT`, `ROLE_MANAGEMENT`, `NOTARY_CONTRACT`, `TREASURY_CONTRACT`,
+`LEDGER_CONTRACT`, `CRYPTO_LIB`, `STD_LIB`.
 
 #### NativeCalls (`devpack/contracts/NativeCalls.sol`)
 
