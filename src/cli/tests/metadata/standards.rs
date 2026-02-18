@@ -464,10 +464,45 @@ fn near_miss_nep30_warns_non_boolean_verify() {
 }
 
 #[test]
-fn supported_standards_flags_nep26() {
-    let build_method = |name: &str| FunctionMetadata {
-        name: name.to_string(),
-        neo_name: name.to_string(),
+fn supported_standards_flags_nep22_and_nep31_from_update_destroy() {
+    let update = FunctionMetadata {
+        name: "update".to_string(),
+        neo_name: "update".to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![
+            ParameterMetadata {
+                name: Some("nefFile".to_string()),
+                ty: "bytes".to_string(),
+                neo_type: Some(NeoType::ByteArray { fixed_len: None }),
+                storage: None,
+            },
+            ParameterMetadata {
+                name: Some("manifest".to_string()),
+                ty: "string".to_string(),
+                neo_type: Some(NeoType::String),
+                storage: None,
+            },
+            ParameterMetadata {
+                name: Some("data".to_string()),
+                ty: "Any".to_string(),
+                neo_type: Some(NeoType::Any),
+                storage: None,
+            },
+        ],
+        return_parameters: vec![],
+        state_mutability: StateMutability::NonPayable,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
+        documentation: NatspecDoc::default(),
+    };
+
+    let destroy = FunctionMetadata {
+        name: "destroy".to_string(),
+        neo_name: "destroy".to_string(),
         kind: FunctionKind::Regular,
         parameters: vec![],
         return_parameters: vec![],
@@ -481,11 +516,44 @@ fn supported_standards_flags_nep26() {
         documentation: NatspecDoc::default(),
     };
 
-    let methods = vec![build_method("update"), build_method("destroy")];
+    let methods = vec![update, destroy];
     let result = detect_supported_standards(&methods, &[]);
     assert!(
-        result.standards.iter().any(|s| s == "NEP-26"),
-        "expected NEP-26 to be detected when update + destroy are present"
+        result.standards.iter().any(|s| s == "NEP-22"),
+        "expected NEP-22 to be detected when update() is present with 3 parameters"
+    );
+    assert!(
+        result.standards.iter().any(|s| s == "NEP-31"),
+        "expected NEP-31 to be detected when destroy() is present"
+    );
+    assert!(
+        !result.standards.iter().any(|s| s == "NEP-26"),
+        "NEP-26 must only be detected from onNEP11Payment callback signature"
+    );
+}
+
+#[test]
+fn supported_standards_update_without_nep22_signature_is_not_detected() {
+    let update = FunctionMetadata {
+        name: "update".to_string(),
+        neo_name: "update".to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![],
+        return_parameters: vec![],
+        state_mutability: StateMutability::NonPayable,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
+        documentation: NatspecDoc::default(),
+    };
+    let methods = vec![update];
+    let result = detect_supported_standards(&methods, &[]);
+    assert!(
+        !result.standards.iter().any(|s| s == "NEP-22"),
+        "NEP-22 must not be detected for update() with wrong arity"
     );
 }
 
