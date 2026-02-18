@@ -5,6 +5,40 @@ All notable changes to the Neo Solidity Compiler will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [v0.13.0] - 2026-02-18
+
+### Added
+
+- **Transparent EVM-to-Neo auto-mapping**: 9 previously blocked EVM-specific
+  Solidity features now compile with Neo N3 equivalents and compile-time warnings.
+- **`super` keyword support**: `super.method()` resolves through flattened inheritance,
+  preserving base overrides as `__super_{methodName}` during lowering.
+- **User-defined value types (`type X is Y`)**: alias propagation across file/contract
+  scopes and inheritance; `wrap`/`unwrap` lower as no-ops.
+- **`type(T).name` expression**: compile-time string constants for contract and type names.
+- **`require(condition, CustomError(...))` support**: Solidity 0.8.26+ form supported with
+  diagnostic-preserving error signature text.
+- **Devpack expansion**: added NEP-26 standard coverage, `NativeContracts` native address
+  helpers, and reusable `NeoBytes` / `NeoMath` base libraries.
+
+### Changed
+
+- **`using` directive semantics hardened**: member-style library calls now require explicit
+  `using ... for` scope, enforce receiver type targeting, and enforce named-function lists
+  from `using {f,g} for T` declarations.
+- **Frontend-to-IR metadata flow** extended for `using` directives, so library binding scope
+  and target constraints are preserved through lowering.
+- **Release process docs** updated to match actual repository workflow (validation + tag push).
+
+### Fixed
+
+- **Native contract lowering**: aligned `NativeContracts` and `NativeCalls` member-call paths;
+  lowered native constants as address literals in IR/codegen path.
+- **Diagnostics quality**: reduced duplicate constant warning noise in merged library contexts.
+- **Toolchain compatibility**: replaced unstable `is_multiple_of` usage with stable modulo logic.
+
 ## [v0.12.0] - 2026-02-13
 
 ### Changed
@@ -64,55 +98,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Gas estimation**: Updated to use more accurate NeoVM cost values (crypto: 700000, storage: 1000000)
 - **Devpack documentation**: Clarified `contractCallWithFlags` flags parameter status
-
-## [Unreleased]
-
-### Added
-
-- **Transparent EVM-to-Neo auto-mapping**: 9 previously blocked EVM-specific
-  Solidity features now compile transparently with automatic Neo N3 equivalents
-  and compile-time warnings. Developers no longer need to modify their Solidity
-  code for these features:
-  - `block.coinbase` → `address(0)` (dBFT has no miner)
-  - `block.difficulty` / `block.prevrandao` → `Runtime.getRandom()`
-  - `block.gaslimit` → `Policy.getExecFeeFactor()`
-  - `block.basefee` → `Policy.getFeePerByte()`
-  - `tx.gasprice` → `Policy.getFeePerByte()`
-  - `gasleft()` → `System.Runtime.GasLeft` syscall
-  - `blockhash(n)` → `Ledger.getBlockHash(n)`
-  - `selfdestruct(addr)` → `ContractManagement.destroy()` (addr argument dropped)
-  - `address.codehash` → contract script hash (non-contract returns `bytes32(0)`)
-
-- **`super` keyword support**: `super.method()` calls now resolve correctly
-  through inheritance flattening. Overridden base methods are preserved as
-  `__super_{methodName}` and resolved during IR lowering. Supports multi-level
-  inheritance with proper C3 linearization deduplication.
-- **User-defined value types (`type X is Y`)**: Transparent type aliases where
-  `wrap`/`unwrap` compile to no-ops on NeoVM. Supported at both file-level and
-  contract-level, with proper propagation through inheritance chains.
-- `SuperShowcase.sol` and `SuperError.sol` examples demonstrating `super`
-  keyword usage patterns.
-- `UserDefinedTypeError.sol` example now compiles successfully with `type Price
-is uint256` and `Price.wrap(...)`.
-- **`type(T).name` expression**: `type(ContractName).name` and
-  `type(uint256).name` now resolve to compile-time string constants on NeoVM.
-  Completes `type(...)` expression support alongside `.min`, `.max`, and
-  `.interfaceId`.
-- `TypeNameShowcase.sol` example demonstrating `type(T).name` patterns.
-- **`require(condition, CustomError(...))` support**: Solidity 0.8.26+ syntax
-  now compiles correctly. Error name and argument count are preserved in the
-  NeoVM THROW message for diagnostics (e.g., `"InsufficientBalance(2 args)"`).
-- `RequireCustomErrorShowcase.sol` example demonstrating the three `require`
-  forms: plain condition, string message, and custom error.
-
-- `LoweringContext` extended with `super_method_map` for `super` keyword
-  resolution during IR lowering.
-- `ContractIR` and `ContractMetadata` extended with `type_aliases` field for
-  user-defined value type support.
-- `NeoType::from_solidity_with_aliases` added as alias-aware type resolution
-  wrapper around `NeoType::from_solidity`.
-- Inheritance flattening (`flatten.rs`) now merges type aliases and preserves
-  `__super_` methods through the C3 linearization chain.
 
 ## [v0.9.10] - 2026-02-11
 

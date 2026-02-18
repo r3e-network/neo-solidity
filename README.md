@@ -933,20 +933,25 @@ git push origin feature/my-new-feature
 #### **Release Process**
 
 ```bash
-# 1. Update version numbers
-make version-bump 1.1.0
+# 1. Update version numbers (Cargo + npm packages + docs)
+#    Edit Cargo.toml / package.json / devpack/package.json / docs
 
 # 2. Update changelog
-make changelog
+#    Edit CHANGELOG.md: promote Unreleased -> new version section
 
-# 3. Run full test suite
-make test-release
+# 3. Run release-readiness validation
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
 
-# 4. Create release
-make release
+# 4. Commit and push
+git add .
+git commit -m "release: vX.Y.Z"
+git push origin main
 
-# 5. Publish to registries
-make publish
+# 5. Tag and publish release pipeline
+git tag -a vX.Y.Z -m "release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
 ## 📋 **Project Status**

@@ -89,7 +89,7 @@ Unlike transpilation approaches that attempt to emulate EVM behavior on NeoVM, N
     <span class="stat-label">Test Cases</span>
   </div>
   <div class="stat-card">
-    <span class="stat-value">v0.12.0</span>
+    <span class="stat-value">v0.13.0</span>
     <span class="stat-label">Latest Release</span>
   </div>
   <div class="stat-card">

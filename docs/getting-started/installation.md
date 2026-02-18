@@ -60,7 +60,7 @@ cargo build --release
 Expected output:
 
 ```
-   Compiling neo-solidity v0.12.0 (/path/to/neo-solidity)
+   Compiling neo-solidity v0.13.0 (/path/to/neo-solidity)
     Finished `release` profile [optimized] target(s) in 45.23s
 ```
 
@@ -95,7 +95,7 @@ This runs `cargo build --release` and prints a confirmation message.
 Expected output (abbreviated):
 
 ```
-neo-solc 0.12.0
+neo-solc 0.13.0
 Compiles Solidity to Neo N3 smart contracts (.nef + .manifest.json)
 
 Usage: neo-solc [OPTIONS] [source]...
@@ -145,7 +145,7 @@ After installation, `neo-solc` is available from any directory:
 
 ```bash
 neo-solc --version
-# neo-solc 0.12.0
+# neo-solc 0.13.0
 ```
 
 ### Add Cargo Bin to PATH
