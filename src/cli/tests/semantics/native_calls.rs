@@ -155,6 +155,41 @@ fn external_member_call_returns_native_stack_item() {
 }
 
 #[test]
+fn native_contracts_member_call_returns_native_stack_item() {
+    let source = [
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
+        r#"
+        pragma solidity ^0.8.19;
+
+        contract NativeContractsCallHarness {
+            function supply() public view returns (uint256) {
+                return NativeContracts.GAS_CONTRACT.totalSupply();
+            }
+        }
+        "#,
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts(&source, false, 2).expect("compilation failed");
+    let harness = artifacts
+        .iter()
+        .find(|artifact| artifact.metadata.name == "NativeContractsCallHarness")
+        .expect("expected NativeContractsCallHarness artifact");
+
+    let result = execute_bytecode(&harness.bytecode);
+    assert!(
+        result.is_success(),
+        "expected NativeContracts member call to succeed"
+    );
+
+    assert_eq!(
+        result.return_data,
+        30_000_000_000u64.to_le_bytes().to_vec(),
+        "expected GAS.totalSupply result (u64 little-endian) for NativeContracts target"
+    );
+}
+
+#[test]
 fn neo_account_state_defaults_when_native_returns_null() {
     let source = r#"
     pragma solidity ^0.8.19;

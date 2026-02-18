@@ -63,6 +63,27 @@ fn try_lower_member_call(
         }
     }
 
+    fn native_contract_from_constant(base: &str, constant: &str) -> Option<NativeContract> {
+        if !matches!(base, "NativeCalls" | "NativeContracts") {
+            return None;
+        }
+
+        match constant {
+            "NEO_CONTRACT" => Some(NativeContract::Neo),
+            "GAS_CONTRACT" => Some(NativeContract::Gas),
+            "CONTRACT_MANAGEMENT" => Some(NativeContract::ContractManagement),
+            "POLICY_CONTRACT" => Some(NativeContract::Policy),
+            "ORACLE_CONTRACT" => Some(NativeContract::Oracle),
+            "ROLE_MANAGEMENT" => Some(NativeContract::RoleManagement),
+            "NOTARY_CONTRACT" => Some(NativeContract::Notary),
+            "TREASURY_CONTRACT" => Some(NativeContract::Treasury),
+            "LEDGER_CONTRACT" => Some(NativeContract::Ledger),
+            "CRYPTO_LIB" => Some(NativeContract::CryptoLib),
+            "STD_LIB" => Some(NativeContract::StdLib),
+            _ => None,
+        }
+    }
+
     if let Expression::MemberAccess(_, inner, member) = func {
         // `super.method()` — resolve to the renamed base method preserved during
         // inheritance flattening. The flattener stores overridden base methods as
@@ -181,29 +202,18 @@ fn try_lower_member_call(
                 return Some(false);
             }
 
-            // NativeCalls exposes native contract hashes as constants. When users write
-            // `NativeCalls.GAS_CONTRACT.totalSupply()` etc we can resolve the target at
-            // compile time and emit a `NativeCall` builtin. This avoids wildcard manifest
-            // permissions and unlocks CALLT/method-token optimizations.
+            // NativeCalls/NativeContracts expose native contract hashes as constants. When
+            // users write `NativeCalls.GAS_CONTRACT.totalSupply()` or
+            // `NativeContracts.GAS_CONTRACT.totalSupply()` we resolve the target at compile
+            // time and emit a `NativeCall` builtin. This avoids wildcard manifest permissions
+            // and unlocks CALLT/method-token optimizations.
             let native_contract = match inner.as_ref() {
-                Expression::MemberAccess(_, base, constant)
-                    if matches!(base.as_ref(), Expression::Variable(id) if id.name == "NativeCalls") =>
-                {
-                    match constant.name.as_str() {
-                        "NEO_CONTRACT" => Some(NativeContract::Neo),
-                        "GAS_CONTRACT" => Some(NativeContract::Gas),
-                        "CONTRACT_MANAGEMENT" => Some(NativeContract::ContractManagement),
-                        "POLICY_CONTRACT" => Some(NativeContract::Policy),
-                        "ORACLE_CONTRACT" => Some(NativeContract::Oracle),
-                        "ROLE_MANAGEMENT" => Some(NativeContract::RoleManagement),
-                        "NOTARY_CONTRACT" => Some(NativeContract::Notary),
-                        "TREASURY_CONTRACT" => Some(NativeContract::Treasury),
-                        "LEDGER_CONTRACT" => Some(NativeContract::Ledger),
-                        "CRYPTO_LIB" => Some(NativeContract::CryptoLib),
-                        "STD_LIB" => Some(NativeContract::StdLib),
-                        _ => None,
+                Expression::MemberAccess(_, base, constant) => match base.as_ref() {
+                    Expression::Variable(id) => {
+                        native_contract_from_constant(&id.name, &constant.name)
                     }
-                }
+                    _ => None,
+                },
                 _ => None,
             };
 

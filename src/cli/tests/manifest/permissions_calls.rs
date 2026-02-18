@@ -135,3 +135,51 @@ fn external_contract_call_static_target_emits_exact_permissions() {
         "static target should not require wildcard contract permissions"
     );
 }
+
+#[test]
+fn native_contracts_member_call_emits_exact_native_permission() {
+    let source = [
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
+        r#"
+        pragma solidity ^0.8.19;
+
+        contract NativeContractsPermissionHarness {
+            function callGasSupply() public view returns (uint256) {
+                return NativeContracts.GAS_CONTRACT.totalSupply();
+            }
+        }
+        "#,
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts(&source, false, 2).expect("compilation failed");
+    let harness = artifacts
+        .iter()
+        .find(|artifact| artifact.metadata.name == "NativeContractsPermissionHarness")
+        .expect("expected NativeContractsPermissionHarness artifact");
+
+    let permissions = harness.manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
+
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == gas_contract
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "totalSupply"))
+        }),
+        "expected GAS.totalSupply permission in manifest for NativeContracts member call"
+    );
+
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into())),
+        "NativeContracts member call should not require wildcard contract permissions"
+    );
+}

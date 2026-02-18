@@ -263,10 +263,13 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                 }
             }
 
-            // Treat known NativeCalls.* native contract hash constants as addresses so
-            // downstream lowering can recognize `NativeCalls.GAS_CONTRACT.balanceOf(...)`
-            // as an external call target.
-            if matches!(inner.as_ref(), Expression::Variable(id) if id.name == "NativeCalls")
+            // Treat known NativeCalls/NativeContracts native contract hash constants as
+            // addresses so downstream lowering can recognize static native targets.
+            if matches!(
+                inner.as_ref(),
+                Expression::Variable(id)
+                    if id.name == "NativeCalls" || id.name == "NativeContracts"
+            )
                 && matches!(
                     member.name.as_str(),
                     "NEO_CONTRACT"
