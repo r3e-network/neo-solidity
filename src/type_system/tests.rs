@@ -5,7 +5,7 @@ fn struct_meta(name: &str, fields: &[(&str, &str)]) -> StructTypeMetadata {
         name: name.to_string(),
         fields: fields
             .iter()
-            .map(|(fname, fty)| StructFieldMetadata {
+            .map(|&(fname, fty)| StructFieldMetadata {
                 name: fname.to_string(),
                 ty: fty.to_string(),
             })

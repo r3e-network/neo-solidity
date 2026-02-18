@@ -17,6 +17,7 @@ fn build_test_contract(name: &str, methods: Vec<FunctionMetadata>) -> ContractMe
         has_using_for_star: false,
         has_using_function_list: false,
         using_for_libraries: vec![],
+        using_directives: vec![],
         has_type_definitions: false,
         type_aliases: std::collections::HashMap::new(),
         flatten_warnings: Vec::new(),

@@ -109,6 +109,14 @@ fn convert_contract(
         has_using_for_star: contract.has_using_for_star,
         has_using_function_list: contract.has_using_function_list,
         using_for_libraries: contract.using_for_libraries.clone(),
+        using_directives: contract
+            .using_directives
+            .iter()
+            .map(|directive| UsingDirectiveMetadata {
+                target_type: directive.target_type.clone(),
+                function_names: directive.function_names.clone(),
+            })
+            .collect(),
         has_type_definitions: contract.has_type_definitions,
         type_aliases: contract.type_aliases,
         flatten_warnings: Vec::new(),

@@ -41,6 +41,8 @@ pub struct ContractMetadata {
     pub has_using_function_list: bool,
     /// Library names referenced by `using X for Y` directives.
     pub using_for_libraries: Vec<String>,
+    /// Structured `using` directives used for type-aware member-call lowering.
+    pub using_directives: Vec<UsingDirectiveMetadata>,
     /// Whether this contract contains `type X is Y` definitions.
     pub has_type_definitions: bool,
     /// User-defined value type aliases (`type X is Y`).
@@ -51,6 +53,17 @@ pub struct ContractMetadata {
     /// Mapping from original method name to the renamed super-method name.
     /// Populated during inheritance flattening so `super.method()` can resolve.
     pub super_method_map: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UsingDirectiveMetadata {
+    /// `None` means wildcard target (`for *`), otherwise normalized target type.
+    pub target_type: Option<String>,
+    /// Function-name allowlist for `using {f, g} for T`.
+    ///
+    /// `None` means library-form directive (`using Lib for T`) where all compatible
+    /// library functions are eligible.
+    pub function_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]

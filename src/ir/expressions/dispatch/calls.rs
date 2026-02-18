@@ -328,10 +328,18 @@ fn try_lower_named_function_call(
     }
 
     // Build positional args vector and delegate to normal call path.
-    let ordered_exprs: Vec<&Expression> = positional
-        .into_iter()
-        .map(|opt| opt.expect("all positions filled"))
-        .collect();
+    let mut ordered_exprs: Vec<&Expression> = Vec::with_capacity(positional.len());
+    for (idx, opt) in positional.into_iter().enumerate() {
+        if let Some(expr) = opt {
+            ordered_exprs.push(expr);
+        } else {
+            ctx.record_error(format!(
+                "missing argument at position {idx} in call to '{}'",
+                identifier.name
+            ));
+            return Some(false);
+        }
+    }
 
     // Lower each argument in positional order, then emit the call.
     let mut success = true;

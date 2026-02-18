@@ -192,3 +192,44 @@ contract Test {
     let err = parse_source(source).expect_err("OR branches without 0.8 should fail");
     assert!(matches!(err, FrontendError::UnsupportedVersion(_)));
 }
+
+#[test]
+fn parse_source_tracks_using_directives_with_targets_and_function_lists() {
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+library MathLib {
+    function add(uint256 self, uint256 rhs) internal pure returns (uint256) {
+        return self + rhs;
+    }
+}
+
+contract UsesUsingDirectives {
+    using MathLib for uint256;
+    using {MathLib.add} for *;
+}
+"#;
+
+    let contracts = parse_source(source).expect("using directives should parse");
+    let contract = contracts
+        .iter()
+        .find(|contract| contract.name == "UsesUsingDirectives")
+        .expect("expected target contract");
+
+    assert!(contract.has_using_for_star);
+    assert!(contract.has_using_function_list);
+    assert_eq!(contract.using_directives.len(), 2);
+
+    assert!(contract.using_directives.iter().any(|directive| {
+        directive.target_type.as_deref() == Some("uint256") && directive.function_names.is_none()
+    }));
+
+    assert!(contract.using_directives.iter().any(|directive| {
+        directive.target_type.is_none()
+            && directive
+                .function_names
+                .as_ref()
+                .is_some_and(|names| names.iter().any(|name| name == "add"))
+    }));
+}

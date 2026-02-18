@@ -26,16 +26,35 @@ pub struct BlockNumber(pub u64);
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp(pub u64);
 
+fn strip_hex_prefix(value: &str) -> &str {
+    value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+        .unwrap_or(value)
+}
+
+fn normalize_hex(value: &str) -> Result<String, &'static str> {
+    let payload = strip_hex_prefix(value);
+    if payload.is_empty() || payload.len() % 2 != 0 {
+        return Err("Invalid hex format");
+    }
+    if hex::decode(payload).is_err() {
+        return Err("Invalid hex format");
+    }
+    Ok(format!("0x{payload}"))
+}
+
 impl Address {
     /// Create new address
     pub fn new(address: String) -> Result<Self, &'static str> {
-        if address.len() == 42 && address.starts_with("0x") {
-            Ok(Address(address))
-        } else if address.len() == 40 {
-            Ok(Address(format!("0x{address}")))
-        } else {
-            Err("Invalid address format")
+        let payload = strip_hex_prefix(&address);
+        if payload.len() != 40 {
+            return Err("Invalid address format");
         }
+        if hex::decode(payload).is_err() {
+            return Err("Invalid address format");
+        }
+        Ok(Address(format!("0x{payload}")))
     }
 
     /// Get address as string
@@ -46,11 +65,7 @@ impl Address {
 
     /// Get address bytes (20 bytes)
     pub fn to_bytes(&self) -> Vec<u8> {
-        if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).expect("Address::new validated a 40-char hex address")
-        } else {
-            hex::decode(&self.0).expect("Address::new validated a 40-char hex address")
-        }
+        hex::decode(strip_hex_prefix(&self.0)).unwrap_or_default()
     }
 
     /// Create from bytes
@@ -67,8 +82,8 @@ impl Address {
 
 impl TransactionHash {
     /// Create new transaction hash
-    pub fn new(hash: String) -> Self {
-        TransactionHash(hash)
+    pub fn new(hash: String) -> Result<Self, &'static str> {
+        Ok(TransactionHash(normalize_hex(&hash)?))
     }
 
     /// Get hash as string
@@ -79,11 +94,7 @@ impl TransactionHash {
 
     /// Get hash bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).expect("TransactionHash should contain valid hex")
-        } else {
-            hex::decode(&self.0).expect("TransactionHash should contain valid hex")
-        }
+        hex::decode(strip_hex_prefix(&self.0)).unwrap_or_default()
     }
 
     /// Create from bytes
@@ -94,8 +105,8 @@ impl TransactionHash {
 
 impl BlockHash {
     /// Create new block hash
-    pub fn new(hash: String) -> Self {
-        BlockHash(hash)
+    pub fn new(hash: String) -> Result<Self, &'static str> {
+        Ok(BlockHash(normalize_hex(&hash)?))
     }
 
     /// Get hash as string
@@ -105,11 +116,7 @@ impl BlockHash {
 
     /// Get hash bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        if self.0.starts_with("0x") {
-            hex::decode(&self.0[2..]).expect("BlockHash should contain valid hex")
-        } else {
-            hex::decode(&self.0).expect("BlockHash should contain valid hex")
-        }
+        hex::decode(strip_hex_prefix(&self.0)).unwrap_or_default()
     }
 
     /// Create from bytes

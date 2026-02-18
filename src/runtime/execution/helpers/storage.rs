@@ -78,7 +78,9 @@ impl ExecutionContext {
             } else {
                 let first = Sha256::digest(nef);
                 let second = Sha256::digest(first);
-                u32::from_le_bytes(second[..4].try_into().expect("checksum bytes"))
+                let mut checksum = [0u8; 4];
+                checksum.copy_from_slice(&second[..4]);
+                u32::from_le_bytes(checksum)
             }
         }
 

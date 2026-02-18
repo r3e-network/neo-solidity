@@ -141,7 +141,14 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
         if (compilationOutput.errors) {
           const warnings = compilationOutput.errors.filter(e => e.severity === "warning");
           if (warnings.length > 0) {
-            console.log(chalk.yellow(`⚠️  ${warnings.length} warnings`));
+            const uniqueWarnings = new Set(
+              warnings.map(w => w.formattedMessage || w.message),
+            );
+            console.log(
+              chalk.yellow(
+                `⚠️  ${warnings.length} warnings (${uniqueWarnings.size} unique)`,
+              ),
+            );
           }
         }
       }

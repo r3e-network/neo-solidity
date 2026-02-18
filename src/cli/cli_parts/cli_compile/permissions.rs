@@ -135,3 +135,155 @@ fn merge_manifest_permissions(into: &mut ManifestPermissionMap, other: &Manifest
             .or_insert_with(|| methods.clone());
     }
 }
+
+#[cfg(test)]
+mod permissions_parser_tests {
+    use super::*;
+    use proptest::prelude::*;
+    use serde_json::json;
+
+    fn build_permission_map(
+        entries: Vec<(String, bool, Vec<String>)>,
+    ) -> ManifestPermissionMap {
+        let mut map = ManifestPermissionMap::new();
+        for (contract, wildcard, methods) in entries {
+            let methods = if wildcard {
+                ManifestPermissionMethods::All
+            } else {
+                ManifestPermissionMethods::Some(methods.into_iter().collect())
+            };
+            map.entry(contract)
+                .and_modify(|existing| existing.merge_in(methods.clone()))
+                .or_insert(methods);
+        }
+        map
+    }
+
+    fn method_name_strategy() -> impl Strategy<Value = String> {
+        proptest::string::string_regex("[a-z][a-z0-9_]{0,11}").expect("valid regex")
+    }
+
+    fn permission_entry_strategy() -> impl Strategy<Value = (String, bool, Vec<String>)> {
+        (
+            prop::array::uniform20(any::<u8>()),
+            any::<bool>(),
+            prop::collection::vec(method_name_strategy(), 1..=4),
+        )
+            .prop_map(|(contract_bytes, wildcard, methods)| {
+                (
+                    format!("0x{}", hex::encode(contract_bytes)),
+                    wildcard,
+                    methods,
+                )
+            })
+    }
+
+    #[test]
+    fn parse_manifest_permissions_array_normalizes_and_merges_duplicate_contract_entries() {
+        let mixed_case = "0xD2A4CFF31913016155E38E474A2C06D08BE276CF";
+        let without_prefix = "d2a4cff31913016155e38e474a2c06d08be276cf";
+        let value = json!([
+            {
+                "contract": mixed_case,
+                "methods": ["totalSupply", "balanceOf", "totalSupply"]
+            },
+            {
+                "contract": without_prefix,
+                "methods": ["decimals", "balanceOf"]
+            }
+        ]);
+
+        let parsed = parse_manifest_permissions_array(&value).expect("permissions parsed");
+        let methods = parsed
+            .get("0xd2a4cff31913016155e38e474a2c06d08be276cf")
+            .expect("normalized contract key");
+
+        match methods {
+            ManifestPermissionMethods::All => {
+                panic!("expected method set, got wildcard")
+            }
+            ManifestPermissionMethods::Some(set) => {
+                assert_eq!(set.len(), 3, "duplicate methods should be deduplicated");
+                assert!(set.contains("totalSupply"));
+                assert!(set.contains("balanceOf"));
+                assert!(set.contains("decimals"));
+            }
+        }
+    }
+
+    #[test]
+    fn parse_manifest_permissions_array_wildcard_methods_dominate_specific_entries() {
+        let value = json!([
+            {
+                "contract": "0xd2a4cff31913016155e38e474a2c06d08be276cf",
+                "methods": ["totalSupply"]
+            },
+            {
+                "contract": "0xd2a4cff31913016155e38e474a2c06d08be276cf",
+                "methods": "*"
+            },
+            {
+                "contract": "0xd2a4cff31913016155e38e474a2c06d08be276cf",
+                "methods": ["balanceOf"]
+            }
+        ]);
+
+        let parsed = parse_manifest_permissions_array(&value).expect("permissions parsed");
+        let methods = parsed
+            .get("0xd2a4cff31913016155e38e474a2c06d08be276cf")
+            .expect("normalized contract key");
+        assert!(matches!(methods, ManifestPermissionMethods::All));
+    }
+
+    proptest! {
+        #[test]
+        fn manifest_permissions_json_roundtrip_preserves_semantics(
+            entries in prop::collection::vec(permission_entry_strategy(), 0..8)
+        ) {
+            let baseline = build_permission_map(entries);
+            let encoded = manifest_permissions_to_json(baseline.clone());
+            let decoded = parse_manifest_permissions_array(&encoded)
+                .expect("roundtrip decode should succeed");
+            prop_assert_eq!(decoded, baseline);
+        }
+
+        #[test]
+        fn merge_manifest_permissions_is_commutative(
+            left_entries in prop::collection::vec(permission_entry_strategy(), 0..6),
+            right_entries in prop::collection::vec(permission_entry_strategy(), 0..6),
+        ) {
+            let left = build_permission_map(left_entries);
+            let right = build_permission_map(right_entries);
+
+            let mut left_then_right = left.clone();
+            merge_manifest_permissions(&mut left_then_right, &right);
+
+            let mut right_then_left = right.clone();
+            merge_manifest_permissions(&mut right_then_left, &left);
+
+            prop_assert_eq!(left_then_right, right_then_left);
+        }
+
+        #[test]
+        fn merge_manifest_permissions_is_associative(
+            a_entries in prop::collection::vec(permission_entry_strategy(), 0..5),
+            b_entries in prop::collection::vec(permission_entry_strategy(), 0..5),
+            c_entries in prop::collection::vec(permission_entry_strategy(), 0..5),
+        ) {
+            let a = build_permission_map(a_entries);
+            let b = build_permission_map(b_entries);
+            let c = build_permission_map(c_entries);
+
+            let mut left = a.clone();
+            merge_manifest_permissions(&mut left, &b);
+            merge_manifest_permissions(&mut left, &c);
+
+            let mut bc = b.clone();
+            merge_manifest_permissions(&mut bc, &c);
+            let mut right = a.clone();
+            merge_manifest_permissions(&mut right, &bc);
+
+            prop_assert_eq!(left, right);
+        }
+    }
+}

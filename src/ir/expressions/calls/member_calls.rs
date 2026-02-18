@@ -366,8 +366,119 @@ fn try_lower_member_call(
                 .neo_function_name(&member.name, args.len() + 1);
             let without_receiver = ctx
                 .neo_function_name(&member.name, args.len());
+            let receiver_type = infer_type_from_expression(inner.as_ref(), ctx);
 
             let (neo_name, arg_count, use_receiver) = if let Some(name) = with_receiver {
+                if !ctx.has_using_directives() {
+                    ctx.record_error_with_suggestion(
+                        format!(
+                            "member-style call '{}(...)' requires an explicit `using` directive",
+                            member.name
+                        ),
+                        "add `using <Library> for <Type>;` (or `for *`) in the contract",
+                    );
+                    let mut success = true;
+                    if !lower_expression(inner.as_ref(), ctx, instructions) {
+                        success = false;
+                    } else {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                    for arg in args {
+                        if !lower_expression(arg, ctx, instructions) {
+                            success = false;
+                        } else {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                    }
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    return Some(success);
+                }
+
+                if let Some(receiver_type) = receiver_type.as_ref() {
+                    if !ctx.using_target_allows_receiver(receiver_type) {
+                        ctx.record_error_with_suggestion(
+                            format!(
+                                "member-style call '{}(...)' is not available for receiver type '{receiver_type:?}' under the current `using` directives",
+                                member.name
+                            ),
+                            "add/adjust `using <Library> for <Type>` so the receiver type is covered",
+                        );
+                        let mut success = true;
+                        if !lower_expression(inner.as_ref(), ctx, instructions) {
+                            success = false;
+                        } else {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                        for arg in args {
+                            if !lower_expression(arg, ctx, instructions) {
+                                success = false;
+                            } else {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                        }
+                        instructions
+                            .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                        return Some(success);
+                    }
+                }
+
+                if !ctx.using_function_list_allows_receiver(&member.name, receiver_type.as_ref()) {
+                    ctx.record_error_with_suggestion(
+                        format!(
+                            "member-style call '{}(...)' is not allowed by `using {{...}} for ...` function lists",
+                            member.name
+                        ),
+                        "add the function name to the corresponding `using { ... } for <Type>` directive",
+                    );
+                    let mut success = true;
+                    if !lower_expression(inner.as_ref(), ctx, instructions) {
+                        success = false;
+                    } else {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                    for arg in args {
+                        if !lower_expression(arg, ctx, instructions) {
+                            success = false;
+                        } else {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                    }
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    return Some(success);
+                }
+
+                if let Some(receiver_type) = receiver_type.as_ref() {
+                    if !ctx.receiver_matches_function_overload(
+                        &member.name,
+                        args.len() + 1,
+                        receiver_type,
+                    ) {
+                        ctx.record_error_with_suggestion(
+                            format!(
+                                "member-style call '{}(...)' cannot bind receiver type '{receiver_type:?}' to the library function first parameter",
+                                member.name
+                            ),
+                            "ensure the library function first parameter type is implicitly compatible with the receiver",
+                        );
+                        let mut success = true;
+                        if !lower_expression(inner.as_ref(), ctx, instructions) {
+                            success = false;
+                        } else {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                        for arg in args {
+                            if !lower_expression(arg, ctx, instructions) {
+                                success = false;
+                            } else {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
+                        }
+                        instructions
+                            .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                        return Some(success);
+                    }
+                }
+
                 (name, args.len() + 1, true)
             } else if let Some(name) = without_receiver {
                 // Compatibility fallback for merged library helpers where the

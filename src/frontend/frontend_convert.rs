@@ -2,6 +2,46 @@ fn convert_contract(
     contract: ContractDefinition,
     comment_map: &HashMap<usize, NatspecDocIR>,
 ) -> ContractIR {
+    fn normalize_using_target_type(expr: &Expression) -> String {
+        fn normalize_type_string(raw: &str) -> String {
+            let compact = raw
+                .chars()
+                .filter(|c| !c.is_ascii_whitespace())
+                .collect::<String>()
+                .replace("payable", "");
+            let lowered = compact.to_ascii_lowercase();
+            match lowered.as_str() {
+                "uint" => "uint256".to_string(),
+                "int" => "int256".to_string(),
+                "byte" => "bytes1".to_string(),
+                other => other.to_string(),
+            }
+        }
+
+        match expr {
+            Expression::Type(_, ty) => normalize_type_string(&format!("{ty}")),
+            _ => normalize_type_string(&format!("{expr}")),
+        }
+    }
+
+    fn using_function_name(function: &UsingFunction) -> Option<String> {
+        function.path.identifiers.last().map(|identifier| identifier.name.clone())
+    }
+
+    fn using_function_library_name(function: &UsingFunction) -> Option<String> {
+        if function.path.identifiers.len() < 2 {
+            return None;
+        }
+
+        Some(
+            function.path.identifiers[..function.path.identifiers.len() - 1]
+                .iter()
+                .map(|id| id.name.as_str())
+                .collect::<Vec<_>>()
+                .join("."),
+        )
+    }
+
     let name = contract
         .name
         .as_ref()
@@ -28,6 +68,7 @@ fn convert_contract(
     let mut has_using_for_star = false;
     let mut has_using_function_list = false;
     let mut using_for_libraries: Vec<String> = Vec::new();
+    let mut using_directives: Vec<UsingDirectiveIR> = Vec::new();
     let mut has_type_definitions = false;
     let mut type_aliases: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -44,6 +85,7 @@ fn convert_contract(
             ContractPart::StructDefinition(def) => structs.push(convert_struct(*def)),
             ContractPart::EnumDefinition(def) => enums.push(convert_enum(*def)),
             ContractPart::Using(using) => {
+                let target_type = using.ty.as_ref().map(normalize_using_target_type);
                 // Collect the library name for diagnostics and dispatch tracking.
                 if let UsingList::Library(ref path) = using.list {
                     let lib_name: String = path
@@ -56,15 +98,38 @@ fn convert_contract(
                         using_for_libraries.push(lib_name);
                     }
                 }
+                if let UsingList::Functions(ref functions) = using.list {
+                    for function in functions {
+                        if let Some(lib_name) = using_function_library_name(function) {
+                            if !using_for_libraries.contains(&lib_name) {
+                                using_for_libraries.push(lib_name);
+                            }
+                        }
+                    }
+                }
                 // Detect advanced `using` forms so we can emit targeted diagnostics.
                 if using.ty.is_none() {
                     // `using X for *` — ty is None when the target is `*`
                     has_using_for_star = true;
                 }
-                if matches!(using.list, UsingList::Functions(_)) {
+                if matches!(&using.list, UsingList::Functions(_)) {
                     // `using { f, g } for Y`
                     has_using_function_list = true;
                 }
+
+                let function_names = match &using.list {
+                    UsingList::Functions(functions) => {
+                        let names: Vec<String> =
+                            functions.iter().filter_map(using_function_name).collect();
+                        Some(names)
+                    }
+                    _ => None,
+                };
+
+                using_directives.push(UsingDirectiveIR {
+                    target_type,
+                    function_names,
+                });
             }
             ContractPart::TypeDefinition(td) => {
                 has_type_definitions = true;
@@ -88,6 +153,7 @@ fn convert_contract(
         has_using_for_star,
         has_using_function_list,
         using_for_libraries,
+        using_directives,
         has_type_definitions,
         type_aliases,
         super_method_map: std::collections::HashMap::new(),

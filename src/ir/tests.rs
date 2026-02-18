@@ -12,6 +12,10 @@ fn lower_emit_pushes_event_name_before_args() {
     let selector_registry = SelectorRegistry::default();
     let function_names = HashSet::new();
     let function_overloads: HashMap<(String, usize), String> = HashMap::new();
+    let function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
+    let using_target_types: Vec<Option<String>> = Vec::new();
+    let using_function_list_targets: HashMap<String, Vec<Option<String>>> = HashMap::new();
+    let using_function_list_scope_targets: Vec<Option<String>> = Vec::new();
     let function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
     let void_functions = HashSet::new();
     let state_types: Vec<ValueType> = Vec::new();
@@ -34,6 +38,10 @@ fn lower_emit_pushes_event_name_before_args() {
         &selector_registry,
         &function_names,
         &function_overloads,
+        &function_first_param_types,
+        &using_target_types,
+        &using_function_list_targets,
+        &using_function_list_scope_targets,
         &function_param_names,
         &void_functions,
         &super_method_map,

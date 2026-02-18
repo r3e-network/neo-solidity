@@ -24,6 +24,11 @@ fn test_address_creation() {
 }
 
 #[test]
+fn test_address_rejects_invalid_hex() {
+    assert!(Address::new("0xzzzz567890123456789012345678901234567890".to_string()).is_err());
+}
+
+#[test]
 fn test_gas_operations() {
     let gas1 = Gas::new(1000);
     let gas2 = Gas::new(500);
@@ -102,8 +107,8 @@ fn test_stack_item_conversion() {
 
 #[test]
 fn test_hash_types() {
-    let tx_hash = TransactionHash::new("0xabcdef1234567890".to_string());
-    let block_hash = BlockHash::new("0xfedcba0987654321".to_string());
+    let tx_hash = TransactionHash::new("0xabcdef1234567890".to_string()).unwrap();
+    let block_hash = BlockHash::new("0xfedcba0987654321".to_string()).unwrap();
 
     assert_eq!(tx_hash.as_str(), "0xabcdef1234567890");
     assert_eq!(block_hash.as_str(), "0xfedcba0987654321");
@@ -111,4 +116,10 @@ fn test_hash_types() {
     let bytes = tx_hash.to_bytes();
     let restored = TransactionHash::from_bytes(&bytes);
     assert_eq!(tx_hash.as_str(), restored.as_str());
+}
+
+#[test]
+fn test_hash_types_reject_invalid_hex() {
+    assert!(TransactionHash::new("0xhello".to_string()).is_err());
+    assert!(BlockHash::new("0xxy".to_string()).is_err());
 }

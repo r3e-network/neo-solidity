@@ -608,3 +608,77 @@ fn low_level_call_rejects_encode_call_non_function_reference() {
         "abi.encodeCall with struct field should compile"
     );
 }
+
+#[test]
+fn low_level_call_encode_with_signature_trims_whitespace_around_name() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract SignatureTrimHarness {
+        function run(address target) public returns (bool ok) {
+            (bool success, bytes memory out) = target.call(
+                abi.encodeWithSignature("   foo   (uint256)", 7)
+            );
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "SignatureTrimHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let run_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "run")
+        .expect("run function");
+
+    let instrs: Vec<_> = run_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::String(bytes)) if bytes == b"foo"
+        )),
+        "expected signature with extra whitespace to normalize to method name 'foo'"
+    );
+}
+
+#[test]
+fn low_level_call_rejects_signature_without_function_name() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract BadSignatureHarness {
+        function run(address target) public returns (bool ok) {
+            (bool success, bytes memory out) = target.call(
+                abi.encodeWithSignature("(uint256)", 7)
+            );
+            out;
+            return success;
+        }
+    }
+    "#;
+
+    let err = compile_contracts(source, false, 2).expect_err("expected invalid signature failure");
+    match err {
+        CompileError::Ir(diags) => {
+            assert!(
+                diags
+                    .iter()
+                    .any(|diag| diag.message.contains("must include a function name")),
+                "expected invalid signature diagnostic, got: {diags:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}

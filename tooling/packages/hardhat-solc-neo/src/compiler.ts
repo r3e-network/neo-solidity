@@ -186,10 +186,17 @@ export class NeoSolidityCompiler {
       // Print warnings
       const warnings = output.errors.filter(error => error.severity === "warning");
       if (warnings.length > 0) {
+        const warningCounts = new Map<string, number>();
+        for (const warning of warnings) {
+          const message = warning.formattedMessage || warning.message;
+          warningCounts.set(message, (warningCounts.get(message) || 0) + 1);
+        }
+
         console.log(chalk.yellow("Compilation warnings:"));
-        warnings.forEach(warning => {
-          console.log(chalk.yellow(`  ${warning.formattedMessage || warning.message}`));
-        });
+        for (const [message, count] of warningCounts) {
+          const suffix = count > 1 ? ` (repeated ${count}x)` : "";
+          console.log(chalk.yellow(`  ${message}${suffix}`));
+        }
       }
     }
 

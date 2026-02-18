@@ -46,6 +46,8 @@ pub struct ContractIR {
     /// resolves to `LibName.add(x, y)` automatically. This list is kept for
     /// diagnostic purposes.
     pub using_for_libraries: Vec<String>,
+    /// Parsed `using` directives with enough structure for type-aware lowering.
+    pub using_directives: Vec<UsingDirectiveIR>,
     /// Whether this contract contains `type X is Y` definitions.
     pub has_type_definitions: bool,
     /// User-defined value type aliases (`type X is Y`).
@@ -60,6 +62,18 @@ pub struct ContractIR {
     /// function is preserved as `__super_{methodName}` and this map records the
     /// relationship so that `super.method()` can be resolved during IR lowering.
     pub super_method_map: std::collections::HashMap<String, String>,
+}
+
+/// Parsed `using` directive (`using <list> for <type | *>`).
+#[derive(Debug, Clone)]
+pub struct UsingDirectiveIR {
+    /// `None` means wildcard target (`for *`), otherwise normalized target type.
+    pub target_type: Option<String>,
+    /// Function-name allowlist for `using {f, g} for T`.
+    ///
+    /// `None` means library-form directive (`using Lib for T`) where all compatible
+    /// library functions are available.
+    pub function_names: Option<Vec<String>>,
 }
 
 /// Classification of contract kinds.

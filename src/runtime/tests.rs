@@ -1,5 +1,7 @@
 use super::*;
+use crate::runtime::types::StackItem;
 use hex;
+use proptest::prelude::*;
 use sha2::{Digest as Sha2Digest, Sha256};
 use sha3::Keccak256;
 
@@ -78,6 +80,77 @@ fn test_function_selector_calculation() {
         .unwrap();
     // Known selector for transfer function
     assert_eq!(selector, [0xa9, 0x05, 0x9c, 0xbb]);
+}
+
+fn expected_selector(signature: &str) -> [u8; 4] {
+    let mut hasher = Keccak256::new();
+    hasher.update(signature.as_bytes());
+    let digest = hasher.finalize();
+    let mut selector = [0u8; 4];
+    selector.copy_from_slice(&digest[..4]);
+    selector
+}
+
+fn function_signature_strategy() -> impl Strategy<Value = String> {
+    let name = proptest::string::string_regex("[a-zA-Z_][a-zA-Z0-9_]{0,15}").expect("regex");
+    let ty = prop_oneof![
+        Just("uint256".to_string()),
+        Just("int256".to_string()),
+        Just("address".to_string()),
+        Just("bool".to_string()),
+        Just("bytes32".to_string()),
+    ];
+    (name, prop::collection::vec(ty, 0..=4)).prop_map(|(name, params)| {
+        if params.is_empty() {
+            format!("{name}()")
+        } else {
+            format!("{name}({})", params.join(","))
+        }
+    })
+}
+
+fn stack_item_strategy() -> impl Strategy<Value = StackItem> {
+    prop_oneof![
+        any::<i64>().prop_map(StackItem::Integer),
+        any::<u64>().prop_map(StackItem::UnsignedInteger),
+        any::<bool>().prop_map(StackItem::Boolean),
+        prop::collection::vec(any::<u8>(), 0..16).prop_map(StackItem::byte_array),
+        Just(StackItem::Null),
+    ]
+}
+
+fn stack_item_arguments_strategy() -> impl Strategy<Value = Vec<StackItem>> {
+    prop::collection::vec(stack_item_strategy(), 0..8)
+}
+
+proptest! {
+    #[test]
+    fn function_selector_matches_keccak_first_four_bytes(signature in function_signature_strategy()) {
+        let runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+        let selector = runtime
+            .calculate_function_selector(&signature)
+            .expect("selector");
+        prop_assert_eq!(selector, expected_selector(&signature));
+    }
+
+    #[test]
+    fn prepare_function_call_prefixes_selector_and_appends_encoded_arguments(
+        signature in function_signature_strategy(),
+        args in stack_item_arguments_strategy(),
+    ) {
+        let runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+        let encoded = runtime
+            .prepare_function_call(&signature, &args)
+            .expect("prepared call data");
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&expected_selector(&signature));
+        for arg in &args {
+            expected.extend_from_slice(&arg.to_bytes());
+        }
+
+        prop_assert_eq!(encoded, expected);
+    }
 }
 
 #[test]

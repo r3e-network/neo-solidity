@@ -183,3 +183,68 @@ fn native_contracts_member_call_emits_exact_native_permission() {
         "NativeContracts member call should not require wildcard contract permissions"
     );
 }
+
+#[test]
+fn repeated_static_native_contract_calls_emit_single_deduplicated_permission_entry() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract PermissionDedupHarness {
+        function run() public returns (bytes memory, bytes memory, bytes memory) {
+            bytes memory a = Syscalls.contractCall(
+                NativeCalls.GAS_CONTRACT,
+                "totalSupply",
+                abi.encode()
+            );
+            bytes memory b = Syscalls.contractCall(
+                NativeCalls.GAS_CONTRACT,
+                "balanceOf",
+                abi.encode(address(this))
+            );
+            bytes memory c = Syscalls.contractCall(
+                NativeCalls.GAS_CONTRACT,
+                "totalSupply",
+                abi.encode()
+            );
+            return (a, b, c);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let manifest = &artifacts[0].manifest;
+    let permissions = manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
+
+    let gas_entries: Vec<&Value> = permissions
+        .iter()
+        .filter(|entry| entry["contract"] == Value::String(gas_contract.clone()))
+        .collect();
+    assert_eq!(
+        gas_entries.len(),
+        1,
+        "expected exactly one GAS permission entry, got: {gas_entries:?}"
+    );
+
+    let gas_methods = gas_entries[0]["methods"].as_array().expect("GAS methods array");
+    let gas_method_names: Vec<&str> = gas_methods.iter().filter_map(|m| m.as_str()).collect();
+    assert_eq!(
+        gas_method_names,
+        vec!["balanceOf", "totalSupply"],
+        "expected deduplicated, deterministic method set"
+    );
+
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into())),
+        "static native calls should not require wildcard contract permissions"
+    );
+}

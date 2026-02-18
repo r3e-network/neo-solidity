@@ -1,5 +1,9 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+static OUTPUT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 fn get_compiler_path() -> PathBuf {
     // CARGO_BIN_EXE_<name> is set by Cargo for integration tests, pointing
@@ -13,6 +17,29 @@ fn get_example_path(contract: &str) -> PathBuf {
     manifest_dir.join("examples").join(contract)
 }
 
+fn unique_output_prefix(scope: &str, contract_path: &Path) -> Result<PathBuf, String> {
+    let stem = contract_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| format!("Invalid contract path: {}", contract_path.display()))?;
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let seq = OUTPUT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let output_dir = std::env::temp_dir().join(format!(
+        "neo-sol-{scope}-{}-{nanos}-{seq}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&output_dir).map_err(|e| {
+        format!(
+            "Failed to create output directory '{}': {e}",
+            output_dir.display()
+        )
+    })?;
+    Ok(output_dir.join(stem))
+}
+
 /// Compile and assert success (exit-code only). Works for multi-contract files
 /// where the compiler suffixes output with contract names.
 fn assert_compiles(contract_path: &str) {
@@ -20,9 +47,7 @@ fn assert_compiles(contract_path: &str) {
     assert!(compiler.exists(), "Compiler not found");
 
     let contract_path = get_example_path(contract_path);
-    let output_dir = std::env::temp_dir().join("neo-sol-test");
-    std::fs::create_dir_all(&output_dir).unwrap();
-    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+    let output_prefix = unique_output_prefix("test", &contract_path).expect("output prefix");
 
     let output = Command::new(&compiler)
         .arg(&contract_path)
@@ -52,12 +77,7 @@ fn compile_contract(contract_path: &str) -> Result<(PathBuf, PathBuf), String> {
     }
 
     let contract_path = get_example_path(contract_path);
-    let output_dir = std::env::temp_dir().join("neo-sol-test");
-
-    std::fs::create_dir_all(&output_dir)
-        .map_err(|e| format!("Failed to create output directory: {e}"))?;
-
-    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+    let output_prefix = unique_output_prefix("test", &contract_path)?;
 
     let output = Command::new(&compiler)
         .arg(&contract_path)
@@ -102,12 +122,7 @@ fn compile_contract_strict(contract_path: &str) -> Result<(PathBuf, PathBuf), St
     }
 
     let contract_path = get_example_path(contract_path);
-    let output_dir = std::env::temp_dir().join("neo-sol-test-strict");
-
-    std::fs::create_dir_all(&output_dir)
-        .map_err(|e| format!("Failed to create output directory: {e}"))?;
-
-    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+    let output_prefix = unique_output_prefix("test-strict", &contract_path)?;
 
     let output = Command::new(&compiler)
         .arg(&contract_path)
@@ -220,11 +235,12 @@ fn test_compile_with_optimization() {
     }
 
     let example_path = get_example_path("SimpleStorage.sol");
+    let output_prefix = unique_output_prefix("opt-test", &example_path).expect("output prefix");
     let output = Command::new(&compiler)
         .arg(&example_path)
         .arg("-O3")
         .arg("-o")
-        .arg("/tmp/neo-sol-opt-test")
+        .arg(&output_prefix)
         .output()
         .expect("Failed to run compiler");
 
@@ -877,6 +893,44 @@ fn test_native_contract_showcase_nef_valid() {
     );
 }
 
+#[test]
+fn test_parallel_compilation_outputs_are_isolated() {
+    let workers = 4usize;
+    let iterations_per_worker = 2usize;
+
+    let handles: Vec<_> = (0..workers)
+        .map(|_| {
+            std::thread::spawn(move || {
+                for _ in 0..iterations_per_worker {
+                    let (nef_path, manifest_path) =
+                        compile_contract("new/NativeContractShowcase.sol")
+                            .expect("parallel compile should succeed");
+
+                    let nef_data = std::fs::read(&nef_path).expect("read NEF");
+                    assert!(
+                        nef_data.len() >= 4 && &nef_data[..4] == b"NEF3",
+                        "parallel compile produced invalid NEF header"
+                    );
+
+                    let manifest_data =
+                        std::fs::read_to_string(&manifest_path).expect("read manifest");
+                    let json: serde_json::Value =
+                        serde_json::from_str(&manifest_data).expect("manifest JSON");
+                    let permissions = json["permissions"].as_array().expect("permissions array");
+                    assert!(
+                        !permissions.is_empty(),
+                        "expected non-empty permissions in parallel compilation manifest"
+                    );
+                }
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        handle.join().expect("parallel worker panicked");
+    }
+}
+
 // ========== EVM compatibility error tests ==========
 
 /// Compile a contract and assert that compilation fails with stderr containing
@@ -886,9 +940,8 @@ fn assert_compile_error_contains(contract_path: &str, expected_error: &str) {
     assert!(compiler.exists(), "Compiler not found");
 
     let contract_path = get_example_path(contract_path);
-    let output_dir = std::env::temp_dir().join("neo-sol-evm-compat-test");
-    std::fs::create_dir_all(&output_dir).unwrap();
-    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+    let output_prefix =
+        unique_output_prefix("evm-compat-error", &contract_path).expect("output prefix");
 
     let output = Command::new(&compiler)
         .arg(&contract_path)
@@ -919,9 +972,8 @@ fn assert_compile_warns(contract_path: &str, expected_warning: &str) {
     assert!(compiler.exists(), "Compiler not found");
 
     let contract_path = get_example_path(contract_path);
-    let output_dir = std::env::temp_dir().join("neo-sol-evm-compat-test");
-    std::fs::create_dir_all(&output_dir).unwrap();
-    let output_prefix = output_dir.join(contract_path.file_stem().unwrap().to_str().unwrap());
+    let output_prefix =
+        unique_output_prefix("evm-compat-warn", &contract_path).expect("output prefix");
 
     let output = Command::new(&compiler)
         .arg(&contract_path)

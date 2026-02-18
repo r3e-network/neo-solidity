@@ -1,43 +1,133 @@
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ConstantStateSignature {
+    ty: String,
+    neo_type: Option<NeoType>,
+    is_immutable: bool,
+    has_initializer: bool,
+    initializer_fingerprint: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct SeenStateVariables {
+    has_non_constant: bool,
+    constant_signatures: Vec<ConstantStateSignature>,
+}
+
+fn build_constant_state_signature(state: &StateVariableMetadata) -> ConstantStateSignature {
+    ConstantStateSignature {
+        ty: state.ty.trim().to_ascii_lowercase(),
+        neo_type: state.neo_type.clone(),
+        is_immutable: state.is_immutable,
+        has_initializer: state.has_initializer,
+        initializer_fingerprint: state
+            .initializer
+            .as_ref()
+            .map(build_initializer_fingerprint),
+    }
+}
+
+fn build_initializer_fingerprint(expr: &Expression) -> String {
+    match expr {
+        Expression::Parenthesis(_, inner) => build_initializer_fingerprint(inner),
+        Expression::BoolLiteral(_, value) => format!("bool:{value}"),
+        Expression::AddressLiteral(_, value) => format!("address:{}", value.to_ascii_lowercase()),
+        Expression::NumberLiteral(_, integer, exponent, unit) => format!(
+            "number:{}:{}:{}",
+            integer.to_ascii_lowercase(),
+            exponent.to_ascii_lowercase(),
+            unit.as_ref()
+                .map(|identifier| identifier.name.to_ascii_lowercase())
+                .unwrap_or_default()
+        ),
+        Expression::HexNumberLiteral(_, value, unit) => format!(
+            "hex-number:{}:{}",
+            value.to_ascii_lowercase(),
+            unit.as_ref()
+                .map(|identifier| identifier.name.to_ascii_lowercase())
+                .unwrap_or_default()
+        ),
+        Expression::RationalNumberLiteral(_, integer, fraction, exponent, unit) => format!(
+            "rational:{}:{}:{}:{}",
+            integer.to_ascii_lowercase(),
+            fraction.to_ascii_lowercase(),
+            exponent.to_ascii_lowercase(),
+            unit.as_ref()
+                .map(|identifier| identifier.name.to_ascii_lowercase())
+                .unwrap_or_default()
+        ),
+        _ => format!("{expr:?}"),
+    }
+}
+
+impl SeenStateVariables {
+    fn from_state(state: &StateVariableMetadata) -> Self {
+        if state.is_constant {
+            Self {
+                has_non_constant: false,
+                constant_signatures: vec![build_constant_state_signature(state)],
+            }
+        } else {
+            Self {
+                has_non_constant: true,
+                constant_signatures: Vec::new(),
+            }
+        }
+    }
+}
+
 fn validate_state_variables(
     metadata: &ContractMetadata,
     method_name_counts: &std::collections::HashMap<String, usize>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
-    // Track whether a previously seen variable name has any non-constant
-    // declaration. Duplicate constant names can appear when third-party
-    // libraries are merged for compatibility.
-    let mut state_names: HashMap<String, bool> = HashMap::new();
+    let mut state_names: HashMap<String, SeenStateVariables> = HashMap::new();
+    let mut warned_non_constant_duplicates: HashSet<String> = HashSet::new();
+    let mut warned_conflicting_constant_duplicates: HashSet<String> = HashSet::new();
+
     for state in &metadata.state_variables {
         match &state.name {
             Some(name) => {
                 let current_non_constant = !state.is_constant;
-                if let Some(previous_non_constant) = state_names.get_mut(name) {
-                    if *previous_non_constant || current_non_constant {
-                        diagnostics.push(
-                            Diagnostic::warning(format!(
-                                "duplicate state variable '{name}' detected while flattening/merging contracts"
-                            ))
-                            .with_code("W122")
-                            .with_suggestion(
-                                "confirm inherited/storage layout expectations; Neo lowering keeps the first declaration semantics where possible",
-                            ),
-                        );
+                if let Some(seen) = state_names.get_mut(name) {
+                    if seen.has_non_constant || current_non_constant {
+                        if warned_non_constant_duplicates.insert(name.clone()) {
+                            diagnostics.push(
+                                Diagnostic::warning(format!(
+                                    "duplicate state variable '{name}' detected while flattening/merging contracts"
+                                ))
+                                .with_code("W122")
+                                .with_suggestion(
+                                    "confirm inherited/storage layout expectations; Neo lowering keeps the first declaration semantics where possible",
+                                ),
+                            );
+                        }
+                        seen.has_non_constant = true;
                     } else {
-                        diagnostics.push(
-                            Diagnostic::warning(format!(
-                                "duplicate constant state variable '{name}' detected while merging libraries"
-                            ))
-                            .with_code("W121")
-                            .with_suggestion(
-                                "qualify the constant by library name in Solidity source to avoid ambiguity",
-                            ),
-                        );
+                        let current_signature = build_constant_state_signature(state);
+                        let is_identical_duplicate = seen
+                            .constant_signatures
+                            .iter()
+                            .any(|signature| signature == &current_signature);
+
+                        if !is_identical_duplicate {
+                            if warned_conflicting_constant_duplicates.insert(name.clone()) {
+                                diagnostics.push(
+                                    Diagnostic::warning(format!(
+                                        "conflicting duplicate constant state variable '{name}' detected while merging libraries"
+                                    ))
+                                    .with_code("W121")
+                                    .with_suggestion(
+                                        "keep merged constants bit-for-bit identical, or qualify by library name to avoid ambiguity",
+                                    ),
+                                );
+                            }
+                            seen.constant_signatures.push(current_signature);
+                        }
                     }
-                    *previous_non_constant |= current_non_constant;
                 } else {
-                    state_names.insert(name.clone(), current_non_constant);
+                    state_names.insert(name.clone(), SeenStateVariables::from_state(state));
                 }
             }
             None => diagnostics.push(Diagnostic::error("state variable declared without a name")),

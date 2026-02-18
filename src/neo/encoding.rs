@@ -38,5 +38,7 @@ pub(super) fn write_varint(buffer: &mut Vec<u8>, value: u64) {
 pub(super) fn calculate_checksum(payload: &[u8]) -> u32 {
     let first = Sha256::digest(payload);
     let second = Sha256::digest(first);
-    u32::from_le_bytes(second[..4].try_into().expect("checksum slice"))
+    let mut checksum = [0u8; 4];
+    checksum.copy_from_slice(&second[..4]);
+    u32::from_le_bytes(checksum)
 }

@@ -57,21 +57,45 @@ impl Module {
             .collect();
 
         let mut function_overloads = HashMap::new();
+        let mut function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
         let mut function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
         for method in &metadata.methods {
-            function_overloads.insert(
-                (method.name.clone(), method.parameters.len()),
-                method.neo_name.clone(),
-            );
+            let key = (method.name.clone(), method.parameters.len());
+            function_overloads.insert(key.clone(), method.neo_name.clone());
+            if let Some(first_param) = method.parameters.first() {
+                function_first_param_types.insert(key.clone(), ValueType::from_parameter(first_param));
+            }
             let param_names: Vec<String> = method
                 .parameters
                 .iter()
                 .map(|p| p.name.clone().unwrap_or_default())
                 .collect();
-            function_param_names.insert(
-                (method.name.clone(), method.parameters.len()),
-                param_names,
-            );
+            function_param_names.insert(key, param_names);
+        }
+
+        let using_target_types: Vec<Option<String>> = metadata
+            .using_directives
+            .iter()
+            .map(|directive| directive.target_type.clone())
+            .collect();
+
+        let mut using_function_list_targets: HashMap<String, Vec<Option<String>>> = HashMap::new();
+        let mut using_function_list_scope_targets: Vec<Option<String>> = Vec::new();
+        for directive in &metadata.using_directives {
+            let Some(function_names) = &directive.function_names else {
+                continue;
+            };
+            if !using_function_list_scope_targets.contains(&directive.target_type) {
+                using_function_list_scope_targets.push(directive.target_type.clone());
+            }
+            for function_name in function_names {
+                let targets = using_function_list_targets
+                    .entry(function_name.to_ascii_lowercase())
+                    .or_default();
+                if !targets.contains(&directive.target_type) {
+                    targets.push(directive.target_type.clone());
+                }
+            }
         }
 
         let defined_struct_types =
@@ -101,6 +125,10 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &function_first_param_types,
+                &using_target_types,
+                &using_function_list_targets,
+                &using_function_list_scope_targets,
                 &function_param_names,
                 &void_functions,
                 &metadata.super_method_map,
@@ -135,6 +163,10 @@ impl Module {
                 selector_registry,
                 &function_names,
                 &function_overloads,
+                &function_first_param_types,
+                &using_target_types,
+                &using_function_list_targets,
+                &using_function_list_scope_targets,
                 &function_param_names,
                 &void_functions,
                 &metadata.super_method_map,

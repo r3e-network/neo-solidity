@@ -21,32 +21,10 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn validate_using_directives(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
-    if metadata.has_using_for_star {
-        diagnostics.push(
-            Diagnostic::warning(
-                "'using X for *' is supported; all library functions are available \
-                 but type-specific filtering is not enforced at compile time"
-            )
-            .with_suggestion(
-                "this is functionally correct — library functions can be called \
-                 as member functions on any type"
-            ),
-        );
-    }
-
-    if metadata.has_using_function_list {
-        diagnostics.push(
-            Diagnostic::warning(
-                "'using { f, g } for Type' is supported; all library functions are \
-                 merged (selective filtering is not enforced at compile time)"
-            )
-            .with_suggestion(
-                "this is functionally correct — all library functions are available; \
-                 unused functions are excluded during bytecode optimization"
-            ),
-        );
-    }
+fn validate_using_directives(_metadata: &ContractMetadata, _diagnostics: &mut [Diagnostic]) {
+    // `using` directives are validated during IR lowering where receiver type,
+    // member name, and lowered function overload information are all available.
+    // Keep this hook so future frontend-only `using` diagnostics can be added.
 }
 
 fn validate_type_definitions(_metadata: &ContractMetadata, _diagnostics: &mut [Diagnostic]) {

@@ -191,6 +191,7 @@ fn flatten_contract_inheritance(
         has_using_for_star: contract.has_using_for_star,
         has_using_function_list: contract.has_using_function_list,
         using_for_libraries: contract.using_for_libraries,
+        using_directives: contract.using_directives,
         has_type_definitions: contract.has_type_definitions,
         type_aliases,
         super_method_map,
