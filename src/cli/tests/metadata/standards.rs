@@ -237,7 +237,7 @@ fn near_miss_nep11_warns_ownerof_without_transfer() {
 }
 
 #[test]
-fn near_miss_nep26_warns_partial() {
+fn supported_standards_flags_nep22_nep26_nep27_nep29_nep30_nep31() {
     let build_method = |name: &str| FunctionMetadata {
         name: name.to_string(),
         neo_name: name.to_string(),
@@ -254,18 +254,212 @@ fn near_miss_nep26_warns_partial() {
         documentation: NatspecDoc::default(),
     };
 
-    // update without destroy → near-miss
-    let methods = vec![build_method("update")];
+    let mut update = build_method("update");
+    update.parameters = vec![
+        ParameterMetadata {
+            name: Some("nefFile".to_string()),
+            ty: "bytes".to_string(),
+            neo_type: Some(NeoType::ByteArray { fixed_len: None }),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("manifest".to_string()),
+            ty: "string".to_string(),
+            neo_type: Some(NeoType::String),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("data".to_string()),
+            ty: "Any".to_string(),
+            neo_type: Some(NeoType::Any),
+            storage: None,
+        },
+    ];
+
+    let mut nep26 = build_method("onNEP11Payment");
+    nep26.parameters = vec![
+        ParameterMetadata {
+            name: Some("from".to_string()),
+            ty: "address".to_string(),
+            neo_type: Some(NeoType::Address),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("amount".to_string()),
+            ty: "uint256".to_string(),
+            neo_type: Some(NeoType::Integer {
+                signed: false,
+                bits: 256,
+            }),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("tokenId".to_string()),
+            ty: "bytes".to_string(),
+            neo_type: Some(NeoType::ByteArray { fixed_len: None }),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("data".to_string()),
+            ty: "Any".to_string(),
+            neo_type: Some(NeoType::Any),
+            storage: None,
+        },
+    ];
+
+    let mut nep27 = build_method("onNEP17Payment");
+    nep27.parameters = vec![
+        ParameterMetadata {
+            name: Some("from".to_string()),
+            ty: "address".to_string(),
+            neo_type: Some(NeoType::Address),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("amount".to_string()),
+            ty: "uint256".to_string(),
+            neo_type: Some(NeoType::Integer {
+                signed: false,
+                bits: 256,
+            }),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("data".to_string()),
+            ty: "Any".to_string(),
+            neo_type: Some(NeoType::Any),
+            storage: None,
+        },
+    ];
+
+    let mut nep29 = build_method("_deploy");
+    nep29.parameters = vec![
+        ParameterMetadata {
+            name: Some("data".to_string()),
+            ty: "Any".to_string(),
+            neo_type: Some(NeoType::Any),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("update".to_string()),
+            ty: "bool".to_string(),
+            neo_type: Some(NeoType::Boolean),
+            storage: None,
+        },
+    ];
+
+    let mut nep30 = build_method("verify");
+    nep30.return_parameters = vec![ParameterMetadata {
+        name: None,
+        ty: "bool".to_string(),
+        neo_type: Some(NeoType::Boolean),
+        storage: None,
+    }];
+
+    let destroy = build_method("destroy");
+
+    let methods = vec![update, nep26, nep27, nep29, nep30, destroy];
     let result = detect_supported_standards(&methods, &[]);
+
+    for standard in ["NEP-22", "NEP-26", "NEP-27", "NEP-29", "NEP-30", "NEP-31"] {
+        assert!(
+            result.standards.iter().any(|s| s == standard),
+            "expected {standard} to be detected"
+        );
+    }
+}
+
+#[test]
+fn near_miss_nep26_warns_wrong_callback_signature() {
+    let method = FunctionMetadata {
+        name: "onNEP11Payment".to_string(),
+        neo_name: "onNEP11Payment".to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![
+            ParameterMetadata {
+                name: Some("from".to_string()),
+                ty: "address".to_string(),
+                neo_type: Some(NeoType::Address),
+                storage: None,
+            },
+            ParameterMetadata {
+                name: Some("amount".to_string()),
+                ty: "uint256".to_string(),
+                neo_type: Some(NeoType::Integer {
+                    signed: false,
+                    bits: 256,
+                }),
+                storage: None,
+            },
+            ParameterMetadata {
+                name: Some("tokenId".to_string()),
+                ty: "bytes".to_string(),
+                neo_type: Some(NeoType::ByteArray { fixed_len: None }),
+                storage: None,
+            },
+        ],
+        return_parameters: vec![],
+        state_mutability: StateMutability::NonPayable,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
+        documentation: NatspecDoc::default(),
+    };
+
+    let result = detect_supported_standards(&[method], &[]);
     assert!(
         !result.standards.iter().any(|s| s == "NEP-26"),
-        "should not detect NEP-26 with only update"
+        "should not detect NEP-26 with wrong callback arity"
     );
     assert!(
-        result.diagnostics.iter().any(|d| {
-            d.standard == "NEP-26" && d.message.contains("destroy")
-        }),
-        "expected near-miss warning for NEP-26"
+        result
+            .diagnostics
+            .iter()
+            .any(|d| d.standard == "NEP-26" && d.message.contains("signature")),
+        "expected signature warning for NEP-26"
+    );
+}
+
+#[test]
+fn near_miss_nep30_warns_non_boolean_verify() {
+    let method = FunctionMetadata {
+        name: "verify".to_string(),
+        neo_name: "verify".to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![],
+        return_parameters: vec![ParameterMetadata {
+            name: None,
+            ty: "uint256".to_string(),
+            neo_type: Some(NeoType::Integer {
+                signed: false,
+                bits: 256,
+            }),
+            storage: None,
+        }],
+        state_mutability: StateMutability::View,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
+        documentation: NatspecDoc::default(),
+    };
+
+    let result = detect_supported_standards(&[method], &[]);
+    assert!(
+        !result.standards.iter().any(|s| s == "NEP-30"),
+        "should not detect NEP-30 when verify does not return bool"
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|d| d.standard == "NEP-30" && d.message.contains("return")),
+        "expected return-type warning for NEP-30"
     );
 }
 

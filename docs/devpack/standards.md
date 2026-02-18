@@ -1,6 +1,6 @@
 # Standards and Contracts
 
-The devpack provides complete implementations of Neo N3 standards — NEP-17 (fungible tokens), NEP-11 (non-fungible tokens), NEP-24 (royalty metadata), and NEP-26 (upgrade lifecycle convention). The compiler auto-detects standard compliance and populates the manifest's `supportedstandards` array.
+The devpack provides complete implementations of Neo N3 token standards — NEP-17 (fungible tokens), NEP-11 (non-fungible tokens), and NEP-24 (royalty metadata) — plus reusable lifecycle/callback interfaces for NEP-22/26/27/29/30/31. The compiler auto-detects standard compliance and populates the manifest's `supportedstandards` array.
 
 ## Supported Standards
 
@@ -9,7 +9,12 @@ The devpack provides complete implementations of Neo N3 standards — NEP-17 (fu
 | NEP-17   | Fungible Token     | ERC-20              | `standards/NEP17.sol` |
 | NEP-11   | Non-Fungible Token | ERC-721             | `standards/NEP11.sol` |
 | NEP-24   | Royalty Metadata   | ERC-2981            | `standards/NEP24.sol` |
-| NEP-26   | Upgrade Lifecycle  | EIP-1967 (concept)  | `standards/NEP26.sol` |
+| NEP-22   | Contract Update    | EIP-1967 (partial)  | `standards/NEP22.sol` |
+| NEP-26   | NEP-11 Receiver    | ERC-721 Receiver    | `standards/NEP26.sol` |
+| NEP-27   | NEP-17 Receiver    | ERC-677/1363-style  | `standards/NEP27.sol` |
+| NEP-29   | Deploy Callback    | —                   | `standards/NEP29.sol` |
+| NEP-30   | Verify Callback    | —                   | `standards/NEP30.sol` |
+| NEP-31   | Destroy Method     | `selfdestruct` (partial) | `standards/NEP31.sol` |
 
 ## Ethereum to Neo Standard Mapping
 
@@ -20,7 +25,7 @@ The devpack provides complete implementations of Neo N3 standards — NEP-17 (fu
 | ERC-2981          | NEP-24                               | Multiple royalty recipients, `royaltyToken` parameter                                 |
 | EIP-165           | Manifest `supportedstandards`        | Interface detection is manifest-based, no `supportsInterface()`                       |
 | EIP-2612 (Permit) | `Runtime.checkWitness()`             | No permit needed — witness model replaces approvals                                   |
-| EIP-1967 (Proxy)  | NEP-26 (`ContractManagement.update`) | Native in-place upgrade, no proxy pattern                                             |
+| EIP-1967 (Proxy)  | NEP-22/29/31                          | Native update + deploy callback + optional destroy, no proxy pattern                  |
 
 ## NEP-17: Fungible Tokens
 
@@ -456,14 +461,16 @@ Either of these methods triggers detection:
 - `tokenUri`
 - `royaltyInfo`
 
-### NEP-26 Detection
+### Additional NEP Detection
 
-Both methods must be present:
+The compiler also auto-detects these contract-lifecycle and callback standards:
 
-- `update`
-- `destroy`
-
-If only one is present, the compiler emits an informational diagnostic suggesting the missing method.
+- `NEP-22`: `update(nefFile, manifest, data)`
+- `NEP-26`: `onNEP11Payment(from, amount, tokenId, data)`
+- `NEP-27`: `onNEP17Payment(from, amount, data)`
+- `NEP-29`: `_deploy(data, update)`
+- `NEP-30`: `verify(...) -> bool`
+- `NEP-31`: `destroy()`
 
 ::: tip Checking Detection Results
 After compilation, inspect the manifest to verify detected standards:

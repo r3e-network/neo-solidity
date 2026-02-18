@@ -104,33 +104,25 @@ fn devpack_nep24_standard_compiles() {
 }
 
 #[test]
-fn devpack_nep26_standard_compiles() {
+fn devpack_additional_nep_standards_compile() {
     let source = [
-        include_str!("../../../../devpack/contracts/Syscalls.sol"),
-        include_str!("../../../../devpack/contracts/NativeCalls.sol"),
-        include_str!("../../../../devpack/libraries/Storage.sol"),
-        include_str!("../../../../devpack/libraries/Runtime.sol"),
-        include_str!("../../../../devpack/libraries/Neo.sol"),
-        include_str!("../../../../devpack/contracts/FrameworkBase.sol"),
+        include_str!("../../../../devpack/standards/NEP22.sol"),
         include_str!("../../../../devpack/standards/NEP26.sol"),
+        include_str!("../../../../devpack/standards/NEP27.sol"),
+        include_str!("../../../../devpack/standards/NEP29.sol"),
+        include_str!("../../../../devpack/standards/NEP30.sol"),
+        include_str!("../../../../devpack/standards/NEP31.sol"),
+        "pragma solidity ^0.8.19; contract _NEPCompileAnchor {}",
     ]
     .join("\n");
 
-    let artifacts = compile_contracts(&source, false, 2).expect("devpack NEP26 compilation failed");
-    let names: Vec<_> = artifacts.iter().map(|a| a.metadata.name.as_str()).collect();
-    assert!(names.contains(&"FrameworkBase"));
-    assert!(names.contains(&"NEP26Upgradable"));
-
-    let nep26 = artifacts
-        .iter()
-        .find(|a| a.metadata.name == "NEP26Upgradable")
-        .expect("NEP26Upgradable artifact");
-    let standards = nep26.manifest["supportedstandards"]
-        .as_array()
-        .expect("supportedstandards array");
+    let artifacts =
+        compile_contracts(&source, false, 2).expect("additional NEP standards compilation failed");
     assert!(
-        standards.iter().any(|s| s.as_str() == Some("NEP-26")),
-        "NEP26Upgradable should advertise NEP-26"
+        artifacts
+            .iter()
+            .any(|artifact| artifact.metadata.name == "_NEPCompileAnchor"),
+        "expected anchor contract artifact"
     );
 }
 

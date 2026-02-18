@@ -110,25 +110,109 @@ fn detect_supported_standards(
         standards.push("NEP-24".to_string());
     }
 
-    // ── NEP-26: Contract Upgrade Standard ────────────────────────────
-    let has_update = names.contains("update");
-    let has_destroy = names.contains("destroy");
-    if has_update && has_destroy {
-        standards.push("NEP-26".to_string());
-    } else if has_update && !has_destroy {
+    // ── NEP-22: Contract Update Function ─────────────────────────────
+    let update_methods = methods_named(&public_methods, "update");
+    if update_methods
+        .iter()
+        .any(|method| method.parameters.len() == 3)
+    {
+        standards.push("NEP-22".to_string());
+    } else if !update_methods.is_empty() {
         diagnostics.push(StandardsDiagnostic {
             level: StandardsDiagnosticLevel::Info,
-            standard: "NEP-26",
-            message: "contract has `update` but is missing `destroy`. \
-                      Add both to enable NEP-26 standard detection."
+            standard: "NEP-22",
+            message: "contract has `update` but no 3-parameter NEP-22 signature \
+                      `update(nefFile, manifest, data)`."
                 .to_string(),
         });
-    } else if !has_update && has_destroy {
+    }
+
+    // ── NEP-26: NEP-11 Receiver Callback ─────────────────────────────
+    let nep11_payment_methods = methods_named(&public_methods, "onNEP11Payment");
+    if nep11_payment_methods
+        .iter()
+        .any(|method| method.parameters.len() == 4)
+    {
+        standards.push("NEP-26".to_string());
+    } else if !nep11_payment_methods.is_empty() {
         diagnostics.push(StandardsDiagnostic {
             level: StandardsDiagnosticLevel::Info,
             standard: "NEP-26",
-            message: "contract has `destroy` but is missing `update`. \
-                      Add both to enable NEP-26 standard detection."
+            message: "contract has `onNEP11Payment` but signature does not match \
+                      NEP-26 (`onNEP11Payment(from, amount, tokenId, data)`)."
+                .to_string(),
+        });
+    }
+
+    // ── NEP-27: NEP-17 Receiver Callback ─────────────────────────────
+    let nep17_payment_methods = methods_named(&public_methods, "onNEP17Payment");
+    if nep17_payment_methods
+        .iter()
+        .any(|method| method.parameters.len() == 3)
+    {
+        standards.push("NEP-27".to_string());
+    } else if !nep17_payment_methods.is_empty() {
+        diagnostics.push(StandardsDiagnostic {
+            level: StandardsDiagnosticLevel::Info,
+            standard: "NEP-27",
+            message: "contract has `onNEP17Payment` but signature does not match \
+                      NEP-27 (`onNEP17Payment(from, amount, data)`)."
+                .to_string(),
+        });
+    }
+
+    // ── NEP-29: Deployment/Update Callback ───────────────────────────
+    let deploy_methods = methods_named(&public_methods, "_deploy");
+    if deploy_methods
+        .iter()
+        .any(|method| method.parameters.len() == 2)
+    {
+        standards.push("NEP-29".to_string());
+    } else if !deploy_methods.is_empty() {
+        diagnostics.push(StandardsDiagnostic {
+            level: StandardsDiagnosticLevel::Info,
+            standard: "NEP-29",
+            message: "contract has `_deploy` but signature does not match \
+                      NEP-29 (`_deploy(data, update)`)."
+                .to_string(),
+        });
+    }
+
+    // ── NEP-30: Contract Witness Verification Callback ───────────────
+    let verify_methods = methods_named(&public_methods, "verify");
+    if verify_methods.len() == 1 && method_returns_bool(verify_methods[0]) {
+        standards.push("NEP-30".to_string());
+    } else if verify_methods.len() > 1 {
+        diagnostics.push(StandardsDiagnostic {
+            level: StandardsDiagnosticLevel::Warning,
+            standard: "NEP-30",
+            message: "contract has multiple `verify` methods. NEP-30 requires a \
+                      single `verify` entrypoint."
+                .to_string(),
+        });
+    } else if verify_methods.len() == 1 {
+        diagnostics.push(StandardsDiagnostic {
+            level: StandardsDiagnosticLevel::Info,
+            standard: "NEP-30",
+            message: "contract has `verify` but it does not return `bool` as \
+                      required by NEP-30."
+                .to_string(),
+        });
+    }
+
+    // ── NEP-31: Contract Destroy Guideline ───────────────────────────
+    let destroy_methods = methods_named(&public_methods, "destroy");
+    if destroy_methods
+        .iter()
+        .any(|method| method.parameters.is_empty() && method.return_parameters.is_empty())
+    {
+        standards.push("NEP-31".to_string());
+    } else if !destroy_methods.is_empty() {
+        diagnostics.push(StandardsDiagnostic {
+            level: StandardsDiagnosticLevel::Info,
+            standard: "NEP-31",
+            message: "contract has `destroy` but no parameterless void signature \
+                      required by NEP-31."
                 .to_string(),
         });
     }
@@ -195,4 +279,30 @@ fn check_transfer_params(
             });
         }
     }
+}
+
+/// Returns all public/external methods with a given name (case-insensitive).
+fn methods_named<'a>(
+    public_methods: &[&'a FunctionMetadata],
+    name: &str,
+) -> Vec<&'a FunctionMetadata> {
+    public_methods
+        .iter()
+        .copied()
+        .filter(|method| method.name.eq_ignore_ascii_case(name))
+        .collect()
+}
+
+/// Best-effort bool return detection for standards validation.
+fn method_returns_bool(method: &FunctionMetadata) -> bool {
+    if method.return_parameters.len() != 1 {
+        return false;
+    }
+    let ret = &method.return_parameters[0];
+    if let Some(neo_type) = &ret.neo_type {
+        if matches!(neo_type, NeoType::Boolean) {
+            return true;
+        }
+    }
+    ret.ty.eq_ignore_ascii_case("bool")
 }

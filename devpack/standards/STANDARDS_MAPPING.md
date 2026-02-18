@@ -13,7 +13,9 @@
 | ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; use NEP-11 divisible mode                         |
 | EIP-165           | Manifest  | 🔄 Different | Neo uses manifest `supportedstandards` instead of `supportsInterface()` |
 | EIP-2612 (Permit) | —         | 🔄 Different | Neo uses `Runtime.checkWitness()` instead of off-chain signatures       |
-| EIP-1967 (Proxy)  | NEP-26    | 🔄 Different | Neo has native `update`/`destroy` instead of proxy pattern              |
+| EIP-1967 (Proxy)  | NEP-22/29/31 | 🔄 Different | Neo upgrades in-place via `update`, uses `_deploy` callback, optional `destroy` |
+| ERC-721 Receiver  | NEP-26    | 🔄 Different | Neo uses explicit `onNEP11Payment` callback                             |
+| ERC-677 / ERC-1363 style hooks | NEP-27 | 🔄 Different | Neo uses explicit `onNEP17Payment` callback                             |
 
 ---
 
@@ -253,31 +255,24 @@ There is no need for off-chain signature schemes or nonce tracking.
 
 ---
 
-## 7. EIP-1967 (Proxy/Upgrade) ↔ NEP-26 (Contract Upgrade)
+## 7. Lifecycle and Callback NEPs (NEP-22/26/27/29/30/31)
 
-**Spec:** NEP-26 is not a formal proposal but a convention for upgradeable contracts.
+Neo N3 defines additional contract behavior standards beyond NEP-11/17/24.
 
-| EIP-1967 (Ethereum)                  | Neo Native Upgrade                         |
-| ------------------------------------ | ------------------------------------------ |
-| Proxy contract + implementation slot | `ContractManagement.update(nef, manifest)` |
-| `upgradeTo(address newImpl)`         | `update(ByteArray nef, String manifest)`   |
-| `implementation() → address`         | Not needed — contract is updated in-place  |
-| Storage layout must be preserved     | Storage is preserved automatically         |
-| `selfdestruct(address)`              | `ContractManagement.destroy()`             |
-
-### Key Differences
-
-1. **No proxy pattern**: Neo contracts are upgraded **in-place** via the native
-   `ContractManagement.update()` syscall. The contract hash remains the same.
-2. **Storage preservation**: Neo automatically preserves all storage during updates.
-   No storage layout compatibility concerns.
-3. **Destroy**: `ContractManagement.destroy()` permanently removes the contract and
-   its storage. There is no equivalent of Ethereum's `selfdestruct` refund.
+| NEP | Required Method | Purpose |
+| --- | --------------- | ------- |
+| NEP-22 | `update(nefFile, manifest, data)` | Standard contract update method |
+| NEP-26 | `onNEP11Payment(from, amount, tokenId, data)` | NEP-11 receiver callback |
+| NEP-27 | `onNEP17Payment(from, amount, data)` | NEP-17 receiver callback |
+| NEP-29 | `_deploy(data, update)` | Deploy/update lifecycle callback |
+| NEP-30 | `verify(...) -> bool` | Witness verification entrypoint |
+| NEP-31 | `destroy()` | Standard destroy method |
 
 ### Compiler Behavior
 
-- Auto-detects NEP-26 when both `update` and `destroy` methods are present.
-- The manifest `supportedstandards` array will include `"NEP-26"`.
+- `neo-solidity` detects and advertises the corresponding NEP when these signatures are present.
+- Detection is signature-based; methods with the same name but incompatible arity/return type are reported as near-misses.
+- Lifecycle NEPs are additive to token standards (e.g., a contract can advertise both `NEP-17` and `NEP-27`).
 
 ---
 
@@ -353,7 +348,12 @@ When porting an Ethereum contract to Neo N3 via `neo-solidity`:
 | `devpack/standards/NEP17.sol`       | NEP-17   | Full fungible token with extensions |
 | `devpack/standards/NEP11.sol`       | NEP-11   | Full NFT with enumeration           |
 | `devpack/standards/NEP24.sol`       | NEP-24   | Royalty standard                    |
-| `devpack/standards/NEP26.sol`       | NEP-26   | Upgrade lifecycle convention        |
+| `devpack/standards/NEP22.sol`       | NEP-22   | Update method interface             |
+| `devpack/standards/NEP26.sol`       | NEP-26   | NEP-11 receiver callback interface  |
+| `devpack/standards/NEP27.sol`       | NEP-27   | NEP-17 receiver callback interface  |
+| `devpack/standards/NEP29.sol`       | NEP-29   | Deploy callback interface           |
+| `devpack/standards/NEP30.sol`       | NEP-30   | Verify callback interface           |
+| `devpack/standards/NEP31.sol`       | NEP-31   | Destroy method interface            |
 | `devpack/contracts/NativeCalls.sol` | —        | GAS/NEO native token transfers      |
 | `devpack/libraries/Runtime.sol`     | —        | `checkWitness`, `getTime`, etc.     |
 | `devpack/libraries/Storage.sol`     | —        | Persistent storage operations       |

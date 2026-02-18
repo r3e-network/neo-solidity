@@ -77,55 +77,46 @@ fn erc721_manifest_advertises_nep11() {
 }
 
 #[test]
-fn royalty_manifest_advertises_nep24() {
+fn lifecycle_and_callback_manifest_advertises_additional_neps() {
     let source = r#"
     pragma solidity ^0.8.19;
 
-    contract RoyaltyLike {
-        function royaltyInfo(bytes32 tokenId, address royaltyToken, uint256 salePrice)
-            public
-            pure
-            returns (address[] memory recipients, uint256[] memory amounts)
-        {
-            tokenId; royaltyToken; salePrice;
-            recipients = new address[](0);
-            amounts = new uint256[](0);
+    contract LifecycleHooks {
+        function update(bytes memory nefFile, string memory manifestText, bytes memory data) public {
+            nefFile; manifestText; data;
         }
+
+        function onNEP11Payment(address from, uint256 amount, bytes memory tokenId, bytes memory data) public {
+            from; amount; tokenId; data;
+        }
+
+        function onNEP17Payment(address from, uint256 amount, bytes memory data) public {
+            from; amount; data;
+        }
+
+        function _deploy(bytes memory data, bool updateFlag) public {
+            data; updateFlag;
+        }
+
+        function verify() public pure returns (bool) {
+            return true;
+        }
+
+        function destroy() public {}
     }
     "#;
 
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     let manifest = &artifacts[0].manifest;
+
     let standards = manifest["supportedstandards"]
         .as_array()
         .expect("supportedstandards array");
-    assert!(
-        standards.iter().any(|s| s.as_str() == Some("NEP-24")),
-        "royalty-like contract should advertise NEP-24"
-    );
-}
 
-#[test]
-fn upgrade_manifest_advertises_nep26() {
-    let source = r#"
-    pragma solidity ^0.8.19;
-
-    contract UpgradableLike {
-        function update(bytes calldata nef, bytes calldata manifest) external {
-            nef; manifest;
-        }
-
-        function destroy() external {}
+    for standard in ["NEP-22", "NEP-26", "NEP-27", "NEP-29", "NEP-30", "NEP-31"] {
+        assert!(
+            standards.iter().any(|s| s.as_str() == Some(standard)),
+            "expected {standard} in supportedstandards"
+        );
     }
-    "#;
-
-    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
-    let manifest = &artifacts[0].manifest;
-    let standards = manifest["supportedstandards"]
-        .as_array()
-        .expect("supportedstandards array");
-    assert!(
-        standards.iter().any(|s| s.as_str() == Some("NEP-26")),
-        "update/destroy contract should advertise NEP-26"
-    );
 }

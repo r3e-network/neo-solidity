@@ -9,7 +9,7 @@
 > supported intrinsics.
 
 This devpack provides Solidity-facing interfaces for the Neo N3 features that `neo-solidity`
-currently supports, plus complete example contracts (NEP-17/NEP-11).
+currently supports, plus complete example contracts (NEP-17/NEP-11) and reusable NEP lifecycle/callback interfaces.
 
 ## 🎯 Features
 
@@ -25,8 +25,9 @@ currently supports, plus complete example contracts (NEP-17/NEP-11).
 - **NEP-17**: Fungible token standard (enhanced ERC-20)
 - **NEP-11**: Non-fungible token standard (enhanced ERC-721)
 - **NEP-24**: NFT royalty standard (`royaltyInfo`)
-- **NEP-26**: Upgrade lifecycle convention (`update`/`destroy`)
-- **Custom NEPs**: Framework for implementing additional standards
+- **NEP-22/29/30/31**: Update/deploy/verify/destroy lifecycle interfaces
+- **NEP-26/27**: NEP-11/NEP-17 payment callback interfaces
+- **Custom NEPs**: Framework for extending additional standards
 
 ### ✅ ERC → NEP Migration
 
@@ -117,8 +118,7 @@ devpack/
 ├── standards/          # NEP standard implementations
 │   ├── NEP17.sol      # Fungible tokens
 │   ├── NEP11.sol      # Non-fungible tokens
-│   ├── NEP24.sol      # NFT royalty standard
-│   └── NEP26.sol      # Upgrade lifecycle convention
+│   └── NEP24.sol      # NFT royalty standard
 ├── libraries/          # Utility libraries
 │   ├── Neo.sol        # Neo blockchain utilities
 │   ├── Storage.sol    # Advanced storage operations
@@ -202,7 +202,12 @@ Additional helpers: `putUint256`, `getUint256`, `putAddress`, `getAddress`, `put
 | NEP-17   | `NEP17.sol` | Fungible token (symbol, decimals, totalSupply, balanceOf, transfer + Transfer event) |
 | NEP-11   | `NEP11.sol` | Non-fungible token with non-divisible and divisible variants                         |
 | NEP-24   | `NEP24.sol` | NFT royalty standard (royaltyInfo per token or default)                              |
-| NEP-26   | `NEP26.sol` | Upgrade lifecycle convention (`update`, `destroy`)                                    |
+| NEP-22   | `NEP22.sol` | Contract update interface (`update(nefFile, manifest, data)`)                        |
+| NEP-26   | `NEP26.sol` | NEP-11 receiver callback interface (`onNEP11Payment`)                                |
+| NEP-27   | `NEP27.sol` | NEP-17 receiver callback interface (`onNEP17Payment`)                                |
+| NEP-29   | `NEP29.sol` | Deployment callback interface (`_deploy(data, update)`)                              |
+| NEP-30   | `NEP30.sol` | Verification callback interface (`verify()`)                                          |
+| NEP-31   | `NEP31.sol` | Contract destroy interface (`destroy()`)                                              |
 
 > Note: These files are primarily for Solidity tooling ergonomics (types/signatures/docs) over
 > compiler intrinsics. Most members compile standalone, but callback/function-pointer helpers

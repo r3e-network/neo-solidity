@@ -227,18 +227,6 @@ contract MyRoyaltyMixin is NEP24Royalty {
 }
 ```
 
-### ♻️ NEP-26 Upgrade Lifecycle
-
-```solidity
-import "@r3e-network/neo-solidity-devpack/standards/NEP26.sol";
-
-contract MyUpgradeable is NEP26Upgradable {
-    function currentVersion() external pure returns (uint256) {
-        return 1;
-    }
-}
-```
-
 ## 🛠️ Advanced Libraries
 
 ### 🌐 Neo.sol - Blockchain Utilities
@@ -564,7 +552,7 @@ module.exports = {
         devpack: true,
         syscalls: "all",
         nativeContracts: "all",
-        nepStandards: ["NEP-17", "NEP-11", "NEP-24", "NEP-26"],
+        nepStandards: ["NEP-17", "NEP-11", "NEP-24", "NEP-22", "NEP-26", "NEP-27", "NEP-29", "NEP-30", "NEP-31"],
       },
     },
   },
