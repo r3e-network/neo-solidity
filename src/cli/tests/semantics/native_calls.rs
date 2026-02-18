@@ -23,6 +23,97 @@ fn native_calls_contract_constants_lower_to_native_hash_bytes() {
 }
 
 #[test]
+fn native_contracts_constants_match_nativecalls_and_syscalls() {
+    let checks = [
+        "NativeContracts.NEO_CONTRACT == NativeCalls.NEO_CONTRACT",
+        "NativeContracts.GAS_CONTRACT == NativeCalls.GAS_CONTRACT",
+        "NativeContracts.CONTRACT_MANAGEMENT == NativeCalls.CONTRACT_MANAGEMENT",
+        "NativeContracts.POLICY_CONTRACT == NativeCalls.POLICY_CONTRACT",
+        "NativeContracts.ORACLE_CONTRACT == NativeCalls.ORACLE_CONTRACT",
+        "NativeContracts.ROLE_MANAGEMENT == NativeCalls.ROLE_MANAGEMENT",
+        "NativeContracts.NOTARY_CONTRACT == NativeCalls.NOTARY_CONTRACT",
+        "NativeContracts.TREASURY_CONTRACT == NativeCalls.TREASURY_CONTRACT",
+        "NativeContracts.LEDGER_CONTRACT == NativeCalls.LEDGER_CONTRACT",
+        "NativeContracts.CRYPTO_LIB == NativeCalls.CRYPTO_LIB",
+        "NativeContracts.STD_LIB == NativeCalls.STD_LIB",
+        "NativeContracts.CONTRACT_MANAGEMENT == Syscalls.CONTRACT_MANAGEMENT",
+        "NativeContracts.POLICY_CONTRACT == Syscalls.POLICY_CONTRACT",
+        "NativeContracts.ORACLE_CONTRACT == Syscalls.ORACLE_CONTRACT",
+        "NativeContracts.ROLE_MANAGEMENT == Syscalls.ROLE_MANAGEMENT",
+        "NativeContracts.LEDGER_CONTRACT == Syscalls.LEDGER_CONTRACT",
+        "NativeContracts.CRYPTO_LIB == Syscalls.CRYPTO_LIB",
+        "NativeContracts.STD_LIB == Syscalls.STD_LIB",
+    ];
+
+    for check in checks {
+        let source = [
+            include_str!("../../../../devpack/contracts/NativeContracts.sol"),
+            &format!(
+                r#"
+                pragma solidity ^0.8.19;
+
+                contract NativeContractsParityHarness {{
+                    function ok() public pure returns (bool) {{
+                        return {check};
+                    }}
+                }}
+                "#
+            ),
+        ]
+        .join("\n");
+
+        let artifacts = compile_contracts(&source, false, 2).expect("compilation failed");
+        let harness = artifacts
+            .iter()
+            .find(|artifact| artifact.metadata.name == "NativeContractsParityHarness")
+            .expect("expected NativeContractsParityHarness artifact");
+
+        let result = execute_bytecode(&harness.bytecode);
+        assert!(
+            result.is_success(),
+            "expected parity check execution to succeed: {check}"
+        );
+        assert_eq!(result.return_data, vec![1u8], "parity mismatch: {check}");
+    }
+}
+
+#[test]
+fn native_contracts_gas_constant_matches_native_hash_bytes() {
+    let source = [
+        include_str!("../../../../devpack/contracts/NativeContracts.sol"),
+        r#"
+        pragma solidity ^0.8.19;
+
+        contract NativeContractsConstHarness {
+            function value() public pure returns (address) {
+                return NativeContracts.GAS_CONTRACT;
+            }
+        }
+        "#,
+    ]
+    .join("\n");
+
+    let artifacts = compile_contracts(&source, false, 2).expect("compilation failed");
+    let harness = artifacts
+        .iter()
+        .find(|artifact| artifact.metadata.name == "NativeContractsConstHarness")
+        .expect("expected NativeContractsConstHarness artifact");
+
+    let result = execute_bytecode(&harness.bytecode);
+    assert!(
+        result.is_success(),
+        "expected NativeContracts constant-return to succeed"
+    );
+
+    let expected = super::bytecode::native_contract_hash(ir::NativeContract::Gas);
+    assert_eq!(
+        result.return_data,
+        expected.to_vec(),
+        "expected GAS native contract hash bytes for NativeContracts.GAS_CONTRACT"
+    );
+}
+
+#[test]
 fn block_chainid_maps_to_neo_network_magic() {
     let source = r#"
     pragma solidity ^0.8.19;

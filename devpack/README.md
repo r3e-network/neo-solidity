@@ -192,6 +192,8 @@ Canonical Neo N3 native contract/script-hash constants:
 `ORACLE_CONTRACT`, `ROLE_MANAGEMENT`, `NOTARY_CONTRACT`, `TREASURY_CONTRACT`,
 `LEDGER_CONTRACT`, `CRYPTO_LIB`, `STD_LIB`.
 
+Note: values are listed in Neo RPC big-endian form.
+
 #### NativeCalls (`devpack/contracts/NativeCalls.sol`)
 
 | Category               | Key Methods                                                          |

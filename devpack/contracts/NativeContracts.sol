@@ -7,6 +7,10 @@ pragma solidity ^0.8.19;
  *
  * These addresses are deterministic and identical on all Neo N3 networks
  * (MainNet/TestNet/private networks).
+ *
+ * NOTE: These are written in Neo RPC-style big-endian hex (same values you
+ * see via RPC/explorer). The compiler lowers `address` literals to NeoVM
+ * `Hash160` stack representation as needed.
  */
 library NativeContracts {
     address constant NEO_CONTRACT = 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5;

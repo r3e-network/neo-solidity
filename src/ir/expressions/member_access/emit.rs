@@ -23,6 +23,10 @@ fn lower_member_access_expression(
         return result;
     }
 
+    if let Some(result) = try_lower_syscalls_contract_constant(inner, member, instructions) {
+        return result;
+    }
+
     if let Some(result) = try_lower_selector_member_access(inner, member, ctx, instructions) {
         return result;
     }

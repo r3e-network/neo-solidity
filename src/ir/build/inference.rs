@@ -285,6 +285,23 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                 return Some(ValueType::Address);
             }
 
+            // Treat known Syscalls.* native contract hash constants as addresses so
+            // member access is typed consistently with NativeCalls constants.
+            if matches!(inner.as_ref(), Expression::Variable(id) if id.name == "Syscalls")
+                && matches!(
+                    member.name.as_str(),
+                    "CONTRACT_MANAGEMENT"
+                        | "POLICY_CONTRACT"
+                        | "ORACLE_CONTRACT"
+                        | "ROLE_MANAGEMENT"
+                        | "LEDGER_CONTRACT"
+                        | "CRYPTO_LIB"
+                        | "STD_LIB"
+                )
+            {
+                return Some(ValueType::Address);
+            }
+
             // Type-qualified user-defined structs from interfaces/contracts: `Interface.StructName`.
             // solang-parser represents these as `MemberAccess(Variable("Interface"), "StructName")`.
             if let Expression::Variable(base) = inner.as_ref() {
