@@ -1,6 +1,6 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.13.0
+> **Compiler**: neo-solidity v0.13.1
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
 > **Audit date**: 2026-02-18

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.13.1] - 2026-02-18
+
+### Changed
+
+- **Release workflow resilience**: release matrix now uses `fail-fast: false` so one
+  target failure no longer cancels other platform builds.
+
+### Fixed
+
+- **ARM64 Linux release builds**: hardened aarch64 cross-compilation setup with explicit
+  linker/toolchain environment (`CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER`,
+  `CC/CXX/AR` target-specific vars, and cross pkg-config allowance).
+- **Release pipeline reliability**: added missing ARM64 cross tool dependencies in CI
+  (`g++-aarch64-linux-gnu`, `binutils-aarch64-linux-gnu`, `libc6-dev-arm64-cross`).
+
 ## [v0.13.0] - 2026-02-18
 
 ### Added
