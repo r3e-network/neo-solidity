@@ -75,3 +75,57 @@ fn erc721_manifest_advertises_nep11() {
         );
     }
 }
+
+#[test]
+fn royalty_manifest_advertises_nep24() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract RoyaltyLike {
+        function royaltyInfo(bytes32 tokenId, address royaltyToken, uint256 salePrice)
+            public
+            pure
+            returns (address[] memory recipients, uint256[] memory amounts)
+        {
+            tokenId; royaltyToken; salePrice;
+            recipients = new address[](0);
+            amounts = new uint256[](0);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    let manifest = &artifacts[0].manifest;
+    let standards = manifest["supportedstandards"]
+        .as_array()
+        .expect("supportedstandards array");
+    assert!(
+        standards.iter().any(|s| s.as_str() == Some("NEP-24")),
+        "royalty-like contract should advertise NEP-24"
+    );
+}
+
+#[test]
+fn upgrade_manifest_advertises_nep26() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract UpgradableLike {
+        function update(bytes calldata nef, bytes calldata manifest) external {
+            nef; manifest;
+        }
+
+        function destroy() external {}
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    let manifest = &artifacts[0].manifest;
+    let standards = manifest["supportedstandards"]
+        .as_array()
+        .expect("supportedstandards array");
+    assert!(
+        standards.iter().any(|s| s.as_str() == Some("NEP-26")),
+        "update/destroy contract should advertise NEP-26"
+    );
+}

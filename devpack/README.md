@@ -25,6 +25,7 @@ currently supports, plus complete example contracts (NEP-17/NEP-11).
 - **NEP-17**: Fungible token standard (enhanced ERC-20)
 - **NEP-11**: Non-fungible token standard (enhanced ERC-721)
 - **NEP-24**: NFT royalty standard (`royaltyInfo`)
+- **NEP-26**: Upgrade lifecycle convention (`update`/`destroy`)
 - **Custom NEPs**: Framework for implementing additional standards
 
 ### ✅ ERC → NEP Migration
@@ -116,7 +117,8 @@ devpack/
 ├── standards/          # NEP standard implementations
 │   ├── NEP17.sol      # Fungible tokens
 │   ├── NEP11.sol      # Non-fungible tokens
-│   └── NEP24.sol      # NFT royalty standard
+│   ├── NEP24.sol      # NFT royalty standard
+│   └── NEP26.sol      # Upgrade lifecycle convention
 ├── libraries/          # Utility libraries
 │   ├── Neo.sol        # Neo blockchain utilities
 │   ├── Storage.sol    # Advanced storage operations
@@ -200,6 +202,7 @@ Additional helpers: `putUint256`, `getUint256`, `putAddress`, `getAddress`, `put
 | NEP-17   | `NEP17.sol` | Fungible token (symbol, decimals, totalSupply, balanceOf, transfer + Transfer event) |
 | NEP-11   | `NEP11.sol` | Non-fungible token with non-divisible and divisible variants                         |
 | NEP-24   | `NEP24.sol` | NFT royalty standard (royaltyInfo per token or default)                              |
+| NEP-26   | `NEP26.sol` | Upgrade lifecycle convention (`update`, `destroy`)                                    |
 
 > Note: These files are primarily for Solidity tooling ergonomics (types/signatures/docs) over
 > compiler intrinsics. Most members compile standalone, but callback/function-pointer helpers

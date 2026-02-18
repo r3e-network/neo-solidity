@@ -270,6 +270,32 @@ fn near_miss_nep26_warns_partial() {
 }
 
 #[test]
+fn supported_standards_flags_nep26() {
+    let build_method = |name: &str| FunctionMetadata {
+        name: name.to_string(),
+        neo_name: name.to_string(),
+        kind: FunctionKind::Regular,
+        parameters: vec![],
+        return_parameters: vec![],
+        state_mutability: StateMutability::NonPayable,
+        visibility: VisibilityKind::Public,
+        offset: 0,
+        body: None,
+        selector: [0u8; 4],
+        is_virtual: false,
+        is_override: false,
+        documentation: NatspecDoc::default(),
+    };
+
+    let methods = vec![build_method("update"), build_method("destroy")];
+    let result = detect_supported_standards(&methods, &[]);
+    assert!(
+        result.standards.iter().any(|s| s == "NEP-26"),
+        "expected NEP-26 to be detected when update + destroy are present"
+    );
+}
+
+#[test]
 fn event_validation_warns_missing_transfer_event() {
     let build_method = |name: &str| FunctionMetadata {
         name: name.to_string(),
@@ -372,4 +398,3 @@ fn event_validation_accepts_correct_transfer_event() {
         "should not warn about Transfer event when it has correct param count"
     );
 }
-

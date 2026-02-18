@@ -353,6 +353,7 @@ When porting an Ethereum contract to Neo N3 via `neo-solidity`:
 | `devpack/standards/NEP17.sol`       | NEP-17   | Full fungible token with extensions |
 | `devpack/standards/NEP11.sol`       | NEP-11   | Full NFT with enumeration           |
 | `devpack/standards/NEP24.sol`       | NEP-24   | Royalty standard                    |
+| `devpack/standards/NEP26.sol`       | NEP-26   | Upgrade lifecycle convention        |
 | `devpack/contracts/NativeCalls.sol` | —        | GAS/NEO native token transfers      |
 | `devpack/libraries/Runtime.sol`     | —        | `checkWitness`, `getTime`, etc.     |
 | `devpack/libraries/Storage.sol`     | —        | Persistent storage operations       |
