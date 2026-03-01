@@ -14,8 +14,9 @@ pub struct SelectorRegistry {
 #[derive(Debug, Clone)]
 pub struct ContractMetadata {
     pub name: String,
-    /// Whether this contract was declared `abstract`.
     pub is_abstract: bool,
+    /// Whether this contract was declared as an `interface`.
+    pub is_interface: bool,
     /// Whether this contract was declared as a `library`.
     pub is_library: bool,
     pub methods: Vec<FunctionMetadata>,

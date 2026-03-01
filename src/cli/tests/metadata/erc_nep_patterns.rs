@@ -4,6 +4,7 @@ fn build_test_contract(name: &str, methods: Vec<FunctionMetadata>) -> ContractMe
     ContractMetadata {
         name: name.to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods,
         events: vec![],

@@ -12,6 +12,7 @@ fn method_identifiers_include_selectors() {
     let metadata = ContractMetadata {
         name: "Test".to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods: vec![FunctionMetadata {
             name: "foo".to_string(),

@@ -58,6 +58,7 @@ fn storage_map_assigns_slots_and_names() {
     let metadata = ContractMetadata {
         name: "StorageExample".to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods: vec![],
         events: vec![],
@@ -188,6 +189,7 @@ fn standard_abi_includes_constructor_and_event() {
     let metadata = ContractMetadata {
         name: "Token".to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods: vec![constructor, regular],
         events: vec![EventMetadata {

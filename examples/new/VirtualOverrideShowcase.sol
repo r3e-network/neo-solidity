@@ -34,7 +34,7 @@ contract Child is Base, IGreeter {
     constructor() Base("Child") {}
 
     /// Correctly overrides Base.greet() with override keyword.
-    function greet() public pure override returns (string memory) {
+    function greet() public pure virtual override returns (string memory) {
         return "Hello from Child";
     }
 

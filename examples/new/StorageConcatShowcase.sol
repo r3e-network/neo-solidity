@@ -15,7 +15,7 @@ contract StorageConcatShowcase {
         uint256 score;
         bool active;
     }
-    mapping(address => UserInfo) public users;
+    mapping(address => UserInfo) private users;
 
     uint256[] public scores;
 
@@ -23,7 +23,10 @@ contract StorageConcatShowcase {
         nestedMap[user][key] = val;
     }
 
-    function getNested(address user, uint256 key) public view returns (uint256) {
+    function getNested(
+        address user,
+        uint256 key
+    ) public view returns (uint256) {
         return nestedMap[user][key];
     }
 

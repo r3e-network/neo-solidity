@@ -87,7 +87,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         .collect();
     let contract_types = collect_contract_types(&pre_merge_contract_map);
 
-    let libraries: Vec<ContractIR> = if has_primary {
+    let raw_libraries: Vec<ContractIR> = if has_primary {
         fallback
             .iter()
             .filter(|contract| matches!(contract.kind, ContractKind::Library))
@@ -96,7 +96,6 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             // may contain EVM-only stubs or unsupported constructs, and they would bloat bytecode.
             .filter(|contract| !is_builtin_library_name(contract.name.as_str()))
             .cloned()
-            .map(normalize_library_for_neo)
             .collect()
     } else {
         Vec::new()
@@ -105,7 +104,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     // Validate user libraries before merging. Convert each library to metadata
     // and run the standard validation pipeline to catch library-specific errors
     // (state variables, constructors, external functions) early.
-    for lib in &libraries {
+    for lib in &raw_libraries {
         let lib_metadata = convert_contract(
             lib.clone(),
             &[],
@@ -128,6 +127,11 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             return Err(SolidityError::analysis(messages.join("\n")));
         }
     }
+
+    let libraries: Vec<ContractIR> = raw_libraries
+        .into_iter()
+        .map(normalize_library_for_neo)
+        .collect();
 
     // Merge library definitions into primary contracts so that library functions
     // (including `using for`-style member calls) can be lowered as internal calls.

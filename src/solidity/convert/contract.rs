@@ -96,6 +96,7 @@ fn convert_contract(
     ContractMetadata {
         name: contract.name,
         is_abstract: matches!(contract.kind, ContractKind::AbstractContract),
+        is_interface: matches!(contract.kind, ContractKind::Interface),
         is_library: matches!(contract.kind, ContractKind::Library),
         methods,
         events,

@@ -47,6 +47,10 @@ fn validate_abstract_contract(metadata: &ContractMetadata, diagnostics: &mut Vec
         return;
     }
 
+    if metadata.is_interface {
+        return;
+    }
+
     if metadata.is_abstract {
         // Abstract contracts: informational warning listing unimplemented methods.
         // This helps developers track what still needs implementation in derived contracts.

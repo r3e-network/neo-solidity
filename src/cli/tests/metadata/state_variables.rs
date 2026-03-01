@@ -2,6 +2,7 @@ fn contract_with_state_variables(state_variables: Vec<StateVariableMetadata>) ->
     ContractMetadata {
         name: "StateVariableDiagnostics".to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods: vec![],
         events: vec![],

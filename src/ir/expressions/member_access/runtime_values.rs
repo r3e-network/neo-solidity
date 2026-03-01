@@ -51,12 +51,14 @@ fn try_lower_runtime_member_access(
         "sig" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
-                    // Compatibility fallback: Neo dispatches by method name, not selector.
-                    // Keep compilation moving by materializing a zero selector.
+                    ctx.record_error_with_suggestion(
+                        "msg.sig is not supported on Neo N3. Neo dispatches by method name (and string matching), not by a 4-byte EVM selector.".to_string(),
+                        "Use string-based method identification or type(I).interfaceId (for NEP-11/NEP-17 compatibility).",
+                    );
                     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
                         0, 0, 0, 0,
                     ])));
-                    return Some(true);
+                    return Some(false);
                 }
             }
             None

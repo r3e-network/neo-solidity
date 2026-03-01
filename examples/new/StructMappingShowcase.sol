@@ -19,9 +19,9 @@ contract StructMappingShowcase {
         uint256 memberCount;
     }
 
-    mapping(address => Profile) public profiles;
-    mapping(uint256 => Organization) public orgs;
-    Profile[] public allProfiles;
+    mapping(address => Profile) private profiles;
+    mapping(uint256 => Organization) private orgs;
+    Profile[] private allProfiles;
     uint256 public orgCount;
 
     function createProfile(string memory _name, uint256 _age) public {

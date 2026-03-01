@@ -172,7 +172,7 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
         } else if !function.return_parameters.is_empty()
             && !matches!(function.kind, FunctionKind::Constructor)
         {
-            if metadata.is_abstract {
+            if metadata.is_abstract || metadata.is_interface {
                 // Abstract contracts are allowed to have bodyless functions.
                 // No diagnostic needed here; the abstract contract validation
                 // in entry.rs handles the deployment check.

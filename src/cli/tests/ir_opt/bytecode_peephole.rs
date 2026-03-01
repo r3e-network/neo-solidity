@@ -3,6 +3,7 @@ fn bytecode_peephole_reduces_size_at_o3() {
     let mut metadata = ContractMetadata {
         name: "Peephole".to_string(),
         is_abstract: false,
+            is_interface: false,
         is_library: false,
         methods: vec![FunctionMetadata {
             name: "foo".to_string(),

@@ -95,6 +95,7 @@ fn empty_contract_emits_ret_instruction() {
     let mut metadata = ContractMetadata {
         name: "Empty".to_string(),
         is_abstract: false,
+        is_interface: false,
         is_library: false,
         methods: vec![FunctionMetadata {
             name: "constructor".to_string(),
@@ -146,6 +147,7 @@ fn call_fixups_patch_offsets() {
     let mut metadata = ContractMetadata {
         name: "Callers".to_string(),
         is_abstract: false,
+        is_interface: false,
         is_library: false,
         methods: vec![
             FunctionMetadata {

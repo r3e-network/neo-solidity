@@ -29,12 +29,12 @@ contract Base {
 }
 
 contract Child is Base {
-    function greet() public pure override returns (string memory) {
+    function greet() public pure virtual override returns (string memory) {
         return "Child";
     }
 
     /// @dev Explicitly call the extracted helper directly.
-    function setValue(uint256 v) public override {
+    function setValue(uint256 v) public virtual override {
         _baseSetValue(v);
         // Child-specific logic can go here
     }

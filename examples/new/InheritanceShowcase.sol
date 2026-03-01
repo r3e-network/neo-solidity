@@ -39,7 +39,7 @@ contract Dog is Animal, Domestic {
         tricks = 0;
     }
 
-    function speak() public pure override returns (string memory) {
+    function speak() public pure virtual override returns (string memory) {
         return "Woof";
     }
 
