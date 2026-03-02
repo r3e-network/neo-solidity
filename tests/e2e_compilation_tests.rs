@@ -1132,7 +1132,10 @@ fn test_library_showcase_manifest_has_compute_method() {
 
 #[test]
 fn test_library_external_function_error() {
-    assert_compile_error_contains("new/LibraryExternalError.sol", "external library functions are not supported");
+    assert_compile_error_contains(
+        "new/LibraryExternalError.sol",
+        "external library functions are not supported",
+    );
 }
 
 #[test]
