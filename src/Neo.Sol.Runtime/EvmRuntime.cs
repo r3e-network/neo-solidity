@@ -5,6 +5,7 @@ using Neo.Sol.Runtime.Memory;
 using Neo.Sol.Runtime.Storage;
 using Neo.Sol.Runtime.Events;
 using Neo.Sol.Runtime.Context;
+using ExecutionContext = Neo.Sol.Runtime.Context.ExecutionContext;
 using Neo.Sol.Runtime.Calls;
 using Neo.Sol.Runtime.Registry;
 using Neo.Sol.Runtime.ABI;

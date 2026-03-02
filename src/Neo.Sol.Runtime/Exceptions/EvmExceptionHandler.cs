@@ -5,6 +5,7 @@ using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services;
 using Neo.Sol.Runtime.ABI;
 using Neo.Sol.Runtime.Context;
+using ExecutionContext = Neo.Sol.Runtime.Context.ExecutionContext;
 
 namespace Neo.Sol.Runtime.Exceptions;
 

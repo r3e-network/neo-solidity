@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Neo" Version="3.7.0" />
+    <PackageReference Include="Neo.SmartContract.Framework" Version="3.7.0" />
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
     <PackageReference Include="System.Security.Cryptography.Algorithms" Version="4.3.1" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.2.1" />
