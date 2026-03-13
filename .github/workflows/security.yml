@@ -237,17 +237,17 @@ jobs:
     
     steps:
     - name: Download all security reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: dependency-security-report
     
     - name: Download static analysis
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: static-analysis-report
     
     - name: Download contract security
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: contract-security-report
     
