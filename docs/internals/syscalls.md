@@ -454,7 +454,7 @@ uint256 value = Storage.getUint256("key");
 
 ## See Also
 
-- [Native Contracts](/neovm/native-contracts) — NEO, GAS, ContractManagement, CryptoLib, and other native contract references
-- [Runtime Specification](/reference/runtime) — embedded runtime behavior and fidelity notes
+- [Native Contracts](/internals/native-contracts) — NEO, GAS, ContractManagement, CryptoLib, and other native contract references
+- [Runtime Specification](/internals/runtime-specification) — embedded runtime behavior and fidelity notes
 - [Language Description](/language-description/types) — complete Solidity construct translation reference
-- [Devpack Overview](/devpack/overview) — library layout and usage guide
+- [Devpack Overview](/additional-material/neo-devpack) — library layout and usage guide

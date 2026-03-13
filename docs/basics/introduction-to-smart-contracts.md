@@ -113,7 +113,7 @@ Neo Solidity is production-ready for most use cases:
 - **Production gate** (`make production-gate`) that validates formatting, linting, release build, full tests, strict compilation sweeps, and deployment smoke suites in a single command.
 
 ::: warning Recommendation
-For mainnet deployment, always test your contracts thoroughly on Neo N3 TestNet first. Review the [Parity and Limitations](/reference/parity-limitations) page for known behavioral differences between EVM and NeoVM.
+For mainnet deployment, always test your contracts thoroughly on Neo N3 TestNet first. Review the [Parity and Limitations](/internals/parity-and-limitations) page for known behavioral differences between EVM and NeoVM.
 :::
 
 ## Key Capabilities
@@ -154,8 +154,8 @@ neo-solidity/
 
 ## Next Steps
 
-1. [Installation](/getting-started/installation) -- Build the compiler from source.
-2. [Quick Start](/getting-started/quickstart) -- Compile and inspect your first contract.
-3. [Compile Workflow](/workflows/compile) -- Full CLI reference and compilation patterns.
-4. [Deploy Workflow](/workflows/deploy) -- Deploy contracts to Neo-Express and TestNet.
-5. [Test Workflow](/workflows/test) -- Run the test suites and set up CI.
+1. [Installation](/basics/installing-the-compiler) -- Build the compiler from source.
+2. [Quick Start](/basics/quickstart) -- Compile and inspect your first contract.
+3. [Compile Workflow](/compiler/analysing-the-compiler-output) -- Full CLI reference and compilation patterns.
+4. [Deploy Workflow](/basics/deploying-contracts) -- Deploy contracts to Neo-Express and TestNet.
+5. [Test Workflow](/basics/testing-contracts) -- Run the test suites and set up CI.

@@ -165,7 +165,7 @@ error[E3001]: unsupported feature: delegatecall is not available on NeoVM
 - `block.difficulty` / `block.prevrandao`
 - `tx.gasprice`
 
-**Fix:** Refactor to use Neo-native patterns. See [Solidity Feature Support](/solidity/feature-support) for the full compatibility matrix and [Parity and Limitations](/reference/parity-limitations) for details.
+**Fix:** Refactor to use Neo-native patterns. See [Solidity Feature Support](/solidity/feature-support) for the full compatibility matrix and [Parity and Limitations](/internals/parity-and-limitations) for details.
 
 ### Example: E3003 StackOverflow
 
@@ -444,9 +444,9 @@ Visual Studio Build Tools and the Rust MSVC target are required.
 
 ## See Also
 
-- [CLI Reference](/reference/cli) -- all compiler options
-- [Troubleshooting](/reference/troubleshooting) -- common issues and solutions
-- [Architecture](/reference/architecture) -- compiler pipeline details
-- [Runtime Specification](/reference/runtime) -- NeoVM execution model
-- [Parity and Limitations](/reference/parity-limitations) -- known gaps
+- [CLI Reference](/compiler/using-the-compiler) -- all compiler options
+- [Troubleshooting](/advisory-content/troubleshooting) -- common issues and solutions
+- [Architecture](/internals/architecture) -- compiler pipeline details
+- [Runtime Specification](/internals/runtime-specification) -- NeoVM execution model
+- [Parity and Limitations](/internals/parity-and-limitations) -- known gaps
 - [Solidity Feature Support](/solidity/feature-support) -- language compatibility

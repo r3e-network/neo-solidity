@@ -46,7 +46,9 @@ Both features are perfectly supported on NeoVM. Interfaces are crucial for execu
 Libraries are similar to contracts, but their purpose is that they are deployed only once at a specific address and their code is reused. 
 On Ethereum, external libraries require `delegatecall`. 
 
+::: tip 💡 NeoVM Difference
 Because NeoVM does not support `delegatecall` (each contract has entirely isolated storage), **external libraries are not supported on Neo N3.** All library functions must be `internal`, forcing them to be inlined into the consuming contract at compile time.
+:::
 
 ## Authorization Patterns
 

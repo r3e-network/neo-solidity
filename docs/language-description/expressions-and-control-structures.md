@@ -18,7 +18,10 @@ Functions of the current contract can be called directly. These map to `CALL` in
 The expressions `this.g(8);` and `c.g(2);` (where `c` is a contract instance) are also valid function calls. They are translated into cross-contract calls using `System.Contract.Call`. 
 
 On Ethereum, you can append options to an external call to forward Ether or set a gas limit: `c.g{value: 10, gas: 10000}(2)`. 
-* **NeoVM Mapping:** Because NeoVM handles value transfers strictly via the NEP-17 standard and lacks per-call gas limits, these call options are gracefully ignored. The compiler emits a warning notifying you that the options were dropped, but compilation succeeds.
+
+::: tip 💡 NeoVM Difference
+Because NeoVM handles value transfers strictly via the NEP-17 standard and lacks per-call gas limits, these call options are gracefully ignored. The compiler emits a warning notifying you that the options were dropped, but compilation succeeds.
+:::
 
 ## Error Handling: Assert, Require, Revert and Exceptions
 
@@ -63,7 +66,9 @@ try target.riskyCall() returns (uint256 result) {
 
 In EVM Solidity, a contract can create other contracts using the `new` keyword. 
 
-* **NeoVM Mapping:** Creating contracts dynamically via `new Contract()` is intentionally blocked. NeoVM handles deployment differently. To deploy a child contract, you must use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly.
+::: tip 💡 NeoVM Difference
+Creating contracts dynamically via `new Contract()` is intentionally blocked. NeoVM handles deployment differently. To deploy a child contract, you must use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly.
+:::
 
 ## Arithmetic 
 

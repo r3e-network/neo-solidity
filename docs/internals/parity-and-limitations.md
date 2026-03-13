@@ -139,7 +139,7 @@ The following Solidity/EVM features are not supported and will produce `E3001 Un
 
 Contracts that use dynamic contract addresses (computed at runtime rather than hardcoded) require wildcard permissions in the manifest. This is a security concern because wildcard permissions grant the contract the ability to call any other contract.
 
-Use the `--deny-wildcard-*` flags and `--manifest-permissions` to enforce explicit permission policies. See [CLI Reference](/reference/cli) for details.
+Use the `--deny-wildcard-*` flags and `--manifest-permissions` to enforce explicit permission policies. See [CLI Reference](/compiler/using-the-compiler) for details.
 
 ## Intentionally Different Behaviors
 
@@ -184,8 +184,8 @@ Include:
 
 ## See Also
 
-- [Runtime Specification](/reference/runtime) -- full runtime documentation
-- [Architecture](/reference/architecture) -- compiler pipeline
-- [Error Reference](/reference/errors) -- diagnostic codes
-- [CLI Reference](/reference/cli) -- compiler options
-- [Troubleshooting](/reference/troubleshooting) -- common issues and solutions
+- [Runtime Specification](/internals/runtime-specification) -- full runtime documentation
+- [Architecture](/internals/architecture) -- compiler pipeline
+- [Error Reference](/advisory-content/error-reference) -- diagnostic codes
+- [CLI Reference](/compiler/using-the-compiler) -- compiler options
+- [Troubleshooting](/advisory-content/troubleshooting) -- common issues and solutions

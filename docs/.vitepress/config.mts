@@ -63,22 +63,22 @@ export default defineConfig({
         text: 'Basics',
         collapsed: false,
         items: [
-          { text: 'Introduction to Neo Solidity', link: '/getting-started/overview' },
-          { text: 'Installing the Compiler', link: '/getting-started/installation' },
-          { text: 'Quick Start', link: '/getting-started/quickstart' },
-          { text: 'Neo Solidity by Example', link: '/getting-started/solidity-by-example' }
+          { text: 'Introduction to Smart Contracts', link: '/basics/introduction-to-smart-contracts' },
+          { text: 'Solidity by Example', link: '/basics/solidity-by-example' },
+          { text: 'Installing the Compiler', link: '/basics/installing-the-compiler' }
         ]
       },
       {
         text: 'Language Description',
         collapsed: false,
         items: [
-          { text: 'Layout of a Source File', link: '/language-description/layout-of-source-file' },
+          { text: 'Layout of a Solidity Source File', link: '/language-description/layout-of-source-file' },
           { text: 'Structure of a Contract', link: '/language-description/structure-of-a-contract' },
           { text: 'Types', link: '/language-description/types' },
-          { text: 'Units and Global Variables', link: '/language-description/units-and-global-variables' },
+          { text: 'Units and Globally Available Variables', link: '/language-description/units-and-global-variables' },
           { text: 'Expressions and Control Structures', link: '/language-description/expressions-and-control-structures' },
           { text: 'Contracts', link: '/language-description/contracts' },
+          { text: 'Inline Assembly', link: '/language-description/inline-assembly' },
           { text: 'Cheatsheet', link: '/language-description/cheatsheet' }
         ]
       },
@@ -86,42 +86,47 @@ export default defineConfig({
         text: 'Compiler',
         collapsed: false,
         items: [
-          { text: 'Using the CLI', link: '/reference/cli' },
-          { text: 'Compile Workflows', link: '/workflows/compile' },
-          { text: 'Manifest & Permissions', link: '/manifests/manifest-spec' },
-          { text: 'Devpack & Standards', link: '/devpack/overview' },
-          { text: 'Standard Contracts', link: '/devpack/standards' }
+          { text: 'Using the Compiler', link: '/compiler/using-the-compiler' },
+          { text: 'Analysing the Compiler Output', link: '/compiler/analysing-the-compiler-output' }
         ]
       },
       {
         text: 'Internals',
         collapsed: false,
         items: [
-          { text: 'Compiler Architecture', link: '/reference/architecture' },
-          { text: 'NeoVM Runtime Spec', link: '/reference/runtime' },
-          { text: 'Native Contracts', link: '/neovm/native-contracts' },
-          { text: 'Syscalls', link: '/neovm/syscalls' },
-          { text: 'Parity & Limitations', link: '/reference/parity-limitations' }
+          { text: 'Layout in Storage', link: '/internals/layout-in-storage' },
+          { text: 'Layout in Memory', link: '/internals/layout-in-memory' },
+          { text: 'The Optimizer', link: '/internals/the-optimizer' },
+          { text: 'Contract Metadata', link: '/internals/contract-metadata' },
+          { text: 'Contract ABI Specification', link: '/internals/contract-abi-specification' },
+          { text: 'Architecture', link: '/internals/architecture' },
+          { text: 'Runtime Specification', link: '/internals/runtime-specification' },
+          { text: 'Parity & Limitations', link: '/internals/parity-and-limitations' }
         ]
       },
       {
         text: 'Advisory Content',
         collapsed: false,
         items: [
-          { text: 'Testing Contracts', link: '/workflows/test' },
-          { text: 'Deploying Contracts', link: '/workflows/deploy' },
-          { text: 'Production Readiness', link: '/workflows/production' },
-          { text: 'Troubleshooting', link: '/reference/troubleshooting' },
-          { text: 'Error Codes', link: '/reference/errors' }
+          { text: 'Security Considerations', link: '/advisory-content/security-considerations' },
+          { text: 'Troubleshooting', link: '/advisory-content/troubleshooting' },
+          { text: 'Error Reference', link: '/advisory-content/error-reference' }
         ]
       },
       {
         text: 'Additional Material',
         collapsed: false,
         items: [
-          { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' },
-          { text: 'Type-3 Runtime Tests', link: '/solidity/famous-contracts-neoxp-runtime' },
-          { text: 'Original Source Code', link: '/solidity/original-contracts/' }
+          { text: 'NatSpec Format', link: '/additional-material/natspec-format' },
+          { text: 'Devpack Overview', link: '/additional-material/neo-devpack' },
+          { text: 'Standards and Contracts', link: '/additional-material/neo-standards' }
+        ]
+      },
+      {
+        text: 'Resources',
+        collapsed: false,
+        items: [
+          { text: 'Common Patterns', link: '/resources/common-patterns' }
         ]
       }
     ],

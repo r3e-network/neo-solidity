@@ -378,8 +378,8 @@ tests/
 
 ## See Also
 
-- [CLI Reference](/reference/cli) -- all compiler options
-- [Runtime Specification](/reference/runtime) -- NeoVM execution model
-- [Error Reference](/reference/errors) -- diagnostic codes from each pipeline stage
-- [Parity and Limitations](/reference/parity-limitations) -- known gaps
-- [Troubleshooting](/reference/troubleshooting) -- common issues and solutions
+- [CLI Reference](/compiler/using-the-compiler) -- all compiler options
+- [Runtime Specification](/internals/runtime-specification) -- NeoVM execution model
+- [Error Reference](/advisory-content/error-reference) -- diagnostic codes from each pipeline stage
+- [Parity and Limitations](/internals/parity-and-limitations) -- known gaps
+- [Troubleshooting](/advisory-content/troubleshooting) -- common issues and solutions

@@ -391,15 +391,15 @@ neo-express show balances
 
 If you encounter an issue not covered here:
 
-1. Check the [Error Reference](/reference/errors) for specific error codes
-2. Check the [Parity and Limitations](/reference/parity-limitations) for known gaps
-3. Review the [CLI Reference](/reference/cli) for compiler flags that may help
+1. Check the [Error Reference](/advisory-content/error-reference) for specific error codes
+2. Check the [Parity and Limitations](/internals/parity-and-limitations) for known gaps
+3. Review the [CLI Reference](/compiler/using-the-compiler) for compiler flags that may help
 4. File an issue at [GitHub](https://github.com/r3e-network/neo-solidity/issues)
 
 ## See Also
 
-- [Error Reference](/reference/errors) — Complete error code listing
-- [CLI Reference](/reference/cli) — All compiler flags and options
-- [Parity and Limitations](/reference/parity-limitations) — Known implementation gaps
-- [Standards and Contracts](/devpack/standards) — NEP standard migration guides
+- [Error Reference](/advisory-content/error-reference) — Complete error code listing
+- [CLI Reference](/compiler/using-the-compiler) — All compiler flags and options
+- [Parity and Limitations](/internals/parity-and-limitations) — Known implementation gaps
+- [Standards and Contracts](/additional-material/neo-standards) — NEP standard migration guides
 - [Language Description](/language-description/types) — Semantic mapping reference

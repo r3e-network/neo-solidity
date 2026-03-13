@@ -381,7 +381,7 @@ Several EVM globals are auto-mapped to approximate Neo equivalents. The compiler
 | ERC-2981 (Royalty)           | NEP-24                        |   ✅   | Auto-detected. Multiple royalty recipients supported.                          |
 | `receive()` / `fallback()`   | `onNEP17Payment()`            |   ⚠️   | Diagnostic suggests callback pattern.                                          |
 
-For detailed standard migration guides, see the [Standards Mapping](/devpack/standards).
+For detailed standard migration guides, see the [Standards Mapping](/additional-material/neo-standards).
 
 ---
 
@@ -416,6 +416,6 @@ neo-solc MyContract.sol \
 ## Further Reading
 
 - [Language Description](/language-description/types) — detailed behavioral semantics on NeoVM
-- [Runtime Spec](/reference/runtime) — embedded runtime specification
-- [Parity and Limitations](/reference/parity-limitations) — known fidelity gaps
-- [Standards Mapping](/devpack/standards) — ERC to NEP migration guides
+- [Runtime Spec](/internals/runtime-specification) — embedded runtime specification
+- [Parity and Limitations](/internals/parity-and-limitations) — known fidelity gaps
+- [Standards Mapping](/additional-material/neo-standards) — ERC to NEP migration guides

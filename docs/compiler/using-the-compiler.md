@@ -571,7 +571,7 @@ done
 
 ## See Also
 
-- [Error Reference](/reference/errors) -- diagnostic codes and failure scenarios
-- [Troubleshooting](/reference/troubleshooting) -- common issues and solutions
-- [Architecture](/reference/architecture) -- compiler pipeline details
-- [Runtime Specification](/reference/runtime) -- NeoVM execution model
+- [Error Reference](/advisory-content/error-reference) -- diagnostic codes and failure scenarios
+- [Troubleshooting](/advisory-content/troubleshooting) -- common issues and solutions
+- [Architecture](/internals/architecture) -- compiler pipeline details
+- [Runtime Specification](/internals/runtime-specification) -- NeoVM execution model

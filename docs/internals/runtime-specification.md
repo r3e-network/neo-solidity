@@ -372,7 +372,7 @@ Write operations (`Put`, `Delete`) on a read-only context will fail.
 5. Iterator handles are automatically invalidated when disposed
 
 ::: warning
-The current implementation materializes all matching entries at `Find` time. This works correctly but is less efficient than streaming for large datasets. See [Parity and Limitations](/reference/parity-limitations) for details.
+The current implementation materializes all matching entries at `Find` time. This works correctly but is less efficient than streaming for large datasets. See [Parity and Limitations](/internals/parity-and-limitations) for details.
 :::
 
 ## Event and Notification System
@@ -494,8 +494,8 @@ Use Neo-Express or testnet for:
 
 ## See Also
 
-- [Architecture](/reference/architecture) -- compiler pipeline that generates the bytecode
-- [Parity and Limitations](/reference/parity-limitations) -- known runtime gaps
-- [Error Reference](/reference/errors) -- runtime-related error codes
-- [CLI Reference](/reference/cli) -- compiler options affecting code generation
-- [Troubleshooting](/reference/troubleshooting) -- common issues and solutions
+- [Architecture](/internals/architecture) -- compiler pipeline that generates the bytecode
+- [Parity and Limitations](/internals/parity-and-limitations) -- known runtime gaps
+- [Error Reference](/advisory-content/error-reference) -- runtime-related error codes
+- [CLI Reference](/compiler/using-the-compiler) -- compiler options affecting code generation
+- [Troubleshooting](/advisory-content/troubleshooting) -- common issues and solutions

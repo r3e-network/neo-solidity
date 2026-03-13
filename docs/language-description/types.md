@@ -10,16 +10,20 @@ Solidity is a statically typed language. Every variable (state and local) needs 
 
 ### Integers
 `int` / `uint`: Signed and unsigned integers of various sizes. Keywords `uint8` to `uint256` in steps of 8 (unsigned of 8 up to 256 bits) and `int8` to `int256`. 
-* **NeoVM Mapping:** NeoVM represents all integers as arbitrary-precision `BigInteger` values. This means overflow is impossible at runtime on NeoVM, though the compiler enforces type boundaries for signatures. 
+
+::: tip 💡 NeoVM Difference
+NeoVM represents all integers as arbitrary-precision `BigInteger` values. This means overflow is impossible at runtime on NeoVM, though the compiler enforces type boundaries for signatures. 
+::: 
 
 ### Fixed Point Numbers
 `fixed` / `ufixed`: Not fully supported by mainline Solidity, and **not supported** by Neo Solidity.
 
 ### Address
 `address`: Holds a 20 byte value.
-* **NeoVM Mapping:** Maps to Neo `UInt160` (the 20-byte script hash of an account or contract).
 
-`address payable`: Same as `address`, but includes `.transfer()` and `.send()` members in EVM. On Neo, direct value transfers via address members are unsupported (Neo uses NEP-17 instead).
+::: tip 💡 NeoVM Difference
+On NeoVM, `address` maps to a `UInt160` (the 20-byte script hash of an account or contract). While `address payable` is accepted by the compiler, direct value transfers via `.transfer()` and `.send()` are unsupported because Neo uses the NEP-17 token standard for value transfer.
+:::
 
 ### Fixed-size byte arrays
 `bytes1`, `bytes2`, `bytes3`, ..., `bytes32`. `byte` is an alias for `bytes1`.
@@ -43,7 +47,10 @@ Arrays can have a compile-time fixed size or a dynamic size.
 
 ### Structs
 Solidity provides a way to define new types in the form of structs.
-* **NeoVM Mapping:** Maps to a NeoVM `Array` containing the struct's fields in memory. When written to state `storage`, the struct is serialized as a single blob via `StdLib.serialize()`.
+
+::: tip 💡 NeoVM Difference
+On NeoVM, structs map to an `Array` containing the struct's fields in memory. When written to `storage`, the entire struct is serialized as a single binary blob via `StdLib.serialize()`.
+:::
 
 ## Mapping Types
 

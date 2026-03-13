@@ -259,7 +259,7 @@ This script:
 4. Deploys the contract
 5. Invokes methods and validates results
 
-See [Deploy Workflow](/workflows/deploy) for detailed deployment instructions.
+See [Deploy Workflow](/basics/deploying-contracts) for detailed deployment instructions.
 
 ## Optional: Documentation Site
 
@@ -363,6 +363,6 @@ cargo install --path .
 
 ## Next Steps
 
-- [Quick Start](/getting-started/quickstart) -- Compile your first contract step by step.
-- [Compile Workflow](/workflows/compile) -- Full CLI reference.
-- [Overview](/getting-started/overview) -- Architecture and feature coverage.
+- [Quick Start](/basics/quickstart) -- Compile your first contract step by step.
+- [Compile Workflow](/compiler/analysing-the-compiler-output) -- Full CLI reference.
+- [Overview](/basics/introduction-to-smart-contracts) -- Architecture and feature coverage.

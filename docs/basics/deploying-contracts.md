@@ -27,7 +27,7 @@ The contract hash is deterministic: it is derived from `hash160(sender_scripthas
 
 ### Prerequisites
 
-- Neo-Express installed (see [Installation](/getting-started/installation))
+- Neo-Express installed (see [Installation](/basics/installing-the-compiler))
 - `jq` for JSON inspection
 - A compiled contract (`.nef` + `.manifest.json`)
 
@@ -240,7 +240,7 @@ jq '.abi.events[] | {name, parameters: [.parameters[].type]}' \
 ```
 
 ::: tip
-For production contracts, always compile with `--deny-wildcard-contracts --deny-wildcard-methods` to ensure the manifest has minimal permissions. See [Compile Workflow](/workflows/compile) for details.
+For production contracts, always compile with `--deny-wildcard-contracts --deny-wildcard-methods` to ensure the manifest has minimal permissions. See [Compile Workflow](/compiler/analysing-the-compiler-output) for details.
 :::
 
 ## TestNet Deployment
@@ -280,7 +280,7 @@ Before deploying to MainNet:
 5. **Plan for upgrades.** If your contract needs to be upgradeable, ensure the update mechanism is tested.
 6. **Run the production gate.** `make production-gate` validates the entire toolchain.
 
-See [Production Readiness](/workflows/production) for the complete pre-deployment checklist.
+See [Production Readiness](/advisory-content/production-readiness) for the complete pre-deployment checklist.
 
 ## Common Deployment Errors
 
@@ -332,8 +332,8 @@ Each script creates a fresh Neo-Express chain, deploys a purpose-built contract,
 
 ## Related Pages
 
-- [Compile Workflow](/workflows/compile) -- CLI reference and compilation patterns.
-- [Test Workflow](/workflows/test) -- Full test suite documentation.
-- [Production Readiness](/workflows/production) -- Pre-deployment checklist.
-- [NeoVM Native Contracts](/neovm/native-contracts) -- Native contract interfaces.
-- [Quick Start](/getting-started/quickstart) -- First deployment walkthrough.
+- [Compile Workflow](/compiler/analysing-the-compiler-output) -- CLI reference and compilation patterns.
+- [Test Workflow](/basics/testing-contracts) -- Full test suite documentation.
+- [Production Readiness](/advisory-content/production-readiness) -- Pre-deployment checklist.
+- [NeoVM Native Contracts](/internals/native-contracts) -- Native contract interfaces.
+- [Quick Start](/basics/quickstart) -- First deployment walkthrough.

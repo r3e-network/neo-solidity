@@ -564,8 +564,8 @@ Address all `W1xx` warnings before deploying. They indicate patterns that may co
 
 ## See Also
 
-- [Devpack Overview](/devpack/overview) — Full devpack directory layout, libraries, and compiler intrinsics
+- [Devpack Overview](/additional-material/neo-devpack) — Full devpack directory layout, libraries, and compiler intrinsics
 - [Language Description](/language-description/types) — Solidity/EVM patterns mapped to Neo equivalents
-- [Manifest Spec](/manifests/manifest-spec) — Neo N3 manifest structure and permissions
-- [Native Contracts](/neovm/native-contracts) — GAS, NEO, ContractManagement API reference
-- [CLI Reference](/reference/cli) — `neo-solc` compiler flags and options
+- [Manifest Spec](/internals/contract-metadata) — Neo N3 manifest structure and permissions
+- [Native Contracts](/internals/native-contracts) — GAS, NEO, ContractManagement API reference
+- [CLI Reference](/compiler/using-the-compiler) — `neo-solc` compiler flags and options

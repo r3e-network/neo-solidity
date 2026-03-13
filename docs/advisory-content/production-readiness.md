@@ -246,8 +246,8 @@ Before production deployment, review these pages for known behavioral difference
 
 - [Solidity Feature Support](/solidity/feature-support) -- Which Solidity features are supported, partial, or blocked.
 - [Language Description](/language-description/types) -- How EVM concepts translate to Neo N3.
-- [Parity and Limitations](/reference/parity-limitations) -- Known runtime behavior gaps.
-- [Error Reference](/reference/errors) -- Compiler error codes and their meanings.
+- [Parity and Limitations](/internals/parity-and-limitations) -- Known runtime behavior gaps.
+- [Error Reference](/advisory-content/error-reference) -- Compiler error codes and their meanings.
 
 ## Production Checklist Summary
 
@@ -268,7 +268,7 @@ Use this checklist before every mainnet deployment:
 
 ## Related Pages
 
-- [Compile Workflow](/workflows/compile) -- Full CLI reference and hardening options.
-- [Deploy Workflow](/workflows/deploy) -- Deployment procedures for all environments.
-- [Test Workflow](/workflows/test) -- Complete test suite documentation.
-- [Manifest Spec](/manifests/manifest-spec) -- Manifest structure and permission model.
+- [Compile Workflow](/compiler/analysing-the-compiler-output) -- Full CLI reference and hardening options.
+- [Deploy Workflow](/basics/deploying-contracts) -- Deployment procedures for all environments.
+- [Test Workflow](/basics/testing-contracts) -- Complete test suite documentation.
+- [Manifest Spec](/internals/contract-metadata) -- Manifest structure and permission model.

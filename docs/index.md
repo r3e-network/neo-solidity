@@ -61,7 +61,7 @@ features:
 
 Our release cycle prioritizes both stability for production and rapid innovation for developers transitioning from EVM to Neo N3. We regularly ship **non-breaking minor releases** with enhanced mappings, deeper standard support (like NEP-17/NEP-11), and expanded diagnostic intelligence. 
 
-[**Get started with Neo Solidity**](/getting-started/overview) or review our [Architecture](/reference/architecture) to see how the 8-stage compiler works.
+[**Get started with Neo Solidity**](/basics/introduction-to-smart-contracts) or review our [Architecture](/internals/architecture) to see how the 8-stage compiler works.
 
 <hr class="solidity-hr" />
 
@@ -96,7 +96,7 @@ Neo Solidity is an open-source project. We welcome developers, auditors, and tec
 
 <div class="action-cta-box">
   <h3>Start building for Neo N3 today</h3>
-  <a href="/workflows/compile" class="cta-button">Compile & Deploy Contracts</a>
+  <a href="/compiler/analysing-the-compiler-output" class="cta-button">Compile & Deploy Contracts</a>
 </div>
 
 <hr class="solidity-hr" />

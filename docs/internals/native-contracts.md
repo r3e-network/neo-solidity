@@ -523,8 +523,8 @@ Wildcard permissions (`"contract": "*"` or `"methods": "*"`) allow the contract 
 
 ## See Also
 
-- [Syscalls](/neovm/syscalls) — NeoVM syscall surface reference
-- [Manifest Spec](/manifests/manifest-spec) — manifest structure and permission model
-- [Devpack Overview](/devpack/overview) — devpack library layout and usage
+- [Syscalls](/internals/syscalls) — NeoVM syscall surface reference
+- [Manifest Spec](/internals/contract-metadata) — manifest structure and permission model
+- [Devpack Overview](/additional-material/neo-devpack) — devpack library layout and usage
 - [Language Description](/language-description/types) — how EVM globals map to native contract calls
-- [Compile Workflow](/workflows/compile) — compiler flags including `--callt`
+- [Compile Workflow](/compiler/analysing-the-compiler-output) — compiler flags including `--callt`

@@ -142,7 +142,7 @@ Smoke tests deploy contracts to a real local Neo-Express chain and invoke method
 
 ### Prerequisites
 
-- Neo-Express installed (see [Installation](/getting-started/installation))
+- Neo-Express installed (see [Installation](/basics/installing-the-compiler))
 - `jq` and `hexdump` available
 - `neo-solc` built (scripts auto-build if needed)
 
@@ -337,7 +337,7 @@ The `production-gate` target runs all of the above:
 make production-gate
 ```
 
-See [Production Readiness](/workflows/production) for details.
+See [Production Readiness](/advisory-content/production-readiness) for details.
 
 ### GitHub Actions Example
 
@@ -405,7 +405,7 @@ fn test_my_feature() {
 
 ## Related Pages
 
-- [Production Readiness](/workflows/production) -- Full pre-deployment gate.
-- [Compile Workflow](/workflows/compile) -- CLI reference.
-- [Deploy Workflow](/workflows/deploy) -- Deployment patterns.
-- [Installation](/getting-started/installation) -- Set up the test environment.
+- [Production Readiness](/advisory-content/production-readiness) -- Full pre-deployment gate.
+- [Compile Workflow](/compiler/analysing-the-compiler-output) -- CLI reference.
+- [Deploy Workflow](/basics/deploying-contracts) -- Deployment patterns.
+- [Installation](/basics/installing-the-compiler) -- Set up the test environment.

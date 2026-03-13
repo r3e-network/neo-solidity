@@ -6,7 +6,7 @@ This guide walks you through writing, compiling, inspecting, and deploying a Sol
 
 Before starting, ensure you have:
 
-- `neo-solc` built and available (see [Installation](/getting-started/installation))
+- `neo-solc` built and available (see [Installation](/basics/installing-the-compiler))
 - `jq` installed for JSON inspection
 - Neo-Express installed (optional, for local deployment)
 
@@ -237,7 +237,7 @@ If the contract requires permissions that cannot be narrowed (e.g., dynamic call
   -o build/MyStorageStrict
 ```
 
-See [Compile Workflow](/workflows/compile) for full details on manifest hardening.
+See [Compile Workflow](/compiler/analysing-the-compiler-output) for full details on manifest hardening.
 
 ## Step 5: Deploy to Neo-Express (Local Chain)
 
@@ -417,9 +417,9 @@ Contracts with parameterized constructors require `StdLib.jsonDeserialize` and `
 
 Now that you have compiled and deployed your first contract:
 
-1. [Compile Workflow](/workflows/compile) -- Full CLI reference with all options and patterns.
-2. [Deploy Workflow](/workflows/deploy) -- Detailed deployment guide for Neo-Express, TestNet, and MainNet.
-3. [Test Workflow](/workflows/test) -- Run the full test suite and set up CI.
-4. [Production Readiness](/workflows/production) -- Pre-deployment checklist and manifest hardening.
+1. [Compile Workflow](/compiler/analysing-the-compiler-output) -- Full CLI reference with all options and patterns.
+2. [Deploy Workflow](/basics/deploying-contracts) -- Detailed deployment guide for Neo-Express, TestNet, and MainNet.
+3. [Test Workflow](/basics/testing-contracts) -- Run the full test suite and set up CI.
+4. [Production Readiness](/advisory-content/production-readiness) -- Pre-deployment checklist and manifest hardening.
 5. [Solidity Feature Support](/solidity/feature-support) -- What Solidity features work on NeoVM.
 6. [Language Description](/language-description/types) -- How EVM concepts translate to Neo N3.
