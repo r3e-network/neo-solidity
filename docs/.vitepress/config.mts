@@ -124,6 +124,8 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'NatSpec Format', link: '/additional-material/natspec-format' },
+          { text: 'SMTChecker and Formal Verification', link: '/additional-material/smtchecker' },
+          { text: 'Yul', link: '/additional-material/yul' },
           { text: 'Import Path Resolution', link: '/additional-material/import-path-resolution' },
           { text: 'Devpack Overview', link: '/additional-material/neo-devpack' },
           { text: 'Standards and Contracts', link: '/additional-material/neo-standards' }
