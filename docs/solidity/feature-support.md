@@ -246,7 +246,7 @@ State variables are stored in Neo Storage using deterministic key derivation. Fo
 SHA256(key_bytes || slot_hash)
 ```
 
-Where `slot_hash` is `SHA256(variable_name)`. Nested mappings iterate this process for each key level. See [EVM to NeoVM Mapping](/mapping/evm-to-neovm) for the full storage lowering specification.
+Where `slot_hash` is `SHA256(variable_name)`. Nested mappings iterate this process for each key level. See [Types](/language-description/types) for the full storage lowering specification.
 
 ---
 
@@ -415,8 +415,7 @@ neo-solc MyContract.sol \
 
 ## Further Reading
 
-- [Syntax and Behavior](/solidity/syntax-and-behavior) — detailed behavioral semantics on NeoVM
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm) — complete runtime value and opcode mapping
+- [Language Description](/language-description/types) — detailed behavioral semantics on NeoVM
 - [Runtime Spec](/reference/runtime) — embedded runtime specification
 - [Parity and Limitations](/reference/parity-limitations) — known fidelity gaps
 - [Standards Mapping](/devpack/standards) — ERC to NEP migration guides

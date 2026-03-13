@@ -245,7 +245,7 @@ After deployment:
 Before production deployment, review these pages for known behavioral differences:
 
 - [Solidity Feature Support](/solidity/feature-support) -- Which Solidity features are supported, partial, or blocked.
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm) -- How EVM concepts translate to Neo N3.
+- [Language Description](/language-description/types) -- How EVM concepts translate to Neo N3.
 - [Parity and Limitations](/reference/parity-limitations) -- Known runtime behavior gaps.
 - [Error Reference](/reference/errors) -- Compiler error codes and their meanings.
 

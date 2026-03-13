@@ -1,0 +1,37 @@
+# Cheatsheet
+
+## Order of Precedence of Operators
+
+Neo Solidity exactly mimics the Solidity operator precedence rules.
+
+## Global Variables Comparison
+
+A quick reference for mapping EVM global context to NeoVM intrinsics:
+
+| EVM Global | NeoVM Equivalent | Notes |
+| :--- | :--- | :--- |
+| `msg.sender` | `Runtime.getCallingScriptHash()` | Accurate mapping. |
+| `msg.value` | `amount` in `onNEP17Payment` | Only available during transfer hooks. |
+| `msg.data` | `data` in `onNEP17Payment` | Replaced by typed parameter data. |
+| `block.timestamp` | `Runtime.getTime()` | Seconds since epoch. |
+| `block.number` | `Ledger.currentIndex()` | Blockchain height. |
+| `tx.origin` | First signer hash | Not recommended for auth. Use witnesses. |
+| `this` | `Runtime.getExecutingScriptHash()` | Accurate mapping. |
+| `address.balance` | `GAS.balanceOf(address)` | Auto-mapped to GAS token. |
+| `address.transfer()`| `GAS.transfer(...)` | Auto-mapped. |
+| `gasleft()` | `Runtime.gasLeft()` | Execution GAS budget. |
+
+## Cryptography Intrinsics
+
+| EVM Hash | Neo Native Contract Call |
+| :--- | :--- |
+| `keccak256(data)` | `CryptoLib.keccak256(data)` |
+| `sha256(data)` | `CryptoLib.sha256(data)` |
+| `ecrecover(hash, v, r, s)` | `CryptoLib.verifyWithECDsa(hash, pubkey, signature, curve)` |
+
+## Security Best Practices
+
+1. **Authorization:** Prefer `Runtime.checkWitness(address)` over `msg.sender == address`.
+2. **Wildcards:** Always compile with `--deny-wildcard-contracts` and `--deny-wildcard-methods` for production to restrict the manifest.
+3. **Values:** Remember that NeoVM integers (`BigInteger`) do not overflow or underflow. Do not rely on `unchecked` wrapping behavior.
+4. **Upgrades:** Use `ContractManagement.update()` instead of Ethereum-style proxy contracts. Proxy storage delegates are not supported.

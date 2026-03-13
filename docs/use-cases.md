@@ -17,7 +17,7 @@ Neo Solidity enables developers to write smart contracts using familiar Ethereum
 
 Neo Solidity provides the computational foundation for sophisticated DeFi protocols on Neo N3. By fully supporting the NeoVM intrinsic libraries and automatically translating standard EVM mathematical operations to Neo's large-integer arithmetic, you can confidently build Automated Market Makers (AMMs), lending pools, and flash loan architectures.
 
-[Learn more about EVM to NeoVM Mapping](/mapping/evm-to-neovm)
+[Learn more about NeoVM Types](/language-description/types)
 
 ## Digital Assets & Tokens
 

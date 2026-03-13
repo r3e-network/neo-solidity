@@ -23,7 +23,7 @@ features:
     - icon: "\U0001F527"
       title: Seamless EVM-to-Neo Mapping
       details: "Transparent semantic mapping of EVM globals (`msg.sender`, `tx.origin`), opcodes, and patterns to Neo N3 equivalents. Most EVM contracts compile with zero code changes."
-      link: /mapping/evm-to-neovm
+      link: /language-description/units-and-global-variables
       linkText: Mapping reference
 
     - icon: "\U0001F4CB"

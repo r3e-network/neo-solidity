@@ -478,4 +478,4 @@ All native contract hashes are deterministic and identical across all Neo N3 net
 - [Syscalls Reference](/neovm/syscalls) — Complete syscall listing
 - [Native Contracts](/neovm/native-contracts) — Native contract API reference
 - [CLI Reference](/reference/cli) — `neo-solc` compiler flags and options
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm) — Solidity/EVM patterns mapped to Neo equivalents
+- [Language Description](/language-description/types) — Solidity/EVM patterns mapped to Neo equivalents

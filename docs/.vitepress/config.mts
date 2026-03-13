@@ -73,9 +73,13 @@ export default defineConfig({
         text: 'Language Description',
         collapsed: false,
         items: [
-          { text: 'EVM to NeoVM Mapping', link: '/mapping/evm-to-neovm' },
-          { text: 'Feature Support Matrix', link: '/solidity/feature-support' },
-          { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' }
+          { text: 'Layout of a Source File', link: '/language-description/layout-of-source-file' },
+          { text: 'Structure of a Contract', link: '/language-description/structure-of-a-contract' },
+          { text: 'Types', link: '/language-description/types' },
+          { text: 'Units and Global Variables', link: '/language-description/units-and-global-variables' },
+          { text: 'Expressions and Control Structures', link: '/language-description/expressions-and-control-structures' },
+          { text: 'Contracts', link: '/language-description/contracts' },
+          { text: 'Cheatsheet', link: '/language-description/cheatsheet' }
         ]
       },
       {

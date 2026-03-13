@@ -322,7 +322,7 @@ Provides read-only access to blockchain data — blocks, transactions, and their
 | `getTransactionVMState`   | `getTransactionVMState(bytes32)`           | `uint8`       |  ✅  | VM execution state of a transaction (`HALT`, `FAULT`, etc.).        |
 
 ::: info
-The compiler auto-maps `block.number` to `Ledger.currentIndex()` and `blockhash(n)` to `Ledger.getBlock(n).hash`. See [EVM to NeoVM Mapping](/mapping/evm-to-neovm) for the full list of auto-mapped block context values.
+The compiler auto-maps `block.number` to `Ledger.currentIndex()` and `blockhash(n)` to `Ledger.getBlock(n).hash`. See [Units and Globally Available Variables](/language-description/units-and-global-variables) for the full list of auto-mapped block context values.
 :::
 
 ---
@@ -526,5 +526,5 @@ Wildcard permissions (`"contract": "*"` or `"methods": "*"`) allow the contract 
 - [Syscalls](/neovm/syscalls) — NeoVM syscall surface reference
 - [Manifest Spec](/manifests/manifest-spec) — manifest structure and permission model
 - [Devpack Overview](/devpack/overview) — devpack library layout and usage
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm) — how EVM globals map to native contract calls
+- [Language Description](/language-description/types) — how EVM globals map to native contract calls
 - [Compile Workflow](/workflows/compile) — compiler flags including `--callt`

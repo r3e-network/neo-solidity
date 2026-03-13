@@ -422,4 +422,4 @@ Now that you have compiled and deployed your first contract:
 3. [Test Workflow](/workflows/test) -- Run the full test suite and set up CI.
 4. [Production Readiness](/workflows/production) -- Pre-deployment checklist and manifest hardening.
 5. [Solidity Feature Support](/solidity/feature-support) -- What Solidity features work on NeoVM.
-6. [EVM to NeoVM Mapping](/mapping/evm-to-neovm) -- How EVM concepts translate to Neo N3.
+6. [Language Description](/language-description/types) -- How EVM concepts translate to Neo N3.

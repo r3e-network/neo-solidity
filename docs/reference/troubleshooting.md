@@ -402,4 +402,4 @@ If you encounter an issue not covered here:
 - [CLI Reference](/reference/cli) — All compiler flags and options
 - [Parity and Limitations](/reference/parity-limitations) — Known implementation gaps
 - [Standards and Contracts](/devpack/standards) — NEP standard migration guides
-- [EVM to NeoVM Mapping](/mapping/evm-to-neovm) — Semantic mapping reference
+- [Language Description](/language-description/types) — Semantic mapping reference
