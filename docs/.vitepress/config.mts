@@ -79,7 +79,8 @@ export default defineConfig({
           { text: 'Expressions and Control Structures', link: '/language-description/expressions-and-control-structures' },
           { text: 'Contracts', link: '/language-description/contracts' },
           { text: 'Inline Assembly', link: '/language-description/inline-assembly' },
-          { text: 'Cheatsheet', link: '/language-description/cheatsheet' }
+          { text: 'Cheatsheet', link: '/language-description/cheatsheet' },
+          { text: 'Language Grammar', link: '/language-description/grammar' }
         ]
       },
       {
@@ -87,7 +88,8 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Using the Compiler', link: '/compiler/using-the-compiler' },
-          { text: 'Analysing the Compiler Output', link: '/compiler/analysing-the-compiler-output' }
+          { text: 'Analysing the Compiler Output', link: '/compiler/analysing-the-compiler-output' },
+          { text: 'IR-based Codegen Changes', link: '/compiler/ir-codegen-changes' }
         ]
       },
       {
@@ -96,6 +98,8 @@ export default defineConfig({
         items: [
           { text: 'Layout in Storage', link: '/internals/layout-in-storage' },
           { text: 'Layout in Memory', link: '/internals/layout-in-memory' },
+          { text: 'Layout of Call Data', link: '/internals/layout-of-call-data' },
+          { text: 'Cleaning Up Variables', link: '/internals/cleaning-up-variables' },
           { text: 'The Optimizer', link: '/internals/the-optimizer' },
           { text: 'Contract Metadata', link: '/internals/contract-metadata' },
           { text: 'Contract ABI Specification', link: '/internals/contract-abi-specification' },
@@ -126,6 +130,7 @@ export default defineConfig({
         text: 'Resources',
         collapsed: false,
         items: [
+          { text: 'Style Guide', link: '/resources/style-guide' },
           { text: 'Common Patterns', link: '/resources/common-patterns' }
         ]
       }
