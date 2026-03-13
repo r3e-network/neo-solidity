@@ -51,93 +51,75 @@ export default defineConfig({
     logo: '/assets/neo-solidity-logo.png',
     siteTitle: 'Neo Solidity',
     nav: [
-      { text: 'Getting Started', link: '/getting-started/overview' },
-      { text: 'Workflows', link: '/workflows/compile' },
-      { text: 'Solidity', link: '/solidity/feature-support' },
-      { text: 'Mapping', link: '/mapping/evm-to-neovm' },
-      { text: 'NeoVM', link: '/neovm/native-contracts' },
-      { text: 'Manifest', link: '/manifests/manifest-spec' },
-      { text: 'Devpack', link: '/devpack/overview' },
-      { text: 'Reference', link: '/reference/cli' }
+      { text: 'Blog', link: 'https://medium.com/neo-smart-economy' },
+      { text: 'Documentation', link: '/getting-started/overview' },
+      { text: 'Use cases', link: '/solidity/famous-contracts-neo-audit' },
+      { text: 'Contribute', link: 'https://github.com/r3e-network/neo-solidity/blob/main/CONTRIBUTING.md' },
+      { text: 'About', link: '/reference/architecture' },
+      { text: 'Forum', link: 'https://github.com/r3e-network/neo-solidity/discussions' }
     ],
-    sidebar: {
-      '/getting-started/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Overview', link: '/getting-started/overview' },
-            { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Quick Start', link: '/getting-started/quickstart' }
-          ]
-        }
-      ],
-      '/workflows/': [
-        {
-          text: 'Workflows',
-          items: [
-            { text: 'Compile Contracts', link: '/workflows/compile' },
-            { text: 'Deploy Contracts', link: '/workflows/deploy' },
-            { text: 'Test Contracts', link: '/workflows/test' },
-            { text: 'Production Readiness', link: '/workflows/production' }
-          ]
-        }
-      ],
-      '/solidity/': [
-        {
-          text: 'Solidity on Neo',
-          items: [
-            { text: 'Feature Support', link: '/solidity/feature-support' },
-            { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' },
-            { text: 'Original Famous Contracts (Per Contract)', link: '/solidity/original-contracts/' },
-            { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' },
-            { text: 'Famous Contracts Type-3 Runtime', link: '/solidity/famous-contracts-neoxp-runtime' }
-          ]
-        }
-      ],
-      '/mapping/': [
-        {
-          text: 'EVM to NeoVM Mapping',
-          items: [{ text: 'Semantic Mapping', link: '/mapping/evm-to-neovm' }]
-        }
-      ],
-      '/neovm/': [
-        {
-          text: 'NeoVM Runtime',
-          items: [
-            { text: 'Native Contracts', link: '/neovm/native-contracts' },
-            { text: 'Syscalls', link: '/neovm/syscalls' }
-          ]
-        }
-      ],
-      '/manifests/': [
-        {
-          text: 'Manifest System',
-          items: [{ text: 'Manifest Spec and Policy', link: '/manifests/manifest-spec' }]
-        }
-      ],
-      '/devpack/': [
-        {
-          text: 'Devpack',
-          items: [
-            { text: 'Overview', link: '/devpack/overview' },
-            { text: 'Standards and Contracts', link: '/devpack/standards' }
-          ]
-        }
-      ],
-      '/reference/': [
-        {
-          text: 'Reference',
-          items: [
-            { text: 'CLI Reference', link: '/reference/cli' },
-            { text: 'Error Reference', link: '/reference/errors' },
-            { text: 'Runtime Specification', link: '/reference/runtime' },
-            { text: 'Architecture', link: '/reference/architecture' },
-            { text: 'Parity and Limitations', link: '/reference/parity-limitations' },
-            { text: 'Troubleshooting', link: '/reference/troubleshooting' }
-          ]
-        }
-      ]
-    },
+    sidebar: [
+      {
+        text: 'Getting Started',
+        collapsed: false,
+        items: [
+          { text: 'Overview', link: '/getting-started/overview' },
+          { text: 'Installation', link: '/getting-started/installation' },
+          { text: 'Quick Start', link: '/getting-started/quickstart' }
+        ]
+      },
+      {
+        text: 'Language Description',
+        collapsed: false,
+        items: [
+          { text: 'EVM to NeoVM Mapping', link: '/mapping/evm-to-neovm' },
+          { text: 'Solidity Feature Support', link: '/solidity/feature-support' },
+          { text: 'Syntax and Behavior', link: '/solidity/syntax-and-behavior' }
+        ]
+      },
+      {
+        text: 'Compiler Operations',
+        collapsed: false,
+        items: [
+          { text: 'Compile Contracts', link: '/workflows/compile' },
+          { text: 'Deploy Contracts', link: '/workflows/deploy' },
+          { text: 'Test Contracts', link: '/workflows/test' },
+          { text: 'Production Readiness', link: '/workflows/production' },
+          { text: 'Manifest Spec', link: '/manifests/manifest-spec' }
+        ]
+      },
+      {
+        text: 'NeoVM Ecosystem',
+        collapsed: false,
+        items: [
+          { text: 'Native Contracts', link: '/neovm/native-contracts' },
+          { text: 'Syscalls', link: '/neovm/syscalls' },
+          { text: 'Devpack Overview', link: '/devpack/overview' },
+          { text: 'Standards and Contracts', link: '/devpack/standards' }
+        ]
+      },
+      {
+        text: 'Use Cases & Audits',
+        collapsed: true,
+        items: [
+          { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' },
+          { text: 'Type-3 Runtime Execution', link: '/solidity/famous-contracts-neoxp-runtime' },
+          { text: 'Original Source Code', link: '/solidity/original-contracts/' }
+        ]
+      },
+      {
+        text: 'Internals & Reference',
+        collapsed: true,
+        items: [
+          { text: 'CLI Reference', link: '/reference/cli' },
+          { text: 'Architecture', link: '/reference/architecture' },
+          { text: 'Runtime Specification', link: '/reference/runtime' },
+          { text: 'Parity and Limitations', link: '/reference/parity-limitations' },
+          { text: 'Error Codes', link: '/reference/errors' },
+          { text: 'Troubleshooting', link: '/reference/troubleshooting' }
+        ]
+      }
+    ],
     socialLinks: [{ icon: 'github', link: 'https://github.com/r3e-network/neo-solidity' }],
     footer: {
       message: 'MIT Licensed',

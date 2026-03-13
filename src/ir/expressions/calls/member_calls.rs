@@ -195,11 +195,12 @@ fn try_lower_member_call(
                     "staticcall" => "staticcall is not available on Neo N3; use view/pure functions or Syscalls.contractCallWithFlags() with ReadOnly flags",
                     _ => "Neo N3 does not support low-level EVM calls; use NativeCalls.sol for contract-to-contract interactions",
                 };
-                ctx.record_error_with_suggestion(
-                    format!("unsupported low-level EVM call '{}'", member.name),
+                ctx.record_warning_with_suggestion(
+                    format!("unsupported low-level EVM call '{}' ignored (returns false)", member.name),
                     suggestion,
                 );
-                return Some(false);
+                instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
+                return Some(true);
             }
 
             // NativeCalls/NativeContracts expose native contract hashes as constants. When

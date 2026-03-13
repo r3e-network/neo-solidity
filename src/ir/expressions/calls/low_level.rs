@@ -276,17 +276,16 @@ fn try_lower_low_level_address_call(
 			let is_delegatecall = member_name == "delegatecall";
 			if (member_name == "call" || is_staticcall || is_delegatecall) && args.len() == 1 {
 				if is_delegatecall {
-					ctx.record_error_with_suggestion(
-						"address.delegatecall() has fundamentally different semantics on Neo N3: \
-						 EVM delegatecall executes callee code in the caller's storage context, \
-						 but Neo N3 has no equivalent mechanism. The call is compiled as a \
-						 regular System.Contract.Call which uses the callee's own storage.",
-						"use address.call() or address.staticcall() instead, or redesign \
-						 the contract to avoid delegatecall patterns (e.g. use explicit \
-						 library calls or the Neo contract update mechanism)",
-					);
-				}
-				if ctx.is_safe && (member_name == "call" || is_delegatecall) {
+				        ctx.record_warning_with_suggestion(
+				                "address.delegatecall() has fundamentally different semantics on Neo N3: \
+				                 EVM delegatecall executes callee code in the caller's storage context, \
+				                 but Neo N3 has no equivalent mechanism. The call is compiled as a \
+				                 regular System.Contract.Call which uses the callee's own storage.",
+				                "use address.call() or address.staticcall() instead, or redesign \
+				                 the contract to avoid delegatecall patterns (e.g. use explicit \
+				                 library calls or the Neo contract update mechanism)",
+				        );
+				}				if ctx.is_safe && (member_name == "call" || is_delegatecall) {
 					ctx.record_error(
 						"address.call(...) / address.delegatecall(...) is not allowed in view/pure functions; use address.staticcall(...) or an external view/pure interface call",
 					);
