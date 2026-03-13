@@ -260,6 +260,114 @@
 }
 
 /* ============================================================
+   Solidity-style specific layout blocks
+   ============================================================ */
+.solidity-keywords-cloud {
+  text-align: center;
+  padding: 1rem 0 2rem;
+}
+.solidity-keywords-cloud code {
+  margin: 0.2rem 0.4rem;
+  background: color-mix(in srgb, var(--vp-c-brand-1) 8%, var(--vp-c-bg-soft));
+  color: var(--vp-c-brand-1);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  font-family: var(--vp-font-family-mono);
+  display: inline-block;
+}
+
+.alert-box {
+  background: var(--vp-c-bg-soft);
+  border-left: 4px solid var(--vp-c-brand-1);
+  padding: 1.5rem;
+  border-radius: 4px;
+  margin: 2rem 0;
+}
+.alert-box h3 {
+  margin-top: 0 !important;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+}
+.alert-box p {
+  margin: 0.5rem 0 1rem;
+  line-height: 1.6;
+}
+.alert-box a {
+  font-weight: 600;
+}
+
+.solidity-hr {
+  margin: 4rem 0;
+  border: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--vp-c-brand-1) 18%, transparent);
+}
+
+.contribute-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.contribute-card {
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 18%, transparent);
+  background: color-mix(in srgb, var(--vp-c-brand-1) 2%, var(--vp-c-bg-soft));
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.contribute-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 229, 153, 0.1);
+  border-color: var(--vp-c-brand-1);
+}
+.contribute-card h4 {
+  margin-top: 0 !important;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.contribute-card p {
+  font-size: 0.95rem;
+  color: var(--vp-c-text-2);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.action-cta-box {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: color-mix(in srgb, var(--vp-c-brand-1) 5%, var(--vp-c-bg-soft));
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 25%, transparent);
+  margin: 2rem 0;
+}
+.action-cta-box h3 {
+  margin-top: 0 !important;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.cta-button {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  background-color: var(--vp-c-brand-1);
+  color: var(--vp-c-bg) !important;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+.cta-button:hover {
+  background-color: var(--vp-c-brand-2);
+}
+.dark .cta-button {
+  color: #0b1426 !important;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 640px) {
