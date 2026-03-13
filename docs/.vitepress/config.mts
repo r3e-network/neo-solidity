@@ -115,6 +115,7 @@ export default defineConfig({
         items: [
           { text: 'Security Considerations', link: '/advisory-content/security-considerations' },
           { text: 'List of Known Bugs', link: '/advisory-content/known-bugs' },
+          { text: 'Breaking Changes', link: '/advisory-content/breaking-changes' },
           { text: 'Troubleshooting', link: '/advisory-content/troubleshooting' },
           { text: 'Error Reference', link: '/advisory-content/error-reference' }
         ]
@@ -136,7 +137,11 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Style Guide', link: '/resources/style-guide' },
-          { text: 'Common Patterns', link: '/resources/common-patterns' }
+          { text: 'Common Patterns', link: '/resources/common-patterns' },
+          { text: 'Resources', link: '/resources/resources' },
+          { text: 'Contributing', link: '/resources/contributing' },
+          { text: 'Language Influences', link: '/resources/language-influences' },
+          { text: 'Solidity Brand Guide', link: '/resources/brand-guide' }
         ]
       }
     ],
