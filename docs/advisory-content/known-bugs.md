@@ -16,6 +16,6 @@ Because Neo Solidity uses the `solang-parser` for its frontend syntax analysis, 
 
 However, Neo Solidity maintains its own tracking for semantic or compilation bugs related specifically to the EVM-to-NeoVM conversion process. 
 
-Currently, there are no known security-critical bugs in the `0.13.x` release lineage.
+Currently, there are no known security-critical bugs in the `0.14.x` release lineage.
 
 Any future bugs discovered that affect the execution behavior of deployed `.nef` bytecode will be tracked here and in the GitHub issue tracker under the `security` label.

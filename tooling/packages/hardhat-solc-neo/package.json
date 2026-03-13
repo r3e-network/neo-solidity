@@ -1,6 +1,6 @@
 {
   "name": "@neo-solidity/hardhat-solc-neo",
-  "version": "0.1.0",
+  "version": "0.14.0",
   "description": "Hardhat plugin for compiling Solidity contracts to NeoVM bytecode",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

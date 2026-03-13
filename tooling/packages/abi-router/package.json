@@ -1,6 +1,6 @@
 {
   "name": "@neo-solidity/abi-router",
-  "version": "0.1.0",
+  "version": "0.14.0",
   "description": "ABI-compatible caller routing for Neo-Solidity contracts",
   "type": "module",
   "main": "./dist/index.js",

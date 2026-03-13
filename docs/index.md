@@ -30,8 +30,8 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo Solidity v0.13.1</h3>
-    <p>Version 0.13.1 brings seamless EVM-to-NeoVM compatibility, softening strict compilation rejections for EVM-specific syntax (like <code>assembly</code> blocks and extraneous call options) into graceful warnings, enabling frictionless porting of Ethereum contracts. It also fixes critical dataflow paths for infinite loop prevention.</p>
+    <h3>Neo Solidity v0.14.0</h3>
+    <p>Version 0.14.0 brings seamless EVM-to-NeoVM compatibility, softening strict compilation rejections for EVM-specific syntax (like <code>assembly</code> blocks and extraneous call options) into graceful warnings, enabling frictionless porting of Ethereum contracts. It also fixes critical dataflow paths for infinite loop prevention.</p>
     <a href="https://github.com/r3e-network/neo-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
@@ -126,7 +126,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.13.1<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.14.0<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

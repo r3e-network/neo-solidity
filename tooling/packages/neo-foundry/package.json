@@ -1,6 +1,6 @@
 {
   "name": "@neo-solidity/neo-foundry",
-  "version": "0.1.0",
+  "version": "0.14.0",
   "description": "Foundry integration adapter for Neo-Solidity development",
   "type": "module",
   "main": "./dist/index.js",
