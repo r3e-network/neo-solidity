@@ -1,9 +1,17 @@
-# Layout of State Variables in Storage
+# Layout of State Variables in Storage and Transient Storage
 
 Statically-sized variables (everything except mapping and dynamically-sized array types) are laid out in storage consecutively starting from position `0` in Ethereum.
 
 ::: tip 💡 NeoVM Difference: Key-Value Architecture
 EVM uses a linear, sequential 256-bit slot model for storage where variables occupy contiguous 32-byte slots. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
+:::
+
+## Transient Storage
+
+::: tip 💡 NeoVM Difference: Transient Keyword
+Ethereum Solidity v0.8.24 introduced the `transient` data location keyword (EIP-1153) to store data that is discarded after every transaction. **NeoVM does not currently have a native transient storage mechanism.**
+
+Using the `transient` keyword in Neo Solidity is currently parsed for compatibility but will emit a compilation warning or error depending on the use-case, as the runtime does not support reverting state without a transaction failure.
 :::
 
 ## Deterministic Key Derivation

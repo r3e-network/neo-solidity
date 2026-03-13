@@ -14,7 +14,7 @@ hero:
     actions:
         - theme: brand
           text: Read the docs
-          link: /getting-started/overview
+          link: /basics/introduction-to-smart-contracts
         - theme: alt
           text: Repository
           link: https://github.com/r3e-network/neo-solidity
@@ -35,7 +35,7 @@ features:
     - icon: "\U0001F4E6"
       title: Neo Native Standards
       details: "First-class support for NEP-17, NEP-11, and NEP-24 tokens. Built-in Runtime, Storage, NativeCalls, and Syscalls intrinsic libraries."
-      link: /devpack/overview
+      link: /additional-material/neo-devpack
       linkText: Devpack docs
 ---
 

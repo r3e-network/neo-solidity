@@ -52,10 +52,10 @@ export default defineConfig({
     siteTitle: 'Neo Solidity',
     nav: [
       { text: 'Blog', link: 'https://medium.com/neo-smart-economy' },
-      { text: 'Documentation', link: '/getting-started/overview' },
+      { text: 'Documentation', link: '/basics/introduction-to-smart-contracts' },
       { text: 'Use cases', link: '/use-cases' },
       { text: 'Contribute', link: 'https://github.com/r3e-network/neo-solidity/blob/main/CONTRIBUTING.md' },
-      { text: 'About', link: '/reference/architecture' },
+      { text: 'About', link: '/internals/architecture' },
       { text: 'Forum', link: 'https://github.com/r3e-network/neo-solidity/discussions' }
     ],
     sidebar: [
@@ -72,6 +72,7 @@ export default defineConfig({
         text: 'Language Description',
         collapsed: false,
         items: [
+          { text: 'EVM Feature Support', link: '/solidity/feature-support' },
           { text: 'Layout of a Solidity Source File', link: '/language-description/layout-of-source-file' },
           { text: 'Structure of a Contract', link: '/language-description/structure-of-a-contract' },
           { text: 'Types', link: '/language-description/types' },
@@ -96,7 +97,7 @@ export default defineConfig({
         text: 'Internals',
         collapsed: false,
         items: [
-          { text: 'Layout in Storage', link: '/internals/layout-in-storage' },
+          { text: 'Layout of State Variables in Storage and Transient Storage', link: '/internals/layout-in-storage' },
           { text: 'Layout in Memory', link: '/internals/layout-in-memory' },
           { text: 'Layout of Call Data', link: '/internals/layout-of-call-data' },
           { text: 'Cleaning Up Variables', link: '/internals/cleaning-up-variables' },
@@ -124,6 +125,9 @@ export default defineConfig({
         text: 'Additional Material',
         collapsed: false,
         items: [
+          { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' },
+          { text: 'Type-3 Runtime Execution', link: '/solidity/famous-contracts-neoxp-runtime' },
+          { text: 'Original Source Code', link: '/solidity/original-contracts/' },
           { text: 'NatSpec Format', link: '/additional-material/natspec-format' },
           { text: 'SMTChecker and Formal Verification', link: '/additional-material/smtchecker' },
           { text: 'Yul', link: '/additional-material/yul' },
@@ -141,7 +145,8 @@ export default defineConfig({
           { text: 'Resources', link: '/resources/resources' },
           { text: 'Contributing', link: '/resources/contributing' },
           { text: 'Language Influences', link: '/resources/language-influences' },
-          { text: 'Solidity Brand Guide', link: '/resources/brand-guide' }
+          { text: 'Solidity Brand Guide', link: '/resources/brand-guide' },
+          { text: 'Keyword Index', link: '/resources/keyword-index' }
         ]
       }
     ],
