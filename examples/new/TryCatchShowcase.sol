@@ -21,6 +21,10 @@ contract TryCatchShowcase {
         return x * 2;
     }
 
+    function externalSucceedMultiple(uint256 x) external pure returns (uint256, bool) {
+        return (x * 2, true);
+    }
+
     function externalRevert(string calldata reason) external pure {
         revert(reason);
     }
@@ -36,6 +40,16 @@ contract TryCatchShowcase {
     function tryCatchSuccess(uint256 val) public {
         try this.externalSucceed(val) returns (uint256 result) {
             emit CallSucceeded(result);
+        } catch Error(string memory reason) {
+            emit CaughtError(reason);
+        }
+    }
+
+    function tryCatchMultiple(uint256 val) public {
+        try this.externalSucceedMultiple(val) returns (uint256 result, bool successFlag) {
+            if (successFlag) {
+                emit CallSucceeded(result);
+            }
         } catch Error(string memory reason) {
             emit CaughtError(reason);
         }

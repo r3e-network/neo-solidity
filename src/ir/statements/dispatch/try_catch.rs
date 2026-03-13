@@ -116,7 +116,7 @@ fn lower_try_statement(
         catch_target: catch_label,
     });
 
-    let mut try_return_slot: Option<(usize, ValueType)> = None;
+    let mut try_return_slots: Vec<(usize, ValueType)> = Vec::new();
     if lower_expression(call_expr, ctx, instructions) {
         if handler_params.len() == 1 {
             if let Some(param) = handler_params[0].1.as_ref() {
@@ -124,7 +124,7 @@ fn lower_try_statement(
                     infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);
                 let tmp = ctx.allocate_local("__try_ret".to_string(), Some(inferred_type.clone()));
                 instructions.push(Instruction::StoreLocal(tmp));
-                try_return_slot = Some((tmp, inferred_type));
+                try_return_slots.push((tmp, inferred_type));
             } else {
                 ctx.record_error_with_suggestion(
                     "try returns(...) parameter is missing",
@@ -132,13 +132,33 @@ fn lower_try_statement(
                 );
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
-        } else {
-            if !handler_params.is_empty() {
-                ctx.record_error_with_suggestion(
-                    "try returns(...) with multiple values is not supported",
-                    "use a single return value or a struct to aggregate multiple values",
-                );
+        } else if handler_params.len() > 1 {
+            let array_tmp = ctx.allocate_local(
+                "__try_ret_array".to_string(),
+                Some(ValueType::Array(Box::new(ValueType::Any))),
+            );
+            instructions.push(Instruction::StoreLocal(array_tmp));
+
+            for (i, param_tuple) in handler_params.iter().enumerate() {
+                if let Some(param) = param_tuple.1.as_ref() {
+                    let inferred_type =
+                        infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);
+                    let tmp = ctx.allocate_local(
+                        format!("__try_ret_{i}"),
+                        Some(inferred_type.clone()),
+                    );
+
+                    instructions.push(Instruction::LoadLocal(array_tmp));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::from(i),
+                    )));
+                    instructions.push(Instruction::ArrayGet);
+                    instructions.push(Instruction::StoreLocal(tmp));
+
+                    try_return_slots.push((tmp, inferred_type));
+                }
             }
+        } else {
             instructions.push(Instruction::Drop(ValueType::Any));
         }
     } else if !handler_params.is_empty() {
@@ -218,15 +238,15 @@ fn lower_try_statement(
     if let Some(success_stmt) = success_stmt {
         ctx.enter_scope();
 
-        if handler_params.len() == 1 {
-            if let Some(param) = handler_params[0].1.as_ref() {
+        for (i, param_tuple) in handler_params.iter().enumerate() {
+            if let Some(param) = param_tuple.1.as_ref() {
                 if let Some(name) = param.name.as_ref().map(|id| id.name.clone()) {
-                    let inferred = try_return_slot
-                        .as_ref()
-                        .map(|(_, ty)| ty.clone())
-                        .unwrap_or(ValueType::Any);
+                    let (tmp, inferred) = try_return_slots
+                        .get(i)
+                        .cloned()
+                        .unwrap_or_else(|| (0, ValueType::Any));
                     let slot = ctx.allocate_local(name, Some(inferred.clone()));
-                    if let Some((tmp, _)) = try_return_slot {
+                    if try_return_slots.get(i).is_some() {
                         instructions.push(Instruction::LoadLocal(tmp));
                         instructions.push(Instruction::StoreLocal(slot));
                     } else {

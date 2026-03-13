@@ -140,4 +140,4 @@ try target.riskyCall() returns (uint256 result) {
 }
 ```
 
-* **NeoVM Mapping:** Maps to NeoVM `TRY`/`ENDTRY` structured exception handling. Note that NeoVM exceptions are untyped, so the compiler uses `ISTYPE` runtime guards to route by stack item type to the correct catch block. Multiple return values (`try returns(uint a, uint b)`) are not currently supported.
+* **NeoVM Mapping:** Maps to NeoVM `TRY`/`ENDTRY` structured exception handling. Note that NeoVM exceptions are untyped, so the compiler uses `ISTYPE` runtime guards to route by stack item type to the correct catch block. Multiple return values (`try returns(uint a, uint b)`) are fully supported; they map to a single NeoVM `Array` return which the compiler automatically unpacks via destructuring.
