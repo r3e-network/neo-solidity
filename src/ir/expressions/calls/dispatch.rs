@@ -36,11 +36,13 @@ fn lower_function_call_expression(
             }
 
             if !unsupported.is_empty() {
-                ctx.record_error(format!(
-                    "function call options (`{{...}}`) are not supported ({}); Neo N3 requires explicit NEP-17 transfers (`NativeCalls.gasTransfer` / `NativeCalls.neoTransfer`) + `onNEP17Payment`",
-                    unsupported.join(", ")
-                ));
-                return false;
+                ctx.record_warning_with_suggestion(
+                    format!(
+                        "function call options (`{{...}}`) for '{}' are ignored on Neo N3. Neo N3 requires explicit NEP-17 transfers instead of attached value.",
+                        unsupported.join(", ")
+                    ),
+                    "Replace {value: x} with explicit NativeCalls.gasTransfer() / NativeCalls.neoTransfer() before the call if value transfer is intended.",
+                );
             }
 
             func = inner_call.as_ref();

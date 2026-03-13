@@ -12,9 +12,9 @@ For protocol-level migration status on well-known production contracts, start wi
 | ---------------------- | ----: | ---------: |
 | Total audited features |   142 |       100% |
 | Fully supported        |   114 |        80% |
-| Partial support        |    22 |        15% |
+| Partial support        |    23 |        16% |
 | Not supported          |     1 |         1% |
-| Intentionally blocked  |     5 |         4% |
+| Intentionally blocked  |     4 |         3% |
 
 Status icons used throughout this page:
 
@@ -124,7 +124,7 @@ bytes memory encoded = abi.encode(a, b, c);
 | Variable declaration      |   ✅   | Local variable definitions with optional initializer.                                                        |
 | Block `{ ... }`           |   ✅   | Scoped statement blocks.                                                                                     |
 | `unchecked { ... }`       |   ✅   | NeoVM uses BigInteger (no overflow). Unchecked blocks compile as normal blocks.                              |
-| `assembly { ... }`        |   🚫   | Blocked: "inline assembly is not supported — use NativeCalls.sol".                                           |
+| `assembly { ... }`        |   ⚠️   | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops.                                           |
 | `try` / `catch`           |   ✅   | Maps to NeoVM `TRY`/`ENDTRY`. Single catch clause preferred.                                                 |
 | `catch Error(string)`     |   ✅   | Named catch with parameter binding.                                                                          |
 | `catch Panic(uint256)`    |   ⚠️   | Lowered with runtime integer-type guard. Values are NeoVM exception payloads, not canonical EVM panic codes. |
@@ -391,14 +391,14 @@ For detailed standard migration guides, see the [Standards Mapping](/devpack/sta
 | ------------------- | ------: | -----: | ----: | ----: |
 | A. Types            |      16 |      2 |     1 |     0 |
 | B. Expressions      |      18 |      3 |     0 |     0 |
-| C. Statements       |      15 |      1 |     0 |     1 |
+| C. Statements       |      15 |      2 |     0 |     0 |
 | D. Functions        |       9 |      4 |     0 |     0 |
 | E. OOP Features     |       9 |      1 |     0 |     0 |
 | F. Storage & Memory |      12 |      0 |     0 |     1 |
 | G. Error Handling   |       9 |      1 |     0 |     0 |
 | H. EVM-Specific     |      23 |      6 |     0 |     3 |
 | I. ERC-NEP Mapping  |       3 |      4 |     0 |     0 |
-| **Total**           | **114** | **22** | **1** | **5** |
+| **Total**           | **114** | **23** | **1** | **4** |
 
 ---
 
