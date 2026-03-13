@@ -1,14 +1,16 @@
 # Security Considerations
 
-While Solidity itself provides various security guarantees, writing smart contracts requires a deep understanding of the underlying execution environment.
+While Solidity itself provides various security guarantees, writing smart contracts requires a deep understanding of the underlying execution environment. Contracts are completely public, meaning their source code and compiled bytecode can be inspected by anyone, and anyone can interact with them.
 
 ::: tip 💡 NeoVM Difference
 The most critical security differences between EVM and NeoVM lie in **Authorization (Witnesses vs `msg.sender`)** and **Contract Permissions (Manifests)**.
 :::
 
-## Authorization: Witnesses over msg.sender
+## Pitfalls
 
-On Ethereum, authorization is implicit through `msg.sender`. The caller's address is automatically set by the EVM. 
+### Authorization: Witnesses over `msg.sender`
+
+On Ethereum, authorization is implicit through `msg.sender`. The caller's address is automatically set by the EVM to the contract or account that initiated the specific `CALL`.
 
 On Neo, authorization is explicit. The transaction includes cryptographic witnesses (signatures) that prove the caller controls specific addresses. 
 
@@ -30,28 +32,37 @@ function withdraw(uint256 amount) public {
     // ...
 }
 ```
+If you rely on `msg.sender == user`, your contract is vulnerable to users who wrap their calls in another contract (because `msg.sender` will become the intermediate contract, not the user). `Runtime.checkWitness()` verifies the user authorized the transaction globally, regardless of the call depth.
 
-## Manifest Permissions
+### Manifest Permissions and Wildcards
 
 Neo N3 enforces contract call permissions at the VM level via the contract's manifest. If your contract attempts to call a target contract or method not explicitly allowed in your manifest, execution will fault.
 
-By default, dynamic calls in Solidity (like `address(target).call(...)`) force the compiler to emit wildcard permissions (`"contract": "*", "methods": "*"`). **This is a severe security risk**, as it allows your contract to be hijacked to interact with malicious contracts.
+By default, dynamic calls in Solidity (like `address(target).call(...)`) force the compiler to emit wildcard permissions (`"contract": "*", "methods": "*"`). **This is a severe security risk**, as it allows your contract to be hijacked to interact with malicious contracts, effectively bypassing the platform's permission sandbox.
 
-**Recommendation:**
+### No Overflows / Underflows
+
+Because NeoVM uses arbitrary-precision `BigInteger` representation, mathematical operations do not overflow or underflow at the 256-bit boundary. 
+
+If your contract's security model relies on expected overflow wrapping (such as circular counters), it will fail on NeoVM. You must implement explicit modulo arithmetic (`% 256`).
+
+### Upgradeability
+
+Ethereum relies on `delegatecall` and complex proxy architectures to make contracts upgradeable. NeoVM inherently blocks `delegatecall` because it isolates storage context strictly per-contract.
+
+However, Neo natively supports upgrading contracts using `ContractManagement.update()`. This replaces the executing code while retaining the existing storage. 
+
+## Recommendations
+
+### 1. Compile with Strict Permissions
 Always compile production contracts with strict wildcard denial flags:
 ```bash
 neo-solc MyContract.sol --deny-wildcard-contracts --deny-wildcard-methods
 ```
-If dynamic routing is strictly required by your architecture, use NatSpec overrides to explicitly allowlist specific trusted hashes.
+If dynamic routing is strictly required by your architecture, use NatSpec overrides (`@custom:neo.manifest.permissions`) to explicitly allowlist specific trusted hashes rather than defaulting to `*`.
 
-## No Overflows / Underflows
+### 2. Guard the Upgrade Method
+Because `ContractManagement.update()` is a native intrinsic that modifies the code of the contract, ensure that access to your update method is heavily protected. It should ideally be behind a multisig or DAO governance check, relying on `Runtime.checkWitness()`.
 
-Because NeoVM uses arbitrary-precision `BigInteger` representation, mathematical operations do not overflow or underflow at the 256-bit boundary. 
-
-If your contract's security model relies on expected overflow wrapping (such as circular counters), you must implement explicit modulo arithmetic (`% 256`).
-
-## Upgradeability
-
-Ethereum relies on `delegatecall` and complex proxy architectures to make contracts upgradeable. NeoVM inherently blocks `delegatecall`.
-
-However, Neo natively supports upgrading contracts using `ContractManagement.update()`. This replaces the executing code while retaining the existing storage. Ensure that access to your update method is heavily protected, preferably behind a multisig or DAO governance check.
+### 3. Handle NEP-17 Payments Carefully
+When implementing `onNEP17Payment` (the equivalent to Ethereum's `receive()`), always verify the `msg.sender` to ensure the token being received is the one you expect (e.g., ensuring `msg.sender == NativeContracts.GAS`). Otherwise, malicious users can send worthless tokens to spoof deposits.

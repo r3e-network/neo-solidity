@@ -2,8 +2,8 @@
 
 Statically-sized variables (everything except mapping and dynamically-sized array types) are laid out in storage consecutively starting from position `0` in Ethereum.
 
-::: tip 💡 NeoVM Difference
-EVM uses a linear, sequential 256-bit slot model for storage. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
+::: tip 💡 NeoVM Difference: Key-Value Architecture
+EVM uses a linear, sequential 256-bit slot model for storage where variables occupy contiguous 32-byte slots. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
 :::
 
 ## Deterministic Key Derivation
@@ -14,6 +14,8 @@ For simple, non-dynamic variables, the storage key is the hash of the variable n
 ```
 storage_key = SHA256(variable_name)
 ```
+
+Because keys are derived by name, renaming a state variable between contract upgrades will cause the contract to lose access to the previously stored data.
 
 ## Mappings and Dynamic Arrays
 
@@ -61,3 +63,17 @@ Config public config;
 ```
 
 *Note: Because struct storage is atomic, reading a single field requires deserializing the entire struct. For frequently accessed individual fields, consider using separate state variables.*
+
+## Storage Serialization Formats
+
+When encoding values to create storage keys or persisting them to storage, Neo Solidity uses specific binary formats:
+
+| Type | Serialization Strategy |
+| --- | --- |
+| **Integers** | Big-endian byte array, padded to declared bit width. Signed integers are sign-extended; unsigned are zero-extended. |
+| **Booleans** | Single byte: `0x00` (false) or `0x01` (true). |
+| **Address** | Raw 20 bytes (UInt160), no padding. |
+| **Bytes/String** | Raw UTF-8 bytes, no length prefix. |
+| **Structs** | `StdLib.serialize()` binary payload. |
+
+Because NeoVM handles the underlying `Get` and `Put` syscalls using these arbitrary byte arrays, you do not have to worry about EVM tight-packing optimizations (like packing two `uint128` variables into a single 256-bit slot). The NeoVM bills storage byte-by-byte based on the actual size of the payload.
