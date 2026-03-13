@@ -1,161 +1,161 @@
-# Overview
+# Introduction to Smart Contracts
 
-Neo Solidity is a production-ready compiler that translates Solidity 0.8.x smart contracts into Neo N3 blockchain artifacts. It lets Ethereum developers bring their existing Solidity skills and codebases to the Neo ecosystem without learning a new language.
+## A Simple Smart Contract
 
-## Why Neo Solidity?
+Let us begin with the most basic example. It is fine if you do not understand everything right now, we will go into more depth later.
 
-Neo N3 is a high-performance blockchain with a unique virtual machine (NeoVM), native assets, and a dBFT consensus model. Historically, writing Neo smart contracts required C#, Python, or Go. Neo Solidity bridges the gap by accepting the most widely-used smart contract language and producing deployment-ready Neo N3 output.
+### Storage Example
 
-Key motivations:
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-- **Developer reach** -- Solidity has the largest smart contract developer community. Accepting Solidity source removes the biggest adoption barrier for Neo N3.
-- **Code reuse** -- Existing Solidity contracts (tokens, DeFi, governance) can be ported to Neo with minimal changes.
-- **Tooling compatibility** -- The compiler supports Solidity's standard JSON interface, enabling integration with Hardhat, Foundry, and other established toolchains.
+contract SimpleStorage {
+    uint storedData;
 
-## What It Produces
+    function set(uint x) public {
+        storedData = x;
+    }
 
-Every successful compilation emits two files:
-
-| Artifact               | Description                                                                                                                                                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>.nef`           | **Neo Executable Format** -- contains the NeoVM bytecode, method token table, and a SHA-256 checksum. This is the on-chain script that the Neo virtual machine executes.                                                        |
-| `<name>.manifest.json` | **Contract manifest** -- declares the ABI (methods, events, parameters), required permissions, supported standards (NEP-17, NEP-11, etc.), trust settings, and extra metadata. Neo nodes validate this manifest at deploy time. |
-
-Together, these two files are everything you need to deploy a contract via `neo-cli`, Neo-Express, or any Neo N3 SDK.
-
-## Architecture
-
-The compiler is implemented in Rust and follows an 8-stage pipeline:
-
-```
-Solidity Source (*.sol)
-       |
-       v
-  1. Frontend          -- Parse Solidity via solang-parser crate
-       |
-       v
-  2. Metadata          -- Extract contracts, functions, events, NatSpec
-       |
-       v
-  3. Semantic Model    -- Symbol table, scope resolution, type checking
-       |
-       v
-  4. IR Generation     -- Yul-like IR with Neo-specific extensions
-       |
-       v
-  5. Optimizer         -- Constant folding, DCE, inlining, peephole (O0-O3)
-       |
-       v
-  6. Code Generator    -- Map IR to NeoVM opcodes, manage call frames
-       |
-       v
-  7. Artifact Builder  -- Write NEF binary and manifest JSON
-       |
-       v
-  8. Output            -- .nef + .manifest.json on disk
+    function get() public view returns (uint) {
+        return storedData;
+    }
+}
 ```
 
-Each stage is a distinct module in the Rust codebase, making the compiler easy to test and extend independently.
+The first line tells you that the source code is licensed under the MIT license. Machine-readable license specifiers are important in a setting where publishing source code is the default.
 
-### Stage Details
+The next line specifies that the source code is written for Solidity version 0.8.20 or newer.
 
-**Frontend** -- Uses the `solang-parser` crate to parse Solidity 0.8.x source into an AST. Produces source-location-aware diagnostics for syntax errors.
+A contract in the sense of Solidity is a collection of code (its functions) and data (its state) that resides at a specific address on the blockchain. The line `uint storedData;` declares a state variable of type `uint` (unsigned integer). You can think of it as a single slot in a database that you can query and alter by calling functions of the code that manages the database.
 
-**Metadata Extraction** -- Walks the AST to collect `ContractMetadata`, `FunctionMetadata`, `EventMetadata`, `NatspecDoc`, and state variable definitions. This stage also detects NEP standard compliance (NEP-17, NEP-11).
-
-**Semantic Model** -- Builds a symbol table with scope resolution, validates types, checks storage layout, resolves inheritance (C3 linearization), and expands modifiers.
-
-**IR Generation** -- Lowers the semantic model into a custom intermediate representation inspired by Yul. The IR includes Neo-specific nodes for syscalls, storage operations, and native contract calls.
-
-**Optimizer** -- Applies configurable optimization passes at four levels:
-
-| Level | Passes                                                              |
-| ----- | ------------------------------------------------------------------- |
-| `-O0` | No optimization (debug builds)                                      |
-| `-O1` | Dead code elimination, constant folding/propagation                 |
-| `-O2` | + function inlining (bounded), peephole optimizations               |
-| `-O3` | + stack height reduction, NeoVM-specific cleanups, max optimization |
-
-**Code Generator** -- Translates IR into NeoVM bytecode. Manages `INITSLOT`/`RET` call frames, emits syscalls via interop IDs, resolves jump targets, and allocates locals and arguments.
-
-**Artifact Builder** -- Serializes the bytecode into NEF format (magic bytes, compiler metadata, method token table, SHA-256 checksum) and generates the manifest JSON with ABI, permissions, and standards declarations.
-
-## Solidity Feature Coverage
-
-The compiler supports 114 of 142 audited Solidity features (80%):
-
-| Category              | Status                                                     |
-| --------------------- | ---------------------------------------------------------- |
-| Fully supported       | 114 features (80%)                                         |
-| Partially supported   | 23 features (16%) -- with Neo-specific workarounds         |
-| Unsupported           | 1 feature (1%) -- also unimplemented in mainline Solidity  |
-| Intentionally blocked | 4 features (3%) -- EVM-only concepts with Neo alternatives |
-
-Blocked features produce compile-time errors with actionable messages pointing to the Neo equivalent. For example, `address.delegatecall(...)` directs you to use explicit cross-contract call patterns.
-
-For the full matrix, see [Solidity Feature Support](/solidity/feature-support).
-
-## Target Audience
-
-- **Ethereum/Solidity developers** who want to deploy on Neo N3 without learning a new language.
-- **Neo developers** who prefer Solidity over C# or Python for contract development.
-- **DeFi teams** porting existing protocols (AMMs, lending, vesting, governance) to Neo.
-- **Tooling authors** building IDE plugins, CI pipelines, or deployment frameworks for Neo.
-
-## Project Maturity
-
-Neo Solidity is production-ready for most use cases:
-
-- **700+ tests** across unit, integration, E2E compilation, and conformance suites.
-- **95% compiler completion** with comprehensive Solidity 0.8.x coverage.
-- **32 conformance test vectors** with a 93.8% pass rate against reference Neo implementations.
-- **16+ Neo-Express smoke tests** that deploy and invoke real contracts on a local chain.
-- **Production gate** (`make production-gate`) that validates formatting, linting, release build, full tests, strict compilation sweeps, and deployment smoke suites in a single command.
-
-::: warning Recommendation
-For mainnet deployment, always test your contracts thoroughly on Neo N3 TestNet first. Review the [Parity and Limitations](/internals/parity-and-limitations) page for known behavioral differences between EVM and NeoVM.
+::: tip 💡 NeoVM Difference: Storage
+On Ethereum, state variables are stored in sequential 256-bit slots. On NeoVM, they are stored in a dynamic Key-Value database where the key is deterministically generated from the variable's name (`SHA256("storedData")`).
 :::
 
-## Key Capabilities
+### Subcurrency Example
 
-- **Full CLI** with 20+ options for compilation, optimization, manifest hardening, and diagnostics.
-- **Standard JSON mode** for integration with Solidity-compatible toolchains.
-- **CALLT optimization** for more efficient native contract calls on Neo N3.
-- **Manifest permission hardening** with `--deny-wildcard-contracts`, `--deny-wildcard-methods`, and explicit permission allowlists.
-- **NatSpec manifest overrides** via `@custom:neo.manifest.*` tags in Solidity source.
-- **Structured diagnostics** with `--json-errors` and `--json-warnings` for CI integration.
-- **Devpack libraries** providing Solidity interfaces for Neo N3 syscalls, native contracts, and NEP standards.
-- **Import resolution** with `-I` include paths for multi-file projects.
-- **Batch compilation** for compiling entire directories of contracts.
+The following contract implements the simplest form of a cryptocurrency.
 
-## Project Structure
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
+import {Runtime} from "@neo/Runtime.sol";
+
+contract Coin {
+    // The keyword "public" makes variables
+    // accessible from other contracts
+    address public minter;
+    mapping(address => uint) public balances;
+
+    // Events allow clients to react to specific
+    // contract changes you declare
+    event Sent(address from, address to, uint amount);
+
+    // Constructor code is only run when the contract
+    // is created
+    constructor() {
+        minter = Runtime.getCallingScriptHash();
+    }
+
+    // Sends an amount of newly created coins to an address
+    // Can only be called by the contract creator
+    function mint(address receiver, uint amount) public {
+        require(Runtime.checkWitness(minter), "Not the minter");
+        balances[receiver] += amount;
+    }
+
+    // Sends an amount of existing coins
+    // from any caller to an address
+    function send(address receiver, uint amount) public {
+        address sender = Runtime.getCallingScriptHash();
+        require(Runtime.checkWitness(sender), "Not authorized");
+        require(amount <= balances[sender], "Insufficient balance");
+        
+        balances[sender] -= amount;
+        balances[receiver] += amount;
+        emit Sent(sender, receiver, amount);
+    }
+}
 ```
-neo-solidity/
-├── src/                    # Rust compiler source
-│   ├── main.rs             # CLI entry point (neo-solc binary)
-│   ├── frontend.rs         # Solang parser integration
-│   ├── solidity.rs         # Metadata extraction
-│   ├── semantic_model.rs   # Semantic analysis
-│   ├── ir/                 # Intermediate representation
-│   ├── optimizer.rs        # Optimization passes
-│   ├── cli/bytecode/       # NeoVM code generation
-│   ├── neo.rs              # NEF and manifest builders
-│   └── runtime/            # Embedded NeoVM runtime for testing
-├── devpack/                # Solidity libraries for Neo N3
-│   ├── contracts/          # Contract interfaces
-│   ├── libraries/          # Utility libraries
-│   └── standards/          # NEP-17, NEP-11, etc.
-├── examples/               # Example contracts and smoke test scripts
-├── tests/                  # Test suites (unit, e2e, conformance)
-├── tooling/                # TypeScript packages (Hardhat, Foundry, etc.)
-└── docs/                   # This documentation site
-```
 
-## Next Steps
+This contract introduces `address` and `mapping`. The `address` type is a 20-byte value (a Neo script hash). The `mapping` type is essentially a hash table.
 
-1. [Installation](/basics/installing-the-compiler) -- Build the compiler from source.
-2. [Quick Start](/basics/quickstart) -- Compile and inspect your first contract.
-3. [Compile Workflow](/compiler/analysing-the-compiler-output) -- Full CLI reference and compilation patterns.
-4. [Deploy Workflow](/basics/deploying-contracts) -- Deploy contracts to Neo-Express and TestNet.
-5. [Test Workflow](/basics/testing-contracts) -- Run the test suites and set up CI.
+::: tip 💡 NeoVM Difference: Authorization
+Notice the use of `Runtime.checkWitness(minter)` instead of Ethereum's `require(msg.sender == minter)`. Neo relies on cryptographic transaction witnesses to verify that a specific user has authorized an action, rather than tracking the immediate caller address.
+:::
+
+## Blockchain Basics
+
+Blockchains as a concept are not too hard to understand. The reason why they are a bit difficult to wrap your head around is that they combine three concepts: cryptography, consensus, and peer-to-peer networking.
+
+### Transactions
+
+A transaction is a message that is sent from one account to another account. It can include a binary data payload (which executes a smart contract) and a cryptographic signature (witness).
+
+### Blocks
+
+One major problem to overcome is double spending. To solve this, transactions are grouped into blocks. On Neo N3, blocks are generated by consensus nodes using the **Delegated Byzantine Fault Tolerance (dBFT)** algorithm.
+
+Unlike Ethereum's Proof-of-Stake or Proof-of-Work, dBFT provides **single-block finality**. Once a block is committed to the Neo blockchain, it cannot be reverted. There are no forks or reorganizations.
+
+## The Neo Virtual Machine (NeoVM)
+
+### Overview
+
+The Neo Virtual Machine (NeoVM) is the runtime environment for smart contracts in Neo. It is not a port of the Ethereum Virtual Machine (EVM); it is a completely distinct architecture. While the `neo-solidity` compiler allows you to write standard Solidity, understanding the NeoVM is crucial for writing efficient and secure contracts.
+
+### Accounts
+
+On Neo, there are two types of accounts, though they share the same 20-byte address format (Script Hash):
+1. **Standard Accounts**: Controlled by public-private key pairs (signatures).
+2. **Contract Accounts**: Controlled by the code of a deployed smart contract.
+
+### Dual Token Model (NEO and GAS)
+
+Neo utilizes a dual-token model:
+*   **NEO**: The governance token. It is indivisible (no decimals) and is used to vote for consensus nodes.
+*   **GAS**: The utility token. It has 8 decimals and is used to pay for network transactions and smart contract execution. 
+
+::: tip 💡 NeoVM Difference: No Native Ether
+Ethereum attaches an intrinsic Ether balance to every address, manipulated via `msg.value` and `address.transfer()`. **Neo does not have a native balance property**. NEO and GAS are implemented as standard NEP-17 smart contracts. Value transfers require explicitly calling the GAS or NEO smart contracts.
+:::
+
+### Gas and Fees
+
+On Neo N3, the cost of a transaction is split into two parts:
+1.  **System Fee (Execution Gas):** Pays for the actual execution of NeoVM opcodes and syscalls.
+2.  **Network Fee:** Pays for the byte size of the transaction and signature verification.
+
+### Storage, Memory, and the Stack
+
+NeoVM has a different memory model than EVM:
+
+*   **Storage**: A persistent Key-Value database mapping byte arrays to byte arrays. It is relatively expensive to read and write.
+*   **Stack**: NeoVM evaluates logic using an execution stack. Items pushed to the stack are fully typed (e.g., an `Integer`, an `Array`, a `Map`, or a `ByteArray`).
+*   **Memory**: NeoVM **does not have a linear memory space**. When Solidity allocates an array or struct in `memory`, it is actually creating a typed `Array` item on the NeoVM execution stack.
+
+### Message Calls and Syscalls
+
+Contracts communicate with each other through **Message Calls**. Instead of arbitrary binary payloads with 4-byte selectors, NeoVM invokes methods using their exact string name via `System.Contract.Call`.
+
+Furthermore, NeoVM exposes **Syscalls** (System Calls) which allow contracts to interact with the underlying blockchain (e.g., getting the current block, performing cryptography, or reading storage).
+
+### Delegatecall / Callcode and Libraries
+
+There exists a special variant of a message call on Ethereum, named `delegatecall` which is identical to a message call apart from the fact that the code at the target address is executed in the context (i.e. at the address) of the calling contract.
+
+::: danger 🚫 Unsupported Feature: Delegatecall
+**NeoVM does not support `delegatecall`.** Every contract has entirely isolated storage. You cannot execute another contract's code in your contract's storage context. Therefore, Ethereum-style proxy upgrade patterns and dynamically linked external libraries are not supported.
+:::
+
+### Events and Notifications
+
+Solidity Events are compiled to NeoVM **Notifications** (`Runtime.Notify`). Like EVM logs, these are stored in the transaction receipt and cannot be accessed from within the smart contract itself.
+
+However, unlike EVM, Neo notifications do not utilize "Topics" for indexed parameters. All parameters are grouped into a single state array.
+
+### Create
+
+Smart contracts can be created by other contracts. However, Neo Solidity disables the `new Contract()` syntax to prevent ambiguities. Contracts must be deployed explicitly using the `ContractManagement.deploy()` syscall, providing the compiled `.nef` bytecode and `.manifest.json`.

@@ -100,6 +100,7 @@ export default defineConfig({
           { text: 'Layout in Memory', link: '/internals/layout-in-memory' },
           { text: 'Layout of Call Data', link: '/internals/layout-of-call-data' },
           { text: 'Cleaning Up Variables', link: '/internals/cleaning-up-variables' },
+          { text: 'Source Mappings', link: '/internals/source-mappings' },
           { text: 'The Optimizer', link: '/internals/the-optimizer' },
           { text: 'Contract Metadata', link: '/internals/contract-metadata' },
           { text: 'Contract ABI Specification', link: '/internals/contract-abi-specification' },
@@ -113,6 +114,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Security Considerations', link: '/advisory-content/security-considerations' },
+          { text: 'List of Known Bugs', link: '/advisory-content/known-bugs' },
           { text: 'Troubleshooting', link: '/advisory-content/troubleshooting' },
           { text: 'Error Reference', link: '/advisory-content/error-reference' }
         ]
@@ -122,6 +124,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'NatSpec Format', link: '/additional-material/natspec-format' },
+          { text: 'Import Path Resolution', link: '/additional-material/import-path-resolution' },
           { text: 'Devpack Overview', link: '/additional-material/neo-devpack' },
           { text: 'Standards and Contracts', link: '/additional-material/neo-standards' }
         ]

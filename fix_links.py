@@ -41,3 +41,8 @@ for root, _, files in os.walk('docs'):
     for file in files:
         if file.endswith('.md'):
             replace_links(os.path.join(root, file))
+mapping['/language-description/grammar'] = '/language-description/grammar'
+mapping['/compiler/ir-codegen-changes'] = '/compiler/ir-codegen-changes'
+mapping['/internals/layout-of-call-data'] = '/internals/layout-of-call-data'
+mapping['/internals/cleaning-up-variables'] = '/internals/cleaning-up-variables'
+mapping['/resources/style-guide'] = '/resources/style-guide'
