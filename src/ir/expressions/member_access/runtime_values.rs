@@ -41,6 +41,10 @@ fn try_lower_runtime_member_access(
                     if ctx.function_name == "onNEP17Payment" {
                         instructions.push(Instruction::LoadParameter(2));
                     } else {
+                        ctx.record_warning_with_suggestion(
+                            "msg.data has no exact equivalent on Neo N3 outside of onNEP17Payment. Auto-mapped to an empty byte array.",
+                            "Use explicit method parameters instead.",
+                        );
                         instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgData));
                     }
                     return Some(true);
@@ -51,14 +55,14 @@ fn try_lower_runtime_member_access(
         "sig" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
-                    ctx.record_error_with_suggestion(
-                        "msg.sig is not supported on Neo N3. Neo dispatches by method name (and string matching), not by a 4-byte EVM selector.".to_string(),
+                    ctx.record_warning_with_suggestion(
+                        "msg.sig has no exact equivalent on Neo N3. Neo dispatches by method name, not by a 4-byte EVM selector. Auto-mapped to 0x00000000.",
                         "Use string-based method identification or type(I).interfaceId (for NEP-11/NEP-17 compatibility).",
                     );
                     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
                         0, 0, 0, 0,
                     ])));
-                    return Some(false);
+                    return Some(true);
                 }
             }
             None

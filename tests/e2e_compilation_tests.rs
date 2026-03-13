@@ -1042,8 +1042,8 @@ fn test_evm_compat_ether_units_error() {
 }
 
 #[test]
-fn test_evm_compat_msg_sig_error() {
-    assert_compile_error_contains("new/EvmCompatMsgSig.sol", "msg.sig is not supported");
+fn test_evm_compat_msg_sig_warning() {
+    assert_compile_warns("new/EvmCompatMsgSig.sol", "msg.sig has no exact equivalent");
 }
 
 #[test]

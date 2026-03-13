@@ -286,8 +286,8 @@ fn standard_json_ir_errors_preserve_code_and_suggestion() {
     pragma solidity ^0.8.19;
 
     contract C {
-        function f() public pure returns (bytes4) {
-            return msg.sig;
+        function f() public pure returns (address) {
+            return super;
         }
     }
     "#;
@@ -336,7 +336,7 @@ fn standard_json_ir_errors_preserve_code_and_suggestion() {
         error["suggestion"]
             .as_str()
             .unwrap_or_default()
-            .contains("method identification"),
+            .contains("use super.methodName()"),
         "expected IR suggestion to be preserved: {error:?}"
     );
 }

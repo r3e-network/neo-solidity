@@ -12,8 +12,8 @@ For protocol-level migration status on well-known production contracts, start wi
 | ---------------------- | ----: | ---------: |
 | Total audited features |   142 |       100% |
 | Fully supported        |   114 |        80% |
-| Partial support        |    20 |        14% |
-| Not supported          |     3 |         2% |
+| Partial support        |    22 |        15% |
+| Not supported          |     1 |         1% |
 | Intentionally blocked  |     5 |         4% |
 
 Status icons used throughout this page:
@@ -396,9 +396,9 @@ For detailed standard migration guides, see the [Standards Mapping](/devpack/sta
 | E. OOP Features     |       9 |      1 |     0 |     0 |
 | F. Storage & Memory |      12 |      0 |     0 |     1 |
 | G. Error Handling   |       9 |      1 |     0 |     0 |
-| H. EVM-Specific     |      23 |      4 |     2 |     3 |
+| H. EVM-Specific     |      23 |      6 |     0 |     3 |
 | I. ERC-NEP Mapping  |       3 |      4 |     0 |     0 |
-| **Total**           | **114** | **20** | **3** | **5** |
+| **Total**           | **114** | **22** | **1** | **5** |
 
 ---
 

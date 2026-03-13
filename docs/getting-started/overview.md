@@ -87,8 +87,8 @@ The compiler supports 114 of 142 audited Solidity features (80%):
 | Category              | Status                                                     |
 | --------------------- | ---------------------------------------------------------- |
 | Fully supported       | 114 features (80%)                                         |
-| Partially supported   | 20 features (14%) -- with Neo-specific workarounds         |
-| Unsupported           | 3 features (2%) -- also unimplemented in mainline Solidity |
+| Partially supported   | 22 features (15%) -- with Neo-specific workarounds         |
+| Unsupported           | 1 feature (1%) -- also unimplemented in mainline Solidity  |
 | Intentionally blocked | 5 features (4%) -- EVM-only concepts with Neo alternatives |
 
 Blocked features produce compile-time errors with actionable messages pointing to the Neo equivalent. For example, `address.delegatecall(...)` directs you to use explicit cross-contract call patterns.

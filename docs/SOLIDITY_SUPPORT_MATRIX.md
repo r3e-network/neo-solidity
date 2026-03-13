@@ -174,8 +174,8 @@ Legend:
 | --------------------------------------- | ------ | --------------------------------------------------------------------------- |
 | `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`                                    |
 | `msg.value`                             | ⚠️     | Only mapped inside `onNEP17Payment` callback                                |
-| `msg.data`                              | ❌     | No equivalent (Neo uses typed parameters)                                   |
-| `msg.sig`                               | ❌     | No equivalent                                                               |
+| `msg.data`                              | ⚠️     | Auto-mapped to an empty byte array outside of `onNEP17Payment`              |
+| `msg.sig`                               | ⚠️     | Auto-mapped to `0x00000000` (Neo dispatches by method name, not selector)   |
 | `block.timestamp`                       | ✅     | Maps to `Runtime.GetTime()` (normalized to seconds)                         |
 | `block.number`                          | ✅     | Maps to `Ledger.CurrentIndex()`                                             |
 | `block.chainid`                         | ✅     | Maps to Neo network magic number                                            |
@@ -232,13 +232,13 @@ Legend:
 | E. OOP Features     | 9       | 1      | 0     | 0     |
 | F. Storage & Memory | 12      | 0      | 0     | 1     |
 | G. Error Handling   | 9       | 1      | 0     | 0     |
-| H. EVM-Specific     | 23      | 4      | 2     | 3     |
+| H. EVM-Specific     | 23      | 6      | 0     | 3     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **114** | **20** | **3** | **5** |
+| **Total**           | **114** | **22** | **1** | **5** |
 
 **Total features audited: 142**
 
 - ✅ Fully supported: 114 (80%)
-- ⚠️ Partial support: 20 (14%)
-- ❌ Not supported: 3 (2%)
+- ⚠️ Partial support: 22 (15%)
+- ❌ Not supported: 1 (1%)
 - 🚫 Intentionally blocked: 5 (4%)
