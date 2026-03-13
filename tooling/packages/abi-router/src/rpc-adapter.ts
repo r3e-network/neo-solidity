@@ -1,7 +1,6 @@
 import { NeoRpcProvider, InvokeResult } from "@neo-solidity/types";
 import Debug from "debug";
 import { id } from "ethers";
-import { wallet } from "@cityofzion/neon-js";
 import {
   decodeNeoBytes,
   normalizeNeoHash160,
@@ -459,10 +458,6 @@ export class RpcAdapter {
    * Convert Neo address to script hash
    */
   private addressToScriptHash(address: string): string {
-    if (wallet.isAddress(address)) {
-      return "0x" + wallet.getScriptHashFromAddress(address);
-    }
-
     // Allow direct script hash usage (Neo canonical form)
     try {
       return normalizeNeoHash160(address);

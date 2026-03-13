@@ -281,7 +281,7 @@ public sealed class EvmMemoryManager : IDisposable
             
             if (_pages.ContainsKey(page))
             {
-                result[i] = _pages[page][offset];
+                result[i] = _pages[page].Data[offset];
             }
         }
         
@@ -304,7 +304,7 @@ public sealed class EvmMemoryManager : IDisposable
             var byteAddress = address + (uint)i;
             var page = byteAddress / PAGE_SIZE;
             var offset = byteAddress % PAGE_SIZE;
-            _pages[page][offset] = data[i];
+            _pages[page].Data[offset] = data[i];
         }
     }
     
@@ -321,7 +321,7 @@ public sealed class EvmMemoryManager : IDisposable
             lock (_lock)
             {
                 var currentTime = (ulong)_accessTimer.ElapsedMilliseconds;
-                var pagesToRemove = new List<uint>();
+                var pagesToRemove = new System.Collections.Generic.List<uint>();
                 
                 foreach (var kvp in _pages)
                 {

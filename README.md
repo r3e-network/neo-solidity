@@ -7,12 +7,12 @@
 [![Build Status](https://github.com/r3e-network/neo-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-solidity/actions)
 [![Neo-Express Showcases Workflow](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust Version](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://rustup.rs)
+[![Rust Version](https://img.shields.io/badge/rust-1.82+-blue.svg)](https://rustup.rs)
 [![Neo Version](https://img.shields.io/badge/neo-N3%203.0+-green.svg)](https://neo.org)
 
 **Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
 
-> **Status:** 🟢 Production-Ready · 95% Complete · 666 Tests
+> **Status:** 🟢 Production-Ready · 95% Complete · 700+ Tests
 
 ## 🎯 At a Glance
 
@@ -409,8 +409,9 @@ graph TB
 
 #### **System Requirements**
 
-- **Rust**: 1.70 or higher
+- **Rust**: 1.82 or higher
 - **Node.js**: 16.0 or higher (for tooling)
+- **.NET SDK**: 8.0 or higher (for optional C# runtime)
 - **Neo CLI**: 3.0+ (for deployment)
 - **Memory**: 4GB RAM minimum, 8GB recommended
 - **Disk Space**: 2GB for full installation
@@ -1035,7 +1036,7 @@ git push origin vX.Y.Z
 ### **📈 Metrics & Statistics**
 
 - **📊 Total Lines of Code**: ~50,000 (Rust implementation)
-- **🧪 Test Coverage**: 620+ tests (unit, integration, E2E)
+- **🧪 Test Coverage**: 700+ tests (unit, integration, E2E)
 - **⚡ Performance**: Optimized code generation with multi-level optimization
 - **🔒 Security**: Basic security analysis; external audit recommended for production
 - **📚 Documentation**: Comprehensive guides and reference documentation

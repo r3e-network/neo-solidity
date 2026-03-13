@@ -378,7 +378,7 @@ export class NeoCast extends EventEmitter {
         returnData: callResult.result,
         traces: [] // Would include execution traces
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
         gasUsed: '0',
@@ -518,7 +518,7 @@ export class NeoCast extends EventEmitter {
       
       const gasEstimate = await contract[name].estimateGas(...args);
       return gasEstimate.toString();
-    } catch (error) {
+    } catch (_error) {
       return '0';
     }
   }

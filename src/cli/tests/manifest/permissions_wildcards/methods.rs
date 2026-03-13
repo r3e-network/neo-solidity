@@ -192,6 +192,10 @@ fn deny_full_wildcard_permissions_rejects_fully_dynamic_calls() {
                     .contains("full wildcard manifest permissions"),
                 "unexpected error message: {message}"
             );
+            assert!(
+                message.contains("@custom:neo.manifest.permissions"),
+                "expected NatSpec permission override guidance: {message}"
+            );
         }
         other => panic!("unexpected error variant: {other:?}"),
     }
@@ -269,6 +273,50 @@ fn manifest_permissions_merge_normalizes_and_deduplicates_override_entries() {
         unique.insert(*name);
     }
     assert_eq!(unique.len(), names.len(), "methods should be deduplicated");
+}
+
+#[test]
+fn branch_selected_known_methods_do_not_require_wildcard_method_permissions() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract BranchSelectedMethods {
+        function callEither(bool supply) public returns (bytes memory) {
+            string memory method;
+            if (supply) {
+                method = "totalSupply";
+            } else {
+                method = "symbol";
+            }
+            return Syscalls.contractCall(NativeCalls.GAS_CONTRACT, method, abi.encode());
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
+
+    let gas_entry = permissions
+        .iter()
+        .find(|entry| entry["contract"] == gas_contract)
+        .expect("gas permission entry");
+    let methods = gas_entry["methods"].as_array().expect("methods array");
+
+    assert!(methods.iter().any(|method| method == "totalSupply"));
+    assert!(methods.iter().any(|method| method == "symbol"));
+    assert_ne!(
+        gas_entry["methods"],
+        Value::String("*".into()),
+        "branch-selected known methods should not require wildcard method permissions"
+    );
 }
 
 #[test]

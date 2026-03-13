@@ -78,6 +78,7 @@ struct LoweringContext<'a> {
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
     errors: Vec<IrDiagnostic>,
+    warnings: Vec<crate::solidity::Diagnostic>,
 }
 
 impl<'a> LoweringContext<'a> {
@@ -140,6 +141,7 @@ impl<'a> LoweringContext<'a> {
             label_counter: 0,
             loop_stack: Vec::new(),
             errors: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 
@@ -203,6 +205,20 @@ impl<'a> LoweringContext<'a> {
         });
     }
 
+    fn record_warning(&mut self, message: impl Into<String>) {
+        self.warnings
+            .push(crate::solidity::Diagnostic::warning(message));
+    }
+
+    fn record_warning_with_suggestion(
+        &mut self,
+        message: impl Into<String>,
+        suggestion: impl Into<String>,
+    ) {
+        self.warnings
+            .push(crate::solidity::Diagnostic::warning(message).with_suggestion(suggestion));
+    }
+
     fn set_call_data_local(&mut self, local_index: usize, method: String) {
         self.call_data_locals.insert(local_index, method);
     }
@@ -233,7 +249,10 @@ impl<'a> LoweringContext<'a> {
     }
 
     fn interface_id_for_type(&self, type_name: &str) -> Option<[u8; 4]> {
-        let methods = self.selector_registry.type_method_selectors.get(type_name)?;
+        let methods = self
+            .selector_registry
+            .type_method_selectors
+            .get(type_name)?;
         let mut selectors: HashSet<[u8; 4]> = HashSet::new();
         for overloads in methods.values() {
             for selector in overloads {
@@ -335,7 +354,8 @@ impl<'a> LoweringContext<'a> {
             return false;
         }
 
-        let receiver_sig = normalize_solidity_like_type_signature(&value_type_signature(receiver_type));
+        let receiver_sig =
+            normalize_solidity_like_type_signature(&value_type_signature(receiver_type));
         self.using_target_types.iter().any(|target| match target {
             None => true,
             Some(target_type) => target_type == &receiver_sig,
@@ -352,11 +372,13 @@ impl<'a> LoweringContext<'a> {
             return true;
         };
 
-        let receiver_sig = normalize_solidity_like_type_signature(&value_type_signature(receiver_type));
-        let list_scope_applies = self
-            .using_function_list_scope_targets
-            .iter()
-            .any(|target| target.as_ref().is_none_or(|expected| expected == &receiver_sig));
+        let receiver_sig =
+            normalize_solidity_like_type_signature(&value_type_signature(receiver_type));
+        let list_scope_applies = self.using_function_list_scope_targets.iter().any(|target| {
+            target
+                .as_ref()
+                .is_none_or(|expected| expected == &receiver_sig)
+        });
 
         // No function-list directives apply to this receiver type.
         if !list_scope_applies {
@@ -492,10 +514,7 @@ fn normalize_solidity_like_type_signature(raw: &str) -> String {
 
 fn value_type_signature(value_type: &ValueType) -> String {
     match value_type {
-        ValueType::Integer {
-            signed: true,
-            bits,
-        } => format!("int{bits}"),
+        ValueType::Integer { signed: true, bits } => format!("int{bits}"),
         ValueType::Integer {
             signed: false,
             bits,
@@ -508,10 +527,7 @@ fn value_type_signature(value_type: &ValueType) -> String {
         } => format!("bytes{len}"),
         ValueType::ByteArray { fixed_len: None } => "bytes".to_string(),
         ValueType::Array(inner) => format!("{}[]", value_type_signature(inner)),
-        ValueType::Mapping {
-            key,
-            value,
-        } => format!(
+        ValueType::Mapping { key, value } => format!(
             "mapping({}=>{})",
             value_type_signature(key),
             value_type_signature(value)
@@ -567,8 +583,7 @@ fn is_implicitly_convertible(actual: &ValueType, expected: &ValueType) -> bool {
         }
         (
             ValueType::Struct {
-                name: actual_name,
-                ..
+                name: actual_name, ..
             },
             ValueType::Struct {
                 name: expected_name,

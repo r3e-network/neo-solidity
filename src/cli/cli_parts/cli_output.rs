@@ -155,6 +155,7 @@ fn write_json_file(
             })
         })
         .collect();
+    let neo_method_map = standard_json::build_neo_method_map(metadata);
 
     let nef_bytes = build_nef_with_tokens(script, COMPILER_ID, clamped.as_ref(), tokens)?;
     let checksum = if nef_bytes.len() >= 4 {
@@ -179,6 +180,7 @@ fn write_json_file(
             "checksum": checksum,
         },
         "manifest": manifest,
+        "methodMap": neo_method_map,
     });
 
     let json_str =

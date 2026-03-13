@@ -276,7 +276,7 @@ make tooling-lint
 ### C# Runtime Tests
 
 ```bash
-# Requires .NET SDK
+# Requires .NET 8 SDK
 make runtime-test
 ```
 

@@ -67,10 +67,9 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "tx" {
                     // Non-fatal warning: tx.origin compiles but has different semantics on Neo.
-                    eprintln!(
-                        "warning: tx.origin has different semantics on Neo N3. \
-                         Neo uses multi-signature witnesses instead of a single origin. \
-                         Consider using msg.sender or Runtime.CheckWitness() instead."
+                    ctx.record_warning_with_suggestion(
+                        "tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin.",
+                        "Use msg.sender or Runtime.checkWitness() for authorization instead.",
                     );
                     instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::TxOrigin));
                     return Some(true);
@@ -82,9 +81,9 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "tx" {
                     // Neo N3 auto-compat: tx.gasprice → Policy.getFeePerByte()
-                    eprintln!(
-                        "warning: tx.gasprice auto-mapped to Policy.getFeePerByte() \
-                         on Neo N3. Neo fees are determined by script size and syscall costs."
+                    ctx.record_warning_with_suggestion(
+                        "tx.gasprice auto-mapped to Policy.getFeePerByte() on Neo N3. Neo fees are determined by script size and syscall costs.",
+                        "Use Policy.getFeePerByte() directly when targeting Neo.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -103,9 +102,9 @@ fn try_lower_runtime_member_access(
                 if base.name == "tx" {
                     // Neo N3 auto-compat: tx.hash → System.Runtime.GetScriptContainer
                     // Returns the transaction that triggered execution
-                    eprintln!(
-                        "warning: tx.hash auto-mapped to System.Runtime.GetScriptContainer on Neo N3. \
-                         This returns the current transaction as a ScriptContainer."
+                    ctx.record_warning_with_suggestion(
+                        "tx.hash auto-mapped to System.Runtime.GetScriptContainer on Neo N3. This returns the current transaction as a ScriptContainer.",
+                        "Use System.Runtime.GetScriptContainer directly if you need the current Neo transaction container.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::Syscall(
@@ -156,9 +155,9 @@ fn try_lower_runtime_member_access(
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.coinbase → Neo.getNextBlockValidators()
                     // dBFT has no miner; return next block validators for useful info
-                    eprintln!(
-                        "warning: block.coinbase auto-mapped to Neo.getNextBlockValidators() on Neo N3 \
-                         (dBFT consensus has no miner). Returns array of validator script hashes."
+                    ctx.record_warning_with_suggestion(
+                        "block.coinbase auto-mapped to Neo.getNextBlockValidators() on Neo N3 because dBFT consensus has no miner.",
+                        "Review any miner-reward or coinbase assumptions before deploying on Neo.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -176,10 +175,12 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.difficulty/prevrandao → Runtime.getRandom()
-                    eprintln!(
-                        "warning: block.{} auto-mapped to Runtime.getRandom() on Neo N3 \
-                         (dBFT consensus has no PoW difficulty).",
-                        member.name
+                    ctx.record_warning_with_suggestion(
+                        format!(
+                            "block.{} auto-mapped to Runtime.getRandom() on Neo N3 because dBFT consensus has no PoW difficulty.",
+                            member.name
+                        ),
+                        "Review any randomness assumptions; Neo's Runtime.getRandom() is not equivalent to EVM difficulty/prevrandao.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::Syscall("System.Runtime.GetRandom".to_string()),
@@ -194,9 +195,9 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.gaslimit → Policy.getExecFeeFactor()
-                    eprintln!(
-                        "warning: block.gaslimit auto-mapped to Policy.getExecFeeFactor() \
-                         on Neo N3. Neo uses GAS token for fees, not per-block gas limits."
+                    ctx.record_warning_with_suggestion(
+                        "block.gaslimit auto-mapped to Policy.getExecFeeFactor() on Neo N3. Neo uses GAS token fees, not per-block gas limits.",
+                        "Avoid relying on EVM block gas-limit semantics on Neo.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -214,9 +215,9 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.basefee → Policy.getFeePerByte()
-                    eprintln!(
-                        "warning: block.basefee auto-mapped to Policy.getFeePerByte() \
-                         on Neo N3. Neo uses a fixed fee structure, not EIP-1559 base fees."
+                    ctx.record_warning_with_suggestion(
+                        "block.basefee auto-mapped to Policy.getFeePerByte() on Neo N3. Neo does not use EIP-1559 base fees.",
+                        "Review any fee-market logic before deploying on Neo.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -235,9 +236,9 @@ fn try_lower_runtime_member_access(
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.parenthash → Ledger.getBlock(currentIndex-1).prevHash
                     // This requires getting the previous block hash
-                    eprintln!(
-                        "warning: block.parenthash auto-mapped to Ledger.currentHash on Neo N3. \
-                         For previous block hash, use Ledger.getBlock(currentIndex-1).prevHash."
+                    ctx.record_warning_with_suggestion(
+                        "block.parenthash auto-mapped to Ledger.currentHash on Neo N3.",
+                        "Use Ledger.getBlock(currentIndex - 1).prevHash if you need the previous block hash specifically.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -256,9 +257,9 @@ fn try_lower_runtime_member_access(
                 if base.name == "block" {
                     // Neo N3 auto-compat: block.sha3 → Keccak256 of current block
                     // This is essentially the block hash
-                    eprintln!(
-                        "warning: block.sha3 is not directly available on Neo N3. \
-                         Use Runtime.getRandom() or Ledger.currentHash() as alternative."
+                    ctx.record_warning_with_suggestion(
+                        "block.sha3 is not directly available on Neo N3.",
+                        "Use Runtime.getRandom() or Ledger.currentHash() instead, depending on whether you need randomness or block identity.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::Syscall("System.Runtime.GetRandom".to_string()),

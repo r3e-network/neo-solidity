@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services;
 using Neo.Sol.Runtime.Crypto;
+using NeoFrameworkStorage = Neo.SmartContract.Framework.Services.Storage;
 
 namespace Neo.Sol.Runtime.Storage;
 
@@ -100,19 +101,20 @@ public sealed class StorageManager : IDisposable
         Interlocked.Increment(ref _storageReads);
         
         var key = GenerateStorageKey(slot);
-        var value = Storage.Get(_context, key);
+        var value = NeoFrameworkStorage.Get(_context, key);
         
         // EVM storage always returns 32 bytes, pad with zeros if needed
         var result = new byte[SLOT_SIZE];
         if (value != null && value.Length > 0)
         {
+            var valueBytes = (byte[])value;
             if (value.Length <= SLOT_SIZE)
             {
-                Array.Copy(value, 0, result, SLOT_SIZE - value.Length, value.Length);
+                Array.Copy(valueBytes, 0, result, SLOT_SIZE - value.Length, value.Length);
             }
             else
             {
-                Array.Copy(value, value.Length - SLOT_SIZE, result, 0, SLOT_SIZE);
+                Array.Copy(valueBytes, value.Length - SLOT_SIZE, result, 0, SLOT_SIZE);
             }
         }
         
@@ -182,13 +184,13 @@ public sealed class StorageManager : IDisposable
         // Optimize storage: don't store zero values
         if (IsZero(value))
         {
-            Storage.Delete(_context, key);
+            NeoFrameworkStorage.Delete(_context, key);
         }
         else
         {
             // Compress storage if beneficial
             var compressedValue = CompressValueIfBeneficial(value);
-            Storage.Put(_context, key, compressedValue);
+            NeoFrameworkStorage.Put(_context, key, compressedValue);
         }
     }
     
@@ -314,7 +316,7 @@ public sealed class StorageManager : IDisposable
     /// <returns>Set of modified slot numbers</returns>
     public IReadOnlySet<BigInteger> GetModifiedSlots()
     {
-        return _modifiedSlots.AsReadOnly();
+        return new HashSet<BigInteger>(_modifiedSlots.Snapshot());
     }
     
     /// <summary>
@@ -328,7 +330,7 @@ public sealed class StorageManager : IDisposable
         try
         {
             var currentTime = (ulong)_accessTimer.ElapsedMilliseconds;
-            var expiredSlots = new List<BigInteger>();
+            var expiredSlots = new System.Collections.Generic.List<BigInteger>();
             
             foreach (var kvp in _cache)
             {
@@ -434,7 +436,7 @@ public sealed class StorageManager : IDisposable
             throw new ObjectDisposedException(nameof(StorageManager));
             
         var result = new Dictionary<BigInteger, byte[]>();
-        var slotsToFetch = new List<BigInteger>();
+        var slotsToFetch = new System.Collections.Generic.List<BigInteger>();
         
         // Check cache first
         foreach (var slot in slots)
@@ -626,6 +628,20 @@ internal sealed class ConcurrentHashSet<T> : IDisposable where T : notnull
             {
                 _lock.ExitReadLock();
             }
+        }
+    }
+
+    public T[] Snapshot()
+    {
+        if (_disposed) return Array.Empty<T>();
+        _lock.EnterReadLock();
+        try
+        {
+            return _set.ToArray();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
         }
     }
     

@@ -365,7 +365,7 @@ npm run docs:build
 cargo clean && cargo build --release
 
 # If solang-parser fails, check Rust version
-rustc --version  # Requires 1.70+
+rustc --version  # Requires 1.82+
 
 # Run tests to verify
 cargo test --workspace

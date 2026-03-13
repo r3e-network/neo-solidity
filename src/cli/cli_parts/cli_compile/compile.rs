@@ -17,6 +17,50 @@ pub fn compile_contracts(
     )
 }
 
+
+fn apply_manifest_permissions_override(
+    manifest: &mut serde_json::Value,
+    metadata: &ContractMetadata,
+    override_permissions: &ManifestPermissionsOverride,
+) -> Result<(), CompileError> {
+    let mut inferred = parse_manifest_permissions_from_manifest(manifest).map_err(|err| {
+        CompileError::Message(format!("Failed to parse inferred manifest permissions: {err}"))
+    })?;
+
+    match override_permissions.mode {
+        ManifestPermissionsMode::Merge => {
+            merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
+        }
+        ManifestPermissionsMode::ReplaceWildcards => {
+            let had_wildcards = inferred
+                .iter()
+                .any(|(contract, methods)| contract == "*" || methods.is_wildcard());
+
+            let is_empty = override_permissions.permissions.is_empty();
+
+            if !had_wildcards && !is_empty {
+                return Err(CompileError::Manifest(format!(
+                    "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the inferred manifest has no wildcards to replace. Use `merge` mode to append explicit entries, or `replace-wildcards` only for dynamically-calling contracts.",
+                    metadata.name
+                )));
+            }
+
+            if had_wildcards && is_empty {
+                return Err(CompileError::Manifest(format!(
+                    "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the override is empty. An explicit permission allowlist must be provided to replace the dynamic wildcards.",
+                    metadata.name
+                )));
+            }
+
+            inferred.retain(|contract, methods| contract != "*" && !methods.is_wildcard());
+            merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
+        }
+    }
+
+    manifest["permissions"] = manifest_permissions_to_json(inferred);
+    Ok(())
+}
+
 fn compile_contracts_with_options(
     source: &str,
     verbose: bool,
@@ -90,7 +134,8 @@ fn compile_metadata(
         matches!(m.kind, FunctionKind::Constructor) && !m.parameters.is_empty()
     });
 
-    let ir_module = ir::Module::from_contract(&metadata).map_err(CompileError::Ir)?;
+    let (ir_module, ir_warnings) = ir::Module::from_contract_with_warnings(&metadata).map_err(CompileError::Ir)?;
+    warnings.extend(ir_warnings);
     let ir_module = optimize_ir(ir_module, optimizer_level);
 
     if verbose {
@@ -124,32 +169,14 @@ fn compile_metadata(
     .map_err(CompileError::Message)?;
     let mut manifest = build_manifest(&metadata, &ir_module);
 
+    if let Some(source_override) = load_manifest_permissions_override_from_natspec(&metadata)
+        .map_err(CompileError::Message)?
+    {
+        apply_manifest_permissions_override(&mut manifest, &metadata, &source_override)?;
+    }
+
     if let Some(override_permissions) = &options.manifest_permissions {
-        let mut inferred = parse_manifest_permissions_from_manifest(&manifest).map_err(|err| {
-            CompileError::Message(format!("Failed to parse inferred manifest permissions: {err}"))
-        })?;
-
-        match override_permissions.mode {
-            ManifestPermissionsMode::Merge => {
-                merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
-            }
-            ManifestPermissionsMode::ReplaceWildcards => {
-                let had_wildcards = inferred
-                    .iter()
-                    .any(|(contract, methods)| contract == "*" || methods.is_wildcard());
-
-                if had_wildcards && override_permissions.permissions.is_empty() {
-                    return Err(CompileError::Manifest(
-                        "manifest permissions mode 'replace-wildcards' removed inferred wildcard permissions, but the override file is empty. Provide at least one explicit permission entry (or use mode 'merge').".to_string(),
-                    ));
-                }
-
-                inferred.retain(|contract, methods| contract != "*" && !methods.is_wildcard());
-                merge_manifest_permissions(&mut inferred, &override_permissions.permissions);
-            }
-        }
-
-        manifest["permissions"] = manifest_permissions_to_json(inferred);
+        apply_manifest_permissions_override(&mut manifest, &metadata, override_permissions)?;
     }
 
     if has_parameterised_constructor {
@@ -218,7 +245,7 @@ fn compile_metadata(
 
     if has_full_wildcard_permissions {
         let message = format!(
-            "contract '{}' requires full wildcard manifest permissions (contract='*', methods='*') because at least one contract call is fully dynamic (unknown target + method) or could not be statically analysed. This is usually not acceptable for production deployments; prefer static calls or restrict the call surface. Use --deny-wildcard-permissions to make this a hard error.",
+            "contract '{}' requires full wildcard manifest permissions (contract='*', methods='*') because at least one contract call is fully dynamic (unknown target + method) or could not be statically analysed. This is usually not acceptable for production deployments; prefer static calls or restrict the call surface, or provide an explicit allowlist using @custom:neo.manifest.permissions. Use --deny-wildcard-permissions to make this a hard error.",
             metadata.name
         );
         if options.deny_wildcard_permissions
@@ -231,7 +258,7 @@ fn compile_metadata(
     } else {
         if has_wildcard_contract {
             let message = format!(
-                "contract '{}' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error.",
+                "contract '{}' requires wildcard contract manifest permissions (contract='*') due to dynamic contract calls. This is riskier than fixed contract hashes; use --deny-wildcard-contracts to make this a hard error, or provide an explicit allowlist using @custom:neo.manifest.permissions.",
                 metadata.name
             );
             if options.deny_wildcard_contracts && !wildcard_contract_only_nep_callbacks {
@@ -244,7 +271,7 @@ fn compile_metadata(
 
         if has_wildcard_methods {
             let message = format!(
-                "contract '{}' requires wildcard method manifest permissions (methods='*') due to dynamic method names in contract calls. This is riskier than calling fixed methods; use --deny-wildcard-methods to make this a hard error.",
+                "contract '{}' requires wildcard method manifest permissions (methods='*') due to dynamic method calls. This is riskier than fixed method names; use --deny-wildcard-methods to make this a hard error, or provide an explicit allowlist using @custom:neo.manifest.permissions.",
                 metadata.name
             );
             if options.deny_wildcard_methods {

@@ -2,9 +2,7 @@ fn parse_json_value(raw: &str, tag: &str) -> Option<Value> {
     match serde_json::from_str::<Value>(raw) {
         Ok(value) => Some(value),
         Err(err) => {
-            eprintln!(
-                "warning: ignoring @custom:{tag} because its value is not valid JSON: {err}"
-            );
+            eprintln!("warning: ignoring @custom:{tag} because its value is not valid JSON: {err}");
             None
         }
     }
@@ -126,7 +124,9 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
             Some(NeoType::Boolean) => "Boolean",
             Some(NeoType::String) => "String",
             Some(NeoType::Address) => "Hash160",
-            Some(NeoType::ByteArray { fixed_len: Some(32) }) => "Hash256",
+            Some(NeoType::ByteArray {
+                fixed_len: Some(32),
+            }) => "Hash256",
             Some(NeoType::ByteArray { .. }) => "ByteArray",
             Some(NeoType::Array(_)) => "Array",
             Some(NeoType::Mapping { .. }) => "Map",
@@ -249,7 +249,7 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
                             .name
                             .clone()
                             .unwrap_or_else(|| format!("param{idx}")),
-                        "type": standard_json::solidity_to_manifest_type(&param.ty),
+                        "type": neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty),
                     })
                 })
                 .collect();

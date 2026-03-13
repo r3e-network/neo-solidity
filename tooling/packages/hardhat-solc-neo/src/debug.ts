@@ -1,6 +1,6 @@
 import { sourcemapTypes, profilerTypes } from '@neo-solidity/types';
 import { EventEmitter } from 'events';
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { HardhatPluginError } from "hardhat/plugins";
 
 type DebugSession = sourcemapTypes.DebugSession;
 type DebugState = sourcemapTypes.DebugState;

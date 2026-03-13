@@ -23,10 +23,23 @@ fn syscalls_script_hash_to_address_keeps_precise_contract_permissions() {
     let permissions = manifest["permissions"]
         .as_array()
         .expect("permissions array");
+    let contract = "0x0102030405060708090a0b0c0d0e0f1011121314";
 
     assert!(
-        !permissions.is_empty(),
-        "expected permissions in manifest: {permissions:?}"
+        permissions.iter().any(|entry| {
+            entry["contract"] == Value::String(contract.into())
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "foo"))
+        }),
+        "expected exact contract permission for scriptHashToAddress static target"
+    );
+
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into())),
+        "scriptHashToAddress static target should not require wildcard permissions"
     );
 }
 

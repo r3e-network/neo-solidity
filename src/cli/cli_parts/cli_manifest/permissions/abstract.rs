@@ -12,7 +12,7 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
     Ok(())
 }
 
-fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Result<(), ()> {
+fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
     use ir::Instruction::{Drop, LoadParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, ArrayGet, ArraySet, MemCpy, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
 
     match instr {
@@ -20,7 +20,7 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
             pop_value(&mut state.stack)?;
         }
         LoadParameter(_) => state.stack.push(AbstractValue::Unknown),
-        PushLiteral(lit) => state.stack.push(AbstractValue::Literal(lit.clone())),
+        PushLiteral(lit) => state.stack.push(AbstractValue::literal(lit.clone())),
         Return | ReturnVoid | ReturnDefault(_) | Abort => {}
         AbortMsg | Throw => {
             pop_value(&mut state.stack)?;
@@ -77,21 +77,20 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
             pop_value(&mut state.stack)?;
             state.stack.push(AbstractValue::Unknown);
         }
-        CallFunction { arg_count, .. } => {
+        CallFunction { name, arg_count } => {
             pop_n(&mut state.stack, *arg_count)?;
-            // For manifest inference we conservatively treat internal calls as producing a
-            // single stack item (e.g., `null`, a value, or an array-wrapped tuple).
-            state.stack.push(AbstractValue::Unknown);
+            let returns_value = ir_module.get_function(name).map(|f| !f.returns.is_empty()).unwrap_or(true);
+            if returns_value {
+                state.stack.push(AbstractValue::Unknown);
+            }
         }
         CallBuiltin { builtin, arg_count } => {
             pop_n(&mut state.stack, *arg_count)?;
             match builtin {
-                // Track `this` / `address(this)` values so we can avoid emitting
-                // impossible manifest permissions for self-calls.
                 ir::BuiltinCall::Syscall(name)
                     if name == "System.Runtime.GetExecutingScriptHash" =>
                 {
-                    state.stack.push(AbstractValue::ExecutingScriptHash);
+                    state.stack.push(AbstractValue::executing_script_hash());
                 }
                 _ => state.stack.push(AbstractValue::Unknown),
             }
@@ -100,8 +99,8 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
             pop_n(&mut state.stack, arg_count + 1)?;
         }
         Convert { .. } => {
-            pop_value(&mut state.stack)?;
-            state.stack.push(AbstractValue::Unknown);
+            let value = pop_value(&mut state.stack)?;
+            state.stack.push(value);
         }
         IsType { .. } => {
             pop_value(&mut state.stack)?;
@@ -123,7 +122,6 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction) -> Resu
             pop_n(&mut state.stack, 3)?;
         }
         MemCpy => {
-            // Stack order: [dst, dst_offset, src, src_offset, count]
             pop_n(&mut state.stack, 5)?;
             state.stack.push(AbstractValue::Unknown);
         }

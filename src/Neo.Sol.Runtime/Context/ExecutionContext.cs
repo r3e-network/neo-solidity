@@ -1,6 +1,10 @@
 using System.Numerics;
+using Neo.Sol.Runtime;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services;
+using NeoLedger = Neo.SmartContract.Framework.Native.Ledger;
+using NeoToken = Neo.SmartContract.Framework.Native.NEO;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
 
 namespace Neo.Sol.Runtime.Context;
 
@@ -71,16 +75,20 @@ public sealed class MsgContext
         {
             if (_sender == null)
             {
-                // In Neo, we need to determine if this is an external transaction or internal call
                 try
                 {
-                    // Try to get the calling script hash (internal call)
-                    _sender = Runtime.CallingScriptHash;
+                    _sender = NeoTypeConversions.ToCoreUInt160(NeoFrameworkRuntime.CallingScriptHash);
                 }
                 catch
                 {
-                    // Fall back to transaction sender (external transaction)
-                    _sender = Transaction.Sender;
+                    try
+                    {
+                        _sender = NeoTypeConversions.ToCoreUInt160(NeoFrameworkRuntime.Transaction.Sender);
+                    }
+                    catch
+                    {
+                        _sender = UInt160.Zero;
+                    }
                 }
             }
             return _sender;
@@ -139,7 +147,7 @@ public sealed class MsgContext
                 try
                 {
                     // This would need to be implemented based on Neo's gas tracking
-                    _gasLimit = (uint)Runtime.GasLeft;
+                    _gasLimit = (uint)NeoFrameworkRuntime.GasLeft;
                 }
                 catch
                 {
@@ -175,8 +183,14 @@ public sealed class TxContext
         {
             if (_origin == null)
             {
-                // In Neo, this is always the transaction sender
-                _origin = Transaction.Sender;
+                try
+                {
+                    _origin = NeoTypeConversions.ToCoreUInt160(NeoFrameworkRuntime.Transaction.Sender);
+                }
+                catch
+                {
+                    _origin = UInt160.Zero;
+                }
             }
             return _origin;
         }
@@ -196,8 +210,9 @@ public sealed class TxContext
                 // Calculate approximate gas price from Neo transaction
                 try
                 {
-                    var networkFee = Transaction.NetworkFee;
-                    var txSize = Transaction.Size;
+                    var tx = NeoFrameworkRuntime.Transaction;
+                    var networkFee = tx.NetworkFee;
+                    var txSize = tx.Script?.Length ?? 0;
                     _gasPrice = txSize > 0 ? networkFee / txSize : 0;
                 }
                 catch
@@ -213,13 +228,39 @@ public sealed class TxContext
     /// <summary>
     /// Transaction hash
     /// </summary>
-    public UInt256 Hash => Transaction.Hash;
+    public UInt256 Hash
+    {
+        get
+        {
+            try
+            {
+                return NeoTypeConversions.ToCoreUInt256(NeoFrameworkRuntime.Transaction.Hash);
+            }
+            catch
+            {
+                return UInt256.Zero;
+            }
+        }
+    }
     
     /// <summary>
     /// Transaction nonce (sequence number)
     /// In Neo, this maps to the transaction nonce
     /// </summary>
-    public BigInteger Nonce => Transaction.Nonce;
+    public BigInteger Nonce
+    {
+        get
+        {
+            try
+            {
+                return NeoFrameworkRuntime.Transaction.Nonce;
+            }
+            catch
+            {
+                return BigInteger.Zero;
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -245,15 +286,7 @@ public sealed class BlockContext
                 // Get actual consensus node from Neo blockchain
                 try
                 {
-                    var validators = Contract.Call(NeoToken.Hash, "getNextBlockValidators", CallFlags.ReadOnly) as Array;
-                    if (validators != null && validators.Count > 0)
-                    {
-                        _coinbase = (UInt160)validators[0];
-                    }
-                    else
-                    {
-                        _coinbase = UInt160.Zero; // Fallback if no validators
-                    }
+                    _coinbase = NeoTypeConversions.ToCoreUInt160(NeoToken.GetCommitteeAddress());
                 }
                 catch
                 {
@@ -306,18 +339,57 @@ public sealed class BlockContext
     /// Block number (block.number)
     /// Maps to Neo's block index
     /// </summary>
-    public uint Number => Ledger.CurrentIndex;
+    public uint Number
+    {
+        get
+        {
+            try
+            {
+                return NeoLedger.CurrentIndex;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
     
     /// <summary>
     /// Block timestamp (block.timestamp)
     /// Unix timestamp of the current block
     /// </summary>
-    public ulong Timestamp => Runtime.Time;
+    public ulong Timestamp
+    {
+        get
+        {
+            try
+            {
+                return NeoFrameworkRuntime.Time;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
     
     /// <summary>
     /// Block hash of the current block
     /// </summary>
-    public UInt256 Hash => Ledger.CurrentHash;
+    public UInt256 Hash
+    {
+        get
+        {
+            try
+            {
+                return NeoTypeConversions.ToCoreUInt256(NeoLedger.CurrentHash);
+            }
+            catch
+            {
+                return UInt256.Zero;
+            }
+        }
+    }
     
     /// <summary>
     /// Block base fee per gas (EIP-1559)
@@ -350,7 +422,8 @@ public sealed class BlockContext
             
         try
         {
-            return Ledger.GetBlockHash(blockNumber);
+            var block = NeoLedger.GetBlock(blockNumber);
+            return block != null ? NeoTypeConversions.ToCoreUInt256(block.Hash) : UInt256.Zero;
         }
         catch
         {
@@ -382,7 +455,7 @@ public sealed class GasContext
     {
         try
         {
-            return Runtime.GasLeft;
+            return NeoFrameworkRuntime.GasLeft;
         }
         catch
         {

@@ -1,5 +1,5 @@
-import { extendConfig, extendEnvironment } from "hardhat/config.js";
-import { lazyObject } from "hardhat/plugins.js";
+import { extendConfig, extendEnvironment } from "hardhat/config";
+import { lazyObject } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoHardhatConfig } from "@neo-solidity/types";
 

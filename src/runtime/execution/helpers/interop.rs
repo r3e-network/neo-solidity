@@ -64,9 +64,16 @@ impl ExecutionContext {
         Vec::new()
     }
 
+    fn strip_hex_prefix(value: &str) -> &str {
+        value
+            .strip_prefix("0x")
+            .or_else(|| value.strip_prefix("0X"))
+            .unwrap_or(value)
+    }
+
     fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
-        let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+        let without_prefix = Self::strip_hex_prefix(trimmed);
         if !without_prefix.len().is_multiple_of(2) {
             return Err(RuntimeError::ConfigurationError {
                 message: "contract account hex string has odd length".to_string(),

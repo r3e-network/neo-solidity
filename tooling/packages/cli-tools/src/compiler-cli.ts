@@ -7,11 +7,12 @@ import { glob } from "glob";
 import { 
   CompilationInput,
   CompilationOutput,
-  NeoSolidityConfig
+  NeoSolidityConfig,
+  isNeoAddress,
+  neoAddressToScriptHash
 } from "@neo-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
-import { wallet } from "@cityofzion/neon-js";
 
 const debug = Debug("neo-solidity:cli:compiler");
 
@@ -124,7 +125,7 @@ export class CompilerCLI {
 
         child.on("error", reject);
       });
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Neo-Solidity compiler not found");
     }
   }
@@ -192,7 +193,7 @@ export class CompilerCLI {
         // Sort by version number (newest first)
         return this.compareVersions(b.version, a.version);
       });
-    } catch (error) {
+    } catch (_error) {
       debug('Failed to fetch versions from GitHub, falling back to local versions');
       return await this.getLocalVersions();
     }
@@ -657,7 +658,7 @@ ${flattened}`;
       }
       const release = (await response.json()) as any;
       return String(release.tag_name ?? '').replace(/^v/, '');
-    } catch (error) {
+    } catch (_error) {
       debug('Failed to fetch latest version, using default');
       return '0.1.0';
     }
@@ -993,8 +994,8 @@ ${flattened}`;
 
   private toScriptHash(addressOrHash: string): string {
     const value = addressOrHash.trim();
-    if (wallet.isAddress(value)) {
-      return "0x" + wallet.getScriptHashFromAddress(value);
+    if (isNeoAddress(value)) {
+      return neoAddressToScriptHash(value);
     }
     if (/^0x[0-9a-fA-F]{40}$/.test(value) || /^[0-9a-fA-F]{40}$/.test(value)) {
       return value.startsWith("0x") ? value : "0x" + value;

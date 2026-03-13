@@ -33,6 +33,9 @@ production-gate:
 	cargo clippy --all-targets --all-features -- -D warnings
 	cargo build --release
 	cargo test --workspace --all-features
+	$(MAKE) tooling-test
+	$(MAKE) tooling-lint
+	$(MAKE) runtime-test
 	cargo test --test e2e_compilation_tests -- --test-threads=4
 	STRICT_SWEEP_FAIL_ON_UNEXPECTED_WARNINGS=1 $(MAKE) test-compile-strict
 	$(MAKE) test-deploy-smoke-full

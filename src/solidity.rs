@@ -36,6 +36,7 @@ use thiserror::Error;
 include!("solidity/solidity_errors.rs");
 include!("solidity/solidity_docs.rs");
 include!("solidity/solidity_metadata.rs");
+include!("solidity/upgrade.rs");
 include!("solidity/analyse/inheritance.rs");
 include!("solidity/analyse/modifiers.rs");
 include!("solidity/solidity_analyse.rs");

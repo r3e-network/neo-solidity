@@ -1,5 +1,5 @@
 #[allow(clippy::too_many_arguments)]
-fn build_deploy_function(
+fn build_deploy_function_with_warnings(
     metadata: &FunctionMetadata,
     constructors: &[&Function],
     state_variables: &[StateVariableMetadata],
@@ -20,7 +20,7 @@ fn build_deploy_function(
     function_param_names: &HashMap<(String, usize), Vec<String>>,
     void_functions: &HashSet<String>,
     super_method_map: &HashMap<String, String>,
-) -> Result<Function, Vec<IrDiagnostic>> {
+) -> Result<(Function, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
     let parameters: Vec<ValueType> = metadata
         .parameters
         .iter()
@@ -197,12 +197,18 @@ fn build_deploy_function(
         instructions.push(Instruction::ReturnVoid);
     }
 
-    Ok(Function {
-        name: metadata.neo_name.clone(),
-        kind: FunctionKind::Regular,
-        parameters,
-        returns,
-        basic_blocks: vec![BasicBlock { instructions }],
-        local_count: local_count as u16,
-    })
+    let warnings = std::mem::take(&mut ctx.warnings);
+    drop(ctx);
+
+    Ok((
+        Function {
+            name: metadata.neo_name.clone(),
+            kind: FunctionKind::Regular,
+            parameters,
+            returns,
+            basic_blocks: vec![BasicBlock { instructions }],
+            local_count: local_count as u16,
+        },
+        warnings,
+    ))
 }

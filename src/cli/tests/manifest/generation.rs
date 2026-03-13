@@ -85,6 +85,45 @@ fn manifest_events_do_not_include_indexed_fields() {
 }
 
 #[test]
+fn manifest_event_struct_parameters_use_neo_array_type() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract EventsWithStruct {
+        struct Payload {
+            uint256 amount;
+            address from;
+        }
+
+        event Snapshot(Payload payload);
+
+        function emitIt() public {
+            emit Snapshot(Payload({ amount: 7, from: msg.sender }));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let manifest = &artifacts[0].manifest;
+    let events = manifest["abi"]["events"].as_array().expect("events array");
+    let snapshot = events
+        .iter()
+        .find(|event| event["name"] == "Snapshot")
+        .expect("Snapshot event");
+    let params = snapshot["parameters"]
+        .as_array()
+        .expect("event parameters array");
+    assert_eq!(params.len(), 1);
+    assert_eq!(
+        params[0]["type"],
+        Value::String("Array".to_string()),
+        "struct event parameters should map to Neo Array in manifest ABI"
+    );
+}
+
+#[test]
 fn manifest_contains_all_required_top_level_fields() {
     let source = r#"
     pragma solidity ^0.8.19;
@@ -107,7 +146,10 @@ fn manifest_contains_all_required_top_level_fields() {
         "manifest must include 'groups' array"
     );
     assert!(
-        manifest.get("features").and_then(Value::as_object).is_some(),
+        manifest
+            .get("features")
+            .and_then(Value::as_object)
+            .is_some(),
         "manifest must include 'features' object"
     );
     assert!(
@@ -193,7 +235,10 @@ fn manifest_supports_natspec_manifest_field_overrides() {
         Some("https://github.com/r3e-network/neo-solidity")
     );
     assert_eq!(
-        extra.get("Build").and_then(|v| v.get("commit")).and_then(Value::as_str),
+        extra
+            .get("Build")
+            .and_then(|v| v.get("commit"))
+            .and_then(Value::as_str),
         Some("abc123")
     );
 }

@@ -1,7 +1,7 @@
-import { NeoAccount } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { isNeoAddress, NeoAccount } from "@neo-solidity/types";
+import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
-import { wallet } from "@cityofzion/neon-js";
+import { createAccountFromPrivateKey, decodePrivateKey, NeoSignerAccount } from "./account-primitives";
 
 const debug = Debug("hardhat:neo-deployer:accounts");
 
@@ -9,11 +9,13 @@ function strip0x(value: string): string {
   return value.startsWith("0x") ? value.slice(2) : value;
 }
 
+type ManagedAccount = NeoAccount & Partial<NeoSignerAccount>;
+
 /**
  * Account manager for Neo deployments
  */
 export class AccountManager {
-  private accounts: NeoAccount[];
+  private accounts: ManagedAccount[];
   private defaultAccountIndex = 0;
   private readonly addressVersion: number;
 
@@ -28,28 +30,28 @@ export class AccountManager {
   /**
    * Get account by address
    */
-  getAccount(address: string): NeoAccount | undefined {
+  getAccount(address: string): ManagedAccount | undefined {
     return this.accounts.find(account => account.address === address);
   }
 
   /**
    * Get account by index
    */
-  getAccountByIndex(index: number): NeoAccount | undefined {
+  getAccountByIndex(index: number): ManagedAccount | undefined {
     return this.accounts[index];
   }
 
   /**
    * Get default account
    */
-  getDefaultAccount(): NeoAccount | undefined {
+  getDefaultAccount(): ManagedAccount | undefined {
     return this.accounts[this.defaultAccountIndex];
   }
 
   /**
    * Get all accounts
    */
-  getAllAccounts(): NeoAccount[] {
+  getAllAccounts(): ManagedAccount[] {
     return [...this.accounts];
   }
 
@@ -115,14 +117,14 @@ export class AccountManager {
   /**
    * Get accounts with private keys (for signing)
    */
-  getSigningAccounts(): NeoAccount[] {
+  getSigningAccounts(): ManagedAccount[] {
     return this.accounts.filter(account => account.privateKey);
   }
 
   /**
    * Get default signer
    */
-  getDefaultSigner(): NeoAccount | undefined {
+  getDefaultSigner(): ManagedAccount | undefined {
     const defaultAccount = this.getDefaultAccount();
     return defaultAccount?.privateKey ? defaultAccount : undefined;
   }
@@ -135,7 +137,7 @@ export class AccountManager {
       return false;
     }
 
-    if (!wallet.isAddress(account.address, this.addressVersion)) {
+    if (!isNeoAddress(account.address, this.addressVersion)) {
       return false;
     }
 
@@ -146,8 +148,10 @@ export class AccountManager {
 
     if (account.privateKey) {
       try {
-        // Validate it is something neon-js can consume (WIF or private key).
-        void new wallet.Account(account.privateKey, { addressVersion: this.addressVersion });
+        const decoded = decodePrivateKey(account.privateKey);
+        if (!/^[0-9a-f]{64}$/u.test(decoded)) {
+          return false;
+        }
       } catch {
         return false;
       }
@@ -222,7 +226,7 @@ export class AccountManager {
 
   // Private methods
 
-  private processAccountConfig(config: string | NeoAccount): NeoAccount {
+  private processAccountConfig(config: string | NeoAccount): ManagedAccount {
     if (typeof config === "string") {
       // Assume it's a WIF or a private key.
       return this.createAccountFromSigningKey(config);
@@ -267,14 +271,15 @@ export class AccountManager {
     }
   }
 
-  private createAccountFromSigningKey(signingKey: string): NeoAccount {
-    const neoAccount = new wallet.Account(signingKey, { addressVersion: this.addressVersion });
+  private createAccountFromSigningKey(signingKey: string): ManagedAccount {
+    const neoAccount = createAccountFromPrivateKey(signingKey, this.addressVersion);
     const nextIndex = this.accounts.length;
     return {
       address: neoAccount.address,
       scriptHash: neoAccount.scriptHash,
       privateKey: neoAccount.privateKey,
       publicKey: neoAccount.publicKey,
+      contract: neoAccount.contract,
       label: `Account ${nextIndex + 1}`,
       isMultiSig: false,
     };

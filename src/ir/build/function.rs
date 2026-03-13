@@ -1,6 +1,6 @@
 impl Function {
     #[allow(clippy::too_many_arguments)]
-    fn from_metadata(
+    fn from_metadata_with_warnings(
         metadata: &FunctionMetadata,
         state_variables: &[StateVariableMetadata],
         state_index_map: &HashMap<String, usize>,
@@ -20,7 +20,7 @@ impl Function {
         function_param_names: &HashMap<(String, usize), Vec<String>>,
         void_functions: &HashSet<String>,
         super_method_map: &HashMap<String, String>,
-    ) -> Result<Self, Vec<IrDiagnostic>> {
+    ) -> Result<(Self, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
         let parameters: Vec<ValueType> = metadata
             .parameters
             .iter()
@@ -120,7 +120,11 @@ impl Function {
                             if let Some(local_index) = slot {
                                 instructions.push(Instruction::LoadLocal(*local_index));
                             } else {
-                                push_default_for_value_type(value_type, &mut ctx, &mut instructions);
+                                push_default_for_value_type(
+                                    value_type,
+                                    &mut ctx,
+                                    &mut instructions,
+                                );
                             }
 
                             instructions.push(Instruction::ArraySet);
@@ -138,17 +142,22 @@ impl Function {
         }
 
         let local_count = ctx.local_count;
+        let warnings = std::mem::take(&mut ctx.warnings);
+        drop(ctx);
 
-        Ok(Self {
-            name: metadata.neo_name.clone(),
-            kind: match metadata.kind {
-                MetadataFunctionKind::Constructor => FunctionKind::Constructor,
-                MetadataFunctionKind::Regular => FunctionKind::Regular,
+        Ok((
+            Self {
+                name: metadata.neo_name.clone(),
+                kind: match metadata.kind {
+                    MetadataFunctionKind::Constructor => FunctionKind::Constructor,
+                    MetadataFunctionKind::Regular => FunctionKind::Regular,
+                },
+                parameters,
+                returns,
+                basic_blocks: vec![BasicBlock { instructions }],
+                local_count,
             },
-            parameters,
-            returns,
-            basic_blocks: vec![BasicBlock { instructions }],
-            local_count,
-        })
+            warnings,
+        ))
     }
 }

@@ -1,8 +1,7 @@
-import { task } from "hardhat/config.js";
+import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
-import { VerificationResult } from "@neo-solidity/types";
-import { u, wallet } from "@cityofzion/neon-js";
+import { VerificationResult, base64ToHex, isNeoAddress, neoAddressToScriptHash } from "@neo-solidity/types";
 
 task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact")
   .addParam("contract", "Contract name")
@@ -155,7 +154,7 @@ function normalizeHex(value: string): string {
 function decodeNefScript(value: unknown): string {
   const raw = String(value ?? "");
   try {
-    return normalizeHex(u.base642hex(raw));
+    return normalizeHex(base64ToHex(raw));
   } catch {
     return normalizeHex(raw);
   }
@@ -171,8 +170,8 @@ function parseChecksumU32(checksumHexLe: string): number {
 
 function toScriptHash(addressOrHash: string): string {
   const value = addressOrHash.trim();
-  if (wallet.isAddress(value)) {
-    return "0x" + wallet.getScriptHashFromAddress(value);
+  if (isNeoAddress(value)) {
+    return neoAddressToScriptHash(value);
   }
   if (/^0x[0-9a-fA-F]{40}$/.test(value) || /^[0-9a-fA-F]{40}$/.test(value)) {
     return value.startsWith("0x") ? value : "0x" + value;

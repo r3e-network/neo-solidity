@@ -6,7 +6,7 @@ This page covers building the Neo Solidity compiler from source and setting up o
 
 | Requirement        | Minimum Version | Purpose                                                 |
 | ------------------ | --------------- | ------------------------------------------------------- |
-| **Rust toolchain** | 1.70+ (stable)  | Compiler is written in Rust                             |
+| **Rust toolchain** | 1.82+ (stable)  | Compiler is written in Rust                             |
 | **Git**            | 2.x             | Clone the repository                                    |
 | **Node.js**        | 16.0+           | TypeScript tooling, docs site, Hardhat/Foundry packages |
 | **npm**            | 8.0+            | Package management for tooling workspace                |
@@ -17,10 +17,10 @@ This page covers building the Neo Solidity compiler from source and setting up o
 
 ```bash
 rustc --version
-# Expected: rustc 1.70.0 or higher
+# Expected: rustc 1.82.0 or higher
 
 cargo --version
-# Expected: cargo 1.70.0 or higher
+# Expected: cargo 1.82.0 or higher
 ```
 
 If Rust is not installed, use [rustup](https://rustup.rs):
@@ -131,7 +131,7 @@ ls -la /tmp/SimpleStorage.nef /tmp/SimpleStorage.manifest.json
 cargo test --workspace
 ```
 
-This runs 620+ tests covering the lexer, parser, semantic analysis, IR generation, code generation, runtime, and E2E compilation. All tests should pass on a clean build.
+This runs 700+ tests covering the lexer, parser, semantic analysis, IR generation, code generation, runtime, and E2E compilation. All tests should pass on a clean build.
 
 ## Install the Binary System-Wide
 
@@ -205,7 +205,7 @@ make tooling-lint
 
 ## Optional: C# Runtime Library
 
-The C# runtime library provides EVM-compatible runtime primitives for Neo N3. It requires the .NET SDK.
+The C# runtime library provides EVM-compatible runtime primitives for Neo N3. It requires the .NET 8 SDK.
 
 ```bash
 dotnet build src/Neo.Sol.Runtime/Neo.Sol.Runtime.csproj --configuration Release
@@ -290,7 +290,7 @@ make test
 # Full workspace tests including tooling
 make test-all
 
-# Production readiness gate (formatting, linting, release build, all tests, smoke suites)
+# Production readiness gate (formatting, linting, release build, Rust/tooling/runtime tests, smoke suites)
 make production-gate
 ```
 
@@ -302,7 +302,7 @@ If `make production-gate` passes, your environment is fully set up and the compi
 
 **Problem:** `error[E0658]: use of unstable library feature`
 
-**Solution:** Update your Rust toolchain. The compiler requires Rust 1.70+:
+**Solution:** Update your Rust toolchain. The compiler requires Rust 1.82+:
 
 ```bash
 rustup update stable

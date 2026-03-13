@@ -53,6 +53,7 @@ pub(crate) use standard_json::*;
 include!("cli_parts/cli_defs.rs");
 include!("cli_parts/cli_run.rs");
 include!("cli_parts/cli_compile.rs");
+include!("cli_parts/cli_analyze.rs");
 include!("cli_parts/cli_output.rs");
 include!("cli_parts/cli_manifest.rs");
 include!("cli_parts/cli_deploy.rs");

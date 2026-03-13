@@ -9,6 +9,9 @@ using ExecutionContext = Neo.Sol.Runtime.Context.ExecutionContext;
 using Neo.Sol.Runtime.Calls;
 using Neo.Sol.Runtime.Registry;
 using Neo.Sol.Runtime.ABI;
+using Neo.SmartContract.Framework.Native;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
+using NeoFrameworkStorage = Neo.SmartContract.Framework.Services.Storage;
 
 namespace Neo.Sol.Runtime;
 
@@ -35,8 +38,15 @@ public sealed class EvmRuntime : IDisposable
     public EvmRuntime(UInt160 contractAddress)
     {
         ContractAddress = contractAddress;
-        
-        _storageContext = Storage.CurrentContext;
+
+        try
+        {
+            _storageContext = NeoFrameworkStorage.CurrentContext;
+        }
+        catch
+        {
+            _storageContext = new StorageContext();
+        }
         _memoryManager = new EvmMemoryManager();
         _storageManager = new StorageManager(_storageContext);
         _eventManager = new EventManager(contractAddress);
@@ -223,27 +233,12 @@ public sealed class EvmRuntime : IDisposable
     {
         try
         {
-            // GAS token contract hash in Neo N3
-            var gasTokenHash = UInt160.Parse("0xd2a4cff31913016155e38e474a2c06d08be276cf");
-            
-            // Call the balanceOf method on the GAS token contract
-            var result = Contract.Call(gasTokenHash, "balanceOf", CallFlags.ReadOnly, address);
-            
-            if (result is BigInteger balance)
-            {
-                return balance;
-            }
-            else if (result is byte[] balanceBytes)
-            {
-                return new BigInteger(balanceBytes);
-            }
-            
-            return 0;
+            return GAS.BalanceOf((Neo.SmartContract.Framework.UInt160)NeoTypeConversions.ToByteArray(address));
         }
         catch (Exception ex)
         {
             // Log the error for debugging
-            Runtime.Log($"Error getting balance for {address}: {ex.Message}");
+            NeoFrameworkRuntime.Log($"Error getting balance for {address}: {ex.Message}");
             return 0;
         }
     }
@@ -272,39 +267,27 @@ public sealed class EvmRuntime : IDisposable
             var currentBalance = GetBalance(ContractAddress);
             if (currentBalance < amount)
             {
-                Runtime.Log($"Insufficient balance: {currentBalance} < {amount}");
+                NeoFrameworkRuntime.Log($"Insufficient balance: {currentBalance} < {amount}");
                 return false;
             }
             
-            // GAS token contract hash in Neo N3
-            var gasTokenHash = UInt160.Parse("0xd2a4cff31913016155e38e474a2c06d08be276cf");
-            
-            // Call the transfer method on the GAS token contract
-            var result = Contract.Call(gasTokenHash, "transfer", 
-                CallFlags.All, 
-                ContractAddress,  // from
-                to,              // to  
-                amount,          // amount
-                null);           // data (optional)
-            
-            if (result is bool success)
+            var success = GAS.Transfer(
+                (Neo.SmartContract.Framework.UInt160)NeoTypeConversions.ToByteArray(ContractAddress),
+                (Neo.SmartContract.Framework.UInt160)NeoTypeConversions.ToByteArray(to),
+                amount,
+                null
+            );
+            if (success)
             {
-                if (success)
-                {
-                    // Emit transfer event for tracking
-                    Events.Log3("Transfer(address,address,uint256)", ContractAddress, to, amount);
-                    Runtime.Log($"Successfully transferred {amount} GAS from {ContractAddress} to {to}");
-                }
-                return success;
+                // Emit transfer event for tracking
+                Events.Log3("Transfer(address,address,uint256)", ContractAddress, to, amount);
+                NeoFrameworkRuntime.Log($"Successfully transferred {amount} GAS from {ContractAddress} to {to}");
             }
-            
-            // If result is not a boolean, consider it a failure
-            Runtime.Log($"Transfer returned unexpected result type: {result?.GetType()?.Name ?? "null"}");
-            return false;
+            return success;
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error transferring GAS: {ex.Message}");
+            NeoFrameworkRuntime.Log($"Error transferring GAS: {ex.Message}");
             return false;
         }
     }
@@ -318,8 +301,10 @@ public sealed class EvmRuntime : IDisposable
     {
         try
         {
-            var manifest = Contract.GetManifest(address);
-            return manifest != null ? (uint)manifest.ToJson().Length : 0;
+            var contract = ContractManagement.GetContract(
+                (Neo.SmartContract.Framework.UInt160)NeoTypeConversions.ToByteArray(address)
+            );
+            return contract?.Nef != null ? (uint)contract.Nef.Length : 0;
         }
         catch
         {
@@ -337,7 +322,7 @@ public sealed class EvmRuntime : IDisposable
         try
         {
             // In Neo, we could use the contract hash
-            return new UInt256(address.ToArray().Concat(new byte[12]).ToArray());
+            return new UInt256(NeoTypeConversions.ToByteArray(address).Concat(new byte[12]).ToArray());
         }
         catch
         {
@@ -382,8 +367,9 @@ public sealed class EvmRuntime : IDisposable
             var memoryGas = (uint)(_memoryManager.GetStats().TotalSize / 32) * 3; // 3 gas per 32 bytes
             
             // Add gas for storage operations  
-            var storageGas = _storageManager.GetStats().ReadCount * 200u + 
-                           _storageManager.GetStats().WriteCount * 20_000u;
+            var storageStats = _storageManager.GetStats();
+            var storageGas = storageStats.StorageReads * 200u +
+                           storageStats.StorageWrites * 20_000u;
             
             // Add gas for external calls
             var callGas = _callManager.GetCallCount() * 700u;
@@ -394,7 +380,7 @@ public sealed class EvmRuntime : IDisposable
             var totalGas = baseGas + memoryGas + storageGas + callGas + eventGas;
             
             // Cap at reasonable maximum
-            return Math.Min(totalGas, 100_000_000u);
+            return (uint)Math.Min(totalGas, 100_000_000u);
         }
         catch
         {
@@ -408,7 +394,7 @@ public sealed class EvmRuntime : IDisposable
         try
         {
             // Get current runtime timestamp
-            var currentTime = Runtime.Time;
+            var currentTime = NeoFrameworkRuntime.Time;
             
             // Return execution duration from contract start
             // In a real implementation, this would track from contract initialization
@@ -416,8 +402,7 @@ public sealed class EvmRuntime : IDisposable
         }
         catch
         {
-            // Fallback to current runtime time
-            return Runtime.Time;
+            return 0;
         }
     }
     
@@ -458,7 +443,7 @@ public static class Evm
     /// <returns>EVM runtime instance</returns>
     public static EvmRuntime CreateRuntime()
     {
-        return new EvmRuntime(Runtime.ExecutingScriptHash);
+        return new EvmRuntime(NeoTypeConversions.ToCoreUInt160(NeoFrameworkRuntime.ExecutingScriptHash));
     }
     
     /// <summary>

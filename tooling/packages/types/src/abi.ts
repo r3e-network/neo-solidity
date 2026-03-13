@@ -24,7 +24,7 @@ export interface ABIOutput {
   components?: ABIOutput[];
 }
 
-export interface ContractABI extends Array<ABIEntry> {}
+export type ContractABI = ABIEntry[];
 
 export interface ABICompatibilityLayer {
   // Ethers.js integration

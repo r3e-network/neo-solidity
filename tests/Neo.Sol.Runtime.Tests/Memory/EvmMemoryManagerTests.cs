@@ -19,7 +19,7 @@ public class EvmMemoryManagerTests
     [TearDown]
     public void TearDown()
     {
-        _memoryManager.Clear();
+        _memoryManager.Dispose();
     }
     
     [Test]
@@ -138,7 +138,7 @@ public class EvmMemoryManagerTests
     public void ExpandMemory_ExceedsLimit_ShouldThrow()
     {
         // Arrange
-        var excessiveSize = 20 * 1024 * 1024u; // 20MB > 16MB limit
+        var excessiveSize = 64 * 1024 * 1024u + 1; // Exceed 64MB limit
         
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => _memoryManager.ExpandMemory(excessiveSize));

@@ -18,6 +18,7 @@ pub(crate) fn build_compiled_contract_value(
         source_keccak,
     );
     let method_identifiers = build_method_identifiers(&artifact.metadata);
+    let neo_method_map = build_neo_method_map(&artifact.metadata);
 
     let storage_map = build_storage_map(&artifact.metadata);
     let manifest = artifact.manifest.clone();
@@ -79,6 +80,7 @@ pub(crate) fn build_compiled_contract_value(
                 "checksum": checksum,
             },
             "manifest": manifest,
+            "methodMap": neo_method_map,
             "storageMap": storage_map,
             "gasEstimates": {
                 "creation": zero_gas_estimate_value(),

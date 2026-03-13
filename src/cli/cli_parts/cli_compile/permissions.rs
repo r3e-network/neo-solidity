@@ -35,6 +35,64 @@ fn load_manifest_permissions_override(
     Ok(ManifestPermissionsOverride { mode, permissions })
 }
 
+fn load_manifest_permissions_override_from_natspec(
+    metadata: &ContractMetadata,
+) -> Result<Option<ManifestPermissionsOverride>, String> {
+    let mut raw_permissions: Option<&str> = None;
+    let mut mode = ManifestPermissionsMode::ReplaceWildcards;
+
+    for (tag, raw_value) in &metadata.documentation.custom {
+        let Some(field) = tag
+            .strip_prefix("neo.manifest.")
+            .or_else(|| tag.strip_prefix("manifest."))
+        else {
+            continue;
+        };
+
+        match field {
+            "permissions" => raw_permissions = Some(raw_value.trim()),
+            "permissionsmode" => {
+                let parsed = serde_json::from_str::<Value>(raw_value)
+                    .ok()
+                    .and_then(|value| value.as_str().map(str::to_string))
+                    .unwrap_or_else(|| raw_value.trim().to_string());
+                mode = parse_manifest_permissions_mode(parsed.trim())?;
+            }
+            _ => {}
+        }
+    }
+
+    let Some(raw_permissions) = raw_permissions else {
+        return Ok(None);
+    };
+
+    let root: Value = serde_json::from_str(raw_permissions).map_err(|err| {
+        format!("Failed to parse NatSpec manifest permissions JSON for contract '{}': {err}", metadata.name)
+    })?;
+
+    let permissions_value = match root {
+        Value::Array(_) => root,
+        Value::Object(mut map) => map
+            .remove("permissions")
+            .ok_or_else(|| {
+                format!(
+                    "NatSpec manifest permissions for contract '{}' must be an array or an object containing 'permissions'",
+                    metadata.name
+                )
+            })?,
+        _ => {
+            return Err(format!(
+                "NatSpec manifest permissions for contract '{}' must be either an array or an object containing 'permissions'",
+                metadata.name
+            ))
+        }
+    };
+
+    let permissions = parse_manifest_permissions_array(&permissions_value)?;
+
+    Ok(Some(ManifestPermissionsOverride { mode, permissions }))
+}
+
 fn parse_manifest_permissions_array(value: &Value) -> Result<ManifestPermissionMap, String> {
     let arr = value.as_array().ok_or_else(|| {
         "manifest permissions must be an array of objects like {\"contract\":\"0x...\",\"methods\":[...]}"

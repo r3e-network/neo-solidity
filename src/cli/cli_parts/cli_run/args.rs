@@ -52,6 +52,14 @@ fn build_cli_command() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("analyze")
+                .long("analyze")
+                .help(
+                    "Analyze EVM-to-Neo migration issues and emit a JSON upgrade report instead of writing NEF/manifest artifacts",
+                )
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("deny-wildcard-permissions")
                 .long("deny-wildcard-permissions")
                 .help(

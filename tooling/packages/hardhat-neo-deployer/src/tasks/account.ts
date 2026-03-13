@@ -1,7 +1,7 @@
-import { task } from "hardhat/config.js";
+import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
-import { wallet } from "@cityofzion/neon-js";
+import { createAccountFromPrivateKey, generatePrivateKeyHex } from "../account-primitives";
 
 task("neo-accounts", "List Neo accounts configured for deployment")
   .addFlag("balances", "Show account balances")
@@ -68,7 +68,7 @@ task("neo-accounts", "List Neo accounts configured for deployment")
             } else {
               console.log("   Balances: No tokens");
             }
-          } catch (error) {
+          } catch (_error) {
             console.log(chalk.gray("   Balances: Unable to fetch"));
           }
         }
@@ -136,7 +136,7 @@ task("neo-account-import", "Import account from private key")
     console.log(chalk.blue("📥 Importing account..."));
 
     try {
-      const account = new wallet.Account(privateKey);
+      const account = createAccountFromPrivateKey(privateKey);
 
       hre.neoDeploy.accounts.addAccount({
         address: account.address,
@@ -201,8 +201,8 @@ task("neo-account-generate", "Generate new account")
     console.log(chalk.blue("🎲 Generating new account..."));
 
     try {
-      const privateKey = wallet.generatePrivateKey();
-      const account = new wallet.Account(privateKey);
+      const privateKey = generatePrivateKeyHex();
+      const account = createAccountFromPrivateKey(privateKey);
 
       const newAccount = {
         address: account.address,

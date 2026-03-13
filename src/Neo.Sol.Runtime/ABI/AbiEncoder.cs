@@ -1,5 +1,8 @@
 using System.Numerics;
 using System.Text;
+using System.Collections.Generic;
+using Neo.Sol.Runtime;
+using Neo.Sol.Runtime.Crypto;
 
 namespace Neo.Sol.Runtime.ABI;
 
@@ -181,7 +184,7 @@ public static class AbiEncoder
     public static byte[] EncodeAddress(UInt160 address)
     {
         var result = new byte[WORD_SIZE];
-        var addressBytes = address.ToArray();
+        var addressBytes = NeoTypeConversions.ToByteArray(address);
         Array.Copy(addressBytes, 0, result, WORD_SIZE - 20, 20); // Addresses are 20 bytes
         return result;
     }

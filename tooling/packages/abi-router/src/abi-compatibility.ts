@@ -22,6 +22,25 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
     this.codec = new NeoABICodec();
   }
 
+  registerABI(abi: ContractABI): void {
+    this.registry = new NeoABIRegistry();
+    for (const entry of abi) {
+      switch (entry.type) {
+        case "function":
+          this.registry.addFunction(entry);
+          break;
+        case "event":
+          this.registry.addEvent(entry);
+          break;
+        case "error":
+          this.registry.addError(entry);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   // Ethers.js Integration
   toEthersInterface(): ethers.Interface {
     const mapInput = (input: any): any => ({
@@ -194,6 +213,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
 
   // Encoding/Decoding Functions
   encodeFunction(name: string, params: any[]): string {
+    if (!name.includes("(") && this.isAmbiguousFunctionName(name)) {
+      throw new Error(`Function ${name} is overloaded; use a full signature`);
+    }
     const selector = this.registry.getFunctionByName(name);
     if (!selector) {
       throw new Error(`Function ${name} not found in registry`);
@@ -206,6 +228,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
   }
 
   decodeFunction(name: string, data: string): any[] {
+    if (!name.includes("(") && this.isAmbiguousFunctionName(name)) {
+      throw new Error(`Function ${name} is overloaded; use a full signature`);
+    }
     const selector = this.registry.getFunctionByName(name);
     if (!selector) {
       throw new Error(`Function ${name} not found in registry`);
@@ -360,6 +385,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
 
   // Validation
   validateInput(functionName: string, inputs: any[]): boolean {
+    if (!functionName.includes("(") && this.isAmbiguousFunctionName(functionName)) {
+      return false;
+    }
     const selector = this.registry.getFunctionByName(functionName);
     if (!selector) {
       return false;
@@ -379,6 +407,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
   }
 
   validateOutput(functionName: string, outputs: any[]): boolean {
+    if (!functionName.includes("(") && this.isAmbiguousFunctionName(functionName)) {
+      return false;
+    }
     const selector = this.registry.getFunctionByName(functionName);
     if (!selector) {
       return false;
@@ -515,6 +546,12 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
       hitRate: 0 // Would track hits/misses in real implementation
     };
   }
+
+  private isAmbiguousFunctionName(name: string): boolean {
+    return this.registry instanceof NeoABIRegistry
+      ? this.registry.isAmbiguousFunctionName(name)
+      : false;
+  }
 }
 
 // Registry Implementation
@@ -522,6 +559,7 @@ export class NeoABIRegistry implements ABIRegistry {
   functions: Map<string, FunctionSelector> = new Map();
   events: Map<string, EventSelector> = new Map();
   errors: Map<string, ABIEntry> = new Map();
+  private ambiguousFunctionNames: Set<string> = new Set();
 
   addFunction(abi: ABIEntry): void {
     if (abi.type !== 'function') {
@@ -537,10 +575,17 @@ export class NeoABIRegistry implements ABIRegistry {
       inputs: abi.inputs,
       outputs: abi.outputs || []
     });
+    this.functions.set(signature, this.functions.get(selector)!);
 
     // Also index by name for easier lookup
     if (abi.name) {
-      this.functions.set(abi.name, this.functions.get(selector)!);
+      const existing = this.functions.get(abi.name);
+      if (existing && existing.signature !== signature) {
+        this.ambiguousFunctionNames.add(abi.name);
+        this.functions.delete(abi.name);
+      } else if (!this.ambiguousFunctionNames.has(abi.name)) {
+        this.functions.set(abi.name, this.functions.get(selector)!);
+      }
     }
   }
 
@@ -586,7 +631,14 @@ export class NeoABIRegistry implements ABIRegistry {
   }
 
   getFunctionByName(name: string): FunctionSelector | undefined {
+    if (!name.includes("(") && this.ambiguousFunctionNames.has(name)) {
+      return undefined;
+    }
     return this.functions.get(name);
+  }
+
+  isAmbiguousFunctionName(name: string): boolean {
+    return this.ambiguousFunctionNames.has(name);
   }
 
   getEventByTopic(topic: string): EventSelector | undefined {

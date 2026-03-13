@@ -6,6 +6,7 @@ using Neo.SmartContract.Framework.Services;
 using Neo.Sol.Runtime.ABI;
 using Neo.Sol.Runtime.Context;
 using ExecutionContext = Neo.Sol.Runtime.Context.ExecutionContext;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
 
 namespace Neo.Sol.Runtime.Exceptions;
 
@@ -33,6 +34,18 @@ public sealed class EvmExceptionHandler : IDisposable
         _config = config ?? ExceptionConfig.Default;
         _executionTimer.Start();
         RegisterStandardErrorHandlers();
+    }
+
+    private static void TryLog(string message)
+    {
+        try
+        {
+            NeoFrameworkRuntime.Log(message);
+        }
+        catch
+        {
+            // Ignore logging failures outside a Neo VM host.
+        }
     }
     
     /// <summary>
@@ -335,7 +348,7 @@ public sealed class EvmExceptionHandler : IDisposable
                 logMessage += $" | Stack: {exception.StackTrace}";
             }
             
-            Runtime.Log(logMessage);
+            TryLog(logMessage);
         }
     }
     
@@ -348,10 +361,10 @@ public sealed class EvmExceptionHandler : IDisposable
         
         return new ContextInfo
         {
-            ContractHash = context.ContractHash.ToString(),
-            CallDepth = context.CallDepth,
-            GasConsumed = context.GasConsumed,
-            ExecutionTime = context.ExecutionTimeMs
+            ContractHash = context.Msg.Sender.ToString(),
+            CallDepth = 0,
+            GasConsumed = 0,
+            ExecutionTime = 0
         };
     }
     
@@ -654,7 +667,13 @@ public sealed class GasExhaustionHandler : ErrorHandler
         if (exception is EvmOutOfGasException gasEx)
         {
             // Log gas exhaustion but cannot recover
-            Runtime.Log($"Gas exhausted: {gasEx.GasUsed}/{gasEx.GasLimit}");
+            try
+            {
+                NeoFrameworkRuntime.Log($"Gas exhausted: {gasEx.GasUsed}/{gasEx.GasLimit}");
+            }
+            catch
+            {
+            }
             return false;
         }
         
@@ -675,7 +694,13 @@ public sealed class MemoryHandler : ErrorHandler
         GC.Collect();
         GC.WaitForPendingFinalizers();
         
-        Runtime.Log("Memory exhausted - triggered GC");
+        try
+        {
+            NeoFrameworkRuntime.Log("Memory exhausted - triggered GC");
+        }
+        catch
+        {
+        }
         return false;
     }
 }
@@ -703,10 +728,16 @@ public sealed class AccessHandler : ErrorHandler
     public override bool CanHandle(Exception exception)
         => exception is UnauthorizedAccessException;
         
-    public override bool TryHandle(Exception exception, out object? recoveredValue)
-    {
-        recoveredValue = null;
-        Runtime.Log($"Access denied: {exception.Message}");
-        return false;
-    }
+        public override bool TryHandle(Exception exception, out object? recoveredValue)
+        {
+            recoveredValue = null;
+            try
+            {
+                NeoFrameworkRuntime.Log($"Access denied: {exception.Message}");
+            }
+            catch
+            {
+            }
+            return false;
+        }
 }

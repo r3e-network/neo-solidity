@@ -76,9 +76,11 @@ neo-solidity/
 │   ├── optimizer.rs            # Optimization passes
 │   ├── semantic.rs             # Semantic analysis
 │   ├── runtime/                # NeoVM runtime emulation
-│   │   ├── execution/          # Execution engine
-│   │   ├── spec.rs             # Opcode/syscall specs
-│   │   └── helpers/            # Runtime helpers
+│   │   ├── execution/          # NeoVM execution engine and syscall/native dispatch
+│   │   ├── bridge/             # EVM-to-NeoVM compatibility bridge helpers
+│   │   ├── state/              # Accounts, snapshots, storage overlays, and query state
+│   │   ├── spec/               # Opcode, gas, syscall, and native contract specifications
+│   │   └── types/              # Runtime value, stack-item, and wrapper types
 │   ├── neo.rs                  # Neo-specific utilities (NEF, manifest)
 │   ├── storage_key.rs          # Storage key handling
 │   ├── type_system/            # Type system

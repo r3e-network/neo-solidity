@@ -80,14 +80,30 @@ fn convert_contract(
             .entry(event.normalized_name.clone())
             .or_insert_with(|| event.clone());
     }
-    for event in contract.events.into_iter().map(convert_event) {
+    for event in contract.events.into_iter().map(|event| {
+        convert_event(
+            event,
+            &struct_type_info,
+            &enum_type_info,
+            contract_types,
+            &contract.type_aliases,
+        )
+    }) {
         event_map.insert(event.normalized_name.clone(), event);
     }
     let events: Vec<EventMetadata> = event_map.into_values().collect();
     let state_variables: Vec<StateVariableMetadata> = contract
         .state_variables
         .into_iter()
-        .map(|var| convert_state_variable(var, &struct_type_info, &enum_type_info, contract_types, &contract.type_aliases))
+        .map(|var| {
+            convert_state_variable(
+                var,
+                &struct_type_info,
+                &enum_type_info,
+                contract_types,
+                &contract.type_aliases,
+            )
+        })
         .collect();
 
     // Synthesize public state variable getters to match Solidity ABI behavior.
@@ -182,7 +198,14 @@ fn convert_state_variable(
     type_aliases: &std::collections::HashMap<String, String>,
 ) -> StateVariableMetadata {
     let ty = var.ty;
-    let neo_type = NeoType::from_solidity_with_aliases(&ty, struct_types, enum_types, contract_types, type_aliases).ok();
+    let neo_type = NeoType::from_solidity_with_aliases(
+        &ty,
+        struct_types,
+        enum_types,
+        contract_types,
+        type_aliases,
+    )
+    .ok();
     let initializer = var.initializer;
     StateVariableMetadata {
         name: var.name,

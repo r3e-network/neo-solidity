@@ -22,6 +22,17 @@ fn run_single_file(matches: &clap::ArgMatches) {
         assume_dir_when_missing && !looks_like_output_file(path)
     }
 
+    fn analyze_output_path(path: &str) -> String {
+        let output_path = Path::new(path);
+        if path.ends_with('/') || path.ends_with('\\') || output_path.is_dir() {
+            return output_path
+                .join("analysis.json")
+                .to_string_lossy()
+                .to_string();
+        }
+        path.to_string()
+    }
+
     let sources: Vec<String> = matches
         .get_many::<String>("source")
         .map(|vals| vals.cloned().collect())
@@ -55,10 +66,13 @@ fn run_single_file(matches: &clap::ArgMatches) {
         .map(|vals| vals.cloned().collect())
         .unwrap_or_default();
     let use_callt = matches.get_flag("callt");
+    let analyze_only = matches.get_flag("analyze");
     let deny_wildcard_permissions = matches.get_flag("deny-wildcard-permissions");
     let deny_wildcard_contracts = matches.get_flag("deny-wildcard-contracts");
     let deny_wildcard_methods = matches.get_flag("deny-wildcard-methods");
-    let manifest_permissions_file = matches.get_one::<String>("manifest-permissions").map(|s| s.as_str());
+    let manifest_permissions_file = matches
+        .get_one::<String>("manifest-permissions")
+        .map(|s| s.as_str());
     let manifest_permissions_mode = matches
         .get_one::<String>("manifest-permissions-mode")
         .map(|s| s.as_str())
@@ -83,6 +97,14 @@ fn run_single_file(matches: &clap::ArgMatches) {
             }
         },
         None => None,
+    };
+    let analyze_compile_options = CompileOptions {
+        optimizer_level,
+        use_callt,
+        deny_wildcard_permissions,
+        deny_wildcard_contracts,
+        deny_wildcard_methods,
+        manifest_permissions: manifest_permissions.clone(),
     };
 
     let file_ids: Vec<String> = if sources.len() > 1 {
@@ -147,8 +169,13 @@ fn run_single_file(matches: &clap::ArgMatches) {
     };
 
     if verbose {
-        println!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
-        println!("Format: {format}");
+        if analyze_only {
+            eprintln!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
+            eprintln!("Format: {format}");
+        } else {
+            println!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
+            println!("Format: {format}");
+        }
     }
 
     let deployer_le = match deployer {
@@ -164,7 +191,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
 
     if sources.len() > 1 {
         if let Some(output) = &output_arg {
-            if !is_output_directory(output, true) {
+            if !analyze_only && !is_output_directory(output, true) {
                 eprintln!(
                     "error: when compiling multiple input files, --output must be a directory (got '{output}')"
                 );
@@ -173,38 +200,78 @@ fn run_single_file(matches: &clap::ArgMatches) {
         }
 
         if verbose {
-            println!("Batch mode: {} input file(s)", sources.len());
+            if analyze_only {
+                eprintln!("Batch mode: {} input file(s)", sources.len());
+            } else {
+                println!("Batch mode: {} input file(s)", sources.len());
+            }
             if let Some(output) = &output_arg {
-                println!("Output directory: {output}");
+                if analyze_only {
+                    eprintln!("Output directory: {output}");
+                } else {
+                    println!("Output directory: {output}");
+                }
             }
         }
     }
 
     let mut emitted_any = false;
+    let mut analysis_reports = Vec::new();
 
     for (file_index, input_file) in sources.iter().enumerate() {
         if sources.len() > 1 {
-            println!("(info) compiling {input_file}");
+            if analyze_only {
+                eprintln!("(info) compiling {input_file}");
+            } else {
+                println!("(info) compiling {input_file}");
+            }
         }
 
-        let resolved = match resolve_solidity_sources_with_imports(
-            Path::new(input_file),
-            &include_paths,
-        ) {
-            Ok(resolved) => resolved,
-            Err(err) => {
-                eprintln!("Error resolving imports: {err}");
-                std::process::exit(1);
-            }
-        };
+        let resolved =
+            match resolve_solidity_sources_with_imports(Path::new(input_file), &include_paths) {
+                Ok(resolved) => resolved,
+                Err(err) => {
+                    eprintln!("Error resolving imports: {err}");
+                    std::process::exit(1);
+                }
+            };
         let input_content = resolved.combined_source;
 
         if verbose {
-            println!(
-                "Resolved {} Solidity source file(s) ({} bytes combined)",
-                resolved.files.len(),
-                input_content.len()
-            );
+            if analyze_only {
+                eprintln!(
+                    "Resolved {} Solidity source file(s) ({} bytes combined)",
+                    resolved.files.len(),
+                    input_content.len()
+                );
+            } else {
+                println!(
+                    "Resolved {} Solidity source file(s) ({} bytes combined)",
+                    resolved.files.len(),
+                    input_content.len()
+                );
+            }
+        }
+
+        if analyze_only {
+            if let Some(report) = build_upgrade_report(
+                input_file,
+                &input_content,
+                &input_content,
+                false,
+                &analyze_compile_options,
+                &contract_filters,
+            ) {
+                analysis_reports.push(report);
+                emitted_any = true;
+            } else if verbose {
+                eprintln!(
+                    "(info) no matching contract(s) found in {} for --contract {}",
+                    input_file,
+                    contract_filters.join(", ")
+                );
+            }
+            continue;
         }
 
         let mut artifacts = compile_input_or_exit(
@@ -295,7 +362,13 @@ fn run_single_file(matches: &clap::ArgMatches) {
             );
         }
 
-        emit_contract_warnings(&artifacts, json_warnings, json_errors, &warn_suppress, &warn_promote);
+        emit_contract_warnings(
+            &artifacts,
+            json_warnings,
+            json_errors,
+            &warn_suppress,
+            &warn_promote,
+        );
         let output_config = OutputConfig {
             format,
             output_prefix: &output_prefix,
@@ -307,6 +380,26 @@ fn run_single_file(matches: &clap::ArgMatches) {
         };
         write_contract_outputs(&artifacts, &output_config);
         emitted_any = true;
+    }
+
+    if analyze_only {
+        if !contract_filters.is_empty() && !emitted_any {
+            eprintln!(
+                "error: no matching contract(s) found for --contract {}",
+                contract_filters.join(", ")
+            );
+            std::process::exit(1);
+        }
+        if let Some(output) = &output_arg {
+            let report_path = analyze_output_path(output);
+            if let Err(err) = write_upgrade_reports(&report_path, &analysis_reports) {
+                emit_error(&err, "OUTPUT_WRITE_ERROR", json_errors);
+                std::process::exit(1);
+            }
+        } else {
+            print_upgrade_reports(&analysis_reports);
+        }
+        return;
     }
 
     if !contract_filters.is_empty() && !emitted_any {

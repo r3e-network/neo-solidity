@@ -44,6 +44,46 @@ fn try_lower_syscalls_member_builtin(
                 }
             }
 
+            fn push_hash_literal_as_address(
+                expr: &Expression,
+                instructions: &mut Vec<Instruction>,
+            ) -> bool {
+                match literal_from_expression(expr) {
+                    Some(LiteralValue::ByteArray(bytes)) if bytes.len() == 20 => {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                        true
+                    }
+                    Some(LiteralValue::Address(bytes)) => {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                        true
+                    }
+                    _ => false,
+                }
+            }
+
+            if let Expression::Variable(identifier) = &args[0] {
+                if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {
+                    if let Some(initializer) = ctx
+                        .state_metadata(state_index)
+                        .and_then(|meta| meta.is_constant.then(|| meta.initializer.clone()))
+                        .flatten()
+                    {
+                        if push_hash_literal_as_address(&initializer, instructions) {
+                            return Some(true);
+                        }
+                    }
+                }
+            }
+
+            if push_hash_literal_as_address(&args[0], instructions) {
+                return Some(true);
+            }
+
+            if let Some(bytes) = address_bytes_le_from_expression(&args[0]) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                return Some(true);
+            }
+
             Some(lower_expression(&args[0], ctx, instructions))
         }
         "addressToScriptHash" => {

@@ -118,6 +118,19 @@ fn vault_example_compiles_with_external_calls() {
     }
 }
 
+#[test]
+fn tx_origin_example_emits_structured_warning() {
+    let source = include_str!("../../../../examples/new/EvmCompatTxOrigin.sol");
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    assert!(
+        artifacts[0].warnings.iter().any(|warning| warning
+            .message
+            .contains("tx.origin has different semantics on Neo N3")),
+        "expected tx.origin warning to be captured in compilation artifacts"
+    );
+}
 
 #[test]
 fn vault_example_compiles_under_strict_manifest_flags() {
@@ -192,7 +205,6 @@ fn low_level_call_showcase_compiles_with_manifest_methods() {
         );
     }
 }
-
 
 #[test]
 fn low_level_call_showcase_compiles_under_strict_manifest_flags() {
@@ -433,7 +445,10 @@ fn try_catch_showcase_compiles_with_expected_methods() {
 fn interface_showcase_compiles_with_expected_methods() {
     let source = include_str!("../../../../examples/new/InterfaceShowcase.sol");
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
-    assert!(!artifacts.is_empty(), "should produce at least one artifact");
+    assert!(
+        !artifacts.is_empty(),
+        "should produce at least one artifact"
+    );
 
     let token = artifacts
         .iter()
@@ -473,7 +488,12 @@ fn upgrade_lifecycle_showcase_compiles_under_strict_manifest_flags() {
     let methods = artifacts[0].manifest["abi"]["methods"]
         .as_array()
         .expect("methods array");
-    for required in ["transferOwnership", "upgrade", "destroyContract", "gasBalance"] {
+    for required in [
+        "transferOwnership",
+        "upgrade",
+        "destroyContract",
+        "gasBalance",
+    ] {
         assert!(
             methods
                 .iter()

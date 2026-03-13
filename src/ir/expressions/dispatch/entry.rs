@@ -29,7 +29,8 @@ fn lower_expression(
         return result;
     }
 
-    if let Some(literal) = literal_from_expression(expr) {
+    let mut literal_warning = |message: String| ctx.record_warning(message);
+    if let Some(literal) = literal_from_expression_with_warning(expr, &mut literal_warning) {
         // Warn when Solidity ether units are used -- the numeric conversion is
         // technically correct (wei=1, gwei=10^9, ether=10^18) but semantically
         // misleading on Neo N3 where the native token is GAS with 10^8 decimals.

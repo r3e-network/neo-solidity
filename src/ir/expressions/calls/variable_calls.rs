@@ -6,7 +6,10 @@ fn try_lower_variable_call(
 ) -> Option<bool> {
     if let Expression::Variable(identifier) = func {
         if identifier.name == "require" || identifier.name == "assert" {
-            ctx.record_error(format!("{}() cannot be used as an expression", identifier.name));
+            ctx.record_error(format!(
+                "{}() cannot be used as an expression",
+                identifier.name
+            ));
             return Some(false);
         }
 
@@ -14,11 +17,9 @@ fn try_lower_variable_call(
             // Neo N3 auto-compat: selfdestruct(addr) → ContractManagement.destroy()
             // Note: Neo destroy does NOT transfer remaining funds to addr.
             // The addr argument is evaluated (for side effects) then dropped.
-            eprintln!(
-                "warning: selfdestruct() auto-mapped to ContractManagement.destroy() \
-                 on Neo N3. The recipient address argument is ignored — Neo does not \
-                 transfer remaining funds on destroy. Use NativeCalls.gasTransfer() \
-                 to move funds before destroying."
+            ctx.record_warning_with_suggestion(
+                "selfdestruct() auto-mapped to ContractManagement.destroy() on Neo N3. The recipient address argument is ignored because Neo does not transfer remaining funds on destroy.",
+                "Use NativeCalls.gasTransfer() to move funds before destroying the contract.",
             );
             if args.len() == 1 {
                 // Evaluate the address argument for side effects, then drop it.
@@ -39,9 +40,9 @@ fn try_lower_variable_call(
 
         if identifier.name == "blockhash" {
             // Neo N3 auto-compat: blockhash(n) → Ledger.getBlockHash(n)
-            eprintln!(
-                "warning: blockhash() auto-mapped to Ledger.getBlockHash() \
-                 on Neo N3. Returns the block hash for the given index."
+            ctx.record_warning_with_suggestion(
+                "blockhash() auto-mapped to Ledger.getBlockHash() on Neo N3.",
+                "Use Ledger.getBlockHash(index) explicitly in Neo-native Solidity.",
             );
             if args.len() == 1 {
                 if !lower_expression(&args[0], ctx, instructions) {
@@ -64,9 +65,7 @@ fn try_lower_variable_call(
         if identifier.name == "gasleft" {
             // Neo N3 auto-compat: gasleft() → System.Runtime.GasLeft
             instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::Syscall(
-                    "System.Runtime.GasLeft".to_string(),
-                ),
+                builtin: BuiltinCall::Syscall("System.Runtime.GasLeft".to_string()),
                 arg_count: 0,
             });
             return Some(true);
@@ -109,7 +108,9 @@ fn try_lower_variable_call(
             let end_label = ctx.next_label();
 
             instructions.push(Instruction::LoadLocal(modulus_slot));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
             // In this IR, JumpIf branches when the condition is false.
             // Jump to compute branch when modulus != 0.
@@ -117,7 +118,9 @@ fn try_lower_variable_call(
                 target: compute_label,
             });
 
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::Jump { target: end_label });
 
             instructions.push(Instruction::Label(compute_label));
@@ -193,7 +196,9 @@ fn try_lower_variable_call(
                     instructions.push(Instruction::Drop(ValueType::Any));
                 }
             }
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             return Some(success);
         }
 
@@ -206,7 +211,9 @@ fn try_lower_variable_call(
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
         }
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         return Some(success);
     }
 

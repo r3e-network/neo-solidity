@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { accessSync, constants, promises as fs } from "fs";
 import path from "path";
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { HardhatPluginError } from "hardhat/plugins";
 import { 
   CompilationInput, 
   CompilationOutput, 

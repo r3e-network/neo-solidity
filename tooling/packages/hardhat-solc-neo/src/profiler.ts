@@ -324,7 +324,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
         const func = iface.getFunction(selector);
         return func?.name || 'unknown';
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors and return selector
     }
     
@@ -339,7 +339,7 @@ export class GasProfiler extends EventEmitter implements IGasProfiler {
         const result = iface.parseTransaction({ data });
         return result ? Array.from(result.args) : [];
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors
     }
     

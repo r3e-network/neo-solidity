@@ -5,16 +5,30 @@ import {
   DeploymentArtifact,
   NeoContract,
   TransactionResult,
+  getNeoAddressVersion,
+  isNeoAddress,
+  neoAddressToScriptHash,
+  neoScriptHashToAddress,
 } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { HardhatPluginError } from "hardhat/plugins";
 import chalk from "chalk";
 import Debug from "debug";
 import { BigNumber } from "@ethersproject/bignumber";
 import { createHash } from "crypto";
-import { sc, tx, u, wallet } from "@cityofzion/neon-js";
 
 import { NeoRpcClient } from "./rpc-client";
 import { AccountManager } from "./account-manager";
+import { createAccountFromPrivateKey, NeoSignerAccount } from "./account-primitives";
+import { base64ScriptToHex, decimalToIntegerString, normalizeByteArrayInput } from "./neo-primitives";
+import { createContractCallScript } from "./script-builder";
+import {
+  createNeoSigner,
+  createNeoTransaction,
+  createNeoWitness,
+  NeoTransaction,
+  signTransaction,
+  WitnessScope,
+} from "./transaction-primitives";
 
 const debug = Debug("hardhat:neo-deployer:deployer");
 
@@ -120,7 +134,7 @@ function parseRpcIntegerLike(value: unknown): string {
   if (typeof value === "string") {
     // neo-go returns integer strings; some nodes may return fixed-8 decimals.
     if (value.includes(".")) {
-      return u.BigInteger.fromDecimal(value, 8).toString();
+      return decimalToIntegerString(value, 8);
     }
     return value;
   }
@@ -133,14 +147,14 @@ function normalizeVmState(value: unknown): "HALT" | "FAULT" {
 }
 
 type ContractParamLike = any;
-type SignerAccount = InstanceType<typeof wallet.Account>;
+type SignerAccount = NeoSignerAccount;
 
 function witnessScopeToName(scope: number): string {
-  const name = (tx.WitnessScope as any)[scope];
-  return typeof name === "string" ? name : "Global";
+  const match = Object.entries(WitnessScope).find(([, value]) => value === scope);
+  return match?.[0] ?? "Global";
 }
 
-function toNeoTransaction(transaction: InstanceType<typeof tx.Transaction>, hash: string): any {
+function toNeoTransaction(transaction: NeoTransaction, hash: string): any {
   const exported = transaction.export();
   return {
     hash,
@@ -305,62 +319,112 @@ export class NeoDeployer {
 
     const scriptHash = this.addressToScriptHash(address);
 
+    const createMethodHandle = (method: any, operation: string) => ({
+      name: method.name,
+      parameters: method.parameters,
+      returnType: method.returntype,
+      safe: method.safe,
+
+      call: async (...args: any[]) => {
+        const encodedArgs = this.encodeNeoArgs(method.parameters, args);
+        const script = createContractCallScript({
+          scriptHash: strip0x(scriptHash),
+          operation,
+          args: encodedArgs,
+        });
+
+        const defaultAccount = this.accounts.getDefaultAccount();
+        if (defaultAccount?.scriptHash) {
+          const signer = createNeoSigner({
+            account: defaultAccount.scriptHash,
+            scopes: "CalledByEntry",
+          });
+          return this.rpc.invokeScript(script, [signer.toJson()]);
+        }
+
+        return this.rpc.invokeScript(script);
+      },
+
+      invoke: async (...args: any[]) => {
+        const encodedArgs = this.encodeNeoArgs(method.parameters, args);
+        const script = createContractCallScript({
+          scriptHash: strip0x(scriptHash),
+          operation,
+          args: encodedArgs,
+        });
+
+        const signer = this.resolveSigner(this.accounts.getDefaultAccount()?.address || "");
+        return this.executeInvocation(script, signer, address);
+      },
+
+      estimateGas: async (...args: any[]) => {
+        const encodedArgs = this.encodeNeoArgs(method.parameters, args);
+        const script = createContractCallScript({
+          scriptHash: strip0x(scriptHash),
+          operation,
+          args: encodedArgs,
+        });
+
+        const signer = this.resolveSigner(this.accounts.getDefaultAccount()?.address || "");
+        const estimate = await this.buildAndEstimateTransaction({
+          scriptHex: script,
+          signer,
+        });
+
+        return BigNumber.from(estimate.systemFee).add(estimate.networkFee);
+      },
+    });
+
     for (const method of artifact.contract.neo.manifest.abi.methods) {
-      methods[method.name] = {
-        name: method.name,
-        parameters: method.parameters,
-        returnType: method.returntype,
-        safe: method.safe,
+      methods[method.name] = createMethodHandle(method, method.name);
+    }
 
-        call: async (...args: any[]) => {
-          const encodedArgs = this.encodeNeoArgs(method.parameters, args);
-          const script = sc.createScript({
-            scriptHash: strip0x(scriptHash),
-            operation: method.name,
-            args: encodedArgs,
-          });
+    const methodMap = artifact.contract.neo.methodMap ?? {};
+    if (methodMap && typeof methodMap === "object") {
+      const manifestMethodsByNeoName = new Map<string, any>();
+      for (const method of artifact.contract.neo.manifest.abi.methods) {
+        manifestMethodsByNeoName.set(method.name, method);
+      }
 
-          const defaultAccount = this.accounts.getDefaultAccount();
-          if (defaultAccount?.scriptHash) {
-            const signer = new tx.Signer({
-              account: defaultAccount.scriptHash,
-              scopes: tx.WitnessScope.CalledByEntry,
-            });
-            return this.rpc.invokeScript(script, [signer.toJson()]);
-          }
+      const overloadCounts = new Map<string, number>();
+      for (const signature of Object.keys(methodMap)) {
+        const baseName = signature.slice(0, signature.indexOf("("));
+        overloadCounts.set(baseName, (overloadCounts.get(baseName) ?? 0) + 1);
+      }
 
-          return this.rpc.invokeScript(script);
-        },
+      for (const [signature, neoName] of Object.entries(methodMap)) {
+        const method = manifestMethodsByNeoName.get(neoName);
+        if (!method) {
+          continue;
+        }
+        methods[signature] = createMethodHandle(method, neoName);
+      }
 
-        invoke: async (...args: any[]) => {
-          const encodedArgs = this.encodeNeoArgs(method.parameters, args);
-          const script = sc.createScript({
-            scriptHash: strip0x(scriptHash),
-            operation: method.name,
-            args: encodedArgs,
-          });
-
-          const signer = this.resolveSigner(this.accounts.getDefaultAccount()?.address || "");
-          return this.executeInvocation(script, signer, address);
-        },
-
-        estimateGas: async (...args: any[]) => {
-          const encodedArgs = this.encodeNeoArgs(method.parameters, args);
-          const script = sc.createScript({
-            scriptHash: strip0x(scriptHash),
-            operation: method.name,
-            args: encodedArgs,
-          });
-
-          const signer = this.resolveSigner(this.accounts.getDefaultAccount()?.address || "");
-          const estimate = await this.buildAndEstimateTransaction({
-            scriptHex: script,
-            signer,
-          });
-
-          return BigNumber.from(estimate.systemFee).add(estimate.networkFee);
-        },
-      };
+      for (const [baseName, count] of overloadCounts.entries()) {
+        if (count > 1) {
+          methods[baseName] = {
+            name: baseName,
+            parameters: [],
+            returnType: "Any",
+            safe: false,
+            call: async () => {
+              throw new Error(
+                `Method ${baseName} is overloaded; use a full signature such as ${Object.keys(methodMap).find(sig => sig.startsWith(baseName + "("))}`
+              );
+            },
+            invoke: async () => {
+              throw new Error(
+                `Method ${baseName} is overloaded; use a full signature such as ${Object.keys(methodMap).find(sig => sig.startsWith(baseName + "("))}`
+              );
+            },
+            estimateGas: async () => {
+              throw new Error(
+                `Method ${baseName} is overloaded; use a full signature such as ${Object.keys(methodMap).find(sig => sig.startsWith(baseName + "("))}`
+              );
+            },
+          };
+        }
+      }
     }
 
     for (const event of artifact.contract.neo.manifest.abi.events) {
@@ -409,23 +473,23 @@ export class NeoDeployer {
       );
     }
 
-    return new wallet.Account(signer.privateKey, { addressVersion: this.addressVersion });
+    return createAccountFromPrivateKey(signer.privateKey, this.addressVersion, signer.label);
   }
 
   private buildDeployScriptHex(artifact: BuildArtifact, constructorArgs: any[]): string {
     const manifestJson = JSON.stringify(artifact.contract.neo.manifest);
     const nefImageHex = strip0x(artifact.contract.neo.nef.image);
 
-    const nefBytes = u.HexString.fromHex(nefImageHex, true);
+    const nefBytes = normalizeByteArrayInput(nefImageHex);
     const encodedCtorArgs = this.encodeConstructorArgs(artifact, constructorArgs);
 
-    return sc.createScript({
+    return createContractCallScript({
       scriptHash: CONTRACT_MANAGEMENT_HASH,
       operation: "deploy",
       args: [
-        sc.ContractParam.byteArray(nefBytes),
-        sc.ContractParam.string(manifestJson),
-        sc.ContractParam.array(...encodedCtorArgs),
+        { type: "ByteArray", value: nefBytes },
+        { type: "String", value: manifestJson },
+        { type: "Array", value: encodedCtorArgs },
       ],
     });
   }
@@ -449,24 +513,24 @@ export class NeoDeployer {
     const validUntilBlock =
       height + Math.min(DEFAULT_VALID_UNTIL_BLOCK_INCREMENT, maxValidUntilBlockIncrement);
 
-    const signer = new tx.Signer({
+    const signer = createNeoSigner({
       account: input.signer.scriptHash,
-      scopes: tx.WitnessScope.CalledByEntry,
+      scopes: "CalledByEntry",
     });
 
-    const transaction = new tx.Transaction({
-      script: input.scriptHex,
+    const transaction = createNeoTransaction({
+      scriptHex: input.scriptHex,
       signers: [signer],
       validUntilBlock,
       systemFee: 0,
       networkFee: 0,
     });
 
-    const verificationScript = u.HexString.fromBase64(input.signer.contract.script).toBigEndian();
-    transaction.addWitness({
+    const verificationScript = base64ScriptToHex(input.signer.contract.script);
+    transaction.addWitness(createNeoWitness({
       invocationScript: DUMMY_SIGNATURE_INVOCATION_SCRIPT,
       verificationScript,
-    });
+    }));
 
     const networkFee = parseRpcIntegerLike(
       await this.rpc.calculateNetworkFee(transaction.serialize(true))
@@ -504,26 +568,26 @@ export class NeoDeployer {
       signer: signerAccount,
     });
 
-    const transaction = new tx.Transaction({
-      script: scriptHex,
+    const transaction = createNeoTransaction({
+      scriptHex,
       signers: [
-        new tx.Signer({
+        createNeoSigner({
           account: signerAccount.scriptHash,
-          scopes: tx.WitnessScope.CalledByEntry,
+          scopes: "CalledByEntry",
         }),
       ],
       validUntilBlock: estimate.validUntilBlock,
-      systemFee: u.BigInteger.fromDecimal(estimate.systemFee, 0),
-      networkFee: u.BigInteger.fromDecimal(estimate.networkFee, 0),
+      systemFee: decimalToIntegerString(estimate.systemFee, 0),
+      networkFee: decimalToIntegerString(estimate.networkFee, 0),
     });
 
-    const verificationScript = u.HexString.fromBase64(signerAccount.contract.script).toBigEndian();
-    transaction.addWitness({
+    const verificationScript = base64ScriptToHex(signerAccount.contract.script);
+    transaction.addWitness(createNeoWitness({
       invocationScript: DUMMY_SIGNATURE_INVOCATION_SCRIPT,
       verificationScript,
-    });
+    }));
 
-    transaction.sign(signerAccount, this.rpc.magic);
+    signTransaction(transaction, signerAccount, this.rpc.magic);
 
     const txHex = transaction.serialize(true);
     const send = await this.rpc.sendRawTransaction(txHex);
@@ -533,7 +597,7 @@ export class NeoDeployer {
       artifact.contract.neo.nef.checksum,
       artifact.contract.neo.manifest.name
     );
-    const contractAddress = wallet.getAddressFromScriptHash(contractHashHexBe, this.addressVersion);
+    const contractAddress = neoScriptHashToAddress(contractHashHexBe, this.addressVersion);
 
     const { blockNumber, receipt } = await this.waitForReceipt(
       send.hash,
@@ -644,26 +708,26 @@ export class NeoDeployer {
       signer: signerAccount,
     });
 
-    const signer = new tx.Signer({
+    const signer = createNeoSigner({
       account: signerAccount.scriptHash,
-      scopes: tx.WitnessScope.CalledByEntry,
+      scopes: "CalledByEntry",
     });
 
-    const transaction = new tx.Transaction({
-      script: scriptHex,
+    const transaction = createNeoTransaction({
+      scriptHex,
       signers: [signer],
       validUntilBlock: estimate.validUntilBlock,
-      systemFee: u.BigInteger.fromDecimal(estimate.systemFee, 0),
-      networkFee: u.BigInteger.fromDecimal(estimate.networkFee, 0),
+      systemFee: decimalToIntegerString(estimate.systemFee, 0),
+      networkFee: decimalToIntegerString(estimate.networkFee, 0),
     });
 
-    const verificationScript = u.HexString.fromBase64(signerAccount.contract.script).toBigEndian();
-    transaction.addWitness({
+    const verificationScript = base64ScriptToHex(signerAccount.contract.script);
+    transaction.addWitness(createNeoWitness({
       invocationScript: DUMMY_SIGNATURE_INVOCATION_SCRIPT,
       verificationScript,
-    });
+    }));
 
-    transaction.sign(signerAccount, this.rpc.magic);
+    signTransaction(transaction, signerAccount, this.rpc.magic);
     const send = await this.rpc.sendRawTransaction(transaction.serialize(true));
     const txHash = send.hash;
 
@@ -732,14 +796,14 @@ export class NeoDeployer {
   }
 
   private addressToScriptHash(address: string): string {
-    if (wallet.isAddress(address)) {
-      const version = wallet.getAddressVersion(address);
+    if (isNeoAddress(address)) {
+      const version = getNeoAddressVersion(address);
       if (typeof version === "number" && version !== this.addressVersion) {
         throw new Error(
           `Address version mismatch for network: expected 0x${this.addressVersion.toString(16)}, got 0x${version.toString(16)}`
         );
       }
-      return "0x" + wallet.getScriptHashFromAddress(address);
+      return neoAddressToScriptHash(address);
     }
     return address.startsWith("0x") ? address : "0x" + address;
   }
@@ -812,13 +876,13 @@ export class NeoDeployer {
     }
     if (upper === "BYTEARRAY") {
       if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
-        return { type: "ByteArray", value: u.HexString.fromHex(Buffer.from(value).toString("hex"), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(Buffer.from(value)) };
       }
       const asString = String(value);
       if (/^0x[0-9a-fA-F]*$/.test(asString) || /^[0-9a-fA-F]+$/.test(asString)) {
-        return { type: "ByteArray", value: u.HexString.fromHex(strip0x(asString), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(asString) };
       }
-      return { type: "ByteArray", value: u.HexString.fromBase64(asString, true) };
+      return { type: "ByteArray", value: normalizeByteArrayInput(asString) };
     }
     return value;
   }
@@ -846,17 +910,17 @@ export class NeoDeployer {
     }
 
     if (typeof value === "string") {
-      if (wallet.isAddress(value)) {
+      if (isNeoAddress(value)) {
         return { type: "Hash160", value };
       }
       if (/^0x[0-9a-fA-F]*$/.test(value) && value.length % 2 === 0) {
-        return { type: "ByteArray", value: u.HexString.fromHex(strip0x(value), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(value) };
       }
       return { type: "String", value };
     }
 
     if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
-      return { type: "ByteArray", value: u.HexString.fromHex(Buffer.from(value).toString("hex"), true) };
+      return { type: "ByteArray", value: normalizeByteArrayInput(Buffer.from(value)) };
     }
 
     if (Array.isArray(value)) {
@@ -896,12 +960,12 @@ export class NeoDeployer {
     }
     if (typeof key === "string") {
       if (/^0x[0-9a-fA-F]*$/.test(key) && key.length % 2 === 0) {
-        return { type: "ByteArray", value: u.HexString.fromHex(strip0x(key), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(key) };
       }
       return { type: "String", value: key };
     }
     if (Buffer.isBuffer(key) || key instanceof Uint8Array) {
-      return { type: "ByteArray", value: u.HexString.fromHex(Buffer.from(key).toString("hex"), true) };
+      return { type: "ByteArray", value: normalizeByteArrayInput(Buffer.from(key)) };
     }
     return { type: "String", value: String(key) };
   }
@@ -972,13 +1036,13 @@ export class NeoDeployer {
 
     if (baseType === "bytes" || baseType.startsWith("bytes")) {
       if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
-        return { type: "ByteArray", value: u.HexString.fromHex(Buffer.from(value).toString("hex"), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(Buffer.from(value)) };
       }
       const asString = String(value);
       if (/^0x[0-9a-fA-F]*$/.test(asString) || /^[0-9a-fA-F]+$/.test(asString)) {
-        return { type: "ByteArray", value: u.HexString.fromHex(strip0x(asString), true) };
+        return { type: "ByteArray", value: normalizeByteArrayInput(asString) };
       }
-      return { type: "ByteArray", value: u.HexString.fromBase64(asString, true) };
+      return { type: "ByteArray", value: normalizeByteArrayInput(asString) };
     }
 
     if (baseType.startsWith("uint") || baseType.startsWith("int")) {

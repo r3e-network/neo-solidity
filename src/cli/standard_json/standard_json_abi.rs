@@ -116,3 +116,28 @@ pub(crate) fn build_method_identifiers(metadata: &ContractMetadata) -> Map<Strin
     identifiers
 }
 
+pub(crate) fn build_neo_method_map(metadata: &ContractMetadata) -> Map<String, Value> {
+    let mut map = Map::new();
+
+    for method in &metadata.methods {
+        if matches!(method.kind, FunctionKind::Constructor) {
+            continue;
+        }
+        if !matches!(
+            method.visibility,
+            VisibilityKind::Public | VisibilityKind::External
+        ) {
+            continue;
+        }
+
+        let param_signature: Vec<String> = method
+            .parameters
+            .iter()
+            .map(|param| canonical_param_type(&param.ty))
+            .collect();
+        let signature = format!("{}({})", method.name, param_signature.join(","));
+        map.insert(signature, Value::String(method.neo_name.clone()));
+    }
+
+    map
+}

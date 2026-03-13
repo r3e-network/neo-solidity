@@ -166,10 +166,9 @@ fn try_lower_code_property(
             // Neo N3 auto-compat: address.codehash → the address itself (script hash)
             // On Neo, a contract's "code hash" IS its script hash (UInt160), which is
             // the same as the address. For non-contract addresses, return bytes32(0).
-            eprintln!(
-                "warning: address.codehash auto-mapped to the contract script hash \
-                 on Neo N3. For contract addresses this returns the address itself; \
-                 for non-contract addresses it returns bytes32(0)."
+            ctx.record_warning_with_suggestion(
+                "address.codehash auto-mapped to the contract script hash on Neo N3. For contract addresses this returns the address itself; for non-contract addresses it returns bytes32(0).",
+                "Prefer explicit ContractManagement.isContract checks when you need Neo-native contract detection semantics.",
             );
             if !lower_expression(inner, ctx, instructions) {
                 return Some(false);
@@ -193,9 +192,10 @@ fn try_lower_code_property(
             instructions.push(Instruction::Label(not_contract_label));
             // Not a contract: drop address, push zero bytes
             instructions.push(Instruction::Drop(ValueType::Any));
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                vec![0u8; 32],
-            )));
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+                0u8;
+                32
+            ])));
             instructions.push(Instruction::Label(end_label));
             return Some(true);
         }

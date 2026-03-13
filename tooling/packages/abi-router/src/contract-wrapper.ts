@@ -29,6 +29,7 @@ export class ContractWrapper extends EventEmitter {
   private transactionBuilder: TransactionBuilder;
   private eventDecoder: EventDecoder;
   private signer?: any;
+  private overloadedFunctionNames: Set<string>;
 
   constructor(
     address: string,
@@ -46,6 +47,7 @@ export class ContractWrapper extends EventEmitter {
     this.transactionBuilder = transactionBuilder;
     this.eventDecoder = eventDecoder;
     this.signer = signerOrProvider;
+    this.overloadedFunctionNames = this.collectOverloadedFunctionNames();
 
     // Create method proxies
     this.createMethodProxies();
@@ -69,6 +71,7 @@ export class ContractWrapper extends EventEmitter {
       if (!fragment) {
         throw new Error(`Method ${methodName} not found in ABI`);
       }
+      const invocationName = this.getInvocationName(fragment);
 
       // Convert Ethereum args to Neo format
       const neoArgs = this.convertArgsToNeo(args, fragment);
@@ -76,7 +79,7 @@ export class ContractWrapper extends EventEmitter {
       // Call via RPC adapter
       const result = await this.rpcAdapter.invokeFunction(
         this.address,
-        methodName,
+        invocationName,
         neoArgs,
         options.blockTag
       );
@@ -112,6 +115,7 @@ export class ContractWrapper extends EventEmitter {
       if (!fragment) {
         throw new Error(`Method ${methodName} not found in ABI`);
       }
+      const invocationName = this.getInvocationName(fragment);
 
       // Convert Ethereum args to Neo format
       const neoArgs = this.convertArgsToNeo(args, fragment);
@@ -119,7 +123,7 @@ export class ContractWrapper extends EventEmitter {
       // Send transaction via transaction builder
       const txResult = await this.transactionBuilder.sendTransaction(
         this.address,
-        methodName,
+        invocationName,
         neoArgs,
         options
       );
@@ -159,6 +163,7 @@ export class ContractWrapper extends EventEmitter {
       if (!fragment) {
         throw new Error(`Method ${methodName} not found in ABI`);
       }
+      const invocationName = this.getInvocationName(fragment);
 
       // Convert Ethereum args to Neo format
       const neoArgs = this.convertArgsToNeo(args, fragment);
@@ -166,7 +171,7 @@ export class ContractWrapper extends EventEmitter {
       // Estimate gas via RPC adapter
       const gasEstimate = await this.rpcAdapter.estimateGas(
         this.address,
-        methodName,
+        invocationName,
         neoArgs,
         options
       );
@@ -264,12 +269,13 @@ export class ContractWrapper extends EventEmitter {
     if (!fragment) {
       throw new Error(`Function ${nameOrSignature} not found`);
     }
+    const invocationName = this.getInvocationName(fragment);
 
     return {
       fragment,
-      call: (...args: any[]) => this.call(fragment.name, args),
-      send: (...args: any[]) => this.send(fragment.name, args),
-      estimateGas: (...args: any[]) => this.estimateGas(fragment.name, args)
+      call: (...args: any[]) => this.call(invocationName, args),
+      send: (...args: any[]) => this.send(invocationName, args),
+      estimateGas: (...args: any[]) => this.estimateGas(invocationName, args)
     };
   }
 
@@ -292,35 +298,81 @@ export class ContractWrapper extends EventEmitter {
   // Private methods
 
   private createMethodProxies(): void {
+    const configuredOverloadGuards = new Set<string>();
+
     // Create proxy methods for all functions in the ABI
     for (const fragment of this.interface.fragments) {
       if (fragment.type === 'function') {
         const func = fragment as FunctionFragment;
-        
+        const invocationName = this.getInvocationName(func);
+        const proxyKey = this.isOverloadedFunction(func.name)
+          ? invocationName
+          : func.name;
+
+        if (this.isOverloadedFunction(func.name) && !configuredOverloadGuards.has(func.name)) {
+          const overloadError = () => {
+            throw new Error(
+              `Function ${func.name} is overloaded; use a full signature such as ${invocationName}`
+            );
+          };
+          (this as any)[func.name] = async (..._args: any[]) => overloadError();
+          (this as any)[func.name].staticCall = (..._args: any[]) => overloadError();
+          (this as any)[func.name].estimateGas = (..._args: any[]) => overloadError();
+          configuredOverloadGuards.add(func.name);
+        }
+
         // Create method proxy
-        (this as any)[func.name] = async (...args: any[]) => {
+        (this as any)[proxyKey] = async (...args: any[]) => {
           const options = args.length > func.inputs.length ? args.pop() : {};
           
           if (func.stateMutability === 'view' || func.stateMutability === 'pure') {
-            return this.call(func.name, args, options);
+            return this.call(invocationName, args, options);
           } else {
-            return this.send(func.name, args, options);
+            return this.send(invocationName, args, options);
           }
         };
 
         // Create static call method
-        (this as any)[func.name].staticCall = (...args: any[]) => {
+        (this as any)[proxyKey].staticCall = (...args: any[]) => {
           const options = args.length > func.inputs.length ? args.pop() : {};
-          return this.call(func.name, args, options);
+          return this.call(invocationName, args, options);
         };
 
         // Create estimate gas method
-        (this as any)[func.name].estimateGas = (...args: any[]) => {
+        (this as any)[proxyKey].estimateGas = (...args: any[]) => {
           const options = args.length > func.inputs.length ? args.pop() : {};
-          return this.estimateGas(func.name, args, options);
+          return this.estimateGas(invocationName, args, options);
         };
       }
     }
+  }
+
+  private collectOverloadedFunctionNames(): Set<string> {
+    const counts = new Map<string, number>();
+
+    for (const fragment of this.interface.fragments) {
+      if (fragment.type !== "function") continue;
+      const name = (fragment as FunctionFragment).name;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+
+    return new Set(
+      [...counts.entries()]
+        .filter(([, count]) => count > 1)
+        .map(([name]) => name)
+    );
+  }
+
+  private isOverloadedFunction(name: string): boolean {
+    return this.overloadedFunctionNames.has(name);
+  }
+
+  private getInvocationName(fragment: FunctionFragment): string {
+    if (!this.isOverloadedFunction(fragment.name)) {
+      return fragment.name;
+    }
+
+    return `${fragment.name}(${fragment.inputs.map(input => input.type).join(",")})`;
   }
 
   private createEventFilters(): void {

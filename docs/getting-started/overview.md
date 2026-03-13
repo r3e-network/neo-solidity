@@ -106,7 +106,7 @@ For the full matrix, see [Solidity Feature Support](/solidity/feature-support).
 
 Neo Solidity is production-ready for most use cases:
 
-- **620+ tests** across unit, integration, E2E compilation, and conformance suites.
+- **700+ tests** across unit, integration, E2E compilation, and conformance suites.
 - **95% compiler completion** with comprehensive Solidity 0.8.x coverage.
 - **32 conformance test vectors** with a 93.8% pass rate against reference Neo implementations.
 - **16+ Neo-Express smoke tests** that deploy and invoke real contracts on a local chain.

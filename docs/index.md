@@ -55,7 +55,7 @@ features:
 
     - icon: "\U0001F9EA"
       title: Testing & Deployment
-      details: "660+ tests across unit, integration, and E2E suites. Neo-Express smoke tests, constructor arg validation, and a one-command production-gate for CI."
+      details: "700+ Rust tests plus maintained tooling and optional runtime test slices. Neo-Express smoke tests, constructor arg validation, and a one-command production-gate for CI."
       link: /workflows/test
       linkText: Testing guide
 ---
@@ -85,7 +85,7 @@ Unlike transpilation approaches that attempt to emulate EVM behavior on NeoVM, N
     <span class="stat-label">Supported Features (80%)</span>
   </div>
   <div class="stat-card">
-    <span class="stat-value">660+</span>
+    <span class="stat-value">700+</span>
     <span class="stat-label">Test Cases</span>
   </div>
   <div class="stat-card">

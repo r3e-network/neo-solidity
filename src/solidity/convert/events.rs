@@ -1,4 +1,10 @@
-fn convert_event(event: EventIR) -> EventMetadata {
+fn convert_event(
+    event: EventIR,
+    struct_types: &[StructTypeMetadata],
+    enum_types: &[EnumTypeMetadata],
+    contract_types: &[String],
+    type_aliases: &std::collections::HashMap<String, String>,
+) -> EventMetadata {
     let normalized = normalize_event_signature(&event.name, &event.parameters);
     EventMetadata {
         name: event.name,
@@ -6,10 +12,23 @@ fn convert_event(event: EventIR) -> EventMetadata {
         parameters: event
             .parameters
             .into_iter()
-            .map(|param| EventParameter {
-                name: param.name,
-                ty: param.ty,
-                indexed: param.indexed,
+            .map(|param| {
+                let ty = param.ty;
+                let neo_type = NeoType::from_solidity_with_aliases(
+                    &ty,
+                    struct_types,
+                    enum_types,
+                    contract_types,
+                    type_aliases,
+                )
+                .ok();
+
+                EventParameter {
+                    name: param.name,
+                    ty,
+                    indexed: param.indexed,
+                    neo_type,
+                }
             })
             .collect(),
     }

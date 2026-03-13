@@ -9,7 +9,7 @@ fn collect_contract_call_permissions(
             break;
         }
 
-        for req in analyze_contract_calls(function) {
+        for req in analyze_contract_calls(function, ir_module) {
             let contract = req.contract.unwrap_or_else(|| "*".to_string());
             let methods = if let Some(method) = req.method {
                 let mut set = std::collections::BTreeSet::new();

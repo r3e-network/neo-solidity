@@ -77,9 +77,8 @@ impl NeoType {
         if let Some(struct_meta) = lookup_struct(ty, structs) {
             let mut fields = Vec::new();
             for field in &struct_meta.fields {
-                // Compatibility: keep struct field typing permissive to avoid
-                // recursive type expansion across large imported protocol graphs.
-                let field_type = NeoType::Any;
+                let field_type = NeoType::from_solidity(&field.ty, structs, enums, contract_types)
+                    .unwrap_or(NeoType::Any);
                 fields.push(StructFieldType {
                     name: field.name.clone(),
                     ty: Box::new(field_type),

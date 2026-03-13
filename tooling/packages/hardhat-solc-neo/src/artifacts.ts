@@ -11,7 +11,7 @@ import {
   ArtifactSearchCriteria,
   ArtifactStatistics
 } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
 
 const debug = Debug("hardhat:neo-solidity:artifacts");
@@ -440,6 +440,16 @@ export class ArtifactManager implements IArtifactManager {
         );
         breakingChanges.push(...manifestComparison.breaking);
         nonBreakingChanges.push(...manifestComparison.nonBreaking);
+      }
+
+      if (JSON.stringify(artifact1.contract.neo.methodMap ?? {}) !== JSON.stringify(artifact2.contract.neo.methodMap ?? {})) {
+        recordModified(
+          "contract.neo.methodMap",
+          artifact1.contract.neo.methodMap ?? {},
+          artifact2.contract.neo.methodMap ?? {},
+          "breaking",
+          "Neo method map changed"
+        );
       }
     }
 

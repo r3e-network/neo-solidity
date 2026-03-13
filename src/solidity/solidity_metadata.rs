@@ -115,6 +115,7 @@ pub struct EventParameter {
     pub name: Option<String>,
     pub ty: String,
     pub indexed: bool,
+    pub neo_type: Option<NeoType>,
 }
 
 #[derive(Debug, Clone)]

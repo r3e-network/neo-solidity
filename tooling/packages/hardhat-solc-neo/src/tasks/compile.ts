@@ -1,4 +1,4 @@
-import { task, types } from "hardhat/config.js";
+import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { promises as fs } from "fs";
 import path from "path";
@@ -268,7 +268,7 @@ async function checkCompilationNeeded(sourceFiles: string[], hre: HardhatRuntime
     }
 
     return false;
-  } catch (error) {
+  } catch (_error) {
     // If we can't determine, assume compilation is needed
     return true;
   }

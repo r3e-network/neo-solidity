@@ -84,6 +84,7 @@ fn build_combined_source_with_import_validation(
             "component": "neo-solidity",
             "severity": "error",
             "type": typ,
+            "code": standard_json_manual_code(typ),
             "sourceLocation": { "file": file },
             "formattedMessage": message,
             "message": message,

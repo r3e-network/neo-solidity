@@ -1,9 +1,8 @@
 import axios, { AxiosInstance } from "axios";
 import type { rpcTypes } from "@neo-solidity/types";
-import { NeoNetworkConfig } from "@neo-solidity/types";
-import { HardhatPluginError } from "hardhat/plugins.js";
+import { NeoNetworkConfig, base64ToHex, hexToBase64 } from "@neo-solidity/types";
+import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
-import { u } from "@cityofzion/neon-js";
 
 const debug = Debug("hardhat:neo-deployer:rpc");
 
@@ -158,14 +157,14 @@ export class NeoRpcClient implements NeoRpcProvider {
    */
   async invokeScript(scriptHex: string, signers?: any[]): Promise<any> {
     const normalizedHex = NeoRpcClient.strip0x(scriptHex);
-    const base64 = u.hex2base64(normalizedHex);
+    const base64 = hexToBase64(normalizedHex);
 
     try {
       if (signers && signers.length > 0) {
         return await this.call("invokescript", [base64, signers]);
       }
       return await this.call("invokescript", [base64]);
-    } catch (error) {
+    } catch (_error) {
       // Fallback to hex if node rejects base64 payloads.
       if (signers && signers.length > 0) {
         return this.call("invokescript", [normalizedHex, signers]);
@@ -190,7 +189,7 @@ export class NeoRpcClient implements NeoRpcProvider {
       try {
         return normalize(await this.call<any>("sendrawtransaction", [hex]));
       } catch (firstError) {
-        const base64 = u.hex2base64(hex);
+        const base64 = hexToBase64(hex);
         try {
           return normalize(await this.call<any>("sendrawtransaction", [base64]));
         } catch {
@@ -204,8 +203,8 @@ export class NeoRpcClient implements NeoRpcProvider {
       return normalize(await this.call<any>("sendrawtransaction", [signedTransaction]));
     } catch (firstError) {
       try {
-        const hex = u.base642hex(signedTransaction);
-        return normalize(await this.call<any>("sendrawtransaction", [hex]));
+        const hex = base64ToHex(signedTransaction);
+        return normalize(await this.call<any>("sendrawtransaction", [NeoRpcClient.strip0x(hex)]));
       } catch {
         throw firstError;
       }
@@ -248,7 +247,7 @@ export class NeoRpcClient implements NeoRpcProvider {
   async getStorage(scriptHash: string, key: string): Promise<string | null> {
     try {
       return await this.call('getstorage', [scriptHash, key]);
-    } catch (error) {
+    } catch (_error) {
       // Storage item not found
       return null;
     }
@@ -301,7 +300,7 @@ export class NeoRpcClient implements NeoRpcProvider {
       try {
         return parseNetworkFee(await this.call<any>("calculatenetworkfee", [hex]));
       } catch (firstError) {
-        const base64 = u.hex2base64(hex);
+        const base64 = hexToBase64(hex);
         try {
           return parseNetworkFee(await this.call<any>("calculatenetworkfee", [base64]));
         } catch {
@@ -315,8 +314,8 @@ export class NeoRpcClient implements NeoRpcProvider {
       return parseNetworkFee(await this.call<any>("calculatenetworkfee", [tx]));
     } catch (firstError) {
       try {
-        const hex = u.base642hex(tx);
-        return parseNetworkFee(await this.call<any>("calculatenetworkfee", [hex]));
+        const hex = base64ToHex(tx);
+        return parseNetworkFee(await this.call<any>("calculatenetworkfee", [NeoRpcClient.strip0x(hex)]));
       } catch {
         throw firstError;
       }

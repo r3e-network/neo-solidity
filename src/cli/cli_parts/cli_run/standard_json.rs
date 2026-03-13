@@ -1,7 +1,47 @@
 fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
+    fn standard_json_cli_error_code(message: &str) -> &'static str {
+        let lower = message.to_ascii_lowercase();
+        if lower.contains("failed to parse standard json input") {
+            "STANDARD_JSON_PARSE_ERROR"
+        } else {
+            "STANDARD_JSON_INPUT_ERROR"
+        }
+    }
+
+    fn emit_standard_json_cli_error(output_path: Option<&str>, message: &str) {
+        let payload = json!({
+            "contracts": {},
+            "sources": {},
+            "errors": [{
+                "component": "neo-solidity",
+                "severity": "error",
+                "type": "StandardJsonInput",
+                "code": standard_json_cli_error_code(message),
+                "formattedMessage": message,
+                "message": message,
+            }]
+        });
+
+        let serialized = serde_json::to_string_pretty(&payload)
+            .unwrap_or_else(|_| "{\"errors\":[{\"code\":\"STANDARD_JSON_INPUT_ERROR\",\"message\":\"failed to serialize error output\"}]}".to_string());
+
+        if let Some(path) = output_path {
+            if let Err(err) = fs::write(path, &serialized) {
+                eprintln!("error: Failed to write standard JSON output: {err}");
+                std::process::exit(1);
+            }
+        } else {
+            println!("{serialized}");
+        }
+    }
+
     let use_standard_json = matches.get_flag("standard-json");
     if !use_standard_json {
         return false;
+    }
+    if matches.get_flag("analyze") {
+        eprintln!("error: --analyze is currently supported only in single-file mode");
+        std::process::exit(1);
     }
 
     use std::io::{self, IsTerminal, Read};
@@ -20,7 +60,9 @@ fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
     let deny_wildcard_contracts = matches.get_flag("deny-wildcard-contracts");
     let deny_wildcard_methods = matches.get_flag("deny-wildcard-methods");
     let nef_source = matches.get_one::<String>("nef-source").map(|s| s.as_str());
-    let manifest_permissions_file = matches.get_one::<String>("manifest-permissions").map(|s| s.as_str());
+    let manifest_permissions_file = matches
+        .get_one::<String>("manifest-permissions")
+        .map(|s| s.as_str());
     let manifest_permissions_mode = matches
         .get_one::<String>("manifest-permissions-mode")
         .map(|s| s.as_str())
@@ -85,7 +127,7 @@ fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
     };
 
     if let Err(err) = result {
-        eprintln!("{err}");
+        emit_standard_json_cli_error(output_path, &err);
         std::process::exit(1);
     }
 

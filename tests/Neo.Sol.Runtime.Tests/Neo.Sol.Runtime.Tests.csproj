@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" Version="3.5.2" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.5.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
     <PackageReference Include="NUnit" Version="3.14.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
@@ -28,5 +30,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Neo.Sol.Runtime\Neo.Sol.Runtime.csproj" />
   </ItemGroup>
-
 </Project>

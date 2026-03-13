@@ -11,10 +11,7 @@ fn contract_output_prefix_sanitizes_and_indexes() {
     let dir_path = dir.path().to_str().expect("dir path utf-8");
     assert_eq!(
         contract_output_prefix(dir_path, "My Contract!", 0, 1),
-        dir.path()
-            .join("My_Contract")
-            .to_string_lossy()
-            .to_string()
+        dir.path().join("My_Contract").to_string_lossy().to_string()
     );
 
     // Multiple contracts append sanitized name and keep extension
@@ -34,10 +31,7 @@ fn contract_output_prefix_ignores_dots_in_parent_directories() {
     let prefixed = contract_output_prefix(&base_no_ext, "My Contract!", 1, 3);
     assert_eq!(
         prefixed,
-        dotted
-            .join("out-My_Contract")
-            .to_string_lossy()
-            .to_string()
+        dotted.join("out-My_Contract").to_string_lossy().to_string()
     );
 
     // When the output base HAS an extension, preserve it and still ignore dots
@@ -58,7 +52,7 @@ fn storage_map_assigns_slots_and_names() {
     let metadata = ContractMetadata {
         name: "StorageExample".to_string(),
         is_abstract: false,
-            is_interface: false,
+        is_interface: false,
         is_library: false,
         methods: vec![],
         events: vec![],
@@ -189,7 +183,7 @@ fn standard_abi_includes_constructor_and_event() {
     let metadata = ContractMetadata {
         name: "Token".to_string(),
         is_abstract: false,
-            is_interface: false,
+        is_interface: false,
         is_library: false,
         methods: vec![constructor, regular],
         events: vec![EventMetadata {
@@ -200,11 +194,16 @@ fn standard_abi_includes_constructor_and_event() {
                     name: Some("to".to_string()),
                     ty: "address".to_string(),
                     indexed: true,
+                    neo_type: Some(NeoType::Address),
                 },
                 EventParameter {
                     name: Some("amount".to_string()),
                     ty: "uint256".to_string(),
                     indexed: false,
+                    neo_type: Some(NeoType::Integer {
+                        signed: false,
+                        bits: 256,
+                    }),
                 },
             ],
         }],

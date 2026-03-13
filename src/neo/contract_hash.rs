@@ -28,7 +28,10 @@ pub fn compute_contract_hash(sender_le: [u8; 20], nef_checksum: u32, name: &str)
 /// Returns the UInt160 in NeoVM byte order (little-endian 20 bytes).
 pub fn parse_uint160_hex_be(value: &str) -> Result<[u8; 20], String> {
     let trimmed = value.trim();
-    let without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+    let without_prefix = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
     if without_prefix.len() != 40 {
         return Err(format!(
             "expected 40 hex characters for UInt160 (got {})",

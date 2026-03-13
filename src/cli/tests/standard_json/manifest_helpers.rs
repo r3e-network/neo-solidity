@@ -87,6 +87,64 @@ fn standard_json_carries_features_and_permissions() {
 }
 
 #[test]
+fn standard_json_exposes_neo_method_map_for_overloads() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract OverloadedApi {
+        function foo(uint256 value) public pure returns (uint256) {
+            return value;
+        }
+
+        function foo(uint256 value, uint256 extra) public pure returns (uint256) {
+            return value + extra;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "OverloadedApi.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let method_map = &output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["methodMap"];
+    assert_eq!(method_map["foo(uint256)"], "foo(uint256)");
+    assert_eq!(method_map["foo(uint256,uint256)"], "foo(uint256,uint256)");
+}
+
+#[test]
 fn sanitize_contract_name_handles_invalid_chars() {
     assert_eq!(
         sanitize_contract_name("My Contract!").as_deref(),

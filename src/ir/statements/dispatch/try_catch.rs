@@ -11,7 +11,9 @@ fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
     }
 }
 
-fn catch_clause_param(clause: &solang_parser::pt::CatchClause) -> Option<&solang_parser::pt::Parameter> {
+fn catch_clause_param(
+    clause: &solang_parser::pt::CatchClause,
+) -> Option<&solang_parser::pt::Parameter> {
     match clause {
         solang_parser::pt::CatchClause::Simple(_, param, _) => param.as_ref(),
         solang_parser::pt::CatchClause::Named(_, _, param, _) => Some(param),
@@ -182,8 +184,9 @@ fn lower_try_statement(
 
             if let solang_parser::pt::CatchClause::Named(_, ident, _, _) = clause {
                 if ident.name == "Panic" {
-                    eprintln!(
-                        "warning: catch Panic(uint256) uses NeoVM stack-item integer checks; EVM panic code semantics do not fully apply on Neo N3"
+                    ctx.record_warning_with_suggestion(
+                        "catch Panic(uint256) uses NeoVM stack-item integer checks; EVM panic code semantics do not fully apply on Neo N3.",
+                        "Prefer catch (bytes memory reason) when you need portable exception handling across EVM and Neo.",
                     );
                 }
             }

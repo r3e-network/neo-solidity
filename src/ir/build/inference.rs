@@ -149,6 +149,21 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
             }
         }
         Expression::FunctionCall(_, func, args) if args.len() == 1 => {
+            if let Expression::MemberAccess(_, inner, member) = func.as_ref() {
+                if let Expression::Variable(base) = inner.as_ref() {
+                    match (base.name.as_str(), member.name.as_str()) {
+                        ("Syscalls", "scriptHashToAddress") => return Some(ValueType::Address),
+                        ("Syscalls", "addressToScriptHash") => {
+                            return Some(ValueType::ByteArray {
+                                fixed_len: Some(20),
+                            })
+                        }
+                        ("Syscalls", "isValidAddress") => return Some(ValueType::Boolean),
+                        _ => {}
+                    }
+                }
+            }
+
             // Contract/interface type-casts like `IPool(addr)` and namespace-qualified
             // imports like `NS.IPool(addr)` evaluate to an address-like value.
             if let Expression::Variable(type_id) = func.as_ref() {
@@ -173,23 +188,7 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
 
             None
         }
-        Expression::FunctionCall(_, func, _) => {
-            if let Expression::MemberAccess(_, inner, member) = func.as_ref() {
-                if let Expression::Variable(base) = inner.as_ref() {
-                    match (base.name.as_str(), member.name.as_str()) {
-                        ("Syscalls", "scriptHashToAddress") => return Some(ValueType::Address),
-                        ("Syscalls", "addressToScriptHash") => {
-                            return Some(ValueType::ByteArray {
-                                fixed_len: Some(20),
-                            })
-                        }
-                        ("Syscalls", "isValidAddress") => return Some(ValueType::Boolean),
-                        _ => {}
-                    }
-                }
-            }
-            None
-        }
+        Expression::FunctionCall(_, _, _) => None,
         Expression::ArrayLiteral(_, elements) => Some(ValueType::Array(Box::new(
             infer_literal_array_element_type(elements),
         ))),

@@ -1,9 +1,17 @@
 using System.Numerics;
+using System.Text;
 using Neo.SmartContract.Framework;
+using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
 using Neo.Sol.Runtime.ABI;
 using Neo.Sol.Runtime.Context;
+using Neo.Sol.Runtime.Crypto;
 using ExecutionContext = Neo.Sol.Runtime.Context.ExecutionContext;
+using NeoFrameworkCallFlags = Neo.SmartContract.Framework.Services.CallFlags;
+using NeoFrameworkContract = Neo.SmartContract.Framework.Services.Contract;
+using NeoFrameworkContractManagement = Neo.SmartContract.Framework.Native.ContractManagement;
+using NeoFrameworkGas = Neo.SmartContract.Framework.Native.GAS;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
 
 namespace Neo.Sol.Runtime.Calls;
 
@@ -15,7 +23,6 @@ public sealed class ExternalCallManager
 {
     private readonly ExecutionContext _context;
     private uint _callCount;
-    private const uint DEFAULT_GAS_LIMIT = 100000;
     
     public ExternalCallManager(ExecutionContext context)
     {
@@ -39,49 +46,7 @@ public sealed class ExternalCallManager
     /// <returns>Call result</returns>
     public CallResult Call(UInt160 target, BigInteger value, uint gasLimit, byte[] callData)
     {
-        try
-        {
-            // Validate target contract exists
-            if (!IsContractDeployed(target))
-            {
-                return CallResult.Failed("Target contract not deployed");
-            }
-            
-            // Transfer value if specified (GAS transfer in Neo)
-            if (value > 0)
-            {
-                var success = TransferGas(_context.Msg.Sender, target, value);
-                if (!success)
-                {
-                    return CallResult.Failed("Value transfer failed");
-                }
-            }
-            
-            // Prepare call context
-            var originalSender = _context.Msg.Sender;
-            var originalValue = _context.Msg.Value;
-            var originalData = _context.Msg.Data;
-            
-            // Update context for the call
-            _context.Msg.Sender = Runtime.ExecutingScriptHash; // Current contract becomes sender
-            _context.Msg.Value = value;
-            _context.Msg.Data = callData;
-            
-            // Execute the call
-            _callCount++;
-            var result = ExecuteCall(target, callData, gasLimit, CallType.Call);
-            
-            // Restore context
-            _context.Msg.Sender = originalSender;
-            _context.Msg.Value = originalValue;
-            _context.Msg.Data = originalData;
-            
-            return result;
-        }
-        catch (Exception ex)
-        {
-            return CallResult.Failed($"Call failed: {ex.Message}");
-        }
+        return ExecuteCall(target, value, gasLimit, callData, CallType.Call);
     }
     
     /// <summary>
@@ -93,25 +58,7 @@ public sealed class ExternalCallManager
     /// <returns>Call result</returns>
     public CallResult DelegateCall(UInt160 target, uint gasLimit, byte[] callData)
     {
-        try
-        {
-            // Validate target contract exists
-            if (!IsContractDeployed(target))
-            {
-                return CallResult.Failed("Target contract not deployed");
-            }
-            
-            // In delegatecall, context remains the same (no context switching)
-            // The target code runs in the caller's context
-            
-            _callCount++;
-            var result = ExecuteCall(target, callData, gasLimit, CallType.DelegateCall);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            return CallResult.Failed($"Delegate call failed: {ex.Message}");
-        }
+        return ExecuteCall(target, 0, gasLimit, callData, CallType.DelegateCall);
     }
     
     /// <summary>
@@ -123,23 +70,7 @@ public sealed class ExternalCallManager
     /// <returns>Call result</returns>
     public CallResult StaticCall(UInt160 target, uint gasLimit, byte[] callData)
     {
-        try
-        {
-            // Validate target contract exists
-            if (!IsContractDeployed(target))
-            {
-                return CallResult.Failed("Target contract not deployed");
-            }
-            
-            // Static calls cannot modify state
-            _callCount++;
-            var result = ExecuteCall(target, callData, gasLimit, CallType.StaticCall);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            return CallResult.Failed($"Static call failed: {ex.Message}");
-        }
+        return ExecuteCall(target, 0, gasLimit, callData, CallType.StaticCall);
     }
     
     /// <summary>
@@ -151,22 +82,12 @@ public sealed class ExternalCallManager
     /// <returns>Deployment result with new contract address</returns>
     public CreateResult Create(BigInteger value, byte[] initCode, uint gasLimit)
     {
-        try
-        {
-            // Calculate new contract address (deterministic based on sender and nonce)
-            var newAddress = CalculateCreateAddress(_context.Msg.Sender, _context.Tx.Nonce);
-            
-            // Deploy the contract
-            var deployResult = DeployContract(newAddress, initCode, value, gasLimit);
-            
-            return deployResult.Success 
-                ? CreateResult.Succeeded(newAddress, deployResult.ReturnData, deployResult.GasUsed)
-                : CreateResult.Failed(deployResult.Error, deployResult.GasUsed);
-        }
-        catch (Exception ex)
-        {
-            return CreateResult.Failed($"Contract creation failed: {ex.Message}");
-        }
+        _ = value;
+        _ = initCode;
+        _ = gasLimit;
+        return CreateResult.Failed(
+            "Contract creation is not supported by the optional Neo.Sol.Runtime shim"
+        );
     }
     
     /// <summary>
@@ -179,28 +100,13 @@ public sealed class ExternalCallManager
     /// <returns>Deployment result with new contract address</returns>
     public CreateResult Create2(BigInteger value, byte[] initCode, byte[] salt, uint gasLimit)
     {
-        try
-        {
-            // Calculate deterministic contract address using CREATE2 formula
-            var newAddress = CalculateCreate2Address(_context.Msg.Sender, salt, initCode);
-            
-            // Check if contract already exists at this address
-            if (IsContractDeployed(newAddress))
-            {
-                return CreateResult.Failed("Contract already exists at calculated address");
-            }
-            
-            // Deploy the contract
-            var deployResult = DeployContract(newAddress, initCode, value, gasLimit);
-            
-            return deployResult.Success 
-                ? CreateResult.Succeeded(newAddress, deployResult.ReturnData, deployResult.GasUsed)
-                : CreateResult.Failed(deployResult.Error, deployResult.GasUsed);
-        }
-        catch (Exception ex)
-        {
-            return CreateResult.Failed($"CREATE2 failed: {ex.Message}");
-        }
+        _ = value;
+        _ = initCode;
+        _ = salt;
+        _ = gasLimit;
+        return CreateResult.Failed(
+            "CREATE2 is not supported by the optional Neo.Sol.Runtime shim"
+        );
     }
     
     /// <summary>
@@ -211,144 +117,92 @@ public sealed class ExternalCallManager
     /// <param name="gasLimit">Gas limit</param>
     /// <param name="callType">Type of call</param>
     /// <returns>Call result</returns>
-    private CallResult ExecuteCall(UInt160 target, byte[] callData, uint gasLimit, CallType callType)
+    private CallResult ExecuteCall(
+        UInt160 target,
+        BigInteger value,
+        uint gasLimit,
+        byte[] callData,
+        CallType callType
+    )
     {
+        var originalSender = _context.Msg.Sender;
+        var originalValue = _context.Msg.Value;
+        var originalData = _context.Msg.Data;
+
         try
         {
-            // Extract function selector and parameters
+            if (!IsContractDeployed(target))
+            {
+                return CallResult.Failed("Target contract not deployed");
+            }
+
             if (callData.Length < 4)
             {
                 return CallResult.Failed("Invalid call data: too short");
             }
-            
+
+            if (callType == CallType.StaticCall && value > 0)
+            {
+                return CallResult.Failed("Static calls cannot transfer value");
+            }
+
+            if (callType == CallType.Call && value > 0 && !TransferGas(_context.Msg.Sender, target, value))
+            {
+                return CallResult.Failed("Value transfer failed");
+            }
+
             var selector = callData[..4];
             var parameters = callData.Length > 4 ? callData[4..] : Array.Empty<byte>();
-            
-            // Map to Neo contract call
-            // This is a simplified approach - actual implementation would need
-            // to understand the target contract's interface
             var methodName = GetMethodNameFromSelector(selector);
-            
-            object[] args = parameters.Length > 0 
-                ? new object[] { parameters } 
+            object[] args = parameters.Length > 0
+                ? new object[] { parameters }
                 : Array.Empty<object>();
-            
-            // Perform the call based on type
+
+            var frameworkTarget = ToFrameworkAddress(target);
+            var flags = callType switch
+            {
+                CallType.Call => NeoFrameworkCallFlags.All,
+                CallType.DelegateCall => NeoFrameworkCallFlags.ReadStates | NeoFrameworkCallFlags.WriteStates,
+                CallType.StaticCall => NeoFrameworkCallFlags.ReadOnly,
+                _ => NeoFrameworkCallFlags.All,
+            };
+
+            _context.Msg.Sender = NeoTypeConversions.ToCoreUInt160(NeoFrameworkRuntime.ExecutingScriptHash);
+            _context.Msg.Value = value;
+            _context.Msg.Data = callData;
+
             var result = callType switch
             {
-                CallType.Call => Contract.Call(target, methodName, CallFlags.All, args),
-                CallType.DelegateCall => Contract.Call(target, methodName, CallFlags.ReadStates | CallFlags.WriteStates, args),
-                CallType.StaticCall => Contract.Call(target, methodName, CallFlags.ReadOnly, args),
+                CallType.Call => NeoFrameworkContract.Call(frameworkTarget, methodName, flags, args),
+                CallType.DelegateCall => NeoFrameworkContract.Call(frameworkTarget, methodName, flags, args),
+                CallType.StaticCall => NeoFrameworkContract.Call(frameworkTarget, methodName, flags, args),
                 _ => throw new ArgumentException($"Unsupported call type: {callType}")
             };
-            
-            // Convert result to bytes
+
+            _callCount++;
             var returnData = result != null ? SerializeResult(result) : Array.Empty<byte>();
-            
             return CallResult.Succeeded(returnData, EstimateGasUsed(callData.Length));
         }
         catch (Exception ex)
         {
             return CallResult.Failed($"Execution failed: {ex.Message}");
         }
-    }
-    
-    /// <summary>
-    /// Deploy a new contract
-    /// </summary>
-    /// <param name="address">Contract address</param>
-    /// <param name="initCode">Initialization code</param>
-    /// <param name="value">Initial value</param>
-    /// <param name="gasLimit">Gas limit</param>
-    /// <returns>Deployment result</returns>
-    private CallResult DeployContract(UInt160 address, byte[] initCode, BigInteger value, uint gasLimit)
-    {
-        try
+        finally
         {
-            // Complete contract deployment implementation
-            
-            // 1. Validate init code
-            if (initCode == null || initCode.Length == 0)
-                return CallResult.Failed(Array.Empty<byte>(), gasUsed: 0, error: "Invalid init code");
-            
-            // 2. Calculate new contract address deterministically
-            var nonce = GetAccountNonce(sender);
-            var contractAddress = CalculateContractAddress(sender, nonce);
-            
-            // 3. Execute constructor with provided parameters
-            var constructorGas = gasLimit / 2;
-            var executionResult = ExecuteConstructor(initCode, contractAddress, constructorGas);
-            
-            if (!executionResult.Success)
-                return CallResult.Failed(Array.Empty<byte>(), constructorGas, executionResult.Error);
-            
-            // 4. Store contract code and initialize state
-            StoreContractCode(contractAddress, executionResult.ContractCode);
-            InitializeContractState(contractAddress, executionResult.InitialState);
-            
-            // 5. Update account nonce
-            IncrementAccountNonce(sender);
-            
-            return CallResult.Succeeded(contractAddress.ToArray(), gasLimit - constructorGas);
-        }
-        catch (Exception ex)
-        {
-            return CallResult.Failed($"Contract deployment failed: {ex.Message}");
+            _context.Msg.Sender = originalSender;
+            _context.Msg.Value = originalValue;
+            _context.Msg.Data = originalData;
         }
     }
-    
-    /// <summary>
-    /// Calculate CREATE address
-    /// </summary>
-    /// <param name="sender">Sender address</param>
-    /// <param name="nonce">Transaction nonce</param>
-    /// <returns>New contract address</returns>
-    private UInt160 CalculateCreateAddress(UInt160 sender, BigInteger nonce)
-    {
-        // CREATE address = keccak256(rlp([sender, nonce]))[12:]
-        // Simplified implementation
-        var senderBytes = sender.ToArray();
-        var nonceBytes = nonce.ToByteArray();
-        
-        var hash = CryptoLib.Keccak256(senderBytes, nonceBytes);
-        var addressBytes = new byte[20];
-        Array.Copy(hash, 12, addressBytes, 0, 20);
-        
-        return new UInt160(addressBytes);
-    }
-    
-    /// <summary>
-    /// Calculate CREATE2 address
-    /// </summary>
-    /// <param name="sender">Sender address</param>
-    /// <param name="salt">Salt value</param>
-    /// <param name="initCode">Init code</param>
-    /// <returns>New contract address</returns>
-    private UInt160 CalculateCreate2Address(UInt160 sender, byte[] salt, byte[] initCode)
-    {
-        // CREATE2 address = keccak256(0xff + sender + salt + keccak256(initCode))[12:]
-        var prefix = new byte[] { 0xff };
-        var senderBytes = sender.ToArray();
-        var initCodeHash = CryptoLib.Keccak256(initCode);
-        
-        var hash = CryptoLib.Keccak256(prefix, senderBytes, salt, initCodeHash);
-        var addressBytes = new byte[20];
-        Array.Copy(hash, 12, addressBytes, 0, 20);
-        
-        return new UInt160(addressBytes);
-    }
-    
-    /// <summary>
-    /// Check if contract is deployed at address
-    /// </summary>
-    /// <param name="address">Address to check</param>
-    /// <returns>True if contract exists</returns>
+
+    private static Neo.SmartContract.Framework.UInt160 ToFrameworkAddress(UInt160 address)
+        => (Neo.SmartContract.Framework.UInt160)NeoTypeConversions.ToByteArray(address);
+
     private static bool IsContractDeployed(UInt160 address)
     {
         try
         {
-            var manifest = Contract.GetCallFlags(address);
-            return manifest != CallFlags.None;
+            return NeoFrameworkContractManagement.GetContract(ToFrameworkAddress(address)) != null;
         }
         catch
         {
@@ -365,11 +219,19 @@ public sealed class ExternalCallManager
     /// <returns>True if successful</returns>
     private bool TransferGas(UInt160 from, UInt160 to, BigInteger amount)
     {
+        if (amount <= 0 || to == UInt160.Zero)
+        {
+            return false;
+        }
+
         try
         {
-            // This would need to interact with GAS token contract
-            // Simplified implementation
-            return true; // Assume success for now
+            return NeoFrameworkGas.Transfer(
+                ToFrameworkAddress(from),
+                ToFrameworkAddress(to),
+                amount,
+                null
+            );
         }
         catch
         {
@@ -384,9 +246,8 @@ public sealed class ExternalCallManager
     /// <returns>Method name</returns>
     private string GetMethodNameFromSelector(byte[] selector)
     {
-        // This is a placeholder - actual implementation would need
-        // a registry of function selectors to method names
-        return "invoke"; // Default method name
+        _ = selector;
+        return "invoke";
     }
     
     /// <summary>
@@ -400,12 +261,16 @@ public sealed class ExternalCallManager
         // to handle various Neo types and convert to ABI encoding
         if (result is byte[] bytes)
             return bytes;
+        if (result is ByteString byteString)
+            return (byte[])byteString;
         if (result is string str)
-            return System.Text.Encoding.UTF8.GetBytes(str);
+            return Encoding.UTF8.GetBytes(str);
         if (result is BigInteger bi)
             return AbiEncoder.EncodeUint256(bi);
+        if (result is bool boolean)
+            return AbiEncoder.EncodeUint256(boolean ? 1 : 0);
             
-        return Array.Empty<byte>();
+        return Encoding.UTF8.GetBytes(result.ToString() ?? string.Empty);
     }
     
     /// <summary>
@@ -417,84 +282,6 @@ public sealed class ExternalCallManager
     {
         // Simplified gas estimation
         return (uint)(21000 + dataSize * 16); // Base cost + data cost
-    }
-    
-    // Helper methods for production contract deployment
-    private uint GetAccountNonce(UInt160 account)
-    {
-        var key = StorageMap.CreateMap("account_nonce");
-        var nonceBytes = key.Get(account);
-        return nonceBytes != null ? (uint)nonceBytes.ToBigInteger() : 0;
-    }
-    
-    private void IncrementAccountNonce(UInt160 account)
-    {
-        var key = StorageMap.CreateMap("account_nonce");
-        var currentNonce = GetAccountNonce(account);
-        key.Put(account, currentNonce + 1);
-    }
-    
-    private UInt160 CalculateContractAddress(UInt160 sender, uint nonce)
-    {
-        var data = sender.ToArray().Concat(BitConverter.GetBytes(nonce)).ToArray();
-        var hash = CryptoLib.Hash160(data);
-        return new UInt160(hash);
-    }
-    
-    private (bool Success, byte[] ContractCode, byte[] InitialState, string Error) ExecuteConstructor(
-        byte[] initCode, UInt160 contractAddress, uint gasLimit)
-    {
-        try
-        {
-            // Execute initialization code
-            var engine = ApplicationEngine.Create(TriggerType.Application, null, null, gasLimit);
-            engine.LoadScript(initCode);
-            
-            var result = engine.Execute();
-            
-            if (result == VMState.HALT)
-            {
-                var contractCode = engine.ResultStack.Pop().GetSpan().ToArray();
-                var initialState = SerializeEngineState(engine);
-                
-                return (true, contractCode, initialState, null);
-            }
-            else
-            {
-                return (false, null, null, $"Constructor execution failed: {result}");
-            }
-        }
-        catch (Exception ex)
-        {
-            return (false, null, null, $"Constructor execution error: {ex.Message}");
-        }
-    }
-    
-    private void StoreContractCode(UInt160 address, byte[] code)
-    {
-        var key = StorageMap.CreateMap("contract_code");
-        key.Put(address, code);
-    }
-    
-    private void InitializeContractState(UInt160 address, byte[] state)
-    {
-        var key = StorageMap.CreateMap("contract_state");
-        key.Put(address, state);
-    }
-    
-    private byte[] SerializeEngineState(ApplicationEngine engine)
-    {
-        // Serialize engine state for contract initialization
-        var stateData = new List<byte>();
-        
-        // Add storage changes
-        foreach (var storageItem in engine.Snapshot.Storages)
-        {
-            stateData.AddRange(storageItem.Key.ToArray());
-            stateData.AddRange(storageItem.Value.ToArray());
-        }
-        
-        return stateData.ToArray();
     }
 }
 

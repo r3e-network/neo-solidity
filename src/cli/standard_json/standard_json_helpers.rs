@@ -32,6 +32,21 @@ fn build_contract_file_map(sources: &[(String, String, String)]) -> HashMap<Stri
     map
 }
 
+pub(crate) fn standard_json_manual_code(typ: &str) -> &'static str {
+    match typ {
+        "UnsupportedSettings" => "UNSUPPORTED_SETTINGS",
+        "MissingSourceContent" => "MISSING_SOURCE_CONTENT",
+        "NoContracts" => "NO_CONTRACTS",
+        "ContractNotFound" => "CONTRACT_NOT_FOUND",
+        "ImportParseError" => "IMPORT_PARSE_ERROR",
+        "UnsupportedImportPath" => "UNSUPPORTED_IMPORT_PATH",
+        "MissingImport" => "MISSING_IMPORT",
+        "NefSourceTruncated" => "NEF_SOURCE_TRUNCATED",
+        "StandardJsonOutput" => "STANDARD_JSON_OUTPUT_ERROR",
+        _ => "STANDARD_JSON_ERROR",
+    }
+}
+
 fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
     let unsupported_keys: Vec<_> = match settings {
         Value::Null => return None,
@@ -51,6 +66,7 @@ fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
             "component": "neo-solidity",
             "severity": "warning",
             "type": "UnsupportedSettings",
+            "code": standard_json_manual_code("UnsupportedSettings"),
             "formattedMessage": format!(
                 "Standard JSON settings contain unsupported keys: {:?}",
                 unsupported_keys
@@ -95,4 +111,3 @@ fn read_optimizer_level(settings: &Value) -> Option<u8> {
         _ => None,
     }
 }
-

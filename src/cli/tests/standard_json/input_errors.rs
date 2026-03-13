@@ -44,6 +44,10 @@ fn standard_json_reports_missing_content_error() {
         Value::String("MissingSourceContent".into())
     );
     assert_eq!(errors[0]["severity"], Value::String("error".into()));
+    assert_eq!(
+        errors[0]["code"],
+        Value::String("MISSING_SOURCE_CONTENT".into())
+    );
 }
 
 #[test]
@@ -130,6 +134,7 @@ fn standard_json_reports_no_contracts() {
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["type"], Value::String("NoContracts".into()));
     assert_eq!(errors[0]["severity"], Value::String("error".into()));
+    assert_eq!(errors[0]["code"], Value::String("NO_CONTRACTS".into()));
 }
 
 #[test]
@@ -184,9 +189,10 @@ fn standard_json_reports_missing_import_error() {
 
     let errors = output["errors"].as_array().expect("errors array expected");
     assert!(
-        errors
-            .iter()
-            .any(|e| e.get("type").and_then(Value::as_str) == Some("MissingImport")),
+        errors.iter().any(|e| {
+            e.get("type").and_then(Value::as_str) == Some("MissingImport")
+                && e["code"] == "MISSING_IMPORT"
+        }),
         "expected MissingImport error"
     );
 }
@@ -268,6 +274,187 @@ fn standard_json_accepts_import_aliasing_for_dependency_resolution() {
         output["contracts"]["A.sol"]["A"].is_object(),
         "expected compiled contract artifact for A.sol/A"
     );
+}
+
+#[test]
+fn standard_json_ir_errors_preserve_code_and_suggestion() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract C {
+        function f() public pure returns (bytes4) {
+            return msg.sig;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "C.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should surface errors but not fail");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().expect("errors array expected");
+    let error = errors
+        .iter()
+        .find(|err| err["type"] == "IrGeneration")
+        .expect("IR generation error");
+
+    assert_eq!(error["code"], "IR_GENERATION_ERROR");
+    assert!(
+        error["suggestion"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("method identification"),
+        "expected IR suggestion to be preserved: {error:?}"
+    );
+}
+
+#[test]
+fn standard_json_manifest_errors_include_code() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract FullyDynamicCalls {
+        function callAny(address target, string memory method) public returns (bytes memory) {
+            return Syscalls.contractCall(target, method, abi.encode());
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "C.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should surface errors but not fail");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().expect("errors array expected");
+    let error = errors
+        .iter()
+        .find(|err| err["type"] == "ManifestGeneration")
+        .expect("manifest generation error");
+
+    assert_eq!(error["code"], "MANIFEST_GENERATION_ERROR");
+}
+
+#[test]
+fn standard_json_generic_errors_include_code() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract Broken {
+        function f( public pure returns (uint256) {
+            return 1;
+       
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "Broken.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should surface errors but not fail");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let errors = output["errors"].as_array().expect("errors array expected");
+    let error = errors
+        .iter()
+        .find(|err| err["type"] == "Generic")
+        .expect("generic error");
+
+    assert_eq!(error["code"], "GENERIC_ERROR");
 }
 
 #[test]

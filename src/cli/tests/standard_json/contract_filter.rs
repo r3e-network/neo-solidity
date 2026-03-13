@@ -102,10 +102,10 @@ fn standard_json_reports_contract_not_found_when_filter_matches_none() {
 
     let errors = output["errors"].as_array().expect("errors array expected");
     assert!(
-        errors
-            .iter()
-            .any(|err| err.get("type").and_then(Value::as_str) == Some("ContractNotFound")),
+        errors.iter().any(|err| {
+            err.get("type").and_then(Value::as_str) == Some("ContractNotFound")
+                && err["code"] == "CONTRACT_NOT_FOUND"
+        }),
         "expected ContractNotFound error"
     );
 }
-

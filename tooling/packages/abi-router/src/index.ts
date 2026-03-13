@@ -3,6 +3,7 @@
  */
 
 export * from './abi-router';
+export * from './abi-compatibility';
 export * from './contract-wrapper';
 export * from './rpc-adapter';
 export * from './transaction-builder';

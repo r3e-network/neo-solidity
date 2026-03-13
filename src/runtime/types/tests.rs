@@ -29,6 +29,11 @@ fn test_address_rejects_invalid_hex() {
 }
 
 #[test]
+fn test_address_rejects_odd_length_hex() {
+    assert!(Address::new("0x123456789012345678901234567890123456789".to_string()).is_err());
+}
+
+#[test]
 fn test_gas_operations() {
     let gas1 = Gas::new(1000);
     let gas2 = Gas::new(500);
@@ -122,4 +127,11 @@ fn test_hash_types() {
 fn test_hash_types_reject_invalid_hex() {
     assert!(TransactionHash::new("0xhello".to_string()).is_err());
     assert!(BlockHash::new("0xxy".to_string()).is_err());
+}
+
+#[test]
+fn test_hash_types_reject_odd_length_hex() {
+    assert!(TransactionHash::new("0xabc".to_string()).is_err());
+    assert!(BlockHash::new("0Xabc".to_string()).is_err());
+    assert!(BlockHash::new("abc".to_string()).is_err());
 }

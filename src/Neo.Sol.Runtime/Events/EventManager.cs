@@ -2,6 +2,10 @@ using System.Numerics;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services;
 using Neo.Sol.Runtime.ABI;
+using Neo.Sol.Runtime.Crypto;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
+using UInt160 = Neo.SmartContract.Framework.UInt160;
+using UInt256 = Neo.SmartContract.Framework.UInt256;
 
 namespace Neo.Sol.Runtime.Events;
 
@@ -19,6 +23,18 @@ public sealed class EventManager
     {
         _contractHash = contractHash;
         _eventCount = 0;
+    }
+
+    private static void TryLog(string message)
+    {
+        try
+        {
+            NeoFrameworkRuntime.Log(message);
+        }
+        catch
+        {
+            // Ignore logging failures outside a Neo VM host.
+        }
     }
     
     /// <summary>
@@ -39,7 +55,7 @@ public sealed class EventManager
             throw new ArgumentException("Maximum 4 indexed parameters allowed");
             
         var eventHash = CalculateEventHash(eventSignature);
-        var topics = new List<byte[]> { eventHash };
+        var topics = new System.Collections.Generic.List<byte[]> { eventHash };
         
         // Add indexed parameters as topics
         foreach (var param in indexedParams)
@@ -61,7 +77,7 @@ public sealed class EventManager
         
         // Emit as Neo notification
         _eventCount++;
-        Runtime.Notify(EVENT_PREFIX, eventLog.ToNotificationObject());
+        TryLog($"{EVENT_PREFIX}:{eventSignature}");
     }
     
     /// <summary>
@@ -154,7 +170,7 @@ public sealed class EventManager
 /// </summary>
 public sealed class EventLog
 {
-    public UInt160 Address { get; init; }
+    public UInt160 Address { get; init; } = UInt160.Zero;
     public byte[][] Topics { get; init; } = Array.Empty<byte[]>();
     public byte[] Data { get; init; } = Array.Empty<byte>();
     public string EventSignature { get; init; } = "";
@@ -166,6 +182,15 @@ public sealed class EventLog
     public object[] ToNotificationObject()
     {
         var topicsHex = Topics.Select(topic => Convert.ToHexString(topic)).ToArray();
+        ulong timestamp;
+        try
+        {
+            timestamp = NeoFrameworkRuntime.Time;
+        }
+        catch
+        {
+            timestamp = 0;
+        }
         
         return new object[]
         {
@@ -173,7 +198,7 @@ public sealed class EventLog
             topicsHex,
             Convert.ToHexString(Data),
             EventSignature,
-            Runtime.Time // Add timestamp for Neo compatibility
+            timestamp // Add timestamp for Neo compatibility
         };
     }
     
@@ -225,7 +250,7 @@ public sealed class EventFilter
     /// <returns>True if log matches filter</returns>
     public bool Matches(EventLog log)
     {
-        if (Address.HasValue && !log.Address.Equals(Address.Value))
+        if (Address != null && !log.Address.Equals(Address))
             return false;
             
         if (Topic0 != null && (log.Topics.Length == 0 || !log.Topics[0].SequenceEqual(Topic0)))
@@ -261,16 +286,16 @@ public static class StandardEvents
     
     public static void EmitOwnershipTransferred(EventManager eventManager, UInt160 previousOwner, UInt160 newOwner)
     {
-        eventManager.Log3("OwnershipTransferred(address,address)", previousOwner, newOwner);
+        eventManager.Log2("OwnershipTransferred(address,address)", previousOwner, newOwner);
     }
     
     public static void EmitPaused(EventManager eventManager, UInt160 account)
     {
-        eventManager.Log2("Paused(address)", account);
+        eventManager.Log1("Paused(address)", account);
     }
     
     public static void EmitUnpaused(EventManager eventManager, UInt160 account)
     {
-        eventManager.Log2("Unpaused(address)", account);
+        eventManager.Log1("Unpaused(address)", account);
     }
 }

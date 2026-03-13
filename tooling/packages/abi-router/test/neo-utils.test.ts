@@ -4,8 +4,8 @@ import {
   evmAddressToNeoHash160,
   neoHash160ToEvmAddress,
   neoBytesToEvmAddress,
+  neoScriptHashToAddress,
 } from "../src/neo-utils";
-import { wallet } from "@cityofzion/neon-js";
 
 describe("neo-utils", () => {
   it("decodes ByteString as base64 or hex", () => {
@@ -21,7 +21,7 @@ describe("neo-utils", () => {
 
   it("accepts base58 addresses and returns Neo Hash160", () => {
     const scriptHash = "d2a4cff31913016155e38e474a2c06d08be276cf";
-    const address = wallet.getAddressFromScriptHash(scriptHash);
+    const address = neoScriptHashToAddress("0x" + scriptHash);
     expect(evmAddressToNeoHash160(address)).toBe("0x" + scriptHash);
   });
 
@@ -39,4 +39,3 @@ describe("neo-utils", () => {
     );
   });
 });
-

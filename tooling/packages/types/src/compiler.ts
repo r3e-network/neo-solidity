@@ -117,6 +117,10 @@ export interface CompiledContract {
       trusts: any[];
       extra: any;
     };
+    /** Solidity signature -> Neo invocation name map for exported methods */
+    methodMap?: {
+      [signature: string]: string;
+    };
     /** Storage layout for Neo storage */
     storageMap: {
       [key: string]: {

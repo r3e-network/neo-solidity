@@ -6,6 +6,7 @@ export * from './artifacts';
 export * from './abi';
 export * from './cli';
 export * from './templates';
+export * from './neo';
 
 // Namespaced modules expose specialized type groups without polluting the global namespace
 export * as debuggerTypes from './debugger';

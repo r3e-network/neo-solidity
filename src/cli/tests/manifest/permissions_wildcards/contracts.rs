@@ -273,6 +273,204 @@ fn manifest_permissions_replace_wildcards_allows_deny_wildcard_contracts() {
 }
 
 #[test]
+fn branch_selected_known_targets_do_not_require_wildcard_contract_permissions() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract BranchSelectedTargets {
+        function callEither(bool useGas, address account) public returns (bytes memory) {
+            address target;
+            if (useGas) {
+                target = NativeCalls.GAS_CONTRACT;
+            } else {
+                target = NativeCalls.NEO_CONTRACT;
+            }
+            return Syscalls.contractCall(target, "balanceOf", abi.encode(account));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
+
+    let neo_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Neo);
+    let neo_hash_be: Vec<u8> = neo_hash_le.iter().rev().copied().collect();
+    let neo_contract = Value::String(format!("0x{}", hex::encode(neo_hash_be)));
+
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == gas_contract
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "balanceOf"))
+        }),
+        "expected explicit GAS permission"
+    );
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == neo_contract
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "balanceOf"))
+        }),
+        "expected explicit NEO permission"
+    );
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into())),
+        "branch-selected known targets should not require wildcard contract permissions"
+    );
+}
+
+#[test]
+fn correlated_branch_selected_target_and_method_do_not_cross_product_permissions() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract CorrelatedTargetAndMethod {
+        function callEither(bool useGas) public returns (bytes memory) {
+            address target;
+            string memory method;
+            if (useGas) {
+                target = NativeCalls.GAS_CONTRACT;
+                method = "totalSupply";
+            } else {
+                target = NativeCalls.NEO_CONTRACT;
+                method = "getCommittee";
+            }
+            return Syscalls.contractCall(target, method, abi.encode());
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Gas);
+    let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
+    let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
+
+    let neo_hash_le = super::bytecode::native_contract_hash(neo_solidity::ir::NativeContract::Neo);
+    let neo_hash_be: Vec<u8> = neo_hash_le.iter().rev().copied().collect();
+    let neo_contract = Value::String(format!("0x{}", hex::encode(neo_hash_be)));
+
+    let gas_entry = permissions
+        .iter()
+        .find(|entry| entry["contract"] == gas_contract)
+        .expect("gas permission entry");
+    let neo_entry = permissions
+        .iter()
+        .find(|entry| entry["contract"] == neo_contract)
+        .expect("neo permission entry");
+
+    let gas_methods = gas_entry["methods"].as_array().expect("gas methods array");
+    let neo_methods = neo_entry["methods"].as_array().expect("neo methods array");
+
+    assert!(gas_methods.iter().any(|method| method == "totalSupply"));
+    assert!(!gas_methods.iter().any(|method| method == "getCommittee"));
+    assert!(neo_methods.iter().any(|method| method == "getCommittee"));
+    assert!(!neo_methods.iter().any(|method| method == "totalSupply"));
+}
+
+#[test]
+fn natspec_manifest_permissions_replace_dynamic_wildcards_under_strict_flags() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    /**
+     * @custom:neo.manifest.permissions [
+     *   {"contract":"0xd2a4cff31913016155e38e474a2c06d08be276cf","methods":["balanceOf"]}
+     * ]
+     */
+    contract DynamicPermissionOverride {
+        function callAny(address target, string memory method, address account) public returns (bytes memory) {
+            return Syscalls.contractCall(target, method, abi.encode(account));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts_with_options(
+        source,
+        false,
+        CompileOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: true,
+            deny_wildcard_contracts: true,
+            deny_wildcard_methods: true,
+            manifest_permissions: None,
+        },
+    )
+    .expect("expected NatSpec permissions override to satisfy strict flags");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    let gas_contract = Value::String("0xd2a4cff31913016155e38e474a2c06d08be276cf".into());
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == gas_contract
+                && entry["methods"]
+                    .as_array()
+                    .is_some_and(|methods| methods.iter().any(|m| m == "balanceOf"))
+        }),
+        "expected explicit NatSpec allowlist entry"
+    );
+    assert!(
+        permissions
+            .iter()
+            .all(|entry| entry["contract"] != Value::String("*".into()) && entry["methods"] != "*"),
+        "expected NatSpec override to remove wildcard permissions"
+    );
+}
+
+#[test]
+fn natspec_manifest_permissions_mode_merge_preserves_wildcards() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    /**
+     * @custom:neo.manifest.permissions [{"contract":"0xd2a4cff31913016155e38e474a2c06d08be276cf","methods":["balanceOf"]}]
+     * @custom:neo.manifest.permissionsmode "merge"
+     */
+    contract DynamicPermissionMerge {
+        function callAny(address target, string memory method, address account) public returns (bytes memory) {
+            return Syscalls.contractCall(target, method, abi.encode(account));
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+
+    let permissions = artifacts[0].manifest["permissions"]
+        .as_array()
+        .expect("permissions array");
+
+    assert!(
+        permissions.iter().any(|entry| {
+            entry["contract"] == Value::String("*".into()) && entry["methods"] == "*"
+        }),
+        "merge mode should preserve inferred wildcard permissions"
+    );
+}
+
+#[test]
 fn address_constants_in_contract_calls_infer_explicit_contract_permissions() {
     let source = r#"
     pragma solidity ^0.8.19;

@@ -9,10 +9,14 @@ impl CompileError {
                 .into_iter()
                 .map(|diag| {
                     let formatted = diag.display();
+                    let code = diag
+                        .code
+                        .unwrap_or_else(|| "IR_GENERATION_ERROR".to_string());
                     let mut obj = json!({
                         "component": "neo-solidity",
                         "severity": "error",
                         "type": "IrGeneration",
+                        "code": code,
                         "sourceLocation": { "file": file },
                         "formattedMessage": formatted,
                         "message": diag.message,
@@ -21,9 +25,6 @@ impl CompileError {
                     if let Some(suggestion) = &diag.suggestion {
                         obj["suggestion"] = json!(suggestion);
                     }
-                    if let Some(code) = &diag.code {
-                        obj["errorCode"] = json!(code);
-                    }
                     obj
                 })
                 .collect(),
@@ -31,6 +32,7 @@ impl CompileError {
                 "component": "neo-solidity",
                 "severity": "error",
                 "type": "ManifestGeneration",
+                "code": "MANIFEST_GENERATION_ERROR",
                 "sourceLocation": { "file": file },
                 "formattedMessage": message,
                 "message": message,
@@ -39,6 +41,7 @@ impl CompileError {
                 "component": "neo-solidity",
                 "severity": "error",
                 "type": "Generic",
+                "code": "GENERIC_ERROR",
                 "sourceLocation": { "file": file },
                 "formattedMessage": message,
                 "message": message,

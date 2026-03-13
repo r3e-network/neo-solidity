@@ -1,5 +1,7 @@
 impl Module {
-    pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<IrDiagnostic>> {
+    pub fn from_contract_with_warnings(
+        metadata: &ContractMetadata,
+    ) -> Result<(Self, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
         let state_variables: Vec<StateVariable> = metadata
             .state_variables
             .iter()
@@ -63,7 +65,8 @@ impl Module {
             let key = (method.name.clone(), method.parameters.len());
             function_overloads.insert(key.clone(), method.neo_name.clone());
             if let Some(first_param) = method.parameters.first() {
-                function_first_param_types.insert(key.clone(), ValueType::from_parameter(first_param));
+                function_first_param_types
+                    .insert(key.clone(), ValueType::from_parameter(first_param));
             }
             let param_names: Vec<String> = method
                 .parameters
@@ -98,13 +101,17 @@ impl Module {
             }
         }
 
-        let defined_struct_types =
-            build_defined_struct_types(&metadata.structs, &metadata.enums, &metadata.contract_types);
+        let defined_struct_types = build_defined_struct_types(
+            &metadata.structs,
+            &metadata.enums,
+            &metadata.contract_types,
+        );
 
         let mut functions = Vec::new();
         let mut constructor_indices = Vec::new();
         let mut deploy_metadata: Option<&FunctionMetadata> = None;
         let mut errors = Vec::new();
+        let mut warnings = Vec::new();
 
         for method in &metadata.methods {
             if method.name == "_deploy" {
@@ -112,7 +119,7 @@ impl Module {
                 continue;
             }
 
-            match Function::from_metadata(
+            match Function::from_metadata_with_warnings(
                 method,
                 &metadata.state_variables,
                 &state_index_map,
@@ -133,11 +140,12 @@ impl Module {
                 &void_functions,
                 &metadata.super_method_map,
             ) {
-                Ok(function) => {
+                Ok((function, mut function_warnings)) => {
                     if matches!(function.kind, FunctionKind::Constructor) {
                         constructor_indices.push(functions.len());
                     }
                     functions.push(function);
+                    warnings.append(&mut function_warnings);
                 }
                 Err(mut errs) => errors.append(&mut errs),
             }
@@ -149,7 +157,7 @@ impl Module {
                 .map(|index| &functions[*index])
                 .collect();
 
-            match build_deploy_function(
+            match build_deploy_function_with_warnings(
                 deploy_metadata,
                 &constructors,
                 &metadata.state_variables,
@@ -171,7 +179,10 @@ impl Module {
                 &void_functions,
                 &metadata.super_method_map,
             ) {
-                Ok(function) => functions.push(function),
+                Ok((function, mut deploy_warnings)) => {
+                    functions.push(function);
+                    warnings.append(&mut deploy_warnings);
+                }
                 Err(mut errs) => errors.append(&mut errs),
             }
         }
@@ -184,10 +195,17 @@ impl Module {
             return Err(errors);
         }
 
-        Ok(Module {
-            functions,
-            state_variables,
-            events,
-        })
+        Ok((
+            Module {
+                functions,
+                state_variables,
+                events,
+            },
+            warnings,
+        ))
+    }
+
+    pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<IrDiagnostic>> {
+        Self::from_contract_with_warnings(metadata).map(|(module, _warnings)| module)
     }
 }

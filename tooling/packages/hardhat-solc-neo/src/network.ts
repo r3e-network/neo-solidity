@@ -137,7 +137,7 @@ export class NetworkManager extends EventEmitter {
         chainId: Number(network.chainId),
         gasPrice: feeData.gasPrice?.toString() || '0'
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         connected: false,
         blockNumber: 0,
@@ -154,7 +154,7 @@ export class NetworkManager extends EventEmitter {
       try {
         await this.connectToNetwork(networkName);
         return;
-      } catch (error) {
+      } catch (_error) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }

@@ -187,3 +187,13 @@ fn uint160_hex_parsing_roundtrips_big_endian_string() {
     let parsed = parse_uint160_hex_be(input).expect("parse uint160");
     assert_eq!(format_uint160_hex_be(&parsed), input);
 }
+
+#[test]
+fn uint160_hex_parsing_accepts_uppercase_prefix() {
+    let input = "0X0102030405060708090a0b0c0d0e0f1011121314";
+    let parsed = parse_uint160_hex_be(input).expect("parse uint160");
+    assert_eq!(
+        format_uint160_hex_be(&parsed),
+        "0x0102030405060708090a0b0c0d0e0f1011121314"
+    );
+}

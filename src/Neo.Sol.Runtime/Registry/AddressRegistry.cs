@@ -2,6 +2,10 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services;
+using Neo.Sol.Runtime;
+using Neo.Sol.Runtime.Crypto;
+using NeoFrameworkRuntime = Neo.SmartContract.Framework.Services.Runtime;
+using NeoFrameworkStorage = Neo.SmartContract.Framework.Services.Storage;
 
 namespace Neo.Sol.Runtime.Registry;
 
@@ -24,6 +28,18 @@ public sealed class AddressRegistry
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
+
+    private static void TryLog(string message)
+    {
+        try
+        {
+            NeoFrameworkRuntime.Log(message);
+        }
+        catch
+        {
+            // Ignore logging failures outside a Neo VM host.
+        }
+    }
     
     /// <summary>
     /// Register a new contract in the registry
@@ -37,11 +53,11 @@ public sealed class AddressRegistry
         var key = CreateStorageKey(CONTRACT_INFO_PREFIX, address);
         var serializedInfo = SerializeContractInfo(info);
         
-        Storage.Put(_context, key, serializedInfo);
+        NeoFrameworkStorage.Put(_context, key, serializedInfo);
         _cache[address] = info;
         
         // Emit registration event
-        Runtime.Notify("ContractRegistered", address, info.Name, info.Version);
+        TryLog($"ContractRegistered:{info.Name}:{info.Version}");
     }
     
     /// <summary>
@@ -56,11 +72,11 @@ public sealed class AddressRegistry
             return cachedInfo;
             
         var key = CreateStorageKey(CONTRACT_INFO_PREFIX, address);
-        var data = Storage.Get(_context, key);
+        var data = NeoFrameworkStorage.Get(_context, key);
         
         if (data == null) return null;
         
-        var info = DeserializeContractInfo(data);
+        var info = DeserializeContractInfo((byte[])data);
         _cache[address] = info;
         return info;
     }
@@ -91,14 +107,14 @@ public sealed class AddressRegistry
         
         if (isSupported)
         {
-            Storage.Put(_context, key, new byte[] { 1 });
+            NeoFrameworkStorage.Put(_context, key, new byte[] { 1 });
         }
         else
         {
-            Storage.Delete(_context, key);
+            NeoFrameworkStorage.Delete(_context, key);
         }
         
-        Runtime.Notify("InterfaceRegistered", contractAddress, interfaceId, isSupported);
+        TryLog($"InterfaceRegistered:{contractAddress}");
     }
     
     /// <summary>
@@ -110,7 +126,7 @@ public sealed class AddressRegistry
     public bool SupportsInterface(UInt160 contractAddress, byte[] interfaceId)
     {
         var key = CreateInterfaceKey(contractAddress, interfaceId);
-        var data = Storage.Get(_context, key);
+        var data = NeoFrameworkStorage.Get(_context, key);
         return data != null && data.Length > 0 && data[0] == 1;
     }
     
@@ -140,18 +156,18 @@ public sealed class AddressRegistry
             Name = name,
             Address = address,
             Owner = owner,
-            RegisteredAt = Runtime.Time,
-            ExpiresAt = Runtime.Time + (365 * 24 * 60 * 60 * 1000), // 1 year
+            RegisteredAt = NeoFrameworkRuntime.Time,
+            ExpiresAt = NeoFrameworkRuntime.Time + 365UL * 24 * 60 * 60 * 1000, // 1 year
             IsActive = true
         };
         
-        Storage.Put(_context, key, SerializeNameRecord(record));
+        NeoFrameworkStorage.Put(_context, key, SerializeNameRecord(record));
         
         // Create reverse mapping
         var reverseKey = CreateStorageKey(ADDRESS_MAPPING_PREFIX, address);
-        Storage.Put(_context, reverseKey, System.Text.Encoding.UTF8.GetBytes(name));
+        NeoFrameworkStorage.Put(_context, reverseKey, System.Text.Encoding.UTF8.GetBytes(name));
         
-        Runtime.Notify("NameRegistered", name, address, owner);
+        TryLog($"NameRegistered:{name}");
     }
     
     /// <summary>
@@ -163,14 +179,14 @@ public sealed class AddressRegistry
     {
         var nameHash = CalculateNameHash(name);
         var key = CreateStorageKey(ENS_REGISTRY_PREFIX, nameHash);
-        var data = Storage.Get(_context, key);
+        var data = NeoFrameworkStorage.Get(_context, key);
         
         if (data == null) return UInt160.Zero;
         
-        var record = DeserializeNameRecord(data);
+        var record = DeserializeNameRecord((byte[])data);
         
         // Check if record is still valid
-        if (!record.IsActive || Runtime.Time > record.ExpiresAt)
+        if (!record.IsActive || NeoFrameworkRuntime.Time > record.ExpiresAt)
             return UInt160.Zero;
             
         return record.Address;
@@ -184,9 +200,9 @@ public sealed class AddressRegistry
     public string GetAddressName(UInt160 address)
     {
         var key = CreateStorageKey(ADDRESS_MAPPING_PREFIX, address);
-        var data = Storage.Get(_context, key);
+        var data = NeoFrameworkStorage.Get(_context, key);
         
-        return data != null ? System.Text.Encoding.UTF8.GetString(data) : "";
+        return data != null ? System.Text.Encoding.UTF8.GetString((byte[])data) : "";
     }
     
     /// <summary>
@@ -206,11 +222,11 @@ public sealed class AddressRegistry
             throw new UnauthorizedAccessException("Not authorized to update contract");
             
         info.IsActive = isActive;
-        info.UpdatedAt = Runtime.Time;
+        info.UpdatedAt = NeoFrameworkRuntime.Time;
         
         RegisterContract(address, info);
         
-        Runtime.Notify("ContractStatusUpdated", address, isActive, updater);
+        TryLog($"ContractStatusUpdated:{address}:{isActive}");
     }
     
     /// <summary>
@@ -222,7 +238,7 @@ public sealed class AddressRegistry
     {
         ValidateInterfaceId(interfaceId);
         
-        var contracts = new List<UInt160>();
+        var contracts = new System.Collections.Generic.List<UInt160>();
         
         try
         {
@@ -233,12 +249,13 @@ public sealed class AddressRegistry
             Array.Copy(interfaceId, 0, prefixKey, 1, interfaceId.Length);
             
             // Use Neo storage iterator to find all contracts supporting this interface
-            var iterator = Storage.Find(_context, prefixKey, FindOptions.None);
+            var iterator = NeoFrameworkStorage.Find(_context, prefixKey, FindOptions.None);
             
             while (iterator.Next())
             {
-                var key = iterator.Key;
-                var value = iterator.Value;
+                var entry = (object[])iterator.Value;
+                var key = (byte[])entry[0];
+                var value = (byte[])entry[1];
                 
                 // Verify this is a valid interface registration
                 if (key.Length == 1 + interfaceId.Length + 20 && 
@@ -265,7 +282,7 @@ public sealed class AddressRegistry
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error getting contracts by interface {Convert.ToHexString(interfaceId)}: {ex.Message}");
+            TryLog($"Error getting contracts by interface {Convert.ToHexString(interfaceId)}: {ex.Message}");
             return Array.Empty<UInt160>();
         }
     }
@@ -288,11 +305,11 @@ public sealed class AddressRegistry
                 RegisterContract(registration.Address, registration.Info);
             }
             
-            Runtime.Notify("BatchContractsRegistered", registrationList.Count, Runtime.Time);
+            TryLog($"BatchContractsRegistered:{registrationList.Count}:{NeoFrameworkRuntime.Time}");
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error in batch registration: {ex.Message}");
+            TryLog($"Error in batch registration: {ex.Message}");
             throw;
         }
     }
@@ -318,7 +335,7 @@ public sealed class AddressRegistry
     {
         var key = new byte[21];
         key[0] = prefix;
-        Array.Copy(address.ToArray(), 0, key, 1, 20);
+        Array.Copy(NeoTypeConversions.ToByteArray(address), 0, key, 1, 20);
         return key;
     }
     
@@ -332,7 +349,7 @@ public sealed class AddressRegistry
     
     private byte[] CreateInterfaceKey(UInt160 contractAddress, byte[] interfaceId)
     {
-        var addressBytes = contractAddress.ToArray();
+        var addressBytes = NeoTypeConversions.ToByteArray(contractAddress);
         var key = new byte[1 + interfaceId.Length + addressBytes.Length];
         key[0] = INTERFACE_REGISTRY_PREFIX;
         Array.Copy(interfaceId, 0, key, 1, interfaceId.Length);
@@ -355,11 +372,11 @@ public sealed class AddressRegistry
             // Name is already registered, check if caller is the owner
             var nameHash = CalculateNameHash(name);
             var key = CreateStorageKey(ENS_REGISTRY_PREFIX, nameHash);
-            var data = Storage.Get(_context, key);
+            var data = NeoFrameworkStorage.Get(_context, key);
             
             if (data != null)
             {
-                var record = DeserializeNameRecord(data);
+                var record = DeserializeNameRecord((byte[])data);
                 return record.Owner.Equals(owner);
             }
         }
@@ -406,13 +423,13 @@ public sealed class AddressRegistry
             var contractPrefix = new byte[] { CONTRACT_INFO_PREFIX };
             
             // Use Neo storage iterator to count registered contracts
-            var iterator = Storage.Find(_context, contractPrefix, FindOptions.None);
+            var iterator = NeoFrameworkStorage.Find(_context, contractPrefix, FindOptions.None);
             
             while (iterator.Next())
             {
-                var value = iterator.Value;
+                var value = (byte[])((object[])iterator.Value)[1];
                 
-                if (value != null && value.Length > 0)
+                if (value.Length > 0)
                 {
                     try
                     {
@@ -431,7 +448,7 @@ public sealed class AddressRegistry
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error counting registered contracts: {ex.Message}");
+            TryLog($"Error counting registered contracts: {ex.Message}");
             // Fallback to cache count
             return (uint)_cache.Count;
         }
@@ -447,13 +464,13 @@ public sealed class AddressRegistry
             var contractPrefix = new byte[] { CONTRACT_INFO_PREFIX };
             
             // Use Neo storage iterator to count active contracts
-            var iterator = Storage.Find(_context, contractPrefix, FindOptions.None);
+            var iterator = NeoFrameworkStorage.Find(_context, contractPrefix, FindOptions.None);
             
             while (iterator.Next())
             {
-                var value = iterator.Value;
+                var value = (byte[])((object[])iterator.Value)[1];
                 
-                if (value != null && value.Length > 0)
+                if (value.Length > 0)
                 {
                     try
                     {
@@ -475,7 +492,7 @@ public sealed class AddressRegistry
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error counting active contracts: {ex.Message}");
+            TryLog($"Error counting active contracts: {ex.Message}");
             // Fallback to cache count
             return (uint)_cache.Values.Count(c => c.IsActive);
         }
@@ -491,20 +508,20 @@ public sealed class AddressRegistry
             var namePrefix = new byte[] { ENS_REGISTRY_PREFIX };
             
             // Use Neo storage iterator to count active name registrations
-            var iterator = Storage.Find(_context, namePrefix, FindOptions.None);
+            var iterator = NeoFrameworkStorage.Find(_context, namePrefix, FindOptions.None);
             
             while (iterator.Next())
             {
-                var value = iterator.Value;
+                var value = (byte[])((object[])iterator.Value)[1];
                 
-                if (value != null && value.Length > 0)
+                if (value.Length > 0)
                 {
                     try
                     {
                         var record = DeserializeNameRecord(value);
                         
                         // Only count active, non-expired names
-                        if (record.IsActive && Runtime.Time <= record.ExpiresAt)
+                        if (record.IsActive && NeoFrameworkRuntime.Time <= record.ExpiresAt)
                         {
                             count++;
                         }
@@ -521,7 +538,7 @@ public sealed class AddressRegistry
         }
         catch (Exception ex)
         {
-            Runtime.Log($"Error counting registered names: {ex.Message}");
+            TryLog($"Error counting registered names: {ex.Message}");
             return 0;
         }
     }

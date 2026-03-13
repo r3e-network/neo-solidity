@@ -194,7 +194,11 @@ fn near_miss_nep17_warns_on_missing_methods() {
                 && d.message.contains("missing")
         }),
         "expected near-miss warning for NEP-17, got: {:?}",
-        result.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+        result
+            .diagnostics
+            .iter()
+            .map(|d| &d.message)
+            .collect::<Vec<_>>()
     );
 }
 
@@ -217,10 +221,7 @@ fn near_miss_nep11_warns_ownerof_without_transfer() {
     };
 
     // ownerOf present but no transfer mechanism → near-miss
-    let methods = vec![
-        build_method("balanceOf"),
-        build_method("ownerOf"),
-    ];
+    let methods = vec![build_method("balanceOf"), build_method("ownerOf")];
     let result = detect_supported_standards(&methods, &[]);
     assert!(
         result.standards.is_empty(),
@@ -633,16 +634,22 @@ fn event_validation_accepts_correct_transfer_event() {
                 name: Some("from".to_string()),
                 ty: "address".to_string(),
                 indexed: true,
+                neo_type: Some(NeoType::Address),
             },
             EventParameter {
                 name: Some("to".to_string()),
                 ty: "address".to_string(),
                 indexed: true,
+                neo_type: Some(NeoType::Address),
             },
             EventParameter {
                 name: Some("value".to_string()),
                 ty: "uint256".to_string(),
                 indexed: false,
+                neo_type: Some(NeoType::Integer {
+                    signed: false,
+                    bits: 256,
+                }),
             },
         ],
     }];
@@ -654,9 +661,10 @@ fn event_validation_accepts_correct_transfer_event() {
     );
     // No Transfer-event warning when event is correct
     assert!(
-        !result.diagnostics.iter().any(|d| {
-            d.standard == "NEP-17" && d.message.contains("Transfer")
-        }),
+        !result
+            .diagnostics
+            .iter()
+            .any(|d| { d.standard == "NEP-17" && d.message.contains("Transfer") }),
         "should not warn about Transfer event when it has correct param count"
     );
 }

@@ -1,10 +1,6 @@
-using System.Security.Cryptography;
 using System.Numerics;
+using System.Security.Cryptography;
 using Org.BouncyCastle.Crypto.Digests;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Signers;
-using Org.BouncyCastle.Math;
-
 namespace Neo.Sol.Runtime.Crypto;
 
 /// <summary>
@@ -178,38 +174,27 @@ public static class CryptoLib
             
         try
         {
-            var r = new byte[32];
-            var s = new byte[32];
-            Array.Copy(signature, 0, r, 0, 32);
-            Array.Copy(signature, 32, s, 0, 32);
-            
-            var rBig = new Org.BouncyCastle.Math.BigInteger(1, r);
-            var sBig = new Org.BouncyCastle.Math.BigInteger(1, s);
-            
             var x = new byte[32];
             var y = new byte[32];
             Array.Copy(publicKey, 0, x, 0, 32);
             Array.Copy(publicKey, 32, y, 0, 32);
-            
-            var xBig = new Org.BouncyCastle.Math.BigInteger(1, x);
-            var yBig = new Org.BouncyCastle.Math.BigInteger(1, y);
-            
-            var point = new Org.BouncyCastle.Math.EC.ECPoint(
-                Org.BouncyCastle.Crypto.EC.CustomNamedCurves.GetByName("secp256k1").Curve,
-                new Org.BouncyCastle.Math.EC.FpFieldElement(
-                    new Org.BouncyCastle.Math.BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16),
-                    xBig),
-                new Org.BouncyCastle.Math.EC.FpFieldElement(
-                    new Org.BouncyCastle.Math.BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16),
-                    yBig));
-                    
-            var pubKeyParams = new ECPublicKeyParameters(point, 
-                Org.BouncyCastle.Crypto.EC.CustomNamedCurves.GetByName("secp256k1"));
-            
-            var signer = new ECDSASigner();
-            signer.Init(false, pubKeyParams);
-            
-            return signer.VerifySignature(messageHash, rBig, sBig);
+
+            var parameters = new ECParameters
+            {
+                Curve = ECCurve.CreateFromValue("1.3.132.0.10"),
+                Q = new System.Security.Cryptography.ECPoint
+                {
+                    X = x,
+                    Y = y
+                }
+            };
+
+            using var ecdsa = ECDsa.Create(parameters);
+            return ecdsa.VerifyHash(
+                messageHash,
+                signature,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation
+            );
         }
         catch
         {

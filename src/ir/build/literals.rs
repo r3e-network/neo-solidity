@@ -1,4 +1,14 @@
 fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
+    literal_from_expression_with_warning(expr, &mut |_| {})
+}
+
+fn literal_from_expression_with_warning<F>(
+    expr: &Expression,
+    on_warning: &mut F,
+) -> Option<LiteralValue>
+where
+    F: FnMut(String),
+{
     match expr {
         Expression::BoolLiteral(_, value) => Some(LiteralValue::Boolean(*value)),
         Expression::NumberLiteral(_, integer, exp, unit) => {
@@ -60,10 +70,9 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
             if (&numerator % &denominator).is_zero() {
                 Some(LiteralValue::Integer(numerator / denominator))
             } else {
-                eprintln!(
-                    "warning: non-integer rational literal {integer}.{fraction} cannot be represented \
-                     as an integer; fractional values are not supported on NeoVM"
-                );
+                on_warning(format!(
+                    "non-integer rational literal {integer}.{fraction} cannot be represented as an integer; fractional values are not supported on NeoVM"
+                ));
                 None
             }
         }
@@ -72,10 +81,10 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
         Expression::AddressLiteral(_, value) => decode_hex_bytes(value).and_then(|mut bytes| {
             // Neo addresses are UInt160 (20 bytes). Reject malformed literals early.
             if bytes.len() != 20 {
-                eprintln!(
-                    "warning: address literal has {} bytes, expected 20 (UInt160)",
+                on_warning(format!(
+                    "address literal has {} bytes, expected 20 (UInt160)",
                     bytes.len()
-                );
+                ));
                 return None;
             }
             // Neo smart contracts treat UInt160 values (script hashes) in little-endian byte
@@ -84,7 +93,9 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
             bytes.reverse();
             Some(LiteralValue::Address(bytes))
         }),
-        Expression::Parenthesis(_, inner) => literal_from_expression(inner),
+        Expression::Parenthesis(_, inner) => {
+            literal_from_expression_with_warning(inner, on_warning)
+        }
         _ => None,
     }
 }
@@ -128,6 +139,18 @@ fn address_bytes_le_from_expression(expr: &Expression) -> Option<Vec<u8>> {
             let mut bytes = hex_decode(&hex).ok()?;
             if bytes.len() != 20 {
                 return None;
+            }
+            bytes.reverse();
+            Some(bytes)
+        }
+        Expression::HexLiteral(parts) => {
+            let mut bytes = decode_hex_segments(parts)?;
+            if bytes.len() > 20 {
+                bytes.truncate(20);
+            } else if bytes.len() < 20 {
+                let mut padded = vec![0u8; 20 - bytes.len()];
+                padded.extend_from_slice(&bytes);
+                bytes = padded;
             }
             bytes.reverse();
             Some(bytes)

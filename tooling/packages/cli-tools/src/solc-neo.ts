@@ -68,7 +68,7 @@ program
       console.log(`Version: ${version.compiler}`);
       console.log(`Solidity: ${version.solidity}`);
       console.log(`Neo VM: ${version.neovm}`);
-    } catch (error) {
+    } catch (_error) {
       console.error(chalk.red("Failed to get version information"));
       process.exit(1);
     }
@@ -105,7 +105,7 @@ program
         const marker = v.current ? chalk.green("* ") : "  ";
         console.log(`${marker}${v.version}${v.prerelease ? chalk.yellow(" (prerelease)") : ""}`);
       });
-    } catch (error) {
+    } catch (_error) {
       console.error(chalk.red("Failed to list versions"));
       process.exit(1);
     }

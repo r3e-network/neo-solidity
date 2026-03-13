@@ -43,6 +43,10 @@ fn emit_warning_with_suggestion(
 }
 
 fn emit_error(message: &str, code: &str, json: bool) {
+    emit_error_with_suggestion(message, code, json, None);
+}
+
+fn emit_error_with_suggestion(message: &str, code: &str, json: bool, suggestion: Option<&str>) {
     use std::io::{self, Write};
 
     if json {
@@ -53,6 +57,7 @@ fn emit_error(message: &str, code: &str, json: bool) {
             "code": code,
             "message": message,
             "formattedMessage": message,
+            "suggestion": suggestion,
         });
         let mut stderr = io::stderr().lock();
         let _ = stderr.write_all(error.to_string().as_bytes());
@@ -60,5 +65,8 @@ fn emit_error(message: &str, code: &str, json: bool) {
     } else {
         let mut stderr = io::stderr().lock();
         let _ = stderr.write_all(format!("error: {message}\n").as_bytes());
+        if let Some(hint) = suggestion {
+            let _ = stderr.write_all(format!("  help: {hint}\n").as_bytes());
+        }
     }
 }

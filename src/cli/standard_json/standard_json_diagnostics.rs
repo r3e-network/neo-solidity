@@ -6,9 +6,12 @@ pub(crate) fn diagnostic_to_standard_error(
         DiagnosticSeverity::Warning => "warning",
         DiagnosticSeverity::Error => "error",
     };
-    let code = infer_validation_code(&diagnostic.message, diagnostic.severity);
+    let code = diagnostic
+        .code
+        .as_deref()
+        .unwrap_or_else(|| infer_validation_code(&diagnostic.message, diagnostic.severity));
 
-    json!({
+    let mut value = json!({
         "component": "neo-solidity",
         "severity": severity,
         "type": "Validation",
@@ -16,7 +19,13 @@ pub(crate) fn diagnostic_to_standard_error(
         "sourceLocation": { "file": file },
         "formattedMessage": diagnostic.message,
         "message": diagnostic.message,
-    })
+    });
+
+    if let Some(suggestion) = diagnostic.suggestion.as_deref() {
+        value["suggestion"] = json!(suggestion);
+    }
+
+    value
 }
 
 pub(crate) fn infer_validation_code(message: &str, severity: DiagnosticSeverity) -> &'static str {
