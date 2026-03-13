@@ -2,40 +2,115 @@
 
 ## Control Structures
 
-Most of the control structures from JavaScript are available in Solidity:
-`if`, `else`, `while`, `do`, `for`, `break`, `continue`, `return`.
+Most of the control structures known from curly-brace languages are available in Solidity:
 
-All of these are fully supported by the Neo Solidity compiler and lower perfectly to NeoVM JMP logic.
+There is: `if`, `else`, `while`, `do`, `for`, `break`, `continue`, `return`, with the usual semantics known from C or JavaScript.
+
+Solidity also supports exception handling in the form of `try`/`catch` statements, but only for external function calls and contract creation calls.
+
+* **NeoVM Mapping:** All basic control structures lower perfectly to NeoVM's jump instructions (`JMP`, `JMPIF`, `JMPIFNOT`).
 
 ## Function Calls
 
 ### Internal Function Calls
 
-Functions of the current contract can be called directly. These map to `CALL` instructions within the NeoVM script.
+Functions of the current contract can be called directly ("internally"), also recursively. 
+
+```solidity
+function g(uint a) public pure returns (uint ret) { return f(); }
+function f() internal pure returns (uint ret) { return g(7) + f(); }
+```
+These map to standard `CALL` instructions within the generated NeoVM script, utilizing the same execution stack.
 
 ### External Function Calls
 
-The expressions `this.g(8);` and `c.g(2);` (where `c` is a contract instance) are also valid function calls. They are translated into cross-contract calls using `System.Contract.Call`. 
+The expressions `this.g(8);` and `c.g(2);` (where `c` is a contract instance) are also valid function calls, but this time, the function will be called "externally", via a message call.
 
-On Ethereum, you can append options to an external call to forward Ether or set a gas limit: `c.g{value: 10, gas: 10000}(2)`. 
+```solidity
+interface InfoFeed {
+    function info() external payable returns (uint ret);
+}
 
-::: tip 💡 NeoVM Difference
-Because NeoVM handles value transfers strictly via the NEP-17 standard and lacks per-call gas limits, these call options are gracefully ignored. The compiler emits a warning notifying you that the options were dropped, but compilation succeeds.
+contract Consumer {
+    InfoFeed feed;
+    function doCall() public {
+        feed.info();
+    }
+}
+```
+
+External calls compile down to the NeoVM syscall `System.Contract.Call`. 
+
+### Function Call Options (Value & Gas)
+
+On Ethereum, you can append options to an external call to forward Ether or set a gas limit: `feed.info{value: 10, gas: 800}()`.
+
+::: tip 💡 NeoVM Difference: Call Options Ignored
+Because NeoVM handles value transfers strictly via the NEP-17 standard and lacks per-call gas limits, **these call options are gracefully ignored.** 
+
+The compiler emits a warning notifying you that the options were dropped, but compilation succeeds. To actually transfer value on Neo, you must execute `NativeCalls.gasTransfer(...)` before or after your contract call.
 :::
+
+## Creating Contracts via `new`
+
+A contract can create a new contract using the `new` keyword. The full code of the contract being created has to be known when the creating contract is compiled, so recursive creation-dependencies are not possible.
+
+```solidity
+D newD = new D(arg);
+```
+
+::: tip 💡 NeoVM Difference: Dynamic Deployment
+Creating contracts dynamically via `new Contract()` is intentionally **blocked** by the Neo Solidity compiler. 
+
+NeoVM handles deployment differently than EVM. To deploy a child contract, you must use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly, passing the compiled NEF bytecode and manifest.
+:::
+
+## Order of Evaluation of Expressions
+
+The evaluation order of expressions is not specified (more formally, the order in which the children of one node in the expression tree are evaluated is not specified, but they are of course evaluated before the node itself). It is only guaranteed that statements are executed in order and short-circuiting for boolean expressions is done.
+
+## Assignment
+
+### Destructuring Assignments and Returning Multiple Values
+
+Solidity internally allows tuple types, i.e. a list of objects of potentially different types whose number is a constant at compile-time. Those tuples can be used to return multiple values at the same time.
+
+```solidity
+function f() public pure returns (uint, bool, uint) {
+    return (7, true, 2);
+}
+
+function g() public {
+    // Destructuring assignment
+    (uint x, bool b, uint y) = f();
+}
+```
+
+* **NeoVM Mapping:** Tuples are mapped to NeoVM `Array` stack items. The compiler automatically unpacks the array upon destructuring.
+
+## Scoping and Declarations
+
+A variable which is declared will have an initial default value whose byte-representation is all zeros. The "default values" of variables are the typical "zero-state" of whatever the type is. For example, the default value for a `bool` is `false`.
+
+Scoping rules in Solidity follow those of C99 (variables are visible from the point right after their declaration until the end of the smallest `{ }`-block that contains the declaration).
 
 ## Error Handling: Assert, Require, Revert and Exceptions
 
 Solidity uses state-reverting exceptions to handle errors. Such an exception undoes all changes made to the state in the current call (and all its sub-calls) and flags an error to the caller.
 
-### `require` and `assert`
+### `assert` and `require`
 
-`require(condition)` and `require(condition, "message")` map to NeoVM `ASSERT` and `ASSERTMSG` opcodes. When the condition is false, execution aborts with the provided message.
+The convenience functions `assert` and `require` can be used to check for conditions and throw an exception if the condition is not met.
 
-On EVM, `assert` failures consume all remaining gas and produce a Panic error. On NeoVM, `assert` simply aborts execution — there is no gas penalty distinction between `require` and `assert`.
+*   `require` should be used to ensure valid conditions, such as inputs, or contract state variables are met, or to validate return values from calls to external contracts.
+*   `assert` should only be used to test for internal errors, and to check invariants.
+
+On EVM, `assert` failures consume all remaining gas and produce a Panic error. 
+* **NeoVM Mapping:** On NeoVM, `assert` simply aborts execution — there is no gas penalty distinction between `require` and `assert`. Both map to NeoVM `ASSERT` or `ASSERTMSG` opcodes.
 
 ### `revert`
 
-`revert()` and `revert("message")` map to NeoVM `ABORT` and `ABORTMSG`. Custom error reverts preserve the error name and arguments.
+The `revert` statement can be used to flag an error and revert the current call. You can provide a string message or a custom error.
 
 ```solidity
 error Unauthorized(address caller);
@@ -48,35 +123,21 @@ function restricted() public {
 }
 ```
 
-### `try` / `catch`
+### `try`/`catch`
 
-`try`/`catch` maps to NeoVM `TRY`/`ENDTRY` structured exception handling. The try block wraps the external call, and catch clauses handle exceptions.
+A failure in an external call can be caught using a try/catch statement.
 
 ```solidity
 try target.riskyCall() returns (uint256 result) {
     // Success path
     processResult(result);
+} catch Error(string memory reason) {
+    // String exception
+    emit CallFailed(reason);
 } catch (bytes memory lowLevelData) {
     // Catch-all for other exceptions
     emit CallFailedRaw(lowLevelData);
 }
 ```
 
-## Creating Contracts via `new`
-
-In EVM Solidity, a contract can create other contracts using the `new` keyword. 
-
-::: tip 💡 NeoVM Difference
-Creating contracts dynamically via `new Contract()` is intentionally blocked. NeoVM handles deployment differently. To deploy a child contract, you must use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly.
-:::
-
-## Arithmetic 
-
-NeoVM uses arbitrary-precision `BigInteger` for all integer arithmetic. This fundamentally changes overflow semantics compared to EVM:
-
-| Behavior                       | EVM (Solidity 0.8.x) | NeoVM                         |
-| ------------------------------ | -------------------- | ----------------------------- |
-| `uint8(255) + 1`               | Reverts (checked)    | `256` (no overflow)           |
-| `uint8(0) - 1`                 | Reverts (checked)    | `-1` (no underflow)           |
-| `unchecked { uint8(255) + 1 }` | `0` (wraps)          | `256` (no wrap)               |
-| `int256.max + 1`               | Reverts (checked)    | `int256.max + 1` (BigInteger) |
+* **NeoVM Mapping:** Maps to NeoVM `TRY`/`ENDTRY` structured exception handling. Note that NeoVM exceptions are untyped, so the compiler uses `ISTYPE` runtime guards to route by stack item type to the correct catch block. Multiple return values (`try returns(uint a, uint b)`) are not currently supported.
