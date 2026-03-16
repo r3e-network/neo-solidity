@@ -18,7 +18,6 @@ jobs:
       matrix:
         language:
         - javascript
-        - go
         - csharp
     steps:
     - name: Checkout repository
@@ -38,16 +37,11 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-    - name: Setup Go
-      if: matrix.language == 'go'
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
     - name: Build project
       run: "if [ \"${{ matrix.language }}\" = \"csharp\" ]; then\n  cd src/Neo.Sol.Runtime\n\
         \  dotnet build --configuration Release\nelif [ \"${{ matrix.language }}\"\
-        \ = \"javascript\" ]; then\n  cd tooling\n  npm ci\n  npm run build\nelif\
-        \ [ \"${{ matrix.language }}\" = \"go\" ]; then\n  go build ./...\nfi\n"
+        \ = \"javascript\" ]; then\n  cd tooling\n  npm install\n  npm run build\n\
+        fi\n"
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
