@@ -177,7 +177,7 @@ export class NeoSolidityCLI extends EventEmitter {
           this.buildCommandSignature(command),
           command.description,
           (yargs: any) => this.buildCommandOptions(yargs, command),
-          (args: any) => this.handleCommand(args, command)
+          () => {}
         );
       }
     }
@@ -215,16 +215,6 @@ export class NeoSolidityCLI extends EventEmitter {
     }
 
     return yargs;
-  }
-
-  private async handleCommand(args: CLIArgs, command: CLICommand): Promise<void> {
-    try {
-      await command.action(args);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.context.logger.error(err);
-      process.exit(1);
-    }
   }
 
   private async executeCommand(args: CLIArgs): Promise<CLIResult> {

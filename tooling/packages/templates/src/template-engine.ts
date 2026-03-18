@@ -14,12 +14,11 @@ import {
   CustomTemplateOptions,
   PostInstallAction
 } from '@neo-solidity/types';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 import { EventEmitter } from 'events';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import glob from 'glob';
 
 const execAsync = promisify(exec);
 
@@ -61,13 +60,13 @@ export class TemplateEngine extends EventEmitter implements ITemplateEngine {
   }
 
   private replaceVariables(template: string, context: TemplateContext): string {
-    return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key) => {
+    return template.replace(/\{\{\s*([@\w]+)\s*\}\}/g, (match, key) => {
       return context[key] !== undefined ? String(context[key]) : match;
     });
   }
 
   private processHelpers(template: string, context: TemplateContext): string {
-    return template.replace(/\{\{\#(\w+)\s*([^}]*)\}\}(.*?)\{\{\/\1\}\}/gs, (match, helperName, args, content) => {
+    return template.replace(/\{\{#(\w+)\s*([^}]*)\}\}(.*?)\{\{\/\1\}\}/gs, (match, helperName, args, content) => {
       const helper = this.helpers.get(helperName);
       if (helper) {
         return helper(content.trim(), { args: args.trim(), context });
@@ -107,7 +106,7 @@ export class TemplateEngine extends EventEmitter implements ITemplateEngine {
       
       if (Array.isArray(array)) {
         return array.map((item, index) => {
-          const itemContext = { ...context, this: item, @index: index };
+          const itemContext = { ...context, this: item, "@index": index };
           return this.render(content, itemContext);
         }).join('');
       }
@@ -351,7 +350,7 @@ export class ProjectScaffolder extends EventEmitter {
     };
 
     const packageJsonPath = path.join(projectPath, 'package.json');
-    await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+    await fs.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
     
     return packageJsonPath;
   }
@@ -402,7 +401,7 @@ export class ProjectScaffolder extends EventEmitter {
         author: 'Neo Solidity Team',
         description: 'Basic Neo-Solidity project',
         license: 'MIT',
-        solcVersion: '0.8.20',
+        solcVersion: '0.8.34',
         includeTests: true,
         includeDocs: false,
         framework: 'hardhat'
@@ -412,7 +411,7 @@ export class ProjectScaffolder extends EventEmitter {
         author: 'Neo Solidity Team',
         description: 'ERC20 Token project',
         license: 'MIT',
-        solcVersion: '0.8.20',
+        solcVersion: '0.8.34',
         includeTests: true,
         includeDocs: true,
         framework: 'hardhat',
@@ -549,21 +548,21 @@ export class TemplateGenerator implements ITemplateGenerator {
       license: options.license,
       tags: ['basic', 'starter'],
       requirements: {
-        node: '>=16.0.0'
+        node: '>=18.0.0'
       },
       files,
-      dependencies: {
-        '@neo-solidity/tooling': '^0.1.0'
-      },
+      dependencies: {},
       devDependencies: {
-        'hardhat': '^2.19.0',
-        '@nomicfoundation/hardhat-toolbox': '^4.0.0'
+        'hardhat': '^2.28.6',
+        '@neo-solidity/hardhat-solc-neo': '^0.14.0',
+        '@neo-solidity/hardhat-neo-deployer': '^0.14.0',
+        'chai': '^4.5.0'
       },
       scripts: {
-        'compile': 'npx hardhat compile',
-        'test': 'npx hardhat test',
-        'deploy': 'npx hardhat run scripts/deploy.js',
-        'verify': 'npx hardhat verify'
+        'compile': 'npx hardhat neo-compile',
+        'test': 'npx hardhat test --no-compile',
+        'deploy': 'npx hardhat neo-deploy',
+        'verify': 'npx hardhat neo-verify'
       },
       postInstall: [
         { type: 'git', condition: 'gitInit' },
@@ -642,7 +641,7 @@ export class TemplateGenerator implements ITemplateGenerator {
   // Template Content Methods
   private getBasicContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 /**
  * @title {{contractName}}
@@ -673,11 +672,10 @@ contract {{contractName}} {
 
   private getERC20ContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 {{#if ownable}}import "@openzeppelin/contracts/access/Ownable.sol";{{/if}}
-{{#if mintable}}import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Mintable.sol";{{/if}}
 
 contract {{tokenName}} is ERC20{{#if ownable}}, Ownable{{/if}} {
     constructor() ERC20("{{tokenName}}", "{{tokenSymbol}}") {
@@ -694,7 +692,7 @@ contract {{tokenName}} is ERC20{{#if ownable}}, Ownable{{/if}} {
 
   private getERC721ContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -712,16 +710,28 @@ contract {{tokenName}} is ERC721, Ownable {
   }
 
   private getHardhatConfigTemplate(): string {
-    return `require("@nomicfoundation/hardhat-toolbox");
-require("@neo-solidity/hardhat-plugin");
+    return `require("@neo-solidity/hardhat-solc-neo");
+require("@neo-solidity/hardhat-neo-deployer");
 
 module.exports = {
-  solidity: "{{solcVersion}}",
-  networks: {
-    hardhat: {},
-    neo: {
-      url: "{{neoRpcUrl}}",
-      accounts: []
+  solidity: {
+    version: "{{solcVersion}}"
+  },
+  neoSolc: {
+    solidity: {
+      version: "{{solcVersion}}",
+      settings: {
+        optimizer: { enabled: true, runs: 200 },
+        neo: { callt: true }
+      }
+    }
+  },
+  neoNetworks: {
+    testnet: {
+      rpcUrls: ["{{neoRpcUrl}}"],
+      magic: 894710606,
+      addressVersion: 0x35,
+      accounts: [process.env.NEO_WIF || ""]
     }
   }
 };`;
@@ -742,20 +752,17 @@ neo = "{{neoRpcUrl}}"`;
 
   private getBasicTestTemplate(): string {
     return `const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const hre = require("hardhat");
 
-describe("{{contractName}}", function () {
-  let contract;
-  let owner;
-  
-  beforeEach(async function () {
-    [owner] = await ethers.getSigners();
-    const Contract = await ethers.getContractFactory("{{contractName}}");
-    contract = await Contract.deploy();
-  });
-  
-  it("Should set the right owner", async function () {
-    expect(await contract.owner()).to.equal(owner.address);
+describe("{{contractName}} build", function () {
+  it("emits Neo build artifacts", async function () {
+    await hre.run("neo-compile", { force: true, quiet: true });
+
+    const artifact = await hre.neoSolc.artifacts.getBuildArtifact("{{contractName}}");
+
+    expect(artifact, "missing build artifact").to.not.equal(null);
+    expect(artifact.contract.neo.manifest.name).to.equal("{{contractName}}");
+    expect(artifact.contract.neo.manifest.abi.methods).to.not.be.empty;
   });
 });`;
   }

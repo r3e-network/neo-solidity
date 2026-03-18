@@ -9,11 +9,11 @@ import {
   NeoRpcProvider,
   InvokeResult
 } from "@neo-solidity/types";
-import { RpcAdapter } from "./rpc-adapter";
-import { TransactionBuilder } from "./transaction-builder";
-import { EventDecoder } from "./event-decoder";
-import { ContractWrapper } from "./contract-wrapper";
-import { NeoDeploymentArtifacts } from "./types";
+import { RpcAdapter } from "./rpc-adapter.js";
+import { TransactionBuilder } from "./transaction-builder.js";
+import { EventDecoder } from "./event-decoder.js";
+import { ContractWrapper } from "./contract-wrapper.js";
+import { NeoDeploymentArtifacts } from "./types.js";
 import Debug from "debug";
 import {
   decodeNeoBytes,
@@ -23,7 +23,7 @@ import {
   parseNeoBoolean,
   parseNeoInteger,
   stackItemArrayValue,
-} from "./neo-utils";
+} from "./neo-utils.js";
 
 const debug = Debug("neo-solidity:abi-router");
 

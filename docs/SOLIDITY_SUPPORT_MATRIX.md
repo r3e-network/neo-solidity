@@ -1,6 +1,6 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.13.1
+> **Compiler**: neo-solidity v0.15.0
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
 > **Audit date**: 2026-02-18
@@ -42,29 +42,29 @@ Legend:
 
 ## B. Expressions
 
-| Feature                                       | Status | Notes                                                                                                  |
-| --------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
-| Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                                                       |
-| Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                                                 |
-| Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                                               |
-| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support                                                                                   |
-| Unary (`++`, `--`, `-`, `!`)                  | ✅     | Pre/post increment/decrement                                                                           |
-| Ternary (`? :`)                               | ✅     | `ConditionalOperator` lowered with labels                                                              |
-| Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                                                      |
-| `delete`                                      | ✅     | State vars, mapping entries, locals, array elements, struct fields                                     |
-| Tuple expressions `(a, b, c)`                 | ✅     | `Expression::List` lowered to NeoVM arrays                                                             |
-| Tuple destructuring `(a, b) = f()`            | ⚠️     | Nested destructuring assignment supported; some complex target forms still require intermediate locals |
-| Type casting                                  | ✅     | `TypeCastingShowcase.sol` example compiles                                                             |
-| `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                                                            |
-| `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                                                   |
-| `type(I).interfaceId`                         | ✅     | Computed from selector XOR of interface methods                                                        |
-| `abi.encode(...)`                             | ⚠️     | Supported in context of `address.call`/`staticcall`; standalone limited                                |
-| `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding                                             |
-| `abi.encodeWithSignature(...)`                | ✅     | Lowered to Neo `System.Contract.Call`                                                                  |
-| `abi.encodeWithSelector(...)`                 | ✅     | Lowered to Neo `System.Contract.Call`                                                                  |
-| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize` (same as `abi.encode`)                                                      |
-| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument                                   |
-| Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                                                   |
+| Feature                                       | Status | Notes                                                                                                           |
+| --------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------- | --- | ----------------- |
+| Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                                                                |
+| Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                                                          |
+| Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                                                        |
+| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support                                                                                            |
+| Unary (`++`, `--`, `-`, `!`)                  | ✅     | Pre/post increment/decrement                                                                                    |
+| Ternary (`? :`)                               | ✅     | `ConditionalOperator` lowered with labels                                                                       |
+| Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                                                               |
+| `delete`                                      | ✅     | State vars, mapping entries, locals, array elements, struct fields                                              |
+| Tuple expressions `(a, b, c)`                 | ✅     | `Expression::List` lowered to NeoVM arrays                                                                      |
+| Tuple destructuring `(a, b) = f()`            | ⚠️     | Nested destructuring assignment supported; some complex target forms still require intermediate locals          |
+| Type casting                                  | ✅     | `TypeCastingShowcase.sol` example compiles                                                                      |
+| `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                                                                     |
+| `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                                                            |
+| `type(I).interfaceId`                         | ✅     | Computed from selector XOR of interface methods                                                                 |
+| `abi.encode(...)`                             | ⚠️     | Supported in context of `address.call`/`staticcall`; standalone limited                                         |
+| `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding                                                      |
+| `abi.encodeWithSignature(...)`                | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)` |
+| `abi.encodeWithSelector(...)`                 | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)` |
+| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize` (same as `abi.encode`)                                                               |
+| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument                                            |
+| Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                                                            |
 
 ---
 
@@ -85,7 +85,7 @@ Legend:
 | Variable declaration      | ✅     | Local variable definitions with optional initializer                                                        |
 | Block `{ ... }`           | ✅     | Scoped statement blocks                                                                                     |
 | `unchecked { ... }`       | ✅     | NeoVM uses BigInteger (no overflow); unchecked blocks compile as normal blocks                              |
-| `assembly { ... }`        | ⚠️     | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops |
+| `assembly { ... }`        | ⚠️     | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops                                   |
 | `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                                                     |
 | `catch Error(string)`     | ✅     | Named catch with parameter binding                                                                          |
 | `catch Panic(uint256)`    | ⚠️     | Lowered with runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes |
@@ -95,38 +95,38 @@ Legend:
 
 ## D. Functions
 
-| Feature                          | Status | Notes                                                                            |
-| -------------------------------- | ------ | -------------------------------------------------------------------------------- |
-| Regular functions                | ✅     | Public, external, internal, private                                              |
-| Constructor                      | ✅     | Single constructor; multiple constructors rejected                               |
-| `view` / `pure`                  | ✅     | State mutability tracked and enforced at IR level                                |
-| `payable`                        | ⚠️     | Parsed; `payable` on non-receive functions warns (Neo has no native gas payment) |
-| `returns (T)`                    | ✅     | Single return type                                                               |
-| `returns (T1, T2, ...)`          | ✅     | Multi-return via NeoVM arrays                                                    |
-| Function overloading             | ⚠️     | Parsed; Neo ABI dispatches by name only — overloads may collide                  |
-| `modifier`                       | ✅     | Full modifier expansion with `_` placeholder substitution                        |
-| `receive()`                      | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                          |
-| `fallback()`                     | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                          |
-| `virtual` / `override`           | ✅     | Inheritance flattening resolves overrides; multi-level chains supported          |
-| Function selectors (`.selector`) | ✅     | Computed from canonical parameter types                                          |
-| NatSpec comments                 | ✅     | `@notice`, `@dev`, `@param`, `@return` preserved in metadata                     |
+| Feature                          | Status | Notes                                                                                                                                           |
+| -------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular functions                | ✅     | Public, external, internal, private                                                                                                             |
+| Constructor                      | ✅     | Single constructor; multiple constructors rejected                                                                                              |
+| `view` / `pure`                  | ✅     | State mutability tracked and enforced at IR level                                                                                               |
+| `payable`                        | ⚠️     | Parsed; `payable` on non-receive functions warns (Neo has no native gas payment)                                                                |
+| `returns (T)`                    | ✅     | Single return type                                                                                                                              |
+| `returns (T1, T2, ...)`          | ✅     | Multi-return via NeoVM arrays                                                                                                                   |
+| Function overloading             | ⚠️     | Supported with `neo_name` mangling; one canonical ABI name is preserved and non-primary overloads are exported under generated Neo method names |
+| `modifier`                       | ✅     | Full modifier expansion with `_` placeholder substitution                                                                                       |
+| `receive()`                      | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                                                                                         |
+| `fallback()`                     | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                                                                                         |
+| `virtual` / `override`           | ✅     | Inheritance flattening resolves overrides; multi-level chains supported                                                                         |
+| Function selectors (`.selector`) | ✅     | Computed from canonical parameter types                                                                                                         |
+| NatSpec comments                 | ✅     | `@notice`, `@dev`, `@param`, `@return` preserved in metadata                                                                                    |
 
 ---
 
 ## E. OOP Features
 
-| Feature              | Status | Notes                                                                                                                   |
-| -------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Single inheritance   | ✅     | C3 linearization with `flatten_contract_inheritance`                                                                    |
-| Multiple inheritance | ✅     | Diamond inheritance detected; constructor arg conflicts reported                                                        |
-| `interface`          | ✅     | Interface types tracked; methods validated                                                                              |
-| `abstract contract`  | ✅     | Fully validated; unimplemented functions detected; non-abstract contracts get actionable errors                         |
-| `library`            | ⚠️     | Builtin devpack libraries (Runtime, Syscalls, etc.) are compiler intrinsics; user-defined libraries partially supported |
-| `using X for Y`      | ✅     | Library member-call syntax fully supported; `using X for *` and `using {f,g} for T` included                            |
-| `super` keyword      | ✅     | Supported via inheritance flattening with `__super_` method preservation                                                |
-| `is` (inheritance)   | ✅     | Inheritance specifiers fully processed                                                                                  |
-| Constructor chaining | ✅     | Base constructor arguments resolved from inheritance specifiers                                                         |
-| Event inheritance    | ✅     | Interface events collected recursively via `collect_interface_events_recursive`                                         |
+| Feature              | Status | Notes                                                                                                                                                    |
+| -------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single inheritance   | ✅     | C3 linearization with `flatten_contract_inheritance`                                                                                                     |
+| Multiple inheritance | ✅     | Diamond inheritance detected; constructor arg conflicts reported                                                                                         |
+| `interface`          | ✅     | Interface types tracked; methods validated                                                                                                               |
+| `abstract contract`  | ✅     | Fully validated; unimplemented functions detected; non-abstract contracts get actionable errors                                                          |
+| `library`            | ⚠️     | Builtin devpack libraries are compiler intrinsics; user-defined libraries are merged/inlined, but still cannot model deployable library state or linking |
+| `using X for Y`      | ✅     | Library member-call syntax fully supported; `using X for *` and `using {f,g} for T` included                                                             |
+| `super` keyword      | ✅     | Supported via inheritance flattening with `__super_` method preservation                                                                                 |
+| `is` (inheritance)   | ✅     | Inheritance specifiers fully processed                                                                                                                   |
+| Constructor chaining | ✅     | Base constructor arguments resolved from inheritance specifiers                                                                                          |
+| Event inheritance    | ✅     | Interface events collected recursively via `collect_interface_events_recursive`                                                                          |
 
 ---
 
@@ -170,40 +170,41 @@ Legend:
 
 ## H. EVM-Specific Features (with Neo Alternatives)
 
-| Feature                                 | Status | Neo Alternative                                                             |
-| --------------------------------------- | ------ | --------------------------------------------------------------------------- |
-| `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`                                    |
-| `msg.value`                             | ⚠️     | Only mapped inside `onNEP17Payment` callback                                |
-| `msg.data`                              | ⚠️     | Auto-mapped to an empty byte array outside of `onNEP17Payment`              |
-| `msg.sig`                               | ⚠️     | Auto-mapped to `0x00000000` (Neo dispatches by method name, not selector)   |
-| `block.timestamp`                       | ✅     | Maps to `Runtime.GetTime()` (normalized to seconds)                         |
-| `block.number`                          | ✅     | Maps to `Ledger.CurrentIndex()`                                             |
-| `block.chainid`                         | ✅     | Maps to Neo network magic number                                            |
-| `block.coinbase`                        | ✅     | Auto-mapped to `address(0)` with warning (dBFT has no miner)                |
-| `block.difficulty` / `block.prevrandao` | ✅     | Auto-mapped to `Runtime.getRandom()` with warning                           |
-| `block.gaslimit`                        | ✅     | Auto-mapped to `Policy.getExecFeeFactor()` with warning                     |
-| `block.basefee`                         | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                        |
-| `tx.origin`                             | ⚠️     | Parsed; warning about authorization risks                                   |
-| `tx.gasprice`                           | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                        |
-| `gasleft()`                             | ✅     | Auto-mapped to `System.Runtime.GasLeft` syscall                             |
-| `blockhash(n)`                          | ✅     | Auto-mapped to `Ledger.getBlockHash()` with warning                         |
-| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                               |
-| `sha256(...)`                           | ✅     | Maps to `CryptoLib.sha256`                                                  |
-| `ecrecover(...)`                        | ✅     | Maps to `CryptoLib.verifyWithECDsa`                                         |
-| `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                  |
-| `address.call(...)`                     | ✅     | Maps to `System.Contract.Call`                                              |
-| `address.staticcall(...)`               | ✅     | Maps to `System.Contract.Call` (read-only flag)                             |
-| `address.delegatecall(...)`             | 🚫     | Blocked: no delegate call on Neo                                            |
-| `address.transfer(amount)`              | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer fail |
-| `address.send(amount)`                  | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool            |
-| `address.balance`                       | ✅     | Auto-mapped to `GAS.balanceOf(address)`                                     |
-| `address.code`                          | ⚠️     | Returns empty bytes; `address.code.length` maps to contract-existence check |
-| `address.codehash`                      | ✅     | Auto-mapped to contract script hash with warning; non-contract → bytes32(0) |
-| Ether units (`wei`, `gwei`, `ether`)    | ⚠️     | Parsed; warning that Neo uses GAS token (10^8 decimals)                     |
-| Time units (`seconds`, `minutes`, etc.) | ✅     | Compile-time constants (normalized to seconds)                              |
-| `this` keyword                          | ✅     | Maps to `Runtime.GetExecutingScriptHash()`; correct Neo equivalent          |
-| `type(X).creationCode`                  | 🚫     | Blocked: no bytecode access on Neo                                          |
-| `type(X).runtimeCode`                   | 🚫     | Blocked: no bytecode access on Neo                                          |
+| Feature                                 | Status | Neo Alternative                                                                                                                     |
+| --------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------ |
+| `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`                                                                                            |
+| `msg.value`                             | ⚠️     | Only mapped inside `onNEP17Payment` callback                                                                                        |
+| `msg.data`                              | ⚠️     | Approximated as `selector                                                                                                           |     | abi.encode(current args)` outside onNEP17Payment |
+| `msg.sig`                               | ⚠️     | Approximated as the current function selector; internal-call propagation still differs from EVM                                     |
+| `block.timestamp`                       | ✅     | Maps to `Runtime.GetTime()` (normalized to seconds)                                                                                 |
+| `block.number`                          | ✅     | Maps to `Ledger.CurrentIndex()`                                                                                                     |
+| `block.chainid`                         | ✅     | Maps to Neo network magic number                                                                                                    |
+| `block.coinbase`                        | ✅     | Auto-mapped to `address(0)` with warning (dBFT has no miner)                                                                        |
+| `block.difficulty` / `block.prevrandao` | ✅     | Auto-mapped to `Runtime.getRandom()` with warning                                                                                   |
+| `block.gaslimit`                        | ✅     | Auto-mapped to `Policy.getExecFeeFactor()` with warning                                                                             |
+| `block.basefee`                         | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                                                                                |
+| `tx.origin`                             | ⚠️     | Parsed; warning about authorization risks                                                                                           |
+| `tx.gasprice`                           | ✅     | Auto-mapped to `Policy.getFeePerByte()` with warning                                                                                |
+| `gasleft()`                             | ✅     | Auto-mapped to `System.Runtime.GasLeft` syscall                                                                                     |
+| `blockhash(n)`                          | ✅     | Auto-mapped to `Ledger.getBlockHash()` with warning                                                                                 |
+| `block.sha3`                            | ⚠️     | Auto-mapped to `Ledger.currentHash`; deprecated in Solidity 0.8+                                                                    |
+| `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                                                                                       |
+| `sha256(...)`                           | ✅     | Maps to `CryptoLib.sha256`                                                                                                          |
+| `ecrecover(...)`                        | ✅     | Maps to `CryptoLib.verifyWithECDsa`                                                                                                 |
+| `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                                                                          |
+| `address.call(...)`                     | ✅     | Maps to `System.Contract.Call`                                                                                                      |
+| `address.staticcall(...)`               | ✅     | Maps to `System.Contract.Call` (read-only flag)                                                                                     |
+| `address.delegatecall(...)`             | ⚠️     | Emits warning; compiled as System.Contract.Call with different storage semantics                                                    |
+| `address.transfer(amount)`              | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer fail                                                         |
+| `address.send(amount)`                  | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool                                                                    |
+| `address.balance`                       | ✅     | Auto-mapped to `GAS.balanceOf(address)`                                                                                             |
+| `address.code`                          | ⚠️     | Returns Neo contract script bytes; non-contracts return empty bytes. `address.code.length` still maps to a contract-existence check |
+| `address.codehash`                      | ✅     | Auto-mapped to contract script hash with warning; non-contract → bytes32(0)                                                         |
+| Ether units (`wei`, `gwei`, `ether`)    | ⚠️     | Parsed; warning that Neo uses GAS token (10^8 decimals)                                                                             |
+| Time units (`seconds`, `minutes`, etc.) | ✅     | Compile-time constants (normalized to seconds)                                                                                      |
+| `this` keyword                          | ✅     | Maps to `Runtime.GetExecutingScriptHash()`; correct Neo equivalent                                                                  |
+| `type(X).creationCode`                  | 🚫     | Blocked: no bytecode access on Neo                                                                                                  |
+| `type(X).runtimeCode`                   | 🚫     | Blocked: no bytecode access on Neo                                                                                                  |
 
 ---
 
@@ -216,7 +217,7 @@ Legend:
 | ERC-20 `approve`/`allowance` | N/A                           | ⚠️     | Warning: not part of NEP-17 spec; Neo uses `Runtime.checkWitness()`           |
 | ERC-165 `supportsInterface`  | Manifest `supportedstandards` | ⚠️     | Warning: unnecessary on Neo; manifest-based discovery                         |
 | ERC-4626 (Tokenized Vault)   | NEP-17                        | ⚠️     | Vault logic compiles; ERC-20 interactions must use NEP-17 equivalents         |
-| ERC-2981 (Royalty)           | NEP-24                        | ✅     | Auto-detected; multiple royalty recipients supported                           |
+| ERC-2981 (Royalty)           | NEP-24                        | ✅     | Auto-detected; multiple royalty recipients supported                          |
 | `receive()` / `fallback()`   | `onNEP17Payment()`            | ⚠️     | Diagnostic suggests callback pattern                                          |
 
 ---

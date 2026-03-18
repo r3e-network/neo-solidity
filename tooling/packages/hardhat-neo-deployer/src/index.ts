@@ -1,5 +1,4 @@
 import { extendConfig, extendEnvironment } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoNetworkConfig, NeoAccount } from "@neo-solidity/types";
 
@@ -9,6 +8,7 @@ import "./tasks/account";
 import { NeoDeployer } from "./deployer";
 import { NeoRpcClient } from "./rpc-client";
 import { AccountManager } from "./account-manager";
+import { createNeoDeployRuntime } from "./runtime-bootstrap";
 
 // Configuration extension
 declare module "hardhat/types/config" {
@@ -132,9 +132,12 @@ extendConfig(
     
     // Override with user configuration
     if (userConfig.neoNetworks) {
-      for (const [networkName, userNetworkConfig] of Object.entries(userConfig.neoNetworks)) {
+      for (const [networkName, rawUserNetworkConfig] of Object.entries(
+        userConfig.neoNetworks as Record<string, { accounts?: (string | NeoAccount)[] } & Record<string, any>>
+      )) {
+        const userNetworkConfig = rawUserNetworkConfig ?? {};
         config.neoNetworks[networkName] = {
-          ...config.neoNetworks[networkName] || {},
+          ...(config.neoNetworks[networkName] || {}),
           ...userNetworkConfig,
           accounts: userNetworkConfig.accounts || []
         } as any;
@@ -145,31 +148,7 @@ extendConfig(
 
 // Extend Hardhat runtime environment
 extendEnvironment((hre: HardhatRuntimeEnvironment) => {
-  hre.neoDeploy = lazyObject(() => {
-    const networkConfig = hre.config.neoNetworks[hre.network.name];
-    
-    if (!networkConfig) {
-      throw new Error(`Neo network configuration not found for "${hre.network.name}"`);
-    }
-    
-    const rpc = new NeoRpcClient(networkConfig);
-    const accounts = new AccountManager(networkConfig.accounts, Number(networkConfig.addressVersion ?? 0x35));
-    // Prefer neo-solc build artifacts when available (from @neo-solidity/hardhat-solc-neo).
-    const artifactProvider = (hre as any).neoSolc?.artifacts ?? hre.artifacts;
-    const deployer = new NeoDeployer(
-      rpc,
-      accounts,
-      artifactProvider,
-      hre.network.name,
-      Number(networkConfig.addressVersion ?? 0x35)
-    );
-    
-    return {
-      deployer,
-      rpc,
-      accounts
-    };
-  });
+  hre.neoDeploy = createNeoDeployRuntime(hre);
 });
 
 export * from "./deployer";

@@ -351,3 +351,85 @@ fn single_file_compilation_resolves_wildcard_namespace_selector_binding() {
     let names: Vec<_> = artifacts.iter().map(|a| a.metadata.name.as_str()).collect();
     assert!(names.contains(&"Entry"));
 }
+
+#[test]
+fn single_file_compilation_resolves_aliased_encode_call_function_reference() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let iface_path = temp.path().join("IFoo.sol");
+    let entry_path = temp.path().join("Entry.sol");
+
+    fs::write(
+        &iface_path,
+        r#"
+        pragma solidity ^0.8.34;
+
+        interface IFoo {
+            function bar(uint256 x) external;
+        }
+        "#,
+    )
+    .expect("write IFoo.sol");
+
+    fs::write(
+        &entry_path,
+        r#"
+        pragma solidity ^0.8.34;
+        import { IFoo as FooIface } from "./IFoo.sol";
+
+        contract Entry {
+            function payload() public pure returns (bytes memory) {
+                return abi.encodeCall(FooIface.bar, (7));
+            }
+        }
+        "#,
+    )
+    .expect("write Entry.sol");
+
+    let resolved = resolve_solidity_sources_with_imports(&entry_path, &[])
+        .expect("alias import should resolve");
+    let artifacts = compile_contracts(&resolved.combined_source, false, 2)
+        .expect("aliased encodeCall function reference should compile");
+    let names: Vec<_> = artifacts.iter().map(|a| a.metadata.name.as_str()).collect();
+    assert!(names.contains(&"Entry"));
+}
+
+#[test]
+fn single_file_compilation_resolves_wildcard_namespace_encode_call_function_reference() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let iface_path = temp.path().join("IFoo.sol");
+    let entry_path = temp.path().join("Entry.sol");
+
+    fs::write(
+        &iface_path,
+        r#"
+        pragma solidity ^0.8.34;
+
+        interface IFoo {
+            function bar(uint256 x) external;
+        }
+        "#,
+    )
+    .expect("write IFoo.sol");
+
+    fs::write(
+        &entry_path,
+        r#"
+        pragma solidity ^0.8.34;
+        import * as FooNS from "./IFoo.sol";
+
+        contract Entry {
+            function payload() public pure returns (bytes memory) {
+                return abi.encodeCall(FooNS.IFoo.bar, (7));
+            }
+        }
+        "#,
+    )
+    .expect("write Entry.sol");
+
+    let resolved = resolve_solidity_sources_with_imports(&entry_path, &[])
+        .expect("wildcard import should resolve");
+    let artifacts = compile_contracts(&resolved.combined_source, false, 2)
+        .expect("wildcard namespace encodeCall function reference should compile");
+    let names: Vec<_> = artifacts.iter().map(|a| a.metadata.name.as_str()).collect();
+    assert!(names.contains(&"Entry"));
+}

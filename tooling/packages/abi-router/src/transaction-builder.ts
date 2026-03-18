@@ -1,5 +1,5 @@
 import { NeoRpcProvider } from "@neo-solidity/types";
-import { NeoDeploymentArtifacts } from "./types";
+import { NeoDeploymentArtifacts } from "./types.js";
 import Debug from "debug";
 
 const debug = Debug("neo-solidity:transaction-builder");
@@ -61,4 +61,3 @@ export class TransactionBuilder {
     );
   }
 }
-

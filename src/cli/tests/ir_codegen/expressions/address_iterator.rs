@@ -42,6 +42,45 @@ fn address_code_length_uses_contract_management_iscontract() {
 }
 
 #[test]
+fn address_code_uses_contract_management_get_contract_script() {
+    let source = r#"
+    pragma solidity ^0.8.34;
+
+    contract CodeHarness {
+        function codeOf(address account) public view returns (bytes memory) {
+            return account.code;
+        }
+    }
+    "#;
+
+    let metadata = analyse_source(source).expect("analysis failed");
+    let module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
+    let code_fn = module
+        .functions
+        .iter()
+        .find(|function| function.name == "codeOf")
+        .expect("expected codeOf function");
+
+    let instrs = &code_fn.basic_blocks[0].instructions;
+    let mut saw_get_contract_script = false;
+
+    for instr in instrs {
+        if let ir::Instruction::CallBuiltin {
+            builtin: ir::BuiltinCall::GetContractScript,
+            ..
+        } = instr
+        {
+            saw_get_contract_script = true;
+        }
+    }
+
+    assert!(
+        saw_get_contract_script,
+        "expected address.code to use ContractManagement.getContract via GetContractScript"
+    );
+}
+
+#[test]
 fn iterator_currentkey_and_value_extract_storage_pair_elements() {
     use num_bigint::BigInt;
     use num_traits::{One, Zero};

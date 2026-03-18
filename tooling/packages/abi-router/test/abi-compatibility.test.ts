@@ -54,4 +54,37 @@ describe("abi-compatibility overload handling", () => {
 
     expect(encoded.startsWith(id("bar(uint256)").slice(0, 10))).toBe(true);
   });
+
+  it("preserves view metadata when exporting Web3 ABI", () => {
+    const layer = new NeoABICompatibilityLayer();
+    layer.registerABI([
+      {
+        type: "function",
+        name: "balanceOf",
+        inputs: [{ name: "owner", type: "address" }],
+        outputs: [{ name: "balance", type: "uint256" }],
+        stateMutability: "view",
+      },
+    ]);
+
+    const web3ABI = layer.toWeb3ABI();
+    const fn = web3ABI.find((entry) => entry.type === "function" && entry.name === "balanceOf");
+
+    expect(fn?.stateMutability).toBe("view");
+    expect(fn?.constant).toBe(true);
+    expect(fn?.payable).toBe(false);
+  });
+
+  it("converts array values to NeoVM arrays before integer coercion", () => {
+    const layer = new NeoABICompatibilityLayer();
+
+    const value = layer.convertToNeoVM("uint256[]", ["100", "200", "300"]);
+
+    expect(value.type).toBe("Array");
+    expect(value.value).toEqual([
+      { type: "Integer", value: "100" },
+      { type: "Integer", value: "200" },
+      { type: "Integer", value: "300" },
+    ]);
+  });
 });

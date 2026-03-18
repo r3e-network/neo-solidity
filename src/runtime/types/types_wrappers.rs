@@ -35,7 +35,7 @@ fn strip_hex_prefix(value: &str) -> &str {
 
 fn normalize_hex(value: &str) -> Result<String, &'static str> {
     let payload = strip_hex_prefix(value);
-    if payload.is_empty() || !payload.len().is_multiple_of(2) {
+    if payload.is_empty() || payload.len() % 2 != 0 {
         return Err("Invalid hex format");
     }
     if hex::decode(payload).is_err() {

@@ -113,27 +113,49 @@ These are not runtime parity issues but fundamental limitations of the Solidity-
 
 ### Blocked EVM Features
 
-The following Solidity/EVM features are not supported and will produce `E3001 UnsupportedFeature` errors:
+The following Solidity/EVM features are not supported and will produce diagnostic errors:
 
-| Feature                                 | Reason                                  |
-| --------------------------------------- | --------------------------------------- |
-| `delegatecall`                          | No equivalent in NeoVM execution model  |
-| `staticcall`                            | NeoVM uses call flags instead           |
-| Inline assembly (`assembly { ... }`)    | EVM-specific opcodes                    |
-| `selfdestruct`                          | No equivalent in Neo N3                 |
-| `extcodesize` / `extcodecopy`           | No bytecode introspection in NeoVM      |
-| `CREATE2`                               | Neo uses deterministic contract hashing |
-| `block.difficulty` / `block.prevrandao` | Not available in Neo N3                 |
-| `tx.gasprice`                           | Neo uses a different fee model          |
+| Feature                              | Diagnostic                     | Reason                                                       |
+| ------------------------------------ | ------------------------------ | ------------------------------------------------------------ |
+| Inline assembly (`assembly { ... }`) | Warning: no-op with suggestion | EVM-specific opcodes; special handlers for extsload/exttload |
+| `extcodesize` / `extcodecopy`        | Blocked                        | No bytecode introspection in NeoVM                           |
+| `CREATE2`                            | Blocked                        | Neo uses deterministic contract hashing                      |
+
+### Auto-Mapped Features (with Warnings)
+
+These EVM features compile successfully but emit warnings because their Neo mappings have different semantics:
+
+| Feature                                 | Neo Mapping                        | Warning Reason                                                  |
+| --------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| `delegatecall`                          | `System.Contract.Call`             | NeoVM has isolated storage; callee uses its own storage context |
+| `staticcall`                            | `System.Contract.Call` (read-only) | Uses call flags instead of EVM's storage read restriction       |
+| `selfdestruct(addr)`                    | `ContractManagement.destroy()`     | No refund mechanism; permanent on Neo                           |
+| `block.difficulty` / `block.prevrandao` | `Runtime.getRandom()`              | dBFT consensus has no PoW difficulty                            |
+| `tx.gasprice`                           | `Policy.getFeePerByte()`           | Neo uses different fee model                                    |
+| `block.coinbase`                        | `address(0)`                       | dBFT has no block miner                                         |
+| `block.sha3`                            | `Ledger.currentHash`               | Deprecated in Solidity 0.8+; uses current block hash            |
+| `block.gaslimit`                        | `Policy.getExecFeeFactor()`        | Neo uses GAS token fees, not gas limits                         |
+| `block.basefee`                         | `Policy.getFeePerByte()`           | Neo does not use EIP-1559                                       |
+| `blockhash(n)`                          | `Ledger.getBlockHash()`            | Semantic match but different chain                              |
+| `msg.value`                             | `0` (outside callbacks)            | No attached value on Neo; use NEP-17 callbacks                  |
+| `msg.data`                              | `selector \|\| abi.encode(args)`   | Approximated calldata; use explicit params                      |
+| `msg.sig`                               | Current function selector          | Differs across internal calls                                   |
+| `tx.origin`                             | First signer script hash           | Neo uses multi-sig witnesses                                    |
+| `address.code`                          | Contract script bytes              | Neo script, not EVM bytecode                                    |
+| `address.codehash`                      | Contract script hash               | Returns bytes32(0) for non-contract                             |
+| `gasleft()`                             | `System.Runtime.GasLeft`           | Direct syscall mapping                                          |
 
 ### Partial Features with Neo-Specific Semantics
 
-| Feature                    | Neo Behavior                                             |
-| -------------------------- | -------------------------------------------------------- |
-| `msg.value`                | Not directly applicable; Neo uses NEP-17 token transfers |
-| Function overloading       | Supported with constraints on ABI name uniqueness        |
-| Dynamic arrays in storage  | Must use mappings or fixed-size arrays                   |
-| `receive()` / `fallback()` | Mapped to Neo contract entry points                      |
+| Feature                    | Neo Behavior                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `msg.value`                | Returns `amount` inside `onNEP17Payment`; returns `0` with warning elsewhere |
+| Function overloading       | Supported with Neo ABI name mangling for same-arity overloads                |
+| Dynamic arrays in storage  | Mapped to storage arrays with `.push()` / `.pop()`                           |
+| `receive()` / `fallback()` | Mapped to Neo entry points; use `onNEP17Payment` for value receipt           |
+| `payable`                  | Accepted with warning; use `onNEP17Payment` for NEP-17 token receipt         |
+| `address.balance`          | Maps to `GAS.balanceOf()`                                                    |
+| `address.transfer/send`    | Maps to `GAS.transfer()` with abort/bool semantics                           |
 
 ### Dynamic Call Sites and Wildcard Permissions
 

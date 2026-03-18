@@ -8,7 +8,7 @@ Let us begin with the most basic example. It is fine if you do not understand ev
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 contract SimpleStorage {
     uint storedData;
@@ -25,7 +25,7 @@ contract SimpleStorage {
 
 The first line tells you that the source code is licensed under the MIT license. Machine-readable license specifiers are important in a setting where publishing source code is the default.
 
-The next line specifies that the source code is written for Solidity version 0.8.20 or newer.
+The next line specifies that the source code is written for Solidity version 0.8.34 or newer.
 
 A contract in the sense of Solidity is a collection of code (its functions) and data (its state) that resides at a specific address on the blockchain. The line `uint storedData;` declares a state variable of type `uint` (unsigned integer). You can think of it as a single slot in a database that you can query and alter by calling functions of the code that manages the database.
 
@@ -39,7 +39,7 @@ The following contract implements the simplest form of a cryptocurrency.
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 import {Runtime} from "@neo/Runtime.sol";
 

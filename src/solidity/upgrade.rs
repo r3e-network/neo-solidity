@@ -124,12 +124,12 @@ pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
     if MSG_SIG_RE.is_match(source) {
         findings.push(UpgradeFinding::new(
             "source_scan",
-            UpgradeSeverity::Error,
+            UpgradeSeverity::Warning,
             UpgradeCategory::ManualMigration,
             Some("SCAN_MSG_SIG"),
             None::<String>,
-            "msg.sig is not supported on Neo N3 because dispatch is method-name based rather than selector based.",
-            Some("Use string-based method identification or explicit interface IDs instead."),
+            "msg.sig compiles on Neo N3 as the current function selector, but this differs from EVM semantics across internal calls.",
+            Some("Use explicit method names or interface IDs when you need dispatch identity that survives internal calls."),
         ));
     }
 

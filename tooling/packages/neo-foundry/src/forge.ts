@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import chalk from "chalk";
-import { ConfigManager } from "./config";
+import { ConfigManager } from "./config.js";
 
 /**
  * Neo-Forge - Foundry-like UX for Neo-Solidity projects.
@@ -118,4 +118,3 @@ export class NeoForge {
     await fs.rm(full, { recursive: true, force: true });
   }
 }
-

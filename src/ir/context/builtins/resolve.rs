@@ -63,6 +63,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "encodePacked",
             "encodeCall",
             "encodeWithSignature",
+            "encodeWithSelector",
             "decode",
         ]),
         "Storage" => Some(&[
@@ -382,6 +383,7 @@ fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
         "encodePacked" => Some(BuiltinCall::AbiEncodePacked),
         "encodeCall" => Some(BuiltinCall::AbiEncodeCall),
         "encodeWithSignature" => Some(BuiltinCall::AbiEncodeWithSignature),
+        "encodeWithSelector" => Some(BuiltinCall::AbiEncodeWithSignature),
         "decode" => Some(BuiltinCall::AbiDecode),
         _ => None,
     }

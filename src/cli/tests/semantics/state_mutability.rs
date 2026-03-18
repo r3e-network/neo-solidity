@@ -83,6 +83,34 @@ fn view_functions_reject_low_level_call() {
 }
 
 #[test]
+fn view_functions_reject_delegatecall() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract ViewDelegatecall {
+        function run(address target) public view returns (bool ok) {
+            (bool success, bytes memory data) = target.delegatecall(abi.encodeWithSignature("foo()"));
+            data;
+            return success;
+        }
+    }
+    "#;
+
+    let err = compile_contracts(source, false, 0).expect_err("expected compilation failure");
+    match err {
+        CompileError::Ir(messages) => {
+            assert!(
+                messages.iter().any(|m| m
+                    .message
+                    .contains("address.call(...) / address.delegatecall(...)")),
+                "unexpected error messages: {messages:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
 fn view_functions_reject_unsafe_internal_calls() {
     let source = r#"
     pragma solidity ^0.8.20;

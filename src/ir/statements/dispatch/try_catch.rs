@@ -244,7 +244,7 @@ fn lower_try_statement(
                     let (tmp, inferred) = try_return_slots
                         .get(i)
                         .cloned()
-                        .unwrap_or_else(|| (0, ValueType::Any));
+                        .unwrap_or((0, ValueType::Any));
                     let slot = ctx.allocate_local(name, Some(inferred.clone()));
                     if try_return_slots.get(i).is_some() {
                         instructions.push(Instruction::LoadLocal(tmp));

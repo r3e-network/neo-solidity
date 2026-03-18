@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { NeoAnvil } from "./anvil";
+import { NeoAnvil } from "./anvil.js";
 
 const program = new Command();
 

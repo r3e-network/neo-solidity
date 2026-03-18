@@ -91,6 +91,7 @@ describe("Neo N3 Devpack Integration Tests", function () {
         "metadata"
       );
       expect(latestBuildInfo.input.language).to.equal("Solidity");
+      expect(latestBuildInfo.solcVersion).to.equal("0.8.34");
       expect(latestBuildInfo.input.settings).to.have.property("outputSelection");
       expect(latestBuildInfo.metadata).to.have.property("duration");
     });

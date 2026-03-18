@@ -35,6 +35,7 @@ fn build_deploy_function_with_warnings(
     let param_index_map = build_parameter_index_map(metadata);
     let mut ctx = LoweringContext::new(
         &metadata.name,
+        metadata.selector,
         false,
         param_index_map,
         &parameters,

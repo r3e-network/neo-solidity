@@ -1,5 +1,4 @@
 import { extendConfig, extendEnvironment } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import { NeoHardhatConfig } from "@neo-solidity/types";
 
@@ -36,7 +35,7 @@ declare module "hardhat/types/runtime" {
 // Default configuration
 const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.34",
     settings: {
       optimizer: {
         enabled: true,
@@ -150,10 +149,10 @@ extendConfig(
 
 // Extend Hardhat runtime environment
 extendEnvironment((hre: HardhatRuntimeEnvironment) => {
-  hre.neoSolc = lazyObject(() => ({
+  hre.neoSolc = {
     compiler: new NeoSolidityCompiler(hre.config.neoSolc, hre.config.paths),
     artifacts: new ArtifactManager(hre.config.paths.artifacts)
-  }));
+  };
 });
 
 export * from "./compiler";

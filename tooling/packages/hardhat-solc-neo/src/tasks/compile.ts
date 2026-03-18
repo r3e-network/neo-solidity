@@ -1,14 +1,14 @@
-import { task, types } from "hardhat/config";
+import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { promises as fs } from "fs";
 import path from "path";
 import chalk from "chalk";
-import { BuildArtifact, BuildInfo } from "@neo-solidity/types";
+import { BuildArtifact, BuildInfo, addFlagOption, setTaskAction } from "@neo-solidity/types";
 
-task("neo-compile", "Compile contracts using Neo-Solidity compiler")
-  .addOptionalParam("force", "Force recompilation", false, types.boolean)
-  .addOptionalParam("quiet", "Suppress output", false, types.boolean)
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoCompileTask = task("neo-compile", "Compile contracts using Neo-Solidity compiler");
+addFlagOption(neoCompileTask, "force", "Force recompilation");
+addFlagOption(neoCompileTask, "quiet", "Suppress output");
+setTaskAction(neoCompileTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { force, quiet } = taskArgs;
     const projectRoot = hre.config.paths.root || process.cwd();
     
@@ -75,7 +75,7 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
       // Save build info
       const buildInfo: BuildInfo = {
         id: generateBuildId(),
-        solcVersion: "0.8.19", // Would get from actual compiler
+        solcVersion: hre.config.neoSolc.solidity.version || "0.8.34",
         neoSolcVersion: "0.1.0", // Would get from Neo compiler
         input: { language: "Solidity", sources, settings: compilerSettings as any },
         output: compilationOutput,
@@ -139,10 +139,10 @@ task("neo-compile", "Compile contracts using Neo-Solidity compiler")
         
         // Print warnings if any
         if (compilationOutput.errors) {
-          const warnings = compilationOutput.errors.filter(e => e.severity === "warning");
+          const warnings = compilationOutput.errors.filter((e: any) => e.severity === "warning");
           if (warnings.length > 0) {
             const uniqueWarnings = new Set(
-              warnings.map(w => w.formattedMessage || w.message),
+              warnings.map((w: any) => w.formattedMessage || w.message),
             );
             console.log(
               chalk.yellow(

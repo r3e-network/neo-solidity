@@ -321,9 +321,6 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
         };
       
       default:
-        if (type.startsWith('uint') || type.startsWith('int')) {
-          return { type: 'Integer', value: String(value) };
-        }
         if (type.endsWith('[]')) {
           const baseType = type.slice(0, -2);
           return {
@@ -332,6 +329,9 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
               ? value.map(item => this.convertToNeoVM(baseType, item))
               : []
           };
+        }
+        if (type.startsWith('uint') || type.startsWith('int')) {
+          return { type: 'Integer', value: String(value) };
         }
         return { type: 'String', value: String(value) };
     }
@@ -442,15 +442,7 @@ export class NeoABICompatibilityLayer extends EventEmitter implements ABICompati
   private determineStateMutability(
     selector: FunctionSelector
   ): 'pure' | 'view' | 'payable' | 'nonpayable' {
-    // Analyze function to determine state mutability
-    // This is a simplified implementation
-    if (selector.signature.includes('view') || selector.signature.includes('pure')) {
-      return 'view';
-    }
-    if (selector.signature.includes('payable')) {
-      return 'payable';
-    }
-    return 'nonpayable';
+    return selector.stateMutability || 'nonpayable';
   }
 
   private isConstantFunction(selector: FunctionSelector): boolean {
@@ -573,7 +565,8 @@ export class NeoABIRegistry implements ABIRegistry {
       signature,
       selector,
       inputs: abi.inputs,
-      outputs: abi.outputs || []
+      outputs: abi.outputs || [],
+      stateMutability: abi.stateMutability
     });
     this.functions.set(signature, this.functions.get(selector)!);
 

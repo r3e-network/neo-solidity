@@ -207,8 +207,14 @@ fn try_lower_code_property(
     }
 
     if lower_expression(inner, ctx, instructions) {
-        instructions.push(Instruction::Drop(ValueType::Any));
-        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![])));
+        ctx.record_warning_with_suggestion(
+            "address.code auto-mapped to the Neo contract script bytes via ContractManagement.getContract(). This differs from EVM runtime bytecode semantics and returns empty bytes for non-contract addresses.",
+            "Use ContractManagement.isContract(address) or address.code.length when you only need existence checks.",
+        );
+        instructions.push(Instruction::CallBuiltin {
+            builtin: BuiltinCall::GetContractScript,
+            arg_count: 1,
+        });
         return Some(true);
     }
 

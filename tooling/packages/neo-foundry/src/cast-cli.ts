@@ -2,8 +2,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { NeoCast } from "./cast";
-import { ConfigManager } from "./config";
+import { NeoCast } from "./cast.js";
+import { ConfigManager } from "./config.js";
 
 const program = new Command();
 

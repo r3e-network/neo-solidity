@@ -5,19 +5,19 @@ title: Neo Solidity
 titleTemplate: Compile Solidity to Neo N3
 
 hero:
-    name: "{NEO_SOLIDITY}"
-    text: "Compile Solidity to Neo N3"
-    tagline: "A statically-typed curly-braces programming language compiler designed for developing smart contracts that run on the Neo N3 blockchain."
-    image:
-        src: /assets/neo-solidity-logo.png
-        alt: Neo Solidity Compiler
-    actions:
-        - theme: brand
-          text: Read the docs
-          link: /basics/introduction-to-smart-contracts
-        - theme: alt
-          text: Repository
-          link: https://github.com/r3e-network/neo-solidity
+  name: "{NEO_SOLIDITY}"
+  text: "Compile Solidity to Neo N3"
+  tagline: "A statically-typed curly-braces programming language compiler designed for developing smart contracts that run on the Neo N3 blockchain."
+  image:
+    src: /assets/neo-solidity-logo.png
+    alt: Neo Solidity Compiler
+  actions:
+    - theme: brand
+      text: Read the docs
+      link: /basics/introduction-to-smart-contracts
+    - theme: alt
+      text: Repository
+      link: https://github.com/r3e-network/neo-solidity
 ---
 
 <div class="vp-doc home-section">
@@ -30,8 +30,8 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo Solidity v0.14.0</h3>
-    <p>Version 0.14.0 brings seamless EVM-to-NeoVM compatibility, softening strict compilation rejections for EVM-specific syntax (like <code>assembly</code> blocks and extraneous call options) into graceful warnings, enabling frictionless porting of Ethereum contracts. It also fixes critical dataflow paths for infinite loop prevention.</p>
+    <h3>Neo Solidity v0.15.0</h3>
+    <p>Version 0.15.0 improves EVM compatibility: <code>msg.data</code> now produces <code>selector || abi.encode(args)</code> outside callbacks, <code>onNEP11Payment</code> parameter mapping is fixed, <code>block.coinbase</code> returns the correct <code>address</code> type, and <code>block.sha3</code> correctly maps to the current block hash. Documentation fully synced with compiler behavior.</p>
     <a href="https://github.com/r3e-network/neo-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
@@ -40,7 +40,7 @@ hero:
 
 <h2 class="solidity-section-header">NEO SOLIDITY IS EVOLVING RAPIDLY</h2>
 
-Our release cycle prioritizes both stability for production and rapid innovation for developers transitioning from EVM to Neo N3. We regularly ship **non-breaking minor releases** with enhanced mappings, deeper standard support (like NEP-17/NEP-11), and expanded diagnostic intelligence. 
+Our release cycle prioritizes both stability for production and rapid innovation for developers transitioning from EVM to Neo N3. We regularly ship **non-breaking minor releases** with enhanced mappings, deeper standard support (like NEP-17/NEP-11), and expanded diagnostic intelligence.
 
 <div style="margin-top: 1.5rem;">
   <a href="/basics/introduction-to-smart-contracts" class="cta-button">Get started</a>
@@ -95,7 +95,7 @@ Neo Solidity is an open-source project. We welcome developers, auditors, and tec
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 import {Runtime} from "@neo/Runtime.sol";
 
@@ -104,7 +104,7 @@ contract SimpleStorage {
     address public owner;
 
     constructor() {
-        owner = Runtime.getCallingScriptHash(); 
+        owner = Runtime.getCallingScriptHash();
     }
 
     function set(uint256 x) public {
@@ -126,7 +126,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.14.0<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.15.0<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

@@ -4,11 +4,15 @@ fn try_lower_runtime_member_access(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
+    let is_nep17_payment = ctx.function_name == "onNEP17Payment";
+    let is_nep11_payment = ctx.function_name == "onNEP11Payment";
+    let is_payment_callback = is_nep17_payment || is_nep11_payment;
+
     match member.name.as_str() {
         "sender" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
-                    if ctx.function_name == "onNEP17Payment" {
+                    if is_payment_callback {
                         instructions.push(Instruction::LoadParameter(0));
                     } else {
                         instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgSender));
@@ -21,13 +25,14 @@ fn try_lower_runtime_member_access(
         "value" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
-                    if ctx.function_name == "onNEP17Payment" {
+                    if is_payment_callback {
+                        // Both onNEP17Payment and onNEP11Payment have amount at param 1
                         instructions.push(Instruction::LoadParameter(1));
                     } else {
                         // Neo N3 has no "attached value" for calls; msg.value is only
-                        // meaningful inside onNEP17Payment(). A validation-level warning
-                        // (W110) is emitted separately; here we still emit the runtime
-                        // load so compilation succeeds for compatibility.
+                        // meaningful inside payment callbacks. Outside that context we
+                        // emit a warning (via the payable modifier check) and return 0
+                        // via RuntimeValue::MsgValue for source compatibility.
                         instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgValue));
                     }
                     return Some(true);
@@ -38,14 +43,39 @@ fn try_lower_runtime_member_access(
         "data" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
-                    if ctx.function_name == "onNEP17Payment" {
+                    if is_nep17_payment {
+                        // onNEP17Payment(from, amount, data) — data is param 2
                         instructions.push(Instruction::LoadParameter(2));
+                    } else if is_nep11_payment {
+                        // onNEP11Payment(from, amount, tokenId, data) — data is param 3
+                        instructions.push(Instruction::LoadParameter(3));
                     } else {
+                        let param_count = ctx.parameter_count();
                         ctx.record_warning_with_suggestion(
-                            "msg.data has no exact equivalent on Neo N3 outside of onNEP17Payment. Auto-mapped to an empty byte array.",
-                            "Use explicit method parameters instead.",
+                            "msg.data is approximated on Neo N3 as `selector || abi.encode(current args)`. This differs from raw EVM calldata in internal calls.",
+                            "Use explicit method parameters when you need exact input semantics.",
                         );
-                        instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgData));
+                        // Push the current function's selector
+                        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                            ctx.current_function_selector().to_vec(),
+                        )));
+                        if param_count > 0 {
+                            // Push parameters for encoding
+                            for index in 0..param_count {
+                                instructions.push(Instruction::LoadParameter(index));
+                            }
+                            // Encode the parameters
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::AbiEncode,
+                                arg_count: param_count,
+                            });
+                            // Concatenate selector + encoded args
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::BytesConcat,
+                                arg_count: 2,
+                            });
+                        }
+                        // If param_count == 0, just leave the selector on the stack
                     }
                     return Some(true);
                 }
@@ -56,12 +86,12 @@ fn try_lower_runtime_member_access(
             if let Expression::Variable(base) = inner {
                 if base.name == "msg" {
                     ctx.record_warning_with_suggestion(
-                        "msg.sig has no exact equivalent on Neo N3. Neo dispatches by method name, not by a 4-byte EVM selector. Auto-mapped to 0x00000000.",
-                        "Use string-based method identification or type(I).interfaceId (for NEP-11/NEP-17 compatibility).",
+                        "msg.sig is approximated on Neo N3 using the current function selector. This differs from EVM semantics across internal calls, where msg.sig preserves the original external-call selector.",
+                        "Use explicit method-name logic or interface IDs when you need cross-call-stable dispatch identity.",
                     );
-                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
-                        0, 0, 0, 0,
-                    ])));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        ctx.current_function_selector().to_vec(),
+                    )));
                     return Some(true);
                 }
             }
@@ -157,19 +187,17 @@ fn try_lower_runtime_member_access(
         "coinbase" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
-                    // Neo N3 auto-compat: block.coinbase → Neo.getNextBlockValidators()
-                    // dBFT has no miner; return next block validators for useful info
+                    // Neo N3 auto-compat: block.coinbase → address(0)
+                    // dBFT has no PoW miner; there is no single "coinbase" address.
+                    // Return address(0) to match EVM type semantics (address return).
                     ctx.record_warning_with_suggestion(
-                        "block.coinbase auto-mapped to Neo.getNextBlockValidators() on Neo N3 because dBFT consensus has no miner.",
-                        "Review any miner-reward or coinbase assumptions before deploying on Neo.",
+                        "block.coinbase auto-mapped to address(0) on Neo N3 because dBFT consensus has no block miner.",
+                        "Use Neo.getNextBlockValidators() if you need the current validator set, or Runtime.checkWitness() for authorization.",
                     );
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::NativeCall {
-                            contract: NativeContract::Neo,
-                            method: "getNextBlockValidators".to_string(),
-                        },
-                        arg_count: 0,
-                    });
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+                        0u8;
+                        20
+                    ])));
                     return Some(true);
                 }
             }
@@ -238,11 +266,12 @@ fn try_lower_runtime_member_access(
         "parenthash" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
-                    // Neo N3 auto-compat: block.parenthash → Ledger.getBlock(currentIndex-1).prevHash
-                    // This requires getting the previous block hash
+                    // Neo N3 auto-compat: block.parenthash → Ledger.currentHash
+                    // EVM's blockhash(block.number - 1) returns the parent block hash.
+                    // On Neo, Ledger.currentHash returns the current block's hash.
                     ctx.record_warning_with_suggestion(
                         "block.parenthash auto-mapped to Ledger.currentHash on Neo N3.",
-                        "Use Ledger.getBlock(currentIndex - 1).prevHash if you need the previous block hash specifically.",
+                        "Use Ledger.getBlock(currentIndex - 1).hash if you need the actual parent block hash.",
                     );
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::NativeCall {
@@ -259,14 +288,15 @@ fn try_lower_runtime_member_access(
         "sha3" => {
             if let Expression::Variable(base) = inner {
                 if base.name == "block" {
-                    // Neo N3 auto-compat: block.sha3 → Keccak256 of current block
-                    // This is essentially the block hash
                     ctx.record_warning_with_suggestion(
-                        "block.sha3 is not directly available on Neo N3.",
-                        "Use Runtime.getRandom() or Ledger.currentHash() instead, depending on whether you need randomness or block identity.",
+                        "block.sha3 is deprecated in Solidity 0.8+ and not fully available on Neo N3. On EVM it returns keccak256 of the current block. On Neo, this is approximated as Ledger.currentHash (the current block's hash).",
+                        "Use Ledger.currentHash() directly if you need the current block hash on Neo.",
                     );
                     instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::Syscall("System.Runtime.GetRandom".to_string()),
+                        builtin: BuiltinCall::NativeCall {
+                            contract: NativeContract::Ledger,
+                            method: "currentHash".to_string(),
+                        },
                         arg_count: 0,
                     });
                     return Some(true);

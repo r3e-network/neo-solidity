@@ -44,7 +44,8 @@ fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
         }
     }
 
-    // Library functions: external/public are not supported on NeoVM.
+    // NeoVM libraries are inlined into the consuming contract. Keep emitting
+    // diagnostics for user-facing visibility choices, but don't block lowering.
     for method in &metadata.methods {
         if !matches!(method.kind, FunctionKind::Regular) {
             continue;
@@ -52,15 +53,16 @@ fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
         match method.visibility {
             VisibilityKind::External => {
                 diagnostics.push(
-                    Diagnostic::error(format!(
+                    Diagnostic::warning(format!(
                         "library '{}' function '{}' is declared `external`; \
-                         external library functions are not supported on NeoVM \
-                         because libraries cannot be deployed as standalone contracts",
+                         on NeoVM, user-defined library functions are inlined into \
+                         the consuming contract, so `external` visibility is \
+                         normalized to an internal helper",
                         metadata.name, method.name,
                     ))
+                    .with_code("W121")
                     .with_suggestion(
-                        "use `internal` or `private` visibility; library functions \
-                         are inlined into the calling contract",
+                        "prefer `internal` visibility for library helpers to match Neo lowering semantics",
                     ),
                 );
             }

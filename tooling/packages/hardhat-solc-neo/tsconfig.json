@@ -2,6 +2,14 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "module": "CommonJS",
+    "baseUrl": ".",
+    "paths": {
+      "hardhat/config": ["./src/hardhat-shims.d.ts"],
+      "hardhat/plugins": ["./src/hardhat-shims.d.ts"],
+      "hardhat/types": ["./src/hardhat-shims.d.ts"],
+      "hardhat/types/config": ["./src/hardhat-shims.d.ts"],
+      "hardhat/types/runtime": ["./src/hardhat-shims.d.ts"]
+    },
     "outDir": "./dist",
     "rootDir": "./src"
   },

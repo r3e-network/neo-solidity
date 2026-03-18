@@ -1,17 +1,25 @@
-import { task, types } from "hardhat/config";
+import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
+import {
+  addFlagOption,
+  addOptionalStringOption,
+  addRequiredStringOption,
+  getHardhatSelectedNetworkName,
+  setTaskAction,
+} from "@neo-solidity/types";
 
-task("neo-deploy", "Deploy contracts to Neo blockchain")
-  .addParam("contract", "Contract name to deploy")
-  .addOptionalParam("args", "Constructor arguments (JSON array)", "[]")
-  .addOptionalParam("from", "Account to deploy from")
-  .addOptionalParam("gasLimit", "Gas limit for deployment")
-  .addOptionalParam("verify", "Verify contract after deployment", false, types.boolean)
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoDeployTask = task("neo-deploy", "Deploy contracts to Neo blockchain");
+addRequiredStringOption(neoDeployTask, "contract", "Contract name to deploy");
+addOptionalStringOption(neoDeployTask, "args", "Constructor arguments (JSON array)", "[]");
+addOptionalStringOption(neoDeployTask, "from", "Account to deploy from");
+addOptionalStringOption(neoDeployTask, "gasLimit", "Gas limit for deployment");
+addFlagOption(neoDeployTask, "verify", "Verify contract after deployment");
+setTaskAction(neoDeployTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { contract, args, from, gasLimit, verify } = taskArgs;
-    
-    console.log(chalk.blue(`🚀 Deploying ${contract} to ${hre.network.name}...`));
+    const networkName = getHardhatSelectedNetworkName(hre);
+
+    console.log(chalk.blue(`🚀 Deploying ${contract} to ${networkName}...`));
 
     try {
       // Parse constructor arguments
@@ -73,10 +81,10 @@ task("neo-deploy", "Deploy contracts to Neo blockchain")
     }
   });
 
-task("neo-deploy-batch", "Deploy multiple contracts in batch")
-  .addParam("deployConfig", "Deployment configuration file path")
-  .addFlag("verify", "Verify all contracts after deployment")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoDeployBatchTask = task("neo-deploy-batch", "Deploy multiple contracts in batch");
+addRequiredStringOption(neoDeployBatchTask, "deployConfig", "Deployment configuration file path");
+addFlagOption(neoDeployBatchTask, "verify", "Verify all contracts after deployment");
+setTaskAction(neoDeployBatchTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { deployConfig, verify } = taskArgs;
     
     console.log(chalk.blue(`📦 Batch deploying from ${deployConfig}...`));
@@ -100,7 +108,7 @@ task("neo-deploy-batch", "Deploy multiple contracts in batch")
 
       // Print summary
       console.log(chalk.blue("\n📋 Deployment Summary:"));
-      const deploymentsWithNames = deployments.map((deployment, index) => ({
+      const deploymentsWithNames = deployments.map((deployment: any, index: number) => ({
         contractName: deploymentConfig.contracts[index]?.name ?? `Contract ${index + 1}`,
         deployment,
       }));
@@ -132,14 +140,15 @@ task("neo-deploy-batch", "Deploy multiple contracts in batch")
       }
 
       // Save deployment summary
-      const summaryPath = `deployments/${hre.network.name}/summary.json`;
+      const networkName = getHardhatSelectedNetworkName(hre);
+      const summaryPath = `deployments/${networkName}/summary.json`;
       const fs2 = await import('fs/promises');
-      await fs2.mkdir(`deployments/${hre.network.name}`, { recursive: true });
+      await fs2.mkdir(`deployments/${networkName}`, { recursive: true });
       
       const summary = {
-        network: hre.network.name,
+        network: networkName,
         timestamp: new Date().toISOString(),
-        deployments: deploymentsWithNames.map(item => ({
+        deployments: deploymentsWithNames.map((item: any) => ({
           contract: item.contractName,
           address: item.deployment.address,
           scriptHash: item.deployment.scriptHash,
@@ -160,10 +169,10 @@ task("neo-deploy-batch", "Deploy multiple contracts in batch")
     }
   });
 
-task("neo-deploy-estimate", "Estimate deployment gas costs")
-  .addParam("contract", "Contract name to estimate")
-  .addOptionalParam("args", "Constructor arguments (JSON array)", "[]")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoDeployEstimateTask = task("neo-deploy-estimate", "Estimate deployment gas costs");
+addRequiredStringOption(neoDeployEstimateTask, "contract", "Contract name to estimate");
+addOptionalStringOption(neoDeployEstimateTask, "args", "Constructor arguments (JSON array)", "[]");
+setTaskAction(neoDeployEstimateTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { contract, args } = taskArgs;
     
     console.log(chalk.blue(`⛽ Estimating deployment gas for ${contract}...`));

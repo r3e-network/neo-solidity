@@ -12,7 +12,7 @@ Because NeoVM uses arbitrary-precision integers (`BigInteger`) and a dynamic Key
 
 ## Verification on Neo
 
-Currently, verifying Neo Solidity contracts requires external auditing tools or testing frameworks. We recommend utilizing the `tooling/` packages in this repository (like `@r3e-network/hardhat-solc-neo`) to run extensive unit and integration tests against local Neo-Express nodes.
+Currently, verifying Neo Solidity contracts requires external auditing tools or testing frameworks. We recommend utilizing the `tooling/` packages in this repository (like `@neo-solidity/hardhat-solc-neo`) to run extensive unit and integration tests against local Neo-Express nodes.
 
 Future iterations of the compiler may introduce Neo-specific constraint checkers for static analysis, specifically regarding:
 1. **Manifest Permission Wildcards:** Validating that all cross-contract calls are strictly bounded.

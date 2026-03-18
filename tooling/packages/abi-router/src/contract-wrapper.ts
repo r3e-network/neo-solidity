@@ -1,8 +1,8 @@
 import { Interface, FunctionFragment, EventFragment } from "ethers";
 import { EventEmitter } from "events";
-import { RpcAdapter } from "./rpc-adapter";
-import { TransactionBuilder } from "./transaction-builder";
-import { EventDecoder } from "./event-decoder";
+import { RpcAdapter } from "./rpc-adapter.js";
+import { TransactionBuilder } from "./transaction-builder.js";
+import { EventDecoder } from "./event-decoder.js";
 import Debug from "debug";
 import {
   decodeNeoBytes,
@@ -14,7 +14,7 @@ import {
   parseNeoInteger,
   stackItemArrayValue,
   strip0x,
-} from "./neo-utils";
+} from "./neo-utils.js";
 
 const debug = Debug("neo-solidity:contract-wrapper");
 

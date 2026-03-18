@@ -20,7 +20,7 @@
 - **Primary Implementation**: Rust-based compiler (production-ready) with archived Go reference implementation.
 - **EVM semantics**: ABI-compatible selectors and metadata; NEP standard detection (NEP-11/17/24).
 - **Optimized output**: Multi-level optimizer, Neo-specific lowering, manifest generation.
-- **Tooling friendly**: CLI first, with scaffolding for Hardhat/Foundry adapters.
+- **Tooling friendly**: CLI first, with active Hardhat/Foundry-adjacent workspace packages for compilation, deployment, scaffolding, and cross-package smoke coverage.
 - **Quality-focused**: Unit/integration/runtime tests, clear diagnostics.
 
 ## 🚀 Quick Start
@@ -193,7 +193,7 @@ semantics, gas hints), see `docs/RUNTIME_SPEC.md`.
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.34;
 
 contract SimpleToken {
     mapping(address => uint256) public balances;
@@ -241,7 +241,7 @@ neo-cli contract invoke <contract-hash> totalSupply
 
 ## 🧩 **Solidity Feature Support on NeoVM**
 
-> **142 Solidity features audited** — ✅ 114 fully supported (80%) · ⚠️ 20 partial (14%) · ❌ 3 unsupported (2%) · 🚫 5 intentionally blocked (4%)
+> **142 Solidity features audited** — ✅ 114 fully supported (80%) · ⚠️ 21 partial (15%) · ❌ 2 unsupported (1%) · 🚫 5 intentionally blocked (4%)
 >
 > For the full per-feature audit, see [`docs/SOLIDITY_SUPPORT_MATRIX.md`](./docs/SOLIDITY_SUPPORT_MATRIX.md) and [`FEATURE_MATRIX.md`](./FEATURE_MATRIX.md).
 
@@ -257,7 +257,7 @@ All Solidity value types map naturally to NeoVM's arbitrary-precision BigInteger
 <details>
 <summary><strong>Expressions</strong> — Arithmetic, comparison, logical, bitwise, unary, ternary, assignment, <code>delete</code>, <code>type(X).min/max/name/interfaceId</code>, <code>abi.encodeWithSignature/Selector/Call</code>, <code>abi.decode</code>, named args</summary>
 
-Full operator support including short-circuit evaluation. `abi.encodeWithSignature(...)`, `abi.encodeWithSelector(...)`, and `abi.encodeCall(...)` can feed low-level Neo `System.Contract.Call` lowering. `abi.decode` maps to `StdLib.deserialize`.
+Full operator support including short-circuit evaluation. `abi.encodeWithSignature(...)`, `abi.encodeWithSelector(...)`, and `abi.encodeCall(...)` can feed low-level Neo `System.Contract.Call` lowering. Standalone `encodeWithSignature` / `encodeWithSelector` approximate EVM calldata as `selector || abi.encode(args)`. `abi.decode` maps to `StdLib.deserialize`.
 
 </details>
 
@@ -319,54 +319,54 @@ State variables persist via Neo Storage syscalls with prefix-based keys. `callda
 
 ---
 
-### ⚠️ Partially Supported (20 features) — with Neo Solutions
+### ⚠️ Partially Supported (22 features) — with Neo Solutions
 
-| Feature                              | Limitation                                     | Neo Solution / Workaround                                                                                     |
-| ------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `address payable`                    | Value-transfer semantics differ from EVM        | `.transfer()` / `.send()` auto-map to GAS NEP-17 transfer; prefer explicit `NativeCalls.*Transfer()`          |
-| `T[N]` (fixed-size array)            | Length must be compile-time constant           | `new T[N]` is supported for fixed memory arrays; use dynamic arrays `T[]` when runtime sizing is required     |
-| `abi.encode` (standalone)            | Maps to `StdLib.serialize`, not EVM ABI format | Works correctly for Neo cross-contract calls; not byte-compatible with EVM                                    |
-| `abi.encodePacked`                   | Same as `abi.encode` on Neo                    | Concatenation-based; sufficient for Neo use cases                                                             |
-| Tuple destructuring                  | Nested assignment forms are supported          | Deeply mixed declaration/storage targets may still need intermediate local variables                          |
-| `catch Panic(uint256)`               | NeoVM has no exact EVM panic-code channel      | Compiler uses runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes  |
-| Multiple catch clauses               | NeoVM type checks are coarse (`ISTYPE`)        | Compiler now emits runtime catch-guard dispatch by stack item type, with `catch {}` as fallback when provided |
-| `payable` modifier                   | Neo has no native gas payment on functions     | Use `onNEP17Payment()` callback to receive NEP-17 tokens                                                      |
-| Function overloading                 | Neo ABI dispatches by name only                | Different arg counts work (mangled names); same arg count overloads rejected — rename one function            |
-| `receive()`                          | No equivalent dispatch on Neo                  | Implement `onNEP17Payment(address from, uint256 amount, bytes data)` callback                                 |
-| `fallback()`                         | No equivalent dispatch on Neo                  | Implement `onNEP17Payment()` for value receipt; Neo has no unknown-method fallback                            |
-| `library` (user-defined)             | External library calls unsupported             | Internal library functions are fully inlined; refactor external functions to internal                         |
-| `immutable`                          | Partial constructor-style semantics            | Writes outside constructor/deploy initialization are rejected; initialize in declaration or constructor       |
-| `msg.value`                          | Only available inside `onNEP17Payment`         | Access the `amount` parameter of `onNEP17Payment(from, amount, data)` directly                                |
-| `address.code`                       | Neo does not expose raw runtime bytecode        | `address.code` returns empty bytes; use `ContractManagement.getContract()` for metadata                         |
-| `tx.origin`                          | Compiles with warning                          | Neo uses multi-sig witnesses; use `Runtime.checkWitness(addr)` for authorization                              |
-| Ether units (`wei`, `gwei`, `ether`) | Parsed with warning                            | Neo uses GAS token with 10⁸ decimals (1 GAS = 100,000,000 fractions)                                          |
-| ERC-20 `approve`/`allowance`         | Not part of NEP-17 spec                        | Use `Runtime.checkWitness(owner)` for authorization; Neo's witness model replaces approvals                   |
-| ERC-165 `supportsInterface`          | Unnecessary on Neo                             | Neo uses manifest `supportedstandards` field for interface discovery                                          |
-| ERC-4626 (Vault)                     | ERC-20 interactions must use NEP-17            | Vault logic compiles; replace ERC-20 calls with NEP-17 equivalents via devpack                                |
+| Feature                              | Limitation                                       | Neo Solution / Workaround                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `address payable`                    | Value-transfer semantics differ from EVM         | `.transfer()` / `.send()` auto-map to GAS NEP-17 transfer; prefer explicit `NativeCalls.*Transfer()`                                                 |
+| `T[N]` (fixed-size array)            | Length must be compile-time constant             | `new T[N]` is supported for fixed memory arrays; use dynamic arrays `T[]` when runtime sizing is required                                            |
+| `abi.encode` (standalone)            | Maps to `StdLib.serialize`, not EVM ABI format   | Works correctly for Neo cross-contract calls; not byte-compatible with EVM                                                                           |
+| `abi.encodePacked`                   | Same as `abi.encode` on Neo                      | Concatenation-based; sufficient for Neo use cases                                                                                                    |
+| Tuple destructuring                  | Nested assignment forms are supported            | Deeply mixed declaration/storage targets may still need intermediate local variables                                                                 |
+| `catch Panic(uint256)`               | NeoVM has no exact EVM panic-code channel        | Compiler uses runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes                                         |
+| Multiple catch clauses               | NeoVM type checks are coarse (`ISTYPE`)          | Compiler now emits runtime catch-guard dispatch by stack item type, with `catch {}` as fallback when provided                                        |
+| `payable` modifier                   | Neo has no native gas payment on functions       | Use `onNEP17Payment()` callback to receive NEP-17 tokens                                                                                             |
+| Function overloading                 | Neo callers must use generated overload names    | Overloads compile with `neo_name` mangling; non-primary variants are exported under generated Neo method names                                       |
+| `receive()`                          | No equivalent dispatch on Neo                    | Implement `onNEP17Payment(address from, uint256 amount, bytes data)` callback                                                                        |
+| `fallback()`                         | No equivalent dispatch on Neo                    | Implement `onNEP17Payment()` for value receipt; Neo has no unknown-method fallback                                                                   |
+| `library` (user-defined)             | Libraries are inlined, not deployed separately   | Internal calls are fully inlined; `public` / `external` library functions are accepted but normalized to internal helpers with warnings              |
+| `immutable`                          | Partial constructor-style semantics              | Writes outside constructor/deploy initialization are rejected; initialize in declaration or constructor                                              |
+| `msg.value`                          | Only available inside `onNEP17Payment`           | Access the `amount` parameter of `onNEP17Payment(from, amount, data)` directly                                                                       |
+| `msg.data`                           | Approximated as `selector \|\| abi.encode(args)` | In `onNEP17Payment` maps to `data` param; outside callbacks produces selector + encoded args. Use explicit params for exact semantics                |
+| `msg.sig`                            | Internal-call semantics differ from EVM          | Approximated as the current function selector with warning; prefer explicit method-name logic or interface IDs when exact propagation matters        |
+| `address.code`                       | Returns Neo script bytes, not EVM bytecode       | Uses `ContractManagement.getContract()` under the hood; non-contracts return empty bytes, and `address.code.length` still acts as an existence check |
+| `tx.origin`                          | Compiles with warning                            | Neo uses multi-sig witnesses; use `Runtime.checkWitness(addr)` for authorization                                                                     |
+| Ether units (`wei`, `gwei`, `ether`) | Parsed with warning                              | Neo uses GAS token with 10⁸ decimals (1 GAS = 100,000,000 fractions)                                                                                 |
+| ERC-20 `approve`/`allowance`         | Not part of NEP-17 spec                          | Use `Runtime.checkWitness(owner)` for authorization; Neo's witness model replaces approvals                                                          |
+| ERC-165 `supportsInterface`          | Unnecessary on Neo                               | Neo uses manifest `supportedstandards` field for interface discovery                                                                                 |
+| ERC-4626 (Vault)                     | ERC-20 interactions must use NEP-17              | Vault logic compiles; replace ERC-20 calls with NEP-17 equivalents via devpack                                                                       |
 
 ---
 
-### ❌ Not Supported (3 features)
+### ❌ Not Supported (1 feature)
 
-| Feature            | Reason                                                             | Alternative                                                                   |
-| ------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `fixed` / `ufixed` | Also unsupported in mainline Solidity (reserved but unimplemented) | Use `uint256` with manual fixed-point math (e.g., multiply by 10¹⁸)           |
-| `msg.data`         | Neo uses typed parameters, not raw calldata bytes                  | Access function parameters directly; use `abi.decode` for cross-contract data |
-| `msg.sig`          | Neo dispatches by method name, not 4-byte selector                 | Use `type(IMyInterface).interfaceId` or string-based method identification    |
+| Feature            | Reason                                                             | Alternative                                                         |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `fixed` / `ufixed` | Also unsupported in mainline Solidity (reserved but unimplemented) | Use `uint256` with manual fixed-point math (e.g., multiply by 10¹⁸) |
 
 ---
 
 ### 🚫 Intentionally Blocked EVM Features (5 features) — with Neo Alternatives
 
-These features are **detected at compile time** with actionable error messages pointing to the Neo equivalent:
+These features are **detected at compile time** with actionable error or warning messages pointing to the Neo equivalent:
 
-| Blocked Feature         | Error Diagnostic                        | Neo Alternative                                                     |
-| ----------------------- | --------------------------------------- | ------------------------------------------------------------------- |
-| `assembly { }`          | "inline assembly is not supported"      | Use `NativeCalls.sol` devpack for low-level Neo syscalls            |
-| `address.delegatecall`  | "no delegate call on Neo"               | Neo contracts have isolated storage; use `address.call()` instead   |
-| `new Contract(...)`     | "use ContractManagement for deployment" | `ContractManagement.deploy(nef, manifest, data)`                    |
-| `type(X).creationCode`  | "no bytecode access on Neo"             | Deploy via `ContractManagement.deploy()` with NEF bytes             |
-| `type(X).runtimeCode`   | "no bytecode access on Neo"             | No equivalent; Neo contracts are opaque after deployment            |
+| Blocked Feature        | Diagnostic                                   | Neo Alternative                                                   |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| `assembly { }`         | Warning: inline assembly not supported       | Use `NativeCalls.sol` devpack for low-level Neo syscalls          |
+| `address.delegatecall` | Warning: compiled with different semantics   | Neo contracts have isolated storage; use `address.call()` instead |
+| `new Contract(...)`    | Error: use ContractManagement for deployment | `ContractManagement.deploy(nef, manifest, data)`                  |
+| `type(X).creationCode` | Error: no bytecode access on Neo             | Deploy via `ContractManagement.deploy()` with NEF bytes           |
+| `type(X).runtimeCode`  | Error: no bytecode access on Neo             | No equivalent; Neo contracts are opaque after deployment          |
 
 ---
 
@@ -410,7 +410,7 @@ graph TB
 #### **System Requirements**
 
 - **Rust**: 1.82 or higher
-- **Node.js**: 16.0 or higher (for tooling)
+- **Node.js**: 18.0 or higher (for tooling)
 - **.NET SDK**: 8.0 or higher (for optional C# runtime)
 - **Neo CLI**: 3.0+ (for deployment)
 - **Memory**: 4GB RAM minimum, 8GB recommended
@@ -540,6 +540,7 @@ contract MyContract { }
 
 Supported tag prefixes: `@custom:neo.manifest.*` and `@custom:manifest.*`.
 Supported fields:
+
 - `name` (string)
 - `groups` (JSON array)
 - `features` (JSON object)
@@ -576,7 +577,7 @@ import "@neo-solidity/hardhat-solc-neo";
 export default {
   neoSolc: {
     solidity: {
-      version: "0.8.20",
+      version: "0.8.34",
       settings: {
         optimizer: { enabled: true, runs: 200 },
         neo: {
@@ -620,25 +621,17 @@ neo-forge build
 # Run tests
 neo-forge test
 
-Neo Foundry commands are currently scaffolding-only; use `neo-solc` + `neo-cli` for deployment.
+`neo-forge init` is implemented and writes a starter project layout. Build/test/deploy flows remain scaffold-level today; use `neo-solc` + Neo tooling (`neoxp` / `neo-cli`) for real deployment.
 ```
 
 #### Direct Integration
 
-```javascript
-const { NeoSolidityCompiler } = require("@neo-solidity/core");
+There is no stable published JavaScript runtime package for the compiler itself in this repository.
+For programmatic workflows today, prefer:
 
-const compiler = new NeoSolidityCompiler({
-  optimization: 2,
-  target: "3.0",
-  outputFormat: "json",
-});
-
-const result = await compiler.compile("contract.sol");
-console.log("Bytecode:", result.bytecode);
-console.log("ABI:", result.abi);
-console.log("Gas estimate:", result.estimatedGas);
-```
+- the Rust `neo-solc` binary directly
+- `@neo-solidity/cli-tools` for Node-based wrapper commands
+- `@neo-solidity/hardhat-solc-neo` and `@neo-solidity/hardhat-neo-deployer` for Hardhat integration
 
 ### Testing Framework
 

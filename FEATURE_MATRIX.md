@@ -64,16 +64,16 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 ## Object-Oriented
 
-| Solidity Feature       | Status    | Notes                                                                    |
-| ---------------------- | --------- | ------------------------------------------------------------------------ |
-| Single inheritance     | Supported | Linear C3 linearization                                                  |
-| Multiple inheritance   | Partial   | Supported with limitations on diamond patterns                           |
-| `interface`            | Supported | Abstract method declarations                                             |
-| `abstract contract`    | Supported | Cannot be deployed directly                                              |
-| `virtual` / `override` | Supported | Method override dispatch                                                 |
-| `super`                | Supported | C3 linearization with `__super_` method preservation through inheritance |
-| `using ... for`        | Supported | Library member-call syntax; internal functions inlined at call site      |
-| Libraries              | Supported | Internal library functions inlined; external library calls supported via Syscalls.contractCall |
+| Solidity Feature       | Status    | Notes                                                                                                                                                                                                             |
+| ---------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single inheritance     | Supported | Linear C3 linearization                                                                                                                                                                                           |
+| Multiple inheritance   | Partial   | Supported with limitations on diamond patterns                                                                                                                                                                    |
+| `interface`            | Supported | Abstract method declarations                                                                                                                                                                                      |
+| `abstract contract`    | Supported | Cannot be deployed directly                                                                                                                                                                                       |
+| `virtual` / `override` | Supported | Method override dispatch                                                                                                                                                                                          |
+| `super`                | Supported | C3 linearization with `__super_` method preservation through inheritance                                                                                                                                          |
+| `using ... for`        | Supported | Library member-call syntax; internal functions inlined at call site                                                                                                                                               |
+| Libraries              | Partial   | User-defined libraries are merged/inlined into consuming contracts; `public` / `external` functions are normalized to internal helpers with warnings, but deployable/linkable library semantics are not available |
 
 ## Storage
 
@@ -97,13 +97,13 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 ## Imports
 
-| Solidity Feature                   | Status    | Notes                                                                                                                                                                               |
-| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plain import (`import "file.sol"`) | Supported | Resolved via `-I` include paths                                                                                                                                                     |
-| Named import (`import {X} from`)   | Supported | Selective symbol import                                                                                                                                                             |
-| Aliased import (`import {X as Y}`) | Partial   | Dependency resolution and many aliased static symbol calls are supported; aliased contract/interface casts, selector forms, and `abi.encodeCall` function references remain limited |
-| Wildcard import (`import * as X`)  | Partial   | Dependency resolution plus `X.Symbol.member(...)` static calls, `X.Symbol(addr)` casts, and `X.Symbol.method.selector` are supported; broader namespace rewriting remains limited   |
-| Remappings                         | Partial   | `-I` flag provides basic path remapping                                                                                                                                             |
+| Solidity Feature                   | Status    | Notes                                                                                                                                                                                                       |
+| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plain import (`import "file.sol"`) | Supported | Resolved via `-I` include paths                                                                                                                                                                             |
+| Named import (`import {X} from`)   | Supported | Selective symbol import                                                                                                                                                                                     |
+| Aliased import (`import {X as Y}`) | Partial   | Dependency resolution, aliased static symbol calls, contract/interface casts, selector forms, and `abi.encodeCall` function references are supported; broader namespace rewriting remains limited           |
+| Wildcard import (`import * as X`)  | Partial   | Dependency resolution plus `X.Symbol.member(...)` static calls, `X.Symbol(addr)` casts, selector forms, and `abi.encodeCall` function references are supported; broader namespace rewriting remains limited |
+| Remappings                         | Partial   | `-I` flag provides basic path remapping                                                                                                                                                                     |
 
 ## ABI Encoding
 
@@ -147,34 +147,34 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `onNEP17Payment`                 | Supported | Token receive callback                         |
 | `_deploy(data, update)`          | Supported | Constructor and upgrade entry point            |
 
-## Unsupported EVM Features
+## EVM Feature Compatibility
 
-| Solidity Feature                        | Status        | Notes                                                            |
-| --------------------------------------- | ------------- | ---------------------------------------------------------------- |
-| Inline assembly (`assembly {}`)         | Not Supported | NeoVM has no equivalent; use devpack syscalls                    |
-| `delegatecall`                          | Not Supported | Neo contracts have isolated storage                              |
-| `selfdestruct`                          | Supported     | Auto-mapped to `ContractManagement.destroy()` with warning       |
-| `create` / `create2`                    | Not Supported | Use `ContractManagement.deploy` instead                          |
-| `tx.origin`                             | Partial       | Compiles with warning; Neo uses multi-sig witnesses              |
-| `tx.hash`                               | Supported     | Auto-mapped to System.Runtime.GetScriptContainer                 |
-| `block.coinbase`                        | Supported     | Auto-mapped to getNextBlockValidators (dBFT has no miner)        |
-| `block.difficulty` / `block.prevrandao` | Supported     | Auto-mapped to `Runtime.getRandom()` with warning                |
-| `gasleft()`                             | Supported     | Auto-mapped to `System.Runtime.GasLeft` syscall                  |
-| `block.gaslimit`                        | Supported     | Auto-mapped to `Policy.getExecFeeFactor()` with warning          |
-| `block.basefee`                         | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning             |
-| `tx.gasprice`                           | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning             |
-| `blockhash()`                           | Supported     | Auto-mapped to `Ledger.getBlockHash()` with warning              |
-| `block.parenthash`                      | Supported     | Auto-mapped to Ledger.currentHash                                |
-| `block.sha3`                            | Supported     | Auto-mapped to Runtime.getRandom with warning                    |
-| `address.codehash`                      | Supported     | Auto-mapped to contract script hash with warning                 |
-| `address.balance`                       | Supported     | Auto-mapped to Gas.balanceOf                                     |
-| `address.call`                          | Supported     | Auto-mapped to System.Contract.Call                              |
-| `address.staticcall`                    | Supported     | Auto-mapped to System.Contract.Call (read-only)                  |
-| `address.transfer`                      | Supported     | Auto-mapped to Gas.transfer                                      |
-| `address.send`                          | Supported     | Auto-mapped to Gas.transfer                                      |
-| `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere |
-| `msg.data`                              | Not Supported | No equivalent on Neo N3 (uses typed parameters)                  |
-| `msg.sig`                               | Supported     | Compiles to empty bytes4 (method dispatch by name on Neo N3)    |
-| Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                            |
-| User-defined value types                | Supported     | `type X is Y` transparent aliases; `wrap`/`unwrap` are no-ops    |
-| Transient storage (`tstore`/`tload`)    | Not Supported | EIP-1153; no Neo equivalent                                      |
+| Solidity Feature                        | Status        | Notes                                                                                                   |
+| --------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------ |
+| Inline assembly (`assembly {}`)         | Partial       | Compiles as no-op with warning; special handlers for extsload/exttload                                  |
+| `delegatecall`                          | Partial       | Compiles as `System.Contract.Call` with warning; isolated storage semantics differ                      |
+| `selfdestruct`                          | Supported     | Auto-mapped to `ContractManagement.destroy()` with warning                                              |
+| `create` / `create2`                    | Not Supported | Use `ContractManagement.deploy` instead                                                                 |
+| `tx.origin`                             | Partial       | Compiles with warning; Neo uses multi-sig witnesses                                                     |
+| `tx.hash`                               | Supported     | Auto-mapped to System.Runtime.GetScriptContainer                                                        |
+| `block.coinbase`                        | Supported     | Auto-mapped to `address(0)` (dBFT has no miner)                                                         |
+| `block.difficulty` / `block.prevrandao` | Supported     | Auto-mapped to `Runtime.getRandom()` with warning                                                       |
+| `gasleft()`                             | Supported     | Auto-mapped to `System.Runtime.GasLeft` syscall                                                         |
+| `block.gaslimit`                        | Supported     | Auto-mapped to `Policy.getExecFeeFactor()` with warning                                                 |
+| `block.basefee`                         | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning                                                    |
+| `tx.gasprice`                           | Supported     | Auto-mapped to `Policy.getFeePerByte()` with warning                                                    |
+| `blockhash()`                           | Supported     | Auto-mapped to `Ledger.getBlockHash()` with warning                                                     |
+| `block.parenthash`                      | Supported     | Auto-mapped to Ledger.currentHash                                                                       |
+| `block.sha3`                            | Supported     | Auto-mapped to Ledger.currentHash (the current block's hash) with warning. Deprecated in Solidity 0.8+. |
+| `address.codehash`                      | Supported     | Auto-mapped to contract script hash with warning                                                        |
+| `address.balance`                       | Supported     | Auto-mapped to Gas.balanceOf                                                                            |
+| `address.call`                          | Supported     | Auto-mapped to System.Contract.Call                                                                     |
+| `address.staticcall`                    | Supported     | Auto-mapped to System.Contract.Call (read-only)                                                         |
+| `address.transfer`                      | Supported     | Auto-mapped to Gas.transfer                                                                             |
+| `address.send`                          | Supported     | Auto-mapped to Gas.transfer                                                                             |
+| `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere                                        |
+| `msg.data`                              | Supported     | Approximated as `selector                                                                               |     | abi.encode(current args)` outside onNEP17Payment |
+| `msg.sig`                               | Supported     | Compiles to empty bytes4 (method dispatch by name on Neo N3)                                            |
+| Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                                                                   |
+| User-defined value types                | Supported     | `type X is Y` transparent aliases; `wrap`/`unwrap` are no-ops                                           |
+| Transient storage (`tstore`/`tload`)    | Not Supported | EIP-1153; no Neo equivalent                                                                             |

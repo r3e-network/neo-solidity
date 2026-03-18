@@ -66,15 +66,15 @@ git clone https://github.com/r3e-network/neo-solidity.git
 cd neo-solidity
 make install
 
-# Or use npm package
-npm install -g @r3e-network/neo-solidity-devpack
+# Or add the devpack to an existing Hardhat project
+npm install --save-dev @r3e-network/neo-solidity-devpack hardhat @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
 ```
 
 ### Basic Usage
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.34;
 
 import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
 

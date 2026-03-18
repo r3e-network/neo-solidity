@@ -3,8 +3,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { NeoForge } from "./forge";
-import { ConfigManager } from "./config";
+import { NeoForge } from "./forge.js";
+import { ConfigManager } from "./config.js";
 
 const program = new Command();
 

@@ -297,7 +297,7 @@ fn standard_json_preserves_validation_warning_code_and_suggestion() {
 }
 
 #[test]
-fn standard_json_preserves_validation_error_suggestion() {
+fn standard_json_preserves_library_external_warning_suggestion() {
     let temp = tempdir().expect("tempdir");
     let input_path = temp.path().join("input.json");
     let output_path = temp.path().join("out.json");
@@ -346,17 +346,17 @@ fn standard_json_preserves_validation_error_suggestion() {
             .expect("output json");
 
     let errors = output["errors"].as_array().expect("errors array");
-    let error = errors
+    let warning = errors
         .iter()
-        .find(|err| err["severity"] == "error")
-        .expect("error diagnostic");
+        .find(|err| err["severity"] == "warning")
+        .expect("warning diagnostic for library external function");
 
     assert!(
-        error["suggestion"]
+        warning["suggestion"]
             .as_str()
             .unwrap_or_default()
-            .contains("use `internal` or `private` visibility"),
-        "expected error suggestion to be preserved: {error:?}"
+            .contains("internal"),
+        "expected warning suggestion to contain 'internal': {warning:?}"
     );
 }
 

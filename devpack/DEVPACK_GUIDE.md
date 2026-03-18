@@ -19,7 +19,7 @@ The Neo N3 Devpack provides Solidity-facing interfaces for Neo N3 features suppo
 
 ```bash
 # Install via npm
-npm install @r3e-network/neo-solidity-devpack
+npm install --save-dev @r3e-network/neo-solidity-devpack hardhat @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
 
 # Or clone and build
 git clone https://github.com/r3e-network/neo-solidity.git
@@ -541,7 +541,8 @@ contract GasOptimized is Framework {
 
 ```javascript
 // hardhat.config.js
-require("@r3e-network/neo-solidity-devpack");
+require("@neo-solidity/hardhat-solc-neo");
+require("@neo-solidity/hardhat-neo-deployer");
 
 module.exports = {
   solidity: {
@@ -565,127 +566,80 @@ module.exports = {
 };
 ```
 
-### Deployment Script
+### Deployment Workflow
 
-```javascript
-// scripts/deploy.js
-const { ethers } = require("hardhat");
+Use the Neo-native Hardhat tasks exposed by `@neo-solidity/hardhat-solc-neo` and
+`@neo-solidity/hardhat-neo-deployer`. They operate on Neo build artifacts and constructor arguments
+encoded as a JSON array.
 
-async function main() {
-  // Deploy NEP-17 token
-  const Token = await ethers.getContractFactory("CompleteNEP17Token");
-  const token = await Token.deploy(
-    "My Token", // name
-    "MTK", // symbol
-    18, // decimals
-    1000000, // initial supply
-    10000000, // max supply
-    oracleAddress, // oracle contract
-  );
+```bash
+# Compile to Neo artifacts
+npx hardhat neo-compile
 
-  await token.deployed();
-  console.log("Token deployed to:", token.address);
+# Deploy a compiled contract to Neo TestNet
+npx hardhat neo-deploy \
+  --network neo_testnet \
+  --contract CompleteNEP17Token \
+  --args '["My Token","MTK",18,1000000,10000000]'
 
-  // Deploy NFT collection
-  const NFT = await ethers.getContractFactory("CompleteNEP11NFT");
-  const nft = await NFT.deploy(
-    "My NFT Collection",
-    "MNFT",
-    "Premium NFT collection",
-    "https://api.mynft.com/",
-    1000,
-    oracleAddress,
-  );
-
-  await nft.deployed();
-  console.log("NFT deployed to:", nft.address);
-}
-
-main().catch(console.error);
+# Verify on-chain NEF + manifest against the local build artifact
+npx hardhat neo-verify \
+  --network neo_testnet \
+  --contract CompleteNEP17Token \
+  --address <contract-address> \
+  --constructor-args '["My Token","MTK",18,1000000,10000000]'
 ```
 
 ### Compilation
 
 ```bash
 # Compile with Neo devpack
-npx hardhat compile
+npx hardhat neo-compile
 
 # Deploy to TestNet
-npx hardhat run scripts/deploy.js --network neo_testnet
+npx hardhat neo-deploy --network neo_testnet --contract CompleteNEP17Token --args '["My Token","MTK",18,1000000,10000000]'
 
-# Verify contracts
-npx hardhat verify --network neo_testnet <contract-address> "constructor" "args"
+# Verify against deployed Neo bytecode + manifest
+npx hardhat neo-verify --network neo_testnet --contract CompleteNEP17Token --address <contract-address> --constructor-args '["My Token","MTK",18,1000000,10000000]'
 ```
 
 ## 🧪 Testing
 
-### Unit Tests
+### Artifact-Level Integration Tests
 
 ```javascript
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
+const hre = require("hardhat");
 
-describe("NEP-17 Token", function () {
-  let token;
-  let owner, addr1, addr2;
+describe("Neo artifact generation", function () {
+  it("writes Neo build-info and manifest outputs", async function () {
+    await hre.run("neo-compile", { force: true, quiet: true });
 
-  beforeEach(async function () {
-    [owner, addr1, addr2] = await ethers.getSigners();
+    const buildInfoDir = path.join(__dirname, "..", "artifacts", "neo-build-info");
+    const buildInfoFiles = fs.readdirSync(buildInfoDir).filter((file) => file.endsWith(".json"));
 
-    const Token = await ethers.getContractFactory("CompleteNEP17Token");
-    token = await Token.deploy(
-      "Test Token",
-      "TEST",
-      18,
-      1000000,
-      0,
-      ethers.constants.AddressZero,
+    expect(buildInfoFiles.length).to.be.greaterThan(0);
+
+    const artifact = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "..", "artifacts", "contracts", "Framework.sol", "Framework.json"),
+        "utf8"
+      )
     );
-    await token.deployed();
-  });
 
-  it("Should have correct initial state", async function () {
-    expect(await token.name()).to.equal("Test Token");
-    expect(await token.symbol()).to.equal("TEST");
-    expect(await token.decimals()).to.equal(18);
-    expect(await token.totalSupply()).to.equal(1000000);
-  });
-
-  it("Should transfer tokens correctly", async function () {
-    await token.transfer(addr1.address, 1000, "0x");
-    expect(await token.balanceOf(addr1.address)).to.equal(1000);
-  });
-
-  it("Should integrate with Neo features", async function () {
-    // Test Neo-specific features
-    const blockInfo = await token.getCurrentBlock();
-    expect(blockInfo.index).to.be.a("number");
-
-    const gasBalance = await token.getBalance();
-    expect(gasBalance).to.be.a("number");
+    expect(artifact.contract.neo.manifest.name).to.equal("Framework");
+    expect(artifact.contract.neo.manifest.abi.methods).to.not.be.empty;
   });
 });
 ```
 
-### Integration Tests
+### Deployment Verification
 
-```javascript
-describe("Neo Integration", function () {
-  it("Should generate correct Neo contract files", async function () {
-    // Test compilation outputs
-    const artifacts = await hre.artifacts.readArtifact("CompleteNEP17Token");
-
-    expect(artifacts.nef).to.exist;
-    expect(artifacts.manifest).to.exist;
-    expect(artifacts.manifest.abi.methods).to.have.length.greaterThan(0);
-  });
-
-  it("Should be deployable to Neo TestNet", async function () {
-    // This would require actual Neo TestNet connection
-    // For unit tests, we mock the deployment
-  });
-});
-```
+After a successful `neo-deploy`, use `neo-verify` to compare the deployed contract's NEF script and
+manifest with the local build artifact. This is the supported verification path for Neo deployments;
+the generic EVM `hardhat verify` flow is not used here.
 
 ## 📖 API Reference
 

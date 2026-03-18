@@ -1,12 +1,13 @@
 # Neo-Solidity Comprehensive Development Tooling
 
-A complete toolchain under active development for Neo-Solidity. Several packages remain experimental—review the status table below before adopting any component in production.
+A complete toolchain under active development for Neo-Solidity. Some packages remain experimental, but the core workspace now has build/test/lint/typecheck coverage.
 
-> ⚠️ **Current Status (Aug 2024)**  
+> ⚠️ **Current Status**  
 > - `@neo-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
 > - `@neo-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
-> - `@neo-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): CLI scaffolding only; commands print placeholder messages.  
-> - `@neo-solidity/abi-router`, `@neo-solidity/cli-tools`: prototypes still missing full ABI coverage and verified deployments.
+> - `@neo-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real; build/test/deploy flows remain scaffolding.  
+> - `@neo-solidity/abi-router`, `@neo-solidity/cli-tools`: usable for ABI/CLI composition, but still not full end-to-end deployment frameworks.
+> - `@neo-solidity/templates`, `@neo-solidity/integration-tests`: now wired into the workspace and covered by the tooling test/lint/typecheck pipeline.
 
 ## 🏗️ Architecture Overview
 
@@ -16,13 +17,15 @@ Neo-Solidity Tooling Ecosystem
 │   ├── @neo-solidity/hardhat-solc-neo      # Compilation plugin
 │   └── @neo-solidity/hardhat-neo-deployer  # Deployment plugin
 ├── Foundry Integration  
-│   └── @neo-solidity/neo-foundry           # Complete Foundry adapter
+│   └── @neo-solidity/neo-foundry           # Foundry-style scaffold + init flow
 ├── Core Libraries
 │   ├── @neo-solidity/types                 # Shared type definitions
 │   ├── @neo-solidity/abi-router            # ABI compatibility layer
 │   └── @neo-solidity/cli-tools             # Command-line tools
 └── Developer Experience
-    ├── Network configurations               # Neo network presets
+    ├── @neo-solidity/templates             # Project scaffolding templates
+    ├── @neo-solidity/integration-tests     # Cross-package smoke coverage
+    ├── Network configurations              # Neo network presets
     ├── Artifact management                 # Build output handling
     └── Debugging support                   # Development debugging
 ```
@@ -42,7 +45,7 @@ import "@neo-solidity/hardhat-neo-deployer";
 export default {
   neoSolc: {
     solidity: {
-      version: "0.8.20",
+      version: "0.8.34",
       settings: {
         optimizer: { enabled: true, runs: 200 },
         neo: { callt: true }
@@ -65,7 +68,7 @@ npx hardhat neo-compile
 npx hardhat neo-deploy --contract MyContract --network testnet
 ```
 
-### 2. Foundry Setup (scaffolding only)
+### 2. Foundry Setup
 
 ```bash
 npm install -g @neo-solidity/neo-foundry
@@ -81,7 +84,8 @@ test = "test"
 script = "script"
 out = "out"
 
-# Build and test (currently print placeholder output)
+# Build and test
+# `init` is implemented; build/test remain scaffold-only today.
 neo-forge build
 neo-forge test
 ```
@@ -138,8 +142,14 @@ const deployed = await router.deployContract(artifacts, abi);
 // Wrap an existing Neo contract with Ethereum-style methods
 const contract = router.createContract(deployed.address, abi, signer);
 await contract.transfer(recipient, amount);
-const balance = await contract.balanceOf(account);
+      const balance = await contract.balanceOf(account);
 ```
+
+#### `@neo-solidity/templates`
+Project scaffolding helpers for Neo-Solidity. The package now ships as a real workspace package and can generate current Hardhat-based starter projects that use `neo-compile`, `neo-deploy`, and `neo-verify` instead of stale EVM-only scripts.
+
+#### `@neo-solidity/integration-tests`
+Workspace-level smoke coverage for the package boundary between templates, CLI tools, Neo Foundry, and the ABI router. These tests intentionally validate the behavior the packages support today rather than future placeholder workflows.
 
 ### Hardhat Integration
 
@@ -157,7 +167,7 @@ Pair this with `@neo-solidity/hardhat-neo-deployer` if you want `neo-deploy` tas
 ```typescript
 neoSolc: {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.34",
     settings: {
       optimizer: { enabled: true, runs: 200 },
       neo: { callt: true }
@@ -177,7 +187,7 @@ Experimental Hardhat plugin for deploying Neo N3 contracts. It builds/signs/send
 ### Foundry Integration
 
 #### `@neo-solidity/neo-foundry`
-Prototype Foundry-compatible tooling for Neo. `neo-forge`, `neo-cast`, and `neo-anvil` currently emit placeholder output and should be considered scaffolding.
+Foundry-style tooling for Neo. `neo-forge init` now creates a working project layout and config; build/test/transaction flows remain scaffold-only.
 
 **Tools:**
 - `neo-forge` - Build/test CLI (prints stub messages today)
@@ -252,7 +262,7 @@ my-neo-project/
 │   ├── Token.sol
 │   └── interfaces/
 ├── test/               # Test files
-│   └── Token.test.sol
+│   └── Token.test.ts
 ├── scripts/            # Deployment scripts
 │   └── deploy.ts
 ├── artifacts/          # Build artifacts
@@ -268,14 +278,24 @@ my-neo-project/
 
 ```solidity
 // contracts/Token.sol
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.34;
 
-import "@neo-solidity/contracts/token/ERC20/ERC20.sol";
+contract MyToken {
+    mapping(address => uint256) public balances;
+    uint256 public totalSupply;
 
-contract MyToken is ERC20 {
-    constructor(string memory name, string memory symbol) 
-        ERC20(name, symbol) {
-        _mint(msg.sender, 1000000 * 10**18);
+    constructor(uint256 initialSupply) {
+        totalSupply = initialSupply;
+        balances[msg.sender] = initialSupply;
+    }
+
+    function transfer(address from, address to, uint256 amount, bytes memory data) external returns (bool) {
+        data;
+        require(from == msg.sender, "from must be caller");
+        require(balances[from] >= amount, "insufficient balance");
+        balances[from] -= amount;
+        balances[to] += amount;
+        return true;
     }
 }
 ```
@@ -285,84 +305,59 @@ contract MyToken is ERC20 {
 ```typescript
 // test/Token.test.ts
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import hre from "hardhat";
 
-describe("Token", function () {
-  it("Should deploy and mint initial supply", async function () {
-    const Token = await ethers.getContractFactory("MyToken");
-    const token = await Token.deploy("Test Token", "TEST");
-    
-    const [owner] = await ethers.getSigners();
-    const balance = await token.balanceOf(owner.address);
-    
-    expect(balance).to.equal(ethers.parseEther("1000000"));
+describe("MyToken build", function () {
+  it("emits Neo build artifacts", async function () {
+    await hre.run("neo-compile", { force: true, quiet: true });
+
+    const artifact = await hre.neoSolc.artifacts.getBuildArtifact("MyToken");
+
+    expect(artifact).to.not.equal(null);
+    expect(artifact?.contract.neo.manifest.name).to.equal("MyToken");
+    expect(artifact?.contract.neo.manifest.abi.methods.length).to.be.greaterThan(0);
   });
 });
 ```
 
 ### 4. Deployment
 
-```typescript
-// scripts/deploy.ts
-import { ethers } from "hardhat";
+```bash
+# Compile Neo build artifacts
+npx hardhat neo-compile
 
-async function main() {
-  const Token = await ethers.getContractFactory("MyToken");
-  const token = await Token.deploy("My Token", "MTK");
-  
-  await token.waitForDeployment();
-  console.log("Token deployed to:", await token.getAddress());
-}
+# Deploy using the Neo deployer plugin
+npx hardhat neo-deploy --contract MyToken --args '[1000000]' --network testnet
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+# Verify deployed NEF + manifest against the local build artifact
+npx hardhat neo-verify --contract MyToken --address <contract-address> --constructor-args '[1000000]' --network testnet
 ```
 
 ## 🛠️ Advanced Features
 
 ### Artifact Management
 
-The tooling provides comprehensive artifact management:
+The Hardhat Neo compiler plugin exposes artifact helpers through `hre.neoSolc.artifacts`:
 
 ```typescript
-import { ArtifactManager } from '@neo-solidity/artifacts';
+import hre from "hardhat";
 
-const artifacts = new ArtifactManager('./artifacts');
-
-// Get build artifacts
-const artifact = await artifacts.getBuildArtifact('Token');
-
-// Export/import artifacts
-await artifacts.exportArtifacts('./dist');
-await artifacts.importArtifacts('./backup');
-
-// Artifact validation and comparison
-const validation = await artifacts.validateArtifact(artifact);
-const comparison = await artifacts.compareArtifacts(old, new);
+const buildArtifact = await hre.neoSolc.artifacts.getBuildArtifact("MyToken");
+const deployment = await hre.neoSolc.artifacts.getDeploymentArtifact("MyToken", "testnet");
+const allBuildArtifacts = await hre.neoSolc.artifacts.getAllBuildArtifacts();
+const stats = await hre.neoSolc.artifacts.getStatistics();
 ```
 
 ### Debugging Support
 
-Built-in debugging capabilities:
+There is no published `@neo-solidity/debugger` package yet. For debugging today:
 
-```typescript
-import { DebugSession } from '@neo-solidity/debugger';
+```bash
+# Emit NeoVM assembly for inspection
+neo-solc contracts/Token.sol -f assembly -o build/Token.asm
 
-// Start debug session
-const session = await debugger.startSession({
-  contract: 'Token',
-  method: 'transfer',
-  args: [recipient, amount]
-});
-
-// Set breakpoints
-await session.setBreakpoint('Token.sol', 42);
-
-// Step through execution
-await session.stepInto();
-await session.continue();
+# Run against Neo-Express and inspect invocation logs
+neoxp contract invoke <contract-hash> totalSupply
 ```
 
 ### Gas Optimization

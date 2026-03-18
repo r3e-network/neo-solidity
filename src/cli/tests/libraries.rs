@@ -23,6 +23,52 @@ fn non_builtin_libraries_are_merged_for_internal_calls() {
 }
 
 #[test]
+fn non_builtin_libraries_allow_external_static_calls() {
+    let source = r#"
+    pragma solidity ^0.8.34;
+
+    library MathLib {
+        function bump(uint256 x) external pure returns (uint256) {
+            return x + 1;
+        }
+    }
+
+    contract UsesLib {
+        function f(uint256 x) public pure returns (uint256) {
+            return MathLib.bump(x);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+}
+
+#[test]
+fn non_builtin_libraries_allow_external_member_calls_via_using() {
+    let source = r#"
+    pragma solidity ^0.8.34;
+
+    library MathLib {
+        function bump(uint256 self, uint256 delta) external pure returns (uint256) {
+            return self + delta;
+        }
+    }
+
+    contract UsesLib {
+        using MathLib for uint256;
+
+        function f(uint256 x) public pure returns (uint256) {
+            return x.bump(1);
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    assert_eq!(artifacts.len(), 1);
+}
+
+#[test]
 fn builtin_libraries_are_not_merged_into_contract_metadata() {
     let source = r#"
     pragma solidity ^0.8.19;

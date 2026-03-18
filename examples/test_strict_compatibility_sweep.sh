@@ -49,7 +49,6 @@ STRICT_FLAGS=(
 NEGATIVE_FIXTURES=(
   "examples/new/CatchPanicShowcase.sol"
   "examples/new/EvmCompatEtherUnits.sol"
-  "examples/new/EvmCompatMsgSig.sol"
   "examples/new/FixedPointError.sol"
   "examples/new/LibraryConstructorError.sol"
   "examples/new/LibraryExternalError.sol"
@@ -73,6 +72,7 @@ ALLOWED_WARNING_FIXTURES=(
   "examples/new/EvmCompatAddressCodehash.sol"
   "examples/new/EvmCompatBlockErrors.sol"
   "examples/new/EvmCompatBlockhashError.sol"
+  "examples/new/EvmCompatMsgSig.sol"
   "examples/new/EvmCompatSelfdestructError.sol"
   "examples/new/EvmCompatTxOrigin.sol"
   "examples/new/FunctionPolishShowcase.sol"

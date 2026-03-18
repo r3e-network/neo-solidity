@@ -86,6 +86,7 @@ export interface FunctionSelector {
   selector: string;
   inputs: ABIInput[];
   outputs: ABIOutput[];
+  stateMutability?: 'pure' | 'view' | 'payable' | 'nonpayable';
 }
 
 export interface EventSelector {

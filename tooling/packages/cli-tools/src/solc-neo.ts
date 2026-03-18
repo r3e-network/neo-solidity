@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { CompilerCLI } from "./compiler-cli";
+import { CompilerCLI } from "./compiler-cli.js";
 
 const program = new Command();
 

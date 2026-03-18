@@ -1,15 +1,17 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
+import { addFlagOption, addOptionalStringOption, addRequiredStringOption, getHardhatSelectedNetworkName, setTaskAction } from "@neo-solidity/types";
 import { createAccountFromPrivateKey, generatePrivateKeyHex } from "../account-primitives";
 
-task("neo-accounts", "List Neo accounts configured for deployment")
-  .addFlag("balances", "Show account balances")
-  .addFlag("private", "Show private keys (use with caution)")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountsTask = task("neo-accounts", "List Neo accounts configured for deployment");
+addFlagOption(neoAccountsTask, "balances", "Show account balances");
+addFlagOption(neoAccountsTask, "private", "Show private keys (use with caution)");
+setTaskAction(neoAccountsTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { balances, private: showPrivate } = taskArgs;
-    
-    console.log(chalk.blue(`📋 Neo Accounts for ${hre.network.name}:`));
+    const networkName = getHardhatSelectedNetworkName(hre);
+
+    console.log(chalk.blue(`📋 Neo Accounts for ${networkName}:`));
 
     try {
       const accounts = hre.neoDeploy.accounts.getAllAccounts();
@@ -19,7 +21,7 @@ task("neo-accounts", "List Neo accounts configured for deployment")
         console.log(chalk.gray("Add accounts to your hardhat.config.js:"));
         console.log(chalk.gray(`
   neoNetworks: {
-    ${hre.network.name}: {
+    ${networkName}: {
       accounts: [
         "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
       ]
@@ -86,9 +88,9 @@ task("neo-accounts", "List Neo accounts configured for deployment")
     }
   });
 
-task("neo-account-balance", "Check Neo account balance")
-  .addParam("address", "Account address to check")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountBalanceTask = task("neo-account-balance", "Check Neo account balance");
+addRequiredStringOption(neoAccountBalanceTask, "address", "Account address to check");
+setTaskAction(neoAccountBalanceTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { address } = taskArgs;
     
     console.log(chalk.blue(`💰 Checking balance for ${address}...`));
@@ -127,10 +129,10 @@ task("neo-account-balance", "Check Neo account balance")
     }
   });
 
-task("neo-account-import", "Import account from private key")
-  .addParam("privateKey", "Private key in hex format")
-  .addOptionalParam("label", "Label for the account")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountImportTask = task("neo-account-import", "Import account from private key");
+addRequiredStringOption(neoAccountImportTask, "privateKey", "Private key in hex format");
+addOptionalStringOption(neoAccountImportTask, "label", "Label for the account");
+setTaskAction(neoAccountImportTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { privateKey, label } = taskArgs;
     
     console.log(chalk.blue("📥 Importing account..."));
@@ -163,10 +165,10 @@ task("neo-account-import", "Import account from private key")
     }
   });
 
-task("neo-account-export", "Export accounts to file")
-  .addParam("file", "Output file path")
-  .addFlag("includePrivateKeys", "Include private keys in export")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountExportTask = task("neo-account-export", "Export accounts to file");
+addRequiredStringOption(neoAccountExportTask, "file", "Output file path");
+addFlagOption(neoAccountExportTask, "includePrivateKeys", "Include private keys in export");
+setTaskAction(neoAccountExportTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { file, includePrivateKeys } = taskArgs;
     
     console.log(chalk.blue(`📤 Exporting accounts to ${file}...`));
@@ -192,10 +194,10 @@ task("neo-account-export", "Export accounts to file")
     }
   });
 
-task("neo-account-generate", "Generate new account")
-  .addOptionalParam("label", "Label for the new account")
-  .addFlag("save", "Save to accounts list")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountGenerateTask = task("neo-account-generate", "Generate new account");
+addOptionalStringOption(neoAccountGenerateTask, "label", "Label for the new account");
+addFlagOption(neoAccountGenerateTask, "save", "Save to accounts list");
+setTaskAction(neoAccountGenerateTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { label, save } = taskArgs;
     
     console.log(chalk.blue("🎲 Generating new account..."));
@@ -234,9 +236,9 @@ task("neo-account-generate", "Generate new account")
     }
   });
 
-task("neo-account-set-default", "Set default account for deployments")
-  .addParam("account", "Account address or index")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoAccountSetDefaultTask = task("neo-account-set-default", "Set default account for deployments");
+addRequiredStringOption(neoAccountSetDefaultTask, "account", "Account address or index");
+setTaskAction(neoAccountSetDefaultTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { account } = taskArgs;
     
     console.log(chalk.blue(`🎯 Setting default account to ${account}...`));

@@ -80,7 +80,7 @@ fn analyze_mode_reports_upgrade_findings() {
 }
 
 #[test]
-fn json_errors_preserve_validation_suggestions() {
+fn json_errors_preserve_library_visibility_warnings() {
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -100,31 +100,24 @@ fn json_errors_preserve_validation_suggestions() {
         .expect("run compiler");
 
     assert!(
-        !output.status.success(),
-        "expected invalid library compilation to fail"
+        output.status.success(),
+        "expected external library helper compilation to succeed"
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let first_line = stderr
-        .lines()
-        .find(|line| !line.trim().is_empty())
-        .expect("stderr JSON line");
-    let diagnostic: Value = serde_json::from_str(first_line).expect("diagnostic JSON");
-
-    assert_eq!(diagnostic["severity"], "error");
     assert!(
-        diagnostic["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("external library functions are not supported on NeoVM"),
+        stderr.contains("warning[W121]"),
+        "expected warning code in stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(
+            "is declared `external`; on NeoVM, user-defined library functions are inlined"
+        ),
         "unexpected message: {stderr}"
     );
     assert!(
-        diagnostic["suggestion"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("use `internal` or `private` visibility"),
-        "expected validation suggestion to be preserved in JSON error output: {stderr}"
+        stderr.contains("prefer `internal` visibility for library helpers"),
+        "expected warning suggestion to be preserved in stderr output: {stderr}"
     );
 }
 

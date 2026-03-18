@@ -16,7 +16,7 @@ Always group your Neo-specific intrinsic imports (`Runtime`, `NativeCalls`, `Sto
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 // Neo Intrinsics
 import {Runtime} from "@neo/Runtime.sol";

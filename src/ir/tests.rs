@@ -24,6 +24,7 @@ fn lower_emit_pushes_event_name_before_args() {
 
     let mut ctx = LoweringContext::new(
         "test_emit",
+        [0u8; 4],
         false,
         HashMap::new(),
         &[],

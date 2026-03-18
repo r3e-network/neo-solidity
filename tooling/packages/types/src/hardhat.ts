@@ -1,5 +1,9 @@
-import type { HardhatRuntimeEnvironment, TaskArguments } from 'hardhat/types';
 import type { NeoSolidityConfig, CompilationError } from './compiler';
+
+export type TaskArguments = Record<string, any>;
+export interface HardhatRuntimeEnvironment {
+  [key: string]: any;
+}
 
 export interface NeoHardhatConfig {
   solidity: {

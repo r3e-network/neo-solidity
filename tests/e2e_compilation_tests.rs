@@ -1027,6 +1027,14 @@ fn test_evm_compat_address_codehash_auto_mapped() {
     assert_compiles("new/EvmCompatAddressCodehash.sol");
 }
 
+#[test]
+fn test_evm_compat_address_code_warning() {
+    assert_compile_warns(
+        "new/EvmCompatAddressCode.sol",
+        "address.code auto-mapped to the Neo contract script bytes via ContractManagement.getContract()",
+    );
+}
+
 // selfdestruct() is now auto-mapped to ContractManagement.destroy() with warning.
 #[test]
 fn test_evm_compat_selfdestruct_auto_mapped() {
@@ -1043,7 +1051,26 @@ fn test_evm_compat_ether_units_error() {
 
 #[test]
 fn test_evm_compat_msg_sig_warning() {
-    assert_compile_warns("new/EvmCompatMsgSig.sol", "msg.sig has no exact equivalent");
+    assert_compile_warns(
+        "new/EvmCompatMsgSig.sol",
+        "msg.sig is approximated on Neo N3 using the current function selector",
+    );
+}
+
+#[test]
+fn test_evm_compat_msg_data_warning() {
+    assert_compile_warns(
+        "new/EvmCompatMsgData.sol",
+        "msg.data is approximated on Neo N3 as `selector || abi.encode(current args)`",
+    );
+}
+
+#[test]
+fn test_evm_compat_encode_calldata_warning() {
+    assert_compile_warns(
+        "new/EvmCompatEncodeCalldata.sol",
+        "abi.encodeWithSignature(...) is approximated on Neo N3 as selector bytes concatenated with abi.encode(args)",
+    );
 }
 
 #[test]
@@ -1131,11 +1158,8 @@ fn test_library_showcase_manifest_has_compute_method() {
 }
 
 #[test]
-fn test_library_external_function_error() {
-    assert_compile_error_contains(
-        "new/LibraryExternalError.sol",
-        "external library functions are not supported",
-    );
+fn test_library_external_function_showcase_compiles() {
+    assert_compiles("new/LibraryExternalError.sol");
 }
 
 #[test]

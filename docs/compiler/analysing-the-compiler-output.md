@@ -11,20 +11,21 @@ Standard Solidity outputs an EVM binary (often represented as a hex string) and 
 The NEF file is the compiled bytecode executable deployed to the Neo blockchain. It is a strictly formatted binary file containing:
 
 1. **Magic Header**: Identifies the file as a Neo N3 executable (`0x3346454E`).
-2. **Compiler Name**: A 64-byte string identifying the compiler (`neo-solidity 0.13.1`).
+2. **Compiler Name**: A 64-byte string identifying the compiler (for example, `neo-solidity 0.15.0`).
 3. **Source/Version Context**: Metadata tracking the compiler version used.
 4. **Method Tokens**: A table mapping external contract calls to optimize runtime execution (if `--callt` is used).
 5. **Script**: The actual NeoVM opcodes representing your contract logic.
 6. **Checksum**: A SHA-256 checksum to ensure file integrity.
 
 You can disassemble the NEF file during compilation by passing the `-f assembly` flag:
+
 ```bash
 neo-solc MyContract.sol -O2 -f assembly -o build/MyContract
 ```
 
 ## The Manifest File (`.manifest.json`)
 
-The manifest file is a comprehensive JSON document describing how the Neo blockchain and other contracts can interact with your executable. 
+The manifest file is a comprehensive JSON document describing how the Neo blockchain and other contracts can interact with your executable.
 
 Key sections include:
 
@@ -43,16 +44,12 @@ Key sections include:
   "name": "MyToken",
   "groups": [],
   "features": {},
-  "supportedstandards": [
-    "NEP-17"
-  ],
+  "supportedstandards": ["NEP-17"],
   "abi": {
     "methods": [
       {
         "name": "balanceOf",
-        "parameters": [
-          { "name": "account", "type": "Hash160" }
-        ],
+        "parameters": [{ "name": "account", "type": "Hash160" }],
         "returntype": "Integer",
         "offset": 45,
         "safe": true
@@ -63,7 +60,7 @@ Key sections include:
   "permissions": [
     {
       "contract": "0xd2a4cff31913016155e38e474a2c06d08be276cf",
-      "methods": [ "transfer" ]
+      "methods": ["transfer"]
     }
   ]
 }

@@ -76,7 +76,7 @@ export const DEFAULT_NEO_FOUNDRY_CONFIG: NeoFoundryConfig = {
       libs: ["lib"],
       remappings: [],
       neoSolc: {
-        version: "latest",
+        version: "0.8.34",
         optimizer: {
           enabled: true,
           runs: 200
@@ -251,7 +251,7 @@ export class ConfigManager {
     
     // Create sample contract
     const sampleContract = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.34;
 
 contract Counter {
     uint256 public number;
@@ -269,7 +269,7 @@ contract Counter {
 
     // Create sample test
     const sampleTest = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.34;
 
 import "forge-std/Test.sol";
 import "../src/Counter.sol";

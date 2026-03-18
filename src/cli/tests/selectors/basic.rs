@@ -55,6 +55,51 @@ fn interface_method_selector_lowers_to_bytes4_literal() {
 }
 
 #[test]
+fn msg_sig_lowers_to_current_function_selector_literal() {
+    let source = r#"
+    pragma solidity ^0.8.34;
+
+    contract MsgSigHarness {
+        function getSelector() public pure returns (bytes4) {
+            return msg.sig;
+        }
+    }
+    "#;
+
+    let artifacts = compile_contracts(source, false, 0).expect("compile");
+    let artifact = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "MsgSigHarness")
+        .expect("contract artifact");
+
+    let ir_module = ir::Module::from_contract(&artifact.metadata).expect("build IR");
+    let selector_function = ir_module
+        .functions
+        .iter()
+        .find(|function| function.name == "getSelector")
+        .expect("getSelector function");
+
+    let mut hasher = Keccak256::new();
+    hasher.update("getSelector()".as_bytes());
+    let digest = hasher.finalize();
+    let expected = digest[..4].to_vec();
+
+    let instrs: Vec<_> = selector_function
+        .basic_blocks
+        .iter()
+        .flat_map(|block| block.instructions.iter())
+        .collect();
+
+    assert!(
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::ByteArray(bytes)) if *bytes == expected
+        )),
+        "expected msg.sig lowering to push the current function selector bytes"
+    );
+}
+
+#[test]
 fn type_uint256_max_lowers_to_integer_literal() {
     let source = r#"
     pragma solidity ^0.8.20;

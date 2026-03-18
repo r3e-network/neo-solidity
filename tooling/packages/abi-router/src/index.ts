@@ -2,10 +2,10 @@
  * ABI-compatible caller routing for Neo-Solidity contracts
  */
 
-export * from './abi-router';
-export * from './abi-compatibility';
-export * from './contract-wrapper';
-export * from './rpc-adapter';
-export * from './transaction-builder';
-export * from './event-decoder';
-export * from './types';
+export * from './abi-router.js';
+export * from './abi-compatibility.js';
+export * from './contract-wrapper.js';
+export * from './rpc-adapter.js';
+export * from './transaction-builder.js';
+export * from './event-decoder.js';
+export * from './types.js';

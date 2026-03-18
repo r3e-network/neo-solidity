@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.15.0] - 2026-03-18
+
+### Added
+
+- **onNEP11Payment Support**: `msg.sender`, `msg.value`, and `msg.data` now correctly map to parameter indices in `onNEP11Payment` callbacks (msg.data uses param 3, after tokenId at param 2).
+- **Test Coverage**: Added focused IR codegen tests for `msg.data` with selector prefix and `onNEP11Payment` parameter mapping.
+
+### Changed
+
+- **msg.data with Selector Prefix**: `msg.data` outside callbacks now produces `selector || abi.encode(current args)` instead of just `abi.encode(args)`, giving users a proper EVM-style calldata approximation.
+- **block.coinbase**: Now maps to `address(0)` instead of `getNextBlockValidators()`, matching EVM's `address` return type.
+- **block.sha3**: Fixed incorrect mapping from `GetRandom()` to `Ledger.currentHash` (the current block's hash).
+- **encodeWithSelector Resolution**: Added `encodeWithSelector` to `builtin_library_supported_members` and `resolve_abi_member` for proper resolution.
+- **Documentation Overhaul**: Comprehensive update across all documentation files to reflect actual compiler behavior:
+  - `delegatecall` documented as warning (not blocked)
+  - `msg.value` documented as warning + returns 0 (not error)
+  - `parity-and-limitations.md` split Blocked vs Auto-Mapped features
+  - All feature tables updated with correct mappings
+
+### Fixed
+
+- **Stale Comments**: Fixed comments in `runtime_values.rs` that referenced wrong warning codes or incorrect behavior.
+- **block.parenthash Comment**: Fixed comment that incorrectly referenced `getBlock(currentIndex-1).prevHash`.
+
 ## [v0.14.0] - 2026-03-13
 
 ### Added
@@ -19,14 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Graceful EVM Call Options**: Extraneous call options (e.g., `contract.method{value: x}()` or `new Contract{value: x}()`) are now safely ignored, emitting a semantic warning instead of halting compilation.
 - **Inline Assembly Fallback**: `assembly { ... }` blocks now compile gracefully into NeoVM no-ops with a warning, unblocking compilation of heavily optimized Ethereum libraries where the assembly isn't strictly required.
 - **Unsupported Call Translation**: Unsupported low-level EVM calls (`delegatecall`, `staticcall`) are now lowered to returning a dummy boolean `false` with a semantic warning instead of a hard E3001 abort.
-- **Obsolete EVM Globals**: `msg.data` and `msg.sig` are now parsed and mapped to empty byte arrays and `0x00000000` outside of the `onNEP17Payment` callback, replacing strict E3001 compiler rejections.
+- **Obsolete EVM Globals**: `msg.data` now compiles to `selector || abi.encode(current args)` outside of the `onNEP17Payment` callback (param 2) and `onNEP11Payment` callback (param 3). `msg.sig` now compiles to the current function selector with a warning about internal-call semantics.
 
 ### Fixed
 
 - **Infinite Loop Prevention**: Patched the Neo IR `CallFunction` dataflow analysis to accurately track return arities, preventing `neo-solc` from hanging infinitely on complex void-return functions (like those found in DAO Governance contracts).
 - **NatSpec Overrides**: Fixed missing `load_manifest_permissions_override_from_natspec` linkages, ensuring `@custom:neo.manifest.permissions` comments correctly substitute wildcard manifests.
 - **Runtime Exception Handlers**: Hardened the execution context bridging, replacing manual modulo bitwise checks with `.is_multiple_of()` to appease strict CI linting.
-
 
 ## [v0.13.1] - 2026-02-18
 

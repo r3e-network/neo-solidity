@@ -24,6 +24,7 @@ impl IrDiagnostic {
 
 struct LoweringContext<'a> {
     function_name: String,
+    current_function_selector: [u8; 4],
     is_safe: bool,
     param_index_map: HashMap<String, usize>,
     param_types: &'a [ValueType],
@@ -85,6 +86,7 @@ impl<'a> LoweringContext<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
         function_name: &str,
+        current_function_selector: [u8; 4],
         is_safe: bool,
         param_index_map: HashMap<String, usize>,
         param_types: &'a [ValueType],
@@ -109,6 +111,7 @@ impl<'a> LoweringContext<'a> {
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
+            current_function_selector,
             is_safe,
             param_index_map,
             param_types,
@@ -143,6 +146,14 @@ impl<'a> LoweringContext<'a> {
             errors: Vec::new(),
             warnings: Vec::new(),
         }
+    }
+
+    fn current_function_selector(&self) -> [u8; 4] {
+        self.current_function_selector
+    }
+
+    fn parameter_count(&self) -> usize {
+        self.param_types.len()
     }
 
     fn set_return_info(&mut self, slots: Vec<Option<usize>>, types: Vec<ValueType>) {

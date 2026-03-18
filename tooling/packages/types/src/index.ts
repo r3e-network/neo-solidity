@@ -5,6 +5,7 @@ export * from './networks';
 export * from './artifacts';
 export * from './abi';
 export * from './cli';
+export * from './hardhat-compat';
 export * from './templates';
 export * from './neo';
 

@@ -7,7 +7,7 @@ import {
   parseNeoBoolean,
   parseNeoInteger,
   stackItemArrayValue,
-} from "./neo-utils";
+} from "./neo-utils.js";
 
 const debug = Debug("neo-solidity:event-decoder");
 

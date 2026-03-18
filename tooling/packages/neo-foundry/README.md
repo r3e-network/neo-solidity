@@ -1,12 +1,13 @@
 # @neo-solidity/neo-foundry
 
-Neo Foundry is the companion CLI that mirrors Foundry/Hardhat ergonomics for the Neo chain. **It is still a scaffold**: all commands print the intended UX and stop with clear messages instead of touching live RPC nodes. Treat it as a preview until deployment/testing support lands.
+Neo Foundry is the companion CLI that mirrors Foundry/Hardhat ergonomics for the Neo chain. It is still mostly scaffold-level, but `neo-forge init` now creates a working project layout and config, and the package can be imported as a library without executing the CLI parser as a side effect.
 
 ## Current State (Nov 2025)
 
 | Command | Status |
 | --- | --- |
-| `neo-forge build/test/clean` | ⚠️ Prints placeholder output and throws `HardhatPluginError` equivalents; no compiler/runtime integration yet |
+| `neo-forge init` | ✅ Creates `neo-foundry.toml`, `src/Counter.sol`, and `test/Counter.t.sol` |
+| `neo-forge build/test/clean` | ⚠️ Build/test remain scaffold-only; they stop with explicit “not implemented yet” errors |
 | `neo-cast` (`call`, `send`, `balance`, etc.) | ⚠️ Reads configs and validates inputs but does not submit real transactions |
 | `neo-anvil` | ⚠️ In-memory mock chain with a JSON-RPC façade; useful for CLI demos, not for executing NEF code |
 | `neo-foundry` programmatic API (`NeoForge`, `NeoCast`, `NeoAnvil`) | ⚠️ Typed stubs raising “not implemented” errors when called |
@@ -19,13 +20,13 @@ npm install -g @neo-solidity/neo-foundry
 
 The CLI exposes three entry points:
 
-- `neo-forge` – project/build/test workflows (currently placeholder)
+- `neo-forge` – project/build/test workflows (`init` implemented; build/test still placeholder)
 - `neo-cast` – contract interaction helper (placeholder)
 - `neo-anvil` – mock RPC server for local development demos
 
 ## Configuration
 
-The scaffold understands a Foundry-like `neo-foundry.toml` via `ConfigManager`, but the values are only used for logging today. Future work will connect these options to real compiler runs, RPC signing, and artifact resolution.
+The package understands a Foundry-like `neo-foundry.toml` via `ConfigManager`, and `neo-forge init` writes that file plus a starter project skeleton. Future work will connect the same config to real compiler runs, RPC signing, and artifact resolution.
 
 ## Roadmap
 

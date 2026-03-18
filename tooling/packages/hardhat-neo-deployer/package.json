@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "test": "vitest run --passWithNoTests",
@@ -33,7 +34,7 @@
     "neovm"
   ],
   "dependencies": {
-    "@neo-solidity/types": "^0.1.0",
+    "@neo-solidity/types": "^0.14.0",
     "axios": "^1.13.6",
     "chalk": "^5.3.0",
     "debug": "^4.3.4",

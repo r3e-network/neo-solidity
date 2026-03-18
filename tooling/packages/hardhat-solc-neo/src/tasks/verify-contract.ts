@@ -1,16 +1,25 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
-import { VerificationResult, base64ToHex, isNeoAddress, neoAddressToScriptHash } from "@neo-solidity/types";
+import {
+  VerificationResult,
+  addOptionalStringOption,
+  addRequiredStringOption,
+  base64ToHex,
+  getHardhatSelectedNetworkName,
+  isNeoAddress,
+  neoAddressToScriptHash,
+  setTaskAction,
+} from "@neo-solidity/types";
 
-task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact")
-  .addParam("contract", "Contract name")
-  .addParam("address", "Contract address")
-  .addOptionalParam("neoNetwork", "Network name")
-  .addOptionalParam("constructorArgs", "Constructor arguments (JSON)")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+const neoVerifyTask = task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact");
+addRequiredStringOption(neoVerifyTask, "contract", "Contract name");
+addRequiredStringOption(neoVerifyTask, "address", "Contract address");
+addOptionalStringOption(neoVerifyTask, "neoNetwork", "Network name");
+addOptionalStringOption(neoVerifyTask, "constructorArgs", "Constructor arguments (JSON)");
+setTaskAction(neoVerifyTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
     const { contract, address, neoNetwork, constructorArgs } = taskArgs;
-    const networkName = neoNetwork || hre.network.name;
+    const networkName = getHardhatSelectedNetworkName(hre, neoNetwork);
     
     console.log(chalk.blue(`🔍 Verifying contract ${contract} at ${address} on ${networkName}...`));
 
@@ -228,10 +237,10 @@ function compareManifests(localManifest: any, chainManifest: any): boolean {
   return JSON.stringify(normalizedLocal) === JSON.stringify(normalizedChain);
 }
 
-task("neo-verify-all", "Verify all deployed contracts match local artifacts")
-  .addOptionalParam("neoNetwork", "Network name")
-  .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-    const networkName = taskArgs.neoNetwork || hre.network.name;
+const neoVerifyAllTask = task("neo-verify-all", "Verify all deployed contracts match local artifacts");
+addOptionalStringOption(neoVerifyAllTask, "neoNetwork", "Network name");
+setTaskAction(neoVerifyAllTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
+    const networkName = getHardhatSelectedNetworkName(hre, taskArgs.neoNetwork);
     
     console.log(chalk.blue(`🔍 Verifying all contracts on ${networkName}...`));
 

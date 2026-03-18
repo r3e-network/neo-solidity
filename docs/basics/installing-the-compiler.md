@@ -9,7 +9,7 @@ Neo Solidity versions follow semantic versioning. We recommend always using the 
 Use `npm` for a convenient and portable way to install `neo-solidity` locally into your JavaScript/TypeScript project. This is highly recommended if you are using Hardhat or other Node.js-based tooling.
 
 ```bash
-npm install --save-dev @r3e-network/hardhat-solc-neo
+npm install --save-dev @neo-solidity/hardhat-solc-neo
 ```
 
 The Hardhat plugin will automatically manage the underlying compiler binary for your system.
@@ -24,7 +24,7 @@ docker run -v $(pwd):/sources r3e-network/neo-solc:latest -o /sources/build /sou
 
 ## Static Binaries (Linux, macOS, Windows)
 
-We provide pre-built static binaries for major operating systems via our GitHub Releases page. 
+We provide pre-built static binaries for major operating systems via our GitHub Releases page.
 
 1. Navigate to [Neo Solidity Releases](https://github.com/r3e-network/neo-solidity/releases).
 2. Download the binary archive for your platform.
@@ -42,11 +42,11 @@ If you want the absolute latest features or are contributing to the compiler, bu
 
 ### Prerequisites
 
-| Requirement        | Minimum Version | Purpose                                                 |
-| ------------------ | --------------- | ------------------------------------------------------- |
-| **Rust toolchain** | 1.82+ (stable)  | The core compiler is written in Rust                    |
-| **Git**            | 2.x             | To clone the repository                                 |
-| **Node.js**        | 16.0+           | (Optional) For TypeScript tooling and VitePress docs    |
+| Requirement        | Minimum Version | Purpose                                              |
+| ------------------ | --------------- | ---------------------------------------------------- |
+| **Rust toolchain** | 1.82+ (stable)  | The core compiler is written in Rust                 |
+| **Git**            | 2.x             | To clone the repository                              |
+| **Node.js**        | 18.0+           | (Optional) For TypeScript tooling and VitePress docs |
 
 If Rust is not installed, install it via [rustup](https://rustup.rs/):
 
@@ -86,7 +86,7 @@ neo-solc --version
 ```
 
 Output format:
-`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.14.0`).
+`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.15.0`).
 
 When debugging or reporting issues on GitHub, please always include the exact version string produced by this command.
 

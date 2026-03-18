@@ -16,6 +16,7 @@ uint256 fee = 0.1 ether; // 10^17 wei — wrong for Neo
 // ✅ Neo GAS units
 uint256 fee = 10_000_000; // 0.1 GAS (10^7, since GAS has 10^8 decimals)
 ```
+
 :::
 
 ## Time Units
@@ -37,24 +38,25 @@ The `neo-solidity` compiler auto-maps EVM globals to approximate Neo equivalents
 | `block.gaslimit`                        | `Policy.getExecFeeFactor()` | Auto-mapped with warning. Different gas accounting model.                  |
 | `block.basefee`                         | `Policy.getFeePerByte()`    | Auto-mapped with warning. Different fee model.                             |
 | `blockhash(n)`                          | `Ledger.getBlockHash(n)`    | Auto-mapped with warning. Returns Neo block hash.                          |
+| `block.sha3`                            | `Ledger.currentHash`        | Auto-mapped with warning. Deprecated in Solidity 0.8+.                     |
 | `tx.origin`                             | First signer script hash    | Maps to the first transaction signer. Warning: authorization anti-pattern. |
 | `tx.gasprice`                           | `Policy.getFeePerByte()`    | Auto-mapped with warning. Different fee model.                             |
 
 ## Message Properties
 
-| Solidity / EVM | NeoVM / Neo N3                        | Notes                                                                                  |
-| -------------- | ------------------------------------- | -------------------------------------------------------------------------------------- |
-| `msg.sender`   | `System.Runtime.GetCallingScriptHash` | Returns the script hash of the calling contract or transaction signer.                 |
-| `msg.value`    | `onNEP17Payment` amount parameter     | Only valid inside NEP-17/NEP-11 payment callbacks. No equivalent outside that context. |
-| `msg.data`     | —                                     | Auto-mapped to an empty byte array (with warning) outside of `onNEP17Payment`.         |
-| `msg.sig`      | —                                     | Auto-mapped to `0x00000000` (with warning). Neo dispatches by method string name.      |
+| Solidity / EVM | NeoVM / Neo N3                        | Notes                                                                                                        |
+| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --- | ------------------------------------------------- |
+| `msg.sender`   | `System.Runtime.GetCallingScriptHash` | Returns the script hash of the calling contract or transaction signer.                                       |
+| `msg.value`    | `onNEP17Payment` amount parameter     | Only valid inside NEP-17/NEP-11 payment callbacks. No equivalent outside that context.                       |
+| `msg.data`     | —                                     | Approximated as `selector                                                                                    |     | abi.encode(current args)` outside onNEP17Payment. |
+| `msg.sig`      | —                                     | Approximated as the current function selector (with warning). Internal-call semantics still differ from EVM. |
 
 ## Contract Context
 
-| Solidity / EVM       | NeoVM / Neo N3                          | Notes                                                                 |
-| -------------------- | --------------------------------------- | --------------------------------------------------------------------- |
-| `this`               | `System.Runtime.GetExecutingScriptHash` | Returns the script hash of the current contract.                      |
-| `gasleft()`          | `System.Runtime.GasLeft`                | Returns remaining GAS for the current invocation.                     |
-| `selfdestruct(addr)` | `ContractManagement.destroy()`          | Auto-mapped with warning. No refund. Permanent and irreversible.      |
-| `address.codehash`   | Contract script hash                    | Auto-mapped with warning. Non-contract addresses return `bytes32(0)`. |
-| `address.code`       | Empty bytes                             | Auto-mapped with warning. `address.code.length` is 0/1 contract check.|
+| Solidity / EVM       | NeoVM / Neo N3                          | Notes                                                                                                  |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `this`               | `System.Runtime.GetExecutingScriptHash` | Returns the script hash of the current contract.                                                       |
+| `gasleft()`          | `System.Runtime.GasLeft`                | Returns remaining GAS for the current invocation.                                                      |
+| `selfdestruct(addr)` | `ContractManagement.destroy()`          | Auto-mapped with warning. No refund. Permanent and irreversible.                                       |
+| `address.codehash`   | Contract script hash                    | Auto-mapped with warning. Non-contract addresses return `bytes32(0)`.                                  |
+| `address.code`       | Contract script bytes                   | Auto-mapped with warning through `ContractManagement.getContract()`. Non-contracts return empty bytes. |

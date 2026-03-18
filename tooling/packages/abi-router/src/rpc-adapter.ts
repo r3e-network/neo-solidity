@@ -5,7 +5,7 @@ import {
   decodeNeoBytes,
   normalizeNeoHash160,
   strip0x,
-} from "./neo-utils";
+} from "./neo-utils.js";
 
 const debug = Debug("neo-solidity:rpc-adapter");
 

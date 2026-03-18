@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "test": "vitest run --passWithNoTests",
@@ -34,7 +35,7 @@
     "neovm"
   ],
   "dependencies": {
-    "@neo-solidity/types": "^0.1.0",
+    "@neo-solidity/types": "^0.14.0",
     "hardhat": "^3.1.11",
     "ethers": "^6.16.0",
     "fs-extra": "^11.3.4",

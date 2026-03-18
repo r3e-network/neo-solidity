@@ -6,9 +6,9 @@ We welcome contributions to the Neo Solidity Compiler project! This guide will h
 
 ### Prerequisites
 
-- **Rust**: 1.70 or higher
-- **Node.js**: 16.0 or higher (for tooling)
-- **.NET**: 6.0 or higher (for runtime)
+- **Rust**: 1.82 or higher
+- **Node.js**: 18.0 or higher (for tooling)
+- **.NET**: 8.0 or higher (for runtime)
 - **Git**: Latest version
 
 ### Development Setup
@@ -22,7 +22,7 @@ cd neo-solidity
 make install-deps
 
 # 3. Build the project
-make build-all
+make build
 
 # 4. Run tests to ensure everything works
 make test-all

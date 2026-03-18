@@ -1,13 +1,13 @@
 # @neo-solidity/cli-tools
 
-CLI utility scaffolding for the Neo Solidity toolchain. The package ships lightweight Node CLIs (`solc-neo`, `neo-sol`) that shell out to the Rust `neo-solc` binary, plus a shared CLI framework. **Everything is still a scaffold**: commands print the intended UX and may throw errors instead of performing full end-to-end workflows.
+CLI utility scaffolding for the Neo Solidity toolchain. The package ships lightweight Node CLIs (`solc-neo`, `neo-sol`) that shell out to the Rust `neo-solc` binary, plus a reusable CLI framework. The compile-oriented flows are still scaffold-level, but the framework itself is usable and returns structured results instead of terminating the process on command failures.
 
 ## Status
 
 | Command / API | Status |
 | --- | --- |
 | `solc-neo` / `neo-sol` compile (`CompilerCLI`) | ⚠️ Constructs JSON input and shells out to `neo-solc`, but the surrounding task runner (artifact persistence, plugin integration) is still under construction |
-| CLI framework (`NeoSolidityCLI`) | ✅ Usable to register commands/log/spinners. Can power your own scripts. |
+| CLI framework (`NeoSolidityCLI`) | ✅ Usable to register commands/log/spinners and returns structured success/failure results |
 | Utility helpers in `src/cli-framework.ts` | ✅ Logging/spinner/progress abstractions |
 | Higher-level CLI commands (forge/cast/anvil wrappers) | ⚠️ Each prints placeholder output and throws “not implemented yet”. |
 
@@ -20,7 +20,7 @@ npm install -g @neo-solidity/cli-tools
 ## Usage
 
 ```bash
-# Compile contracts (scaffold)
+# Compile contracts (scaffold-level wrapper around `neo-solc`)
 solc-neo compile contracts/**/*.sol --optimize --gas-model hybrid
 # or
 neo-sol compile contracts/**/*.sol --optimize --gas-model hybrid
@@ -44,4 +44,4 @@ await cli.compile(["contracts/MyToken.sol"], { optimize: true });
 2. Move `neo-forge`/`neo-cast` commands into this package once they perform real RPC transactions.
 3. Provide a `neo-anvil` CLI that launches a real Neo Express instance or VM sandbox.
 
-Until these land, consider the CLI tools experimental.
+Until the higher-level flows land, consider the compiler wrapper experimental. The reusable CLI framework is already suitable for local scripting and package composition.

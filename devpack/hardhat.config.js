@@ -9,7 +9,6 @@ function loadOptionalPlugin(name) {
   }
 }
 
-require("@nomicfoundation/hardhat-toolbox");
 const hasNeoSolcPlugin = loadOptionalPlugin("@neo-solidity/hardhat-solc-neo");
 const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-solidity/hardhat-neo-deployer");
 
@@ -19,7 +18,7 @@ const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-solidity/hardhat-neo-deplo
  */
 const config = {
   solidity: {
-    version: "0.8.19",
+    version: "0.8.34",
     settings: {
       optimizer: {
         enabled: true,
@@ -64,34 +63,13 @@ const config = {
 
   mocha: {
     timeout: 40000
-  },
-
-  gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
-    gasPrice: 21,
-    coinmarketcap: process.env.COINMARKETCAP_API_KEY
-  },
-
-  contractSizer: {
-    alphaSort: true,
-    disambiguatePaths: false,
-    runOnCompile: true,
-    strict: true
-  },
-
-  docgen: {
-    path: "./docs",
-    clear: true,
-    runOnCompile: false,
-    pages: (item, file) => file.absolutePath.startsWith(config.paths.sources)
   }
 };
 
 if (hasNeoSolcPlugin) {
   config.neoSolc = {
     solidity: {
-      version: "0.8.19",
+      version: "0.8.34",
       settings: {
         optimizer: {
           enabled: true,

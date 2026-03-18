@@ -18,7 +18,7 @@ Create a file called `MyStorage.sol`:
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 /// @title MyStorage - A simple storage contract for Neo N3
 /// @notice Stores and retrieves a single integer value
@@ -380,7 +380,7 @@ Example contract with a constructor:
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.34;
 
 contract Counter {
     uint256 private count;
