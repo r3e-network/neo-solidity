@@ -1,20 +1,18 @@
 name: CI
-
-on:
+true:
   push:
-    branches: [main, develop]
+    branches:
+    - main
+    - develop
   schedule:
-    - cron: "0 0 * * *"
-
+  - cron: 0 0 * * *
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   CARGO_INCREMENTAL: 0
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   daily-gate:
     name: Daily Run Gate
@@ -24,88 +22,71 @@ jobs:
       contents: read
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
-
     steps:
-      - name: Allow only one CI run per UTC day
-        id: gate
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const workflow_id = 'ci.yml';
-            const now = new Date();
-            const startOfUtcDay = new Date(Date.UTC(
-              now.getUTCFullYear(),
-              now.getUTCMonth(),
-              now.getUTCDate(),
-              0, 0, 0
-            ));
-
-            const { data } = await github.rest.actions.listWorkflowRuns({
-              owner,
-              repo,
-              workflow_id,
-              per_page: 100
-            });
-
-            const runsToday = data.workflow_runs.filter((run) => {
-              if (run.id === context.runId) return false;
-              const createdAt = new Date(run.created_at);
-              return createdAt >= startOfUtcDay;
-            });
-
-            const shouldRun = runsToday.length === 0;
-            core.info(`Found ${runsToday.length} existing CI run(s) today (UTC).`);
-            core.setOutput('should_run', shouldRun ? 'true' : 'false');
-
+    - name: Allow only one CI run per UTC day
+      id: gate
+      uses: actions/github-script@v7
+      with:
+        script: "const owner = context.repo.owner;\nconst repo = context.repo.repo;\n\
+          const workflow_id = 'ci.yml';\nconst now = new Date();\nconst startOfUtcDay\
+          \ = new Date(Date.UTC(\n  now.getUTCFullYear(),\n  now.getUTCMonth(),\n\
+          \  now.getUTCDate(),\n  0, 0, 0\n));\n\nconst { data } = await github.rest.actions.listWorkflowRuns({\n\
+          \  owner,\n  repo,\n  workflow_id,\n  per_page: 100\n});\n\nconst runsToday\
+          \ = data.workflow_runs.filter((run) => {\n  if (run.id === context.runId)\
+          \ return false;\n  const createdAt = new Date(run.created_at);\n  return\
+          \ createdAt >= startOfUtcDay;\n});\n\nconst shouldRun = runsToday.length\
+          \ === 0;\ncore.info(`Found ${runsToday.length} existing CI run(s) today\
+          \ (UTC).`);\ncore.setOutput('should_run', shouldRun ? 'true' : 'false');\n"
+    timeout-minutes: 15
   core:
     name: Core CI
     needs: daily-gate
     if: needs.daily-gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+          ~/.cargo/git
 
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          target
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+          '
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: '${{ runner.os }}-cargo-
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+          '
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    - name: Run Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: Run tests
+      run: cargo test --workspace --all-features
+    - name: Build release binary
+      run: cargo build --release
+    - name: Compile smoke contract
+      run: './target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
 
-      - name: Run tests
-        run: cargo test --workspace --all-features
+        test -f SmokeERC20.nef
 
-      - name: Build release binary
-        run: cargo build --release
+        test -f SmokeERC20.manifest.json
 
-      - name: Compile smoke contract
-        run: |
-          ./target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
-          test -f SmokeERC20.nef
-          test -f SmokeERC20.manifest.json
+        '
+    - name: Validate emitted artifacts
+      run: 'MAGIC=$(xxd -l 4 -p SmokeERC20.nef)
 
-      - name: Validate emitted artifacts
-        run: |
-          MAGIC=$(xxd -l 4 -p SmokeERC20.nef)
-          test "$MAGIC" = "4e454633"
-          python3 -c "import json; d=json.load(open('SmokeERC20.manifest.json')); assert d.get('name'); assert 'abi' in d; assert 'permissions' in d"
+        test "$MAGIC" = "4e454633"
+
+        python3 -c "import json; d=json.load(open(''SmokeERC20.manifest.json''));
+        assert d.get(''name''); assert ''abi'' in d; assert ''permissions'' in d"
+
+        '
