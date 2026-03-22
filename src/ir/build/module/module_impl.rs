@@ -113,7 +113,7 @@ impl Module {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
-        for method in &metadata.methods {
+        for method in metadata.methods.iter() {
             if method.name == "_deploy" {
                 deploy_metadata = Some(method);
                 continue;

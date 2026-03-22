@@ -64,5 +64,9 @@ spec/*.toc
 coverage/
 *.lcov
 
+# Test artifact source files
+BadLibrary.*
+LibraryExternalError.*
+
 # Archived files (Go implementation)
 /archive/

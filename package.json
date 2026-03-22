@@ -1,6 +1,6 @@
 {
   "name": "@r3e-network/neo-solidity",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Production-ready Solidity-to-NeoVM compilation system",
   "private": true,
   "repository": {

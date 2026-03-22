@@ -1,12 +1,19 @@
+use std::collections::HashMap;
+
+use crate::error::CompilerError;
+use crate::parser::{AstNode, AstNodeType};
+
+use super::types::{InlineCandidate, Optimizer};
+
 impl Optimizer {
-    fn function_inlining(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
+    pub(super) fn function_inlining(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
         // Collect small functions for inlining
         let mut inline_candidates: HashMap<String, InlineCandidate> = HashMap::new();
         self.collect_inline_candidates(&ast, &mut inline_candidates);
 
         // Count call sites to make better inlining decisions
         let call_counts = self.count_call_sites(&ast);
-        
+
         // Filter candidates based on call frequency and cost
         let filtered_candidates: HashMap<String, InlineCandidate> = inline_candidates
             .into_iter()
@@ -212,7 +219,7 @@ impl Optimizer {
                     node_type: AstNodeType::If {
                         condition: Box::new(self.inline_functions_recursive(*condition, candidates)),
                         then_branch: Box::new(self.inline_functions_recursive(*then_branch, candidates)),
-                        else_branch: else_branch.map(|eb| 
+                        else_branch: else_branch.map(|eb|
                             Box::new(self.inline_functions_recursive(*eb, candidates))
                         ),
                     },
@@ -272,7 +279,7 @@ impl Optimizer {
                     node_type: AstNodeType::If {
                         condition: Box::new(Self::substitute_parameters(*condition, substitutions)),
                         then_branch: Box::new(Self::substitute_parameters(*then_branch, substitutions)),
-                        else_branch: else_branch.map(|eb| 
+                        else_branch: else_branch.map(|eb|
                             Box::new(Self::substitute_parameters(*eb, substitutions))
                         ),
                     },

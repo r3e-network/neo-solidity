@@ -2,10 +2,14 @@ name: CI
 true:
   push:
     branches:
-    - main
-    - develop
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
   schedule:
-  - cron: 0 0 * * *
+    - cron: 0 0 * * *
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -23,20 +27,20 @@ jobs:
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
     steps:
-    - name: Allow only one CI run per UTC day
-      id: gate
-      uses: actions/github-script@v7
-      with:
-        script: "const owner = context.repo.owner;\nconst repo = context.repo.repo;\n\
-          const workflow_id = 'ci.yml';\nconst now = new Date();\nconst startOfUtcDay\
-          \ = new Date(Date.UTC(\n  now.getUTCFullYear(),\n  now.getUTCMonth(),\n\
-          \  now.getUTCDate(),\n  0, 0, 0\n));\n\nconst { data } = await github.rest.actions.listWorkflowRuns({\n\
-          \  owner,\n  repo,\n  workflow_id,\n  per_page: 100\n});\n\nconst runsToday\
-          \ = data.workflow_runs.filter((run) => {\n  if (run.id === context.runId)\
-          \ return false;\n  const createdAt = new Date(run.created_at);\n  return\
-          \ createdAt >= startOfUtcDay;\n});\n\nconst shouldRun = runsToday.length\
-          \ === 0;\ncore.info(`Found ${runsToday.length} existing CI run(s) today\
-          \ (UTC).`);\ncore.setOutput('should_run', shouldRun ? 'true' : 'false');\n"
+      - name: Allow only one CI run per UTC day
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: "const owner = context.repo.owner;\nconst repo = context.repo.repo;\n\
+            const workflow_id = 'ci.yml';\nconst now = new Date();\nconst startOfUtcDay\
+            \ = new Date(Date.UTC(\n  now.getUTCFullYear(),\n  now.getUTCMonth(),\n\
+            \  now.getUTCDate(),\n  0, 0, 0\n));\n\nconst { data } = await github.rest.actions.listWorkflowRuns({\n\
+            \  owner,\n  repo,\n  workflow_id,\n  per_page: 100\n});\n\nconst runsToday\
+            \ = data.workflow_runs.filter((run) => {\n  if (run.id === context.runId)\
+            \ return false;\n  const createdAt = new Date(run.created_at);\n  return\
+            \ createdAt >= startOfUtcDay;\n});\n\nconst shouldRun = runsToday.length\
+            \ === 0;\ncore.info(`Found ${runsToday.length} existing CI run(s) today\
+            \ (UTC).`);\ncore.setOutput('should_run', shouldRun ? 'true' : 'false');\n"
     timeout-minutes: 15
   core:
     name: Core CI
@@ -45,48 +49,48 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
-    - name: Cache Cargo dependencies
-      uses: actions/cache@v4
-      with:
-        path: '~/.cargo/registry
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: "~/.cargo/registry
 
-          ~/.cargo/git
+            ~/.cargo/git
 
-          target
+            target
+
+            "
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: "${{ runner.os }}-cargo-
+
+            "
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run tests
+        run: cargo test --workspace --all-features
+      - name: Build release binary
+        run: cargo build --release
+      - name: Compile smoke contract
+        run: "./target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
+
+          test -f SmokeERC20.nef
+
+          test -f SmokeERC20.manifest.json
+
+          "
+      - name: Validate emitted artifacts
+        run: 'MAGIC=$(xxd -l 4 -p SmokeERC20.nef)
+
+          test "$MAGIC" = "4e454633"
+
+          python3 -c "import json; d=json.load(open(''SmokeERC20.manifest.json''));
+          assert d.get(''name''); assert ''abi'' in d; assert ''permissions'' in d"
 
           '
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: '${{ runner.os }}-cargo-
-
-          '
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-    - name: Run Clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-    - name: Run tests
-      run: cargo test --workspace --all-features
-    - name: Build release binary
-      run: cargo build --release
-    - name: Compile smoke contract
-      run: './target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
-
-        test -f SmokeERC20.nef
-
-        test -f SmokeERC20.manifest.json
-
-        '
-    - name: Validate emitted artifacts
-      run: 'MAGIC=$(xxd -l 4 -p SmokeERC20.nef)
-
-        test "$MAGIC" = "4e454633"
-
-        python3 -c "import json; d=json.load(open(''SmokeERC20.manifest.json''));
-        assert d.get(''name''); assert ''abi'' in d; assert ''permissions'' in d"
-
-        '

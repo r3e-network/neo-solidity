@@ -158,6 +158,14 @@ impl ExecutionContext {
                 let length =
                     u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]])
                         as usize;
+                if length > self.memory_limit {
+                    return Err(RuntimeError::ExecutionError {
+                        message: format!(
+                            "PUSHDATA4: data length {} exceeds memory limit {}",
+                            length, self.memory_limit
+                        ),
+                    });
+                }
                 if self.instruction_pointer as usize + 5 + length > self.bytecode.len() {
                     return Err(RuntimeError::ExecutionError {
                         message: "PUSHDATA4: insufficient bytecode for data".to_string(),

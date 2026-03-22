@@ -1,5 +1,10 @@
+use crate::error::CompilerError;
+use crate::parser::{AstNode, AstNodeType};
+
+use super::types::Optimizer;
+
 impl Optimizer {
-    fn dead_code_elimination(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
+    pub(super) fn dead_code_elimination(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
         let result = self.eliminate_dead_code_recursive(ast, false);
         Ok(self.remove_empty_blocks(result))
     }
@@ -160,7 +165,7 @@ impl Optimizer {
 
     /// Check if an expression has no side effects
     #[allow(clippy::only_used_in_recursion)]
-    fn is_pure_expression(&self, node: &AstNode) -> bool {
+    pub(super) fn is_pure_expression(&self, node: &AstNode) -> bool {
         match &node.node_type {
             AstNodeType::Literal { .. } | AstNodeType::Identifier { .. } => true,
             AstNodeType::FunctionCall { name, arguments } => {

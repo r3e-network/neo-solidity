@@ -14,9 +14,9 @@ impl CodeGenerator {
             &mut estimated_gas,
         )?;
 
-        // Add contract initialization (prepended, shifts all offsets by INIT_MARKER_LEN)
-        let mut prefix = vec![0x0C, 0x04]; // PUSHDATA1 + length
-        prefix.extend_from_slice(b"init"); // "init" marker
+        // Add contract initialization: INITSLOT with 0 locals and 0 params
+        // (prepended, shifts all offsets by INIT_MARKER_LEN = 3)
+        let mut prefix = vec![0x56, 0x00, 0x00]; // INITSLOT + 0 locals + 0 params
         prefix.append(&mut bytecode); // move original bytecode after prefix
         bytecode = prefix;
 

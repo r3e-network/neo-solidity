@@ -487,26 +487,12 @@ contract NEP17 is INEP17, FrameworkBase {
     
     // ========== Neo Integration Functions ==========
     
-    /**
-     * @dev Get token holders count (expensive operation)
-     */
-    function getHoldersCount() public view returns (uint256) {
-        // Use storage iterator to count all balance entries
-        Storage.Iterator memory iterator = Storage.find(abi.encode("balance"));
-        uint256 count = 0;
-        
-        while (iterator.next() && count < 10000) { // Limit to prevent gas exhaustion
-            bytes memory balance = iterator.value();
-            if (balance.length > 0) {
-                uint256 amount = abi.decode(balance, (uint256));
-                if (amount > 0) {
-                    count++;
-                }
-            }
-        }
-        
-        return count;
-    }
+    // NOTE: getHoldersCount() was removed because Solidity mappings use
+    // keccak256-derived storage slots, not prefix-based keys. Storage.find()
+    // with a "balance" prefix cannot iterate over mapping entries. If your
+    // contract needs holder enumeration, maintain an explicit address[] array
+    // or use the Neo-specific Storage.put()/find() API directly instead of
+    // the native `mapping` type.
     
     /**
      * @dev Get token info for Neo blockchain
@@ -708,43 +694,10 @@ contract NEP17 is INEP17, FrameworkBase {
         }
     }
     
-    /**
-     * @dev Get all balances (expensive operation, use carefully)
-     */
-    function getAllBalances() public view returns (address[] memory accounts, uint256[] memory balances) {
-        // Use storage iterator to get all balance entries
-        Storage.Iterator memory iterator = Storage.find(abi.encode("balance"));
-        
-        // Temporary arrays with maximum size
-        address[] memory tempAccounts = new address[](1000);
-        uint256[] memory tempBalances = new uint256[](1000);
-        uint256 count = 0;
-        
-        while (iterator.next() && count < 1000) {
-            bytes memory balanceData = iterator.value();
-            if (balanceData.length > 0) {
-                uint256 balance = abi.decode(balanceData, (uint256));
-                if (balance > 0) {
-                    // Extract address from key
-                    bytes memory key = iterator.currentKey;
-                    address account = abi.decode(key, (address));
-                    
-                    tempAccounts[count] = account;
-                    tempBalances[count] = balance;
-                    count++;
-                }
-            }
-        }
-        
-        // Resize arrays to actual count
-        accounts = new address[](count);
-        balances = new uint256[](count);
-        
-        for (uint256 i = 0; i < count; i++) {
-            accounts[i] = tempAccounts[i];
-            balances[i] = tempBalances[i];
-        }
-    }
+    // NOTE: getAllBalances() was removed for the same reason as getHoldersCount().
+    // Solidity mappings use keccak256-derived storage slots and cannot be iterated
+    // via Storage.find() with a prefix. See the comment above getHoldersCount's
+    // former location for alternatives.
     
     /**
      * @dev NEP-17 specific metadata

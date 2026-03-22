@@ -446,31 +446,44 @@ library Storage {
     
     /**
      * @dev Compress storage value using RLE compression
+     *
+     * Encoding scheme (round-trip safe):
+     *   - Literal 0xFF byte  -> 0xFF 0xFF
+     *   - Run of N identical bytes B (N >= 4, or B == 0x00) -> 0xFF <N-1> B
+     *     (N-1 is stored so a single-byte run is never encoded as RLE by accident;
+     *      max representable run = 256 when the stored count byte is 0xFF, i.e. 255+1)
+     *   - All other bytes     -> emitted literally
      */
     function compress(bytes memory data) internal pure returns (bytes memory) {
         if (data.length < 4) {
             return data; // Too small to compress effectively
         }
-        
-        // Run-length encoding compression
-        bytes memory compressed = new bytes(data.length * 2); // Worst case size
+
+        // Worst case: every byte is 0xFF -> doubles in size
+        bytes memory compressed = new bytes(data.length * 2);
         uint256 compressedIndex = 0;
         uint256 i = 0;
-        
+
         while (i < data.length) {
             bytes1 currentByte = data[i];
             uint256 runLength = 1;
-            
-            // Count consecutive identical bytes
-            while (i + runLength < data.length && data[i + runLength] == currentByte && runLength < 255) {
+
+            // Count consecutive identical bytes (max 256 per RLE sequence)
+            while (i + runLength < data.length && data[i + runLength] == currentByte && runLength < 256) {
                 runLength++;
             }
-            
-            // Store run-length encoded data
-            if (runLength >= 4 || currentByte == 0x00 || currentByte == 0xFF) {
-                // Use RLE for runs of 4+ or zeros
+
+            if (currentByte == 0xFF) {
+                // 0xFF bytes must always be escaped to avoid ambiguity during decompression.
+                // Emit each 0xFF as the two-byte escape sequence 0xFF 0xFF.
+                for (uint256 j = 0; j < runLength; j++) {
+                    compressed[compressedIndex++] = 0xFF;
+                    compressed[compressedIndex++] = 0xFF;
+                }
+            } else if (runLength >= 4 || currentByte == 0x00) {
+                // Use RLE for runs of 4+ or for 0x00 (common zero-padding)
                 compressed[compressedIndex++] = 0xFF; // Escape byte
-                compressed[compressedIndex++] = bytes1(uint8(runLength));
+                compressed[compressedIndex++] = bytes1(uint8(runLength - 1)); // count - 1
                 compressed[compressedIndex++] = currentByte;
             } else {
                 // Store literal bytes
@@ -478,56 +491,68 @@ library Storage {
                     compressed[compressedIndex++] = currentByte;
                 }
             }
-            
+
             i += runLength;
         }
-        
+
         // Resize to actual compressed size
         bytes memory result = new bytes(compressedIndex);
         for (uint256 k = 0; k < compressedIndex; k++) {
             result[k] = compressed[k];
         }
-        
+
         return result;
     }
-    
+
     /**
      * @dev Decompress RLE-compressed storage value
+     *
+     * Decoding scheme (inverse of compress):
+     *   - 0xFF 0xFF         -> literal 0xFF byte
+     *   - 0xFF <count> <B>  -> (count+1) copies of byte B  (where B != 0xFF)
+     *   - any other byte    -> literal
      */
     function decompress(bytes memory compressedData) internal pure returns (bytes memory) {
         if (compressedData.length == 0) {
             return compressedData;
         }
-        
+
         // Estimate maximum decompressed size
-        bytes memory decompressed = new bytes(compressedData.length * 255); // Worst case
+        bytes memory decompressed = new bytes(compressedData.length * 256); // Worst case
         uint256 decompressedIndex = 0;
         uint256 i = 0;
-        
+
         while (i < compressedData.length) {
-            if (compressedData[i] == 0xFF && i + 2 < compressedData.length) {
-                // RLE sequence
-                uint256 runLength = uint8(compressedData[i + 1]);
-                bytes1 value = compressedData[i + 2];
-                
-                for (uint256 j = 0; j < runLength; j++) {
-                    decompressed[decompressedIndex++] = value;
+            if (compressedData[i] == 0xFF && i + 1 < compressedData.length) {
+                if (compressedData[i + 1] == 0xFF) {
+                    // Escaped literal 0xFF
+                    decompressed[decompressedIndex++] = 0xFF;
+                    i += 2;
+                } else {
+                    // RLE sequence: 0xFF <count> <byte>
+                    require(i + 2 < compressedData.length, "Storage: truncated RLE sequence");
+                    uint256 runLength = uint256(uint8(compressedData[i + 1])) + 1;
+                    bytes1 value = compressedData[i + 2];
+
+                    for (uint256 j = 0; j < runLength; j++) {
+                        decompressed[decompressedIndex++] = value;
+                    }
+
+                    i += 3;
                 }
-                
-                i += 3;
             } else {
                 // Literal byte
                 decompressed[decompressedIndex++] = compressedData[i];
                 i++;
             }
         }
-        
+
         // Resize to actual decompressed size
         bytes memory result = new bytes(decompressedIndex);
         for (uint256 k = 0; k < decompressedIndex; k++) {
             result[k] = decompressed[k];
         }
-        
+
         return result;
     }
     

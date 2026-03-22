@@ -11,7 +11,17 @@ impl ExecutionContext {
                 let local_count = self.bytecode[self.instruction_pointer as usize + 1] as usize;
                 let arg_count = self.bytecode[self.instruction_pointer as usize + 2] as usize;
                 self.locals = vec![StackItem::Null; local_count];
-                self.args = vec![StackItem::Null; arg_count];
+                // Pop arg_count items from the evaluation stack into arg slots.
+                // NeoVM pops in order so that arg0 = first popped (top of stack).
+                let mut args = Vec::with_capacity(arg_count);
+                for _ in 0..arg_count {
+                    if self.stack.is_empty() {
+                        args.push(StackItem::Null);
+                    } else {
+                        args.push(self.pop_stack()?);
+                    }
+                }
+                self.args = args;
                 self.instruction_pointer += 3;
             }
             0x56 => {

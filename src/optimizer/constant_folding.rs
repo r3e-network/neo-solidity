@@ -1,21 +1,27 @@
+use crate::error::CompilerError;
+use crate::parser::{AstNode, AstNodeType};
+
+use super::strength::StrengthReducer;
+use super::types::Optimizer;
+
 impl Optimizer {
-    fn constant_folding(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
+    pub(super) fn constant_folding(&mut self, ast: AstNode) -> Result<AstNode, CompilerError> {
         // Run multiple passes until no more folding occurs
         let mut current = ast;
         let mut prev_count = 0;
-        
+
         loop {
             let before = self.stats.folded_constants;
             current = self.fold_constants_recursive(current);
             let after = self.stats.folded_constants;
-            
+
             // Stop if no progress or max iterations reached
             if after == before || after - prev_count > 1000 {
                 break;
             }
             prev_count = after;
         }
-        
+
         Ok(current)
     }
 
@@ -83,7 +89,7 @@ impl Optimizer {
             }
             AstNodeType::If { condition, then_branch, else_branch } => {
                 let folded_cond = self.fold_constants_recursive(*condition);
-                
+
                 // If condition is constant, eliminate the branch
                 if let Some(cond_val) = self.extract_constant(&folded_cond) {
                     self.stats.folded_constants += 1;
@@ -143,7 +149,7 @@ impl Optimizer {
             "mod" if arg2 != 0 => Some(arg1 % arg2),
             "smod" if arg2 != 0 => Some(((arg1 as i64) % (arg2 as i64)) as u64),
             "exp" => Some(arg1.wrapping_pow(arg2 as u32)),
-            
+
             // Comparisons
             "eq" => Some(if arg1 == arg2 { 1 } else { 0 }),
             "lt" => Some(if arg1 < arg2 { 1 } else { 0 }),
@@ -152,7 +158,7 @@ impl Optimizer {
             "sgt" => Some(if (arg1 as i64) > (arg2 as i64) { 1 } else { 0 }),
             "le" => Some(if arg1 <= arg2 { 1 } else { 0 }),
             "ge" => Some(if arg1 >= arg2 { 1 } else { 0 }),
-            
+
             // Bitwise
             "and" => Some(arg1 & arg2),
             "or" => Some(arg1 | arg2),
@@ -160,7 +166,7 @@ impl Optimizer {
             "shl" => Some(arg2.wrapping_shl(arg1 as u32)),
             "shr" => Some(arg2.wrapping_shr(arg1 as u32)),
             "sar" => Some(((arg2 as i64).wrapping_shr(arg1 as u32)) as u64),
-            
+
             _ => None,
         }
     }
@@ -205,7 +211,7 @@ impl Optimizer {
                         column,
                     });
                 }
-                // Strength reduction: x * 2^n → shl(n, x)
+                // Strength reduction: x * 2^n -> shl(n, x)
                 if let Some(val) = arg2_const {
                     if let Some(shift) = StrengthReducer::reduce_mul_pow2(val) {
                         return Some(AstNode {
@@ -319,7 +325,7 @@ impl Optimizer {
         }
     }
 
-    fn extract_constant(&self, node: &AstNode) -> Option<u64> {
+    pub(super) fn extract_constant(&self, node: &AstNode) -> Option<u64> {
         if let AstNodeType::Literal { value } = &node.node_type {
             if let Some(stripped) = value.strip_prefix("0x") {
                 u64::from_str_radix(stripped, 16).ok()
@@ -331,4 +337,3 @@ impl Optimizer {
         }
     }
 }
-

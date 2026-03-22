@@ -11,12 +11,15 @@ impl StackItem {
         }
     }
 
-    /// Create from bytes
+    /// Create from bytes — attempts integer interpretation for 8-byte inputs
+    /// to maintain compatibility with conformance tests expecting integer returns.
     pub fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.is_empty() {
             return StackItem::Null;
         }
 
+        // For exactly 8 bytes, interpret as little-endian integer for NeoVM compatibility.
+        // Callers needing raw byte semantics should use StackItem::byte_array() directly.
         if bytes.len() == 8 {
             if let Ok(array) = bytes.try_into() {
                 return StackItem::UnsignedInteger(u64::from_le_bytes(array));

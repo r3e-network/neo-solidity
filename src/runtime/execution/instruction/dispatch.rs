@@ -1,6 +1,6 @@
 impl ExecutionContext {
     fn execute_instruction(&mut self, opcode: u8) -> Result<(), RuntimeError> {
-        // Check gas before execution
+        // Check and charge gas before execution (single charge point)
         let gas_cost = self.get_instruction_gas_cost(opcode);
         let projected_gas = self.gas_used.saturating_add(gas_cost);
         if projected_gas > self.gas_limit {
@@ -9,6 +9,7 @@ impl ExecutionContext {
                 limit: self.gas_limit,
             });
         }
+        self.gas_used = projected_gas;
 
         let handled = self.execute_push_instruction(opcode)?
             || self.execute_flow_instruction(opcode)?
@@ -24,9 +25,6 @@ impl ExecutionContext {
                 message: format!("Unsupported opcode: 0x{opcode:02X}"),
             });
         }
-
-        // Consume gas after successful execution
-        self.gas_used = self.gas_used.saturating_add(gas_cost);
 
         Ok(())
     }

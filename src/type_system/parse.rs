@@ -30,16 +30,48 @@ impl NeoType {
         }
 
         if let Some(rest) = lower.strip_prefix("uint") {
-            let bits = rest.parse::<u16>().unwrap_or(256);
-            return Ok(NeoType::Integer {
-                signed: false,
-                bits,
-            });
+            if rest.is_empty() {
+                return Ok(NeoType::Integer {
+                    signed: false,
+                    bits: 256,
+                });
+            }
+            if rest.chars().all(|c| c.is_ascii_digit()) {
+                let bits = rest.parse::<u16>().map_err(|_| {
+                    TypeParseError::Unsupported(format!("invalid uint bit-width: '{ty}'"))
+                })?;
+                if bits == 0 || bits > 256 || bits % 8 != 0 {
+                    return Err(TypeParseError::Unsupported(format!(
+                        "uint bit-width must be a multiple of 8 in 8..=256, got {bits}"
+                    )));
+                }
+                return Ok(NeoType::Integer {
+                    signed: false,
+                    bits,
+                });
+            }
+            // remainder is not purely numeric (e.g. "interface" matched via "int" prefix) — fall through
         }
 
         if let Some(rest) = lower.strip_prefix("int") {
-            let bits = rest.parse::<u16>().unwrap_or(256);
-            return Ok(NeoType::Integer { signed: true, bits });
+            if rest.is_empty() {
+                return Ok(NeoType::Integer {
+                    signed: true,
+                    bits: 256,
+                });
+            }
+            if rest.chars().all(|c| c.is_ascii_digit()) {
+                let bits = rest.parse::<u16>().map_err(|_| {
+                    TypeParseError::Unsupported(format!("invalid int bit-width: '{ty}'"))
+                })?;
+                if bits == 0 || bits > 256 || bits % 8 != 0 {
+                    return Err(TypeParseError::Unsupported(format!(
+                        "int bit-width must be a multiple of 8 in 8..=256, got {bits}"
+                    )));
+                }
+                return Ok(NeoType::Integer { signed: true, bits });
+            }
+            // remainder is not purely numeric (e.g. "interface") — fall through
         }
 
         if lower == "bool" {

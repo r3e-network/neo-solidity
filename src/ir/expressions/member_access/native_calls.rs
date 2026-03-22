@@ -4,7 +4,7 @@ fn try_lower_native_contract_constant(
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
     if let Expression::Variable(base) = inner {
-        if base.name == "NativeCalls" {
+        if base.name == "NativeCalls" || base.name == "NativeContracts" {
             let bytes = match member.name.as_str() {
                 "NEO_CONTRACT" => Some(
                     b"\xf5\x63\xea\x40\xbc\x28\x3d\x4d\x0e\x05\xc4\x8e\xa3\x05\xb3\xf2\xa0\x73\x40\xef".to_vec(),

@@ -96,6 +96,8 @@ impl ExecutionContext {
             function_name: None,
             local_variables: HashMap::new(),
             stack_base: self.stack.len(),
+            saved_locals: std::mem::take(&mut self.locals),
+            saved_args: std::mem::take(&mut self.args),
         };
         self.call_stack.push(frame);
         Ok(())

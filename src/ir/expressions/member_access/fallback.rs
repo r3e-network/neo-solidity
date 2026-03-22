@@ -57,13 +57,23 @@ fn lower_generic_member_access(
                 });
 
                 if let Some(initializer) = const_initializer {
+                    // Guard against infinite recursion: if this constant is already
+                    // being resolved (its initializer references another constant
+                    // that aliases back to this one), fall through to LoadState.
+                    if ctx.is_resolving_constant(state_index) {
+                        instructions.push(Instruction::LoadState(state_index));
+                        return true;
+                    }
                     if matches!(state_type.as_ref(), Some(ValueType::Address)) {
                         if let Some(bytes) = address_bytes_le_from_expression(&initializer) {
                             instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
                             return true;
                         }
                     }
-                    return lower_expression(&initializer, ctx, instructions);
+                    ctx.push_resolving_constant(state_index);
+                    let result = lower_expression(&initializer, ctx, instructions);
+                    ctx.pop_resolving_constant();
+                    return result;
                 }
 
                 instructions.push(Instruction::LoadState(state_index));

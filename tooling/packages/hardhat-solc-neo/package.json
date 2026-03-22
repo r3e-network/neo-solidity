@@ -36,7 +36,6 @@
   ],
   "dependencies": {
     "@neo-solidity/types": "^0.14.0",
-    "hardhat": "^3.1.11",
     "ethers": "^6.16.0",
     "fs-extra": "^11.3.4",
     "chalk": "^5.3.0",

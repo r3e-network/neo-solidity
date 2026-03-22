@@ -12,6 +12,10 @@ pub struct CallFrame {
     pub function_name: Option<String>,
     pub local_variables: HashMap<String, StackItem>,
     pub stack_base: usize,
+    /// Saved caller locals — restored when returning from this frame.
+    pub saved_locals: Vec<StackItem>,
+    /// Saved caller args — restored when returning from this frame.
+    pub saved_args: Vec<StackItem>,
 }
 
 impl CallFrame {
@@ -22,6 +26,8 @@ impl CallFrame {
             function_name: None,
             local_variables: HashMap::new(),
             stack_base,
+            saved_locals: Vec::new(),
+            saved_args: Vec::new(),
         }
     }
 

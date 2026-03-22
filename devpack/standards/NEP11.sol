@@ -715,23 +715,41 @@ contract NEP11 is INEP11, FrameworkBase {
     }
     
     /**
-     * @dev Get unique holders count (expensive operation)
+     * @dev Get unique holders count
+     *
+     * NOTE: The previous implementation used Storage.find("holder") which cannot
+     * iterate over Solidity mapping entries (keccak256-derived slots). This version
+     * iterates the _allTokens enumeration array instead, collecting distinct owners.
+     * Cost is O(totalSupply) — use with caution on large collections.
      */
     function _getUniqueHolders() private view returns (uint256) {
-        // Use storage to track unique holders efficiently
-        Storage.Iterator memory iterator = Storage.find(abi.encode("holder"));
+        uint256 total = _totalSupply;
+        if (total == 0) return 0;
+
+        // Cap iteration to avoid excessive gas usage
+        uint256 cap = total < 10000 ? total : 10000;
+
+        // Simple counting via a temporary array of seen addresses
+        address[] memory seen = new address[](cap);
         uint256 count = 0;
-        
-        while (iterator.next() && count < 10000) {
-            bytes memory holderData = iterator.value();
-            if (holderData.length > 0) {
-                uint256 tokenCount = abi.decode(holderData, (uint256));
-                if (tokenCount > 0) {
-                    count++;
+
+        for (uint256 i = 0; i < cap; i++) {
+            address owner = _owners[_allTokens[i]];
+            if (owner == address(0)) continue;
+
+            bool found = false;
+            for (uint256 j = 0; j < count; j++) {
+                if (seen[j] == owner) {
+                    found = true;
+                    break;
                 }
             }
+            if (!found) {
+                seen[count] = owner;
+                count++;
+            }
         }
-        
+
         return count;
     }
     
@@ -762,8 +780,9 @@ contract NEP11 is INEP11, FrameworkBase {
     
     /**
      * @dev Generate unique token ID
+     * @notice Internal — prevents external callers from predicting token IDs.
      */
-    function generateTokenId(address minter, uint256 nonce) public view returns (bytes32) {
+    function generateTokenId(address minter, uint256 nonce) internal view returns (bytes32) {
         return keccak256(abi.encode(minter, nonce, block.timestamp));
     }
     
@@ -772,5 +791,16 @@ contract NEP11 is INEP11, FrameworkBase {
      */
     function isValidTokenId(bytes32 tokenId) public pure returns (bool) {
         return tokenId != bytes32(0);
+    }
+
+    /**
+     * @dev Returns an iterator over all token IDs (NEP-11 standard requirement).
+     *
+     * Returns the full _allTokens array. For on-chain iteration the caller can
+     * loop over the returned array; when compiled to NeoVM the compiler may
+     * lower this to a Neo storage iterator.
+     */
+    function tokens() public view returns (bytes32[] memory) {
+        return _allTokens;
     }
 }

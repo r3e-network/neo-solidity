@@ -38,7 +38,7 @@ impl ExecutionContext {
                 return StackItem::Boolean(false);
             }
             if !from.is_empty() {
-                from_bal -= amount;
+                from_bal = from_bal.saturating_sub(amount);
             }
             to_bal = to_bal.saturating_add(amount);
 

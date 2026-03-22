@@ -78,6 +78,10 @@ struct LoweringContext<'a> {
     local_count: u16,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
+    /// State variable indices currently being inlined (constant resolution).
+    /// Used to break infinite recursion when a constant's initializer
+    /// transitively references itself through a cross-contract alias.
+    resolving_constants: Vec<usize>,
     errors: Vec<IrDiagnostic>,
     warnings: Vec<crate::solidity::Diagnostic>,
 }
@@ -143,6 +147,7 @@ impl<'a> LoweringContext<'a> {
             local_count: 0,
             label_counter: 0,
             loop_stack: Vec::new(),
+            resolving_constants: Vec::new(),
             errors: Vec::new(),
             warnings: Vec::new(),
         }
@@ -246,6 +251,21 @@ impl<'a> LoweringContext<'a> {
 
     fn is_contract_type_name(&self, name: &str) -> bool {
         self.contract_types.contains(name)
+    }
+
+    /// Returns `true` if the given state variable index is currently being
+    /// resolved (constant inlining). Used to break infinite recursion when a
+    /// constant's initializer transitively references itself.
+    fn is_resolving_constant(&self, index: usize) -> bool {
+        self.resolving_constants.contains(&index)
+    }
+
+    fn push_resolving_constant(&mut self, index: usize) {
+        self.resolving_constants.push(index);
+    }
+
+    fn pop_resolving_constant(&mut self) {
+        self.resolving_constants.pop();
     }
 
     fn type_method_selectors(&self, type_name: &str, method_name: &str) -> Option<&Vec<[u8; 4]>> {

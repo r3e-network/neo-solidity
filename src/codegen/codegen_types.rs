@@ -38,8 +38,8 @@ pub struct FunctionMeta {
     pub raw_offset: usize,
 }
 
-/// Length of the init marker prepended to bytecode (PUSHDATA1 + len + b"init").
-pub const INIT_MARKER_LEN: usize = 6;
+/// Length of the init marker prepended to bytecode (INITSLOT + 2 operand bytes).
+pub const INIT_MARKER_LEN: usize = 3;
 
 /// Loop context for break/continue tracking
 #[derive(Debug, Clone)]
@@ -67,6 +67,8 @@ pub struct CodeGenerator {
     variable_table: Vec<VariableInfo>,
     /// Current variable index
     next_var_index: usize,
+    /// Bytecode positions of break JMP_L offsets that need patching when loop end is known
+    break_patches: Vec<usize>,
 }
 
 impl CodeGenerator {
@@ -77,6 +79,7 @@ impl CodeGenerator {
             loop_stack: Vec::new(),
             variable_table: Vec::new(),
             next_var_index: 0,
+            break_patches: Vec::new(),
         }
     }
 
@@ -87,6 +90,7 @@ impl CodeGenerator {
             loop_stack: Vec::new(),
             variable_table: Vec::new(),
             next_var_index: 0,
+            break_patches: Vec::new(),
         }
     }
 
@@ -103,6 +107,16 @@ impl CodeGenerator {
     /// Get the current loop context (for break/continue)
     pub fn current_loop(&self) -> Option<&LoopContext> {
         self.loop_stack.last()
+    }
+
+    /// Record a break JMP_L offset position for deferred patching
+    pub fn add_break_patch(&mut self, pos: usize) {
+        self.break_patches.push(pos);
+    }
+
+    /// Drain all recorded break patch positions (used when loop end is known)
+    pub fn drain_break_patches(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.break_patches)
     }
 
     /// Register a new variable and return its index

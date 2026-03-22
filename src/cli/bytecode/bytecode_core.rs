@@ -90,6 +90,14 @@ pub(crate) fn generate_contract_bytecode(
     let mut call_fixups: Vec<CallPatch> = Vec::new();
     let mut token_fixups: Vec<MethodTokenPatch> = Vec::new();
 
+    // Sort methods so that public/external methods are emitted before internal/private ones.
+    // This ensures the first public method (typically `run`) starts at offset 0, which is
+    // where the runtime begins execution. Internal helper functions are placed after.
+    metadata.methods.sort_by_key(|m| match m.visibility {
+        VisibilityKind::Public | VisibilityKind::External => 0,
+        VisibilityKind::Internal | VisibilityKind::Private => 1,
+    });
+
     for method in metadata.methods.iter_mut() {
         // Constructors without bodies are not emitted as standalone NeoVM methods.
         // They are only relevant when called from an injected `_deploy`.

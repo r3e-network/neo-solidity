@@ -27,6 +27,7 @@
 
 use neo_solidity::ir::{self, LiteralValue, ValueType};
 use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata};
+use neo_solidity::frontend::VisibilityKind;
 
 #[cfg(test)]
 use neo_solidity::solidity::NatspecDoc;

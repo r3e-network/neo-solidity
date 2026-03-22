@@ -1,6 +1,12 @@
+use crate::error::CompilerError;
+use crate::parser::{AstNode, AstNodeType};
+
+use super::types::Optimizer;
+
 impl Optimizer {
     /// Create a new optimizer with the specified level (0-3)
     pub fn new(level: u8) -> Self {
+        use super::types::{OptimizationStats, OptimizationPasses};
         Self {
             level,
             stats: OptimizationStats::default(),
@@ -11,6 +17,7 @@ impl Optimizer {
 
     /// Create optimizer with custom settings
     pub fn with_config(level: u8, inline_threshold: usize) -> Self {
+        use super::types::{OptimizationStats, OptimizationPasses};
         Self {
             level,
             stats: OptimizationStats::default(),
@@ -56,7 +63,7 @@ impl Optimizer {
     }
 
     /// Get optimization statistics
-    pub fn get_stats(&self) -> &OptimizationStats {
+    pub fn get_stats(&self) -> &super::types::OptimizationStats {
         &self.stats
     }
 
@@ -67,7 +74,7 @@ impl Optimizer {
 
     /// Count AST nodes for statistics
     #[allow(clippy::only_used_in_recursion)]
-    fn count_nodes(&self, node: &AstNode) -> usize {
+    pub(super) fn count_nodes(&self, node: &AstNode) -> usize {
         let mut count = 1;
         match &node.node_type {
             AstNodeType::Object { statements } => {

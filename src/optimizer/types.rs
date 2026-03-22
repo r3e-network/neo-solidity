@@ -1,11 +1,13 @@
+use crate::parser::AstNode;
+
 /// Yul AST optimizer with configurable optimization levels
 pub struct Optimizer {
-    level: u8,
-    stats: OptimizationStats,
+    pub(super) level: u8,
+    pub(super) stats: OptimizationStats,
     /// Maximum function size for inlining (in AST nodes)
-    inline_threshold: usize,
+    pub(super) inline_threshold: usize,
     /// Track which optimizations are enabled
-    enabled_passes: OptimizationPasses,
+    pub(super) enabled_passes: OptimizationPasses,
 }
 
 /// Statistics collected during optimization
@@ -76,12 +78,11 @@ impl OptimizationPasses {
 
 /// Represents a function that can be inlined
 #[allow(dead_code)]
-struct InlineCandidate {
+pub(super) struct InlineCandidate {
     /// Parameter names in order
-    params: Vec<String>,
+    pub(super) params: Vec<String>,
     /// Function body to inline
-    body: AstNode,
+    pub(super) body: AstNode,
     /// Estimated cost of inlining (for future use)
-    cost: usize,
+    pub(super) cost: usize,
 }
-

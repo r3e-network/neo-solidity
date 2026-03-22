@@ -17,6 +17,8 @@ impl ExecutionContext {
             function_name,
             local_variables: HashMap::new(),
             stack_base: self.stack.len(),
+            saved_locals: std::mem::take(&mut self.locals),
+            saved_args: std::mem::take(&mut self.args),
         };
 
         self.call_stack.push(frame);
@@ -28,8 +30,21 @@ impl ExecutionContext {
     pub fn return_from_function(&mut self) -> Result<(), RuntimeError> {
         if let Some(frame) = self.call_stack.pop() {
             self.instruction_pointer = frame.return_address;
+            // Save return value (top of stack) before restoring stack
+            let return_value = if self.stack.len() > frame.stack_base {
+                Some(self.stack.last().cloned().unwrap())
+            } else {
+                None
+            };
             // Restore stack to base level
             self.stack.truncate(frame.stack_base);
+            // Push return value back onto caller's stack
+            if let Some(val) = return_value {
+                self.stack.push(val);
+            }
+            // Restore caller's local and argument slots
+            self.locals = frame.saved_locals;
+            self.args = frame.saved_args;
             Ok(())
         } else {
             Err(RuntimeError::ExecutionError {

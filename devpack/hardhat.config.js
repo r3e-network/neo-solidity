@@ -18,23 +18,23 @@ const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-solidity/hardhat-neo-deplo
  */
 const config = {
   solidity: {
-    version: "0.8.34",
+    version: "0.8.28",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200
-      }
-    }
+        runs: 200,
+      },
+    },
   },
 
   networks: {
     neo_local: {
       url: "http://localhost:20332",
       accounts: {
-        mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
       },
       gas: "auto",
-      gasPrice: "auto"
+      gasPrice: "auto",
     },
 
     neo_testnet: {
@@ -42,7 +42,7 @@ const config = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gas: "auto",
       gasPrice: "auto",
-      timeout: 60000
+      timeout: 60000,
     },
 
     neo_mainnet: {
@@ -50,30 +50,30 @@ const config = {
       accounts: process.env.MAINNET_PRIVATE_KEY ? [process.env.MAINNET_PRIVATE_KEY] : [],
       gas: "auto",
       gasPrice: "auto",
-      timeout: 120000
-    }
+      timeout: 120000,
+    },
   },
 
   paths: {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
-    artifacts: "./artifacts"
+    artifacts: "./artifacts",
   },
 
   mocha: {
-    timeout: 40000
-  }
+    timeout: 40000,
+  },
 };
 
 if (hasNeoSolcPlugin) {
   config.neoSolc = {
     solidity: {
-      version: "0.8.34",
+      version: "0.8.28",
       settings: {
         optimizer: {
           enabled: true,
-          runs: 200
+          runs: 200,
         },
         neo: {
           target: "3.0",
@@ -84,10 +84,10 @@ if (hasNeoSolcPlugin) {
             syscalls: "all",
             nativeContracts: "all",
             nepStandards: ["NEP-17", "NEP-11", "NEP-24"],
-            libraries: ["Neo", "Storage", "Runtime"]
-          }
-        }
-      }
+            libraries: ["Neo", "Storage", "Runtime"],
+          },
+        },
+      },
     },
     neo: {
       rpcUrl: "http://seed1t5.neo.org:20332",
@@ -95,8 +95,8 @@ if (hasNeoSolcPlugin) {
       addressVersion: 53,
       magic: 894710606,
       gasLimit: "100000000",
-      gasPrice: "0"
-    }
+      gasPrice: "0",
+    },
   };
 }
 
@@ -108,15 +108,15 @@ if (hasNeoDeployerPlugin) {
       magic: 894710606,
       addressVersion: 53,
       testnet: true,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     neo_mainnet: {
       name: "Neo MainNet",
       rpcUrls: ["http://seed1.neo.org:10332"],
       magic: 860833102,
       addressVersion: 53,
-      accounts: process.env.MAINNET_PRIVATE_KEY ? [process.env.MAINNET_PRIVATE_KEY] : []
-    }
+      accounts: process.env.MAINNET_PRIVATE_KEY ? [process.env.MAINNET_PRIVATE_KEY] : [],
+    },
   };
 }
 

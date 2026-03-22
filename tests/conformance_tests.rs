@@ -31,7 +31,7 @@ fn conformance_basic_vectors() {
     }
 
     assert!(
-        summary.pass_rate >= 80.0,
+        summary.pass_rate >= 95.0,
         "Conformance pass rate too low: {:.1}% ({} failures)",
         summary.pass_rate,
         summary.failed

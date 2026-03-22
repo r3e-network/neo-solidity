@@ -2,6 +2,10 @@
 //
 // Identifies and eliminates redundant computations.
 
+use std::collections::HashMap;
+
+use crate::parser::{AstNode, AstNodeType};
+
 /// Expression hash for CSE
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ExprHash {
@@ -43,7 +47,7 @@ impl ExprHash {
     }
 }
 
-fn is_pure_op(name: &str) -> bool {
+pub(super) fn is_pure_op(name: &str) -> bool {
     matches!(name,
         "add" | "sub" | "mul" | "div" | "mod" |
         "eq" | "lt" | "gt" | "le" | "ge" |

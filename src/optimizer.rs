@@ -16,15 +16,15 @@
 //! - [`Optimizer::dead_code_elimination`] - Removes unreachable code after returns
 //! - [`Optimizer::function_inlining`] - Inlines small functions to reduce call overhead
 
-use crate::error::CompilerError;
-use crate::parser::{AstNode, AstNodeType};
-use std::collections::HashMap;
+mod types;
+mod dispatch;
+mod constant_folding;
+mod dead_code;
+mod inlining;
+mod strength;
+mod cse;
+mod cse_pass;
 
-include!("optimizer/types.rs");
-include!("optimizer/dispatch.rs");
-include!("optimizer/constant_folding.rs");
-include!("optimizer/dead_code.rs");
-include!("optimizer/inlining.rs");
-include!("optimizer/strength.rs");
-include!("optimizer/cse.rs");
-include!("optimizer/cse_pass.rs");
+pub use types::*;
+pub use strength::*;
+pub use cse::{ExprHash, CseOptimizer};

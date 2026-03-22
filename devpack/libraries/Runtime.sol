@@ -374,7 +374,7 @@ library Runtime {
      * @notice Always reverts. Use `Syscalls.contractCall()` for inter-contract
      *         calls on Neo N3.
      */
-    function externalCall(address target, bytes memory data) external returns (bytes memory) {
+    function externalCall(address target, bytes memory data) internal returns (bytes memory) {
         target;
         data;
         revert("Runtime: external call unsupported; use Syscalls.contractCall");

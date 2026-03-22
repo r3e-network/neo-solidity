@@ -555,5 +555,244 @@ pub fn basic_test_vectors() -> Vec<TestVector> {
             expected_return: Some(15),
             expected_success: true,
         },
+        // ========== Structs ==========
+        // Known limitation: struct support may not be fully implemented
+        TestVector {
+            name: "struct_field_read".to_string(),
+            description: "Define a struct, create instance, read a field".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract StructTest {
+                    struct Point {
+                        uint256 x;
+                        uint256 y;
+                    }
+                    function run() public pure returns (uint256) {
+                        Point memory p = Point(10, 32);
+                        return p.x + p.y;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(42),
+            expected_success: true,
+        },
+        // ========== Enums ==========
+        // Known limitation: enum support may not be fully implemented
+        TestVector {
+            name: "enum_value".to_string(),
+            description: "Define an enum and return its integer representation".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract EnumTest {
+                    enum Status { Pending, Active, Closed }
+                    function run() public pure returns (uint256) {
+                        Status s = Status.Active;
+                        return uint256(s);
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(1),
+            expected_success: true,
+        },
+        // ========== Fixed-size arrays ==========
+        // Known limitation: fixed-size array support may not be fully implemented
+        TestVector {
+            name: "fixed_array_sum".to_string(),
+            description: "Create a fixed array [1,2,3] and return the sum".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract FixedArrayTest {
+                    function run() public pure returns (uint256) {
+                        uint256[3] memory arr = [uint256(1), uint256(2), uint256(3)];
+                        return arr[0] + arr[1] + arr[2];
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(6),
+            expected_success: true,
+        },
+        // ========== Dynamic arrays ==========
+        // Known limitation: dynamic array and .push() may not be fully implemented
+        TestVector {
+            name: "dynamic_array_length".to_string(),
+            description: "Create a dynamic array, push values, return length".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract DynamicArrayTest {
+                    function run() public returns (uint256) {
+                        uint256[] memory arr = new uint256[](3);
+                        arr[0] = 10;
+                        arr[1] = 20;
+                        arr[2] = 30;
+                        return arr.length;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(3),
+            expected_success: true,
+        },
+        // ========== Events ==========
+        // Known limitation: event emission may not be fully implemented
+        TestVector {
+            name: "event_emit".to_string(),
+            description: "Emit an event and verify execution succeeds".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract EventTest {
+                    event ValueSet(uint256 value);
+                    function run() public returns (uint256) {
+                        emit ValueSet(42);
+                        return 1;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(1),
+            expected_success: true,
+        },
+        // ========== Modifiers ==========
+        // Known limitation: modifier support may not be fully implemented
+        TestVector {
+            name: "modifier_pass".to_string(),
+            description: "Modifier with require that passes".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract ModifierPassTest {
+                    modifier onlyPositive(uint256 x) {
+                        require(x > 0);
+                        _;
+                    }
+                    function guarded(uint256 x) internal pure onlyPositive(x) returns (uint256) {
+                        return x * 2;
+                    }
+                    function run() public pure returns (uint256) {
+                        return guarded(21);
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(42),
+            expected_success: true,
+        },
+        // Known limitation: modifier revert path may not be fully implemented
+        TestVector {
+            name: "modifier_fail".to_string(),
+            description: "Modifier with require that reverts".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract ModifierFailTest {
+                    modifier onlyPositive(uint256 x) {
+                        require(x > 0);
+                        _;
+                    }
+                    function guarded(uint256 x) internal pure onlyPositive(x) returns (uint256) {
+                        return x * 2;
+                    }
+                    function run() public pure returns (uint256) {
+                        return guarded(0);
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: None,
+            expected_success: false,
+        },
+        // ========== require / revert ==========
+        TestVector {
+            name: "require_true".to_string(),
+            description: "require(true) passes execution".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract RequireTrue {
+                    function run() public pure returns (uint256) {
+                        require(true);
+                        return 42;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(42),
+            expected_success: true,
+        },
+        TestVector {
+            name: "require_false".to_string(),
+            description: "require(false) reverts execution".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract RequireFalse {
+                    function run() public pure returns (uint256) {
+                        require(false);
+                        return 42;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: None,
+            expected_success: false,
+        },
+        // ========== Multiple return values ==========
+        // Known limitation: multiple return values not yet supported — local slot allocation
+        // fails with "Local index 2 out of bounds" at runtime
+        TestVector {
+            name: "multiple_returns".to_string(),
+            description: "Function returning multiple values, verify first".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract MultiReturn {
+                    function getPair() internal pure returns (uint256, bool) {
+                        return (42, true);
+                    }
+                    function run() public pure returns (uint256) {
+                        (uint256 val, bool flag) = getPair();
+                        if (flag) {
+                            return val;
+                        }
+                        return 0;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(42),
+            expected_success: true,
+        },
+        // ========== String literals ==========
+        // Known limitation: string/bytes support may not be fully implemented
+        TestVector {
+            name: "string_length".to_string(),
+            description: "Return the byte-length of a string literal".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract StringLen {
+                    function run() public pure returns (uint256) {
+                        bytes memory s = bytes("hello");
+                        return s.length;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(5),
+            expected_success: true,
+        },
+        // ========== Ternary operator (false branch) ==========
+        TestVector {
+            name: "ternary_false_branch".to_string(),
+            description: "Ternary takes false branch when condition is false".to_string(),
+            source: r#"
+                pragma solidity ^0.8.20;
+                contract TernaryFalse {
+                    function run() public pure returns (uint256) {
+                        uint256 x = 1;
+                        return x > 2 ? 99 : 42;
+                    }
+                }
+            "#
+            .to_string(),
+            expected_return: Some(42),
+            expected_success: true,
+        },
     ]
 }

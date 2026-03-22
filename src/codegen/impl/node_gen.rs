@@ -29,13 +29,25 @@ impl CodeGenerator {
                     raw_offset,
                 });
 
-                // Function entry
-                bytecode.push(0x0C); // PUSHDATA1
-                bytecode.push(name.len() as u8);
-                bytecode.extend_from_slice(name.as_bytes());
+                // Function entry: INITSLOT with local-count and param-count
+                bytecode.push(0x56); // INITSLOT
+                let initslot_local_pos = bytecode.len();
+                bytecode.push(0x00); // local variable count placeholder (patched after body)
+                bytecode.push(params.len() as u8); // parameter count
+
+                // Register parameters as variables
+                self.reset_variables();
+                for param in params {
+                    self.register_variable(param);
+                }
+                let params_count = params.len();
 
                 // Generate function body
                 self.generate_node(body, bytecode, functions, events, estimated_gas)?;
+
+                // Patch the local variable count: total registered vars minus params
+                let local_only = self.next_var_index.saturating_sub(params_count);
+                bytecode[initslot_local_pos] = local_only as u8;
 
                 *estimated_gas += 512; // NeoVM CALL opcode cost
             }
@@ -161,7 +173,14 @@ impl CodeGenerator {
             }
             AstNodeType::Identifier { name } => {
                 // Load variable by index from variable table
-                let var_index = self.get_variable_index(name).unwrap_or(0); // Default to 0 if not found
+                let var_index = match self.get_variable_index(name) {
+                    Some(idx) => idx,
+                    None => {
+                        return Err(CompilerError::CodegenError(
+                            format!("undefined variable: {}", name),
+                        ));
+                    }
+                };
 
                 // Emit LDLOC with variable index
                 emit_ldloc(bytecode, var_index);
@@ -220,20 +239,19 @@ impl CodeGenerator {
 
                 let loop_start = bytecode.len();
 
-                // Push loop context for break/continue
-                let loop_end = bytecode.len() + 100; // Placeholder, will be updated
+                // Push loop context -- break uses deferred patching via break_patches
                 self.loop_stack.push(LoopContext {
-                    break_target: loop_end,
+                    break_target: 0, // sentinel; break uses JMP_L with deferred patching
                     continue_target: loop_start,
                 });
 
                 // Generate condition (Box<AstNode>, not Option)
                 self.generate_node(condition, bytecode, functions, events, estimated_gas)?;
 
-                // JMPIFNOT to end
-                bytecode.push(0x26); // JMPIFNOT
+                // JMPIFNOT_L to end (5-byte: opcode + 4-byte signed offset)
+                bytecode.push(0x27); // JMPIFNOT_L
                 let end_jump_pos = bytecode.len();
-                bytecode.push(0x00); // Jump offset (patched below)
+                bytecode.extend_from_slice(&[0x00; 4]); // 4-byte offset placeholder
 
                 // Generate body (Box<AstNode>, not Option)
                 self.generate_node(body, bytecode, functions, events, estimated_gas)?;
@@ -246,12 +264,23 @@ impl CodeGenerator {
                 // Pop loop context
                 self.loop_stack.pop();
 
-                // Jump back to condition
-                bytecode.push(0x22); // JMP
-                bytecode.push((loop_start as i32 - bytecode.len() as i32 - 1) as u8);
+                // Jump back to condition using JMP_L (4-byte signed offset)
+                bytecode.push(0x23); // JMP_L
+                let back_offset = loop_start as i32 - bytecode.len() as i32;
+                bytecode.extend_from_slice(&back_offset.to_le_bytes());
 
-                // Update end jump offset
-                bytecode[end_jump_pos] = (bytecode.len() - end_jump_pos + 1) as u8;
+                // Now we know the loop end -- patch the JMPIFNOT_L offset
+                let loop_end = bytecode.len();
+                let end_offset = loop_end as i32 - end_jump_pos as i32 + 1;
+                bytecode[end_jump_pos..end_jump_pos + 4]
+                    .copy_from_slice(&end_offset.to_le_bytes());
+
+                // Patch all break JMP_L offsets emitted during body generation
+                for patch_pos in self.drain_break_patches() {
+                    let brk_offset = loop_end as i32 - patch_pos as i32;
+                    bytecode[patch_pos..patch_pos + 4]
+                        .copy_from_slice(&brk_offset.to_le_bytes());
+                }
 
                 *estimated_gas += 100; // Loop overhead
             }
@@ -260,12 +289,13 @@ impl CodeGenerator {
                 *estimated_gas += 1;
             }
             AstNodeType::Break => {
-                // Resolve break target from loop stack
-                if let Some(loop_ctx) = self.loop_stack.last() {
-                    bytecode.push(0x22); // JMP
-                    let offset = loop_ctx.break_target as i32 - bytecode.len() as i32 - 1;
-                    bytecode.push(offset as u8);
-                    *estimated_gas += 8; // NeoVM JMP cost
+                if self.loop_stack.last().is_some() {
+                    // Emit JMP_L with placeholder offset; record position for patching
+                    bytecode.push(0x23); // JMP_L
+                    let patch_pos = bytecode.len();
+                    bytecode.extend_from_slice(&[0x00; 4]); // placeholder
+                    self.add_break_patch(patch_pos);
+                    *estimated_gas += 8;
                 } else {
                     return Err(CompilerError::CodegenError(
                         "break statement outside of loop".to_string(),
@@ -273,12 +303,13 @@ impl CodeGenerator {
                 }
             }
             AstNodeType::Continue => {
-                // Resolve continue target from loop stack
                 if let Some(loop_ctx) = self.loop_stack.last() {
-                    bytecode.push(0x22); // JMP
-                    let offset = loop_ctx.continue_target as i32 - bytecode.len() as i32 - 1;
-                    bytecode.push(offset as u8);
-                    *estimated_gas += 8; // NeoVM JMP cost
+                    let continue_target = loop_ctx.continue_target;
+                    // Use JMP_L (4-byte signed offset) for safety
+                    bytecode.push(0x23); // JMP_L
+                    let offset = continue_target as i32 - bytecode.len() as i32;
+                    bytecode.extend_from_slice(&offset.to_le_bytes());
+                    *estimated_gas += 8;
                 } else {
                     return Err(CompilerError::CodegenError(
                         "continue statement outside of loop".to_string(),
@@ -296,30 +327,36 @@ impl CodeGenerator {
 }
 
 /// Emit LDLOC instruction with proper index encoding
-/// NeoVM uses 0x10-0x13 for indices 0-3, or 0x14 + index for larger indices
+/// NeoVM uses 0x06-0x0C for indices 0-6, or 0x0E + index for larger indices
 fn emit_ldloc(bytecode: &mut Vec<u8>, index: usize) {
     match index {
-        0 => bytecode.push(0x10), // LDLOC0
-        1 => bytecode.push(0x11), // LDLOC1
-        2 => bytecode.push(0x12), // LDLOC2
-        3 => bytecode.push(0x13), // LDLOC3
+        0 => bytecode.push(0x06), // LDLOC0
+        1 => bytecode.push(0x07), // LDLOC1
+        2 => bytecode.push(0x08), // LDLOC2
+        3 => bytecode.push(0x09), // LDLOC3
+        4 => bytecode.push(0x0A), // LDLOC4
+        5 => bytecode.push(0x0B), // LDLOC5
+        6 => bytecode.push(0x0C), // LDLOC6
         _ => {
-            bytecode.push(0x14); // LDLOC with index
+            bytecode.push(0x0E); // LDLOC with index
             bytecode.push(index as u8);
         }
     }
 }
 
 /// Emit STLOC instruction with proper index encoding
-/// NeoVM uses 0x0C-0x0F for indices 0-3, or 0x14 + index for larger indices
+/// NeoVM uses 0x70-0x76 for indices 0-6, or 0x78 + index for larger indices
 fn emit_stloc(bytecode: &mut Vec<u8>, index: usize) {
     match index {
-        0 => bytecode.push(0x0C), // STLOC0
-        1 => bytecode.push(0x0D), // STLOC1
-        2 => bytecode.push(0x0E), // STLOC2
-        3 => bytecode.push(0x0F), // STLOC3
+        0 => bytecode.push(0x70), // STLOC0
+        1 => bytecode.push(0x71), // STLOC1
+        2 => bytecode.push(0x72), // STLOC2
+        3 => bytecode.push(0x73), // STLOC3
+        4 => bytecode.push(0x74), // STLOC4
+        5 => bytecode.push(0x75), // STLOC5
+        6 => bytecode.push(0x76), // STLOC6
         _ => {
-            bytecode.push(0x14); // STLOC with index
+            bytecode.push(0x78); // STLOC with index
             bytecode.push(index as u8);
         }
     }

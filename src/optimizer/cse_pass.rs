@@ -1,3 +1,9 @@
+use crate::error::CompilerError;
+use crate::parser::{AstNode, AstNodeType};
+
+use super::cse::CseOptimizer;
+use super::types::Optimizer;
+
 impl Optimizer {
     /// Common subexpression elimination pass
     ///

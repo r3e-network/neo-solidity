@@ -33,6 +33,30 @@ impl InputValidator {
         true
     }
 
+    /// Validate that raw bytes are valid UTF-8 before use as source.
+    pub fn validate_utf8<'a>(&mut self, raw: &'a [u8]) -> Option<&'a str> {
+        match std::str::from_utf8(raw) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                self.errors.push(CompilerError::ParseError(format!(
+                    "Source is not valid UTF-8: {e}"
+                )));
+                None
+            }
+        }
+    }
+
+    /// Validate an import path, rejecting path traversal attempts.
+    pub fn validate_import_path(&mut self, path: &str) -> bool {
+        if path.contains("..") {
+            self.errors.push(CompilerError::ParseError(format!(
+                "Import path contains disallowed '..': '{path}'"
+            )));
+            return false;
+        }
+        true
+    }
+
     pub fn errors(&self) -> &[CompilerError] {
         &self.errors
     }
