@@ -1,5 +1,5 @@
 name: Release Pipeline
-true:
+on:
   push:
     tags:
     - v*
