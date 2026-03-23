@@ -182,7 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download all security reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     - name: Create comprehensive security summary
       run: "echo \"# Comprehensive Security Analysis Summary\" > SECURITY_ANALYSIS_SUMMARY.md\n\
         echo \"\" >> SECURITY_ANALYSIS_SUMMARY.md\necho \"**Analysis Date**: $(date)\"\
