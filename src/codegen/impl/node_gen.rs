@@ -177,7 +177,7 @@ impl CodeGenerator {
                     Some(idx) => idx,
                     None => {
                         return Err(CompilerError::CodegenError(
-                            format!("undefined variable: {}", name),
+                            format!("undefined variable: {name}"),
                         ));
                     }
                 };

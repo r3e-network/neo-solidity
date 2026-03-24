@@ -185,7 +185,7 @@ The following improvements are planned but not yet scheduled:
 - **Streaming iterators** -- Replace materialized iterator implementation with lazy streaming
 - **ByteString/Buffer distinction** -- Implement proper mutation semantics
 - **Differential testing framework** -- Automated comparison of embedded runtime output against Neo-Express
-- **Fuzzing framework** -- Property-based testing of opcode and syscall implementations
+- ✅ **Fuzzing framework** -- Property-based testing implemented with 23 fuzz tests covering storage, compiler, and edge cases
 
 ## Reporting Issues
 
