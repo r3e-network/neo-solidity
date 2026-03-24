@@ -32,10 +32,7 @@ impl ExprHash {
                 if !is_pure_op(name) {
                     return None;
                 }
-                let args: Option<Vec<_>> = arguments
-                    .iter()
-                    .map(Self::from_node)
-                    .collect();
+                let args: Option<Vec<_>> = arguments.iter().map(Self::from_node).collect();
                 Some(Self {
                     op: name.clone(),
                     args: args?,
@@ -48,11 +45,25 @@ impl ExprHash {
 }
 
 pub(super) fn is_pure_op(name: &str) -> bool {
-    matches!(name,
-        "add" | "sub" | "mul" | "div" | "mod" |
-        "eq" | "lt" | "gt" | "le" | "ge" |
-        "and" | "or" | "xor" | "not" |
-        "shl" | "shr" | "sar"
+    matches!(
+        name,
+        "add"
+            | "sub"
+            | "mul"
+            | "div"
+            | "mod"
+            | "eq"
+            | "lt"
+            | "gt"
+            | "le"
+            | "ge"
+            | "and"
+            | "or"
+            | "xor"
+            | "not"
+            | "shl"
+            | "shr"
+            | "sar"
     )
 }
 
@@ -78,8 +89,7 @@ impl CseOptimizer {
 
     /// Check if expression is already computed
     pub fn lookup(&self, node: &AstNode) -> Option<&String> {
-        ExprHash::from_node(node)
-            .and_then(|h| self.cache.get(&h))
+        ExprHash::from_node(node).and_then(|h| self.cache.get(&h))
     }
 
     /// Register a computed expression

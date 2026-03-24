@@ -20,7 +20,9 @@ impl Optimizer {
             .filter(|(name, candidate)| {
                 let calls = call_counts.get(name).copied().unwrap_or(0);
                 // Inline if: small function OR called only once OR total cost acceptable
-                candidate.cost <= 10 || calls <= 1 || candidate.cost * calls <= self.inline_threshold * 2
+                candidate.cost <= 10
+                    || calls <= 1
+                    || candidate.cost * calls <= self.inline_threshold * 2
             })
             .collect();
 
@@ -58,7 +60,11 @@ impl Optimizer {
                     self.count_calls_recursive(stmt, counts);
                 }
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 self.count_calls_recursive(condition, counts);
                 self.count_calls_recursive(then_branch, counts);
                 if let Some(eb) = else_branch {
@@ -77,7 +83,10 @@ impl Optimizer {
         node: &AstNode,
         candidates: &mut HashMap<String, InlineCandidate>,
     ) {
-        if let AstNodeType::Function { name, params, body, .. } = &node.node_type {
+        if let AstNodeType::Function {
+            name, params, body, ..
+        } = &node.node_type
+        {
             // More generous inlining criteria
             if params.len() <= 4 && self.is_inlineable_function(body, name) {
                 let cost = self.estimate_inline_cost(body);
@@ -126,10 +135,16 @@ impl Optimizer {
             AstNodeType::Block { statements } | AstNodeType::Object { statements } => {
                 statements.iter().any(|s| self.contains_call_to(s, target))
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
-                self.contains_call_to(condition, target) ||
-                self.contains_call_to(then_branch, target) ||
-                else_branch.as_ref().is_some_and(|eb| self.contains_call_to(eb, target))
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                self.contains_call_to(condition, target)
+                    || self.contains_call_to(then_branch, target)
+                    || else_branch
+                        .as_ref()
+                        .is_some_and(|eb| self.contains_call_to(eb, target))
             }
             _ => false,
         }
@@ -198,7 +213,9 @@ impl Optimizer {
                     .map(|stmt| self.inline_functions_recursive(stmt, candidates))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Object { statements: optimized },
+                    node_type: AstNodeType::Object {
+                        statements: optimized,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -209,24 +226,29 @@ impl Optimizer {
                     .map(|stmt| self.inline_functions_recursive(stmt, candidates))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Block { statements: optimized },
-                    line: node.line,
-                    column: node.column,
-                }
-            }
-            AstNodeType::If { condition, then_branch, else_branch } => {
-                AstNode {
-                    node_type: AstNodeType::If {
-                        condition: Box::new(self.inline_functions_recursive(*condition, candidates)),
-                        then_branch: Box::new(self.inline_functions_recursive(*then_branch, candidates)),
-                        else_branch: else_branch.map(|eb|
-                            Box::new(self.inline_functions_recursive(*eb, candidates))
-                        ),
+                    node_type: AstNodeType::Block {
+                        statements: optimized,
                     },
                     line: node.line,
                     column: node.column,
                 }
             }
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => AstNode {
+                node_type: AstNodeType::If {
+                    condition: Box::new(self.inline_functions_recursive(*condition, candidates)),
+                    then_branch: Box::new(
+                        self.inline_functions_recursive(*then_branch, candidates),
+                    ),
+                    else_branch: else_branch
+                        .map(|eb| Box::new(self.inline_functions_recursive(*eb, candidates))),
+                },
+                line: node.line,
+                column: node.column,
+            },
             _ => node,
         }
     }
@@ -247,7 +269,10 @@ impl Optimizer {
                     .map(|arg| Self::substitute_parameters(arg, substitutions))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::FunctionCall { name, arguments: substituted_args },
+                    node_type: AstNodeType::FunctionCall {
+                        name,
+                        arguments: substituted_args,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -258,7 +283,9 @@ impl Optimizer {
                     .map(|stmt| Self::substitute_parameters(stmt, substitutions))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Block { statements: substituted },
+                    node_type: AstNodeType::Block {
+                        statements: substituted,
+                    },
                     line: node.line,
                     column: node.column,
                 }
@@ -269,24 +296,27 @@ impl Optimizer {
                     .map(|stmt| Self::substitute_parameters(stmt, substitutions))
                     .collect();
                 AstNode {
-                    node_type: AstNodeType::Object { statements: substituted },
-                    line: node.line,
-                    column: node.column,
-                }
-            }
-            AstNodeType::If { condition, then_branch, else_branch } => {
-                AstNode {
-                    node_type: AstNodeType::If {
-                        condition: Box::new(Self::substitute_parameters(*condition, substitutions)),
-                        then_branch: Box::new(Self::substitute_parameters(*then_branch, substitutions)),
-                        else_branch: else_branch.map(|eb|
-                            Box::new(Self::substitute_parameters(*eb, substitutions))
-                        ),
+                    node_type: AstNodeType::Object {
+                        statements: substituted,
                     },
                     line: node.line,
                     column: node.column,
                 }
             }
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => AstNode {
+                node_type: AstNodeType::If {
+                    condition: Box::new(Self::substitute_parameters(*condition, substitutions)),
+                    then_branch: Box::new(Self::substitute_parameters(*then_branch, substitutions)),
+                    else_branch: else_branch
+                        .map(|eb| Box::new(Self::substitute_parameters(*eb, substitutions))),
+                },
+                line: node.line,
+                column: node.column,
+            },
             _ => node,
         }
     }

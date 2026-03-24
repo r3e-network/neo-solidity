@@ -44,7 +44,10 @@ impl Optimizer {
                     ..node
                 }
             }
-            AstNodeType::FunctionCall { ref name, ref arguments } => {
+            AstNodeType::FunctionCall {
+                ref name,
+                ref arguments,
+            } => {
                 // Check if this pure expression was already computed
                 if let Some(cached_var) = cse.lookup(&node) {
                     self.stats.eliminated_instructions += 1;

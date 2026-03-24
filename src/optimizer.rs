@@ -16,15 +16,15 @@
 //! - [`Optimizer::dead_code_elimination`] - Removes unreachable code after returns
 //! - [`Optimizer::function_inlining`] - Inlines small functions to reduce call overhead
 
-mod types;
-mod dispatch;
 mod constant_folding;
-mod dead_code;
-mod inlining;
-mod strength;
 mod cse;
 mod cse_pass;
+mod dead_code;
+mod dispatch;
+mod inlining;
+mod strength;
+mod types;
 
-pub use types::*;
+pub use cse::{CseOptimizer, ExprHash};
 pub use strength::*;
-pub use cse::{ExprHash, CseOptimizer};
+pub use types::*;

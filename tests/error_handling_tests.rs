@@ -19,7 +19,11 @@ fn test_missing_pragma() {
     // Should still compile (pragma is optional)
     let result = compile_contracts(source, false, 2);
     // Should succeed since pragma is optional in neo-solidity
-    assert!(result.is_ok(), "Compilation without pragma should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Compilation without pragma should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]

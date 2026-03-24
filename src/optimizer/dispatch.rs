@@ -6,7 +6,7 @@ use super::types::Optimizer;
 impl Optimizer {
     /// Create a new optimizer with the specified level (0-3)
     pub fn new(level: u8) -> Self {
-        use super::types::{OptimizationStats, OptimizationPasses};
+        use super::types::{OptimizationPasses, OptimizationStats};
         Self {
             level,
             stats: OptimizationStats::default(),
@@ -17,7 +17,7 @@ impl Optimizer {
 
     /// Create optimizer with custom settings
     pub fn with_config(level: u8, inline_threshold: usize) -> Self {
-        use super::types::{OptimizationStats, OptimizationPasses};
+        use super::types::{OptimizationPasses, OptimizationStats};
         Self {
             level,
             stats: OptimizationStats::default(),
@@ -87,7 +87,11 @@ impl Optimizer {
                     count += self.count_nodes(stmt);
                 }
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 count += self.count_nodes(condition);
                 count += self.count_nodes(then_branch);
                 if let Some(eb) = else_branch {

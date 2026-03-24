@@ -44,7 +44,12 @@ impl Optimizer {
                         line: node.line,
                         column: node.column,
                     }
-                } else if let Some(simplified) = self.simplify_identity_ops(&name, optimized_args.clone(), node.line, node.column) {
+                } else if let Some(simplified) = self.simplify_identity_ops(
+                    &name,
+                    optimized_args.clone(),
+                    node.line,
+                    node.column,
+                ) {
                     // Try identity simplifications (x + 0 = x, x * 1 = x, etc.)
                     self.stats.folded_constants += 1;
                     simplified
@@ -87,7 +92,11 @@ impl Optimizer {
                     column: node.column,
                 }
             }
-            AstNodeType::If { condition, then_branch, else_branch } => {
+            AstNodeType::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
                 let folded_cond = self.fold_constants_recursive(*condition);
 
                 // If condition is constant, eliminate the branch
@@ -110,7 +119,8 @@ impl Optimizer {
                         node_type: AstNodeType::If {
                             condition: Box::new(folded_cond),
                             then_branch: Box::new(self.fold_constants_recursive(*then_branch)),
-                            else_branch: else_branch.map(|eb| Box::new(self.fold_constants_recursive(*eb))),
+                            else_branch: else_branch
+                                .map(|eb| Box::new(self.fold_constants_recursive(*eb))),
                         },
                         line: node.line,
                         column: node.column,
@@ -172,7 +182,13 @@ impl Optimizer {
     }
 
     /// Simplify identity operations like x + 0 = x, x * 1 = x
-    fn simplify_identity_ops(&self, name: &str, args: Vec<AstNode>, line: usize, column: usize) -> Option<AstNode> {
+    fn simplify_identity_ops(
+        &self,
+        name: &str,
+        args: Vec<AstNode>,
+        line: usize,
+        column: usize,
+    ) -> Option<AstNode> {
         if args.len() != 2 {
             return None;
         }
@@ -206,7 +222,9 @@ impl Optimizer {
                 }
                 if arg1_const == Some(0) || arg2_const == Some(0) {
                     return Some(AstNode {
-                        node_type: AstNodeType::Literal { value: "0".to_string() },
+                        node_type: AstNodeType::Literal {
+                            value: "0".to_string(),
+                        },
                         line,
                         column,
                     });
@@ -219,13 +237,17 @@ impl Optimizer {
                                 name: "shl".to_string(),
                                 arguments: vec![
                                     AstNode {
-                                        node_type: AstNodeType::Literal { value: shift.to_string() },
-                                        line, column,
+                                        node_type: AstNodeType::Literal {
+                                            value: shift.to_string(),
+                                        },
+                                        line,
+                                        column,
                                     },
                                     args[0].clone(),
                                 ],
                             },
-                            line, column,
+                            line,
+                            column,
                         });
                     }
                 }
@@ -236,13 +258,17 @@ impl Optimizer {
                                 name: "shl".to_string(),
                                 arguments: vec![
                                     AstNode {
-                                        node_type: AstNodeType::Literal { value: shift.to_string() },
-                                        line, column,
+                                        node_type: AstNodeType::Literal {
+                                            value: shift.to_string(),
+                                        },
+                                        line,
+                                        column,
                                     },
                                     args[1].clone(),
                                 ],
                             },
-                            line, column,
+                            line,
+                            column,
                         });
                     }
                 }
@@ -259,13 +285,17 @@ impl Optimizer {
                                 name: "shr".to_string(),
                                 arguments: vec![
                                     AstNode {
-                                        node_type: AstNodeType::Literal { value: shift.to_string() },
-                                        line, column,
+                                        node_type: AstNodeType::Literal {
+                                            value: shift.to_string(),
+                                        },
+                                        line,
+                                        column,
                                     },
                                     args[0].clone(),
                                 ],
                             },
-                            line, column,
+                            line,
+                            column,
                         });
                     }
                 }
@@ -285,12 +315,16 @@ impl Optimizer {
                                 arguments: vec![
                                     args[0].clone(),
                                     AstNode {
-                                        node_type: AstNodeType::Literal { value: mask.to_string() },
-                                        line, column,
+                                        node_type: AstNodeType::Literal {
+                                            value: mask.to_string(),
+                                        },
+                                        line,
+                                        column,
                                     },
                                 ],
                             },
-                            line, column,
+                            line,
+                            column,
                         });
                     }
                 }
@@ -305,7 +339,9 @@ impl Optimizer {
             "xor" => {
                 if self.nodes_equal(&args[0], &args[1]) {
                     return Some(AstNode {
-                        node_type: AstNodeType::Literal { value: "0".to_string() },
+                        node_type: AstNodeType::Literal {
+                            value: "0".to_string(),
+                        },
                         line,
                         column,
                     });
@@ -320,7 +356,9 @@ impl Optimizer {
     fn nodes_equal(&self, a: &AstNode, b: &AstNode) -> bool {
         match (&a.node_type, &b.node_type) {
             (AstNodeType::Literal { value: v1 }, AstNodeType::Literal { value: v2 }) => v1 == v2,
-            (AstNodeType::Identifier { name: n1 }, AstNodeType::Identifier { name: n2 }) => n1 == n2,
+            (AstNodeType::Identifier { name: n1 }, AstNodeType::Identifier { name: n2 }) => {
+                n1 == n2
+            }
             _ => false,
         }
     }
