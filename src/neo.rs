@@ -22,7 +22,7 @@ mod method_token;
 mod source;
 
 // Re-export public API
-pub use build::{build_nef, build_nef_with_tokens};
+pub use build::{build_nef, build_nef_with_tokens, parse_nef, ParsedNef};
 pub use constants::{
     MAX_CALL_FLAGS, MAX_METHOD_TOKENS, MAX_SCRIPT_SIZE, MAX_TOKEN_METHOD_LENGTH, NEF_HEADER_SIZE,
     NEF_MAGIC, NEF_SOURCE_MAX_BYTES,

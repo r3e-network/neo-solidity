@@ -1,6 +1,6 @@
 [package]
 name = "neo-solidity"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Production-ready Solidity-to-NeoVM compilation system"
@@ -34,7 +34,7 @@ ripemd = "0.1"
 secp256k1 = { version = "0.27", features = ["recovery"] }
 num-bigint = "0.4"
 num-traits = "0.2"
-solang-parser = "0.3.5"
+solang-parser = { package = "foundry-solang-parser", version = "0.3.9" }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

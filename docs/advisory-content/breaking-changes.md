@@ -32,6 +32,6 @@ Explicit data location for all variables of struct, array or mapping types is no
 
 ## Neo Solidity Versioning
 
-While `neo-solidity` tracks the upstream `0.8.x` Solidity syntax, the compiler itself has its own versioning (e.g., `0.15.0`).
+While `neo-solidity` tracks the upstream `0.8.x` Solidity syntax, the compiler itself has its own versioning (e.g., `0.16.0`).
 
 Breaking changes introduced directly to the EVM-to-NeoVM semantic mapping layer (such as changing how `msg.sender` behaves or modifying implicit `address.transfer` warnings) will be documented in the [Releases](https://github.com/r3e-network/neo-solidity/releases) page of the GitHub repository.

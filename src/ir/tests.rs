@@ -7,6 +7,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let state_variables: Vec<StateVariableMetadata> = Vec::new();
     let event_index_map = HashMap::new();
     let event_signature_map: HashMap<String, Vec<ManifestType>> = HashMap::new();
+    let event_params_map: HashMap<String, EventSignature> = HashMap::new();
     let enum_variant_map: HashMap<String, HashMap<String, u64>> = HashMap::new();
     let contract_types = HashSet::new();
     let selector_registry = SelectorRegistry::default();
@@ -21,10 +22,13 @@ fn lower_emit_pushes_event_name_before_args() {
     let state_types: Vec<ValueType> = Vec::new();
     let defined_struct_types: Vec<ValueType> = Vec::new();
     let super_method_map: HashMap<String, String> = HashMap::new();
+    let library_storage_bodies: HashMap<(String, usize), LibraryStorageBody> = HashMap::new();
 
     let mut ctx = LoweringContext::new(
         "test_emit",
+        "TestContract",
         [0u8; 4],
+        false,
         false,
         HashMap::new(),
         &[],
@@ -34,6 +38,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &defined_struct_types,
         &event_index_map,
         &event_signature_map,
+        &event_params_map,
         &enum_variant_map,
         &contract_types,
         &selector_registry,
@@ -46,6 +51,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &function_param_names,
         &void_functions,
         &super_method_map,
+        &library_storage_bodies,
     );
 
     let expr = Expression::FunctionCall(

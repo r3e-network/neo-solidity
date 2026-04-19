@@ -103,6 +103,13 @@ pub struct FunctionIR {
     pub body: Option<Statement>,
     /// Natspec documentation for this function
     pub doc: NatspecDocIR,
+    /// Task #114 — set during modifier expansion when at least one applied
+    /// modifier has an epilogue (statements after the `_;` placeholder).
+    /// Signals the IR lowerer to redirect `return expr;` inside the expanded
+    /// body to synthetic return slots + a jump past the epilogue, so
+    /// modifier tail statements like `locked = 0;` still run before the
+    /// function returns.
+    pub had_modifier_epilogue: bool,
 }
 
 /// Function mutability classification based on Solidity state mutability.

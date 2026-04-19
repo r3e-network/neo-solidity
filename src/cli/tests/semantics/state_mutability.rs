@@ -84,6 +84,9 @@ fn view_functions_reject_low_level_call() {
 
 #[test]
 fn view_functions_reject_delegatecall() {
+    // Task #101: delegatecall is now rejected at IR lowering regardless of the
+    // enclosing function's state-mutability. Previously this test relied on the
+    // view/pure guard firing first; we now verify the unconditional hard error.
     let source = r#"
     pragma solidity ^0.8.20;
 
@@ -100,9 +103,8 @@ fn view_functions_reject_delegatecall() {
     match err {
         CompileError::Ir(messages) => {
             assert!(
-                messages.iter().any(|m| m
-                    .message
-                    .contains("address.call(...) / address.delegatecall(...)")),
+                messages.iter().any(|m| m.message.contains("delegatecall")
+                    && m.message.contains("not supported")),
                 "unexpected error messages: {messages:?}"
             );
         }

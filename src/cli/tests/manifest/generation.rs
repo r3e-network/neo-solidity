@@ -182,6 +182,10 @@ fn manifest_contains_all_required_top_level_fields() {
 
 #[test]
 fn manifest_supports_natspec_manifest_field_overrides() {
+    // Task #28: declaring `NEP-17` in supportedstandards now requires the
+    // full method set plus a 3-param `Transfer` event, otherwise compilation
+    // fails with CompileError::Manifest. Provide them so the test continues
+    // to focus on natspec override propagation rather than NEP compliance.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -194,7 +198,15 @@ fn manifest_supports_natspec_manifest_field_overrides() {
      * @custom:neo.manifest.extra.Build {"commit":"abc123"}
      */
     contract ManifestOverrides {
-        function ping() public {}
+        event Transfer(address indexed from, address indexed to, uint256 amount);
+        function symbol() external pure returns (string memory) { return "MOV"; }
+        function decimals() external pure returns (uint8) { return 8; }
+        function totalSupply() external view returns (uint256) { return 0; }
+        function balanceOf(address) external view returns (uint256) { return 0; }
+        function transfer(address from, address to, uint256 amount, bytes calldata) external returns (bool) {
+            emit Transfer(from, to, amount);
+            return true;
+        }
     }
     "#;
 

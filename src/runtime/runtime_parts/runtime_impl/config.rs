@@ -12,7 +12,14 @@ impl Default for RuntimeConfig {
             neo_version: "3.5.0".to_string(),
             contract_account: "0x0000000000000000000000000000000000000000".to_string(),
             default_block_height: 0,
-            default_timestamp: 0,
+            // Task #105 — 1_704_067_200 = 2024-01-01T00:00:00Z. Using 0
+            // produced an unrealistic `block.timestamp == 0` whenever a
+            // contract ran without an explicit `override_timestamp`, which
+            // made timestamp-sensitive Solidity (deadlines, `require(now >=
+            // x)`, TWAP checks, etc.) trivially passable/rejectable against
+            // any positive constant. A pinned realistic epoch is the Neo
+            // MainNet-genesis-equivalent fallback.
+            default_timestamp: 1_704_067_200,
         }
     }
 }

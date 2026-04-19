@@ -69,6 +69,43 @@ pub struct Event {
     pub name: String,
 }
 
+/// Per-parameter metadata for an EVM-canonical event signature.
+///
+/// Used by the IR lowering to compute the `keccak256(canonical_signature)`
+/// topic hash and to distinguish indexed-static args (emitted verbatim as
+/// 32-byte big-endian slots) from indexed-dynamic args (`string`/`bytes`,
+/// emitted as `keccak256(value)`), and from non-indexed args (routed through
+/// `abi.encode` into the log's `data` payload).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventParamInfo {
+    /// Canonical Solidity type string for this parameter, with aliases
+    /// normalized (e.g., `uint` → `uint256`, `bytes1` → `bytes1`).
+    pub canonical_type: String,
+    /// Whether the parameter is declared `indexed` in Solidity source.
+    pub indexed: bool,
+    /// Whether the canonical type is a dynamic type for topic hashing
+    /// purposes. `string` / `bytes` / dynamic arrays all hash their value
+    /// when indexed; everything else is left-padded to 32 bytes verbatim.
+    pub is_dynamic: bool,
+}
+
+/// Precomputed EVM-canonical event signature metadata.
+///
+/// Built once per event at module lowering time so `emit` sites can push
+/// `topic[0]` as a 32-byte literal (no runtime hashing) and branch on each
+/// parameter's `indexed` / `is_dynamic` flags without re-deriving them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventSignature {
+    /// Canonical signature string `Name(type1,type2,...)` — matches Solidity
+    /// `bytes4 selector = keccak256(...)` convention and is fed to keccak to
+    /// produce `topic[0]`.
+    pub canonical: String,
+    /// `keccak256(canonical)` — 32 bytes, BE-layout, pushed as `topic[0]`.
+    pub topic0: [u8; 32],
+    /// Per-parameter metadata in declaration order.
+    pub params: Vec<EventParamInfo>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicBlock {
     pub instructions: Vec<Instruction>,
@@ -92,6 +129,12 @@ pub enum Instruction {
     /// NeoVM SWAP - swap the top two stack items
     Swap,
     LoadParameter(usize),
+    // Task #156 — write-to-parameter path. Solidity permits assigning to function
+    // parameters (`a = 5;` where `a` is a param); NeoVM exposes STARG/STARG0..6
+    // for this. Emitted by `lower_assignment` for single-variable and tuple-LVALUE
+    // assignments whose target is a named parameter (so `(a, b) = (b, a)` swaps in
+    // place without clobbering the original binding).
+    StoreParameter(usize),
     PushLiteral(LiteralValue),
     Return,
     ReturnVoid,
@@ -134,6 +177,22 @@ pub enum Instruction {
         field_keys: Vec<[u8; 32]>,
         element_type: ValueType,
     },
+    // Task #82: nested mapping inside struct-field access, e.g. `slots[k].balances[a]`.
+    // Derives a storage slot by composing the outer mapping keys + struct field path +
+    // inner mapping key chain, then performs a scalar Get/Put.
+    LoadStructFieldMappingElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        trailing_key_types: Vec<ValueType>,
+        value_type: ValueType,
+    },
+    StoreStructFieldMappingElement {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+        field_keys: Vec<[u8; 32]>,
+        trailing_key_types: Vec<ValueType>,
+    },
     LoadRuntimeValue(RuntimeValue),
     GetSize,
     CallFunction {
@@ -166,11 +225,26 @@ pub enum Instruction {
     NewArray {
         element_type: ValueType,
     },
+    /// Allocate a new empty map (NeoVM `NEWMAP`). Used by Task #100 yul
+    /// `tstore`/`tload` lowering to back `__yul_transient` with an in-memory
+    /// key-value store that lives for the duration of the current invocation.
+    NewMap,
     ArrayGet,
     ArraySet,
+    /// NeoVM `HASKEY` opcode: pops `[collection, key]`, pushes `Boolean` — `true`
+    /// if the key exists in the collection (Array index in range or Map key
+    /// present). Used by Task #100 `tload` to return 0 for unset slots instead
+    /// of raising `PICKITEM: key not found`.
+    HasKey,
     /// NeoVM MEMCPY opcode: copy a slice of bytes into a buffer.
     /// Stack order (bottom -> top): [dst, dst_offset, src, src_offset, count]
     MemCpy,
+    /// NeoVM SUBSTR opcode: pop `count` and `index`, then a ByteString,
+    /// push the substring `bytes[index .. index + count]` as a ByteString.
+    /// Stack order (bottom -> top): [bytes, index, count] → [bytes_substr].
+    /// Used to implement contiguous `bytes memory`/`bytes calldata` slicing
+    /// so `b[a:b]` returns a raw ByteString rather than an Array of bytes.
+    Substr,
     /// NeoVM REVERSEITEMS opcode: reverse an Array/Buffer in place.
     /// Note: consumes one reference and does not push it back.
     ReverseItems,
@@ -408,4 +482,17 @@ pub enum BuiltinCall {
     TypeOf,
     /// `bytes.concat(a, b, ...)` / `string.concat(a, b, ...)` — chains NeoVM CAT opcodes.
     BytesConcat,
+    /// Task #H6a: route `address(0x01).staticcall(abiPayload)` to the
+    /// `recoverSecp256K1 → keccak256 → RIGHT 20` sequence (same lowering as
+    /// Solidity `ecrecover`), then left-pad the 20-byte result to 32 bytes so
+    /// the returned `bytes memory` matches the 0x01 EVM precompile contract.
+    /// Takes one argument: the 128-byte `bytes memory` payload
+    /// `abi.encode(hash, v, r, s)`.
+    PrecompileEcrecover,
+    /// Task #H6b: route `address(0x05).staticcall(abiPayload)` to the NeoVM
+    /// MODPOW opcode. Takes one argument: an ABI payload laid out as
+    /// `base_len || exp_len || mod_len || base || exp || mod` (Ethereum 0x05
+    /// modexp contract). Produces a `mod_len`-wide big-endian byte string
+    /// left-padded into a 32-byte slot when `mod_len <= 32`.
+    PrecompileModexp,
 }

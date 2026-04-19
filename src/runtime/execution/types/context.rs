@@ -38,6 +38,22 @@ pub struct ExecutionContext {
     pub(crate) call_stack: Vec<CallFrame>,
     pub(crate) try_stack: Vec<TryFrame>,
     pub(crate) uncaught_exception: Option<String>,
+    /// Task #27 (runtime slice) — raw bytes popped from the evaluation stack
+    /// by the most recent `THROW` opcode, preserved verbatim (not UTF-8
+    /// lossy'd into a `String` the way `uncaught_exception` is).
+    ///
+    /// The IR lowerer currently `Drop`s revert args at
+    /// `src/ir/statements/dispatch/return_revert.rs`, so for source like
+    /// `revert TooSmall(7)` this captures only the error-name bytes. When the
+    /// compiler slice of Task #27 lands and `revert` lowers to
+    /// `PUSH (selector || abi.encode(args)); THROW`, the full ABI-encoded
+    /// payload flows through this field unchanged, and the bridge routes it
+    /// to `ExecutionResult.return_data`.
+    ///
+    /// In the meantime this gives consumers that hand-roll their revert
+    /// payload (push bytes, THROW) a working EVM-convention return_data
+    /// surface.
+    pub(crate) revert_payload: Vec<u8>,
     pub(crate) iterators: HashMap<u64, IteratorState>,
     pub(crate) next_iterator_id: u64,
     pub(crate) syscall_gas: HashMap<[u8; 4], u64>,
@@ -50,6 +66,20 @@ pub struct ExecutionContext {
     pub(crate) storage_host: Option<NonNull<storage::StorageManager>>,
     pub(crate) default_account: String,
     pub(crate) default_account_bytes: Vec<u8>,
+    /// When true, `default_account_bytes` is derived from the loaded
+    /// bytecode via `Hash160(bytecode)` during `initialize`, matching the
+    /// Neo VM semantics for the executing script hash.
+    ///
+    /// This flag is set to `true` in `new()` when the configured
+    /// `contract_account` is the zero UInt160 (the default), so that
+    /// `address(this)` (which reads `default_account_bytes` via the
+    /// `System.Runtime.GetExecutingScriptHash` handler) returns the
+    /// deterministic contract hash instead of 20 zero bytes.
+    ///
+    /// Tests that need an explicit pinned account can use
+    /// [`Self::force_default_account_explicit_for_tests`] to clear the flag
+    /// and preserve the configured bytes.
+    pub(crate) default_account_derived: bool,
     pub(crate) caller_account: Option<Vec<u8>>,
     pub(crate) block_height: Option<u64>,
     pub(crate) default_block_height: u64,
@@ -60,12 +90,53 @@ pub struct ExecutionContext {
     pub(crate) pending_caller_account: Option<Vec<u8>>,
     pub(crate) pending_block_height: Option<u64>,
     pub(crate) pending_timestamp: Option<u64>,
+    /// Task #176: sticky caller-account override that survives across
+    /// consecutive `call_method` / `call_method_with_deploy_args` invocations
+    /// on the same `NeoRuntime`. Unlike `pending_caller_account` (which the
+    /// `initialize` drain clears after one execution — the correct semantic
+    /// for `execute_with_overrides` tests), this slot holds the last override
+    /// the host set via `NeoRuntime::override_caller_account` until either
+    /// (a) the host sets a new one, or (b) the host explicitly clears it via
+    /// `clear_pending_overrides`. `call_method_with_deploy_args` re-arms
+    /// `pending_caller_account` from this slot before dispatching the user
+    /// method so that `msg.sender` stays pinned across a multi-call session
+    /// (the vault deposit→withdraw→balanceOf pattern). Without this slot
+    /// the second `call_method` saw `caller_account = None` after
+    /// `initialize`'s `take()` drain, which fell back to
+    /// `default_account_bytes` in the `GetCallingScriptHash` syscall handler
+    /// — breaking mapping-by-sender invariants (balances[alice] keyed under
+    /// `alice` on deposit, re-keyed under `default` on withdraw).
+    pub(crate) sticky_caller_account: Option<Vec<u8>>,
+    /// Task #113: value set by `NeoRuntime::override_value` /
+    /// `ExecutionOverrides::value`. Drained into `msg_value` on each
+    /// `initialize` call so the override applies to exactly one execution,
+    /// mirroring the pending_timestamp / pending_block_height pattern.
+    pub(crate) pending_msg_value: Option<u64>,
+    /// Task #113: active Solidity `msg.value` for the current execution.
+    /// `None` means no override was set; the compiled `GetMsgValue` syscall
+    /// handler defaults to 0 in that case (Neo N3 has no native attached
+    /// value). Populated from `pending_msg_value` in `initialize`.
+    pub(crate) msg_value: Option<u64>,
     pub(crate) neo_balances: HashMap<Vec<u8>, u64>,
     pub(crate) gas_balances: HashMap<Vec<u8>, u64>,
     pub(crate) neo_total_supply: u64,
     pub(crate) gas_total_supply: u64,
     pub(crate) contract_registry: HashMap<Vec<u8>, ContractState>,
     pub(crate) next_contract_id: u32,
+    /// Task #70: method-name → bytecode-offset table for the currently executing
+    /// contract, used by `System.Contract.Call` to route `this.someFn()` self
+    /// external calls. Populated by `NeoRuntime::call_method` from the manifest
+    /// before each invocation. Empty for raw `execute()` paths.
+    pub(crate) self_method_offsets: HashMap<String, u32>,
+    /// Task #70: args-count for each self method, used to pop the right number of args
+    /// from the `StackItem::Array` `params` passed by `handle_contract_call`.
+    pub(crate) self_method_arg_counts: HashMap<String, u16>,
+    /// Task #70: set by `handle_contract_call` when a self external call
+    /// rewires `instruction_pointer` directly to a compiled method offset.
+    /// The SYSCALL dispatcher consults this flag to skip its unconditional
+    /// `instruction_pointer += 5` post-increment (which would otherwise land
+    /// the VM past the target method's INITSLOT prologue).
+    pub(crate) syscall_suppress_ip_advance: bool,
     /// When true, arithmetic overflow/underflow will return an error instead of wrapping
     pub(crate) strict_arithmetic: bool,
 

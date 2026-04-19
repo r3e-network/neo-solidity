@@ -40,7 +40,19 @@ impl ExecutionContext {
                     dst_ref[dst_offset..dst_end].copy_from_slice(src_slice);
                 }
 
-                // Mirror C-style memcpy semantics: return the destination buffer.
+                // Implementation note: this runtime deliberately leaves `dst`
+                // on the stack after MEMCPY (C-style `memcpy` return).
+                // Multiple compiler callers — `coerce_to_fixed_bytes` (and
+                // its `bytesN(..)`/`address(..)` clients), the Task #66
+                // narrow-integer `abi.encodePacked` CAT chain, event indexed
+                // arg lowering, and the binary-op fixed-bytes coercion —
+                // rely on this: they follow the MEMCPY with a `Swap; Drop`
+                // to discard the leaked buffer and keep the canonical
+                // ByteString result. Changing this to not-push breaks all
+                // of those callers (stack underflow when the Swap;Drop then
+                // consumes the canonical result). Task #112 therefore
+                // keeps the legacy push and threads the workaround through
+                // `emit_pad_bytesn_to_32` as well.
                 self.push_stack(StackItem::ByteArray(dst))
             }
             other => Err(RuntimeError::ExecutionError {

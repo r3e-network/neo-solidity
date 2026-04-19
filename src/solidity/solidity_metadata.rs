@@ -87,6 +87,12 @@ pub struct FunctionMetadata {
     pub is_override: bool,
     /// Natspec documentation for the function
     pub documentation: NatspecDoc,
+    /// Task #114 — set during modifier expansion when at least one applied
+    /// modifier had an epilogue (statements after the `_;` placeholder).
+    /// The IR lowerer uses this to redirect `return expr;` in the expanded
+    /// body to synthetic slots + a jump past the epilogue so modifier tail
+    /// statements still run before the function actually returns.
+    pub had_modifier_epilogue: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

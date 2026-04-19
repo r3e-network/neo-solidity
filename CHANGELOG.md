@@ -7,6 +7,266 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.16.0] - 2026-04-19
+
+Major stability release driven by continuous fuzz-harness review (Tasks #94–#183).
+Approximately 90 distinct fixes landed across compiler, IR lowering, runtime,
+ABI encoding, arithmetic, modifiers, yul, try/catch, and storage. The compiler
+now passes **409 fuzz harnesses** (0 failed, 1 ignored) covering the full
+Solidity 0.8.x feature matrix plus Neo N3 integration.
+
+### Added
+
+- **Narrow Yul support (Task #99, #100, #183)**: inline `assembly { ... }`
+  blocks now lower `mstore`/`mload`/`return` along with `let`/`:=` bindings,
+  basic arithmetic, and reference semantics. `tstore`/`tload` implement
+  EIP-1153 transient storage backed by a `NEWMAP` local (with `HasKey`
+  guard for unset slots returning `0`). Yul identifiers now also resolve
+  to outer Solidity function parameters via the new `StoreParameter` /
+  `LoadParameter` IR variants (Task #183).
+- **EIP-1153 transient storage in Yul (Task #100)**: `tstore(slot, value)` /
+  `tload(slot)` lowers to per-function transient map ops.
+- **New IR variants**: `Substr` (Task #95 bytes slicing), `NewMap` /
+  `HasKey` (Task #100 yul transient storage), `StoreParameter` /
+  `LoadParameter` (Task #156 parameter writes, Task #183 yul parameter
+  binding).
+- **`msg.value` host injection (Task #113)**: `NeoRuntime::override_value` /
+  `override_sender_and_value` thread a per-call msg.value override through
+  the runtime; a dedicated syscall slot in `execution/syscalls/runtime.rs`
+  returns the active value. Neo N3 has no intrinsic `msg.value`, so this
+  gives Solidity tests a faithful EVM-style calldata surface.
+- **`msg.data` synthesis (Task #112)**: public-method dispatch now
+  synthesises `selector || abi.encode(args)` and threads it to the
+  executing frame so the `msg.data` builtin returns the EVM-canonical
+  calldata payload. `bytesN(arg)` / `address(arg)` cast leaves in the
+  synthesised path are left-aligned (Task #112 refinement) so they match
+  the on-wire encoding.
+- **Canonical `Panic(uint256)` envelope (Task #107, #108)**: ALL
+  panic sites (div-by-zero, mod-by-zero, INT256_MIN/-1 divide, int
+  overflow, unary negate overflow, array OOB, `pop()` empty, `abi.decode`
+  short-buffer) now route through the shared `emit_panic` helper which
+  emits the 4-byte selector `0x4e487b71` followed by the BE-32 code (e.g.
+  `0x11`, `0x12`, `0x32`, `0x41`). Replaces the earlier ad-hoc
+  `"Panic: 0xNN"` ByteString payloads so `catch Panic(uint256)` clauses
+  can match against the canonical EVM shape.
+- **Canonical `Error(string)` / `revert` envelope (Task #131)**: `require`
+  with a string literal and `revert("reason")` now both emit the EVM
+  `Error(string)` 4-byte selector + abi-encoded string, aligning
+  `require` with `revert` payload shape.
+- **Delegatecall hard-reject (Task #101)**: `target.delegatecall(data)` is
+  now rejected at IR lowering with a precise diagnostic directing users
+  toward proxy patterns or target-contract inheritance. Previously the
+  call silently routed to `System.Contract.Call`.
+- **Bytes slicing (Task #95)**: `b[start:end]` on `bytes` / `bytes memory`
+  / `bytes calldata` values lowers via the new `Substr` IR instruction to
+  a contiguous ByteString.
+- **Write-to-parameter support (Task #156)**: Solidity permits assigning
+  to function parameters directly. The new `StoreParameter` IR variant
+  lowers via NeoVM `STARG0..6`, and tuple swaps of the form
+  `(a, b) = (b, a)` on function parameters now work. Compound
+  assignments (`a += 1;`) on parameters are also handled.
+- **Narrow signed integer checked arithmetic (Task #154)**: Add/Sub/Mul on
+  `int8`/`int16`/`int32`/`int64`/`int128` now emits a post-op range
+  guard against `[-(2^(bits-1)), 2^(bits-1)-1]` and routes overflow
+  through `Panic(0x11)`.
+- **357-test fuzz suite**: 357 new fuzz harnesses land in
+  `tests/fuzz_tests/batches_*.rs` (in addition to the baseline 52),
+  bringing the total to **409 passed / 0 failed / 1 ignored** on the
+  `fuzz_tests` binary.
+- **StdLib native coverage (Task #51)**: `itoa`, `atoi`, `base64Encode`,
+  `base64Decode` now implemented in `execution_impl_part2_native/stdlib.rs`.
+- **Dynamic-array encoding (Task #121, #137)**: `T[]` returns and
+  `abi.encode(T[])` / selector-side args emit the EVM-canonical
+  `offset || length || BE-32 elements` layout.
+- **Struct flattening for `abi.encode` (Task #124)**: whole-struct args
+  are expanded into per-field stack items so the `AbiEncode` builtin
+  classifies them as static types when appropriate; includes a new
+  `try_flatten_struct_arg_for_abi_encode` pattern.
+- **Custom-error struct envelopes (Task #181)**: `revert CustomErr(struct)`
+  positional and named-args forms flatten struct args into the ABI
+  tuple and render struct type strings via the canonical EVM
+  `(T1,T2,...)` shape.
+- **Sticky caller override (Task #176)**: `pending_caller_account` now
+  re-arms from a sticky slot so caller overrides survive across
+  self-external calls.
+- **`virtual caller` script hash (Task #123)**: per-frame
+  `msg.sender` override pushed by self-external dispatch, deterministic
+  virtual script hash derivation, resolved in the `GetCallingScriptHash`
+  syscall.
+- **Self-method dispatch table (Task #70)**: manifest-derived
+  `(method_name, offset, arg_count)` table installed on each execute,
+  enabling `this.someFn()` without cross-contract syscall overhead.
+
+### Changed
+
+- **Event topic0 = keccak256(signature) (Task #39, pre-landed)**:
+  `emit` lowering now produces the EVM-canonical log shape
+  (`topics[0]` is the keccak256 of the event signature, with indexed
+  args taking subsequent topic slots; non-indexed args go to `data`).
+- **Try/catch envelope matching (Task #103, #86)**: each catch clause
+  uses a shape-specific guard (`Error(string)`, `Panic(uint256)`,
+  named custom error, wildcard). Raw stack-top bytes are preserved
+  through `try_frames.rs` so the catch handler receives the EVM
+  envelope verbatim.
+- **Override sticky semantics (Task #105)**: `default_timestamp` pinned
+  to `1_704_067_200` (2024-01-01T00:00:00Z). Pending metadata overrides
+  (timestamp, index, sender) are now snapshotted BEFORE the user
+  method observes them and drained after the call.
+- **Require → Error(string) envelope (Task #131)**: `require(cond, "msg")`
+  with a string literal now emits the same EVM `Error(string)` shape as
+  `revert("msg")`.
+- **Storage reference handling (Task #117)**: `resolve_storage_reference`
+  widened to recognise Array- and Mapping-typed state variables as
+  storage pointers when the base has no `field_path`. Regression guard
+  preserves the per-field-slot layout for struct-array writes
+  (Task #104).
+- **`using` directive inlining (Task #91)**: library functions whose
+  first parameter is `T storage` are inlined with caller-parameter
+  hiding and a per-call inline-return redirect, preserving source
+  semantics across the inline boundary.
+- **Modifier epilogue semantics (Task #114)**: when at least one
+  applied modifier has a body statement after `_`, every `return` in
+  the function body now redirects through a synthetic modifier-wrap
+  break label so the epilogue runs exactly once regardless of which
+  path the function takes.
+- **Interface expansion (Task #115)**: interface casts `I(expr)` in
+  statements, interface-typed parameters, and interface references are
+  expanded to the primary contracts that implement them, allowing
+  cross-contract calls through interfaces.
+- **Fallback dispatch (Task #126)**: a primary contract's `fallback()`
+  now acts as a universal catch when the explicitly-named method
+  isn't in the merged dispatch table. `Receive` is included alongside
+  `Fallback` in the dispatch scan.
+- **Tuple return flattening (Task #94)**: nested tuple return
+  expressions are now flattened recursively. Parenthesised tuple
+  return/parameter types accepted at semantic level.
+- **`abi.decode` short-buffer guard (Task #84)**: emits
+  `Panic(0x41)` instead of a raw throw when `buf.length <
+  expected_static_bytes`.
+- **BigInt comparison (Task #30 slice 1 Part C)**: wide-ByteArray
+  comparisons route through BigInt so `uint256` values pushed as
+  21+ byte payloads compare by magnitude, not by raw bytes.
+- **Wide bitwise ops (Task #50)**: `~`, `|`, `&`, `^` on wide operands
+  route through BigInt with a post-op 256-bit mask, so `~uint256(x)`
+  produces `u256::MAX - x` rather than `!(x as u64)`. Narrow
+  i64/u64 shift path truncation also fixed.
+- **BigInt shift (Task #H4)**: wide-ByteArray left/right shifts route
+  through BigInt. Reuses the Task #50 infrastructure and clamps shift
+  amounts > 255 to an all-zero result per EIP-145 (Task #33).
+- **Interface kind metadata (Task #115)**: collected per-interface at
+  analysis time and threaded through lowering for virtual dispatch.
+- **Self external-call routing (Task #83)**: `new B(); b.foo()` where
+  `B` is a sibling-merged primary contract now routes through
+  `self_method_offsets` via a 20-byte zero placeholder, bypassing the
+  System.Contract.Call syscall for bandwidth-free internal dispatch.
+- **Framework / NEP standards (devpack v1.1.0)**: `FrameworkBase.sol`,
+  `NEP17.sol`, `NEP11.sol`, `NativeCalls.sol`, `Neo.sol`,
+  `Runtime.sol`, `Storage.sol` refreshed for the new compiler
+  semantics. New `Precompiles.sol` library (EVM precompile routing)
+  and `PrecompileShowcase.sol` example.
+
+### Fixed
+
+- **MEMCPY leak in 8+ sites (Task #109, #66, #89, #76)**: `bytesN(..)` /
+  `address(..)` cast args no longer leak the MEMCPY source pointer
+  into downstream builtins. Fixed in `events.rs`, `abi.rs`,
+  `member_access.rs`, `resolved.rs`, `return_revert.rs`,
+  `builtins.rs`, and the packed-encoding path.
+- **`bytes32 ↔ uint256` (Task #111)**: `uint256(bytes32)` is a
+  bit-identity reinterpret — Solidity spec §4.7.3 — not a decode.
+  Preserves magnitude across the cast.
+- **`payable(x)` (Task #128)**: now a pure type-only cast (§4.3, §4.7.3),
+  not a no-op wrap.
+- **`string(bytes_value)` (Task #171)**: recognised as a semantic
+  no-op on the value stack.
+- **Nested tuple return (Task #94, #64)**: `return (a, (b, c))` flattens
+  to the canonical tuple layout.
+- **Bytes slice SUBSTR (Task #95)**: `b[i:j]` on dynamic `bytes` lowers
+  correctly via the new `Substr` IR op.
+- **Modifier epilogue (Task #114)**: runs once regardless of return path.
+- **Struct array push/read (Task #104, #170)**: `P[] ps; ps.push(P(a,b))`
+  and subsequent reads use the correct per-field slot layout;
+  symmetric narrow-ByteArray × UnsignedInteger arithmetic arms added.
+- **Delegatecall silent routing (Task #101)**: now hard-rejected with a
+  diagnostic, no longer silently routes to System.Contract.Call.
+- **9-arg `abi.encode` selector-side (Task #121 mirror)**: `T[]` in
+  selector-side args emits the same 32-byte BE offset/length/elements
+  shape as the return side.
+- **Dynamic-array return JSON leak (Task #137)**: single-value
+  dynamic-array returns (`return uint[]`) now emit the canonical EVM
+  layout instead of leaking an internal JSON Array envelope.
+- **Post-increment / post-decrement wrap (Task #30 slice 4)**:
+  `lower_post_inc_dec` now routes through the checked-arithmetic
+  path so `x++` at `uint256.max` emits `Panic(0x11)`.
+- **Checked arithmetic — 6 ops (Task #30, #67, #154)**: all Add/Sub/Mul
+  ops on `uint256`/`int256`/narrow signed types now route through
+  BigInt with post-op range guards against the per-type domain.
+- **`uint256` BigInt path (Task #32)**: Sub/Mul no longer wrap at 64-bit
+  when operands are wide ByteArray.
+- **`abi.encode*` / `abi.decode` shape (Task #44)**: EVM-canonical
+  `pad32_be(arg_i)` encoding for static args, offset/length/payload for
+  dynamic args. Round-trip decoder accepts the BE-packed payload.
+- **INT256_MIN / -1 (Task #30 slice 4)**: runtime-side guard for the
+  unrepresentable signed-division case routes to `Panic(0x11)`.
+- **`emit` with 0 indexed args (Task #39)**: produces exactly 1 topic
+  (the signature hash).
+- **NatSpec permissions override**: `@custom:neo.manifest.permissions`
+  comments correctly substitute wildcard manifests (pre-landed).
+- **Modifier re-entry guard**: modifier-epilogue redirect does not
+  interfere with nested try/catch break targets.
+- **`NeoRuntime::call_function` (Task #19 — earlier session)**: pushes
+  args to eval stack, skips `_deploy`, respects offset. All
+  `call_method`-driven harnesses now deliver args correctly.
+- **`ecrecover` (Task #20 — earlier session)**: returns
+  Ethereum-spec address via `keccak256(pubkey[1..])[12..]`, not the
+  Neo-native script-hash shape.
+- **Narrow-operand bitwise (Task #118)**: left-aligned bytesN fuzzing
+  harness no longer flagged as negative via the sign-extended interpretation.
+- **`.length` on indirected storage dynamic arrays (Task #161)**:
+  returns the live length from the canonical slot instead of a stale
+  SIZE value.
+- **`pop()` empty-array Panic (Task #98)**: now routes through the
+  shared `emit_panic` helper with code `0x31`.
+- **`.transfer(uint)` on payable (Task #162)**: lowering now works
+  end-to-end instead of faulting on argument packing.
+- **`new T[N]` memory allocation (Task #49)**: `T[N] memory a;` (no
+  initializer) now allocates a real array with N default-initialized
+  slots instead of leaving the local as a null reference.
+- **Cross-contract `new B(); b.foo()` routing (Task #160)**: catch
+  arms in try/catch around the sibling-merged external-call routing
+  receive the revert envelope correctly.
+- **`try X { ... } catch ...` parse-shape (Task #125)**: leading
+  call expression in a try statement is correctly matched against
+  the sibling-merge routing.
+
+### Infrastructure
+
+- **Fuzz test split**: the 24k-line `tests/fuzz_tests.rs` monolith was
+  reorganised into 10 submodules under `tests/fuzz_tests/` for
+  maintainability:
+  - `baseline_tests.rs` — the original 52 harnesses.
+  - `batches_18_30.rs`, `batches_31_45.rs`, `batches_46_64.rs`,
+    `batches_66_80.rs` — per-batch harness groups.
+  - `arithmetic_props.rs`, `compiler_props.rs`, `optimizer_props.rs`,
+    `storage_props.rs` — proptest property tests.
+  - `task107_catch_panic_tests.rs` — dedicated Panic(uint256)
+    envelope coverage.
+  - `common.rs` — shared helpers.
+- **Regression corpus**: `.proptest-regressions` files under
+  `tests/fuzz_tests/` and `tests/` checkpoint failing seeds for all
+  property tests.
+- **Devpack bump**: `@r3e-network/neo-solidity-devpack` → **1.1.0** to
+  align with the new compiler semantics (new `Precompiles.sol`
+  library, refreshed `Framework.sol`, `NEP17.sol`, `NEP11.sol`).
+
+### Known Limitations
+
+- **Task #182** — nested struct dynamic-array `.length` returns still
+  serialize via the internal JSON Array shape instead of the
+  EVM-canonical 32-byte BE length. Workaround: return the field as
+  a separate `uint256` computed from `arr.length`. The corresponding
+  harness is marked `#[ignore]`.
+
 ## [v0.15.0] - 2026-03-18
 
 ### Added
@@ -353,7 +613,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.9.10...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.16.0...HEAD
+[v0.16.0]: https://github.com/r3e-network/neo-solidity/compare/v0.15.0...v0.16.0
+[v0.15.0]: https://github.com/r3e-network/neo-solidity/compare/v0.14.0...v0.15.0
+[v0.14.0]: https://github.com/r3e-network/neo-solidity/compare/v0.13.1...v0.14.0
+[v0.13.1]: https://github.com/r3e-network/neo-solidity/compare/v0.13.0...v0.13.1
+[v0.13.0]: https://github.com/r3e-network/neo-solidity/compare/v0.12.0...v0.13.0
+[v0.12.0]: https://github.com/r3e-network/neo-solidity/compare/v0.11.0...v0.12.0
+[v0.11.0]: https://github.com/r3e-network/neo-solidity/compare/v0.10.0...v0.11.0
+[v0.10.0]: https://github.com/r3e-network/neo-solidity/compare/v0.9.10...v0.10.0
 [v0.9.10]: https://github.com/r3e-network/neo-solidity/compare/v0.9.9...v0.9.10
 [v0.9.9]: https://github.com/r3e-network/neo-solidity/compare/v0.9.8...v0.9.9
 [v0.9.8]: https://github.com/r3e-network/neo-solidity/compare/v0.9.7...v0.9.8

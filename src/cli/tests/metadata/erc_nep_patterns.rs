@@ -53,6 +53,7 @@ fn build_public_method(name: &str, param_count: usize) -> FunctionMetadata {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     }
 }
 

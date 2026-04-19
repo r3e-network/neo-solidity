@@ -92,6 +92,30 @@ fn try_lower_length_property(
         }
     }
 
+    // Task #161 — `.length` on a storage-indirected dynamic array (e.g.
+    // `records[msg.sender].length` where `records` is
+    // `mapping(address => uint[])`, or `m[k].arr.length` for a struct-array
+    // field) must read the length from the same storage slot that the
+    // matching `push` / `pop` paths read and write. That slot is derived
+    // via `resolve_storage_reference` + `emit_storage_load`, which handles:
+    //   - mapping-keyed arrays (`m[k].length` → LoadMappingElement at the
+    //     base slot computed from `records.state_index + hash(k)`), and
+    //   - struct-field arrays (`m[k].field.length`, nested struct paths).
+    //
+    // Without this branch we fall through to the generic `GetSize` path
+    // below, which emits a bare SIZE opcode against a storage-reference
+    // abstraction the runtime doesn't understand — surfacing as the
+    // "Execution failed: SIZE: unsupported type" exception the harness
+    // catches in batch68_rr4.
+    if let Some(reference) = resolve_storage_reference(inner, ctx) {
+        if matches!(reference.value_type, ValueType::Array(_)) {
+            if !emit_storage_load(&reference, ctx, instructions) {
+                return Some(false);
+            }
+            return Some(true);
+        }
+    }
+
     if lower_expression(inner, ctx, instructions) {
         instructions.push(Instruction::GetSize);
         return Some(true);

@@ -114,11 +114,21 @@ fn collect_native_permissions(ir_module: &ir::Module) -> BTreeMap<String, BTreeS
                                 "keccak256",
                             );
                         }
-                        ir::BuiltinCall::Ecrecover => {
+                        ir::BuiltinCall::Ecrecover | ir::BuiltinCall::PrecompileEcrecover => {
                             require_native_method(
                                 &mut native_methods,
                                 ir::NativeContract::CryptoLib,
                                 "recoverSecp256K1",
+                            );
+                            // Task #20: ecrecover lowers to
+                            //   recoverSecp256K1 → SUBSTR(1,64) → keccak256 → RIGHT 20
+                            // so keccak256 is also a required CryptoLib method.
+                            // Task #H6a extends the same lowering to the 0x01
+                            // precompile staticcall routing.
+                            require_native_method(
+                                &mut native_methods,
+                                ir::NativeContract::CryptoLib,
+                                "keccak256",
                             );
                         }
                         ir::BuiltinCall::VerifySignature => {

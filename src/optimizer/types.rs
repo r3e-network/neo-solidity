@@ -64,6 +64,7 @@ impl OptimizationPasses {
             2 => Self {
                 constant_folding: true,
                 dead_code_elimination: true,
+                common_subexpression: true,
                 ..Default::default()
             },
             _ => Self {

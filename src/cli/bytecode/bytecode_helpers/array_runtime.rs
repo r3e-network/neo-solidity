@@ -65,10 +65,28 @@ fn emit_load_runtime_value(
             bytecode[jmp_end_operand..jmp_end_operand + 4].copy_from_slice(&rel_end.to_le_bytes());
         }
         ir::RuntimeValue::MsgValue => {
-            push_integer_bigint(bytecode, &BigInt::zero());
+            // Task #113 — lower Solidity `msg.value` to a runtime-side
+            // syscall so the host can inject a value via
+            // `NeoRuntime::override_value` /
+            // `ExecutionOverrides::value`. The handler
+            // (`src/runtime/execution/syscalls/runtime.rs`) pushes the
+            // active override (or 0 when none is set), preserving the
+            // previous "no attached value → 0" behaviour for callers
+            // that never set an override while unblocking test harnesses
+            // that need to drive `msg.value` to a specific u64 (e.g.
+            // payable-fallback tests, NEP-17 `onPayment` checks).
+            emit_syscall(bytecode, "System.Runtime.GetMsgValue");
         }
         ir::RuntimeValue::MsgData => {
-            push_data(bytecode, &[]);
+            // Solidity `msg.data` == the raw calldata bytes the runtime received at
+            // `execute(bytecode, input)`. Neo N3 exposes those bytes through the
+            // `Script` slot (index 7) of the Transaction-shaped array returned by
+            // `System.Runtime.GetScriptContainer`:
+            //   [Hash, Version, Nonce, Sender, SystemFee, NetworkFee, ValidUntilBlock, Script]
+            // (see src/runtime/execution/syscalls/runtime.rs "GetScriptContainer").
+            emit_syscall(bytecode, "System.Runtime.GetScriptContainer");
+            push_integer_bigint(bytecode, &BigInt::from(7u8));
+            bytecode.push(0xCE); // PICKITEM — Transaction.Script (input_data)
         }
         ir::RuntimeValue::TxOrigin => {
             emit_syscall(bytecode, "System.Runtime.GetScriptContainer");

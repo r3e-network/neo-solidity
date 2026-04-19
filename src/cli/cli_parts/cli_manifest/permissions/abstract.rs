@@ -13,13 +13,19 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
 }
 
 fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
-    use ir::Instruction::{Drop, LoadParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, ArrayGet, ArraySet, MemCpy, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
+    use ir::Instruction::{Drop, LoadParameter, StoreParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadStructFieldMappingElement, StoreStructFieldMappingElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, NewMap, ArrayGet, ArraySet, HasKey, MemCpy, Substr, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
 
     match instr {
         Drop(_) => {
             pop_value(&mut state.stack)?;
         }
         LoadParameter(_) => state.stack.push(AbstractValue::Unknown),
+        StoreParameter(_) => {
+            // Task #156 — write-to-parameter mirrors StoreLocal for stack-shape
+            // analysis: consumes the top-of-stack value and discards it from
+            // the abstract tracker (we don't model parameter slot state).
+            pop_value(&mut state.stack)?;
+        }
         PushLiteral(lit) => state.stack.push(AbstractValue::literal(lit.clone())),
         Return | ReturnVoid | ReturnDefault(_) | Abort => {}
         AbortMsg | Throw => {
@@ -72,6 +78,24 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
         StoreStructArrayElement { key_types, .. } => {
             pop_n(&mut state.stack, key_types.len() + 2)?;
         }
+        LoadStructFieldMappingElement {
+            key_types,
+            trailing_key_types,
+            ..
+        } => {
+            pop_n(&mut state.stack, key_types.len() + trailing_key_types.len())?;
+            state.stack.push(AbstractValue::Unknown);
+        }
+        StoreStructFieldMappingElement {
+            key_types,
+            trailing_key_types,
+            ..
+        } => {
+            pop_n(
+                &mut state.stack,
+                key_types.len() + trailing_key_types.len() + 1,
+            )?;
+        }
         LoadRuntimeValue(_) => state.stack.push(AbstractValue::Unknown),
         GetSize => {
             pop_value(&mut state.stack)?;
@@ -114,6 +138,9 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
             pop_value(&mut state.stack)?;
             state.stack.push(AbstractValue::Unknown);
         }
+        NewMap => {
+            state.stack.push(AbstractValue::Unknown);
+        }
         ArrayGet => {
             pop_n(&mut state.stack, 2)?;
             state.stack.push(AbstractValue::Unknown);
@@ -121,8 +148,17 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
         ArraySet => {
             pop_n(&mut state.stack, 3)?;
         }
+        HasKey => {
+            pop_n(&mut state.stack, 2)?;
+            state.stack.push(AbstractValue::Unknown);
+        }
         MemCpy => {
             pop_n(&mut state.stack, 5)?;
+            state.stack.push(AbstractValue::Unknown);
+        }
+        Substr => {
+            // Substr pops [bytes, index, count] and pushes [bytes_substr].
+            pop_n(&mut state.stack, 3)?;
             state.stack.push(AbstractValue::Unknown);
         }
         ReverseItems => {

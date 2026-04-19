@@ -29,6 +29,18 @@ impl ExecutionContext {
         self.pending_caller_account.as_deref()
     }
 
+    /// Task #113 — Get pending msg.value override, if any.
+    pub fn pending_msg_value(&self) -> Option<u64> {
+        self.pending_msg_value
+    }
+
+    /// Task #113 — Get the active msg.value for the current execution.
+    /// `None` indicates no override was set (compiled `GetMsgValue`
+    /// syscall coalesces None → 0 at push time).
+    pub fn msg_value(&self) -> Option<u64> {
+        self.msg_value
+    }
+
     /// Get the active block height for the current execution.
     pub fn block_height(&self) -> Option<u64> {
         self.block_height
@@ -47,6 +59,21 @@ impl ExecutionContext {
     /// Get the default account bytes configured for this context.
     pub fn default_account_bytes(&self) -> &[u8] {
         &self.default_account_bytes
+    }
+
+    /// Disable the bytecode-derived `default_account_bytes` behaviour.
+    ///
+    /// When a test harness seeds a deterministic `default_account_bytes`
+    /// (for example to exercise native-contract balance tracking or an
+    /// explicit caller account), it can call this after construction to
+    /// pin the explicitly configured value. Subsequent `initialize` calls
+    /// will NOT overwrite `default_account_bytes` with `Hash160(bytecode)`.
+    ///
+    /// This is the escape hatch that keeps pre-existing tests (which set
+    /// `contract_account` to a non-default value) unaffected by the
+    /// self-hash derivation introduced for `address(this)` support.
+    pub fn force_default_account_explicit_for_tests(&mut self) {
+        self.default_account_derived = false;
     }
 
     /// Number of contracts currently tracked by the in-memory registry.
@@ -78,6 +105,29 @@ impl ExecutionContext {
     /// Get maximum stack depth
     pub fn max_stack_depth(&self) -> u32 {
         self.max_stack_depth
+    }
+
+    /// Task #70: Install the `(method_name → (offset, arg_count))` table that
+    /// `handle_contract_call` uses to route `this.someFn()` self external
+    /// calls to compiled method offsets. Populated from `manifest.abi.methods`
+    /// by `NeoRuntime::call_method` before each invocation.
+    pub fn set_self_method_table(
+        &mut self,
+        table: Vec<(String, u32, u16)>,
+    ) {
+        self.self_method_offsets.clear();
+        self.self_method_arg_counts.clear();
+        for (name, offset, arg_count) in table {
+            self.self_method_offsets.insert(name.clone(), offset);
+            self.self_method_arg_counts.insert(name, arg_count);
+        }
+    }
+
+    /// Task #70: Clear the self-method table. Called between `execute()`
+    /// invocations that don't run through `call_method`.
+    pub fn clear_self_method_table(&mut self) {
+        self.self_method_offsets.clear();
+        self.self_method_arg_counts.clear();
     }
 }
 

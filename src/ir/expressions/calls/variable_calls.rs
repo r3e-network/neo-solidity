@@ -137,6 +137,49 @@ fn try_lower_variable_call(
             return Some(true);
         }
 
+        // Task #92 — `E(v)` enum value cast. Parser shape is `Variable(E)`
+        // + one arg; previously this fell through to the unresolved-call
+        // compatibility path that dropped `v` and pushed 0. Preserve the
+        // discriminant and emit the Solidity-spec range guard: Panic(0x21)
+        // when `v >= variant_count`.
+        if args.len() == 1 {
+            if let Some(variants) = ctx.enum_variant_map.get(&identifier.name) {
+                let variant_count = variants.len() as u64;
+                let fail_label = ctx.next_label();
+                let ok_label = ctx.next_label();
+                if !lower_expression(&args[0], ctx, instructions) {
+                    instructions
+                        .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    return Some(false);
+                }
+                let tmp_id = ctx.next_label();
+                let value_slot = ctx.allocate_local(
+                    format!("__enum_cast_{tmp_id}"),
+                    Some(ValueType::Integer { signed: false, bits: 8 }),
+                );
+                instructions.push(Instruction::StoreLocal(value_slot));
+                // IR `JumpIf` branches when the operand is false. Compute
+                // `v < variant_count`: when true, fall through and Jump to
+                // `ok_label`; when false (v out-of-range), JumpIf branches
+                // to `fail_label` and emits the Panic(0x21) payload.
+                instructions.push(Instruction::LoadLocal(value_slot));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(variant_count),
+                )));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+                instructions.push(Instruction::JumpIf { target: fail_label });
+                instructions.push(Instruction::Jump { target: ok_label });
+                instructions.push(Instruction::Label(fail_label));
+                // Task #107 — route through the shared `emit_panic` helper
+                // which emits the canonical EVM Panic(uint256) envelope so
+                // `catch Panic(uint code)` can bind code = 0x21.
+                emit_panic(0x21, instructions);
+                instructions.push(Instruction::Label(ok_label));
+                instructions.push(Instruction::LoadLocal(value_slot));
+                return Some(true);
+            }
+        }
+
         // Treat `ContractType(addressExpr)` as a no-op cast for known contract/interface
         // types when the argument is already address-like (including 20-byte hex literals).
         if args.len() == 1 && ctx.is_contract_type_name(&identifier.name) {

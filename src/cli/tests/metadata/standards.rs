@@ -27,6 +27,7 @@ fn supported_standards_flags_nep17() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     // NEP-17 requires all 5 methods: symbol, decimals, totalSupply, balanceOf, transfer
@@ -70,6 +71,7 @@ fn supported_standards_flags_nep17() {
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         },
     ];
 
@@ -104,6 +106,7 @@ fn supported_standards_flags_nep24() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let methods = vec![build_method("tokenUri")];
@@ -132,6 +135,7 @@ fn standards_not_detected_when_incomplete() {
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         },
         FunctionMetadata {
             name: "totalSupply".to_string(),
@@ -147,6 +151,7 @@ fn standards_not_detected_when_incomplete() {
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         },
     ];
 
@@ -173,6 +178,7 @@ fn near_miss_nep17_warns_on_missing_methods() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     // 4 of 5 NEP-17 methods (missing: transfer) → near-miss warning
@@ -218,6 +224,7 @@ fn near_miss_nep11_warns_ownerof_without_transfer() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     // ownerOf present but no transfer mechanism → near-miss
@@ -253,6 +260,7 @@ fn supported_standards_flags_nep22_nep26_nep27_nep29_nep30_nep31() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let mut update = build_method("update");
@@ -408,6 +416,7 @@ fn near_miss_nep26_warns_wrong_callback_signature() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let result = detect_supported_standards(&[method], &[]);
@@ -448,6 +457,7 @@ fn near_miss_nep30_warns_non_boolean_verify() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let result = detect_supported_standards(&[method], &[]);
@@ -499,6 +509,7 @@ fn supported_standards_flags_nep22_and_nep31_from_update_destroy() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let destroy = FunctionMetadata {
@@ -515,6 +526,7 @@ fn supported_standards_flags_nep22_and_nep31_from_update_destroy() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let methods = vec![update, destroy];
@@ -549,6 +561,7 @@ fn supported_standards_update_without_nep22_signature_is_not_detected() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
     let methods = vec![update];
     let result = detect_supported_standards(&methods, &[]);
@@ -574,6 +587,7 @@ fn event_validation_warns_missing_transfer_event() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     // NEP-17 detected but no Transfer event → warning
@@ -615,6 +629,7 @@ fn event_validation_accepts_correct_transfer_event() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let methods = vec![

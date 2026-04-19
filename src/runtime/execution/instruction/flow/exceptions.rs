@@ -20,8 +20,18 @@ impl ExecutionContext {
             }
             0x3A => {
                 // THROW
-                let message = Self::stack_item_to_bytes(self.pop_stack()?);
-                let message = String::from_utf8_lossy(&message);
+                //
+                // Task #27 (runtime slice) — preserve the raw stack-top bytes
+                // verbatim in `self.revert_payload` BEFORE lossy-decoding them
+                // into a UTF-8 String for the exception message. The bridge
+                // reads `revert_payload` on the error path and routes it into
+                // `ExecutionResult.return_data`, giving callers an EVM-style
+                // `return_data = selector || abi.encode(args)` surface when
+                // the compiler lowering pushes structured bytes (follow-up
+                // slice) or when users hand-roll the payload today.
+                let payload = Self::stack_item_to_bytes(self.pop_stack()?);
+                self.revert_payload = payload.clone();
+                let message = String::from_utf8_lossy(&payload);
                 let message = if message.is_empty() {
                     "THROW".to_string()
                 } else {

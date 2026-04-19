@@ -46,6 +46,11 @@ pub static SYSCALLS: Lazy<HashMap<[u8; 4], SyscallSpec>> = Lazy::new(|| {
         "System.Runtime.GasLeft",
         "System.Runtime.BurnGas",
         "System.Runtime.CurrentSigners",
+        // Task #113 — Solidity `msg.value` host-injection slot. Neo N3 has
+        // no native attached-value concept, so this syscall reads the
+        // runtime-side override (`ExecutionOverrides::value` /
+        // `NeoRuntime::override_value`). Returns 0 when no override set.
+        "System.Runtime.GetMsgValue",
     ];
 
     let mut m = HashMap::new();

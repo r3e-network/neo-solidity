@@ -306,3 +306,69 @@ fn method_returns_bool(method: &FunctionMetadata) -> bool {
     }
     ret.ty.eq_ignore_ascii_case("bool")
 }
+
+/// Task #28: hard-validate standards the user EXPLICITLY asserted via
+/// `@custom:neo.manifest.supportedstandards`. For NEP-17 / NEP-11 the
+/// required methods and `Transfer` event are mandatory — shipping a
+/// contract that claims the standard without them is a manifest error,
+/// not a warning. Implicit (auto-detected) standards remain advisory
+/// because detection already requires the full method set.
+fn validate_declared_standards(
+    declared: &[String],
+    methods: &[FunctionMetadata],
+    events: &[EventMetadata],
+) -> Result<(), String> {
+    let public_methods: Vec<&FunctionMetadata> = methods
+        .iter()
+        .filter(|m| {
+            !matches!(m.kind, FunctionKind::Constructor)
+                && matches!(m.visibility, VisibilityKind::Public | VisibilityKind::External)
+        })
+        .collect();
+    let names: HashSet<String> = public_methods
+        .iter()
+        .map(|m| m.name.to_ascii_lowercase())
+        .collect();
+    let transfer_params = events
+        .iter()
+        .find(|e| e.name == "Transfer")
+        .map(|e| e.parameters.len());
+
+    for std in declared {
+        let (required, expected_transfer_params): (&[&str], usize) = match std.as_str() {
+            "NEP-17" => (&["symbol", "decimals", "totalsupply", "balanceof", "transfer"], 3),
+            "NEP-11" => (&["symbol", "decimals", "balanceof", "ownerof", "transfer"], 4),
+            _ => continue,
+        };
+        let missing: Vec<&str> = required
+            .iter()
+            .copied()
+            .filter(|m| !names.contains(*m))
+            .collect();
+        if !missing.is_empty() {
+            return Err(format!(
+                "contract declares `{std}` in supportedstandards but is missing required method(s): {}. \
+                 Either implement the missing method(s) or remove `{std}` from @custom:neo.manifest.supportedstandards.",
+                missing.join(", "),
+            ));
+        }
+        match transfer_params {
+            None => {
+                return Err(format!(
+                    "contract declares `{std}` in supportedstandards but is missing the required `Transfer` event \
+                     ({expected_transfer_params} parameters expected). Either emit a `Transfer` event or remove `{std}` \
+                     from @custom:neo.manifest.supportedstandards."
+                ));
+            }
+            Some(n) if n != expected_transfer_params => {
+                return Err(format!(
+                    "contract declares `{std}` in supportedstandards but its `Transfer` event has {n} parameter(s); \
+                     {std} requires {expected_transfer_params}. Fix the event signature or remove `{std}` \
+                     from @custom:neo.manifest.supportedstandards."
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}

@@ -98,6 +98,8 @@ impl ExecutionContext {
             stack_base: self.stack.len(),
             saved_locals: std::mem::take(&mut self.locals),
             saved_args: std::mem::take(&mut self.args),
+            msg_sender_override: None,
+            syscall_result_expected: false,
         };
         self.call_stack.push(frame);
         Ok(())

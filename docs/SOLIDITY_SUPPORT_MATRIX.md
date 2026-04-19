@@ -1,9 +1,9 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.15.0
+> **Compiler**: neo-solidity v0.16.0
 > **Parser**: solang-parser 0.3.5
 > **Target**: NeoVM (Neo N3)
-> **Audit date**: 2026-02-18
+> **Audit date**: 2026-04-19
 
 Legend:
 
@@ -37,6 +37,7 @@ Legend:
 | `string.concat(...)`                     | ✅     | Same implementation as `bytes.concat` via CAT opcode chain            |
 | Contract types (e.g., `IERC20`)          | ✅     | Resolved to Neo UInt160 address; interface types tracked              |
 | Tuple types                              | ✅     | Represented as NeoVM arrays internally                                |
+| Function types (`function(...) internal / external`) | ❌     | Not representable on NeoVM; state variables, locals, params, and return types of function type are rejected by the `NeoType` resolver. Use named functions and inheritance instead of function pointers. |
 
 ---
 
@@ -88,7 +89,7 @@ Legend:
 | `assembly { ... }`        | ⚠️     | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops                                   |
 | `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                                                     |
 | `catch Error(string)`     | ✅     | Named catch with parameter binding                                                                          |
-| `catch Panic(uint256)`    | ⚠️     | Lowered with runtime integer-type guard; values are NeoVM exception payloads, not canonical EVM panic codes |
+| `catch Panic(uint256)`    | ✅     | Matches the canonical `keccak256("Panic(uint256)")[..4] = 0x4e487b71` selector on the revert envelope and decodes the 32-byte BE code (Task #103) |
 | `catch (bytes)`           | ✅     | Low-level catch with raw bytes                                                                              |
 
 ---
@@ -105,8 +106,8 @@ Legend:
 | `returns (T1, T2, ...)`          | ✅     | Multi-return via NeoVM arrays                                                                                                                   |
 | Function overloading             | ⚠️     | Supported with `neo_name` mangling; one canonical ABI name is preserved and non-primary overloads are exported under generated Neo method names |
 | `modifier`                       | ✅     | Full modifier expansion with `_` placeholder substitution                                                                                       |
-| `receive()`                      | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                                                                                         |
-| `fallback()`                     | ⚠️     | Parsed; diagnostic suggests `onNEP17Payment()` callback                                                                                         |
+| `receive()`                      | ⚠️     | **Silently remapped** to `onNEP17Payment(address,uint256,bytes)` in the manifest when no explicit `onNEP17Payment` is declared (NEP-17 convention, see `src/solidity/convert/functions.rs:32`). Ethereum devs: the body is preserved but exported under a new ABI name. See "receive()/fallback() remapping" note below. |
+| `fallback()`                     | ⚠️     | Retains the name `fallback` in the manifest. No EVM-style unknown-method dispatch; compiler emits diagnostic W105 suggesting `onNEP17Payment()`.  |
 | `virtual` / `override`           | ✅     | Inheritance flattening resolves overrides; multi-level chains supported                                                                         |
 | Function selectors (`.selector`) | ✅     | Computed from canonical parameter types                                                                                                         |
 | NatSpec comments                 | ✅     | `@notice`, `@dev`, `@param`, `@return` preserved in metadata                                                                                    |
@@ -218,7 +219,17 @@ Legend:
 | ERC-165 `supportsInterface`  | Manifest `supportedstandards` | ⚠️     | Warning: unnecessary on Neo; manifest-based discovery                         |
 | ERC-4626 (Tokenized Vault)   | NEP-17                        | ⚠️     | Vault logic compiles; ERC-20 interactions must use NEP-17 equivalents         |
 | ERC-2981 (Royalty)           | NEP-24                        | ✅     | Auto-detected; multiple royalty recipients supported                          |
-| `receive()` / `fallback()`   | `onNEP17Payment()`            | ⚠️     | Diagnostic suggests callback pattern                                          |
+| `receive()` / `fallback()`   | `onNEP17Payment()`            | ⚠️     | `receive()` silently remapped; `fallback()` kept as-is. See note below.       |
+
+### receive()/fallback() remapping
+
+Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callback rather than EVM-style `receive()` / `fallback()` dispatch. To keep Solidity source portable:
+
+- A Solidity `receive() external payable { ... }` with no explicit `onNEP17Payment` in the contract is **silently remapped** in the manifest to `onNEP17Payment(address,uint256,bytes)`. The body is preserved verbatim; the ABI name, parameters, and selector are rewritten (see `src/solidity/convert/functions.rs:32`).
+- If the contract **already declares** an explicit `onNEP17Payment`, `receive()` keeps the name `receive` in the manifest (no remap), and diagnostic `W105` flags it as having no effect on Neo N3.
+- `fallback()` is never remapped and keeps its Solidity name in the manifest; there is no Neo equivalent to EVM fallback dispatch, so diagnostic `W105` suggests `onNEP17Payment` instead.
+
+**Migration guidance for Ethereum developers**: if your contract needs to accept tokens, prefer declaring `onNEP17Payment(address from, uint256 amount, bytes data)` directly — it surfaces the sender, amount, and attached data that Neo's NEP-17 transfer provides. Use `receive()` only if you are porting EVM source and accept that tooling will see the entrypoint under the Neo NEP-17 name.
 
 ---
 
@@ -226,7 +237,7 @@ Legend:
 
 | Category            | ✅      | ⚠️     | ❌    | 🚫    |
 | ------------------- | ------- | ------ | ----- | ----- |
-| A. Types            | 16      | 2      | 1     | 0     |
+| A. Types            | 16      | 2      | 2     | 0     |
 | B. Expressions      | 18      | 3      | 0     | 0     |
 | C. Statements       | 15      | 2      | 0     | 0     |
 | D. Functions        | 9       | 4      | 0     | 0     |
@@ -235,11 +246,11 @@ Legend:
 | G. Error Handling   | 9       | 1      | 0     | 0     |
 | H. EVM-Specific     | 23      | 6      | 0     | 3     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **114** | **23** | **1** | **4** |
+| **Total**           | **114** | **23** | **2** | **4** |
 
-**Total features audited: 142**
+**Total features audited: 143**
 
 - ✅ Fully supported: 114 (80%)
 - ⚠️ Partial support: 23 (16%)
-- ❌ Not supported: 1 (1%)
+- ❌ Not supported: 2 (1%)
 - 🚫 Intentionally blocked: 4 (3%)

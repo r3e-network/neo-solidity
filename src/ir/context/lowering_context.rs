@@ -1,3 +1,16 @@
+/// Task #91 — inlinable metadata for a library function whose first
+/// parameter is a storage-pointer struct. `param_names[0]` is bound as a
+/// storage alias to the receiver's `StorageReference`; `param_names[1..]`
+/// are bound as locals populated from the call-site args. See
+/// `member_calls.rs::inline_library_storage_call`.
+#[derive(Debug, Clone)]
+struct LibraryStorageBody {
+    param_names: Vec<String>,
+    value_param_types: Vec<Option<ValueType>>,
+    body: Statement,
+    return_type: Option<ValueType>,
+}
+
 /// Structured diagnostic emitted during IR lowering.
 ///
 /// Captures the originating function name, a human-readable message, and an
@@ -24,8 +37,23 @@ impl IrDiagnostic {
 
 struct LoweringContext<'a> {
     function_name: String,
+    /// Name of the contract that owns this lowering context.
+    ///
+    /// Used by member-access selector resolution to look up `this.method.selector`
+    /// expressions against the current contract's method table so they can be
+    /// lowered to their Ethereum keccak-4 selectors (matching how the AST shape
+    /// `MemberAccess(MemberAccess(Variable("this"), method), selector)` is
+    /// expected to behave in Solidity).
+    current_contract_name: String,
     current_function_selector: [u8; 4],
     is_safe: bool,
+    /// Task #64 — whether this function is directly callable from the host
+    /// (External or Public visibility). When true, multi-value returns are
+    /// lowered through `abiEncode` so the main-frame RET emits EVM-canonical
+    /// BE-packed bytes rather than a `StackItem::Array` that would leak as
+    /// serde_json at `stack_item_to_bytes`. Internal/Private functions keep
+    /// the Array shape so callers can destructure via `ArrayGet`.
+    is_externally_callable: bool,
     param_index_map: HashMap<String, usize>,
     param_types: &'a [ValueType],
     return_slots: Vec<Option<usize>>,
@@ -40,6 +68,13 @@ struct LoweringContext<'a> {
     defined_struct_types: &'a [ValueType],
     event_index_map: &'a HashMap<String, usize>,
     event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
+    /// Precomputed EVM-canonical event signatures keyed by event name.
+    ///
+    /// Used by `lower_emit` to produce the EVM-spec log shape:
+    ///   topic[0] = `keccak256("Name(t1,t2,...)")` — a 32-byte literal
+    ///   topic[1..N] = indexed args (BE-padded or keccak-hashed)
+    ///   data = abi.encode(non_indexed_args)
+    event_params_map: &'a HashMap<String, EventSignature>,
     enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
     contract_types: &'a HashSet<String>,
     selector_registry: &'a SelectorRegistry,
@@ -70,6 +105,37 @@ struct LoweringContext<'a> {
     /// Mapping from original method name to renamed super-method name.
     /// Used to resolve `super.method()` calls during IR lowering.
     super_method_map: &'a HashMap<String, String>,
+    /// Task #91 — library functions whose first parameter is `T storage`,
+    /// keyed by (name, arg_count). `member_calls.rs` inlines the body at
+    /// the call site rather than emitting `CallFunction`, so storage writes
+    /// (`d.x = v`) hit the caller's slot instead of a materialised copy.
+    library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
+    /// Task #91 — stack of (inline-return slot, end-label). When set,
+    /// `lower_return_statement` redirects `return expr;` to store into
+    /// `slot` and jump to `end_label` instead of emitting a raw `Return`
+    /// that would exit the caller.
+    inline_return_stack: Vec<(Option<usize>, usize)>,
+    /// Task #114 — modifier-epilogue return redirect. When set by
+    /// `function.rs` for a function whose body was wrapped by at least one
+    /// modifier with an epilogue (statements after `_;`), every
+    /// `Statement::Return(expr)` in the body must store into `slots` (one
+    /// per declared return parameter, already allocated at function
+    /// prologue) and jump to the INNERMOST modifier-wrap break label (see
+    /// `modifier_break_stack`) — or to `end_label` as a fallback when the
+    /// wrap hasn't been entered yet. The modifier-wrap break label lands
+    /// inside the Solidity expansion BETWEEN the inlined body and the
+    /// modifier epilogue, so tail statements (`locked = 0;` and friends)
+    /// still run before the actual RET. Distinct from the library-inline
+    /// single-slot mechanism (`inline_return_stack`): modifier returns must
+    /// carry multi-value tuples when the function declares `returns (T, U)`.
+    modifier_return_redirect: Option<(Vec<Option<usize>>, usize)>,
+    /// Task #114 — stack of break labels belonging to the synthetic
+    /// `do { body } while(false)` wrappers emitted by
+    /// `apply_modifier_calls_to_body_with_epilogue`. Unlike the normal
+    /// `loop_stack`, this tracks ONLY modifier-wrap scopes so a `return`
+    /// inside a user loop jumps past the user loop and into the OUTERMOST
+    /// modifier wrap's epilogue chain. Innermost wrap sits at the top.
+    modifier_break_stack: Vec<usize>,
     local_index_map: HashMap<String, Vec<usize>>,
     local_types: HashMap<usize, ValueType>,
     scope_stack: Vec<Vec<String>>,
@@ -84,14 +150,23 @@ struct LoweringContext<'a> {
     resolving_constants: Vec<usize>,
     errors: Vec<IrDiagnostic>,
     warnings: Vec<crate::solidity::Diagnostic>,
+    /// Task #30: nested `unchecked { }` depth. When > 0, binary-arithmetic
+    /// lowerings skip the Solidity-0.8.x checked overflow guard emission.
+    /// Counter semantics (vs. a bool) correctly handle nested blocks:
+    /// ```text
+    /// unchecked { unchecked { a + b; } }  // depth 2 inside; guard still skipped
+    /// ```
+    unchecked_depth: usize,
 }
 
 impl<'a> LoweringContext<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
         function_name: &str,
+        current_contract_name: &str,
         current_function_selector: [u8; 4],
         is_safe: bool,
+        is_externally_callable: bool,
         param_index_map: HashMap<String, usize>,
         param_types: &'a [ValueType],
         state_variables: &'a [StateVariableMetadata],
@@ -100,6 +175,7 @@ impl<'a> LoweringContext<'a> {
         defined_struct_types: &'a [ValueType],
         event_index_map: &'a HashMap<String, usize>,
         event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
+        event_params_map: &'a HashMap<String, EventSignature>,
         enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
         contract_types: &'a HashSet<String>,
         selector_registry: &'a SelectorRegistry,
@@ -112,11 +188,14 @@ impl<'a> LoweringContext<'a> {
         function_param_names: &'a HashMap<(String, usize), Vec<String>>,
         void_functions: &'a HashSet<String>,
         super_method_map: &'a HashMap<String, String>,
+        library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
+            current_contract_name: current_contract_name.to_string(),
             current_function_selector,
             is_safe,
+            is_externally_callable,
             param_index_map,
             param_types,
             return_slots: Vec::new(),
@@ -127,6 +206,7 @@ impl<'a> LoweringContext<'a> {
             defined_struct_types,
             event_index_map,
             event_signature_map,
+            event_params_map,
             enum_variant_map,
             contract_types,
             selector_registry,
@@ -139,6 +219,10 @@ impl<'a> LoweringContext<'a> {
             function_param_names,
             void_functions,
             super_method_map,
+            library_storage_bodies,
+            inline_return_stack: Vec::new(),
+            modifier_return_redirect: None,
+            modifier_break_stack: Vec::new(),
             local_index_map: HashMap::new(),
             local_types: HashMap::new(),
             scope_stack: vec![Vec::new()],
@@ -150,11 +234,38 @@ impl<'a> LoweringContext<'a> {
             resolving_constants: Vec::new(),
             errors: Vec::new(),
             warnings: Vec::new(),
+            unchecked_depth: 0,
         }
+    }
+
+    /// Returns `true` if currently lowering inside an `unchecked { ... }` block.
+    /// Used by `lower_binary_expr` to suppress the Solidity 0.8.x checked
+    /// overflow guard emission for Add/Sub/Mul.
+    fn in_unchecked_block(&self) -> bool {
+        self.unchecked_depth > 0
+    }
+
+    /// Increment unchecked depth when entering `unchecked { ... }`.
+    fn enter_unchecked_block(&mut self) {
+        self.unchecked_depth = self.unchecked_depth.saturating_add(1);
+    }
+
+    /// Decrement unchecked depth when leaving an `unchecked { ... }` block.
+    fn exit_unchecked_block(&mut self) {
+        self.unchecked_depth = self.unchecked_depth.saturating_sub(1);
     }
 
     fn current_function_selector(&self) -> [u8; 4] {
         self.current_function_selector
+    }
+
+    /// Returns the name of the contract that owns this lowering context.
+    ///
+    /// Used to resolve `this.method.selector` expressions against the current
+    /// contract's method registry when the inner expression is
+    /// `Expression::Variable("this")`.
+    fn current_contract_name(&self) -> &str {
+        &self.current_contract_name
     }
 
     fn parameter_count(&self) -> usize {
@@ -166,12 +277,99 @@ impl<'a> LoweringContext<'a> {
         self.return_types = types;
     }
 
+    /// Task #91 — temporarily hide caller parameters that collide with an
+    /// inlined library parameter name (`setX(uint256 v) { d.store(v); }` would
+    /// otherwise resolve `v` inside the body to the caller's
+    /// `LoadParameter(0)`). Returns the previous entry for later restoration.
+    fn hide_param_binding(&mut self, name: &str) -> Option<usize> {
+        self.param_index_map.remove(name)
+    }
+
+    fn restore_param_binding(&mut self, name: String, index: Option<usize>) {
+        if let Some(idx) = index {
+            self.param_index_map.insert(name, idx);
+        }
+    }
+
+    /// Task #91 — push/pop an inline-return redirect; see
+    /// `inline_return_stack` docs and `lower_return_statement`.
+    fn push_inline_return(&mut self, slot: Option<usize>, end_label: usize) {
+        self.inline_return_stack.push((slot, end_label));
+    }
+
+    fn pop_inline_return(&mut self) {
+        self.inline_return_stack.pop();
+    }
+
+    /// Return the current inline-return target, if any.
+    fn inline_return_target(&self) -> Option<(Option<usize>, usize)> {
+        self.inline_return_stack.last().copied()
+    }
+
+    /// Task #114 — activate the modifier-epilogue return redirect. `slots`
+    /// is a per-return-parameter `LoadLocal` index (one per declared return),
+    /// and `end_label` is emitted after the expanded body. Inside
+    /// `lower_return_statement`, a Return expression stores into the slots
+    /// (in declaration order for multi-return) and jumps to `end_label`,
+    /// bypassing the raw RET that would otherwise skip the modifier
+    /// epilogue (e.g. `locked = 0;` after `_;`).
+    fn set_modifier_return_redirect(
+        &mut self,
+        slots: Vec<Option<usize>>,
+        end_label: usize,
+    ) {
+        self.modifier_return_redirect = Some((slots, end_label));
+    }
+
+    fn clear_modifier_return_redirect(&mut self) {
+        self.modifier_return_redirect = None;
+    }
+
+    /// Return the current modifier-return redirect (slots, end_label) if set.
+    /// The slots Vec mirrors `return_slots` (one entry per declared return).
+    fn modifier_return_target(&self) -> Option<(Vec<Option<usize>>, usize)> {
+        self.modifier_return_redirect.clone()
+    }
+
+    /// Task #114 — push a modifier-wrap break label (from the synthetic
+    /// `do { body } while(false)` emitted by the Solidity expander). Used by
+    /// `lower_do_while_statement` when `had_modifier_epilogue` is active AND
+    /// the condition is the constant `false` we inject — see
+    /// `src/solidity/analyse/modifiers/expand.rs`.
+    fn push_modifier_break_label(&mut self, label: usize) {
+        self.modifier_break_stack.push(label);
+    }
+
+    fn pop_modifier_break_label(&mut self) {
+        self.modifier_break_stack.pop();
+    }
+
+    /// Return the innermost modifier-wrap break label, or `None` if we are
+    /// not currently inside a modifier-epilogue scope. Used by
+    /// `lower_return_statement` to pick the correct jump target when
+    /// redirecting `return expr;` past user loops.
+    fn innermost_modifier_break_label(&self) -> Option<usize> {
+        self.modifier_break_stack.last().copied()
+    }
+
+    /// Returns `true` iff this function was flagged with
+    /// `had_modifier_epilogue` at the Solidity analyse layer. Mirrors the
+    /// `modifier_return_redirect` being Some — that redirect is only set by
+    /// `function.rs` when the flag was true.
+    fn in_modifier_epilogue_scope(&self) -> bool {
+        self.modifier_return_redirect.is_some()
+    }
+
     fn return_slots(&self) -> &[Option<usize>] {
         &self.return_slots
     }
 
     fn return_types(&self) -> &[ValueType] {
         &self.return_types
+    }
+
+    fn is_externally_callable(&self) -> bool {
+        self.is_externally_callable
     }
 
     fn next_label(&mut self) -> usize {
@@ -376,6 +574,14 @@ impl<'a> LoweringContext<'a> {
             .cloned()
     }
 
+    /// Task #91 — fetch the inlinable body for a library function whose first
+    /// parameter is a storage-pointer struct. Returns `None` when the call
+    /// should go through the normal `CallFunction` path.
+    fn library_storage_body(&self, name: &str, arg_count: usize) -> Option<&LibraryStorageBody> {
+        self.library_storage_bodies
+            .get(&(name.to_string(), arg_count))
+    }
+
     fn has_using_directives(&self) -> bool {
         !self.using_target_types.is_empty()
     }
@@ -389,7 +595,7 @@ impl<'a> LoweringContext<'a> {
             normalize_solidity_like_type_signature(&value_type_signature(receiver_type));
         self.using_target_types.iter().any(|target| match target {
             None => true,
-            Some(target_type) => target_type == &receiver_sig,
+            Some(target_type) => using_target_matches_signature(target_type, &receiver_sig),
         })
     }
 
@@ -408,7 +614,7 @@ impl<'a> LoweringContext<'a> {
         let list_scope_applies = self.using_function_list_scope_targets.iter().any(|target| {
             target
                 .as_ref()
-                .is_none_or(|expected| expected == &receiver_sig)
+                .is_none_or(|expected| using_target_matches_signature(expected, &receiver_sig))
         });
 
         // No function-list directives apply to this receiver type.
@@ -424,7 +630,7 @@ impl<'a> LoweringContext<'a> {
 
         targets.iter().any(|target| match target {
             None => true,
-            Some(target_type) => target_type == &receiver_sig,
+            Some(target_type) => using_target_matches_signature(target_type, &receiver_sig),
         })
     }
 
@@ -456,7 +662,17 @@ impl<'a> LoweringContext<'a> {
     }
 
     /// Returns the renamed super-method name for `super.method()` resolution.
+    ///
+    /// Task #85 — look up the caller-qualified key first
+    /// (`"{current_fn}::{method_name}"`) so that inside a preserved base body
+    /// `__super_foo` the nested `super.foo()` resolves to the NEXT-older
+    /// `__super2_foo`, not back to itself. Falls back to the unqualified key
+    /// for the top-of-chain derived frame and for any legacy call sites.
     fn super_method_name(&self, method_name: &str) -> Option<&str> {
+        let qualified = format!("{}::{}", self.function_name, method_name);
+        if let Some(target) = self.super_method_map.get(&qualified) {
+            return Some(target.as_str());
+        }
         self.super_method_map.get(method_name).map(|s| s.as_str())
     }
 
@@ -464,6 +680,15 @@ impl<'a> LoweringContext<'a> {
         self.event_signature_map
             .get(event_name)
             .map(|sig| sig.as_slice())
+    }
+
+    /// Returns the precomputed EVM-canonical signature for an event, if the
+    /// event was declared in this module. `None` means the caller referenced
+    /// an unknown event name (likely an inherited event pulled in by name
+    /// alone) — the caller should fall back to the legacy `EmitEventByName`
+    /// path rather than emit EVM-spec topics with a missing hash.
+    fn event_evm_signature(&self, event_name: &str) -> Option<&EventSignature> {
+        self.event_params_map.get(event_name)
     }
 
     fn allocate_local(&mut self, name: String, value_type: Option<ValueType>) -> usize {
@@ -566,6 +791,19 @@ fn value_type_signature(value_type: &ValueType) -> String {
         ValueType::Struct { name, .. } => name.to_ascii_lowercase(),
         ValueType::Any => "any".to_string(),
     }
+}
+
+/// Task #91 — match a `using X for T` directive target against a receiver
+/// signature. The frontend renders `using L for L.Data;` as target
+/// `"l.data"`, but `ValueType::Struct { name: "Data" }` normalises to
+/// `"data"` (`lookup_struct` strips the qualifier). Fall back to matching
+/// by the last `.`-separated segment so storage-pointer struct receivers
+/// dispatch correctly.
+fn using_target_matches_signature(target: &str, receiver_sig: &str) -> bool {
+    target == receiver_sig
+        || target
+            .rsplit_once('.')
+            .is_some_and(|(_, last)| last == receiver_sig)
 }
 
 fn is_implicitly_convertible(actual: &ValueType, expected: &ValueType) -> bool {

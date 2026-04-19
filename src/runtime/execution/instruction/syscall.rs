@@ -38,7 +38,16 @@ impl ExecutionContext {
             self.gas_used = projected;
         }
         self.handle_syscall(syscall_id)?;
-        self.instruction_pointer += 5;
+        // Task #70: `handle_contract_call` may route a `this.someFn()` self
+        // external call by rewiring `instruction_pointer` directly to the
+        // target method's compiled offset. In that case the SYSCALL's usual
+        // `+= 5` post-increment would land past the target's INITSLOT
+        // prologue, so skip it.
+        if self.syscall_suppress_ip_advance {
+            self.syscall_suppress_ip_advance = false;
+        } else {
+            self.instruction_pointer += 5;
+        }
 
         Ok(true)
     }

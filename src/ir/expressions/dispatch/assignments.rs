@@ -161,6 +161,8 @@ fn lower_delete(
                         key_types: Vec::new(),
                         value_type: state_type.clone(),
                         field_path: Vec::new(),
+                        trailing_key_expressions: Vec::new(),
+                        trailing_key_types: Vec::new(),
                     };
 
                     push_default_for_storage_value_type(&reference.value_type, ctx, instructions);

@@ -50,6 +50,232 @@ fn catch_clause_guard_target(
     None
 }
 
+/// Task #103 — Classify a `catch` clause so the dispatcher can emit the
+/// correct guard. EVM-style revert envelopes carry a 4-byte selector
+/// prefix (`keccak256("Panic(uint256)")[..4] = 0x4e487b71`,
+/// `keccak256("Error(string)")[..4] = 0x08c379a0`) followed by
+/// `abi.encode(args)`. We match these known shapes structurally so
+/// `catch Panic(uint code)` and `catch Error(string msg)` can decode
+/// their payloads directly. Named clauses referencing user-defined
+/// errors fall into `UserNamed` and use the legacy (permissive) path.
+enum CatchClauseKind {
+    /// `catch Panic(uint code)` — match 4-byte selector `0x4e487b71`,
+    /// decode code from `abi.encode(uint256)`.
+    Panic,
+    /// `catch Error(string msg)` — match 4-byte selector `0x08c379a0`,
+    /// decode msg from `abi.encode(string)`.
+    Error,
+    /// `catch (bytes memory reason)` — always match, bind the raw
+    /// envelope bytes verbatim.
+    Bytes,
+    /// Legacy / user-defined named error. Emit a permissive type guard
+    /// (ISTYPE ByteArray, which is what the runtime pushes) and bind
+    /// the raw payload.
+    UserNamed,
+    /// Simple catch with a non-bytes parameter (e.g. `catch (uint256 x)`).
+    /// Emits the legacy ISTYPE guard on the inferred type. Rare in
+    /// practice — Solidity's grammar only accepts `bytes memory` here.
+    SimpleTyped,
+}
+
+fn classify_catch_clause(
+    clause: &solang_parser::pt::CatchClause,
+    ctx: &mut LoweringContext,
+) -> CatchClauseKind {
+    match clause {
+        solang_parser::pt::CatchClause::Named(_, ident, param, _) => {
+            match ident.name.as_str() {
+                "Panic" => {
+                    // Spec: single `uint256 code` parameter.
+                    if let Some(ty) = infer_type_from_expression(&param.ty, ctx) {
+                        if matches!(ty, ValueType::Integer { .. }) {
+                            return CatchClauseKind::Panic;
+                        }
+                    }
+                    CatchClauseKind::Panic
+                }
+                "Error" => {
+                    // Spec: single `string` parameter.
+                    if let Some(ty) = infer_type_from_expression(&param.ty, ctx) {
+                        if matches!(ty, ValueType::String | ValueType::ByteArray { .. }) {
+                            return CatchClauseKind::Error;
+                        }
+                    }
+                    CatchClauseKind::Error
+                }
+                _ => CatchClauseKind::UserNamed,
+            }
+        }
+        solang_parser::pt::CatchClause::Simple(_, Some(param), _) => {
+            match infer_type_from_expression(&param.ty, ctx) {
+                Some(ValueType::ByteArray { .. }) | Some(ValueType::String) => {
+                    CatchClauseKind::Bytes
+                }
+                _ => CatchClauseKind::SimpleTyped,
+            }
+        }
+        // Bare `catch { }` — handled separately as the fallback.
+        solang_parser::pt::CatchClause::Simple(_, None, _) => CatchClauseKind::Bytes,
+    }
+}
+
+/// Compute the 4-byte keccak selector for an EVM-style revert shape.
+fn revert_envelope_selector(signature: &[u8]) -> [u8; 4] {
+    let mut hasher = Keccak256::new();
+    hasher.update(signature);
+    let digest = hasher.finalize();
+    [digest[0], digest[1], digest[2], digest[3]]
+}
+
+/// Emit a guard that jumps to `fail_label` unless the payload in
+/// `catch_local` is a ByteArray whose first 4 bytes match `selector`.
+/// Leaves the stack empty on fall-through (match) and on jump (mismatch).
+fn emit_selector_guard(
+    catch_local: usize,
+    selector: [u8; 4],
+    min_len: u64,
+    fail_label: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    // 1. Payload must be a ByteArray (runtime always pushes ByteArray per
+    //    src/runtime/execution/instruction/flow/try_frames.rs — but a
+    //    hand-rolled `throw 42;` could push an Integer, so we guard).
+    //    IsType pushes true when matching. JumpIf branches when the popped
+    //    value is false, so we negate via a NOT using the PUSHF+EQUAL combo
+    //    isn't available — instead we invert by jumping on the match and
+    //    falling through when it fails. Strategy: push IsType, then use a
+    //    match_label to keep control flow explicit.
+    let match_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::IsType {
+        target: ConvertTarget::ByteArray,
+    });
+    // JumpIf branches when popped value is FALSE. If IsType returned false
+    // (payload is not a ByteArray), jump to fail_label. We want to branch
+    // to fail when NOT ByteArray, so: PUSH IsType result; JumpIf-false →
+    // fail_label; fall through when ByteArray. But IR JumpIf = JMPIFNOT,
+    // so it already branches on false, exactly what we want.
+    instructions.push(Instruction::JumpIf { target: fail_label });
+
+    // 2. Payload length must be >= min_len (4 for selector-only, 36 for
+    //    selector + 32-byte arg, etc). GetSize pushes the byte length.
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        min_len,
+    ))));
+    // Comparator: size >= min_len. Use Lt(size, min_len) then JumpIf-false
+    // to fall through when NOT less (i.e. size >= min_len). Inverting: we
+    // need to JumpIf to fail when size < min_len. So compute `size < min`
+    // and JumpIf-false (branches on not-less) jumps to match_label.
+    // Simpler: compute `size < min`, JumpIf jumps on false (i.e. safe —
+    // size is not less than min) to match_label; fall through to
+    // fail_label when size < min (JumpIf does not branch).
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: match_label });
+    instructions.push(Instruction::Jump { target: fail_label });
+    instructions.push(Instruction::Label(match_label));
+
+    // 3. Extract the first 4 bytes and compare to `selector`. SUBSTR
+    //    consumes [bytes, index, count] and pushes the substring.
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(4u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+        selector.to_vec(),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+    // JumpIf branches when comparison is false (selector mismatch) — fall
+    // through on match.
+    instructions.push(Instruction::JumpIf { target: fail_label });
+}
+
+/// Bind the `uint code` parameter for a `catch Panic(uint code)` clause.
+/// The payload is `0x4e487b71 || abi.encode(uint256 code)`; extract bytes
+/// [4..36] via SUBSTR and Convert to Integer.
+fn bind_panic_code_parameter(
+    clause: &solang_parser::pt::CatchClause,
+    catch_local: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let Some(parameter) = catch_clause_param(clause) else {
+        return;
+    };
+    let Some(name) = parameter.name.as_ref().map(|id| id.name.clone()) else {
+        return;
+    };
+
+    let inferred = infer_type_from_expression(&parameter.ty, ctx)
+        .unwrap_or(ValueType::Integer { signed: false, bits: 256 });
+    let slot = ctx.allocate_local(name, Some(inferred));
+
+    // SUBSTR(payload, 4, 32) → 32-byte big-endian uint256.
+    // Route through StdLib.abiDecode which unpacks a 32-byte BE slot into
+    // `UnsignedInteger` (when high bits zero) or a 32-byte ByteArray chunk
+    // (for out-of-range values). Panic codes specified by Solidity 0.8
+    // (0x01, 0x11, 0x12, 0x21, 0x22, 0x31, 0x32, 0x41, 0x51) all fit in
+    // one byte, so the common case is the fast UnsignedInteger arm.
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(4u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::AbiDecode,
+        arg_count: 1,
+    });
+    instructions.push(Instruction::StoreLocal(slot));
+}
+
+/// Bind the `string msg` parameter for a `catch Error(string)` clause.
+/// The payload is `0x08c379a0 || abi.encode(string msg)`. `abi.encode`
+/// for a single `string` argument produces:
+///   0x20 (offset, 32 bytes BE) || length (32 bytes BE) || string bytes
+///   (padded to 32-byte boundary)
+/// Decode: read length from bytes [36..68], then extract bytes
+/// [68..68+length] as the raw string.
+fn bind_error_message_parameter(
+    clause: &solang_parser::pt::CatchClause,
+    catch_local: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let Some(parameter) = catch_clause_param(clause) else {
+        return;
+    };
+    let Some(name) = parameter.name.as_ref().map(|id| id.name.clone()) else {
+        return;
+    };
+
+    let inferred = infer_type_from_expression(&parameter.ty, ctx).unwrap_or(ValueType::String);
+    let slot = ctx.allocate_local(name, Some(inferred));
+
+    // Read string length from bytes [36..68] (BE uint256). Offset 68 in
+    // the payload is where the actual string bytes start (4-byte selector
+    // + 32-byte head offset + 32-byte length = 68). Route through
+    // StdLib.abiDecode to turn the 32-byte BE chunk into an
+    // UnsignedInteger (works for any reasonable length < 2^64).
+    let len_tmp = ctx.allocate_local("__catch_err_len".to_string(), None);
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(36u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::AbiDecode,
+        arg_count: 1,
+    });
+    instructions.push(Instruction::StoreLocal(len_tmp));
+
+    // SUBSTR(payload, 68, len_tmp) → raw string bytes.
+    instructions.push(Instruction::LoadLocal(catch_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(68u8))));
+    instructions.push(Instruction::LoadLocal(len_tmp));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::StoreLocal(slot));
+}
+
 fn bind_catch_clause_parameter(
     clause: &solang_parser::pt::CatchClause,
     catch_local: usize,
@@ -192,29 +418,77 @@ fn lower_try_statement(
             }
 
             let next_clause_label = ctx.next_label();
-            if let Some(guard_target) = catch_clause_guard_target(clause, ctx) {
-                instructions.push(Instruction::LoadLocal(catch_local));
-                instructions.push(Instruction::IsType {
-                    target: guard_target,
-                });
-                instructions.push(Instruction::JumpIf {
-                    target: next_clause_label,
-                });
-            }
+            let kind = classify_catch_clause(clause, ctx);
 
-            if let solang_parser::pt::CatchClause::Named(_, ident, _, _) = clause {
-                if ident.name == "Panic" {
-                    ctx.record_warning_with_suggestion(
-                        "catch Panic(uint256) uses NeoVM stack-item integer checks; EVM panic code semantics do not fully apply on Neo N3.",
-                        "Prefer catch (bytes memory reason) when you need portable exception handling across EVM and Neo.",
+            // Task #103 — Each catch kind uses a shape-specific guard:
+            //   * `Panic(uint)` / `Error(string)` match the 4-byte EVM
+            //     selector prefix so `catch Panic(uint code)` sees
+            //     `code == 0x12` on div-by-zero (not the stringified
+            //     `"Panic: 0x12"` byte-prefix that the ISTYPE Integer
+            //     guard used to miss entirely).
+            //   * `catch (bytes memory)` matches any payload (it binds
+            //     the raw envelope verbatim for low-level decoding).
+            //   * Legacy user-named and simple-typed clauses retain the
+            //     ISTYPE guard from the pre-Task-#103 lowering so
+            //     existing custom-error tests keep passing.
+            match kind {
+                CatchClauseKind::Panic => {
+                    emit_selector_guard(
+                        catch_local,
+                        revert_envelope_selector(b"Panic(uint256)"),
+                        36,
+                        next_clause_label,
+                        ctx,
+                        instructions,
                     );
+                    ctx.enter_scope();
+                    bind_panic_code_parameter(clause, catch_local, ctx, instructions);
+                    let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+                    ctx.exit_scope();
+                }
+                CatchClauseKind::Error => {
+                    emit_selector_guard(
+                        catch_local,
+                        revert_envelope_selector(b"Error(string)"),
+                        68,
+                        next_clause_label,
+                        ctx,
+                        instructions,
+                    );
+                    ctx.enter_scope();
+                    bind_error_message_parameter(clause, catch_local, ctx, instructions);
+                    let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+                    ctx.exit_scope();
+                }
+                CatchClauseKind::Bytes => {
+                    // `catch (bytes memory data)` — always matches. Bind
+                    // the raw envelope.
+                    ctx.enter_scope();
+                    bind_catch_clause_parameter(clause, catch_local, ctx, instructions);
+                    let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+                    ctx.exit_scope();
+                }
+                CatchClauseKind::UserNamed | CatchClauseKind::SimpleTyped => {
+                    // Legacy path — ISTYPE guard on the inferred parameter
+                    // type. The payload is always a ByteArray, so named
+                    // catches for user-defined errors just bind the raw
+                    // bytes.
+                    if let Some(guard_target) = catch_clause_guard_target(clause, ctx) {
+                        instructions.push(Instruction::LoadLocal(catch_local));
+                        instructions.push(Instruction::IsType {
+                            target: guard_target,
+                        });
+                        instructions.push(Instruction::JumpIf {
+                            target: next_clause_label,
+                        });
+                    }
+                    ctx.enter_scope();
+                    bind_catch_clause_parameter(clause, catch_local, ctx, instructions);
+                    let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
+                    ctx.exit_scope();
                 }
             }
 
-            ctx.enter_scope();
-            bind_catch_clause_parameter(clause, catch_local, ctx, instructions);
-            let _ = lower_statement(catch_clause_statement(clause), ctx, instructions);
-            ctx.exit_scope();
             instructions.push(Instruction::Jump { target: end_label });
             instructions.push(Instruction::Label(next_clause_label));
         }

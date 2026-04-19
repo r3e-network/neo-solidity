@@ -31,6 +31,16 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.GetCallingScriptHash" => {
+                // Task #123 — honour per-frame `msg.sender` overrides pushed
+                // by `handle_contract_call` when entering a self-offsets
+                // "virtual contract boundary". Walking the call stack here
+                // (rather than mutating `caller_account`) keeps `tx.origin`
+                // pinned to `Transaction.Sender` across nested frames while
+                // still giving `msg.sender` the direct caller's identity.
+                if let Some(override_bytes) = self.active_msg_sender_override() {
+                    self.push_stack(StackItem::byte_array(override_bytes))?;
+                    return Ok(true);
+                }
                 if self.caller_account.is_none() {
                     self.caller_account = Some(self.default_account_bytes.clone());
                     self.storage_account = Some(self.default_account.clone());
@@ -84,6 +94,18 @@ impl ExecutionContext {
                 self.push_stack(StackItem::UnsignedInteger(timestamp))?;
                 Ok(true)
             }
+            // Task #113 — Solidity `msg.value` host-injection slot. Returns
+            // the value the host injected via
+            // `NeoRuntime::override_value` / `ExecutionOverrides::value`
+            // for the current invocation. Coalesces `None` → 0 so source
+            // that reads `msg.value` without a host override observes the
+            // Neo-native "no attached value" default (matching the former
+            // literal `push 0` lowering).
+            "System.Runtime.GetMsgValue" => {
+                let value = self.msg_value.unwrap_or(0);
+                self.push_stack(StackItem::UnsignedInteger(value))?;
+                Ok(true)
+            }
             "System.Runtime.GetRandom" => {
                 // Initialize seed on first call from block hash + tx context
                 if self.random_seed.is_none() {
@@ -107,18 +129,79 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.Notify" => {
-                // Neo N3 signature: Notify(eventName, stateArray)
+                // Neo N3 signature: `Notify(eventName, stateArray)`.
+                //
+                // The Solidity frontend uses this same syscall to deliver an
+                // EVM-canonical `LogEntry { topics, data }`. The two shapes are
+                // distinguished by the `eventName` length:
+                //
+                //   * **EVM shape** — `eventName.len() == 32` AND `stateArray`
+                //     is a non-empty `Array`. The 32-byte event_name is
+                //     `keccak256("Name(type1,type2,...)")` i.e. `topic[0]`.
+                //     The stateArray is `[topic1, topic2, ..., data]` —
+                //     indexed-arg topics first (already 32 bytes each), then
+                //     the abi-encoded non-indexed `data` payload as the final
+                //     element. This matches Ethereum's log model: Etherscan,
+                //     TheGraph, and Ethers consumers subscribe by the
+                //     signature keccak and filter by indexed-topic values.
+                //
+                //   * **Legacy Neo shape** — any other combination. The
+                //     event_name is a short ByteArray (the event's
+                //     declaration-time name, e.g. `"Custom"`), and the
+                //     stateArray is the full Neo-native payload. We preserve
+                //     this path for `Syscalls.notify(name, data)` calls in
+                //     devpack code and for any frontend that hasn't adopted
+                //     the EVM shape.
                 let event_name = self.pop_stack()?;
                 let state = self.pop_stack()?;
-                let bytes = Self::stack_item_to_bytes(state);
-                // Preserve event name as the first topic for inspection in tests/debugging.
-                let topic = Self::stack_item_to_bytes(event_name);
-                self.logs.push(LogEntry {
-                    address: self.default_account.clone(),
-                    topics: vec![topic],
-                    data: bytes.clone(),
-                });
-                self.return_data = bytes;
+
+                let event_name_bytes = Self::stack_item_to_bytes(event_name);
+                let is_evm_shape =
+                    event_name_bytes.len() == 32 && matches!(state, StackItem::Array(_));
+
+                if is_evm_shape {
+                    // Split the stateArray into [topic1, topic2, ..., data].
+                    // The data element is always the LAST element — indexed
+                    // args precede it in declaration order.
+                    let StackItem::Array(items_rc) = state else {
+                        // Defensive — we just matched Array above.
+                        return Ok(true);
+                    };
+                    let items = items_rc.borrow().clone();
+                    drop(items_rc);
+
+                    let (indexed_topics, data_bytes) = if items.is_empty() {
+                        (Vec::new(), Vec::new())
+                    } else {
+                        let (indexed_slice, tail_slice) = items.split_at(items.len() - 1);
+                        let topics: Vec<Vec<u8>> = indexed_slice
+                            .iter()
+                            .map(|item| Self::stack_item_to_bytes(item.clone()))
+                            .collect();
+                        let data =
+                            Self::stack_item_to_bytes(tail_slice[0].clone());
+                        (topics, data)
+                    };
+
+                    let mut topics = Vec::with_capacity(1 + indexed_topics.len());
+                    topics.push(event_name_bytes);
+                    topics.extend(indexed_topics);
+                    self.logs.push(LogEntry {
+                        address: self.default_account.clone(),
+                        topics,
+                        data: data_bytes.clone(),
+                    });
+                    self.return_data = data_bytes;
+                } else {
+                    // Legacy Neo-native shape.
+                    let bytes = Self::stack_item_to_bytes(state);
+                    self.logs.push(LogEntry {
+                        address: self.default_account.clone(),
+                        topics: vec![event_name_bytes],
+                        data: bytes.clone(),
+                    });
+                    self.return_data = bytes;
+                }
                 Ok(true)
             }
             "System.Runtime.Log" => {

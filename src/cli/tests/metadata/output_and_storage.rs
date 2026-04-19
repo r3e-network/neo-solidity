@@ -149,6 +149,7 @@ fn standard_abi_includes_constructor_and_event() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let regular = FunctionMetadata {
@@ -178,6 +179,7 @@ fn standard_abi_includes_constructor_and_event() {
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     };
 
     let metadata = ContractMetadata {

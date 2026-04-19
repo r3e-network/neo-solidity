@@ -167,26 +167,64 @@ fn try_lower_member_call(
 
         // Fallback: treat unresolved member calls on address-like values as external
         // contract calls. Lower to System.Contract.Call with default flags.
-        let is_external_target = matches!(
-            infer_type_from_expression(inner.as_ref(), ctx),
-            Some(ValueType::Address)
-        ) || matches!(
-            inner.as_ref(),
-            Expression::FunctionCall(_, cast_func, cast_args)
-                if cast_args.len() == 1
-                    && resolve_contract_type_name(cast_func.as_ref(), ctx).is_some()
-                    && (matches!(
-                        infer_type_from_expression(&cast_args[0], ctx),
-                        Some(ValueType::Address)
-                    ) || address_bytes_le_from_expression(&cast_args[0]).is_some())
-        ) || matches!(
-            inner.as_ref(),
-            // Heuristic: chained member calls on a function-call result often
-            // represent interface/contract handles (e.g. `_getRouter().foo()`).
-            // If type inference cannot prove an internal target, treat it as
-            // an external call target for compatibility.
-            Expression::FunctionCall(_, _, _)
-        );
+        //
+        // Task #87 — `using L1 for uint; using L2 for uint; x.f1().f2();` arrives
+        // here with `inner = x.f1()` (an `Expression::FunctionCall`). The generic
+        // heuristic below treats *any* FunctionCall receiver as an external
+        // contract handle, which miscompiles the method chain into a
+        // `System.Contract.Call` using the intermediate value as a target hash
+        // (runtime returns empty). When the outer member binds to a resolved
+        // using-for library function whose first parameter can accept the
+        // inner call's concrete return type, prefer the library-dispatch
+        // branch below instead of the external-call fallback. We restrict
+        // this carve-out to FunctionCall receivers so unrelated shadow cases
+        // (e.g. a parameter named identically to an in-scope contract type)
+        // still fall through to the existing address-receiver checks.
+        let inner_is_function_call = matches!(inner.as_ref(), Expression::FunctionCall(_, _, _));
+        let chained_call_binds_to_using_library = inner_is_function_call
+            && ctx.has_using_directives()
+            && ctx.function_names.contains(&member.name)
+            && ctx
+                .neo_function_name(&member.name, args.len() + 1)
+                .is_some();
+        // Task #93 — `Lib.val()` where `Lib` names a non-builtin library
+        // whose body was merged into this contract must lower as an internal
+        // call. Without this carve-out, `Variable("Lib")` infers to
+        // `ValueType::Address` (libraries land in `contract_types`) and the
+        // external-target fallback below emits
+        // `System.Contract.Call([0;20], "val", …)` → empty return-data.
+        let merged_static_library_call = resolve_static_library_base(inner.as_ref(), ctx)
+            .as_deref()
+            .is_some_and(|base| {
+                !matches!(
+                    base,
+                    "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
+                )
+            })
+            && ctx.function_names.contains(&member.name)
+            && ctx.neo_function_name(&member.name, args.len()).is_some();
+        let is_external_target = !chained_call_binds_to_using_library
+            && !merged_static_library_call
+            && (matches!(
+                infer_type_from_expression(inner.as_ref(), ctx),
+                Some(ValueType::Address)
+            ) || matches!(
+                inner.as_ref(),
+                Expression::FunctionCall(_, cast_func, cast_args)
+                    if cast_args.len() == 1
+                        && resolve_contract_type_name(cast_func.as_ref(), ctx).is_some()
+                        && (matches!(
+                            infer_type_from_expression(&cast_args[0], ctx),
+                            Some(ValueType::Address)
+                        ) || address_bytes_le_from_expression(&cast_args[0]).is_some())
+            ) || matches!(
+                inner.as_ref(),
+                // Heuristic: chained member calls on a function-call result often
+                // represent interface/contract handles (e.g. `_getRouter().foo()`).
+                // If type inference cannot prove an internal target, treat it as
+                // an external call target for compatibility.
+                Expression::FunctionCall(_, _, _)
+            ));
 
         if is_external_target {
             if is_low_level_evm_member(&member.name) {
@@ -480,6 +518,29 @@ fn try_lower_member_call(
                     }
                 }
 
+                // Task #91 — storage-pointer receiver inlining. When the
+                // library function declares `T storage d` as its first
+                // parameter, a regular `CallFunction` would materialise the
+                // receiver into a struct copy and `d.x = v` would mutate a
+                // local. Inline the body with `d` aliased to the caller's
+                // `StorageReference` instead. See
+                // `inline_library_storage_call` below.
+                if let Some(body_info) = ctx
+                    .library_storage_body(&member.name, args.len() + 1)
+                    .cloned()
+                {
+                    if let Some(reference) = resolve_storage_reference(inner.as_ref(), ctx) {
+                        let produces_value = body_info.return_type.is_some();
+                        let _ = inline_library_storage_call(
+                            body_info, reference, args, ctx, instructions,
+                        );
+                        // Void library calls must report `false` so the outer
+                        // expression-statement lowering does not emit a
+                        // spurious `Drop` against an empty stack.
+                        return Some(produces_value);
+                    }
+                }
+
                 (name, args.len() + 1, true)
             } else if let Some(name) = without_receiver {
                 // Compatibility fallback for merged library helpers where the
@@ -621,4 +682,86 @@ fn try_lower_member_call(
     }
 
     None
+}
+
+/// Task #91 — inline a member call where the library function's first
+/// parameter is `T storage`. Binds `param_names[0]` as a storage alias to
+/// `receiver`, the remaining params as locals populated from call-site args,
+/// then lowers the body in place. Any `return expr;` inside the body is
+/// redirected via `inline_return_stack` to the synthesised `__ret` local.
+fn inline_library_storage_call(
+    body_info: LibraryStorageBody,
+    receiver: StorageReference,
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    // Step 1: evaluate args in the caller's scope (so `v` resolves to the
+    // caller's parameter) and stash each value in a fresh temp local.
+    let mut ok = true;
+    let mut arg_temp_slots: Vec<usize> = Vec::with_capacity(args.len());
+    for (index, arg) in args.iter().enumerate() {
+        let param_type = body_info.value_param_types.get(index).cloned().flatten();
+        let tmp = ctx.allocate_local(format!("__libarg_{}", index), param_type);
+        if !lower_expression(arg, ctx, instructions) {
+            ok = false;
+        }
+        instructions.push(Instruction::StoreLocal(tmp));
+        arg_temp_slots.push(tmp);
+    }
+
+    // Step 2: hide any caller-parameter names that collide with the library
+    // parameter names, so the body's `v` resolves to our local, not the
+    // caller's `LoadParameter(…)`.
+    let hidden_params: Vec<(String, Option<usize>)> = body_info
+        .param_names
+        .iter()
+        .filter(|name| !name.is_empty())
+        .map(|name| (name.clone(), ctx.hide_param_binding(name)))
+        .collect();
+
+    ctx.enter_scope();
+    let recv_name = body_info.param_names.first().cloned().unwrap_or_default();
+    if !recv_name.is_empty() {
+        ctx.set_storage_alias(recv_name, receiver);
+    }
+
+    // Step 3: rebind each library value-parameter as a local in the inlined
+    // scope, copying the value from its stashed temp.
+    for (index, tmp_slot) in arg_temp_slots.iter().enumerate() {
+        let param_name = body_info
+            .param_names
+            .get(index + 1)
+            .cloned()
+            .unwrap_or_default();
+        if param_name.is_empty() {
+            continue;
+        }
+        let param_type = body_info.value_param_types.get(index).cloned().flatten();
+        let slot = ctx.allocate_local(param_name, param_type);
+        instructions.push(Instruction::LoadLocal(*tmp_slot));
+        instructions.push(Instruction::StoreLocal(slot));
+    }
+
+    // Step 4: install the inline-return redirect and lower the body.
+    let ret_slot = if body_info.return_type.is_some() {
+        Some(ctx.allocate_local("__ret".to_string(), body_info.return_type.clone()))
+    } else {
+        None
+    };
+    let end_label = ctx.next_label();
+    ctx.push_inline_return(ret_slot, end_label);
+
+    lower_statement(&body_info.body, ctx, instructions);
+
+    ctx.pop_inline_return();
+    instructions.push(Instruction::Label(end_label));
+    if let Some(slot) = ret_slot {
+        instructions.push(Instruction::LoadLocal(slot));
+    }
+    ctx.exit_scope();
+    for (name, index) in hidden_params {
+        ctx.restore_param_binding(name, index);
+    }
+    ok
 }

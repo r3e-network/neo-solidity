@@ -4,11 +4,25 @@ fn lower_statement(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     match statement {
-        // NeoVM uses BigInteger arithmetic — no overflow is possible — so
-        // `unchecked { }` blocks are semantically identical to normal blocks.
-        // The `..` pattern safely ignores the `unchecked: bool` field.
-        Statement::Block { statements, .. } => {
-            lower_block_statement(statements, ctx, instructions)
+        // Task #30: track `unchecked { ... }` depth so Solidity 0.8.x checked
+        // arithmetic guards are skipped for ops inside the block. The compiler
+        // (not NeoVM) owns this semantic; the runtime sees raw ADD/SUB/MUL
+        // either way, and the difference is whether we also emit the `result
+        // < lhs` / `rhs > lhs` / `result / rhs != lhs` guard sequences around
+        // them.
+        Statement::Block {
+            statements,
+            unchecked,
+            ..
+        } => {
+            if *unchecked {
+                ctx.enter_unchecked_block();
+            }
+            let result = lower_block_statement(statements, ctx, instructions);
+            if *unchecked {
+                ctx.exit_unchecked_block();
+            }
+            result
         }
         Statement::If(_, condition, then_stmt, else_stmt) => {
             lower_if_statement(condition, then_stmt, else_stmt.as_deref(), ctx, instructions)
@@ -32,7 +46,7 @@ fn lower_statement(
             lower_variable_definition_statement(decl, init.as_ref(), ctx, instructions)
         }
         Statement::Emit(_, call) => lower_emit_statement(call, ctx, instructions),
-        Statement::Assembly { .. } => lower_assembly_statement(ctx, instructions),
+        Statement::Assembly { block, .. } => lower_assembly_statement(block, ctx, instructions),
         Statement::Try(_, expr, handler, catches) => {
             lower_try_statement(expr, handler, catches, ctx, instructions)
         }

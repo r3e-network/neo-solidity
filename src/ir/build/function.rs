@@ -2,12 +2,14 @@ impl Function {
     #[allow(clippy::too_many_arguments)]
     fn from_metadata_with_warnings(
         metadata: &FunctionMetadata,
+        current_contract_name: &str,
         state_variables: &[StateVariableMetadata],
         state_index_map: &HashMap<String, usize>,
         state_types: &[ValueType],
         defined_struct_types: &[ValueType],
         event_index_map: &HashMap<String, usize>,
         event_signature_map: &HashMap<String, Vec<ManifestType>>,
+        event_params_map: &HashMap<String, EventSignature>,
         enum_variant_map: &HashMap<String, HashMap<String, u64>>,
         contract_types: &HashSet<String>,
         selector_registry: &SelectorRegistry,
@@ -20,6 +22,7 @@ impl Function {
         function_param_names: &HashMap<(String, usize), Vec<String>>,
         void_functions: &HashSet<String>,
         super_method_map: &HashMap<String, String>,
+        library_storage_bodies: &HashMap<(String, usize), LibraryStorageBody>,
     ) -> Result<(Self, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
         let parameters: Vec<ValueType> = metadata
             .parameters
@@ -34,10 +37,21 @@ impl Function {
             .collect();
 
         let param_index_map = build_parameter_index_map(metadata);
+        // Task #64 — Public/External functions are directly callable from
+        // the host, so their RET hits the main-frame `stack_item_to_bytes`
+        // path. Route multi-value returns through `abiEncode` for those;
+        // leave Internal/Private alone so intra-contract callers can still
+        // destructure via `ArrayGet`.
+        let is_externally_callable = matches!(
+            metadata.visibility,
+            crate::frontend::VisibilityKind::External | crate::frontend::VisibilityKind::Public
+        );
         let mut ctx = LoweringContext::new(
             &metadata.name,
+            current_contract_name,
             metadata.selector,
             metadata.state_mutability.is_safe(),
+            is_externally_callable,
             param_index_map,
             &parameters,
             state_variables,
@@ -46,6 +60,7 @@ impl Function {
             defined_struct_types,
             event_index_map,
             event_signature_map,
+            event_params_map,
             enum_variant_map,
             contract_types,
             selector_registry,
@@ -58,13 +73,33 @@ impl Function {
             function_param_names,
             void_functions,
             super_method_map,
+            library_storage_bodies,
         );
 
         let mut instructions: Vec<Instruction> = Vec::new();
         let mut return_slots: Vec<Option<usize>> = Vec::new();
-        for (ret_param, value_type) in metadata.return_parameters.iter().zip(returns.iter()) {
+        // Task #114 — when modifier epilogue redirect is active, every
+        // declared return needs a backing slot (even the unnamed ones) so
+        // `Return(expr)` inside the body can store through to it before
+        // jumping past the epilogue. We allocate synthetic names so the
+        // rest of the lowering continues to see `return_slots[i] == Some`
+        // uniformly.
+        let needs_synth_return_slots = metadata.had_modifier_epilogue && !returns.is_empty();
+        for (idx, (ret_param, value_type)) in metadata
+            .return_parameters
+            .iter()
+            .zip(returns.iter())
+            .enumerate()
+        {
             if let Some(name) = &ret_param.name {
                 let slot = ctx.allocate_local(name.clone(), Some(value_type.clone()));
+                if push_default_for_value_type(value_type, &mut ctx, &mut instructions) {
+                    instructions.push(Instruction::StoreLocal(slot));
+                }
+                return_slots.push(Some(slot));
+            } else if needs_synth_return_slots {
+                let synth_name = format!("__modret_{idx}");
+                let slot = ctx.allocate_local(synth_name, Some(value_type.clone()));
                 if push_default_for_value_type(value_type, &mut ctx, &mut instructions) {
                     instructions.push(Instruction::StoreLocal(slot));
                 }
@@ -74,10 +109,39 @@ impl Function {
             }
         }
         ctx.set_return_info(return_slots.clone(), returns.clone());
+
+        // Task #114 — activate the modifier-return redirect before lowering
+        // the body. `lower_return_statement` will check this and emit
+        // "store to slots + jump to modifier-break label" instead of a raw
+        // RET, so modifier epilogues still run between the body's `return`
+        // and the function's actual exit.
+        let modifier_end_label = if needs_synth_return_slots {
+            let label = ctx.next_label();
+            ctx.set_modifier_return_redirect(return_slots.clone(), label);
+            Some(label)
+        } else {
+            None
+        };
+
         let mut returned = false;
 
         if let Some(body) = &metadata.body {
             returned = lower_statement(body, &mut ctx, &mut instructions);
+        }
+
+        // Clear the redirect before the trailing fall-through emission so
+        // the explicit `Return` we emit below isn't itself redirected.
+        if needs_synth_return_slots {
+            ctx.clear_modifier_return_redirect();
+            if let Some(end_label) = modifier_end_label {
+                instructions.push(Instruction::Label(end_label));
+            }
+            // Force the fall-through return emission: the body may have
+            // ended with a `Return` that was redirected (so `returned` is
+            // `true` from the redirect's `return true;`), but control can
+            // fall through the epilogue too. We always emit the final RET
+            // sequence when modifier epilogue is active.
+            returned = false;
         }
 
         if !returned {
@@ -95,7 +159,36 @@ impl Function {
                         } else {
                             instructions.push(Instruction::ReturnVoid);
                         }
+                    } else if is_externally_callable {
+                        // Task #64 — implicit end-of-function multi-return.
+                        // Mirror the explicit `return;` path in
+                        // return_revert.rs: load each declared return local
+                        // (or a default for unnamed slots) and hand the
+                        // sequence to `abiEncode` so the main-frame RET
+                        // emits EVM-canonical BE-packed bytes rather than
+                        // a serde_json-serialised StackItem::Array.
+                        //
+                        // Guarded on `is_externally_callable` — internal
+                        // functions keep the Array shape so intra-contract
+                        // callers can still destructure via `ArrayGet`.
+                        for (slot, value_type) in return_slots.iter().zip(returns.iter()) {
+                            if let Some(local_index) = slot {
+                                instructions.push(Instruction::LoadLocal(*local_index));
+                            } else {
+                                push_default_for_value_type(
+                                    value_type,
+                                    &mut ctx,
+                                    &mut instructions,
+                                );
+                            }
+                        }
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::AbiEncode,
+                            arg_count: returns.len(),
+                        });
+                        instructions.push(Instruction::Return);
                     } else {
+                        // Legacy Array-packed shape for internal/private multi-return.
                         let tmp_id = ctx.next_label();
                         let array_local = ctx.allocate_local(
                             format!("__return_tuple_{tmp_id}"),

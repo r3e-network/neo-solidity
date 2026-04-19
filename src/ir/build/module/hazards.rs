@@ -43,13 +43,15 @@ fn direct_hazards(function: &Function) -> Hazards {
             | Instruction::LoadMappingElement { .. }
             | Instruction::LoadStructField { .. }
             | Instruction::LoadStructArrayElement { .. }
+            | Instruction::LoadStructFieldMappingElement { .. }
             | Instruction::LoadStorageDynamic => {
                 hazards.reads_state = true;
             }
             Instruction::StoreState(_)
             | Instruction::StoreMappingElement { .. }
             | Instruction::StoreStructField { .. }
-            | Instruction::StoreStructArrayElement { .. } => {
+            | Instruction::StoreStructArrayElement { .. }
+            | Instruction::StoreStructFieldMappingElement { .. } => {
                 hazards.writes_state = true;
             }
             Instruction::LoadRuntimeValue(_) => {

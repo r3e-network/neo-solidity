@@ -1,3 +1,59 @@
+/// Task #30 slice 4: dispatch compound-assignment arithmetic through the
+/// same overflow-guard path as regular binary expressions. When the compound
+/// op would require a uint256 checked guard, widen both operands and emit the
+/// checked guard; otherwise emit a plain `BinaryOp` for backwards
+/// compatibility. The LHS/RHS expressions determine the type inference so
+/// `x += 1` where `x: uint256` takes the guarded path.
+fn emit_compound_binary_op_for_lhs(
+    lhs: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    op: BinaryOperator,
+) {
+    // Construct a synthetic "1" literal for the typing check (compound-assign
+    // post/pre-increment ops always use a literal RHS or an inferred RHS
+    // whose type matches LHS). Use the LHS as the typed operand and a literal
+    // number as the partner so `is_literal_number` on the partner permits
+    // guard emission (partner being literal alone doesn't disable the guard).
+    let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
+    let emit_guard = should_emit_u256_arith_guard(lhs, &one, ctx, op);
+    // Task #67: int256 compound-assign overflow guard.
+    let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(lhs, &one, ctx, op);
+    if emit_guard {
+        emit_widen_both_u256(instructions);
+        emit_checked_arith_guard(ctx, instructions, op);
+    } else if emit_i256_guard {
+        emit_checked_arith_guard_i256(ctx, instructions, op);
+    } else {
+        instructions.push(Instruction::BinaryOp(op));
+    }
+}
+
+/// Task #118: lower the RHS of a compound assignment and clean up the leaked
+/// MEMCPY destination buffer that `coerce_to_fixed_bytes` (invoked by
+/// `bytesN(..)` / `address(..)` casts — see `is_fixed_bytes_cast_expr`)
+/// leaves beneath the canonical ByteString result. Without this cleanup, a
+/// compound op like `r |= bytes32(shifted)` would pop the leaked dst buffer
+/// and the canonical result for its two operands — completely ignoring the
+/// already-loaded `r` value beneath and leaking it onto the stack. Mirrors
+/// the Swap;Drop pattern already used by `lower_binary_expr` in
+/// `src/ir/expressions/dispatch/binary.rs`. See fuzz harness
+/// `batch51_aa4_bytes_to_bytes32_bitwise_shl_or_assembly`.
+fn lower_compound_rhs(
+    rhs: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if !lower_expression(rhs, ctx, instructions) {
+        return false;
+    }
+    if is_fixed_bytes_cast_expr(rhs) {
+        instructions.push(Instruction::Swap);
+        instructions.push(Instruction::Drop(ValueType::Any));
+    }
+    true
+}
+
 fn lower_compound_assignment(
     lhs: &Expression,
     rhs: &Expression,
@@ -46,11 +102,11 @@ fn lower_compound_assignment(
         });
 
         // Evaluate RHS after LHS value (left-to-right semantics for `lhs op rhs`).
-        if !lower_expression(rhs, ctx, instructions) {
+        if !lower_compound_rhs(rhs, ctx, instructions) {
             return false;
         }
 
-        instructions.push(Instruction::BinaryOp(op));
+        emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
 
         // Store result while preserving it as the expression value.
         let result_local = ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
@@ -72,6 +128,28 @@ fn lower_compound_assignment(
     if let Some(reference) = resolve_storage_reference(lhs, ctx) {
         if !ctx.ensure_state_writable(reference.state_index) {
             return false;
+        }
+
+        // Task #82: trailing-key storage references (e.g. `slots[k].balances[a] += v`)
+        // must route through the general load/store helpers so the nested-mapping
+        // slot derivation is applied.
+        if !reference.trailing_key_expressions.is_empty() {
+            let tmp_id = ctx.next_label();
+            let result_local = ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
+            if !emit_storage_load(&reference, ctx, instructions) {
+                return false;
+            }
+            if !lower_compound_rhs(rhs, ctx, instructions) {
+                return false;
+            }
+            emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
+            instructions.push(Instruction::StoreLocal(result_local));
+            instructions.push(Instruction::LoadLocal(result_local));
+            if !emit_storage_store(&reference, ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::LoadLocal(result_local));
+            return true;
         }
 
         if let Some(field) = reference.field_path.last() {
@@ -108,11 +186,11 @@ fn lower_compound_assignment(
             });
 
             // Evaluate RHS after LHS value (left-to-right semantics for `lhs op rhs`).
-            if !lower_expression(rhs, ctx, instructions) {
+            if !lower_compound_rhs(rhs, ctx, instructions) {
                 return false;
             }
 
-            instructions.push(Instruction::BinaryOp(op));
+            emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
 
             // Store result while preserving it as the expression value.
             let result_local = ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
@@ -154,11 +232,11 @@ fn lower_compound_assignment(
         instructions.push(Instruction::LoadLocal(index_local));
         instructions.push(Instruction::ArrayGet);
 
-        if !lower_expression(rhs, ctx, instructions) {
+        if !lower_compound_rhs(rhs, ctx, instructions) {
             return false;
         }
 
-        instructions.push(Instruction::BinaryOp(op));
+        emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
 
         // Store and return the updated value.
         let result_local = ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
@@ -196,10 +274,10 @@ fn lower_compound_assignment(
                         instructions.push(Instruction::ArrayGet);
 
                         // Evaluate RHS and apply operation.
-                        if !lower_expression(rhs, ctx, instructions) {
+                        if !lower_compound_rhs(rhs, ctx, instructions) {
                             return false;
                         }
-                        instructions.push(Instruction::BinaryOp(op));
+                        emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
                         instructions.push(Instruction::StoreLocal(result_local));
 
                         // Store updated field value back into the struct local.
@@ -222,6 +300,13 @@ fn lower_compound_assignment(
     if let Expression::Variable(identifier) = lhs {
         let store_instr = if let Some(local) = ctx.resolve_local(&identifier.name) {
             Instruction::StoreLocal(local)
+        } else if let Some(param_index) = ctx.param_index_map.get(&identifier.name).copied() {
+            // Task #156 — compound-assign on a function parameter (`a += 1;`).
+            // Same rationale as the plain-assign path: `ensure_local` below
+            // would silently divert writes to a shadow local that reads never
+            // see (reads check `param_index_map` first). Emit `StoreParameter`
+            // to update the caller-visible slot.
+            Instruction::StoreParameter(param_index)
         } else if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {
             if !ctx.ensure_state_writable(state_index) {
                 return false;
@@ -239,11 +324,11 @@ fn lower_compound_assignment(
         if !lower_expression(lhs, ctx, instructions) {
             return false;
         }
-        if !lower_expression(rhs, ctx, instructions) {
+        if !lower_compound_rhs(rhs, ctx, instructions) {
             return false;
         }
 
-        instructions.push(Instruction::BinaryOp(op));
+        emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
         instructions.push(Instruction::StoreLocal(result_local));
 
         instructions.push(Instruction::LoadLocal(result_local));
@@ -256,11 +341,18 @@ fn lower_compound_assignment(
     // Compatibility fallback: preserve side effects and produce a placeholder result.
     let mut success = true;
     if lower_expression(lhs, ctx, instructions) {
+        if is_fixed_bytes_cast_expr(lhs) {
+            // MEMCPY-leaked dst buffer beneath the canonical result — drop both.
+            instructions.push(Instruction::Drop(ValueType::Any));
+        }
         instructions.push(Instruction::Drop(ValueType::Any));
     } else {
         success = false;
     }
     if lower_expression(rhs, ctx, instructions) {
+        if is_fixed_bytes_cast_expr(rhs) {
+            instructions.push(Instruction::Drop(ValueType::Any));
+        }
         instructions.push(Instruction::Drop(ValueType::Any));
     } else {
         success = false;

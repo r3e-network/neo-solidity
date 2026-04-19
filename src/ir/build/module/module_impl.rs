@@ -41,6 +41,47 @@ impl Module {
             })
             .collect();
 
+        // Build the EVM-canonical event-signature map — one `EventSignature`
+        // per declared event, with the keccak-256 of the canonical signature
+        // string precomputed as `topic[0]`. The `lower_emit` statement reads
+        // this map to emit the EVM-spec log shape:
+        //   topic[0] = keccak256("Name(type1,type2,...)")
+        //   topic[1..N] = each indexed arg (32-byte BE or keccak256(value))
+        //   data = abi.encode(non_indexed_args)
+        let event_params_map: HashMap<String, EventSignature> = metadata
+            .events
+            .iter()
+            .map(|event| {
+                let canonical = event_canonical_signature(event);
+                let mut hasher = sha3::Keccak256::new();
+                hasher.update(canonical.as_bytes());
+                let digest = hasher.finalize();
+                let mut topic0 = [0u8; 32];
+                topic0.copy_from_slice(&digest);
+                let params = event
+                    .parameters
+                    .iter()
+                    .map(|p| {
+                        let canonical_type = event_canonical_param_type(&p.ty);
+                        let is_dynamic = event_canonical_type_is_dynamic(&canonical_type);
+                        EventParamInfo {
+                            canonical_type,
+                            indexed: p.indexed,
+                            is_dynamic,
+                        }
+                    })
+                    .collect();
+                (
+                    event.name.clone(),
+                    EventSignature {
+                        canonical,
+                        topic0,
+                        params,
+                    },
+                )
+            })
+            .collect();
+
         let enum_variant_map = build_enum_variant_map(&metadata.enums);
         let contract_types: HashSet<String> = metadata.contract_types.iter().cloned().collect();
         let selector_registry = metadata.selector_registry.as_ref();
@@ -107,6 +148,49 @@ impl Module {
             &metadata.contract_types,
         );
 
+        // Task #91 — collect inlinable bodies for methods whose first
+        // parameter is `T storage` (a Solidity storage pointer). These are
+        // typically library functions merged from `using L for L.Data`;
+        // member-style calls against a struct state variable cannot pass
+        // the receiver by value, so `member_calls.rs` inlines the body.
+        let library_storage_bodies: HashMap<(String, usize), LibraryStorageBody> = metadata
+            .methods
+            .iter()
+            .filter_map(|method| {
+                let first_param = method.parameters.first()?;
+                let is_storage_pointer =
+                    first_param.storage.as_deref() == Some("storage");
+                let first_ty =
+                    first_param.neo_type.as_ref().map(ValueType::from_neotype)?;
+                if !is_storage_pointer || !matches!(first_ty, ValueType::Struct { .. }) {
+                    return None;
+                }
+                let body = method.body.clone()?;
+                let param_names: Vec<String> = method
+                    .parameters
+                    .iter()
+                    .map(|p| p.name.clone().unwrap_or_default())
+                    .collect();
+                if param_names.iter().any(|n| n.is_empty()) {
+                    return None;
+                }
+                let value_param_types: Vec<Option<ValueType>> = method
+                    .parameters
+                    .iter()
+                    .skip(1)
+                    .map(|p| p.neo_type.as_ref().map(ValueType::from_neotype))
+                    .collect();
+                let return_type = method
+                    .return_parameters
+                    .first()
+                    .and_then(|p| p.neo_type.as_ref().map(ValueType::from_neotype));
+                Some((
+                    (method.name.clone(), method.parameters.len()),
+                    LibraryStorageBody { param_names, value_param_types, body, return_type },
+                ))
+            })
+            .collect();
+
         let mut functions = Vec::new();
         let mut constructor_indices = Vec::new();
         let mut deploy_metadata: Option<&FunctionMetadata> = None;
@@ -121,12 +205,14 @@ impl Module {
 
             match Function::from_metadata_with_warnings(
                 method,
+                &metadata.name,
                 &metadata.state_variables,
                 &state_index_map,
                 &state_types,
                 &defined_struct_types,
                 &event_index_map,
                 &event_signature_map,
+                &event_params_map,
                 &enum_variant_map,
                 &contract_types,
                 selector_registry,
@@ -139,6 +225,7 @@ impl Module {
                 &function_param_names,
                 &void_functions,
                 &metadata.super_method_map,
+                &library_storage_bodies,
             ) {
                 Ok((function, mut function_warnings)) => {
                     if matches!(function.kind, FunctionKind::Constructor) {
@@ -159,6 +246,7 @@ impl Module {
 
             match build_deploy_function_with_warnings(
                 deploy_metadata,
+                &metadata.name,
                 &constructors,
                 &metadata.state_variables,
                 &state_index_map,
@@ -166,6 +254,7 @@ impl Module {
                 &defined_struct_types,
                 &event_index_map,
                 &event_signature_map,
+                &event_params_map,
                 &enum_variant_map,
                 &contract_types,
                 selector_registry,
@@ -178,6 +267,7 @@ impl Module {
                 &function_param_names,
                 &void_functions,
                 &metadata.super_method_map,
+                &library_storage_bodies,
             ) {
                 Ok((function, mut deploy_warnings)) => {
                     functions.push(function);

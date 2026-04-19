@@ -252,6 +252,152 @@ fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(
 		_ => None,
 	}
 }
+/// Task #H5: detect `address(0xNN)` targets where NN is in the EVM
+/// precompile range 0x01..=0x09. Returns the precompile index if the
+/// target is a compile-time constant within that range.
+///
+/// The `inner` in `inner.staticcall(...)` for `address(0xNN).staticcall(...)`
+/// is `FunctionCall(Type(Address), [NumberLiteral(0xNN)])`. We unwrap the
+/// `address(...)` cast and then delegate to `address_bytes_le_from_expression`
+/// for the underlying literal parsing (same codepath used by the address
+/// type constructor at `type_constructors.rs:88`). Runtime-computed
+/// addresses never match.
+fn precompile_index_from_target(expr: &Expression) -> Option<u8> {
+	let bytes = match expr {
+		Expression::Parenthesis(_, inner) => return precompile_index_from_target(inner),
+		Expression::FunctionCall(_, func, args) if args.len() == 1 => {
+			match func.as_ref() {
+				Expression::Type(_, PtType::Address) | Expression::Type(_, PtType::AddressPayable) => {
+					address_bytes_le_from_expression(&args[0])?
+				}
+				_ => return None,
+			}
+		}
+		_ => address_bytes_le_from_expression(expr)?,
+	};
+	if bytes.len() != 20 {
+		return None;
+	}
+	// UInt160 LE: byte[0] holds the low byte. 0x01..=0x09 precompiles have
+	// all other bytes zero.
+	if bytes.iter().skip(1).any(|b| *b != 0) {
+		return None;
+	}
+	match bytes[0] {
+		idx @ 0x01..=0x09 => Some(idx),
+		_ => None,
+	}
+}
+
+/// Emit an `(ok, data)` tuple where `data` is the result of routing a
+/// precompile-address staticcall to its CryptoLib / StdLib native
+/// equivalent. Covers 0x02 sha256, 0x03 ripemd160, 0x04 identity (Task #H5),
+/// 0x01 ecrecover (Task #H6a), and 0x05 modexp (Task #H6b, 1-byte-operand
+/// subset). Returns `true` if the index was handled, `false` so the caller
+/// can fall through to the generic opaque-bytes path for unsupported
+/// indices (0x06..0x08 BN256/BLS — operand shapes differ from Neo's
+/// BLS12-381; 0x09 blake2f — unsupported).
+fn emit_precompile_staticcall(
+	index: u8,
+	payload: &Expression,
+	ctx: &mut LoweringContext,
+	instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+	// Task #H6a / #H6b: 0x01 ecrecover and 0x05 modexp route to dedicated
+	// bytecode builtins that decode the ABI payload inline (SUBSTR-based).
+	// Emit the `(true, result32)` tuple directly here and short-circuit.
+	if matches!(index, 0x01 | 0x05) {
+		let builtin = match index {
+			0x01 => BuiltinCall::PrecompileEcrecover,
+			_ => BuiltinCall::PrecompileModexp,
+		};
+		let tuple_local = ctx.allocate_local("__call_tuple".to_string(), None);
+		instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(2u8))));
+		instructions.push(Instruction::NewArray { element_type: ValueType::Any });
+		instructions.push(Instruction::StoreLocal(tuple_local));
+
+		let data_local = ctx.allocate_local("__call_data".to_string(), None);
+		if !lower_expression(payload, ctx, instructions) {
+			return Some(false);
+		}
+		instructions.push(Instruction::CallBuiltin { builtin, arg_count: 1 });
+		instructions.push(Instruction::StoreLocal(data_local));
+
+		instructions.push(Instruction::LoadLocal(tuple_local));
+		instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+		instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+		instructions.push(Instruction::ArraySet);
+
+		instructions.push(Instruction::LoadLocal(tuple_local));
+		instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+		instructions.push(Instruction::LoadLocal(data_local));
+		instructions.push(Instruction::ArraySet);
+
+		instructions.push(Instruction::LoadLocal(tuple_local));
+		return Some(true);
+	}
+
+	// Resolve the native method first so unsupported indices skip local
+	// allocation / side-effect emission entirely.
+	let (contract, method) = match index {
+		0x02 => (NativeContract::CryptoLib, "sha256".to_string()),
+		0x03 => (NativeContract::CryptoLib, "ripemd160".to_string()),
+		0x04 => {
+			// Identity: out = input. Short-circuit without invoking a native.
+			let tuple_local = ctx.allocate_local("__call_tuple".to_string(), None);
+			instructions
+				.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(2u8))));
+			instructions.push(Instruction::NewArray { element_type: ValueType::Any });
+			instructions.push(Instruction::StoreLocal(tuple_local));
+			let data_local = ctx.allocate_local("__call_data".to_string(), None);
+			if !lower_expression(payload, ctx, instructions) {
+				return Some(false);
+			}
+			instructions.push(Instruction::StoreLocal(data_local));
+			instructions.push(Instruction::LoadLocal(tuple_local));
+			instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+			instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+			instructions.push(Instruction::ArraySet);
+			instructions.push(Instruction::LoadLocal(tuple_local));
+			instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+			instructions.push(Instruction::LoadLocal(data_local));
+			instructions.push(Instruction::ArraySet);
+			instructions.push(Instruction::LoadLocal(tuple_local));
+			return Some(true);
+		}
+		_ => return None,
+	};
+
+	// Build `(ok, data)` tuple and emit: data = CryptoLib.<method>(payload).
+	let tuple_local = ctx.allocate_local("__call_tuple".to_string(), None);
+	instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(2u8))));
+	instructions.push(Instruction::NewArray { element_type: ValueType::Any });
+	instructions.push(Instruction::StoreLocal(tuple_local));
+
+	let data_local = ctx.allocate_local("__call_data".to_string(), None);
+	if !lower_expression(payload, ctx, instructions) {
+		return Some(false);
+	}
+	instructions.push(Instruction::CallBuiltin {
+		builtin: BuiltinCall::NativeCall { contract, method },
+		arg_count: 1,
+	});
+	instructions.push(Instruction::StoreLocal(data_local));
+
+	instructions.push(Instruction::LoadLocal(tuple_local));
+	instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+	instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+	instructions.push(Instruction::ArraySet);
+
+	instructions.push(Instruction::LoadLocal(tuple_local));
+	instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+	instructions.push(Instruction::LoadLocal(data_local));
+	instructions.push(Instruction::ArraySet);
+
+	instructions.push(Instruction::LoadLocal(tuple_local));
+	Some(true)
+}
+
 fn try_lower_low_level_address_call(
 	func: &Expression,
 	args: &[Expression],
@@ -274,25 +420,57 @@ fn try_lower_low_level_address_call(
 		let member_name = member.name.as_str();
 		let is_staticcall = member_name == "staticcall";
 		let is_delegatecall = member_name == "delegatecall";
-		if (member_name == "call" || is_staticcall || is_delegatecall) && args.len() == 1 {
-			if is_delegatecall {
-				ctx.record_warning_with_suggestion(
-					"address.delegatecall() has fundamentally different semantics on Neo N3: \
-					 EVM delegatecall executes callee code in the caller's storage context, \
-					 but Neo N3 has no equivalent mechanism. The call is compiled as a \
-					 regular System.Contract.Call which uses the callee's own storage.",
-					"use address.call() or address.staticcall() instead, or redesign \
-					 the contract to avoid delegatecall patterns (e.g. use explicit \
-					 library calls or the Neo contract update mechanism)",
-				);
-			}
-
-			if ctx.is_safe && (member_name == "call" || is_delegatecall) {
+		let is_callcode = member_name == "callcode";
+		// Task #101 — delegatecall is not supported on Neo N3; there is no
+		// semantic equivalent. Previously the compiler emitted a warning and
+		// silently lowered `target.delegatecall(data)` to `System.Contract.Call`,
+		// which runs the callee's bytecode in the CALLEE's storage context —
+		// the inverse of EVM semantics. That silent miscompile broke EIP-1967 /
+		// OpenZeppelin TransparentProxy / UUPS / Beacon proxy patterns at
+		// runtime with no user-visible warning. We now reject the construct at
+		// compile time so users are forced to rewrite using Neo's upgrade
+		// primitive (ContractManagement.update) or inheritance. `.callcode` is
+		// the deprecated EVM symmetric form and receives the same treatment.
+		if (is_delegatecall || is_callcode) && args.len() == 1 {
+			let which = if is_delegatecall { "delegatecall" } else { "callcode" };
+			ctx.record_error_with_suggestion(
+				format!(
+					"{which} is not supported on Neo N3; use ContractManagement.update \
+					 for upgradeability or inherit the target contract instead. (Task #101)"
+				),
+				"Neo N3 has no semantic equivalent for delegatecall/callcode: there \
+				 is no way to execute another contract's code against the caller's \
+				 storage. Rewrite proxy/upgrade patterns using ContractManagement.update, \
+				 or replace delegation with inheritance (library calls / abstract \
+				 contracts) or explicit cross-contract calls via address.call().",
+			);
+			return Some(false);
+		}
+		if (member_name == "call" || is_staticcall) && args.len() == 1 {
+			if ctx.is_safe && member_name == "call" {
 					ctx.record_error(
 						"address.call(...) / address.delegatecall(...) is not allowed in view/pure functions; use address.staticcall(...) or an external view/pure interface call",
 					);
 					return Some(false);
 				}
+
+			// Task #H5: compile-time `address(0x01..=0x09).staticcall(input)`
+			// routes to Neo N3 native equivalents (CryptoLib.sha256 / ripemd160
+			// / identity pass-through) instead of the opaque-bytes no-op path
+			// that returned `(true, bytes(""))`. Only applies to staticcall —
+			// call/delegatecall to a precompile is EVM-idiomatic but meaningless
+			// on Neo N3 (no storage mutation at those addresses). Unsupported
+			// indices (0x01 ecrecover — mismatched arg shape; 0x05 modexp —
+			// no native; 0x06..0x09 — BN256/BLS operand shapes differ from
+			// Neo's BLS12-381; 0x09 blake2f — unsupported) fall through to
+			// the existing generic path which emits a warning.
+			if is_staticcall {
+				if let Some(idx) = precompile_index_from_target(inner.as_ref()) {
+					if let Some(ok) = emit_precompile_staticcall(idx, &args[0], ctx, instructions) {
+						return Some(ok);
+					}
+				}
+			}
 
 			match parse_low_level_call_data(&args[0], ctx) {
 				Ok(Some((method_name, encode_args))) => {
@@ -523,6 +701,27 @@ fn try_lower_low_level_address_call(
 			// Compatibility fallback for unparsed low-level payloads:
 			// preserve control-flow by returning `(true, bytes(""))` after evaluating
 			// side-effecting sub-expressions.
+			//
+			// Task #17: Opaque `bytes memory` payloads prevent permission inference.
+			// `analyze_contract_calls` in cli_manifest/permissions/ only discovers
+			// `System.Contract.Call` instructions that are actually emitted, and this
+			// fallback skips the emission entirely. The manifest will therefore be
+			// missing the permission entry and the contract will fault at runtime when
+			// it attempts the call. Warn so callers can migrate to an
+			// `abi.encodeWithSignature("...",a,b)` literal payload which lowers to a
+			// real `ContractCall` and permits proper permission inference.
+			ctx.record_warning_with_suggestion(
+				format!(
+					"address.{member_name}(<opaque bytes>) skips Neo N3 manifest permission inference; \
+					 the emitted bytecode does NOT perform the call (it returns `(true, bytes(\"\"))`). \
+					 Contracts relying on this path will fault at runtime because the manifest's \
+					 `permissions[]` will not cover the intended target.",
+				),
+				"rewrite the payload as a literal `abi.encodeWithSignature(\"method(T1,T2)\", a, b)` \
+				 or `abi.encodeCall(Iface.method, (a, b))` at the call site so the compiler can \
+				 lower a real System.Contract.Call and emit the correct permission entry.",
+			);
+
 			let tuple_local = ctx.allocate_local("__call_tuple".to_string(), None);
 			instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
 				2u8,

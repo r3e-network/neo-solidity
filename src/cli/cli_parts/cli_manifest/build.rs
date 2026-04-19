@@ -25,6 +25,35 @@ fn upsert_manifest_extra(manifest: &mut Value) -> Option<&mut serde_json::Map<St
     entry.as_object_mut()
 }
 
+/// Task #28: collect standards the contract EXPLICITLY advertises via
+/// `@custom:neo.manifest.supportedstandards`. Only well-formed string entries
+/// in a JSON array count — malformed overrides are already warned about and
+/// dropped by `apply_manifest_custom_overrides`.
+fn extract_declared_supportedstandards(metadata: &ContractMetadata) -> Vec<String> {
+    for (tag, raw_value) in &metadata.documentation.custom {
+        let Some(field) = tag
+            .strip_prefix("neo.manifest.")
+            .or_else(|| tag.strip_prefix("manifest."))
+        else {
+            continue;
+        };
+        if field != "supportedstandards" {
+            continue;
+        }
+        let raw = raw_value.trim();
+        if raw.is_empty() {
+            continue;
+        }
+        if let Ok(Value::Array(items)) = serde_json::from_str::<Value>(raw) {
+            return items
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect();
+        }
+    }
+    Vec::new()
+}
+
 fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMetadata) {
     for (tag, raw_value) in &metadata.documentation.custom {
         let raw = raw_value.trim();
@@ -117,7 +146,10 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
     }
 }
 
-fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_json::Value {
+fn build_manifest(
+    metadata: &ContractMetadata,
+    ir_module: &ir::Module,
+) -> Result<serde_json::Value, CompileError> {
     fn neotype_to_manifest_type(neotype: Option<&NeoType>, solidity_type: &str) -> &'static str {
         match neotype {
             Some(NeoType::Integer { .. }) => "Integer",
@@ -299,5 +331,15 @@ fn build_manifest(metadata: &ContractMetadata, ir_module: &ir::Module) -> serde_
     });
 
     apply_manifest_custom_overrides(&mut manifest, metadata);
-    manifest
+
+    // Task #28: when the user EXPLICITLY advertises a NEP standard via
+    // `@custom:neo.manifest.supportedstandards`, required methods and the
+    // `Transfer` event become hard requirements — never ship a manifest that
+    // falsely claims a standard the contract cannot fulfill.
+    let declared = extract_declared_supportedstandards(metadata);
+    if !declared.is_empty() {
+        validate_declared_standards(&declared, &metadata.methods, &metadata.events)
+            .map_err(CompileError::Manifest)?;
+    }
+    Ok(manifest)
 }

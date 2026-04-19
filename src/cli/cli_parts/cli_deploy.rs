@@ -63,6 +63,7 @@ fn ensure_deploy_stub(metadata: &mut ContractMetadata) -> Result<(), CompileErro
         is_virtual: false,
         is_override: false,
         documentation: NatspecDoc::default(),
+        had_modifier_epilogue: false,
     });
 
     Ok(())

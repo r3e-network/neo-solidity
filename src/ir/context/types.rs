@@ -17,6 +17,11 @@ struct StorageReference {
     key_types: Vec<ValueType>,
     value_type: ValueType,
     field_path: Vec<StorageReferenceField>,
+    // Task #82: inner-mapping key chain applied AFTER `field_path`.
+    // Populated when the reference walks through a struct-field mapping such as
+    // `slots[k].balances[a]`.
+    trailing_key_expressions: Vec<Expression>,
+    trailing_key_types: Vec<ValueType>,
 }
 
 #[derive(Clone)]
@@ -37,6 +42,8 @@ impl MappingAccess<'_> {
             key_types: self.key_types.clone(),
             value_type: self.value_type.clone(),
             field_path: Vec::new(),
+            trailing_key_expressions: Vec::new(),
+            trailing_key_types: Vec::new(),
         }
     }
 }

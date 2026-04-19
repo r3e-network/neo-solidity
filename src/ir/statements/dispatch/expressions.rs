@@ -102,7 +102,21 @@ fn lower_variable_definition_statement(
                     }
                 }
             } else if !is_storage_reference {
-                if let Some(value_type) = inferred_type.as_ref() {
+                // Task #49 fix: `T[N] memory a;` (no initializer) must allocate a real
+                // StackItem::Array of length N with zero-initialized elements. Without
+                // this, push_default_for_value_type(Array) emits NEWARRAY 0 which fails
+                // at runtime (SETITEM "unsupported target Integer(0)", SIZE "unsupported
+                // type"). Mirrors the `new T[N]` path in lower_new_array_allocation.
+                if let Expression::ArraySubscript(_, array_type_expr, Some(length_expr)) =
+                    &decl.ty
+                {
+                    lower_new_array_allocation(
+                        array_type_expr.as_ref(),
+                        length_expr.as_ref(),
+                        ctx,
+                        instructions,
+                    );
+                } else if let Some(value_type) = inferred_type.as_ref() {
                     push_default_for_value_type(value_type, ctx, instructions);
                 } else {
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
@@ -131,18 +145,34 @@ fn lower_emit_statement(
     false
 }
 
-fn lower_assembly_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
-    if !lower_special_assembly(ctx, instructions) {
-        // Compatibility mode: preserve compilation for contracts that use
-        // inline assembly by treating unrecognized assembly blocks as no-ops.
-        // Specialized handlers (e.g., extsload/exttload) still emit concrete IR.
-        ctx.record_warning_with_suggestion(
-            "inline assembly block compiled as no-op: NeoVM does not support EVM \
-             assembly instructions. Any logic inside this assembly block will be silently \
-             skipped at runtime.",
-            "replace inline assembly with equivalent Solidity code, or use Neo-specific \
-             builtins for low-level operations",
-        );
+fn lower_assembly_statement(
+    block: &solang_parser::pt::YulBlock,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    // Task #99 — narrow yul support: lower mstore/mload/return + let/:= and a
+    // handful of arithmetic opcodes into NeoVM IR. Specialized handlers
+    // (e.g., extsload/exttload from the param-name sniffer) still take
+    // precedence when they recognise the enclosing function shape.
+    if lower_special_assembly(ctx, instructions) {
+        return false;
     }
+
+    // Attempt to lower the yul block. If any statement is unsupported, we
+    // fall back to the legacy no-op compatibility warning so contracts that
+    // use more exotic yul (for/switch/sload/sstore/...) continue to compile.
+    if lower_yul_block(block, ctx, instructions) {
+        return false;
+    }
+
+    // Compatibility mode: preserve compilation for contracts that use
+    // inline assembly by treating unrecognized assembly blocks as no-ops.
+    ctx.record_warning_with_suggestion(
+        "inline assembly block compiled as no-op: NeoVM does not support EVM \
+         assembly instructions. Any logic inside this assembly block will be silently \
+         skipped at runtime.",
+        "replace inline assembly with equivalent Solidity code, or use Neo-specific \
+         builtins for low-level operations",
+    );
     false
 }

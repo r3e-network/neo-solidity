@@ -84,14 +84,43 @@ fn assert_panics_when_condition_is_false() {
         !fail_result.is_success(),
         "expected assert(false) to fail execution"
     );
+    // Task #27 (compiler slice) — `assert(false)` now emits the EVM-canonical
+    // Panic payload `keccak256("Panic(uint256)")[..4] || abi.encode(0x01)`
+    // (36 bytes total) instead of a bare ASCII marker string. The machine-
+    // readable shape lives in `return_data`; the exception `message` still
+    // carries the THROW marker (for compatibility with the revert-path
+    // discriminator) but is now a lossy UTF-8 decoding of the binary payload.
     let message = fail_result
         .exception
         .as_ref()
         .map(|ex| ex.message.as_str())
         .unwrap_or_default();
     assert!(
-        message.contains("Panic: 0x01"),
-        "expected panic message to mention Panic: 0x01, got: {message}"
+        message.contains("THROW"),
+        "expected panic message to carry the THROW marker, got: {message}"
+    );
+    // 4-byte selector + 32-byte uint256 = 36 bytes.
+    assert_eq!(
+        fail_result.return_data.len(),
+        36,
+        "expected Panic(uint256) payload to be 36 bytes; got {} bytes",
+        fail_result.return_data.len()
+    );
+    use sha3::{Digest, Keccak256};
+    let mut hasher = Keccak256::new();
+    hasher.update(b"Panic(uint256)");
+    let expected_selector = hasher.finalize();
+    assert_eq!(
+        &fail_result.return_data[..4],
+        &expected_selector[..4],
+        "expected Panic(uint256) selector prefix"
+    );
+    let mut expected_code = [0u8; 32];
+    expected_code[31] = 0x01;
+    assert_eq!(
+        &fail_result.return_data[4..36],
+        &expected_code[..],
+        "expected Panic code 0x01 (assertion failed) in abi.encode tail"
     );
 }
 
@@ -190,14 +219,15 @@ fn division_by_zero_panics_with_0x12() {
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     let result = execute_bytecode(&artifacts[0].bytecode);
     assert!(!result.is_success(), "expected division by zero to fail");
-    let message = result
-        .exception
-        .as_ref()
-        .map(|ex| ex.message.as_str())
-        .unwrap_or_default();
+    // Task #103 — div-by-zero now emits the canonical EVM envelope:
+    //   keccak256("Panic(uint256)")[..4] || abi.encode(0x12)
+    // Check the 36-byte structured payload on return_data.
+    let rd = &result.return_data;
     assert!(
-        message.contains("Panic: 0x12"),
-        "expected panic code 0x12, got: {message}"
+        rd.len() >= 36 && rd[..4] == [0x4eu8, 0x48, 0x7b, 0x71] && rd[35] == 0x12,
+        "expected canonical Panic(0x12) envelope; got rd_len={} rd={:?}",
+        rd.len(),
+        rd
     );
 }
 
@@ -218,14 +248,13 @@ fn modulo_by_zero_panics_with_0x12() {
     let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
     let result = execute_bytecode(&artifacts[0].bytecode);
     assert!(!result.is_success(), "expected modulo by zero to fail");
-    let message = result
-        .exception
-        .as_ref()
-        .map(|ex| ex.message.as_str())
-        .unwrap_or_default();
+    // Task #103 — same canonical EVM envelope as div-by-zero.
+    let rd = &result.return_data;
     assert!(
-        message.contains("Panic: 0x12"),
-        "expected panic code 0x12, got: {message}"
+        rd.len() >= 36 && rd[..4] == [0x4eu8, 0x48, 0x7b, 0x71] && rd[35] == 0x12,
+        "expected canonical Panic(0x12) envelope; got rd_len={} rd={:?}",
+        rd.len(),
+        rd
     );
 }
 

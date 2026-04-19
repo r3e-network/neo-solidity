@@ -1,8 +1,8 @@
 //! Canonical intermediate representation for Neo Solidity.
 
 use crate::solidity::{
-    ContractMetadata, EnumMetadata, FunctionKind as MetadataFunctionKind, FunctionMetadata,
-    ParameterMetadata, SelectorRegistry, StateVariableMetadata,
+    ContractMetadata, EnumMetadata, EventMetadata, FunctionKind as MetadataFunctionKind,
+    FunctionMetadata, ParameterMetadata, SelectorRegistry, StateVariableMetadata,
 };
 use crate::storage_key::compute_state_slot;
 use hex::decode as hex_decode;

@@ -37,7 +37,7 @@ fn collect_contract_call_permissions(
 
 /// Infer contract permissions based on method signatures and behavior
 fn infer_permissions(
-    _metadata: &ContractMetadata,
+    metadata: &ContractMetadata,
     ir_module: &ir::Module,
 ) -> Vec<serde_json::Value> {
     // Neo N3 enforces contract call permissions via the manifest. Native contract
@@ -53,7 +53,23 @@ fn infer_permissions(
     //   contract calls (both target + method unknown at compile time), because the
     //   destination can be user-controlled.
     let (contract_methods, needs_wildcard) = collect_contract_call_permissions(ir_module);
-    let native_methods = collect_native_permissions(ir_module);
+    let mut native_methods = collect_native_permissions(ir_module);
+
+    // Task #55: the IR-level lowering for `new Contract(...)` does not emit a
+    // `CallBuiltin::DeployContract`, so neither `collect_contract_call_permissions`
+    // nor `collect_native_permissions` can discover the intent. Walk the parsed
+    // AST to detect the pattern and wire the `ContractManagement.deploy`
+    // permission ourselves; if the emitted bytecode ever starts performing the
+    // deployment, the manifest will already authorize it.
+    if contract_uses_new_contract(metadata) {
+        let hash_le = bytecode::native_contract_hash(ir::NativeContract::ContractManagement);
+        let hash_be = hash_le.iter().rev().copied().collect::<Vec<_>>();
+        let contract_str = format!("0x{}", hex::encode(hash_be));
+        native_methods
+            .entry(contract_str)
+            .or_default()
+            .insert("deploy".to_string());
+    }
 
     if needs_wildcard {
         return vec![json!({ "contract": "*", "methods": "*" })];

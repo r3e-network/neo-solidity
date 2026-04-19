@@ -19,6 +19,7 @@ fn bytecode_peephole_reduces_size_at_o3() {
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         }],
         events: vec![],
         uses_storage: false,

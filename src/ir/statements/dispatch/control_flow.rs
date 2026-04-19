@@ -78,9 +78,26 @@ fn lower_do_while_statement(
     let condition_label = ctx.next_label();
     let end_label = ctx.next_label();
 
+    // Task #114 — when the Solidity expander wraps a modifier-epilogue
+    // function body in `do { body } while(false)`, push the `end_label` onto
+    // the `modifier_break_stack` so `lower_return_statement` can jump past
+    // any intervening user loops and land after the synthetic wrap (i.e.
+    // just before the modifier epilogue statements run).
+    let is_modifier_wrap = ctx.in_modifier_epilogue_scope()
+        && matches!(
+            condition,
+            Expression::BoolLiteral(_, false)
+        );
+
     instructions.push(Instruction::Label(start_label));
     ctx.push_loop(condition_label, end_label);
+    if is_modifier_wrap {
+        ctx.push_modifier_break_label(end_label);
+    }
     lower_statement(body, ctx, instructions);
+    if is_modifier_wrap {
+        ctx.pop_modifier_break_label();
+    }
     ctx.pop_loop();
     instructions.push(Instruction::Label(condition_label));
     lower_expression(condition, ctx, instructions);

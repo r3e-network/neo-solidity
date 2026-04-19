@@ -6,6 +6,11 @@ pub struct NeoRuntime {
     storage_manager: storage::StorageManager,
     vm_bridge: bridge::VMBridge,
     gas_tracker: execution::GasTracker,
+    /// Task #19: tracks whether `_deploy(null, false)` has been invoked
+    /// on this runtime instance. `call_method` runs the deploy prologue
+    /// exactly once so state-variable initializers populate storage
+    /// before any user method observes it (subsumes Task #47).
+    pub(crate) deploy_triggered: bool,
 }
 
 /// Runtime execution result
@@ -174,12 +179,22 @@ pub struct ExecutionOverrides {
     pub block_height: Option<u64>,
     pub timestamp: Option<u64>,
     pub caller_account: Option<String>,
+    /// Task #113: Solidity `msg.value` injected at the start of the next
+    /// execution. `None` defaults to 0 (Neo N3 has no native "attached
+    /// value"; this slot is purely a host-side override for Solidity
+    /// source that reads `msg.value` inside a `payable` fallback, NEP-17
+    /// `onPayment` hook, etc.). When set, the compiled `MsgValue`
+    /// lowering syscall (`System.Runtime.GetMsgValue`) pushes this value.
+    pub value: Option<u64>,
 }
 
 impl ExecutionOverrides {
     /// Check if any overrides are set
     pub fn has_overrides(&self) -> bool {
-        self.block_height.is_some() || self.timestamp.is_some() || self.caller_account.is_some()
+        self.block_height.is_some()
+            || self.timestamp.is_some()
+            || self.caller_account.is_some()
+            || self.value.is_some()
     }
 
     /// Set block height
@@ -191,6 +206,12 @@ impl ExecutionOverrides {
     /// Set timestamp
     pub fn with_timestamp(mut self, ts: u64) -> Self {
         self.timestamp = Some(ts);
+        self
+    }
+
+    /// Task #113: set `msg.value` for the next execution.
+    pub fn with_value(mut self, value: u64) -> Self {
+        self.value = Some(value);
         self
     }
 }

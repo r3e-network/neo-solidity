@@ -123,6 +123,46 @@ macro_rules! divmod_op {
 }
 
 impl ExecutionContext {
+    /// Coerce a stack item to a `num_bigint::BigInt` (signed arbitrary-precision),
+    /// decoding `ByteArray` via `from_signed_bytes_le`.
+    ///
+    /// Used by the comparison helpers (Task #30 slice 1 Part C) when at least one
+    /// operand is a wide (> 8 byte) ByteArray and the narrow i64/u64 coercion
+    /// would silently truncate, producing wrong comparison results for values
+    /// that exceed 64 bits (e.g. `type(uint256).max` vs `low64(max) + 1`).
+    pub(crate) fn coerce_item_to_bigint(&self, item: &StackItem) -> Option<num_bigint::BigInt> {
+        use num_bigint::BigInt;
+        match item {
+            StackItem::Integer(value) => Some(BigInt::from(*value)),
+            StackItem::UnsignedInteger(value) => Some(BigInt::from(*value)),
+            StackItem::Boolean(value) => Some(BigInt::from(if *value { 1 } else { 0 })),
+            StackItem::Null => Some(BigInt::from(0)),
+            StackItem::ByteArray(bytes) => {
+                let bytes = bytes.borrow();
+                if bytes.is_empty() {
+                    Some(BigInt::from(0))
+                } else {
+                    Some(BigInt::from_signed_bytes_le(&bytes))
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// True when either operand is a ByteArray wider than 8 bytes, meaning the
+    /// i64/u64 coercion path would truncate. Comparisons and divmod guards
+    /// route through `coerce_item_to_bigint` in that case.
+    pub(crate) fn cmp_needs_bigint_path(&self, a: &StackItem, b: &StackItem) -> bool {
+        let is_wide = |item: &StackItem| -> bool {
+            if let StackItem::ByteArray(bytes) = item {
+                bytes.borrow().len() > 8
+            } else {
+                false
+            }
+        };
+        is_wide(a) || is_wide(b)
+    }
+
     fn coerce_item_to_i64(&self, item: &StackItem) -> Option<i64> {
         match item {
             StackItem::Integer(value) => Some(*value),
@@ -175,10 +215,186 @@ impl ExecutionContext {
         }
     }
 
-    // Generate all arithmetic operations using the macros
-    arithmetic_op!(add_stack_items, "ADD", "+", checked_add, wrapping_add, "overflow");
-    arithmetic_op!(sub_stack_items, "SUB", "-", checked_sub, wrapping_sub, "underflow");
-    arithmetic_op!(mul_stack_items, "MUL", "*", checked_mul, wrapping_mul, "overflow");
-    divmod_op!(div_stack_items, "DIV", checked_div, "Division by zero");
-    divmod_op!(mod_stack_items, "MOD", checked_rem, "Modulo by zero");
+    // Generate all arithmetic operations using the macros (narrow i64/u64 paths).
+    arithmetic_op!(add_stack_items_narrow, "ADD", "+", checked_add, wrapping_add, "overflow");
+    arithmetic_op!(sub_stack_items_narrow, "SUB", "-", checked_sub, wrapping_sub, "underflow");
+    arithmetic_op!(mul_stack_items_narrow, "MUL", "*", checked_mul, wrapping_mul, "overflow");
+    divmod_op!(div_stack_items_narrow, "DIV", checked_div, "Division by zero");
+    divmod_op!(mod_stack_items_narrow, "MOD", checked_rem, "Modulo by zero");
+
+    /// Encode a `BigInt` back as a `StackItem`, preserving signed-BigInt shape
+    /// for downstream BigInt comparisons. Small-fit values return narrow
+    /// `Integer` so the existing narrow comparison path keeps working for
+    /// legacy tests; wider values return the signed-LE ByteArray directly.
+    fn bigint_to_stack_item(value: num_bigint::BigInt) -> StackItem {
+        use num_bigint::BigInt;
+        if value == BigInt::from(0) {
+            return StackItem::Integer(0);
+        }
+        let bytes = value.to_signed_bytes_le();
+        if bytes.len() <= 8 {
+            // Fits in i64 — return as narrow Integer for efficient narrow
+            // comparisons (preserves pre-slice-1 behavior at small widths).
+            let mut buf = [0u8; 8];
+            // Sign-extend.
+            let fill = if value < BigInt::from(0) { 0xFF } else { 0x00 };
+            for byte in buf.iter_mut() {
+                *byte = fill;
+            }
+            buf[..bytes.len()].copy_from_slice(&bytes);
+            StackItem::Integer(i64::from_le_bytes(buf))
+        } else {
+            StackItem::byte_array(bytes)
+        }
+    }
+
+    /// Task #30: wide-operand ADD path using BigInt so uint256 values pushed as
+    /// ByteArray retain full precision. Entered when either operand is a wide
+    /// ByteArray (see `cmp_needs_bigint_path`). The raw BigInt result is
+    /// returned without wrapping; the compiler-emitted checked-arithmetic
+    /// guard (when applicable) panics before the caller observes an
+    /// out-of-range value. `unchecked { }` blocks see the raw result shape.
+    fn add_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for ADD".to_string(),
+        })?;
+        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for ADD".to_string(),
+        })?;
+        Ok(Self::bigint_to_stack_item(x + y))
+    }
+
+    fn sub_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for SUB".to_string(),
+        })?;
+        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for SUB".to_string(),
+        })?;
+        Ok(Self::bigint_to_stack_item(x - y))
+    }
+
+    fn mul_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for MUL".to_string(),
+        })?;
+        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for MUL".to_string(),
+        })?;
+        Ok(Self::bigint_to_stack_item(x * y))
+    }
+
+    fn div_stack_items_wide(
+        &mut self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
+        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for DIV".to_string(),
+        })?;
+        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for DIV".to_string(),
+        })?;
+        if y == num_bigint::BigInt::from(0) {
+            return Err(RuntimeError::ExecutionError {
+                message: "Division by zero".to_string(),
+            });
+        }
+        // Task #30 slice 4: detect the unrepresentable INT256_MIN / -1 case
+        // (quotient would be INT256_MAX + 1 = 2^255, which is not a valid
+        // int256) and throw Panic(0x11).
+        //
+        // Task #108 — route through the canonical EVM `Panic(uint256)`
+        // envelope instead of the legacy `"Panic: 0x11"` ByteString message.
+        // Shape: `keccak256("Panic(uint256)")[..4] || abi.encode(0x11)` = 36
+        // bytes (selector `0x4e487b71` then 32-byte big-endian panic code).
+        // Populate `self.revert_payload` so `dispatch_exception` surfaces the
+        // canonical payload to `catch Panic(uint code)` (via
+        // `try_frames.rs::dispatch_exception` at `revert_payload.clone()`)
+        // AND so the bridge's uncaught-error path at
+        // `bridge/bridge_impl_core/execute.rs:161` routes it into
+        // `ExecutionResult.return_data`. Keep the marker substring `"THROW"`
+        // in the error message so `execute.rs:142` classifies this as
+        // `ExceptionType::RevertExecution`, not `Fault` — otherwise
+        // `return_data` would be cleared at `execute.rs:164` and the caller
+        // would observe an empty payload.
+        let one: num_bigint::BigInt = num_bigint::BigInt::from(1);
+        let shifted: num_bigint::BigInt = one << 255u32;
+        let int256_min: num_bigint::BigInt = -shifted;
+        let neg_one: num_bigint::BigInt = num_bigint::BigInt::from(-1);
+        if x == int256_min && y == neg_one {
+            let mut envelope: Vec<u8> = Vec::with_capacity(36);
+            // keccak256("Panic(uint256)")[0..4]
+            envelope.extend_from_slice(&[0x4e, 0x48, 0x7b, 0x71]);
+            // abi.encode(uint256 0x11) = 32-byte big-endian payload.
+            envelope.extend_from_slice(&[0u8; 31]);
+            envelope.push(0x11);
+            self.revert_payload = envelope;
+            return Err(RuntimeError::ExecutionError {
+                message: "THROW: Panic(uint256) 0x11 (INT256_MIN / -1)".to_string(),
+            });
+        }
+        Ok(Self::bigint_to_stack_item(x / y))
+    }
+
+    fn mod_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for MOD".to_string(),
+        })?;
+        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
+            message: "Invalid operands for MOD".to_string(),
+        })?;
+        if y == num_bigint::BigInt::from(0) {
+            return Err(RuntimeError::ExecutionError {
+                message: "Modulo by zero".to_string(),
+            });
+        }
+        Ok(Self::bigint_to_stack_item(x % y))
+    }
+
+    /// Dispatch: if either operand is a wide ByteArray, take the BigInt path;
+    /// otherwise preserve the existing narrow-i64 semantics.
+    fn add_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        if self.cmp_needs_bigint_path(&a, &b) {
+            self.add_stack_items_wide(a, b)
+        } else {
+            self.add_stack_items_narrow(a, b)
+        }
+    }
+
+    fn sub_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        if self.cmp_needs_bigint_path(&a, &b) {
+            self.sub_stack_items_wide(a, b)
+        } else {
+            self.sub_stack_items_narrow(a, b)
+        }
+    }
+
+    fn mul_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        if self.cmp_needs_bigint_path(&a, &b) {
+            self.mul_stack_items_wide(a, b)
+        } else {
+            self.mul_stack_items_narrow(a, b)
+        }
+    }
+
+    fn div_stack_items(&mut self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        if self.cmp_needs_bigint_path(&a, &b) {
+            self.div_stack_items_wide(a, b)
+        } else {
+            // Task #30 slice 4: runtime-side INT256_MIN / -1 guard. The narrow
+            // path already handles i64::MIN / -1 via checked_div, but when
+            // operands arrive as wide ByteArrays that truncate to narrow
+            // values the BigInt path catches the unrepresentable quotient.
+            self.div_stack_items_narrow(a, b)
+        }
+    }
+
+    fn mod_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+        if self.cmp_needs_bigint_path(&a, &b) {
+            self.mod_stack_items_wide(a, b)
+        } else {
+            self.mod_stack_items_narrow(a, b)
+        }
+    }
 }

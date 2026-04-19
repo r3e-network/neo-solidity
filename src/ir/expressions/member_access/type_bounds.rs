@@ -155,21 +155,115 @@ fn try_lower_type_name(
 fn try_lower_type_code(
     inner: &Expression,
     member: &Identifier,
-    _ctx: &mut LoweringContext,
+    ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
     if !matches!(member.name.as_str(), "creationCode" | "runtimeCode") {
         return None;
     }
 
-    // Compatibility fallback for `type(C).creationCode` / `type(C).runtimeCode`.
-    // Neo deployment does not consume EVM bytecode blobs directly.
-    if typeof_argument(inner).is_some() {
-        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+    // Solidity: `type(C).creationCode` / `type(C).runtimeCode` evaluates to
+    // deployment/runtime bytecode of contract `C`. CREATE2 deterministic-
+    // address schemes hash these bytes, so a shared empty blob across all
+    // contracts collapses every derived address to the same hash. We emit a
+    // deterministic NEF-framed envelope whose script uniquely identifies the
+    // child contract by name. The envelope is stable across compiles and
+    // differs per contract name, so `keccak256(type(A).creationCode) !=
+    // keccak256(type(B).creationCode)` — preserving CREATE2 semantics. Neo
+    // deployment does not consume this blob (it is an off-Neo compatibility
+    // artefact used only for hashing), but it mimics the NEF3 layout so
+    // tools that inspect the bytes see a well-formed envelope.
+    if let Some(type_arg) = typeof_argument(inner) {
+        let contract_name = match type_arg {
+            Expression::Variable(id) => id.name.clone(),
+            Expression::Type(_, PtType::Address) => "address".to_string(),
+            Expression::Type(_, pt_type) => format!("{pt_type}"),
+            _ => {
+                ctx.record_error_with_suggestion(
+                    format!("unsupported type(...).{} expression", member.name),
+                    "type(C).creationCode/runtimeCode requires a concrete contract or type name",
+                );
+                return Some(false);
+            }
+        };
+
+        // Require compile-time availability: the contract must be visible in
+        // the current compilation unit. Cross-file references would require a
+        // multi-pass compiler; reject explicitly rather than emit colliding
+        // empty bytes.
+        if matches!(type_arg, Expression::Variable(_))
+            && !ctx.is_contract_type_name(&contract_name)
+            && !ctx.is_interface_type_name(&contract_name)
+        {
+            ctx.record_error_with_suggestion(
+                format!(
+                    "type({}).{} requires the referenced contract to be declared in the same compilation unit",
+                    contract_name, member.name
+                ),
+                "move the child contract into the same source, or inline its bytecode via a hex literal",
+            );
+            return Some(false);
+        }
+
+        let payload = creation_code_payload(&contract_name, &member.name);
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(payload)));
         return Some(true);
     }
 
     None
+}
+
+/// Build a deterministic NEF3-shaped envelope unique per contract name.
+///
+/// The layout is a minimal subset of the NEF3 format:
+///   - 4 byte magic `NEF3`
+///   - 64 byte compiler field (`"neo-solidity-type-code"` + zero pad)
+///   - varstring source identifier (`"creationCode:<name>"` or similar)
+///   - reserved 0x00
+///   - token count = 0 (varint)
+///   - reserved 0x00 0x00
+///   - varbytes script = keccak256(<member>:<name>) (32 bytes)
+///   - checksum = first 4 bytes of sha256(sha256(prefix))
+///
+/// We inline the construction here rather than calling `crate::neo::build_nef`
+/// to keep the IR crate's dependency surface unchanged.
+fn creation_code_payload(contract_name: &str, member_name: &str) -> Vec<u8> {
+    let mut script_hasher = Keccak256::new();
+    script_hasher.update(member_name.as_bytes());
+    script_hasher.update(b":");
+    script_hasher.update(contract_name.as_bytes());
+    let script = script_hasher.finalize();
+
+    let mut buffer: Vec<u8> = Vec::with_capacity(128);
+    buffer.extend_from_slice(b"NEF3");
+    let compiler = b"neo-solidity-type-code";
+    buffer.extend_from_slice(compiler);
+    buffer.extend(std::iter::repeat_n(0u8, 64 - compiler.len()));
+    let source = format!("{member_name}:{contract_name}");
+    let source_bytes = source.as_bytes();
+    // NEF source is varstring; short names always fit in a single byte.
+    let source_len = source_bytes.len().min(252);
+    buffer.push(source_len as u8);
+    buffer.extend_from_slice(&source_bytes[..source_len]);
+    buffer.push(0); // reserved
+    buffer.push(0); // varint token count = 0
+    buffer.extend_from_slice(&[0, 0]); // reserved
+    // varbytes script (length <= 252 so single-byte varint)
+    buffer.push(script.len() as u8);
+    buffer.extend_from_slice(&script);
+    // Checksum: first 4 bytes of a deterministic hash over all preceding
+    // bytes. NEF3 uses double SHA-256; we use double Keccak256 to avoid
+    // importing an additional digest dependency. The envelope is purely an
+    // off-Neo hashing artefact — tooling that strictly parses the NEF3
+    // checksum should treat these as opaque blobs for CREATE2 hashing.
+    let mut first = Keccak256::new();
+    first.update(&buffer);
+    let first_digest = first.finalize();
+    let mut second = Keccak256::new();
+    second.update(first_digest);
+    let digest = second.finalize();
+    buffer.extend_from_slice(&digest[..4]);
+    buffer
 }
 
 fn try_lower_interface_id(

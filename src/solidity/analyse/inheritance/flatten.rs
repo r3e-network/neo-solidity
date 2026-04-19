@@ -23,7 +23,14 @@ fn flatten_contract_inheritance(
     let mut type_aliases: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
-    // Maps original method name → renamed super-method name for `super.method()` resolution.
+    // Maps `"{caller_fn}::{method}"` → renamed super-method name for
+    // `super.method()` resolution. Keyed on the caller so that nested
+    // super-chains (A→B→C where each overrides `foo` and calls `super.foo()`)
+    // resolve to the next-older base body rather than recursing into self.
+    //
+    // Backward compat: a plain `"{method}"` key is also written for the
+    // top-of-chain lookup so callers that haven't been updated to the
+    // qualified form still work.
     let mut super_method_map: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
@@ -87,7 +94,8 @@ fn flatten_contract_inheritance(
                 }
                 Some((base_origin, idx)) => {
                     let idx = *idx;
-                    let base_func = &functions[idx];
+                    let base_func_is_virtual = functions[idx].is_virtual;
+                    let base_func_has_body = functions[idx].body.is_some();
                     let base_origin = base_origin.clone();
 
                     // Determine if the base contract is an interface.
@@ -99,7 +107,7 @@ fn flatten_contract_inheritance(
                     // Virtual/override enforcement:
                     // - Base function must be `virtual` (or from an interface, which is implicitly virtual)
                     // - Derived function must be marked `override`
-                    if !base_is_interface && !base_func.is_virtual {
+                    if !base_is_interface && !base_func_is_virtual {
                         warnings.push(format!(
                             "function '{}' in '{}' overrides '{}::{}' which is not marked 'virtual'",
                             func.name, ancestor_name, base_origin, func.name
@@ -116,25 +124,78 @@ fn flatten_contract_inheritance(
                     // Preserve the base method as a renamed internal function so that
                     // `super.method()` can resolve to it during IR lowering.
                     // Only preserve if the base function has a body (skip interface stubs).
-                    // In multi-level inheritance (A→B→C), only keep the most recent
-                    // base version — replace any existing `__super_*` entry.
-                    if base_func.body.is_some() {
-                        let super_name = format!("__super_{}", func.name);
-                        let mut super_func = base_func.clone();
+                    //
+                    // Task #85 fix — in multi-level inheritance (A→B→C) where
+                    // each level overrides `foo` and calls `super.foo()`, the
+                    // old logic collapsed every preserved body into a single
+                    // `__super_foo` slot, so `super.foo()` in the preserved
+                    // B-body resolved back to `__super_foo` (itself) and
+                    // recursed until call-stack overflow. Fix: each ancestor
+                    // body in the chain gets a unique `__super{N}_{name}`
+                    // slot (N=1 for the immediate base, N=2 for the
+                    // grandbase, …) and the caller-keyed `super_method_map`
+                    // routes each frame to the NEXT-older slot.
+                    if base_func_has_body {
+                        // Shift any existing chain entries up one level:
+                        // `__super{N}_foo` → `__super{N+1}_foo`. Process
+                        // highest-level first to avoid collisions. Also
+                        // rewrite the super-map entries they own.
+                        let mut levels: Vec<usize> = functions
+                            .iter()
+                            .filter_map(|f| parse_super_level(&f.name, &func.name))
+                            .collect();
+                        levels.sort_unstable_by(|a, b| b.cmp(a));
+                        for old_level in levels {
+                            let old_name = super_level_name(old_level, &func.name);
+                            let new_name = super_level_name(old_level + 1, &func.name);
+                            if let Some(pos) = functions.iter().position(|f| f.name == old_name) {
+                                functions[pos].name = new_name.clone();
+                            }
+                            // Shift the caller-keyed map entry whose KEY names
+                            // the renamed function (i.e. what `super.foo()`
+                            // inside that body should resolve to).
+                            let old_key = format!("{}::{}", old_name, func.name);
+                            let new_key = format!("{}::{}", new_name, func.name);
+                            if let Some(target) = super_method_map.remove(&old_key) {
+                                // The target also shifts up one level.
+                                let new_target = match parse_super_level(&target, &func.name) {
+                                    Some(l) => super_level_name(l + 1, &func.name),
+                                    None => target,
+                                };
+                                super_method_map.insert(new_key, new_target);
+                            }
+                        }
+
+                        let super_name = super_level_name(1, &func.name);
+                        let mut super_func = functions[idx].clone();
                         super_func.name = super_name.clone();
                         super_func.visibility = VisibilityKind::Internal;
                         super_func.is_virtual = false;
                         super_func.is_override = false;
 
-                        // Replace existing __super_ entry if present, otherwise append.
-                        if let Some(existing_idx) = functions
-                            .iter()
-                            .position(|f| f.name == super_name)
-                        {
-                            functions[existing_idx] = super_func;
-                        } else {
-                            functions.push(super_func);
+                        functions.push(super_func);
+
+                        // The incoming derived body (about to replace
+                        // `functions[idx]`) calls `super.{name}` → the just-
+                        // preserved level-1 slot. The displaced base body
+                        // (now renamed to level-2, if a chain already
+                        // existed) calls `super.{name}` → level-2's
+                        // predecessor, which the shift above already
+                        // installed as `__super{N+1}_…`.
+                        super_method_map
+                            .insert(format!("{}::{}", func.name, func.name), super_name.clone());
+                        // Also shift the unqualified top-of-chain pointer so
+                        // the previously-preserved __super_foo now points to
+                        // the level-2 slot (A's body), and register the newly
+                        // preserved level-1 slot (B's body) as pointing to
+                        // that level-2 slot too — i.e. B's super.foo → A's.
+                        let prev_l1_key = format!("{}::{}", super_name, func.name);
+                        if functions.iter().any(|f| f.name == super_level_name(2, &func.name)) {
+                            super_method_map
+                                .insert(prev_l1_key, super_level_name(2, &func.name));
                         }
+                        // Plain key retained for backward-compat callers
+                        // (expression lowerer falls back to it).
                         super_method_map.insert(func.name.clone(), super_name);
                     }
 
@@ -203,4 +264,39 @@ fn inheritance_contract_chain(
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<Vec<String>, SolidityError> {
     contract_linearization_base_to_derived(&contract.name, contract_map)
+}
+
+/// Returns the synthesized name for the N-th preserved super body of `method_name`.
+/// Level 1 uses the legacy `__super_{name}` name for backward compatibility.
+fn super_level_name(level: usize, method_name: &str) -> String {
+    if level == 1 {
+        format!("__super_{method_name}")
+    } else {
+        format!("__super{level}_{method_name}")
+    }
+}
+
+/// Parses the chain depth `N` out of a synthesized super-body name for
+/// `method_name`. Returns `None` if `name` is not a super-body for that method.
+fn parse_super_level(name: &str, method_name: &str) -> Option<usize> {
+    let legacy = format!("__super_{method_name}");
+    if name == legacy {
+        return Some(1);
+    }
+    // `__super{N}_{method_name}` where N >= 2.
+    let rest = name.strip_prefix("__super")?;
+    let (digits, tail) = {
+        let end = rest.find('_').unwrap_or(rest.len());
+        (&rest[..end], &rest[end..])
+    };
+    if digits.is_empty() {
+        return None;
+    }
+    let level: usize = digits.parse().ok()?;
+    let expected_tail = format!("_{method_name}");
+    if tail == expected_tail {
+        Some(level)
+    } else {
+        None
+    }
 }

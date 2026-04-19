@@ -3,6 +3,41 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
     let mut i = 0;
 
     while i < block.instructions.len() {
+        // Task #88 — fold `PushLiteral(const); JumpIf(target)` into an
+        // unconditional Jump or a no-op. IR `JumpIf` branches when the
+        // stack-top is FALSE (emitted as NeoVM JMPIFNOT_L); collapsing
+        // the constant-condition guard lets the downstream terminator
+        // pruner drop the dead arm's instructions, including any
+        // `LoadState`/storage reads the compiler emitted for a
+        // statically-unreachable `return s;` tail (see fuzz harness
+        // batch35_k3_view_dead_branch_storage_read_not_eliminated).
+        if i + 1 < block.instructions.len() {
+            if let (
+                ir::Instruction::PushLiteral(lit),
+                ir::Instruction::JumpIf { target },
+            ) = (&block.instructions[i], &block.instructions[i + 1]) {
+                let branch_taken = match lit {
+                    ir::LiteralValue::Boolean(b) => Some(!*b),
+                    ir::LiteralValue::Integer(n) => Some(n.is_zero()),
+                    _ => None,
+                };
+                match branch_taken {
+                    Some(true) => {
+                        // Constant condition is false → JumpIf always taken.
+                        optimized.push(ir::Instruction::Jump { target: *target });
+                        i += 2;
+                        continue;
+                    }
+                    Some(false) => {
+                        // Constant condition is true → JumpIf never taken.
+                        i += 2;
+                        continue;
+                    }
+                    None => {}
+                }
+            }
+        }
+
         // Try constant folding for binary ops
         if i + 2 < block.instructions.len() {
             if let (

@@ -26,6 +26,7 @@ fn convert_function(
                 is_virtual: function.is_virtual,
                 is_override: function.is_override,
                 documentation: function.doc.into(),
+                had_modifier_epilogue: function.had_modifier_epilogue,
             };
         }
 
@@ -75,6 +76,7 @@ fn convert_function(
             is_virtual: false,
             is_override: false,
             documentation: function.doc.into(),
+            had_modifier_epilogue: false,
         };
     }
 
@@ -120,6 +122,7 @@ fn convert_function(
         is_virtual: function.is_virtual,
         is_override: function.is_override,
         documentation: function.doc.into(),
+        had_modifier_epilogue: function.had_modifier_epilogue,
     }
 }
 

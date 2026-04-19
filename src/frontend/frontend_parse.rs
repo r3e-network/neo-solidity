@@ -13,10 +13,19 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     let mut file_level_structs: Vec<StructIR> = Vec::new();
     let mut file_level_enums: Vec<EnumIR> = Vec::new();
 
+    // Track the declared pragma's minimum Solidity version so we can reject
+    // features that were introduced later (solc-compatible behavior).
+    let mut pragma_min_version: Option<Version> = None;
+
     for part in source_unit.0 {
         match part {
             SourceUnitPart::PragmaDirective(pragma) => {
-                enforce_supported_pragma(&pragma)?;
+                if let Some(min) = enforce_supported_pragma(&pragma)? {
+                    pragma_min_version = match pragma_min_version {
+                        Some(existing) if existing <= min => Some(existing),
+                        _ => Some(min),
+                    };
+                }
             }
             SourceUnitPart::ContractDefinition(contract) => {
                 contracts.push(convert_contract(*contract, &comment_map));
@@ -34,6 +43,11 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
             _ => {}
         }
     }
+
+    // Enforce per-feature pragma gates (solc emits a hard error when a feature
+    // is used outside its declared minimum version). POC: `string.concat` /
+    // `bytes.concat`. See `FEATURE_*_MIN` constants for the registry.
+    enforce_feature_version_gates(source, pragma_min_version)?;
 
     // Inject file-level type aliases into every contract in the file.
     if !file_level_type_aliases.is_empty() {
@@ -80,15 +94,15 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
 
 fn enforce_supported_pragma(
     pragma: &solang_parser::pt::PragmaDirective,
-) -> Result<(), FrontendError> {
+) -> Result<Option<Version>, FrontendError> {
     use solang_parser::pt::PragmaDirective;
 
     let PragmaDirective::Version(_, ident, comparators) = pragma else {
-        return Ok(());
+        return Ok(None);
     };
 
     if ident.name != "solidity" {
-        return Ok(());
+        return Ok(None);
     }
 
     let spec = comparators
@@ -100,10 +114,178 @@ fn enforce_supported_pragma(
     // Compiler compatibility targets mainstream modern Solidity ranges used by
     // upstream protocols. We accept pragmas that intersect 0.5.x through 0.8.x.
     if pragma_supports_neo_solidity(spec.as_str()) {
-        Ok(())
+        Ok(pragma_min_version(spec.as_str()))
     } else {
         Err(FrontendError::UnsupportedVersion(spec))
     }
+}
+
+/// Compute the pragma's lowest-allowed concrete Solidity version.
+///
+/// Used to enforce per-feature version gates (e.g. `string.concat` requires
+/// `>= 0.8.12`). When the pragma admits multiple OR-branches, we pick the
+/// smallest lower bound since any of those versions may be used at compile
+/// time. Returns `None` for unbounded or unparseable ranges.
+fn pragma_min_version(spec: &str) -> Option<Version> {
+    let normalized = spec.replace(' ', "").to_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let mut best: Option<Version> = None;
+    for branch in normalized.split("||") {
+        let Some(v) = branch_min_version(branch) else {
+            continue;
+        };
+        best = match best {
+            Some(existing) if existing <= v => Some(existing),
+            _ => Some(v),
+        };
+    }
+    best
+}
+
+fn branch_min_version(branch: &str) -> Option<Version> {
+    let comparators = split_comparators(branch);
+    let mut lower: Option<Version> = None;
+    let mut update = |candidate: Version| {
+        lower = match lower {
+            Some(existing) if existing >= candidate => Some(existing),
+            _ => Some(candidate),
+        };
+    };
+
+    for comparator in comparators {
+        if comparator == "*" {
+            continue;
+        }
+        if let Some((start, _)) = parse_hyphen_range(&comparator) {
+            update(start);
+            continue;
+        }
+        if let Some((version, _)) = parse_caret(&comparator) {
+            update(version);
+            continue;
+        }
+        if let Some(version) = parse_tilde(&comparator) {
+            update(version);
+            continue;
+        }
+        if let Some((op, version)) = parse_operator_version(&comparator) {
+            match op {
+                ComparatorOp::Greater => update(next_patch(version)),
+                ComparatorOp::GreaterEq | ComparatorOp::Exact => update(version),
+                _ => {}
+            }
+            continue;
+        }
+        if let Some(version) = parse_plain_version(&comparator) {
+            update(version);
+        }
+    }
+    lower
+}
+
+/// Feature registry: features that require a minimum Solidity version.
+///
+/// POC covers `string.concat`/`bytes.concat` (both introduced in 0.8.12 /
+/// 0.8.4 respectively). Extend this as more features are gated.
+const FEATURE_STRING_CONCAT_MIN: Version = Version {
+    major: 0,
+    minor: 8,
+    patch: 12,
+};
+const FEATURE_BYTES_CONCAT_MIN: Version = Version {
+    major: 0,
+    minor: 8,
+    patch: 4,
+};
+
+/// Reject feature uses that predate the pragma's declared minimum version.
+///
+/// Scans `source` for `string.concat(` / `bytes.concat(` tokens (outside of
+/// comments and string literals) and errors when `pragma_min` is below the
+/// feature's introduction version. Matches solc's "feature unavailable in
+/// declared pragma range" behavior for the most common gap.
+fn enforce_feature_version_gates(
+    source: &str,
+    pragma_min: Option<Version>,
+) -> Result<(), FrontendError> {
+    let Some(min) = pragma_min else {
+        return Ok(());
+    };
+
+    let stripped = strip_comments_and_strings(source);
+
+    if min < FEATURE_STRING_CONCAT_MIN && stripped.contains("string.concat(") {
+        return Err(FrontendError::Parse(format!(
+            "feature `string.concat` requires pragma >= 0.8.12; declared pragma allows {}.{}.{}",
+            min.major, min.minor, min.patch
+        )));
+    }
+    if min < FEATURE_BYTES_CONCAT_MIN && stripped.contains("bytes.concat(") {
+        return Err(FrontendError::Parse(format!(
+            "feature `bytes.concat` requires pragma >= 0.8.4; declared pragma allows {}.{}.{}",
+            min.major, min.minor, min.patch
+        )));
+    }
+    Ok(())
+}
+
+/// Lightweight lexer-aware strip: replaces string-literal and comment bodies
+/// with spaces so they cannot produce false positives for feature scans.
+/// Handles `//` line comments, `/* */` block comments, `"..."` and `'...'`
+/// string literals with backslash escapes. Adequate for identifier-level
+/// feature probing (not a full Solidity lexer).
+fn strip_comments_and_strings(source: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut out = String::with_capacity(source.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                out.push(' ');
+                i += 1;
+            }
+            continue;
+        }
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+            out.push_str("  ");
+            i += 2;
+            while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                out.push(' ');
+                i += 1;
+            }
+            if i + 1 < bytes.len() {
+                out.push_str("  ");
+                i += 2;
+            }
+            continue;
+        }
+        if c == b'"' || c == b'\'' {
+            let quote = c;
+            out.push(' ');
+            i += 1;
+            while i < bytes.len() && bytes[i] != quote {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    out.push_str("  ");
+                    i += 2;
+                    continue;
+                }
+                out.push(' ');
+                i += 1;
+            }
+            if i < bytes.len() {
+                out.push(' ');
+                i += 1;
+            }
+            continue;
+        }
+        out.push(c as char);
+        i += 1;
+    }
+    out
 }
 
 fn pragma_supports_neo_solidity(spec: &str) -> bool {

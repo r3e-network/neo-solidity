@@ -67,6 +67,8 @@ fn lower_variable_expression(
                 key_types: Vec::new(),
                 value_type: vt,
                 field_path: Vec::new(),
+                trailing_key_expressions: Vec::new(),
+                trailing_key_types: Vec::new(),
             };
             return emit_storage_load(&reference, ctx, instructions);
         }

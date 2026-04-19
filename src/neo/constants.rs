@@ -5,8 +5,10 @@
 pub(super) const MAX_SOURCE_LENGTH: usize = 256;
 
 /// Maximum number of method tokens allowed in a single NEF file.
-/// Method tokens enable optimized cross-contract calls.
-pub const MAX_METHOD_TOKENS: usize = 128;
+/// Method tokens enable optimized cross-contract calls. The NEF3 spec
+/// permits up to 512 entries; real-world contracts compiled by
+/// Neo.Compiler.CSharp / Neow3j can exceed 128.
+pub const MAX_METHOD_TOKENS: usize = 512;
 
 /// Maximum byte length of a method name stored in a NEF method token.
 /// Method names exceeding this limit will be truncated.

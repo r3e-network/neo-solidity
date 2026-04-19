@@ -34,6 +34,7 @@ pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
             | "System.Runtime.GetNotifications"
             | "System.Runtime.BurnGas"
             | "System.Runtime.CurrentSigners"
+            | "System.Runtime.GetMsgValue"
             | "System.Runtime.LoadScript" => 1,
             "System.Runtime.CheckWitness" => 200,
             "System.Runtime.Log" | "System.Runtime.Notify" => 1,

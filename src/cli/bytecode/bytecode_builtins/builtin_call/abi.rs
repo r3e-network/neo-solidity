@@ -13,10 +13,36 @@ fn emit_abi_encode(
         bytecode.push(0x4A); // DUP (keep a reference to the array on the stack)
         bytecode.push(0xD1); // REVERSEITEMS (consumes one reference, reverses in-place)
     }
+    // Task #44 — target the EVM-canonical encoder (BE-padded 32-byte slots).
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "serialize",
+        "abiEncode",
+        1,
+        use_callt,
+        token_patches,
+    );
+}
+
+fn emit_abi_encode_packed(
+    bytecode: &mut Vec<u8>,
+    arg_count: usize,
+    use_callt: bool,
+    token_patches: &mut Vec<MethodTokenPatch>,
+) {
+    let total_bigint = BigInt::from(arg_count);
+    push_integer_bigint(bytecode, &total_bigint);
+    bytecode.push(0xC0); // PACK
+    if arg_count > 1 {
+        bytecode.push(0x4A); // DUP
+        bytecode.push(0xD1); // REVERSEITEMS
+    }
+    // Task #44 — target the packed encoder (per-element BE width, no padding
+    // between slots).
+    emit_native_contract_call(
+        bytecode,
+        ir::NativeContract::StdLib,
+        "abiEncodePacked",
         1,
         use_callt,
         token_patches,
@@ -28,10 +54,12 @@ fn emit_abi_decode(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
+    // Task #44 — round-trip decoder. Accepts the BE-packed payload produced
+    // by `abiEncode` and yields an Array of UnsignedInteger slots.
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "deserialize",
+        "abiDecode",
         1,
         use_callt,
         token_patches,

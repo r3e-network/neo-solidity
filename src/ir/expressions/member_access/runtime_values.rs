@@ -50,32 +50,27 @@ fn try_lower_runtime_member_access(
                         // onNEP11Payment(from, amount, tokenId, data) — data is param 3
                         instructions.push(Instruction::LoadParameter(3));
                     } else {
-                        let param_count = ctx.parameter_count();
+                        // msg.data lowers to the runtime's `input_data` (the raw calldata
+                        // bytes passed to `execute`), exposed via the `Script` field of
+                        // `System.Runtime.GetScriptContainer`. The bytecode emitter for
+                        // `RuntimeValue::MsgData` fetches that field. See
+                        // `src/cli/bytecode/bytecode_helpers/array_runtime.rs`.
+                        //
+                        // For entry-point invocations this is the exact calldata: fallback()
+                        // observes `msg.data.length == injected_calldata.len()`, and
+                        // external functions observe `selector || abi.encode(args)` as the
+                        // runtime dispatches them from input_data.
+                        //
+                        // Across internal contract-to-contract calls Neo N3's script
+                        // container still reflects the *transaction* script, so observers
+                        // can see a mismatch vs. EVM (which repopulates calldata on each
+                        // internal call). The surviving informational warning captures
+                        // that residual difference.
                         ctx.record_warning_with_suggestion(
-                            "msg.data is approximated on Neo N3 as `selector || abi.encode(current args)`. This differs from raw EVM calldata in internal calls.",
-                            "Use explicit method parameters when you need exact input semantics.",
+                            "msg.data is approximated on Neo N3 as `selector || abi.encode(current args)` for cross-contract calls where the Neo script container still reflects the entry-point transaction script rather than the per-call payload. Entry-point fallback/receive observe the exact injected calldata.",
+                            "Pass the bytes payload explicitly (e.g. `function f(bytes calldata data)`) when cross-contract call input must be recovered bit-for-bit.",
                         );
-                        // Push the current function's selector
-                        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                            ctx.current_function_selector().to_vec(),
-                        )));
-                        if param_count > 0 {
-                            // Push parameters for encoding
-                            for index in 0..param_count {
-                                instructions.push(Instruction::LoadParameter(index));
-                            }
-                            // Encode the parameters
-                            instructions.push(Instruction::CallBuiltin {
-                                builtin: BuiltinCall::AbiEncode,
-                                arg_count: param_count,
-                            });
-                            // Concatenate selector + encoded args
-                            instructions.push(Instruction::CallBuiltin {
-                                builtin: BuiltinCall::BytesConcat,
-                                arg_count: 2,
-                            });
-                        }
-                        // If param_count == 0, just leave the selector on the stack
+                        instructions.push(Instruction::LoadRuntimeValue(RuntimeValue::MsgData));
                     }
                     return Some(true);
                 }

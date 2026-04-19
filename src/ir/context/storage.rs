@@ -16,15 +16,28 @@ fn resolve_storage_reference(
             // - field accesses (`stateStruct.field`) load from storage slots; and
             // - whole-struct assignments (`stateStruct = StructName({...})`) can be lowered
             //   into per-field stores.
+            //
+            // Task #117: also recognize Array- and Mapping-typed state variables as
+            // storage reference bases so that `T[] storage a = arr;` can register a
+            // symbolic handle to `arr`. Subsequent `a[idx] = v` / `a[idx]` reads then
+            // walk the `ArraySubscript` branch below and land on the same
+            // `StoreMappingElement` / `LoadMappingElement` path that `arr[idx] = v`
+            // uses — the storage pointer aliases the backing slot instead of
+            // copying the array contents.
             let state_index = *ctx.state_index_map.get(&identifier.name)?;
             let state_type = ctx.state_type(state_index)?;
-            if matches!(state_type, ValueType::Struct { .. }) {
+            if matches!(
+                state_type,
+                ValueType::Struct { .. } | ValueType::Array(_) | ValueType::Mapping { .. }
+            ) {
                 Some(StorageReference {
                     state_index,
                     key_expressions: Vec::new(),
                     key_types: Vec::new(),
                     value_type: state_type.clone(),
                     field_path: Vec::new(),
+                    trailing_key_expressions: Vec::new(),
+                    trailing_key_types: Vec::new(),
                 })
             } else {
                 None
@@ -32,12 +45,51 @@ fn resolve_storage_reference(
         }
         Expression::MemberAccess(_, inner, member) => {
             let mut base = resolve_storage_reference(inner, ctx)?;
+            // Field access only makes sense on a struct-typed current value (not on a
+            // mapping/array tail — those must be subscripted first).
+            if !base.trailing_key_expressions.is_empty() {
+                return None;
+            }
             let field = find_struct_field(&base.value_type, &member.name)?;
             base.field_path.push(StorageReferenceField {
                 key: field.key,
                 ty: field.ty.clone(),
             });
             base.value_type = field.ty.clone();
+            Some(base)
+        }
+        Expression::ArraySubscript(_, inner, Some(index_expr)) => {
+            // Task #82: `slots[k].balances[a]` and similar nested-mapping-in-struct chains.
+            // The inner must already resolve into a struct field (or nested mapping) whose
+            // current value_type is a mapping or array. Extend the trailing-key chain.
+            //
+            // Task #117: when the base has no field_path yet (e.g. a storage-pointer
+            // alias to a top-level array or mapping, `T[] storage a = arr; a[idx]`),
+            // the index belongs in the PRIMARY key chain — it is semantically the
+            // same slot key that a direct `arr[idx]` access produces. Putting it in
+            // `trailing_key_expressions` would only be honoured by the
+            // `StoreStructFieldMappingElement` branch, which never fires without a
+            // field_path, so the index would be silently dropped.
+            let mut base = resolve_storage_reference(inner, ctx)?;
+            let (key_type, value_type) = match &base.value_type {
+                ValueType::Mapping { key, value } => ((**key).clone(), (**value).clone()),
+                ValueType::Array(element) => (
+                    ValueType::Integer {
+                        signed: false,
+                        bits: 256,
+                    },
+                    (**element).clone(),
+                ),
+                _ => return None,
+            };
+            if base.field_path.is_empty() {
+                base.key_expressions.push((**index_expr).clone());
+                base.key_types.push(key_type);
+            } else {
+                base.trailing_key_expressions.push((**index_expr).clone());
+                base.trailing_key_types.push(key_type);
+            }
+            base.value_type = value_type;
             Some(base)
         }
         _ => None,
@@ -66,6 +118,20 @@ fn emit_storage_load(
         key_locals.push(local);
     }
 
+    // Task #82: evaluate trailing (inner-mapping) keys also left-to-right.
+    let mut trailing_locals: Vec<usize> = Vec::new();
+    for (index, expr) in reference.trailing_key_expressions.iter().enumerate() {
+        let local = ctx.allocate_local(
+            format!("__storage_trail_{tmp_id}_{index}"),
+            reference.trailing_key_types.get(index).cloned(),
+        );
+        if !lower_expression(expr, ctx, instructions) {
+            return false;
+        }
+        instructions.push(Instruction::StoreLocal(local));
+        trailing_locals.push(local);
+    }
+
     let push_keys_for_slot = |instructions: &mut Vec<Instruction>| {
         // The bytecode emission expects keys in reverse order (deepest key first), with the
         // outer-most key closest to the top of the stack when the base slot is pushed.
@@ -73,6 +139,26 @@ fn emit_storage_load(
             instructions.push(Instruction::LoadLocal(*local));
         }
     };
+    let push_trailing_keys_for_slot = |instructions: &mut Vec<Instruction>| {
+        for local in trailing_locals.iter().rev() {
+            instructions.push(Instruction::LoadLocal(*local));
+        }
+    };
+
+    // Task #82: nested mapping inside struct field — `slots[k].balances[a]`.
+    if !reference.trailing_key_expressions.is_empty() && !reference.field_path.is_empty() {
+        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        push_trailing_keys_for_slot(instructions);
+        push_keys_for_slot(instructions);
+        instructions.push(Instruction::LoadStructFieldMappingElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys,
+            trailing_key_types: reference.trailing_key_types.clone(),
+            value_type: reference.value_type.clone(),
+        });
+        return true;
+    }
 
     if let Some(field) = reference.field_path.last() {
         let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
@@ -150,11 +236,44 @@ fn emit_storage_store(
         key_locals.push(local);
     }
 
+    // Task #82: evaluate trailing (inner-mapping) keys also left-to-right.
+    let mut trailing_locals: Vec<usize> = Vec::new();
+    for (index, expr) in reference.trailing_key_expressions.iter().enumerate() {
+        let local = ctx.allocate_local(
+            format!("__storage_trail_{tmp_id}_{index}"),
+            reference.trailing_key_types.get(index).cloned(),
+        );
+        if !lower_expression(expr, ctx, instructions) {
+            return false;
+        }
+        instructions.push(Instruction::StoreLocal(local));
+        trailing_locals.push(local);
+    }
+
     let push_keys_for_slot = |instructions: &mut Vec<Instruction>| {
         for local in key_locals.iter().rev() {
             instructions.push(Instruction::LoadLocal(*local));
         }
     };
+    let push_trailing_keys_for_slot = |instructions: &mut Vec<Instruction>| {
+        for local in trailing_locals.iter().rev() {
+            instructions.push(Instruction::LoadLocal(*local));
+        }
+    };
+
+    // Task #82: nested mapping inside struct field — `slots[k].balances[a] = v`.
+    if !reference.trailing_key_expressions.is_empty() && !reference.field_path.is_empty() {
+        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        push_trailing_keys_for_slot(instructions);
+        push_keys_for_slot(instructions);
+        instructions.push(Instruction::StoreStructFieldMappingElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys,
+            trailing_key_types: reference.trailing_key_types.clone(),
+        });
+        return true;
+    }
 
     if let Some(field) = reference.field_path.last() {
         let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();

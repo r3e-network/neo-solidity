@@ -10,10 +10,10 @@ For protocol-level migration status on well-known production contracts, start wi
 
 | Metric                 | Count | Percentage |
 | ---------------------- | ----: | ---------: |
-| Total audited features |   142 |       100% |
+| Total audited features |   143 |       100% |
 | Fully supported        |   114 |        80% |
 | Partial support        |    23 |        16% |
-| Not supported          |     1 |         1% |
+| Not supported          |     2 |         1% |
 | Intentionally blocked  |     4 |         3% |
 
 Status icons used throughout this page:
@@ -48,6 +48,7 @@ Status icons used throughout this page:
 | `string.concat(...)`      |   ✅   | Same implementation as `bytes.concat` via `CAT` opcode chain.                                                                 |
 | Contract types (`IERC20`) |   ✅   | Resolved to Neo UInt160 address. Interface types tracked.                                                                     |
 | Tuple types               |   ✅   | Represented as NeoVM arrays internally.                                                                                       |
+| Function types            |   ❌   | `function(...) internal/external` is not representable on NeoVM. State variables, locals, parameters, and return types of function type are rejected with an "unsupported type" diagnostic. Use named functions and inheritance instead of function pointers. |
 
 ### Partial type details
 
@@ -128,12 +129,12 @@ bytes memory payload = abi.encodeWithSignature("transfer(address,uint256)", to, 
 | `assembly { ... }`        |   ⚠️   | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops.                                   |
 | `try` / `catch`           |   ✅   | Maps to NeoVM `TRY`/`ENDTRY`. Single catch clause preferred.                                                 |
 | `catch Error(string)`     |   ✅   | Named catch with parameter binding.                                                                          |
-| `catch Panic(uint256)`    |   ⚠️   | Lowered with runtime integer-type guard. Values are NeoVM exception payloads, not canonical EVM panic codes. |
+| `catch Panic(uint256)`    |   ✅   | Matches the EVM-canonical `keccak256("Panic(uint256)")[..4]` (= `0x4e487b71`) selector on the revert envelope and decodes the 32-byte BE code into the catch binding (Task #103). |
 | `catch (bytes)`           |   ✅   | Low-level catch with raw bytes.                                                                              |
 
 ### Partial statement details
 
-**`catch Panic(uint256)`** — NeoVM exceptions do not carry EVM-style panic codes (0x01 for assert, 0x11 for overflow, etc.). The catch clause binds the NeoVM exception payload as an integer, but the numeric values will not match Ethereum panic code semantics. Use `catch (bytes memory reason)` for maximum portability.
+**`catch Panic(uint256)`** — As of Task #103, the compiler emits the EVM-canonical revert envelope (`selector || abi.encode(code)`) for `assert(false)` (0x01), div/mod by zero (0x12), enum-cast range violations (0x21), empty-array `.pop()` (0x31), and `abi.decode` short-buffer faults (0x41). The `catch Panic(uint code)` dispatcher guards on the 4-byte selector and decodes `code` via `StdLib.abiDecode`, so `code == 0x12` for div-by-zero is reachable with Ethereum-compatible semantics. (Checked-arithmetic `0x11` still uses the legacy ByteString `"Panic: 0x11"` path — see follow-up task.)
 
 **`unchecked { ... }`** — Since NeoVM uses arbitrary-precision BigInteger, integer overflow cannot occur. The `unchecked` block is accepted for source compatibility but has no behavioral effect — all arithmetic is inherently unchecked on NeoVM.
 
@@ -158,8 +159,8 @@ unchecked {
 | `returns (T1, T2, ...)`          |   ✅   | Multi-return via NeoVM arrays.                                                                                          |
 | Function overloading             |   ⚠️   | Supported with Neo overload mangling. One canonical ABI name is kept; other overloads use generated `neo_name` entries. |
 | `modifier`                       |   ✅   | Full modifier expansion with `_` placeholder substitution.                                                              |
-| `receive()`                      |   ⚠️   | Parsed. Diagnostic suggests using `onNEP17Payment()` callback instead.                                                  |
-| `fallback()`                     |   ⚠️   | Parsed. Diagnostic suggests using `onNEP17Payment()` callback instead.                                                  |
+| `receive()`                      |   ⚠️   | **Silently remapped** to `onNEP17Payment(address,uint256,bytes)` in the manifest when no explicit `onNEP17Payment` is declared. See detail below. |
+| `fallback()`                     |   ⚠️   | Kept as `fallback` in the manifest. Diagnostic `W105` suggests using `onNEP17Payment()` callback instead.               |
 | `virtual` / `override`           |   ✅   | Inheritance flattening resolves overrides. Multi-level chains supported.                                                |
 | Function selectors (`.selector`) |   ✅   | Computed from canonical parameter types.                                                                                |
 | NatSpec comments                 |   ✅   | `@notice`, `@dev`, `@param`, `@return` preserved in metadata.                                                           |
@@ -180,7 +181,13 @@ function transfer(address to, uint256 amount) public { ... }
 function transferWithData(address to, uint256 amount, bytes calldata data) public { ... }
 ```
 
-**`receive()` / `fallback()`** — These EVM constructs handle incoming Ether. On Neo, token receipts are handled by explicit callbacks. The compiler emits a diagnostic suggesting you implement `onNEP17Payment(address from, uint256 amount, bytes memory data)` instead.
+**`receive()` / `fallback()`** — These EVM constructs handle incoming Ether. On Neo, token receipts are handled by explicit callbacks.
+
+- `receive() external payable { ... }` is **silently remapped** to `onNEP17Payment(address from, uint256 amount, bytes data)` in the manifest when the contract does not already declare an explicit `onNEP17Payment`. The body is preserved unchanged; only the ABI entrypoint name and signature are rewritten (see `src/solidity/convert/functions.rs:32`). Ethereum developers should be aware that tooling will see the entrypoint as `onNEP17Payment`, not `receive`.
+- `fallback()` is **never remapped** — it keeps its Solidity name in the manifest. Neo has no EVM-style unknown-method fallback; diagnostic `W105` flags it and suggests `onNEP17Payment`.
+- When both `receive()` and an explicit `onNEP17Payment` are declared, `receive()` is **not** remapped (it retains its name) and `W105` warns that it has no effect on Neo N3.
+
+**Migration guidance**: declare `onNEP17Payment(address from, uint256 amount, bytes data)` directly when porting from Solidity. It surfaces the sender, amount, and attached data that NEP-17 provides at the transfer boundary.
 
 ---
 
@@ -265,11 +272,11 @@ Where `slot_hash` is `SHA256(variable_name)`. Nested mappings iterate this proce
 | Custom error definitions               |   ✅   | `error X(...)` parsed and used in revert statements.                                                                |
 | `try` / `catch`                        |   ✅   | NeoVM `TRY`/`ENDTRY` structured exception handling.                                                                 |
 | `try` with return binding              |   ✅   | `try f() returns (uint r) { ... }` supported.                                                                       |
-| Multiple catch clauses                 |   ⚠️   | Lowered with runtime stack-item type guards (`ISTYPE`). Selector-level `Error`/`Panic` distinction remains limited. |
+| Multiple catch clauses                 |   ✅   | Lowered with EVM-canonical 4-byte selector guards (Task #103). `catch Panic(uint256)` matches `0x4e487b71`, `catch Error(string)` matches `0x08c379a0`, `catch (bytes)` binds the raw envelope. User-defined named error clauses retain the legacy permissive `ISTYPE` guard. |
 
 ### Partial error handling details
 
-**Multiple catch clauses** — NeoVM exceptions are untyped. When multiple catch clauses are present (`catch Error(string)`, `catch Panic(uint256)`, `catch (bytes)`), the compiler inserts `ISTYPE` guards to route exceptions by stack item type. This provides reasonable dispatch but does not replicate EVM's distinct error/panic channels exactly.
+**Multiple catch clauses** — Task #103 switched the dispatcher to EVM-canonical selector matching. `catch Panic(uint256)` and `catch Error(string)` now guard on the 4-byte keccak selector (`0x4e487b71`, `0x08c379a0`) at the head of the revert envelope, decoding `code` / `msg` via `StdLib.abiDecode` and `SUBSTR`. User-defined named catches (e.g. `catch CustomErr(uint c)`) retain the pre-#103 ISTYPE guard until a follow-up extends selector-based routing to custom errors.
 
 ```solidity
 // ✅ Recommended — single catch clause

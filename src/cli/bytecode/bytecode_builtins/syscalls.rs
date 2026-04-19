@@ -122,7 +122,10 @@ fn native_method_has_return_value(contract: ir::NativeContract, method: &str) ->
         (StdLib, "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
         | "base64Decode" | "base64UrlEncode" | "base64UrlDecode" | "base58Encode" | "base58Decode"
         | "base58CheckEncode" | "base58CheckDecode" | "hexEncode" | "hexDecode" | "itoa" | "atoi"
-        | "memoryCompare" | "memorySearch" | "stringSplit" | "strLen") => true,
+        | "memoryCompare" | "memorySearch" | "stringSplit" | "strLen"
+        // Task #44 — EVM-canonical ABI encoders (see
+        // src/runtime/execution/execution_impl_part2_native/stdlib.rs).
+        | "abiEncode" | "abiEncodePacked" | "abiDecode") => true,
         (CryptoLib, "sha256" | "ripemd160" | "keccak256" | "murmur32" | "recoverSecp256K1"
         | "verifyWithECDsa" | "verifyWithEd25519" | "bls12381Serialize" | "bls12381Deserialize"
         | "bls12381Equal" | "bls12381Add" | "bls12381Mul" | "bls12381Pairing") => true,

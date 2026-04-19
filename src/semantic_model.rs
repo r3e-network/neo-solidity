@@ -195,6 +195,18 @@ fn convert_parameter(
             ty: NeoType::Any,
             storage: param.storage.clone(),
         }),
+        // Task #94 — tolerate parenthesised tuple return/parameter types whose
+        // components are all individually supported. The frontend loses the
+        // structured tuple shape (solang flattens the top-level tuple into
+        // sibling ParameterIR entries), but nested tuples still arrive as a
+        // raw `(T1, T2, ...)` string here. Downstream IR lowering treats the
+        // slot as `NeoType::Any` and routes it through `abiEncode`, which
+        // produces the EVM-canonical flat head layout the spec calls for.
+        None if is_supported_tuple_type(&param.ty) => Ok(ParameterSymbol {
+            name: param.name.clone(),
+            ty: NeoType::Any,
+            storage: param.storage.clone(),
+        }),
         None => Err(Diagnostic::error(match side {
             FunctionSide::Parameter => format!(
                 "function '{}' parameter '{}' uses unsupported type '{}'",
@@ -211,4 +223,77 @@ fn convert_parameter(
             ),
         })),
     }
+}
+
+/// Task #94 — recognise `(T1, T2, ...)` tuple-shaped type strings with all
+/// inner components individually supported by the scalar/array/bytes/mapping
+/// rules. Recursive on nested parens.
+fn is_supported_tuple_type(ty: &str) -> bool {
+    let trimmed = ty.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() < 2 || bytes[0] != b'(' || bytes[bytes.len() - 1] != b')' {
+        return false;
+    }
+    let mut depth: i32 = 0;
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 && i != bytes.len() - 1 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 {
+        return false;
+    }
+    let inner = &trimmed[1..trimmed.len() - 1];
+    let parts = split_tuple_components_for_params(inner);
+    !parts.is_empty() && parts.iter().all(|p| is_supported_leaf_or_tuple(p))
+}
+
+fn split_tuple_components_for_params(body: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth: i32 = 0;
+    let mut start = 0usize;
+    let bytes = body.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' | b'[' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b',' if depth == 0 => {
+                parts.push(body[start..i].trim().to_string());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    if start < body.len() {
+        let last = body[start..].trim();
+        if !last.is_empty() {
+            parts.push(last.to_string());
+        }
+    }
+    parts
+}
+
+fn is_supported_leaf_or_tuple(ty: &str) -> bool {
+    let trimmed = ty.trim();
+    if trimmed.starts_with('(') && trimmed.ends_with(')') {
+        return is_supported_tuple_type(trimmed);
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    lowered.starts_with("uint")
+        || lowered.starts_with("int")
+        || lowered == "bool"
+        || lowered == "string"
+        || lowered == "address"
+        || lowered == "bytes"
+        || lowered == "bytearray"
+        || lowered.starts_with("bytes")
+        || lowered.ends_with("[]")
+        || lowered.starts_with("mapping")
 }

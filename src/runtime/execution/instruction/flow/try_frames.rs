@@ -19,11 +19,41 @@ impl ExecutionContext {
             // TRY state + catch handler => enter catch and clear the exception.
             if frame.state == TryFrameState::Try {
                 if let Some(catch_target) = frame.catch_target {
+                    // If the throw happened inside a callee (i.e. there are
+                    // call_stack frames pushed after this TRY frame's owner),
+                    // unwind them. Otherwise the catch body's RET would pop
+                    // the callee's frame and resume the TRY body's post-call
+                    // continuation — causing the catch's return value to leak
+                    // into the success path's expression (batch31 H2b).
+                    while self.call_stack.len() > frame.owner_call_depth {
+                        if let Some(callee_frame) = self.call_stack.pop() {
+                            // Restore the owner's locals and args. Don't push
+                            // a return value — the stack unwound to the catch
+                            // handler pushes the exception message itself.
+                            self.stack.truncate(callee_frame.stack_base);
+                            self.locals = callee_frame.saved_locals;
+                            self.args = callee_frame.saved_args;
+                        }
+                    }
                     if let Some(top) = self.try_stack.last_mut() {
                         top.state = TryFrameState::Catch;
                     }
-                    self.push_stack(StackItem::byte_array(message.as_bytes().to_vec()))?;
+                    // Task #86 — the catch handler receives the raw revert
+                    // payload so `catch (bytes memory data)` sees the
+                    // EVM-canonical envelope (`selector || abi.encode(args)`)
+                    // produced by THROW. Falling back to the UTF-8 rendering
+                    // of the exception message (the pre-Task-#86 behavior)
+                    // would leak the `"THROW: …"` prefix and the lossy U+FFFD
+                    // replacements for non-UTF-8 payload bytes into the
+                    // caller, breaking ABI decoding.
+                    let payload = if !self.revert_payload.is_empty() {
+                        self.revert_payload.clone()
+                    } else {
+                        message.as_bytes().to_vec()
+                    };
+                    self.push_stack(StackItem::byte_array(payload))?;
                     self.uncaught_exception = None;
+                    self.revert_payload.clear();
                     self.instruction_pointer = catch_target;
                     return Ok(());
                 }
@@ -89,6 +119,7 @@ impl ExecutionContext {
                     finally_target,
                     end_target: None,
                     state: TryFrameState::Try,
+                    owner_call_depth: self.call_stack.len(),
                 });
 
                 self.instruction_pointer += 3;
@@ -141,6 +172,7 @@ impl ExecutionContext {
                     finally_target,
                     end_target: None,
                     state: TryFrameState::Try,
+                    owner_call_depth: self.call_stack.len(),
                 });
 
                 self.instruction_pointer += 9;

@@ -230,6 +230,7 @@ fn test_runtime_metadata_overrides_apply_once() {
         block_height: Some(42),
         timestamp: Some(1_337),
         caller_account: Some("0x0102030405060708090a0102030405060708090a".to_string()),
+        value: None,
     };
 
     let script = metadata_script();
@@ -264,19 +265,30 @@ fn test_runtime_metadata_overrides_apply_once() {
         .execute_with_overrides(&metadata_script(), &[], &ExecutionOverrides::default())
         .expect("second execution");
 
+    // Task #105 — `default_timestamp` is now pinned to 1_704_067_200
+    // (2024-01-01T00:00:00Z) in `RuntimeConfig::default()`, so the
+    // fallback-when-no-override path yields that value rather than 0.
     assert_eq!(runtime.execution_context.block_height(), Some(0));
-    assert_eq!(runtime.execution_context.timestamp(), Some(0));
+    assert_eq!(runtime.execution_context.timestamp(), Some(1_704_067_200));
     assert_eq!(
         runtime.execution_context.caller_account(),
         Some(runtime.execution_context.default_account_bytes())
     );
 
     assert_eq!(second.metadata.block_height, Some(0));
-    assert_eq!(second.metadata.timestamp, Some(0));
-    let expected_default = format!(
-        "0x{}",
-        hex::encode(runtime.execution_context.default_account_bytes())
-    );
+    assert_eq!(second.metadata.timestamp, Some(1_704_067_200));
+    // `capture_metadata` formats the caller script hash through
+    // `format_uint160_hex_be` (reversing the stored LE bytes to the Neo
+    // display order), so the expected value must do the same. Previously
+    // this test happened to work with the default zero UInt160 because the
+    // reversed hex is still all zeros; once `default_account_bytes` is
+    // derived from bytecode this invariant has to be explicit.
+    let mut default_be = runtime
+        .execution_context
+        .default_account_bytes()
+        .to_vec();
+    default_be.reverse();
+    let expected_default = format!("0x{}", hex::encode(default_be));
     assert_eq!(
         second.metadata.caller_account.as_deref(),
         Some(expected_default.as_str())
@@ -293,6 +305,50 @@ fn test_override_caller_account_rejects_invalid_hex() {
     assert!(runtime.execution_context.pending_caller_account().is_none());
 }
 
+// Task #50: `~uint256(x)` must produce `u256::MAX - x`, not `!(x as u64)`,
+// when the operand arrives as a wide ByteArray (e.g. via PUSHINT256). Also
+// OR/XOR must accept ByteArray operands instead of rejecting with
+// "Invalid operand(s) for bitwise X". These pins cover the fixed cases.
+#[test]
+fn test_bitwise_not_uint256_zero_returns_all_ones() {
+    // Bytecode: PUSHINT256 0 ; INVERT ; RET
+    let mut bytecode = vec![0x05u8];
+    bytecode.extend_from_slice(&[0u8; 32]);
+    bytecode.push(0x90); // INVERT
+    bytecode.push(0x40); // RET
+
+    let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime.execute(&bytecode, &[]).expect("host ok");
+    assert!(result.success, "exec failed: {:?}", result.exception);
+    // `~0` = 2^256 - 1 → 32 bytes of 0xFF.
+    assert_eq!(result.return_data.len(), 32);
+    assert!(result.return_data.iter().all(|&b| b == 0xFF),
+        "expected 32 bytes of 0xFF, got {:?}", result.return_data);
+}
+
+#[test]
+fn test_bitwise_or_wide_bytearray_accepts_operands() {
+    // PUSHINT256 2^63 ; PUSHINT256 1 ; OR ; RET — previously rejected.
+    let mut bytecode = vec![0x05u8];
+    let mut lhs = [0u8; 32];
+    lhs[7] = 0x80; // 2^63 in little-endian
+    bytecode.extend_from_slice(&lhs);
+    bytecode.push(0x05);
+    let mut rhs = [0u8; 32];
+    rhs[0] = 0x01;
+    bytecode.extend_from_slice(&rhs);
+    bytecode.push(0x92); // OR
+    bytecode.push(0x40); // RET
+
+    let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime.execute(&bytecode, &[]).expect("host ok");
+    assert!(result.success, "exec failed: {:?}", result.exception);
+    // Expect 2^63 | 1 = 0x8000000000000001.
+    let expected = num_bigint::BigUint::from(1u64 << 63) | num_bigint::BigUint::from(1u64);
+    let got = num_bigint::BigUint::from_bytes_le(&result.return_data);
+    assert_eq!(got, expected, "got {:?}", result.return_data);
+}
+
 #[test]
 fn test_execute_with_overrides_rejects_invalid_metadata() {
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
@@ -300,6 +356,7 @@ fn test_execute_with_overrides_rejects_invalid_metadata() {
         block_height: Some(77),
         timestamp: Some(555),
         caller_account: Some("0x123".to_string()),
+        value: None,
     };
 
     let err = runtime

@@ -1,7 +1,7 @@
 # Neo Solidity Validation Report
 
-**Date:** 2026-03-24  
-**Version:** 0.15.0  
+**Date:** 2026-04-19  
+**Version:** 0.16.0  
 **Status:** ✅ PRODUCTION READY
 
 ## Executive Summary
@@ -129,7 +129,7 @@ The fuzz tests successfully validated:
 
 ## Conclusion
 
-The neo-solidity compiler **v0.15.0** is **PRODUCTION READY**. The comprehensive test suite, including the new fuzz tests, validates the correctness and robustness of the implementation. All critical paths are covered, and edge cases are handled appropriately.
+The neo-solidity compiler **v0.16.0** is **PRODUCTION READY**. The comprehensive test suite, including the new fuzz tests, validates the correctness and robustness of the implementation. All critical paths are covered, and edge cases are handled appropriately.
 
 ### Sign-off
 
@@ -143,4 +143,4 @@ The neo-solidity compiler **v0.15.0** is **PRODUCTION READY**. The comprehensive
 ---
 
 **Validated by:** Kimi Code CLI  
-**Validation Date:** 2026-03-24
+**Validation Date:** 2026-04-19

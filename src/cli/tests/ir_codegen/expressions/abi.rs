@@ -27,7 +27,12 @@ fn abi_encode_preserves_argument_order() {
 }
 
 #[test]
-fn msg_data_lowers_to_selector_prefix_plus_encoded_arguments() {
+fn msg_data_lowers_to_runtime_input_data_with_arguments() {
+    // msg.data now lowers to `RuntimeValue::MsgData`, which the bytecode emitter
+    // resolves via `System.Runtime.GetScriptContainer.Script` (index 7 —
+    // the raw input_data bytes passed to `execute`). The IR should therefore
+    // contain exactly one `LoadRuntimeValue(MsgData)` and no argument-synthesis
+    // (no selector push, no AbiEncode, no BytesConcat for this access).
     let source = r#"
     pragma solidity ^0.8.34;
 
@@ -52,55 +57,37 @@ fn msg_data_lowers_to_selector_prefix_plus_encoded_arguments() {
         .flat_map(|block| block.instructions.iter())
         .collect();
 
-    // msg.data now lowers to selector || abi.encode(current args)
-    let mut hasher = Keccak256::new();
-    hasher.update(b"payload(uint256,address)");
-    let digest = hasher.finalize();
-    let expected_selector = digest[..4].to_vec();
+    let msg_data_loads = instrs
+        .iter()
+        .filter(|instr| {
+            matches!(instr, ir::Instruction::LoadRuntimeValue(ir::RuntimeValue::MsgData))
+        })
+        .count();
+    assert_eq!(
+        msg_data_loads, 1,
+        "expected msg.data to lower to a single LoadRuntimeValue(MsgData) — found {}",
+        msg_data_loads,
+    );
 
+    // The old selector-prefix synthesis must be gone: no AbiEncode + BytesConcat
+    // pair attributable to msg.data (function has no other abi.encode calls).
     assert!(
-        instrs.iter().any(|instr| matches!(
-            instr,
-            ir::Instruction::PushLiteral(ir::LiteralValue::ByteArray(bytes)) if *bytes == expected_selector
-        )),
-        "expected msg.data to prepend the current function selector"
-    );
-    assert!(
-        instrs
-            .iter()
-            .any(|instr| matches!(instr, ir::Instruction::LoadParameter(0))),
-        "expected msg.data approximation to load the first current argument"
-    );
-    assert!(
-        instrs
-            .iter()
-            .any(|instr| matches!(instr, ir::Instruction::LoadParameter(1))),
-        "expected msg.data approximation to load the second current argument"
-    );
-    assert!(
-        instrs.iter().any(|instr| matches!(
+        !instrs.iter().any(|instr| matches!(
             instr,
             ir::Instruction::CallBuiltin {
                 builtin: ir::BuiltinCall::AbiEncode,
-                arg_count: 2,
+                ..
             }
         )),
-        "expected msg.data approximation to encode current arguments with abi.encode"
+        "expected no AbiEncode for the new msg.data lowering",
     );
-    assert!(
-        instrs.iter().any(|instr| matches!(
-            instr,
-            ir::Instruction::CallBuiltin {
-                builtin: ir::BuiltinCall::BytesConcat,
-                arg_count: 2,
-            }
-        )),
-        "expected msg.data to concatenate selector and encoded args"
-    );
+    // Keccak256 is still imported elsewhere in the module; keep the use-site
+    // alive so the import doesn't go stale.
+    let _ = Keccak256::new();
 }
 
 #[test]
-fn msg_data_with_no_params_lowers_to_selector_only() {
+fn msg_data_with_no_params_lowers_to_runtime_input_data() {
     let source = r#"
     pragma solidity ^0.8.34;
 
@@ -125,27 +112,13 @@ fn msg_data_with_no_params_lowers_to_selector_only() {
         .flat_map(|block| block.instructions.iter())
         .collect();
 
-    // msg.data with no params should just be the selector
-    let mut hasher = Keccak256::new();
-    hasher.update(b"payload()");
-    let digest = hasher.finalize();
-    let expected_selector = digest[..4].to_vec();
-
     assert!(
         instrs.iter().any(|instr| matches!(
             instr,
-            ir::Instruction::PushLiteral(ir::LiteralValue::ByteArray(bytes)) if *bytes == expected_selector
+            ir::Instruction::LoadRuntimeValue(ir::RuntimeValue::MsgData)
         )),
-        "expected msg.data with no params to push just the selector"
+        "expected msg.data with no params to lower to LoadRuntimeValue(MsgData)",
     );
-    // Should NOT have any LoadParameter calls
-    assert!(
-        !instrs
-            .iter()
-            .any(|instr| matches!(instr, ir::Instruction::LoadParameter(_))),
-        "expected msg.data with no params to not load any parameters"
-    );
-    // Should NOT have BytesConcat (no args to concat)
     assert!(
         !instrs.iter().any(|instr| matches!(
             instr,
@@ -154,7 +127,7 @@ fn msg_data_with_no_params_lowers_to_selector_only() {
                 ..
             }
         )),
-        "expected msg.data with no params to not call BytesConcat"
+        "expected msg.data with no params not to call BytesConcat",
     );
 }
 

@@ -7,7 +7,25 @@ fn emit_ir_function(
     use std::{collections::HashMap, convert::TryFrom};
 
     let mut local = Vec::new();
-    let arg_count = method.parameters.len() as u8;
+    // Task #106 — for externally-callable functions, INITSLOT arg_count must
+    // reflect the FLATTENED struct-field count so Ethereum-style callers
+    // that push tuple fields individually (the canonical ABI encoding of a
+    // struct arg) can deposit each field into its own slot. Without this,
+    // INITSLOT pops only one item for `f(P p)` and the other fields leak
+    // onto the stack, breaking selector/payload round-trips.
+    //
+    // Internal functions keep the nominal parameter count because they are
+    // called via `CallFunction` which never unpacks structs.
+    let nominal_arg_count = method.parameters.len();
+    let flat_arg_count = if matches!(
+        method.visibility,
+        VisibilityKind::External | VisibilityKind::Public
+    ) {
+        flat_param_slot_count_from_value_types(&function.parameters)
+    } else {
+        nominal_arg_count
+    };
+    let arg_count = u8::try_from(flat_arg_count).unwrap_or(u8::MAX);
     let local_count = u8::try_from(function.local_count).unwrap_or(u8::MAX);
     if local_count > 0 || arg_count > 0 {
         local.push(0x57); // INITSLOT
@@ -25,6 +43,9 @@ fn emit_ir_function(
                 ir::Instruction::Drop(_) => local.push(0x45),
                 ir::Instruction::LoadParameter(index) => {
                     emit_load_parameter(&mut local, method, *index)
+                }
+                ir::Instruction::StoreParameter(index) => {
+                    emit_store_parameter(&mut local, *index)
                 }
                 ir::Instruction::PushLiteral(literal) => {
                     push_literal_value(&mut local, literal);
@@ -134,6 +155,38 @@ fn emit_ir_function(
                     use_callt,
                     &mut token_patches,
                 ),
+                ir::Instruction::LoadStructFieldMappingElement {
+                    state_index,
+                    key_types,
+                    field_keys,
+                    trailing_key_types,
+                    value_type,
+                } => emit_load_struct_field_mapping_element(
+                    &mut local,
+                    module,
+                    *state_index,
+                    key_types,
+                    field_keys.as_slice(),
+                    trailing_key_types,
+                    value_type,
+                    use_callt,
+                    &mut token_patches,
+                ),
+                ir::Instruction::StoreStructFieldMappingElement {
+                    state_index,
+                    key_types,
+                    field_keys,
+                    trailing_key_types,
+                } => emit_store_struct_field_mapping_element(
+                    &mut local,
+                    module,
+                    *state_index,
+                    key_types,
+                    field_keys.as_slice(),
+                    trailing_key_types,
+                    use_callt,
+                    &mut token_patches,
+                ),
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value, use_callt, &mut token_patches)
                 }
@@ -180,10 +233,15 @@ fn emit_ir_function(
                 ir::Instruction::IsType { target } => emit_is_type(&mut local, *target),
                 ir::Instruction::NewBuffer => emit_new_buffer(&mut local),
                 ir::Instruction::NewArray { .. } => emit_new_array(&mut local),
+                ir::Instruction::NewMap => local.push(0xC8), // NEWMAP
                 ir::Instruction::ArrayGet => emit_array_get(&mut local),
                 ir::Instruction::ArraySet => emit_array_set(&mut local),
+                ir::Instruction::HasKey => local.push(0xCB), // HASKEY
                 ir::Instruction::MemCpy => {
                     local.push(0x89); // MEMCPY
+                }
+                ir::Instruction::Substr => {
+                    local.push(0x8C); // SUBSTR
                 }
                 ir::Instruction::ReverseItems => {
                     local.push(0xD1); // REVERSEITEMS
@@ -290,4 +348,19 @@ fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
         ValueType::Struct { .. } => bytecode.push(0xC5), // NEWSTRUCT0
         ValueType::Any => bytecode.push(0x0B),      // NULL
     }
+}
+
+/// Task #106 — count flattened parameter slots for INITSLOT. Struct params
+/// expand to their direct field count; all other types count as 1. Nested
+/// struct fields remain a single slot for now (nested expansion is a
+/// follow-up when the ABI payload path adds recursive field-tuple
+/// canonicalisation).
+fn flat_param_slot_count_from_value_types(param_types: &[ir::ValueType]) -> usize {
+    param_types
+        .iter()
+        .map(|ty| match ty {
+            ir::ValueType::Struct { fields, .. } => fields.len(),
+            _ => 1,
+        })
+        .sum()
 }

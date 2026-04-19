@@ -1,6 +1,7 @@
 #[allow(clippy::too_many_arguments)]
 fn build_deploy_function_with_warnings(
     metadata: &FunctionMetadata,
+    current_contract_name: &str,
     constructors: &[&Function],
     state_variables: &[StateVariableMetadata],
     state_index_map: &HashMap<String, usize>,
@@ -8,6 +9,7 @@ fn build_deploy_function_with_warnings(
     defined_struct_types: &[ValueType],
     event_index_map: &HashMap<String, usize>,
     event_signature_map: &HashMap<String, Vec<ManifestType>>,
+    event_params_map: &HashMap<String, EventSignature>,
     enum_variant_map: &HashMap<String, HashMap<String, u64>>,
     contract_types: &HashSet<String>,
     selector_registry: &SelectorRegistry,
@@ -20,6 +22,7 @@ fn build_deploy_function_with_warnings(
     function_param_names: &HashMap<(String, usize), Vec<String>>,
     void_functions: &HashSet<String>,
     super_method_map: &HashMap<String, String>,
+    library_storage_bodies: &HashMap<(String, usize), LibraryStorageBody>,
 ) -> Result<(Function, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
     let parameters: Vec<ValueType> = metadata
         .parameters
@@ -35,7 +38,12 @@ fn build_deploy_function_with_warnings(
     let param_index_map = build_parameter_index_map(metadata);
     let mut ctx = LoweringContext::new(
         &metadata.name,
+        current_contract_name,
         metadata.selector,
+        false,
+        // The deploy prologue is invoked via the `_deploy` dispatcher path
+        // and does not return tuples, so `is_externally_callable=false` is
+        // safe here — the abi-encode tuple-return conversion is inert.
         false,
         param_index_map,
         &parameters,
@@ -45,6 +53,7 @@ fn build_deploy_function_with_warnings(
         defined_struct_types,
         event_index_map,
         event_signature_map,
+        event_params_map,
         enum_variant_map,
         contract_types,
         selector_registry,
@@ -57,6 +66,7 @@ fn build_deploy_function_with_warnings(
         function_param_names,
         void_functions,
         super_method_map,
+        library_storage_bodies,
     );
 
     // Lower state variable initializers (non-constant) into a deploy-time prologue.

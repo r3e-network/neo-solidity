@@ -94,27 +94,35 @@ fn try_catch_multiple_clauses_emit_runtime_type_guards() {
         .expect("expected run function");
     let instrs = &run_fn.basic_blocks[0].instructions;
 
+    // Task #103 — `catch Panic(uint256)` now emits a 4-byte selector
+    // match against `keccak256("Panic(uint256)")[..4] = 0x4e487b71`
+    // instead of an ISTYPE Integer guard. The guard sequence is
+    //   IsType ByteArray → JumpIf (not-bytes)
+    //   GetSize → Push(36) → Lt → JumpIf (long-enough) → Jump (short)
+    //   Substr(0, 4) → Push(selector) → Eq → JumpIf (mismatch)
+    // so we pin the selector byte literal as the landmark instead of
+    // the old ISTYPE Integer.
+    let panic_selector = [0x4eu8, 0x48, 0x7b, 0x71];
     assert!(
-        instrs.iter().any(|instr| {
-            matches!(
-                instr,
-                ir::Instruction::IsType {
-                    target: ir::ConvertTarget::Integer
-                }
-            )
-        }),
-        "expected catch Panic(uint256) to emit an integer runtime type guard"
+        instrs.iter().any(|instr| matches!(instr,
+            ir::Instruction::PushLiteral(ir::LiteralValue::ByteArray(bytes))
+            if bytes.as_slice() == panic_selector
+        )),
+        "expected catch Panic(uint256) to emit a selector literal 0x4e487b71"
     );
 
+    // The bytes catch still runs via the legacy ISTYPE ByteArray guard
+    // (for the bare `catch` fallback compatibility path) or binds
+    // directly. We now use the specialized `Bytes` arm that always
+    // matches, so we instead pin that at least one `IsType ByteArray`
+    // exists — it's still emitted by the Panic selector guard.
     assert!(
-        instrs.iter().any(|instr| {
-            matches!(
-                instr,
-                ir::Instruction::IsType {
-                    target: ir::ConvertTarget::ByteArray
-                }
-            )
-        }),
-        "expected catch(bytes) to emit a byte-array runtime type guard"
+        instrs.iter().any(|instr| matches!(
+            instr,
+            ir::Instruction::IsType {
+                target: ir::ConvertTarget::ByteArray
+            }
+        )),
+        "expected an ISTYPE ByteArray guard to precede the Panic selector match"
     );
 }

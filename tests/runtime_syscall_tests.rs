@@ -222,6 +222,7 @@ fn checkwitness_returns_true() {
     code.extend_from_slice(&[0u8; 20]);
     code.extend_from_slice(&[0x41, 248, 39, 236, 140, 0x40]);
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
+    ctx.force_default_account_explicit_for_tests();
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
     assert_eq!(ctx.return_data(), vec![1]);
@@ -240,6 +241,7 @@ fn checkwitness_accepts_array_of_witnesses() {
     code.extend_from_slice(&[0x41, 248, 39, 236, 140, 0x40]); // CheckWitness, RET
 
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
+    ctx.force_default_account_explicit_for_tests();
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
     assert_eq!(ctx.return_data(), vec![1]);

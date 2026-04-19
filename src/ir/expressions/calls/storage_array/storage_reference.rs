@@ -12,6 +12,24 @@ fn try_lower_storage_reference_array_helpers(
         return None;
     }
 
+    // Task #117 regression guard: fix-117 widened `resolve_storage_reference`
+    // so a bare `Expression::Variable` naming an Array-typed state variable
+    // returns a no-key/no-field StorageReference. Routing a direct
+    // `ps.push(P(a,b))` through `lower_storage_reference_push` below would
+    // collapse struct-element arrays onto the empty-field_path branch, which
+    // emits a flat `StoreMappingElement` — but struct-array reads
+    // (`ps[i].a`) expect the per-field slot layout that the Task #104 fix in
+    // `state_var.rs::lower_state_array_push` derives via
+    // `StoreStructArrayElement`. For direct state-var arrays we yield to
+    // `try_lower_state_array_helpers` instead.
+    if let Expression::Variable(identifier) = inner.as_ref() {
+        if ctx.storage_alias(&identifier.name).is_none()
+            && ctx.state_index_map.contains_key(&identifier.name)
+        {
+            return None;
+        }
+    }
+
     let reference = resolve_storage_reference(inner, ctx)?;
 
     // We support pushing/popping on:
@@ -72,16 +90,39 @@ fn lower_storage_reference_push(
         load_expression(expr, ctx, instructions);
     }
 
+    let ValueType::Array(element_type) = &reference.value_type else {
+        ctx.record_error("array push target is not an array");
+        return false;
+    };
+
     if !reference.field_path.is_empty() {
         let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
-        let ValueType::Array(element_type) = &reference.value_type else {
-            ctx.record_error("array push target is not an array");
-            return false;
-        };
         instructions.push(Instruction::StoreStructArrayElement {
             state_index: reference.state_index,
             key_types: reference.key_types.clone(),
             field_keys,
+            element_type: (**element_type).clone(),
+        });
+    } else if matches!(element_type.as_ref(), ValueType::Struct { .. }) {
+        // Task #170 — symmetric to the Task #104 fix for direct state
+        // arrays (`P[] ps; ps.push(P(a,b))`): when a storage-reference
+        // push targets a struct-element array (e.g.
+        // `mapping(address => Checkpoint[]) history; history[acct].push(...)`),
+        // `StoreMappingElement` writes the whole struct as a single
+        // serde-JSON blob at `keccak256(serialize(i) || mapping_slot)`,
+        // while the matching read path (`history[acct][i].field`) goes
+        // through `emit_storage_load` → `LoadStructField` which derives
+        // `keccak256(field_key || keccak256(serialize(i) || mapping_slot))`.
+        // That slot mismatch surfaced as the TT2 harness reading `(0, 0)`
+        // after a successful `record(alice, 100)` — the checkpoint field
+        // values were written to the blob slot but the reader queried the
+        // per-field slots. Route struct elements through
+        // `StoreStructArrayElement` with empty `field_keys` so the write
+        // hits the same per-field layout the read side expects.
+        instructions.push(Instruction::StoreStructArrayElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys: Vec::new(),
             element_type: (**element_type).clone(),
         });
     } else {
@@ -169,6 +210,18 @@ fn lower_storage_reference_pop(
             field_keys,
             element_type: element_type.clone(),
         });
+    } else if matches!(element_type, ValueType::Struct { .. }) {
+        // Task #170 — symmetric read-side of the push fix above. Must
+        // match the per-field `StoreStructArrayElement` layout that
+        // `lower_storage_reference_push` now writes for struct-element
+        // storage-reference arrays (e.g. `history[acct].pop()` where
+        // `history` is `mapping(address => Checkpoint[])`).
+        instructions.push(Instruction::LoadStructArrayElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
     } else {
         instructions.push(Instruction::LoadMappingElement {
             state_index: reference.state_index,
@@ -193,6 +246,15 @@ fn lower_storage_reference_pop(
             field_keys,
             element_type: element_type.clone(),
         });
+    } else if matches!(element_type, ValueType::Struct { .. }) {
+        // Task #170 — symmetric default-write to match the per-field
+        // layout `lower_storage_reference_push` uses above.
+        instructions.push(Instruction::StoreStructArrayElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
     } else {
         instructions.push(Instruction::StoreMappingElement {
             state_index: reference.state_index,
@@ -203,9 +265,15 @@ fn lower_storage_reference_pop(
     instructions.push(Instruction::LoadLocal(popped_local));
     instructions.push(Instruction::Jump { target: end_label });
 
+    // Task #98 / Task #107 — Solidity 0.8.x specifies that `.pop()` on an
+    // empty array reverts with Panic(0x31) (array-pop-underflow). Route
+    // through the shared `emit_panic` helper which emits the canonical
+    //   keccak256("Panic(uint256)")[0..4] || abi.encode(0x31)
+    // payload so `ExecutionResult.return_data` begins with the EVM-canonical
+    // Panic(uint256) envelope — matches the shape used by assert(false)=0x01,
+    // enum-cast=0x21, arith-overflow=0x11, div-zero=0x12, abi.decode=0x41.
     instructions.push(Instruction::Label(empty_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Null));
-    instructions.push(Instruction::Throw);
+    emit_panic(0x31, instructions);
 
     instructions.push(Instruction::Label(end_label));
     true

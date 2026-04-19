@@ -30,11 +30,20 @@ fn apply_modifiers_and_base_constructors(
             continue;
         }
 
-        func.body = Some(apply_modifier_calls_to_body(
+        // Task #114 — threaded epilogue detection: if any applied modifier has
+        // statements after its `_;` placeholder, record the flag on the
+        // function so IR lowering can redirect returns through synthetic
+        // slots + an end-of-function jump (so modifier tail statements still
+        // run before the actual RET).
+        let (expanded_body, had_epilogue) = apply_modifier_calls_to_body_with_epilogue(
             &body,
             &func.base_or_modifiers,
             &modifier_defs,
-        )?);
+        )?;
+        func.body = Some(expanded_body);
+        if had_epilogue {
+            func.had_modifier_epilogue = true;
+        }
         func.base_or_modifiers.clear();
     }
 

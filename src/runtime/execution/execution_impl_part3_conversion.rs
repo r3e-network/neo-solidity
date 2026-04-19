@@ -4,12 +4,39 @@ impl ExecutionContext {
             0x00 => Ok(item), // Any/no-op
             0x20 => Ok(StackItem::Boolean(item.is_truthy())),
             0x21 | 0x22 => {
+                // NeoVM CONVERT→Integer: interpret the byte buffer as a signed
+                // little-endian arbitrary-precision integer. Narrow results
+                // (≤ 8 bytes) fit in `StackItem::Integer(i64)`; wider results
+                // are preserved as signed-LE `StackItem::ByteArray` so the
+                // downstream BigInt arithmetic path (`coerce_item_to_bigint`,
+                // `bigint_to_stack_item`) keeps full precision for values that
+                // exceed 64 bits (e.g. `uint256(bytes32(...))` with high bytes
+                // populated). Truncating to the first 8 bytes here was Task
+                // #111's root cause — for a 32-byte LE buffer whose magnitude
+                // lives above byte 7, the naive `from_le_bytes([..8])` path
+                // returned 0.
                 let bytes = Self::stack_item_to_bytes(item);
-                let mut buf = [0u8; 8];
-                for (i, b) in bytes.iter().take(8).enumerate() {
-                    buf[i] = *b;
+                if bytes.is_empty() {
+                    return Ok(StackItem::Integer(0));
                 }
-                Ok(StackItem::Integer(i64::from_le_bytes(buf)))
+                if bytes.len() <= 8 {
+                    // Sign-extend from the high bit of the last byte so signed
+                    // LE encodings shorter than 8 bytes round-trip correctly.
+                    let mut buf = [0u8; 8];
+                    buf[..bytes.len()].copy_from_slice(&bytes);
+                    let sign = *bytes.last().unwrap() & 0x80;
+                    if sign != 0 {
+                        for byte in buf.iter_mut().skip(bytes.len()) {
+                            *byte = 0xFF;
+                        }
+                    }
+                    Ok(StackItem::Integer(i64::from_le_bytes(buf)))
+                } else {
+                    // Preserve the signed-LE encoding verbatim — the wide
+                    // arithmetic path (Task #30) already decodes ByteArray via
+                    // `BigInt::from_signed_bytes_le`.
+                    Ok(StackItem::byte_array(bytes))
+                }
             }
             0x28 | 0x30 => Ok(StackItem::byte_array(Self::stack_item_to_bytes(item))),
             0x40 | 0x41 => match item {

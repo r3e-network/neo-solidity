@@ -45,5 +45,17 @@ impl ExecutionContext {
     pub fn logs(&self) -> &[LogEntry] {
         &self.logs
     }
+
+    /// Task #27 (runtime slice) — the raw bytes popped by the most recent
+    /// `THROW` opcode, preserved verbatim (not UTF-8 lossy'd into a String).
+    ///
+    /// The bridge reads this on the error path and routes it into
+    /// `ExecutionResult.return_data`, modeling the EVM convention that a
+    /// revert surfaces `return_data = selector || abi.encode(args)`.
+    ///
+    /// Returns an empty slice if no THROW has executed yet.
+    pub fn revert_payload(&self) -> &[u8] {
+        &self.revert_payload
+    }
 }
 

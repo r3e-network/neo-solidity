@@ -196,6 +196,7 @@ fn convert_function(
         base_or_modifiers,
         body: function.body,
         doc,
+        had_modifier_epilogue: false,
     }
 }
 
@@ -256,6 +257,7 @@ fn storage_to_string(storage: &StorageLocation) -> String {
         StorageLocation::Memory(_) => "memory",
         StorageLocation::Storage(_) => "storage",
         StorageLocation::Calldata(_) => "calldata",
+        StorageLocation::Transient(_) => "transient",
     }
     .to_string()
 }

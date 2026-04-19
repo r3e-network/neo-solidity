@@ -68,6 +68,29 @@ fn try_lower_type_constructor_call(
 
     if let Expression::Type(_, ty) = func {
         match ty {
+            // Task #128 — `payable(x)` is a Solidity type-only cast (§4.3, §4.7.3).
+            // It changes the static type from `address` to `address payable` but MUST
+            // preserve the underlying 20-byte value identically. Previously this variant
+            // fell through all `try_lower_*` paths and landed in the fallback at
+            // `dispatch.rs` which dropped the arg and pushed `BigInt::zero()` (observed
+            // as 8 zero bytes for a 20-byte probe) — catastrophic: every `.call{value:}`
+            // routed through `payable(a)` would target `address(0)` instead of `a`.
+            // The Solidity-spec semantics are a pure runtime identity: evaluate and
+            // leave the value on the stack untouched.
+            PtType::Payable => {
+                if let Some(arg) = args.first() {
+                    if !lower_expression(arg, ctx, instructions) {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                            vec![0u8; 20],
+                        )));
+                    }
+                } else {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(
+                        vec![0u8; 20],
+                    )));
+                }
+                return Some(true);
+            }
             PtType::Address | PtType::AddressPayable => {
                 if let Some(arg) = args.first() {
                     // Preserve `this` as the executing script hash so manifest permission
@@ -119,8 +142,37 @@ fn try_lower_type_constructor_call(
                 } else if let Some(arg) = arg {
                     // Solidity allows casting `bytesN` and `bool` into integers; NeoVM represents
                     // these as ByteString/Boolean stack items, so coerce them to Integer first.
+                    //
+                    // Task #111 — `uint256(bytes32)` is a bit-identity reinterpret: Solidity's
+                    // bytes32 is a big-endian byte container (MSB at byte 0), but NeoVM's
+                    // CONVERT→Integer decodes ByteArray as signed little-endian. Without a
+                    // swap, `uint256(bytes32(0x00..01))` parses the low 8 bytes `[0,0,0,0,0,0,0,0]`
+                    // as 0 instead of 1. Mirror the opposite direction's handling in
+                    // `coerce_to_fixed_bytes` (which REVERSEs on `bytes32(uint)`): emit
+                    // REVERSEITEMS on the fixed-bytes input so the LE-interpreting CONVERT
+                    // recovers the correct magnitude. `bytes` dynamic gets the same treatment
+                    // for consistency — cross-width reinterprets aren't valid Solidity, but if
+                    // they sneak through the type checker we prefer "top byte first" semantics.
+                    let arg_type = infer_type_from_expression(arg, ctx);
+                    if matches!(arg_type, Some(ValueType::ByteArray { .. })) {
+                        // CONVERT→ByteArray first to materialize a fresh (non-aliased) copy
+                        // of the underlying byte buffer. REVERSEITEMS mutates its operand in
+                        // place via `Rc<RefCell<Vec<u8>>>`, so reversing the parameter
+                        // referent directly would corrupt the caller's view of the same
+                        // bytes32 (e.g. `y = b;` emitted after `uint256(b)` would observe
+                        // the reversed bytes). The ConvertTarget::ByteArray path clones the
+                        // Vec into a brand-new Rc, isolating the mutation.
+                        instructions.push(Instruction::Convert {
+                            target: ConvertTarget::ByteArray,
+                        });
+                        // Dup + REVERSEITEMS: the second Rc is consumed by REVERSE, which
+                        // mutates the shared buffer in place, leaving the first Rc on the
+                        // stack pointing to the now-reversed bytes.
+                        instructions.push(Instruction::Dup);
+                        instructions.push(Instruction::ReverseItems);
+                    }
                     if matches!(
-                        infer_type_from_expression(arg, ctx),
+                        arg_type,
                         Some(ValueType::ByteArray { .. } | ValueType::Address | ValueType::Boolean)
                     ) {
                         instructions.push(Instruction::Convert {
@@ -239,6 +291,30 @@ fn try_lower_type_constructor_call(
                 return Some(true);
             }
             PtType::DynamicBytes => {
+                if args
+                    .first()
+                    .is_none_or(|arg| !lower_expression(arg, ctx, instructions))
+                {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        Vec::new(),
+                    )));
+                }
+                return Some(true);
+            }
+            // Task #171 — `string(bytes_value)` cast is a semantic no-op on
+            // NeoVM: Solidity's `string` and `bytes` are both ByteArrays at
+            // the stack-item level (only the source-language interpretation
+            // differs, with `string` being UTF-8 bytes). Without this handler
+            // the `FunctionCall(Type(String), [value])` AST node falls
+            // through the dispatch chain to the generic fallback in
+            // `lower_function_call_expression`, which drops the argument
+            // and pushes `Integer(0)` — corrupting multi-return tuples like
+            // `return (string(left), string(right))` into zero scalars that
+            // `AbiEncode` encodes as 64 bytes of zeros. Mirror the
+            // `DynamicBytes` branch: lower the argument (passing the
+            // underlying ByteArray through) and, on lowering failure, push
+            // an empty ByteArray as a defensive default.
+            PtType::String => {
                 if args
                     .first()
                     .is_none_or(|arg| !lower_expression(arg, ctx, instructions))

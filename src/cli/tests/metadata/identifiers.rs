@@ -36,6 +36,7 @@ fn method_identifiers_include_selectors() {
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         }],
         events: vec![],
         uses_storage: false,

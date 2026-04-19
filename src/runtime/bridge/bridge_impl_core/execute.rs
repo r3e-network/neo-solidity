@@ -110,14 +110,68 @@ impl VMBridge {
                 Err(e) => {
                     gas.sync_from_execution(context.gas_used());
 
+                    // Task #26 — distinguish Solidity-emitted THROW (user
+                    // `revert`, `require`, custom errors, assert) from raw
+                    // VM faults (invalid opcode, stack underflow, malformed
+                    // jumps, ABORT, etc.).
+                    //
+                    // The IR lowers `revert Err(x)` / `revert "msg"` /
+                    // `require(cond, msg)` / `assert(cond)` to the NeoVM
+                    // `THROW` opcode. `ExecutionContext::execute_flow_exceptions`
+                    // constructs the error message as either `"THROW"` (no
+                    // payload) or `"THROW: <name_or_string>"` and routes it
+                    // through `dispatch_exception`, which — when no `TRY`
+                    // frame is present — surfaces as
+                    // `RuntimeError::ExecutionError { message }` whose
+                    // thiserror `Display` prefixes `"Execution failed: "`.
+                    //
+                    // We treat a substring of `"THROW"` in the rendered
+                    // error as the discriminator: present → structured
+                    // Solidity revert → `ExceptionType::RevertExecution`;
+                    // absent → genuine VM fault → `ExceptionType::Fault`.
+                    // This keeps VM faults indistinguishable from real
+                    // panics (as callers expect) while letting tooling
+                    // treat user-land reverts as recoverable.
+                    //
+                    // Note: `dispatch_exception` also rethrows messages via
+                    // the `ENDFINALLY` path when an outer frame is absent;
+                    // that path preserves the original string, so THROW-
+                    // sourced messages still carry the `"THROW"` marker
+                    // after a `finally` re-raise.
+                    let rendered = e.to_string();
+                    let exception_type = if rendered.contains("THROW") {
+                        ExceptionType::RevertExecution
+                    } else {
+                        ExceptionType::Fault
+                    };
+
+                    // Task #27 (runtime slice) — on a Solidity-emitted revert
+                    // (RevertExecution), surface the raw THROW payload bytes
+                    // captured by `execute_flow_exceptions` as the EVM-style
+                    // `return_data`. Today the IR lowerer drops revert args
+                    // and pushes only the error-name bytes, so for
+                    // `revert TooSmall(7)` this surfaces `b"TooSmall"`.
+                    // When the compiler slice of Task #27 lands, the same
+                    // plumbing carries the full `selector || abi.encode(args)`
+                    // payload unchanged.
+                    //
+                    // VM faults (invalid opcode, stack underflow, ABORT, …)
+                    // never push a meaningful payload, so we leave
+                    // `return_data` empty for `ExceptionType::Fault`.
+                    let return_data = if matches!(exception_type, ExceptionType::RevertExecution) {
+                        context.revert_payload().to_vec()
+                    } else {
+                        Vec::new()
+                    };
+
                     let result = ExecutionResult {
                         success: false,
-                        return_data: Vec::new(),
+                        return_data,
                         gas_used: gas.used(),
                         gas_limit: gas.limit(),
                         exception: Some(RuntimeException {
-                            exception_type: ExceptionType::Fault,
-                            message: e.to_string(),
+                            exception_type,
+                            message: rendered,
                             instruction_pointer: Some(context.instruction_count() as u32),
                             stack_trace: stack_trace.clone(),
                         }),

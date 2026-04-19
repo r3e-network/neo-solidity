@@ -23,7 +23,13 @@ fn try_lower_state_array_helpers(
     };
 
     match member.name.as_str() {
-        "push" => Some(lower_state_array_push(state_index, args, ctx, instructions)),
+        "push" => Some(lower_state_array_push(
+            state_index,
+            element_type.as_ref(),
+            args,
+            ctx,
+            instructions,
+        )),
         "pop" => Some(lower_state_array_pop(
             state_index,
             element_type.as_ref(),
@@ -37,6 +43,7 @@ fn try_lower_state_array_helpers(
 
 fn lower_state_array_push(
     state_index: usize,
+    element_type: &ValueType,
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -59,13 +66,33 @@ fn lower_state_array_push(
     // Store element at index `len`.
     instructions.push(Instruction::LoadLocal(value_local));
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::StoreMappingElement {
-        state_index,
-        key_types: vec![ValueType::Integer {
-            signed: false,
-            bits: 256,
-        }],
-    });
+    // Task #104 — For struct-element arrays (`P[] ps`), `ps.push(P(a,b))`
+    // must decompose the struct into per-field storage slots so that
+    // subsequent `ps[i].a` / `ps[i].b` reads (which lower to
+    // `LoadStructField` with `field_keys = [field_key]` via
+    // `resolve_storage_reference` + `.a` walk) see the same slot the
+    // push wrote. `StoreMappingElement` writes the whole struct-array
+    // blob at `keccak256(serialize(i) || base_slot)`, while the read
+    // path derives `keccak256(a_key || keccak256(serialize(i) || base_slot))`.
+    // Route struct elements through `StoreStructArrayElement`, which
+    // already implements the per-field layout expected by the read
+    // side (see src/cli/bytecode/bytecode_helpers/storage/structs/array_elements.rs).
+    if matches!(element_type, ValueType::Struct { .. }) {
+        instructions.push(Instruction::StoreStructArrayElement {
+            state_index,
+            key_types: Vec::new(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
+    } else {
+        instructions.push(Instruction::StoreMappingElement {
+            state_index,
+            key_types: vec![ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }],
+        });
+    }
 
     // Increment length.
     instructions.push(Instruction::LoadLocal(len_local));
@@ -114,13 +141,25 @@ fn lower_state_array_pop(
 
     // Load element at new_len.
     instructions.push(Instruction::LoadLocal(new_len_local));
-    instructions.push(Instruction::LoadMappingElement {
-        state_index,
-        key_types: vec![ValueType::Integer {
-            signed: false,
-            bits: 256,
-        }],
-    });
+    // Task #104 — Route struct-element arrays through
+    // `LoadStructArrayElement` so the pop read uses the same per-field
+    // slot layout the struct-array push wrote (see `lower_state_array_push`).
+    if matches!(element_type, ValueType::Struct { .. }) {
+        instructions.push(Instruction::LoadStructArrayElement {
+            state_index,
+            key_types: Vec::new(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
+    } else {
+        instructions.push(Instruction::LoadMappingElement {
+            state_index,
+            key_types: vec![ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }],
+        });
+    }
 
     let popped_local = ctx.allocate_local("__array_popped".to_string(), Some(element_type.clone()));
     instructions.push(Instruction::StoreLocal(popped_local));
@@ -128,20 +167,37 @@ fn lower_state_array_pop(
     // Overwrite removed slot with default value.
     push_default_for_value_type(element_type, ctx, instructions);
     instructions.push(Instruction::LoadLocal(new_len_local));
-    instructions.push(Instruction::StoreMappingElement {
-        state_index,
-        key_types: vec![ValueType::Integer {
-            signed: false,
-            bits: 256,
-        }],
-    });
+    if matches!(element_type, ValueType::Struct { .. }) {
+        instructions.push(Instruction::StoreStructArrayElement {
+            state_index,
+            key_types: Vec::new(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
+    } else {
+        instructions.push(Instruction::StoreMappingElement {
+            state_index,
+            key_types: vec![ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }],
+        });
+    }
 
     instructions.push(Instruction::LoadLocal(popped_local));
     instructions.push(Instruction::Jump { target: end_label });
 
+    // Task #98 / Task #107 — Solidity 0.8.x specifies that `.pop()` on an
+    // empty array reverts with Panic(0x31) (array-pop-underflow). Route
+    // through the shared `emit_panic` helper which emits the canonical
+    //   keccak256("Panic(uint256)")[0..4] || abi.encode(0x31)
+    // payload so `ExecutionResult.return_data` begins with the EVM-canonical
+    // Panic(uint256) envelope — matches the shape already used by
+    // `assert(false)` (Panic 0x01) in `src/ir/statements/logical.rs` and
+    // enum-cast range guard (Panic 0x21) in
+    // `src/ir/expressions/calls/variable_calls.rs`.
     instructions.push(Instruction::Label(empty_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Null));
-    instructions.push(Instruction::Throw);
+    emit_panic(0x31, instructions);
 
     instructions.push(Instruction::Label(end_label));
     true

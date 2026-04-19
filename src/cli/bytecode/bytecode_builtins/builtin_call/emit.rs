@@ -12,12 +12,19 @@ fn emit_builtin_call(
         ir::BuiltinCall::RuntimeCheckWitness => emit_runtime_check_witness(bytecode),
         ir::BuiltinCall::Keccak256 => emit_keccak256(bytecode, use_callt, token_patches),
         ir::BuiltinCall::Ecrecover => emit_ecrecover(bytecode, use_callt, token_patches),
+        ir::BuiltinCall::PrecompileEcrecover => {
+            emit_precompile_ecrecover(bytecode, use_callt, token_patches)
+        }
+        ir::BuiltinCall::PrecompileModexp => emit_precompile_modexp(bytecode, use_callt),
         ir::BuiltinCall::StorageFind => emit_storage_find(bytecode, arg_count),
         ir::BuiltinCall::StoragePut => emit_storage_put(bytecode),
         ir::BuiltinCall::StorageGet => emit_storage_get(bytecode),
         ir::BuiltinCall::StorageDelete => emit_storage_delete(bytecode),
-        ir::BuiltinCall::AbiEncode | ir::BuiltinCall::AbiEncodePacked | ir::BuiltinCall::AbiEncodeCall => {
+        ir::BuiltinCall::AbiEncode | ir::BuiltinCall::AbiEncodeCall => {
             emit_abi_encode(bytecode, arg_count, use_callt, token_patches)
+        }
+        ir::BuiltinCall::AbiEncodePacked => {
+            emit_abi_encode_packed(bytecode, arg_count, use_callt, token_patches)
         }
         ir::BuiltinCall::AbiDecode => emit_abi_decode(bytecode, use_callt, token_patches),
         ir::BuiltinCall::NativeCall { contract, method } => emit_native_call(

@@ -186,6 +186,7 @@ fn synthesize_public_getters(
             is_virtual: false,
             is_override: false,
             documentation: NatspecDoc::default(),
+            had_modifier_epilogue: false,
         });
     }
 }

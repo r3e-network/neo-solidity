@@ -167,7 +167,7 @@ fn compile_metadata(
         options.use_callt,
     )
     .map_err(CompileError::Message)?;
-    let mut manifest = build_manifest(&metadata, &ir_module);
+    let mut manifest = build_manifest(&metadata, &ir_module)?;
 
     if let Some(source_override) = load_manifest_permissions_override_from_natspec(&metadata)
         .map_err(CompileError::Message)?
