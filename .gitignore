@@ -70,3 +70,4 @@ LibraryExternalError.*
 
 # Archived files (Go implementation)
 /archive/
+.omx/
