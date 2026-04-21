@@ -1960,7 +1960,7 @@ contract C {
 // from yul would require binding Solidity storage/local slots into yul's
 // scope — out of Task #99's scope).
 #[test]
-fn batch39_n3_yul_mstore_mload_return_ignored_until_task_99() {
+fn batch39_n3_yul_mstore_mload_return() {
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -2088,7 +2088,7 @@ contract C {
 // blocks within the same invocation — matching EIP-1153's per-tx semantics
 // for this host's single-frame runtime.
 #[test]
-fn batch40_p1_transient_storage_tstore_tload_ignored_until_task_100() {
+fn batch40_p1_transient_storage_tstore_tload() {
     // `tstore(0, 42)` in one assembly block, `tload(0)` in a later block
     // within the SAME function must recover 42 — this is the acid test for
     // the function-scoped `__yul_transient` local (NOT per-block scratch).
@@ -2474,7 +2474,7 @@ contract C {
 // Filed as Task #102. Re-enable once storage-array ←= memory-array assignment
 // lowers to per-element STORAGE_PUT + length-slot update.
 #[test]
-fn batch41_q5_storage_array_assignment_from_memory_ignored_until_task_102() {
+fn batch41_q5_storage_array_assignment_from_memory() {
     use neo_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -2658,7 +2658,7 @@ contract C {
 // once dynamic-array-of-struct push/read storage slot derivation lands. Lives
 // outside the proptest! block so `#[ignore]` sticks (per batch39 N3 pattern).
 #[test]
-fn batch42_r4_dynamic_struct_array_push_and_tuple_read_ignored_until_task_104() {
+fn batch42_r4_dynamic_struct_array_push_and_tuple_read() {
     use neo_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -3255,7 +3255,7 @@ contract C {
 // observed-and-pinned behavior. Lives outside the proptest! block so
 // `#[ignore]` sticks (per batch39 N3 / batch42 R4 pattern).
 #[test]
-fn batch43_s5_abi_encode_call_struct_arg_ignored_until_task_106() {
+fn batch43_s5_abi_encode_call_struct_arg() {
     use neo_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT

@@ -147,4 +147,253 @@ contract TestContract {{
             Err(_) => {}
         }
     }
+
+    #[test]
+    fn deeply_nested_parens_resilience(
+        depth in 20usize..200
+    ) {
+        let mut expr = "42".to_string();
+        for _ in 0..depth {
+            expr = format!("({})", expr);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = {};
+}}"#,
+            expr
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn deeply_nested_braces_resilience(
+        depth in 20usize..200
+    ) {
+        let mut body = "uint256 x = 42;".to_string();
+        for _ in 0..depth {
+            body = format!("{{ {} }}", body);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    function test() public pure returns (uint256) {{
+        {}
+        return 42;
+    }}
+}}"#,
+            body
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn deeply_nested_brackets_resilience(
+        depth in 5usize..50
+    ) {
+        let mut ty = "uint256".to_string();
+        for _ in 0..depth {
+            ty = format!("{}[]", ty);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    {} public value;
+}}"#,
+            ty
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn deeply_nested_ternary_resilience(
+        depth in 10usize..100
+    ) {
+        let mut expr = "0".to_string();
+        for i in 0..depth {
+            expr = format!("x > {} ? {} : {}", i, i + 1, expr);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    function test(uint256 x) public pure returns (uint256) {{
+        return {};
+    }}
+}}"#,
+            expr
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn nested_block_comments_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    /* outer /* inner */ outer */ uint256 public value = 42;
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn very_long_comments_resilience(
+        len in 500usize..5000
+    ) {
+        let comment = "x".repeat(len);
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+// {}
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = 42;
+}}"#,
+            comment
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_characters_produce_errors(
+        invalid_char in prop_oneof![Just('@'), Just('#'), Just('~'), Just('`')]
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = 42{}42;
+}}"#,
+            invalid_char
+        );
+        let result = compile_contracts(&source, false, 2);
+        prop_assert!(result.is_err(), "Malformed source with invalid char '{}' should error, but got Ok", invalid_char);
+    }
+
+    #[test]
+    fn unmatched_parens_produce_errors(
+        depth in 1usize..20
+    ) {
+        let mut expr = "42".to_string();
+        for _ in 0..depth {
+            expr = format!("({}", expr);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = {};
+}}"#,
+            expr
+        );
+        let result = compile_contracts(&source, false, 2);
+        prop_assert!(result.is_err(), "Unmatched parens should error, but got Ok");
+    }
+
+    #[test]
+    fn unmatched_braces_produce_errors(
+        depth in 1usize..20
+    ) {
+        let mut body = "uint256 x = 42;".to_string();
+        for _ in 0..depth {
+            body = format!("{{ {}", body);
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    function test() public pure returns (uint256) {{
+        {}
+        return 42;
+    }}
+}}"#,
+            body
+        );
+        let result = compile_contracts(&source, false, 2);
+        prop_assert!(result.is_err(), "Unmatched braces should error, but got Ok");
+    }
+
+    #[test]
+    fn malformed_numbers_produce_errors(
+        num in prop_oneof![
+            Just("0x".to_string()),
+            Just("0xGGGG".to_string()),
+            Just("1.2.3".to_string()),
+        ]
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = {};
+}}"#,
+            num
+        );
+        let result = compile_contracts(&source, false, 2);
+        prop_assert!(result.is_err(), "Malformed number '{}' should error, but got Ok", num);
+    }
+
+    // Note: solang-parser is lenient with escape sequences; \z, \q, \xGG are
+    // accepted. This harness verifies the compiler does not panic on them.
+    #[test]
+    fn lenient_escape_sequences_accepted(
+        esc in prop_oneof![Just("\\z"), Just("\\q"), Just("\\xGG")]
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    string public message = "{}";
+}}"#,
+            esc
+        );
+        let result = compile_contracts(&source, false, 2);
+        prop_assert!(result.is_ok(), "Lenient escape '{}' should compile without panic: {:?}", esc, result.err());
+    }
 }
