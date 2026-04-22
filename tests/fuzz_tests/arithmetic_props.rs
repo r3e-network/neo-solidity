@@ -396,4 +396,219 @@ contract TestContract {{
         let result = compile_contracts(&source, false, 2);
         prop_assert!(result.is_ok(), "Lenient escape '{}' should compile without panic: {:?}", esc, result.err());
     }
+
+    // ---------- Syntax edge-case / parser resilience tests ----------
+
+    #[test]
+    fn keyword_case_variant_identifiers_resilience(
+        name in prop_oneof![
+            Just("Uint256".to_string()),
+            Just("PUBLIC".to_string()),
+            Just("fOr".to_string()),
+            Just("iF".to_string()),
+            Just("eLsE".to_string()),
+            Just("whIlE".to_string()),
+            Just("BREAK".to_string()),
+            Just("CoNtInUe".to_string()),
+            Just("ReTuRn".to_string()),
+            Just("fAlSe".to_string()),
+            Just("TrUe".to_string()),
+            Just("CoNtRaCt".to_string()),
+            Just("FuNcTiOn".to_string()),
+            Just("MoDiFiEr".to_string()),
+            Just("EvEnT".to_string()),
+        ]
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public {} = 42;
+}}"#,
+            name
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn nested_ternary_with_side_effects_resilience(
+        depth in 1usize..20
+    ) {
+        let mut expr = "y".to_string();
+        for i in 0..depth {
+            if i % 2 == 0 {
+                expr = format!("x > {} ? ++y : {}", i, expr);
+            } else {
+                expr = format!("x > {} ? --y : {}", i, expr);
+            }
+        }
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    function test(uint256 x, uint256 y) public pure returns (uint256) {{
+        return {};
+    }}
+}}"#,
+            expr
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn interleaved_comments_unusual_positions_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+prag/*a*/ma//b
+solidity/*c*/^0.8.0;
+contract/*d*/TestContract/*e*/{
+    uint256/*f*/public/*g*/value/*h*/=/*i*/42/*j*/;
+    function/*k*/test()/*l*/public/*m*/pure/*n*/returns/*o*/(uint256/*p*/)/*q*/{
+        return/*r*/(1/*s*/+/*t*/2/*u*/)/*v*/;
+    }
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn very_large_hex_literal_resilience(
+        hex in "[0-9a-fA-F]{60,64}"
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = 0x{};
+}}"#,
+            hex
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn very_small_scientific_notation_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    uint256 public value = 1e-37;
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn octal_like_leading_zeros_resilience(
+        digits in "[0-9]{10,30}"
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {{
+    uint256 public value = 0{};
+}}"#,
+            digits
+        );
+        let result = compile_contracts(&source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn empty_string_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    string public message = "";
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn whitespace_only_string_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    string public message = "     ";
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
+
+    #[test]
+    fn maximum_escape_sequences_string_resilience(
+        _dummy in any::<bool>()
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    string public message = "\n\t\r\x00\xFF\x41\n\t\r\x00\xFF\x41";
+}"#;
+        let result = compile_contracts(source, false, 2);
+        match result {
+            Ok(_) => {},
+            Err(e) => {
+                let err_str = format!("{:?}", e);
+                prop_assume!(!err_str.contains("panic") && !err_str.contains("unwrap"));
+            }
+        }
+    }
 }

@@ -8,6 +8,7 @@
 use super::common::*;
 use neo_solidity::cli::compile_contracts;
 use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_solidity::runtime::types::StackItem;
 use proptest::prelude::*;
 
 // ==================== Compiler Fuzz Tests ====================
@@ -602,6 +603,122 @@ contract AbiRoundTrip {{
         );
     }
 
+    // Invariant: `gasleft()` compiles and returns a positive uint at runtime.
+    #[test]
+    fn gasleft_returns_positive_uint(_seed in any::<u8>()) {
+        let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function gasBefore() external view returns (uint) { return gasleft(); }
+}"#;
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "gasBefore",
+            &[] as &[StackItem]).expect("call");
+        prop_assert!(r.success,
+            "gasBefore() must succeed; exc={:?}",
+            r.exception.as_ref().map(|e| &e.message));
+        let got = decode_uint_le(&r.return_data);
+        prop_assert!(got > num_bigint::BigUint::from(0u64),
+            "gasleft() must return a positive value; got {}", got);
+    }
+
+    // Invariant: `block.timestamp` compiles and returns a reasonable value at runtime.
+    #[test]
+    fn block_timestamp_returns_reasonable_value(
+        t_seconds in 1_704_067_200u64..=2_051_222_400u64,
+    ) {
+        let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function ts() external view returns (uint) { return block.timestamp; }
+}"#;
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        rt.override_timestamp(t_seconds.saturating_mul(1000));
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "ts",
+            &[] as &[StackItem]).expect("call");
+        prop_assert!(r.success,
+            "ts() must succeed; exc={:?}",
+            r.exception.as_ref().map(|e| &e.message));
+        let got = decode_uint_le(&r.return_data);
+        prop_assert_eq!(got.clone(), num_bigint::BigUint::from(t_seconds),
+            "block.timestamp must equal override/1000 = {} seconds; got {}",
+            t_seconds, got);
+        prop_assert!(got >= num_bigint::BigUint::from(1_704_067_200u64),
+            "block.timestamp must be >= 2024-01-01 (unix seconds); got {}", got);
+    }
+
+    // Invariant: `address(this).balance` compiles and executes (mapped to GasToken.balanceOf).
+    #[test]
+    fn address_this_balance_compiles_and_executes(_seed in any::<u8>()) {
+        let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function bal() external view returns (uint) { return address(this).balance; }
+}"#;
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "bal",
+            &[] as &[StackItem]).expect("call");
+        prop_assert!(r.success,
+            "bal() must succeed; exc={:?}",
+            r.exception.as_ref().map(|e| &e.message));
+        prop_assert!(!r.return_data.is_empty(),
+            "bal() return_data must be non-empty — GasToken.balanceOf should return a balance");
+    }
+
+    // Invariant: `selfdestruct(address)` compiles and executes (mapped to ContractManagement.destroy).
+    #[test]
+    fn selfdestruct_executes_via_contract_management_destroy(_seed in any::<u8>()) {
+        let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function kill(address payable r) external { selfdestruct(r); }
+}"#;
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let c = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&c.bytecode, &c.tokens, &c.manifest, "kill",
+            &[StackItem::byte_array(vec![0u8; 20])]).expect("call");
+        prop_assert!(r.success,
+            "kill() must succeed via ContractManagement.destroy() auto-map; exc={:?}",
+            r.exception.as_ref().map(|e| &e.message));
+        prop_assert!(r.return_data.is_empty(),
+            "kill() returns nothing; got rd_hex={}", hex::encode(&r.return_data));
+    }
+
+    // Invariant: `abi.encode` / `abi.decode` round-trip compiles and returns correct values.
+    #[test]
+    fn abi_encode_decode_roundtrip(_seed in any::<u8>()) {
+        let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function roundtrip() external pure returns (uint256, uint256) {
+        bytes memory data = abi.encode(uint256(42), uint256(99));
+        (uint256 a, uint256 b) = abi.decode(data, (uint256, uint256));
+        return (a, b);
+    }
+}"#;
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "roundtrip",
+            &[] as &[StackItem]).expect("call");
+        prop_assert!(r.success,
+            "roundtrip() must succeed; exc={:?}",
+            r.exception.as_ref().map(|e| &e.message));
+        let mut expected = vec![0u8; 64];
+        expected[24..32].copy_from_slice(&42u64.to_be_bytes());
+        expected[56..64].copy_from_slice(&99u64.to_be_bytes());
+        prop_assert_eq!(r.return_data.as_slice(), expected.as_slice(),
+            "roundtrip return must be EVM-canonical 64 bytes (BE-padded 32 per scalar); \
+             rd.len={}, rd={:?}", r.return_data.len(), r.return_data);
+    }
+
     // Invariant: manifest JSON for a basic contract satisfies the Neo N3 required schema.
     #[test]
     fn manifest_schema_validation(
@@ -715,5 +832,152 @@ contract TestContract {{
         );
         let result = compile_contracts(&source, false, 2);
         prop_assert!(result.is_ok(), "Global using-for compile failed: {:?}", result.err());
+    }
+
+    // === Precompile runtime verification (Coverage-gap targeted) ===
+
+    // Invariant: sha256 precompile (0x02) runtime output matches Rust sha2 reference.
+    #[test]
+    fn sha256_precompile_runtime_matches_reference(
+        fn_name in identifier_strategy(),
+        data in prop::collection::vec(any::<u8>(), 0..128)
+    ) {
+        use sha2::{Digest, Sha256};
+        let reference = Sha256::digest(&data).to_vec();
+
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Sha256Precompile {{
+    function {name}(bytes memory data) public pure returns (bytes memory) {{
+        (bool ok, bytes memory out) = address(0x02).staticcall(data);
+        require(ok, "staticcall failed");
+        return out;
+    }}
+}}"#,
+            name = fn_name
+        );
+
+        let artifacts = compile_contracts(&source, false, 2).expect("compile");
+        prop_assert!(!artifacts.is_empty());
+        let art = &artifacts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let result = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &fn_name,
+            &[StackItem::byte_array(data.clone())]).expect("call");
+        prop_assert!(result.success, "sha256 execution failed: {:?}", result.exception);
+        prop_assert_eq!(result.return_data, reference,
+            "sha256 output mismatch");
+    }
+
+    // Invariant: ripemd160 precompile (0x03) runtime output matches Rust ripemd reference.
+    #[test]
+    fn ripemd160_precompile_runtime_matches_reference(
+        fn_name in identifier_strategy(),
+        data in prop::collection::vec(any::<u8>(), 0..128)
+    ) {
+        use ripemd::{Digest, Ripemd160};
+        let reference = Ripemd160::digest(&data).to_vec();
+
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Ripemd160Precompile {{
+    function {name}(bytes memory data) public pure returns (bytes memory) {{
+        (bool ok, bytes memory out) = address(0x03).staticcall(data);
+        require(ok, "staticcall failed");
+        return out;
+    }}
+}}"#,
+            name = fn_name
+        );
+
+        let artifacts = compile_contracts(&source, false, 2).expect("compile");
+        prop_assert!(!artifacts.is_empty());
+        let art = &artifacts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let result = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &fn_name,
+            &[StackItem::byte_array(data.clone())]).expect("call");
+        prop_assert!(result.success, "ripemd160 execution failed: {:?}", result.exception);
+        prop_assert_eq!(result.return_data, reference,
+            "ripemd160 output mismatch");
+    }
+
+    // Invariant: identity precompile (0x04) returns input bytes unchanged.
+    #[test]
+    fn identity_precompile_returns_input_unchanged(
+        fn_name in identifier_strategy(),
+        data in prop::collection::vec(any::<u8>(), 0..128)
+    ) {
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract IdentityPrecompile {{
+    function {name}(bytes memory data) public pure returns (bytes memory) {{
+        (bool ok, bytes memory out) = address(0x04).staticcall(data);
+        require(ok, "staticcall failed");
+        return out;
+    }}
+}}"#,
+            name = fn_name
+        );
+
+        let artifacts = compile_contracts(&source, false, 2).expect("compile");
+        prop_assert!(!artifacts.is_empty());
+        let art = &artifacts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let result = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &fn_name,
+            &[StackItem::byte_array(data.clone())]).expect("call");
+        prop_assert!(result.success, "identity execution failed: {:?}", result.exception);
+        prop_assert_eq!(result.return_data, data,
+            "identity output mismatch");
+    }
+
+    // Invariant: modexp precompile (0x05) with small 1-byte operands matches num_bigint reference.
+    #[test]
+    fn modexp_precompile_small_operands_matches_reference(
+        fn_name in identifier_strategy(),
+        base in 0u64..16,
+        exp in 0u64..16,
+        modulus in 1u64..16
+    ) {
+        use num_bigint::BigUint;
+        let expected = BigUint::from(base).modpow(&BigUint::from(exp), &BigUint::from(modulus));
+
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract ModexpPrecompile {{
+    function {name}(bytes memory b) public pure returns (bytes memory) {{
+        (bool ok, bytes memory out) = address(0x05).staticcall(b);
+        require(ok, "staticcall failed");
+        return out;
+    }}
+}}"#,
+            name = fn_name
+        );
+
+        let mut payload = vec![0u8; 99];
+        payload[31] = 0x01;
+        payload[63] = 0x01;
+        payload[95] = 0x01;
+        payload[96] = base as u8;
+        payload[97] = exp as u8;
+        payload[98] = modulus as u8;
+
+        let artifacts = compile_contracts(&source, false, 2).expect("compile");
+        prop_assert!(!artifacts.is_empty());
+        let art = &artifacts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let result = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &fn_name,
+            &[StackItem::byte_array(payload)]).expect("call");
+        prop_assert!(result.success, "modexp execution failed: {:?}", result.exception);
+        // emit_precompile_modexp converts the MODPOW Integer result to ByteString
+        // (always 8 bytes in LE) and prepends 31 zeros, yielding 39 bytes total.
+        // For 1-byte operands the true result sits in byte 31.
+        prop_assert_eq!(result.return_data.len(), 39,
+            "modexp output length must be 39; got {}", result.return_data.len());
+        let got = BigUint::from(result.return_data[31]);
+        prop_assert_eq!(got, expected,
+            "modexp output mismatch (base={} exp={} mod={})", base, exp, modulus);
     }
 }
