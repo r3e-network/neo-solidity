@@ -6,14 +6,22 @@
 ///   * `uint`  → `uint256`
 ///   * `int`   → `int256`
 ///   * `byte`  → `bytes1`
-///   * unknown user-defined types (structs, contracts, enums) pass through
-///     by name — proper tuple expansion (`(uint256,uint256)` for a struct
+///   * enum types (`enum Foo` or a bare name matching a declared enum) →
+///     `uint8` per the Solidity ABI spec (all enums have ≤256 variants, so
+///     they are canonically encoded as `uint8`).
+///   * unknown user-defined types (structs, contracts) pass through by name
+///     — proper tuple expansion (`(uint256,uint256)` for a struct
 ///     `{uint256 x; uint256 y;}`) is a follow-up; today's harnesses pin the
 ///     struct-name form (see fuzz `event_with_struct_arg_payload_shape`).
 ///
 /// Array suffixes (`[]`, `[N]`) and whitespace are preserved verbatim after
 /// trimming — Solidity's canonical form omits all whitespace around commas.
-fn event_canonical_param_type(raw: &str) -> String {
+///
+/// `enum_names` is the set of declared enum type names in the current
+/// contract scope. Bare references like `State` (without the `enum` prefix
+/// that `solang-parser`'s Display impl may or may not produce) are matched
+/// against this set so they canonicalize to `uint8`. Task #204.
+fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String {
     let trimmed = raw.trim();
 
     // Strip Solidity data-location keywords (memory/calldata/storage) that may
@@ -23,6 +31,23 @@ fn event_canonical_param_type(raw: &str) -> String {
         .replace(" memory", "")
         .replace(" calldata", "")
         .replace(" storage", "");
+
+    // Handle the `enum Name` prefix form before we strip whitespace — the
+    // leading `enum` keyword is only meaningful when separated by a space.
+    let tokens: Vec<&str> = without_location.split_whitespace().collect();
+    if tokens.first().copied() == Some("enum") {
+        // `enum Name` or `enum Name[]` → canonicalize base to `uint8`, keep
+        // any array suffix attached to the `Name` token.
+        if let Some(name_with_suffix) = tokens.get(1) {
+            let suffix = match name_with_suffix.find('[') {
+                Some(idx) => &name_with_suffix[idx..],
+                None => "",
+            };
+            return format!("uint8{suffix}");
+        }
+        return "uint8".to_string();
+    }
+
     let compact: String = without_location
         .chars()
         .filter(|c| !c.is_ascii_whitespace())
@@ -35,11 +60,23 @@ fn event_canonical_param_type(raw: &str) -> String {
         None => (compact.as_str(), ""),
     };
 
-    let canonical_base = match base {
+    let canonical_base: &str = match base {
         "uint" => "uint256",
         "int" => "int256",
         "byte" => "bytes1",
-        other => other,
+        other => {
+            // Task #204 — bare-name enum reference (e.g. `State` when the
+            // source declared `enum State { ... }`). `solang-parser`'s
+            // Display impl emits the bare name in this path, so without
+            // consulting `enum_names` we would pass `State` through
+            // verbatim and produce `Transition(State,State)` — which
+            // disagrees with Solidity's canonical form.
+            if enum_names.contains(other) {
+                "uint8"
+            } else {
+                other
+            }
+        }
     };
 
     format!("{canonical_base}{suffix}")
@@ -97,11 +134,11 @@ fn is_user_defined_canonical_type(canonical: &str) -> bool {
 /// `Name(type1,type2,...)` with the types canonicalized per
 /// `event_canonical_param_type`. This is the exact input to
 /// `keccak256(...)` for `topic[0]`.
-fn event_canonical_signature(event: &EventMetadata) -> String {
+fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>) -> String {
     let joined_types: Vec<String> = event
         .parameters
         .iter()
-        .map(|p| event_canonical_param_type(&p.ty))
+        .map(|p| event_canonical_param_type(&p.ty, enum_names))
         .collect();
     format!("{}({})", event.name, joined_types.join(","))
 }

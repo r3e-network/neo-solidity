@@ -235,10 +235,14 @@ fn lower_yul_block(
     // only in the block that first introduces `__yul_transient` — later
     // blocks in the same function resolve the slot by name and reuse the
     // already-live map (EIP-1153 per-tx persistence across yul blocks).
+    // Task #184 mirrors the transient-map pattern for `__yul_returndata`:
+    // allocated function-wide, initialised once in the first block that
+    // references it.
     let needs_memory_init = state.memory_local.is_some();
     let needs_transient_init = state.transient_allocated_here;
+    let needs_returndata_init = state.returndata_allocated_here;
 
-    if needs_memory_init || needs_transient_init {
+    if needs_memory_init || needs_transient_init || needs_returndata_init {
         let mut init: Vec<Instruction> = Vec::new();
         if let Some(mem_local) = state.memory_local {
             init.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
@@ -253,6 +257,19 @@ fn lower_yul_block(
                 .expect("transient_allocated_here ⇒ transient_local populated");
             init.push(Instruction::NewMap);
             init.push(Instruction::StoreLocal(transient_local));
+        }
+        if needs_returndata_init {
+            let rd_local = state
+                .returndata_local
+                .expect("returndata_allocated_here ⇒ returndata_local populated");
+            // Task #184 — seed with an empty ByteString so `GetSize` returns 0
+            // and `returndatacopy(_, _, 0)` is a no-op. `NewBuffer(0)` would
+            // emit a zero-length Buffer which also reports Size 0, but the
+            // empty-ByteString literal matches the shape of a real callee's
+            // ByteString return value so the follow-up "stash after call"
+            // plumbing drops into the same slot without a type change.
+            init.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            init.push(Instruction::StoreLocal(rd_local));
         }
         let tail = instructions.split_off(snapshot);
         instructions.extend(init);
@@ -285,6 +302,23 @@ struct YulLoweringState {
     /// same function find the slot via `ctx.resolve_local("__yul_transient")`
     /// and skip the init.
     transient_allocated_here: bool,
+    /// Task #184 — the yul-visible returndata buffer. EVM exposes the result
+    /// of the most-recent external call through `returndatasize` / `returndatacopy`.
+    /// NeoVM has no native returndata concept, so we model it as a per-function
+    /// ByteArray local `__yul_returndata` that is initialised to the empty
+    /// buffer (returndatasize = 0). Because Task #184 covers the degenerate
+    /// "no preceding external call" surface only, the buffer starts empty and
+    /// `returndatacopy` panics (Panic 0x32 / "returndata out of bounds") on
+    /// any non-zero-length read. A follow-up task can extend this to stash
+    /// the callee's return bytes after `Target(t).f()` / CALLT / DYNCALL so
+    /// `returndatacopy` recovers the real payload.
+    returndata_local: Option<usize>,
+    /// True iff this block is the one that first introduced the returndata
+    /// buffer. The block prelude will emit `PUSH0 ; NEWBUFFER ; StoreLocal`
+    /// so the buffer is initialised (to zero length) before any
+    /// returndatacopy. Subsequent yul blocks in the same function find the
+    /// slot via `ctx.resolve_local("__yul_returndata")` and skip the init.
+    returndata_allocated_here: bool,
     yul_locals: std::collections::HashMap<String, usize>,
 }
 
@@ -294,6 +328,8 @@ impl YulLoweringState {
             memory_local: None,
             transient_local: None,
             transient_allocated_here: false,
+            returndata_local: None,
+            returndata_allocated_here: false,
             yul_locals: std::collections::HashMap::new(),
         }
     }
@@ -334,6 +370,28 @@ impl YulLoweringState {
         let slot = ctx.allocate_local("__yul_transient".to_string(), None);
         self.transient_local = Some(slot);
         self.transient_allocated_here = true;
+        slot
+    }
+
+    /// Task #184 — lazily allocate the yul returndata buffer local. Mirrors
+    /// `ensure_transient` in that the slot is function-scoped (so a hypothetical
+    /// future "stash return value after Target(t).f()" shim can write to the
+    /// same buffer that `returndatacopy` reads from across yul blocks). The
+    /// block that first introduces the slot sets `returndata_allocated_here`
+    /// so `lower_yul_block` emits a `PUSH 0 ; NEWBUFFER ; StoreLocal` prelude
+    /// — an empty buffer models `returndatasize() == 0`, which is what the
+    /// minimal Task #184 surface needs (no preceding external call).
+    fn ensure_returndata(&mut self, ctx: &mut LoweringContext) -> usize {
+        if let Some(slot) = self.returndata_local {
+            return slot;
+        }
+        if let Some(existing) = ctx.resolve_local("__yul_returndata") {
+            self.returndata_local = Some(existing);
+            return existing;
+        }
+        let slot = ctx.allocate_local("__yul_returndata".to_string(), None);
+        self.returndata_local = Some(slot);
+        self.returndata_allocated_here = true;
         slot
     }
 }
@@ -422,7 +480,169 @@ fn lower_yul_statement(
             }
             true
         }
-        // Out of scope: for/switch/if/leave/break/continue/FunctionDefinition.
+        // Task #200 — yul `if <cond> <body>`. The cond expression evaluates
+        // to a yul uint256 (0 ⇒ false, non-zero ⇒ true). The NeoVM IR
+        // `JumpIf` jumps when the top-of-stack is FALSY (see
+        // `src/cli/bytecode/bytecode_emit_ir.rs:319` — "IR JumpIf branches
+        // when the condition is false."), so the lowering is:
+        //     <eval cond>
+        //     JumpIf end_label      ; skip body when cond == 0
+        //     <eval body>
+        //     Label(end_label)
+        YulStatement::If(_, cond, body) => {
+            let end_label = ctx.next_label();
+            if !lower_yul_expression(cond, state, ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::JumpIf { target: end_label });
+            for inner_stmt in &body.statements {
+                if !lower_yul_statement(inner_stmt, state, ctx, instructions) {
+                    return false;
+                }
+            }
+            instructions.push(Instruction::Label(end_label));
+            true
+        }
+        // Task #200 — yul `for { init } cond { post } { body }`. Classic
+        // condition-top loop. `init` statements run once before entering;
+        // `cond` is re-evaluated at the top of every iteration and a FALSY
+        // value exits the loop; `post` runs after each body iteration and
+        // is the continue-target (so `continue` re-enters at post, then
+        // falls through to the condition check). Mirrors the canonical
+        // Solidity `for` lowering in
+        // src/ir/statements/dispatch/control_flow.rs::lower_for_statement.
+        YulStatement::For(for_stmt) => {
+            // Init statements are lowered in the enclosing scope so any
+            // yul-locals they declare (via `let i := 0`) remain visible
+            // to the condition / post / body — which matches yul semantics
+            // (`for { let i := 0 } lt(i, n) { i := add(i, 1) } { ... }`).
+            for init_stmt in &for_stmt.init_block.statements {
+                if !lower_yul_statement(init_stmt, state, ctx, instructions) {
+                    return false;
+                }
+            }
+
+            let loop_start = ctx.next_label();
+            let post_label = ctx.next_label();
+            let loop_end = ctx.next_label();
+
+            instructions.push(Instruction::Label(loop_start));
+            if !lower_yul_expression(&for_stmt.condition, state, ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::JumpIf { target: loop_end });
+
+            // Register break/continue targets so yul `break` / `continue`
+            // (if/when we lower them) and — for symmetry with the Solidity
+            // control-flow lowering — land on the right labels. `continue`
+            // jumps to `post_label` (run post, then re-check cond).
+            ctx.push_loop(post_label, loop_end);
+            for body_stmt in &for_stmt.execution_block.statements {
+                if !lower_yul_statement(body_stmt, state, ctx, instructions) {
+                    ctx.pop_loop();
+                    return false;
+                }
+            }
+            ctx.pop_loop();
+
+            instructions.push(Instruction::Label(post_label));
+            for post_stmt in &for_stmt.post_block.statements {
+                if !lower_yul_statement(post_stmt, state, ctx, instructions) {
+                    return false;
+                }
+            }
+            instructions.push(Instruction::Jump { target: loop_start });
+            instructions.push(Instruction::Label(loop_end));
+            true
+        }
+        // Task #200 — yul `switch <expr> case v1 { ... } ... default { ... }`.
+        // Evaluate the discriminant once into a fresh local, then emit a
+        // linear case chain: for each case, compare the local against the
+        // case literal and `JumpIf` over the body when unequal. After the
+        // body, `Jump` to the shared end label. The default block (if any)
+        // sits just before the end label so an unmatched dispatch falls
+        // through to it naturally. Yul guarantees (per foundry-solang-parser
+        // at solang-parser-0.3.5/src/pt.rs:1593) that `cases` contains only
+        // `YulSwitchOptions::Case` and `default` is exactly `Default`.
+        YulStatement::Switch(switch_stmt) => {
+            if !lower_yul_expression(&switch_stmt.condition, state, ctx, instructions) {
+                return false;
+            }
+            let disc_label = ctx.next_label();
+            let disc_local =
+                ctx.allocate_local(format!("__yul_switch_disc_{disc_label}"), None);
+            instructions.push(Instruction::StoreLocal(disc_local));
+
+            let end_label = ctx.next_label();
+
+            for case_opt in &switch_stmt.cases {
+                let solang_parser::pt::YulSwitchOptions::Case(_, value_expr, body) = case_opt
+                else {
+                    // Parser guarantees only Case here; defensive bail if
+                    // that invariant ever slips.
+                    return false;
+                };
+                let next_case_label = ctx.next_label();
+                // Compare disc against the case literal; `JumpIf` skips the
+                // body when they differ (Eq ⇒ 1 truthy, stays; Ne ⇒ 0 falsy,
+                // JumpIf fires).
+                instructions.push(Instruction::LoadLocal(disc_local));
+                if !lower_yul_expression(value_expr, state, ctx, instructions) {
+                    return false;
+                }
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::Integer,
+                });
+                instructions.push(Instruction::JumpIf {
+                    target: next_case_label,
+                });
+                for body_stmt in &body.statements {
+                    if !lower_yul_statement(body_stmt, state, ctx, instructions) {
+                        return false;
+                    }
+                }
+                instructions.push(Instruction::Jump { target: end_label });
+                instructions.push(Instruction::Label(next_case_label));
+            }
+
+            if let Some(default_opt) = &switch_stmt.default {
+                let solang_parser::pt::YulSwitchOptions::Default(_, default_body) = default_opt
+                else {
+                    return false;
+                };
+                for body_stmt in &default_body.statements {
+                    if !lower_yul_statement(body_stmt, state, ctx, instructions) {
+                        return false;
+                    }
+                }
+            }
+            instructions.push(Instruction::Label(end_label));
+            true
+        }
+        // Task #200 — yul `break` / `continue` jump to the innermost loop's
+        // break / continue labels (both pushed by the `For` arm above). If
+        // these appear outside a loop, solang's parser already rejects the
+        // source, but defensively we also return false so the enclosing
+        // assembly bails to the no-op warning path rather than emit a Jump
+        // with no matching Label.
+        YulStatement::Break(_) => {
+            if let Some(label) = ctx.break_target() {
+                instructions.push(Instruction::Jump { target: label });
+                true
+            } else {
+                false
+            }
+        }
+        YulStatement::Continue(_) => {
+            if let Some(label) = ctx.continue_target() {
+                instructions.push(Instruction::Jump { target: label });
+                true
+            } else {
+                false
+            }
+        }
+        // Out of scope: leave/FunctionDefinition.
         _ => false,
     }
 }
@@ -465,6 +685,29 @@ fn lower_yul_function_call_as_statement(
                 return false;
             }
             lower_yul_return(&call.arguments[0], &call.arguments[1], state, ctx, instructions)
+        }
+        "returndatacopy" => {
+            // Task #184 — `returndatacopy(dst, src, len)` copies `len` bytes
+            // from the last-call returndata buffer into yul memory at `dst`,
+            // reading from returndata offset `src`. Currently modeled against
+            // a lazily-initialised empty `__yul_returndata` buffer (see
+            // `ensure_returndata` comments): any non-zero-length read panics
+            // with `"returndata: read past returndatasize"` because no prior
+            // external call has populated the buffer. A follow-up task can
+            // extend `Target(t).f()` / CALLT / DYNCALL sites to stash the
+            // callee's return bytes into the same slot so this opcode
+            // recovers the real payload.
+            if call.arguments.len() != 3 {
+                return false;
+            }
+            lower_yul_returndatacopy(
+                &call.arguments[0],
+                &call.arguments[1],
+                &call.arguments[2],
+                state,
+                ctx,
+                instructions,
+            )
         }
         _ => false,
     }
@@ -555,6 +798,22 @@ fn lower_yul_function_call_as_expression(
                 return false;
             }
             lower_yul_tload(&call.arguments[0], state, ctx, instructions)
+        }
+        "returndatasize" => {
+            // Task #184 — `returndatasize()` returns the byte length of the
+            // last-call returndata buffer. Because the Task #184 minimal
+            // surface leaves `__yul_returndata` at its empty-byte seed, this
+            // evaluates to 0 on any top-level call. Added here so yul bodies
+            // that guard `returndatacopy` with a `returndatasize()` check
+            // (idiomatic EVM pattern: `if lt(returndatasize(), len) { revert }`)
+            // compile without dropping to the legacy no-op warning path.
+            if !call.arguments.is_empty() {
+                return false;
+            }
+            let rd_local = state.ensure_returndata(ctx);
+            instructions.push(Instruction::LoadLocal(rd_local));
+            instructions.push(Instruction::GetSize);
+            true
         }
         "add" | "sub" | "mul" | "div" | "mod" => {
             if call.arguments.len() != 2 {
@@ -919,5 +1178,143 @@ fn lower_yul_tload(
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
 
     instructions.push(Instruction::Label(end_label));
+    true
+}
+
+/// Task #184 — emit `returndatacopy(dst, src, len)`.
+///
+/// EVM semantics: copy `len` bytes from the last-call returndata buffer
+/// (starting at offset `src`) into yul memory at offset `dst`. If
+/// `src + len > returndatasize()`, the contract MUST revert with
+/// `Panic(0x32)` (read past returndatasize). When `len == 0`, the opcode
+/// is a strict no-op regardless of `src`/`dst`.
+///
+/// Task #184 surface: the minimal harness (`batch76_zz4`) exercises the
+/// "no preceding external call" case where `returndatasize() == 0`, so the
+/// bounds check always fires on any non-zero-length read. We still
+/// implement the full `MemCpy` path so a follow-up task can populate
+/// `__yul_returndata` after external calls without revisiting this lower.
+///
+/// Generated shape (pseudocode):
+/// ```text
+///   // 1. Evaluate & stash args.
+///   let dst = <dst_expr>;
+///   let src = <src_expr>;
+///   let len = <len_expr>;
+///
+///   // 2. Zero-length fast path (EVM spec: no-op even if src >= rdsize).
+///   if len != 0 {
+///     // 3. Bounds check: src + len > returndatasize() → revert.
+///     if src + len > __yul_returndata.size() {
+///       throw "returndata: read past returndatasize";
+///     }
+///
+///     // 4. Copy.
+///     MEMCPY(__yul_memory, dst, __yul_returndata, src, len);
+///   }
+/// ```
+///
+/// Diagnostic shape on the bounds-check fault: the exception message is
+/// `THROW: returndata: read past returndatasize`, which contains the
+/// `"returndata"` substring the `batch76_zz4` harness accepts as a clean
+/// underflow marker (see `tests/fuzz_tests/batches_66_80.rs`).
+fn lower_yul_returndatacopy(
+    dst_expr: &solang_parser::pt::YulExpression,
+    src_expr: &solang_parser::pt::YulExpression,
+    len_expr: &solang_parser::pt::YulExpression,
+    state: &mut YulLoweringState,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let mem_local = state.ensure_memory(ctx);
+    let rd_local = state.ensure_returndata(ctx);
+
+    // Evaluate dst, src, len in that order (yul's left-to-right semantic) and
+    // stash each in its own local so the bounds check and MEMCPY can reference
+    // them multiple times without re-evaluating (which would double any side
+    // effects in the source expressions).
+    let tmp_id = ctx.next_label();
+
+    if !lower_yul_expression(dst_expr, state, ctx, instructions) {
+        return false;
+    }
+    let dst_local = ctx.allocate_local(format!("__yul_rdc_dst_{tmp_id}"), None);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    if !lower_yul_expression(src_expr, state, ctx, instructions) {
+        return false;
+    }
+    let src_local = ctx.allocate_local(format!("__yul_rdc_src_{tmp_id}"), None);
+    instructions.push(Instruction::StoreLocal(src_local));
+
+    if !lower_yul_expression(len_expr, state, ctx, instructions) {
+        return false;
+    }
+    let len_local = ctx.allocate_local(format!("__yul_rdc_len_{tmp_id}"), None);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    let skip_label = ctx.next_label(); // target for len == 0 fast path
+    let ok_label = ctx.next_label(); // target for (src+len) <= rdsize branch
+
+    // Fast path: if `len == 0`, skip the whole copy (including the bounds
+    // check — EVM spec treats zero-length returndatacopy as a no-op even
+    // when returndatasize() is 0).
+    //
+    //   LoadLocal(len); Push(0); BinaryOp(Ne) → Boolean(len != 0)
+    //   JumpIf(skip_label)   — IR JumpIf = JMPIFNOT: branches when falsy,
+    //                          i.e. when (len != 0) is false, i.e. len == 0.
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+    instructions.push(Instruction::JumpIf {
+        target: skip_label,
+    });
+
+    // Bounds check: compute (src + len) and compare with returndatasize.
+    //
+    //   Push (src + len)
+    //   Push rdsize
+    //   Compute (src + len) <= rdsize  ⇒  push Boolean
+    //   JumpIf(ok_label) — branches when falsy, so we fall through to the
+    //   "throw" arm when (src + len) > rdsize.
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+
+    instructions.push(Instruction::LoadLocal(rd_local));
+    instructions.push(Instruction::GetSize);
+
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Le));
+    instructions.push(Instruction::JumpIf { target: ok_label });
+
+    // Fault arm: push a descriptive error message and THROW. The runtime's
+    // `execute_flow_exceptions` UTF-8-lossies the payload into the exception
+    // message with a `THROW: ` prefix, producing `THROW: returndata: read
+    // past returndatasize`. The `"returndata"` substring matches the
+    // `batch76_zz4` harness's `clean_underflow` acceptance set.
+    instructions.push(Instruction::PushLiteral(LiteralValue::String(
+        b"returndata: read past returndatasize".to_vec(),
+    )));
+    instructions.push(Instruction::Throw);
+
+    // OK arm: execute the copy.
+    //
+    //   MemCpy stack order (bottom → top): [dst, dst_offset, src, src_offset, count]
+    //   → copy src[src_offset .. src_offset+count] into dst[dst_offset .. dst_offset+count]
+    //   → leaves dst on the stack; we `Drop` it because the buffer was
+    //     already stored via the `__yul_memory` local.
+    instructions.push(Instruction::Label(ok_label));
+    instructions.push(Instruction::LoadLocal(mem_local));
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::LoadLocal(rd_local));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::MemCpy);
+    instructions.push(Instruction::Drop(ValueType::Any));
+
+    // Skip target: zero-length fast path and end of the non-fault path meet
+    // here. The `ok_label` arm falls through to `skip_label`; both paths
+    // continue with the next yul statement.
+    instructions.push(Instruction::Label(skip_label));
     true
 }

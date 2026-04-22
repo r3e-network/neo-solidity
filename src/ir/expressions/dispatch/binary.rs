@@ -357,7 +357,7 @@ fn emit_widen_to_u256(instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
-    // BytesConcat takes (left, right) → left ++ right; push 24 zero bytes on
+    // BytesConcat takes (left, right) -> left ++ right; push 24 zero bytes on
     // the right so the little-endian representation is padded on the high side.
     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8; 24])));
     instructions.push(Instruction::CallBuiltin {
@@ -669,11 +669,9 @@ fn lower_binary_expr(
         None
     };
 
-    // Batch-#30 H4b fix: `coerce_to_fixed_bytes` (invoked by `bytesN(..)` /
-    // `address(..)` casts — see `is_fixed_bytes_cast_expr`) leaves the
-    // MEMCPY-returned destination buffer on the stack BENEATH the canonical
-    // ByteString result. Binary ops like `Eq` / `Ne` pop the top two stack
-    // items, so an expression of the form `x OP bytes32(0)` would compare the
+    // Fixed-width byte/address casts (`bytesN(..)`, `address(..)`) now
+    // canonicalize through `coerce_to_fixed_bytes` into a single ByteString
+    // result. Earlier cleanup here assumed an extra leaked buffer lived under
     // leaked buffer with the canonical result instead of `x` with `bytes32(0)`
     // — which silently collapses the zero-literal sentinel check and blocks
     // role/sentinel idioms (`require(role != bytes32(0), ...)`). Mirror the

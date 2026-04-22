@@ -144,12 +144,48 @@ fn lower_new_expression(
                 );
             }
 
-            // `new Contract(...)` isn't supported on Neo N3 (no contract creation from within contracts).
+            // `new Contract(args)` — Neo N3 has no contract-creation-from-contract
+            // syscall (deployment is an external transaction), so we simulate the
+            // `new` expression by (a) invoking the sibling's constructor body
+            // in-line (merged as a name-mangled regular function
+            // `__ctor__<Name>`; see Task #198 in `solidity_analyse.rs`) so its
+            // state-variable assignments persist against the already-merged
+            // sibling state slots (Task #197), and (b) pushing a 20-byte zero
+            // placeholder for the "address". Subsequent `c.method()` calls on
+            // the zero-hash route through `self_method_offsets` (Task #83), so
+            // getters against the merged state observe the ctor-written values.
             if let Expression::Variable(identifier) = func.as_ref() {
                 if ctx.is_contract_type_name(&identifier.name) {
-                    for arg in args {
-                        if lower_expression(arg, ctx, instructions) {
-                            instructions.push(Instruction::Drop(ValueType::Any));
+                    let mangled = format!("__ctor__{}", identifier.name);
+                    let mangled_resolves = ctx
+                        .neo_function_name(&mangled, args.len())
+                        .is_some();
+                    if mangled_resolves {
+                        let mut success = true;
+                        for arg in args {
+                            if !lower_expression(arg, ctx, instructions) {
+                                success = false;
+                            }
+                        }
+                        if success {
+                            if let Some(neo_name) =
+                                ctx.neo_function_name(&mangled, args.len())
+                            {
+                                instructions.push(Instruction::CallFunction {
+                                    name: neo_name,
+                                    arg_count: args.len(),
+                                });
+                            }
+                        }
+                    } else {
+                        // No matching constructor (sibling either has no
+                        // constructor or has one with a different arity).
+                        // Preserve the pre-Task-#198 behaviour: evaluate the
+                        // arguments for side effects and discard them.
+                        for arg in args {
+                            if lower_expression(arg, ctx, instructions) {
+                                instructions.push(Instruction::Drop(ValueType::Any));
+                            }
                         }
                     }
                     instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
@@ -253,7 +289,22 @@ fn lower_new_array_allocation(
 
     instructions.push(Instruction::LoadLocal(array_local));
     instructions.push(Instruction::LoadLocal(idx_local));
-    push_default_for_value_type(&element_type, ctx, instructions);
+    // Task #185: Recurse for nested fixed-size array types (e.g. `uint[3][2]`).
+    // When the element type is itself a `T[N]` fixed-size array, emit a full
+    // `new T[N]` allocation so the sub-array is pre-sized with default-
+    // initialized slots; `push_default_for_value_type(Array, ..)` only
+    // produces an empty length-0 array, which would fault at the first
+    // nested `a[i][j] = ..` with "SETITEM: index out of bounds".
+    if let Expression::ArraySubscript(_, inner_ty_expr, Some(inner_len_expr)) = array_type_expr {
+        lower_new_array_allocation(
+            inner_ty_expr.as_ref(),
+            inner_len_expr.as_ref(),
+            ctx,
+            instructions,
+        );
+    } else {
+        push_default_for_value_type(&element_type, ctx, instructions);
+    }
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(idx_local));

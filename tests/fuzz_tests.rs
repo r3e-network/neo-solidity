@@ -27,5 +27,9 @@ mod batches_31_45;
 mod batches_46_64;
 #[path = "fuzz_tests/batches_66_80.rs"]
 mod batches_66_80;
+#[path = "fuzz_tests/batches_81_90.rs"]
+mod batches_81_90;
+#[path = "fuzz_tests/batches_91_100.rs"]
+mod batches_91_100;
 #[path = "fuzz_tests/task107_catch_panic_tests.rs"]
 mod task107_catch_panic_tests;

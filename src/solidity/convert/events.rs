@@ -31,6 +31,7 @@ fn convert_event(
                 }
             })
             .collect(),
+        anonymous: event.anonymous,
     }
 }
 

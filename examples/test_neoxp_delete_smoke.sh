@@ -101,43 +101,29 @@ contract DeleteSmoke {
 
     mapping(bytes32 => S) private mStruct;
 
-    function run() public returns (uint256) {
-        bytes32 k1 = bytes32(uint256(1));
-        bytes32 k2 = bytes32(uint256(2));
+    function run() public {
+        bytes32 k1 = hex"0000000000000000000000000000000000000000000000000000000000000001";
 
-        mBytes[k1] = bytes32(uint256(9));
+        mBytes[k1] = hex"0000000000000000000000000000000000000000000000000000000000000009";
         mAddr[k1] = msg.sender;
 
         S storage s = mStruct[k1];
         s.a = msg.sender;
         s.b = 7;
         s.c = true;
-        s.d = bytes32(uint256(11));
+        s.d = hex"000000000000000000000000000000000000000000000000000000000000000b";
 
         delete mBytes[k1];
         delete mAddr[k1];
         delete mStruct[k1];
-
-        uint256 ok = 0;
-
-        if (mBytes[k1] == bytes32(0)) ok += 1;
-        if (mAddr[k1] == address(0)) ok += 2;
-        S memory afterDelete = mStruct[k1];
-        if (afterDelete.a == address(0)) ok += 4;
-        if (afterDelete.b == 0) ok += 8;
-        if (afterDelete.c == false) ok += 16;
-        if (afterDelete.d == bytes32(0)) ok += 32;
-
-        if (mBytes[k2] == bytes32(0)) ok += 64;
-        if (mAddr[k2] == address(0)) ok += 128;
-        S memory missing = mStruct[k2];
-        if (missing.a == address(0)) ok += 256;
-        if (missing.b == 0) ok += 512;
-        if (missing.c == false) ok += 1024;
-        if (missing.d == bytes32(0)) ok += 2048;
-
-        return ok;
     }
+
+    function getBytes(bytes32 k) public view returns (bytes32) { return mBytes[k]; }
+    function getAddr(bytes32 k) public view returns (address) { return mAddr[k]; }
+    function getStructA(bytes32 k) public view returns (address) { return mStruct[k].a; }
+    function getStructB(bytes32 k) public view returns (uint256) { return mStruct[k].b; }
+    function getStructC(bytes32 k) public view returns (bool) { return mStruct[k].c; }
+    function getStructD(bytes32 k) public view returns (bytes32) { return mStruct[k].d; }
 }
 SOL
 
@@ -180,16 +166,54 @@ if [ "$RUN_VMSTATE" != "HALT" ]; then
   exit 1
 fi
 
-if [ "$(echo "$RUN_LOG" | jq -r '.["application-log"].executions[0].stack[0].type')" != "Integer" ]; then
-  echo "error: run() returned non-Integer"
-  echo "$RUN_LOG" | jq '.["application-log"].executions[0].stack'
-  exit 1
-fi
-if [ "$(echo "$RUN_LOG" | jq -r '.["application-log"].executions[0].stack[0].value')" != "4095" ]; then
-  echo "error: run() returned unexpected value"
-  echo "$RUN_LOG" | jq '.["application-log"].executions[0].stack'
-  exit 1
-fi
+KEY1="0000000000000000000000000000000000000000000000000000000000000001"
+KEY2="0000000000000000000000000000000000000000000000000000000000000002"
+
+check_getter() {
+  local method="$1"
+  local key_hex="$2"
+  local expected_type="$3"
+  local expected_value="$4"
+  cat > invoke-getter.neo-invoke.json <<JSON
+{
+  "contract": "$CONTRACT_HASH",
+  "operation": "$method",
+  "args": [{"type":"Hash256","value":"0x$key_hex"}]
+}
+JSON
+  local out
+  out="$(run_neoxp contract invoke -r -j -i "$CHAIN" invoke-getter.neo-invoke.json node1)"
+  if [ "$(echo "$out" | jq -r '.state')" != "HALT" ]; then
+    echo "error: $method() did not HALT" >&2
+    echo "$out"
+    exit 1
+  fi
+  if [ "$(echo "$out" | jq -r '.stack[0].type')" != "$expected_type" ]; then
+    echo "error: $method() returned unexpected stack type" >&2
+    echo "$out"
+    exit 1
+  fi
+  local got
+  got="$(echo "$out" | jq -r '.stack[0].value')"
+  if [ "$got" != "$expected_value" ]; then
+    echo "error: $method() returned unexpected value" >&2
+    echo "$out"
+    exit 1
+  fi
+}
+
+check_getter getBytes "$KEY1" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getAddr "$KEY1" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getStructA "$KEY1" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getStructB "$KEY1" Integer 0
+check_getter getStructC "$KEY1" Boolean false
+check_getter getStructD "$KEY1" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
+check_getter getBytes "$KEY2" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getAddr "$KEY2" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getStructA "$KEY2" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+check_getter getStructB "$KEY2" Integer 0
+check_getter getStructC "$KEY2" Boolean false
+check_getter getStructD "$KEY2" ByteString AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
 echo "✅ neoxp delete smoke test passed"
-

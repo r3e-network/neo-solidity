@@ -505,10 +505,26 @@ fn try_lower_low_level_address_call(
 						return Some(false);
 					}
 
-					instructions.push(Instruction::CallBuiltin {
-						builtin: BuiltinCall::AbiEncode,
-						arg_count: encode_args.len(),
-					});
+					if encode_args.is_empty() {
+						instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+							BigInt::zero(),
+						)));
+						instructions.push(Instruction::NewArray {
+							element_type: ValueType::Any,
+						});
+						instructions.push(Instruction::CallBuiltin {
+							builtin: BuiltinCall::NativeCall {
+								contract: NativeContract::StdLib,
+								method: "serialize".to_string(),
+							},
+							arg_count: 1,
+						});
+					} else {
+						instructions.push(Instruction::CallBuiltin {
+							builtin: BuiltinCall::AbiEncode,
+							arg_count: encode_args.len(),
+						});
+					}
 
 					let catch_label = ctx.next_label();
 					let end_label = ctx.next_label();

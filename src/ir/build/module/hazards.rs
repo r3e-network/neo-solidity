@@ -49,6 +49,7 @@ fn direct_hazards(function: &Function) -> Hazards {
             }
             Instruction::StoreState(_)
             | Instruction::StoreMappingElement { .. }
+            | Instruction::StoreArrayDeepCopy { .. }
             | Instruction::StoreStructField { .. }
             | Instruction::StoreStructArrayElement { .. }
             | Instruction::StoreStructFieldMappingElement { .. } => {

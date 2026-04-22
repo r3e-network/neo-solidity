@@ -58,6 +58,15 @@ struct LoweringContext<'a> {
     param_types: &'a [ValueType],
     return_slots: Vec<Option<usize>>,
     return_types: Vec<ValueType>,
+    /// Task #185 — original Solidity type string for each declared return
+    /// parameter (e.g. "uint[3][2]"). Used by `lower_return_statement` to
+    /// detect nested fixed-size arrays (`T[N1][N2]...[Nk]`) so the return
+    /// path can emit flat EVM-canonical static encoding instead of the
+    /// dynamic-array offset+length wrapper. ValueType alone cannot carry
+    /// fixed-size info today (adding `fixed_size: Option<u64>` to
+    /// `ValueType::Array` would cascade through 55+ call sites), so the
+    /// fixed-shape hint rides alongside as a string.
+    return_type_strings: Vec<String>,
     state_variables: &'a [StateVariableMetadata],
     state_index_map: &'a HashMap<String, usize>,
     state_types: &'a [ValueType],
@@ -85,6 +94,15 @@ struct LoweringContext<'a> {
     /// Used to enforce Solidity-style receiver compatibility for `using for`
     /// member calls (`x.f(...)` lowers to `f(x, ...)`).
     function_first_param_types: &'a HashMap<(String, usize), ValueType>,
+    /// Task #191 — first return-parameter type for each overload key
+    /// (name, arg_count). Used by `infer_type_from_expression` to resolve
+    /// member access on a FunctionCall result (e.g. `makeCounter().value`
+    /// or `c.inc().value`), so the struct-field-access lowering can pick
+    /// the right field index instead of falling through to the drop-and-
+    /// push-zero compatibility branch. Only the FIRST return type is
+    /// recorded because member access on a multi-return function call is
+    /// not valid Solidity — `(a, b) = f()` uses tuple destructuring.
+    function_return_types: &'a HashMap<(String, usize), ValueType>,
     /// Normalized target types from parsed `using` directives.
     ///
     /// `None` means wildcard target (`for *`).
@@ -110,6 +128,19 @@ struct LoweringContext<'a> {
     /// the call site rather than emitting `CallFunction`, so storage writes
     /// (`d.x = v`) hit the caller's slot instead of a materialised copy.
     library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
+    /// Task #196 — zero-arg internal functions that trivially return a
+    /// storage pointer to a state variable (body is `return <state_var>;`
+    /// and the return parameter is declared `T storage`). When a call site
+    /// references `foo()` whose result feeds into a storage operation
+    /// (`foo().push(v)`, `foo().length`, `foo()[i] = v`), the resolver
+    /// unwraps the call into the backing `Variable(state_var)` so the
+    /// downstream storage-reference machinery can alias the actual slot
+    /// instead of the raw `LoadState` value (which for an array state
+    /// variable is the LENGTH, not the backing Array — see
+    /// `emit_coerce_storage_value` for `ValueType::Array`). Extends Task
+    /// #117's local-binding alias fix (`uint[] storage a = arr;`) across
+    /// the function-return boundary.
+    storage_pointer_returning_fns: &'a HashMap<String, String>,
     /// Task #91 — stack of (inline-return slot, end-label). When set,
     /// `lower_return_statement` redirects `return expr;` to store into
     /// `slot` and jump to `end_label` instead of emitting a raw `Return`
@@ -157,6 +188,23 @@ struct LoweringContext<'a> {
     /// unchecked { unchecked { a + b; } }  // depth 2 inside; guard still skipped
     /// ```
     unchecked_depth: usize,
+    /// Task #186 — function-pointer parameter/local bindings keyed by the
+    /// binding name. Populated by `Function::from_metadata_with_warnings` for
+    /// parameters whose declared Solidity type starts with `function` (the
+    /// only source of function-pointer values currently supported). Consumed
+    /// by `try_lower_variable_call` to emit a `CallIndirect` through `CALLA`
+    /// instead of the legacy "drop args, push 0" compatibility fallback.
+    function_pointer_bindings: HashMap<String, FunctionPointerBinding>,
+}
+
+/// Task #186 — per-binding metadata for an internal function-pointer local or
+/// parameter. Knowing `arg_count` lets the bytecode emitter pick the correct
+/// REVERSEN window size; `has_return` controls whether the `CallIndirect`
+/// result is treated as a value or a statement-expression.
+#[derive(Debug, Clone, Copy)]
+struct FunctionPointerBinding {
+    arg_count: usize,
+    has_return: bool,
 }
 
 impl<'a> LoweringContext<'a> {
@@ -182,6 +230,7 @@ impl<'a> LoweringContext<'a> {
         function_names: &'a HashSet<String>,
         function_overloads: &'a HashMap<(String, usize), String>,
         function_first_param_types: &'a HashMap<(String, usize), ValueType>,
+        function_return_types: &'a HashMap<(String, usize), ValueType>,
         using_target_types: &'a [Option<String>],
         using_function_list_targets: &'a HashMap<String, Vec<Option<String>>>,
         using_function_list_scope_targets: &'a [Option<String>],
@@ -189,6 +238,7 @@ impl<'a> LoweringContext<'a> {
         void_functions: &'a HashSet<String>,
         super_method_map: &'a HashMap<String, String>,
         library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
+        storage_pointer_returning_fns: &'a HashMap<String, String>,
     ) -> Self {
         Self {
             function_name: function_name.to_string(),
@@ -200,6 +250,7 @@ impl<'a> LoweringContext<'a> {
             param_types,
             return_slots: Vec::new(),
             return_types: Vec::new(),
+            return_type_strings: Vec::new(),
             state_variables,
             state_index_map,
             state_types,
@@ -213,6 +264,7 @@ impl<'a> LoweringContext<'a> {
             function_names,
             function_overloads,
             function_first_param_types,
+            function_return_types,
             using_target_types,
             using_function_list_targets,
             using_function_list_scope_targets,
@@ -220,6 +272,7 @@ impl<'a> LoweringContext<'a> {
             void_functions,
             super_method_map,
             library_storage_bodies,
+            storage_pointer_returning_fns,
             inline_return_stack: Vec::new(),
             modifier_return_redirect: None,
             modifier_break_stack: Vec::new(),
@@ -235,7 +288,26 @@ impl<'a> LoweringContext<'a> {
             errors: Vec::new(),
             warnings: Vec::new(),
             unchecked_depth: 0,
+            function_pointer_bindings: HashMap::new(),
         }
+    }
+
+    /// Task #186 — register a function-pointer binding for a parameter or
+    /// local. `name` is the Solidity source name; `arg_count` and `has_return`
+    /// are derived from the declared `function(...)` type.
+    fn register_function_pointer_binding(
+        &mut self,
+        name: &str,
+        arg_count: usize,
+        has_return: bool,
+    ) {
+        self.function_pointer_bindings
+            .insert(name.to_string(), FunctionPointerBinding { arg_count, has_return });
+    }
+
+    /// Task #186 — look up a function-pointer binding for an identifier.
+    fn function_pointer_binding(&self, name: &str) -> Option<&FunctionPointerBinding> {
+        self.function_pointer_bindings.get(name)
     }
 
     /// Returns `true` if currently lowering inside an `unchecked { ... }` block.
@@ -275,6 +347,20 @@ impl<'a> LoweringContext<'a> {
     fn set_return_info(&mut self, slots: Vec<Option<usize>>, types: Vec<ValueType>) {
         self.return_slots = slots;
         self.return_types = types;
+    }
+
+    /// Task #185 — record the original Solidity type strings for each
+    /// declared return parameter. Called once per function during
+    /// `Function::from_metadata_with_warnings`. The strings retain static
+    /// fixed-size-array dimensions (e.g. "uint[3][2]") that `ValueType`
+    /// doesn't preserve, enabling `lower_return_statement` to pick the
+    /// flat EVM-canonical encoding for nested fixed-size array returns.
+    fn set_return_type_strings(&mut self, type_strings: Vec<String>) {
+        self.return_type_strings = type_strings;
+    }
+
+    fn return_type_strings(&self) -> &[String] {
+        &self.return_type_strings
     }
 
     /// Task #91 — temporarily hide caller parameters that collide with an
@@ -582,6 +668,18 @@ impl<'a> LoweringContext<'a> {
             .get(&(name.to_string(), arg_count))
     }
 
+    /// Task #196 — look up the state variable name aliased by a zero-arg
+    /// internal function returning `T storage`. Returns `None` when the
+    /// function isn't a simple storage-pointer alias. Used by the
+    /// storage-reference resolver and the `.length` fast path to unwrap
+    /// `fn()` into the backing state-var Expression so the caller can
+    /// write to the actual storage slot instead of a materialised copy.
+    fn storage_pointer_returning_fn(&self, name: &str) -> Option<&str> {
+        self.storage_pointer_returning_fns
+            .get(name)
+            .map(|s| s.as_str())
+    }
+
     fn has_using_directives(&self) -> bool {
         !self.using_target_types.is_empty()
     }
@@ -654,6 +752,20 @@ impl<'a> LoweringContext<'a> {
         self.function_param_names
             .get(&(name.to_string(), arg_count))
             .map(|v| v.as_slice())
+    }
+
+    /// Task #191 — look up the first return type for a function overload.
+    /// `None` means no metadata (the function may be external, have no
+    /// return value, or the build pipeline didn't register it). Callers
+    /// should degrade gracefully (e.g., `infer_type_from_expression` falls
+    /// through to the existing type-inference logic).
+    fn get_function_return_type(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Option<&ValueType> {
+        self.function_return_types
+            .get(&(name.to_string(), arg_count))
     }
 
     /// Returns true if the named function returns void (no return values).

@@ -228,6 +228,54 @@ fn try_lower_variable_call(
             return Some(success);
         }
 
+        // Task #186 — function-pointer invocation. If the identifier names a
+        // parameter or local that has been recorded as an internal-function-
+        // pointer binding, lower the call as:
+        //     PushFunctionOffset (via LoadParameter/LoadLocal of the slot)
+        //     arg0, arg1, ..., argN-1
+        //     CallIndirect { arg_count, has_return }
+        // The bytecode emitter turns this into REVERSEN(N+1) + CALLA.
+        if let Some(binding) = ctx.function_pointer_binding(&identifier.name).cloned() {
+            // Load the function-offset value first so that `CallIndirect` sees
+            // the stack as `[target, arg0, arg1, ..., argN-1]`.
+            if let Some(param_index) = ctx.param_index_map.get(&identifier.name).copied() {
+                instructions.push(Instruction::LoadParameter(param_index));
+            } else if let Some(local_index) = ctx.resolve_local(&identifier.name) {
+                instructions.push(Instruction::LoadLocal(local_index));
+            } else {
+                // Defensive: binding tracked but no backing slot — fall through
+                // to the legacy compatibility path.
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
+            }
+            let mut success = true;
+            for arg in args {
+                if !lower_expression(arg, ctx, instructions) {
+                    success = false;
+                }
+            }
+            if args.len() != binding.arg_count {
+                ctx.record_error(format!(
+                    "internal function pointer '{}' expects {} argument(s), got {}",
+                    identifier.name,
+                    binding.arg_count,
+                    args.len()
+                ));
+                return Some(false);
+            }
+            instructions.push(Instruction::CallIndirect {
+                arg_count: args.len(),
+                has_return: binding.has_return,
+            });
+            // When the target function is void, CallIndirect leaves no value on
+            // the stack; mirror `CallFunction`'s void-return convention.
+            if !binding.has_return {
+                return Some(false);
+            }
+            return Some(success);
+        }
+
         if ctx.resolve_local(&identifier.name).is_some() {
             // Compatibility fallback for function-typed locals and unresolved callables.
             // Preserve argument side effects and materialize a default return value.

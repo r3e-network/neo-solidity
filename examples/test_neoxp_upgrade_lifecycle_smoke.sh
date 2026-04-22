@@ -127,7 +127,7 @@ fi
   -o "$WORK_DIR/UpgradeLifecycleShowcase" \
   --deny-wildcard-permissions --deny-wildcard-contracts --deny-wildcard-methods >/dev/null
 
-DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d "[5,\"$NODE1_HASH\"]" "$WORK_DIR/UpgradeLifecycleShowcase.nef" node1 -j)"
+DEPLOY_OUT="$(run_neoxp contract deploy -i "$CHAIN" -d "[5]" "$WORK_DIR/UpgradeLifecycleShowcase.nef" node1 -j)"
 CONTRACT_HASH="$(echo "$DEPLOY_OUT" | jq -r '.["contract-hash"]' | tr -d '\r')"
 DEPLOY_TX="$(echo "$DEPLOY_OUT" | jq -r '.["tx-hash"]' | tr -d '\r')"
 
@@ -145,6 +145,21 @@ fi
 if [ "$(tx_vmstate "$DEPLOY_TX")" != "HALT" ]; then
   echo "error: deploy did not HALT" >&2
   run_neoxp show transaction -i "$CHAIN" "$DEPLOY_TX" | jq '.["application-log"].executions[0]' >&2
+  exit 1
+fi
+
+cat > invoke-bootstrap-owner.neo-invoke.json <<JSON
+{
+  "contract": "$CONTRACT_HASH",
+  "operation": "bootstrapOwner",
+  "args": [{"type": "Hash160", "value": "$NODE1_HASH"}]
+}
+JSON
+
+BOOTSTRAP_TX="$(invoke_tx_hash invoke-bootstrap-owner.neo-invoke.json node1)"
+if [ "$(tx_vmstate "$BOOTSTRAP_TX")" != "HALT" ]; then
+  echo "error: bootstrapOwner should HALT" >&2
+  run_neoxp show transaction -i "$CHAIN" "$BOOTSTRAP_TX" | jq '.["application-log"].executions[0]' >&2
   exit 1
 fi
 

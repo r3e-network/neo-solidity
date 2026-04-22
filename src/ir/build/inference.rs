@@ -125,6 +125,21 @@ fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
     }
 }
 
+/// Returns true when the expression is structurally a Solidity type expression
+/// rather than a value expression. Used to distinguish fixed-size array types
+/// (`T[N]`) from value-subscripts (`arr[i]`) when both parse as
+/// `Expression::ArraySubscript(inner, Some(_))`. A type expression is either a
+/// primitive `Type` node or nested `ArraySubscript` whose base is itself a
+/// type expression (covers nested fixed-size arrays like `uint[3][2]`).
+fn is_type_expression(expr: &Expression) -> bool {
+    match expr {
+        Expression::Type(_, _) => true,
+        Expression::ArraySubscript(_, inner, _) => is_type_expression(inner),
+        Expression::Parenthesis(_, inner) => is_type_expression(inner),
+        _ => false,
+    }
+}
+
 fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     match expr {
         Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx),
@@ -188,7 +203,61 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
 
             None
         }
-        Expression::FunctionCall(_, _, _) => None,
+        // Task #191 — infer a user-defined function's return type from the
+        // registered `function_return_types` map so chained calls like
+        // `c.inc().value` can resolve the struct-field index. The specific
+        // cases already handled above (`T(x)` casts, `Interface(addr)`,
+        // `Syscalls.*`, etc.) stay on their fast paths; this branch covers
+        // bare `f(...)` where `f` is a contract method or injected free
+        // function (e.g. `using { inc } for T` with inc at file scope).
+        //
+        // Two call shapes produce a user-defined function name here:
+        //   - `Expression::Variable(id)` → `f(args)` (free function / same-
+        //     contract method after Task #187 injection).
+        //   - `Expression::MemberAccess(_, Variable(id), method)` → method
+        //     call on `this` / library-qualified call. We key the lookup on
+        //     the method name with the literal argument count, matching how
+        //     `function_return_types` is populated at module-build time.
+        Expression::FunctionCall(_, func, args) => {
+            if let Expression::Variable(identifier) = func.as_ref() {
+                if let Some(ty) = ctx.get_function_return_type(&identifier.name, args.len()) {
+                    return Some(ty.clone());
+                }
+            }
+            if let Expression::MemberAccess(_, inner, method) = func.as_ref() {
+                // `x.f(args)` attached via `using { f } for T;` lowers to
+                // `f(x, args)` — the registered return-type key therefore uses
+                // `args.len() + 1` for the library-attach form. Try both
+                // shapes before giving up.
+                if ctx.has_using_directives() {
+                    if let Some(ty) =
+                        ctx.get_function_return_type(&method.name, args.len() + 1)
+                    {
+                        // Only honour the receiver-attached form when the
+                        // inner expression isn't a namespace-style
+                        // `Library.f(...)` call (which keeps its literal
+                        // arg count). Distinguishing the two without full
+                        // type info: treat a bare `Variable` inner that
+                        // doesn't name a library/contract as a receiver.
+                        if let Expression::Variable(base) = inner.as_ref() {
+                            let is_namespace = ctx.is_contract_type_name(&base.name);
+                            if !is_namespace {
+                                return Some(ty.clone());
+                            }
+                        } else {
+                            // Chained-call receiver (e.g. `c.inc().inc()`):
+                            // the inner isn't a namespace, so the outer is
+                            // genuinely receiver-attached.
+                            return Some(ty.clone());
+                        }
+                    }
+                }
+                if let Some(ty) = ctx.get_function_return_type(&method.name, args.len()) {
+                    return Some(ty.clone());
+                }
+            }
+            None
+        }
         Expression::ArrayLiteral(_, elements) => Some(ValueType::Array(Box::new(
             infer_literal_array_element_type(elements),
         ))),
@@ -202,6 +271,18 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
             } else if let Some(ValueType::Array(inner)) = infer_type_from_expression(array, ctx) {
                 // Value expression: `arr[i]`
                 Some(*inner.clone())
+            } else if is_type_expression(array) {
+                // Task #185: Fixed-size array type expression `T[N]` (e.g. the outer
+                // element type of a multi-dim declaration `uint[3][2] memory a;`).
+                // solang-parser represents this as `ArraySubscript(T, Some(N))` in type
+                // contexts — structurally identical to a value subscript `arr[i]`, but the
+                // base resolves to a scalar/struct type rather than an Array. When the
+                // base is structurally a type expression (`Type(_)` or nested
+                // `ArraySubscript(type_expr, _)`), wrap the inferred base type in
+                // `Array(..)` so inner-dimension `new T[N]` allocations receive the
+                // correct element type.
+                infer_type_from_expression(array, ctx)
+                    .map(|inner| ValueType::Array(Box::new(inner)))
             } else {
                 None
             }

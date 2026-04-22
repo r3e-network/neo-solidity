@@ -101,9 +101,16 @@ pub struct EventSignature {
     /// produce `topic[0]`.
     pub canonical: String,
     /// `keccak256(canonical)` — 32 bytes, BE-layout, pushed as `topic[0]`.
+    /// For anonymous events this field is still populated (for completeness)
+    /// but the lowering skips the topic0 prepend per the EVM ABI.
     pub topic0: [u8; 32],
     /// Per-parameter metadata in declaration order.
     pub params: Vec<EventParamInfo>,
+    /// Whether the event was declared `anonymous` in Solidity source. Per
+    /// the EVM ABI, anonymous events suppress the `keccak256(signature)`
+    /// topic0 slot so they can carry up to 4 indexed topics (vs. 3 for
+    /// non-anonymous).
+    pub is_anonymous: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,6 +160,13 @@ pub enum Instruction {
         state_index: usize,
         key_types: Vec<ValueType>,
     },
+    /// Task #205 — store a dynamic-array value into storage using the same
+    /// layout the read side expects: length at the base slot and elements at
+    /// `keccak256(serialize(i) || slot)`.
+    StoreArrayDeepCopy {
+        state_index: usize,
+        key_types: Vec<ValueType>,
+    },
     LoadStructField {
         state_index: usize,
         key_types: Vec<ValueType>,
@@ -198,6 +212,23 @@ pub enum Instruction {
     CallFunction {
         name: String,
         arg_count: usize,
+    },
+    /// Task #186 — push an internal function's bytecode offset as an integer
+    /// literal. Emitted when a function name is evaluated as a value (e.g.
+    /// passed as an argument of function-pointer type). The bytecode emitter
+    /// fixes up the placeholder with the function's actual `method.offset`
+    /// once all methods have been laid out.
+    PushFunctionOffset {
+        name: String,
+    },
+    /// Task #186 — indirect call through a function pointer (internal
+    /// `function(...) internal returns (...)` passed as a parameter). Pops
+    /// `arg_count` argument values and then the function-offset value, reverses
+    /// the argument order so the callee's `INITSLOT` binds them left-to-right,
+    /// then emits `CALLA` (0x36) which jumps to the target offset.
+    CallIndirect {
+        arg_count: usize,
+        has_return: bool,
     },
     CallBuiltin {
         builtin: BuiltinCall,

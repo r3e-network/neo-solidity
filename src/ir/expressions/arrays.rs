@@ -6,6 +6,39 @@ fn lower_array_subscript_expression(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     if let Some(mapping) = resolve_mapping_access(expr, ctx) {
+        // Task #199 — storage state-variable Array subscript (`arr[idx]`
+        // where `arr` is `uint[] a`-style) must emit the same Panic(0x32)
+        // bounds guard that Task #107 installed for memory arrays. Without
+        // this, `a[99]` on an empty storage array reads through
+        // `emit_load_mapping` → `System.Storage.Get` which returns zero
+        // silently — the callee appears to succeed and the caller's
+        // `try Target(t).getAt(99) { … } catch Panic(uint) { … }` routes
+        // through the try-arm (observed as "ok") instead of the
+        // catch-Panic arm. Same-contract memory arrays already work via
+        // `lower_array_subscript_expression`'s third branch below; this
+        // branch handles the storage state-variable Array case that
+        // `resolve_mapping_access` intercepts first. Cross-contract
+        // propagation rides on top: once Target.getAt emits the canonical
+        // Panic envelope via `emit_panic(0x32)`, the existing
+        // `dispatch_exception` machinery (see
+        // src/runtime/execution/instruction/flow/try_frames.rs) unwinds
+        // across the self-offsets dispatch frame and routes the payload
+        // into C's `catch Panic(uint c)` arm.
+        //
+        // Guard only fires when the subscript's terminal step traverses
+        // an Array: for pure mapping accesses (`m[k]`, `m[k1][k2]`, …),
+        // or mapping-of-array head (`m[k]`) without a trailing array
+        // index, no bounds concept applies. The helper below inspects
+        // the resolved value_type chain to decide.
+        let array_subscript_terminal = mapping_terminal_hits_array(&mapping, ctx);
+        if let Some(array_head) = array_subscript_terminal {
+            return emit_storage_array_subscript_with_bounds(
+                &mapping,
+                array_head,
+                ctx,
+                instructions,
+            );
+        }
         let reference = mapping.to_storage_reference();
         emit_storage_load(&reference, ctx, instructions)
     } else if let Some(reference) = resolve_storage_reference(expr, ctx) {
@@ -65,6 +98,297 @@ fn lower_array_subscript_expression(
     } else {
         false
     }
+}
+
+/// Task #199 — Describes how to load the runtime length of a storage
+/// array whose terminal subscript is about to be indexed, for the
+/// Panic(0x32) bounds guard.
+///
+/// * `DynamicStateVar` — the subscript chain is `arr[idx]` for a direct
+///   dynamic `T[] storage` state variable. Length lives at
+///   `LoadState(state_index)` (the same slot that `push`/`pop` update,
+///   see `src/ir/expressions/calls/storage_array/state_var.rs`).
+/// * `MappingOfDynamicArray` — the chain is `m[k1]...[kN][idx]` where
+///   the mapping value-type is `T[]` and the LAST key (`idx`) is the
+///   array subscript. Length lives at the `LoadMappingElement` head
+///   slot (the outer keys up to but not including `idx`).
+/// * `FixedSizeKnown` — the subscript chain is `arr[idx]` for a direct
+///   `T[N]` state variable (or a mapping-of-fixed-array). The bound is
+///   the compile-time constant `N`. Detected by parsing the state
+///   variable's source type string (`uint256[3]`); distinct from the
+///   dynamic case because fixed-size arrays do NOT maintain a length
+///   slot at `LoadState(state_index)` (which would always read zero
+///   and fire a spurious Panic(0x32) on every in-range access).
+enum StorageArrayBound {
+    DynamicStateVar {
+        state_index: usize,
+    },
+    MappingOfDynamicArray {
+        state_index: usize,
+        head_key_types: Vec<ValueType>,
+        head_key_expr_indices: Vec<usize>,
+    },
+    FixedSizeKnown(u64),
+}
+
+/// Task #199 — Determine whether the terminal subscript of a resolved
+/// `MappingAccess` traverses an Array (so a Panic(0x32) bounds guard is
+/// appropriate) or a Mapping (no bounds concept). Returns
+/// `Some(bound)` when a bounds guard is required, `None` otherwise.
+///
+/// Walks the state variable's type chain once per key to mirror what
+/// `resolve_mapping_access` did, stopping one step short of the final
+/// key to inspect the type the last subscript operates on. Also
+/// disambiguates dynamic (`T[]`) from fixed-size (`T[N]`) arrays via
+/// the state variable's source-type string: the IR's `ValueType::Array`
+/// collapses the two into one variant, but fixed-size arrays do NOT
+/// store a length at `LoadState` so we need the compile-time `N`.
+fn mapping_terminal_hits_array(
+    mapping: &MappingAccess<'_>,
+    ctx: &LoweringContext,
+) -> Option<StorageArrayBound> {
+    let mut current = ctx.state_type(mapping.state_index)?.clone();
+    let mut head_key_types: Vec<ValueType> = Vec::new();
+    let mut head_key_expr_indices: Vec<usize> = Vec::new();
+    let total_keys = mapping.key_expressions.len();
+    if total_keys == 0 {
+        return None;
+    }
+    // Parse the state variable's source type so we can distinguish a
+    // direct dynamic `T[]` from a fixed-size `T[N]`. This string
+    // preserves the original Solidity declaration (`uint256[3]`,
+    // `mapping(address=>uint256[])[3]`, etc) — the IR-level ValueType
+    // collapses both forms to `Array(uint256)`.
+    let state_ty = ctx
+        .state_metadata(mapping.state_index)
+        .map(|m| m.ty.as_str())
+        .unwrap_or("");
+    for step in 0..total_keys {
+        let is_terminal = step + 1 == total_keys;
+        match &current {
+            ValueType::Array(element) => {
+                if is_terminal {
+                    // Determine if this step's array is fixed-size by
+                    // peeling brackets from the state type string. The
+                    // depth is (step + 1) from the outermost type, but
+                    // Solidity's array-type-string grammar stacks
+                    // brackets right-to-left. We only need the
+                    // outermost bracket at `step` depth-from-the-end
+                    // for fixed-size detection of THIS access level.
+                    if let Some(fixed_n) = extract_fixed_array_bound_at_depth(state_ty, step) {
+                        return Some(StorageArrayBound::FixedSizeKnown(fixed_n));
+                    }
+                    if head_key_types.is_empty() {
+                        return Some(StorageArrayBound::DynamicStateVar {
+                            state_index: mapping.state_index,
+                        });
+                    }
+                    return Some(StorageArrayBound::MappingOfDynamicArray {
+                        state_index: mapping.state_index,
+                        head_key_types,
+                        head_key_expr_indices,
+                    });
+                }
+                // Non-terminal Array step: we skip bounds guarding the
+                // intermediate array layer (rare `T[][]` storage shape).
+                // `emit_load_mapping`/`emit_load_struct_array_element`
+                // collapse these into a flat keccak-chain key derivation,
+                // so a missing guard just falls back to the legacy
+                // no-guard behaviour for non-terminal steps.
+                current = (**element).clone();
+            }
+            ValueType::Mapping { key: _, value } => {
+                if is_terminal {
+                    // Terminal step lands on a Mapping — no bounds concept.
+                    return None;
+                }
+                if let Some(key_type) = mapping.key_types.get(step).cloned() {
+                    head_key_types.push(key_type);
+                    head_key_expr_indices.push(step);
+                } else {
+                    return None;
+                }
+                current = (**value).clone();
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
+/// Task #199 — Extract the numeric bound `N` from a fixed-size array
+/// layer in a Solidity type string, or return `None` for a dynamic
+/// `T[]` (or absent) layer at that depth.
+///
+/// Solidity's type string stacks brackets on the right, e.g.:
+///   - `uint256[]`     → outermost is dynamic
+///   - `uint256[3]`    → outermost is fixed-size, bound = 3
+///   - `uint256[3][]`  → outermost dynamic, inner fixed-size bound = 3
+///   - `mapping(address => uint256[])[3]` → outermost fixed-size,
+///     inner (the mapping) has no array layer
+///
+/// `depth = 0` asks about the OUTERMOST array layer (the one touched
+/// by the first/leftmost subscript `a[…]`), and we walk inward by
+/// stripping a trailing bracket group per step. A layer is dynamic
+/// (`[]`) → returns `None`; fixed-size (`[N]`) → returns `Some(N)`.
+fn extract_fixed_array_bound_at_depth(ty: &str, _depth: usize) -> Option<u64> {
+    // For the types we need to support in the QQQ5 / MMM3 / MM2 / TT2 /
+    // PPP2 set (single-level arrays at the state-var root, plus
+    // `mapping(K=>T[])`), only the outermost array layer matters for
+    // the terminal subscript — which is exactly the trailing `[...]`
+    // suffix on the state variable's type string.
+    //
+    // We walk the string right-to-left, trimming whitespace, and look
+    // at the trailing `[…]`:
+    //   - `…[]`   → dynamic, return None.
+    //   - `…[N]`  → fixed, return Some(N) (where N is all digits).
+    //   - anything else → no array layer here, return None.
+    let trimmed = ty.trim_end();
+    if !trimmed.ends_with(']') {
+        return None;
+    }
+    let open = trimmed.rfind('[')?;
+    let inner = &trimmed[open + 1..trimmed.len() - 1];
+    if inner.is_empty() {
+        return None;
+    }
+    inner.parse::<u64>().ok()
+}
+
+/// Task #199 — Emit a Panic(0x32) bounds guard for a storage-backed
+/// array subscript, then delegate to `emit_storage_load` for the
+/// actual element read. This is the storage analogue of Task #107's
+/// in-memory guard (see the `else if` branch in
+/// `lower_array_subscript_expression`):
+///
+///   1. Evaluate the index expression and stash in a local so both
+///      the guard and the subsequent `emit_storage_load` re-evaluation
+///      observe the same value (and to avoid duplicate side effects
+///      for expression-valued indices).
+///   2. Guard 1: `index < 0 → Panic(0x32)`.
+///   3. Guard 2: `index >= length → Panic(0x32)`, where `length` is
+///      loaded per the `StorageArrayBound` variant.
+///   4. Fall through to `emit_storage_load` with the original
+///      `MappingAccess → StorageReference`, which handles struct
+///      elements (via `LoadStructField` loops), struct-array
+///      elements, plain mapping reads, etc.
+///
+/// The Panic payload is the canonical EVM envelope
+/// (`keccak256("Panic(uint256)")[..4] || abi.encode(0x32)`), which
+/// cross-contract dispatch propagates through the runtime's
+/// `dispatch_exception` (see
+/// `src/runtime/execution/instruction/flow/try_frames.rs`) into the
+/// caller's `catch Panic(uint c)` arm.
+fn emit_storage_array_subscript_with_bounds(
+    mapping: &MappingAccess<'_>,
+    bound: StorageArrayBound,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let tmp_id = ctx.next_label();
+
+    // Guard 1 + 2 operate on `index`, which we want to observe exactly
+    // once for side-effect purity. However we can't easily substitute
+    // a pre-evaluated local back into the `MappingAccess` expression
+    // tree without allocating a lot of IR-level machinery, so we
+    // accept that simple indices (literal numbers, local variable
+    // loads, arithmetic on same) re-evaluate twice — which is exactly
+    // the same compromise the memory-array branch in
+    // `lower_array_subscript_expression` makes (it stores `idx_local`
+    // once then re-loads it for ArrayGet; here we evaluate the AST
+    // expression twice, but the IR optimiser has no less information
+    // than before).
+
+    // Evaluate the final index once and stash for the bounds check.
+    let last_index_expr = match mapping.key_expressions.last() {
+        Some(expr) => *expr,
+        None => return false,
+    };
+    let idx_local = ctx.allocate_local(
+        format!("__storage_aidx_{tmp_id}"),
+        Some(ValueType::Integer {
+            signed: false,
+            bits: 256,
+        }),
+    );
+    if !lower_expression(last_index_expr, ctx, instructions) {
+        return false;
+    }
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    // Guard 1: index < 0 → Panic(0x32). Solidity `uint` indices cannot
+    // be negative, but the runtime integer stack item is signed —
+    // defensive parity with the memory-array guard above.
+    let after_neg_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf {
+        target: after_neg_label,
+    });
+    emit_panic(0x32, instructions);
+    instructions.push(Instruction::Label(after_neg_label));
+
+    // Guard 2: index >= length → Panic(0x32). Load length per the
+    // bound variant.
+    let ok_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(idx_local));
+    match &bound {
+        StorageArrayBound::DynamicStateVar { state_index } => {
+            // Length of a state-var `T[]` is stored at
+            // `LoadState(state_index)` (see `emit_load_state` +
+            // `uint[] a; a.length` in `address_ops.rs` which uses the
+            // same lookup). `emit_coerce_storage_value` coerces the
+            // raw ByteString to Integer via `value + 0`.
+            instructions.push(Instruction::LoadState(*state_index));
+        }
+        StorageArrayBound::MappingOfDynamicArray {
+            state_index,
+            head_key_types,
+            head_key_expr_indices,
+        } => {
+            // Evaluate outer keys (all but the last) and fire a
+            // `LoadMappingElement` against the head slot — the same
+            // slot that `push`/`pop` on `m[k]` updates via
+            // `lower_storage_reference_push`.
+            for expr_idx in head_key_expr_indices {
+                if let Some(expr) = mapping.key_expressions.get(*expr_idx) {
+                    if !lower_expression(*expr, ctx, instructions) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+            instructions.push(Instruction::LoadMappingElement {
+                state_index: *state_index,
+                key_types: head_key_types.clone(),
+            });
+        }
+        StorageArrayBound::FixedSizeKnown(n) => {
+            // Compile-time constant bound — fixed-size arrays (`T[N]`)
+            // do NOT write a length slot (writes go directly to the
+            // per-index slot via `StoreMappingElement`), so the
+            // runtime length cannot be derived from storage. Emit the
+            // literal `N`.
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                *n,
+            ))));
+        }
+    }
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
+    instructions.push(Instruction::JumpIf { target: ok_label });
+    emit_panic(0x32, instructions);
+    instructions.push(Instruction::Label(ok_label));
+
+    // Bounds check passed — delegate to the canonical storage-load
+    // path so struct-element arrays (`LoadStructField` loops), flat
+    // mapping reads, nested mapping-in-struct paths, etc. all go
+    // through the SAME machinery that was in use before Task #199.
+    // This is the cleanest way to avoid duplicating the element-type
+    // routing inside this helper.
+    let reference = mapping.to_storage_reference();
+    emit_storage_load(&reference, ctx, instructions)
 }
 
 fn lower_array_slice_expression(

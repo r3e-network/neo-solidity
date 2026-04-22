@@ -142,6 +142,10 @@ pub struct ParameterIR {
 pub struct EventIR {
     pub name: String,
     pub parameters: Vec<EventParameterIR>,
+    /// `true` when the event was declared with the `anonymous` keyword.
+    /// Anonymous events suppress the `keccak256(signature)` topic0 slot so
+    /// they can carry up to 4 indexed topics (vs. 3 for non-anonymous).
+    pub anonymous: bool,
 }
 
 /// Representation of a Solidity event parameter.

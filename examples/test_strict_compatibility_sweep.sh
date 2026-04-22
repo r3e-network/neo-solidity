@@ -51,7 +51,6 @@ NEGATIVE_FIXTURES=(
   "examples/new/EvmCompatEtherUnits.sol"
   "examples/new/FixedPointError.sol"
   "examples/new/LibraryConstructorError.sol"
-  "examples/new/LibraryExternalError.sol"
   "examples/new/LibraryStateVarError.sol"
 )
 
@@ -68,10 +67,13 @@ ALLOWED_WARNING_FIXTURES=(
   "devpack/examples/CompleteNEP17Token.sol"
   "devpack/examples/VaultPattern.sol"
   "examples/new/Bank.sol"
+  "examples/new/EvmCompatAddressCode.sol"
   "examples/new/EventIndexedShowcase.sol"
   "examples/new/EvmCompatAddressCodehash.sol"
   "examples/new/EvmCompatBlockErrors.sol"
   "examples/new/EvmCompatBlockhashError.sol"
+  "examples/new/EvmCompatEncodeCalldata.sol"
+  "examples/new/EvmCompatMsgData.sol"
   "examples/new/EvmCompatMsgSig.sol"
   "examples/new/EvmCompatSelfdestructError.sol"
   "examples/new/EvmCompatTxOrigin.sol"

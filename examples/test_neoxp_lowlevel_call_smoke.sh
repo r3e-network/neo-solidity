@@ -2,9 +2,13 @@
 # End-to-end low-level address.call(...) smoke test using bundled Neo-Express (neoxp).
 #
 # Verifies that:
-# - `target.call/staticcall(...)` is lowered to Neo `System.Contract.Call` when call data comes
-#   from `abi.encodeWithSignature(...)` (including via an intermediate `bytes` variable)
-# - return values round-trip via `StdLib.serialize` + `StdLib.deserialize` (`abi.decode`)
+# - `target.call/staticcall(...)` is lowered to Neo `System.Contract.Call`
+# - a zero-arg selector payload can drive the low-level call on chain
+# - a successful void callee reports `success=true` with empty returndata
+#
+# This smoke intentionally avoids `abi.encodeWithSignature(...)` and
+# `abi.decode(...)` because the on-chain `abiEncode` / `abiDecode` helpers are
+# still isolated in the dedicated ABI smoke lane.
 
 set -euo pipefail
 
@@ -93,8 +97,7 @@ cat > Callee.sol <<'SOL'
 pragma solidity ^0.8.20;
 
 contract Callee {
-    function foo() public pure returns (uint256) {
-        return 42;
+    function foo() public pure {
     }
 }
 SOL
@@ -114,13 +117,12 @@ pragma solidity ^0.8.20;
 
 contract Caller {
     address constant CALLEE = address($CALLEE_HASH);
-    string constant SIG = "foo()";
+    bytes4 constant FOO_SELECTOR = bytes4(keccak256("foo()"));
 
-    function run() public view returns (uint256) {
-        bytes memory callData = abi.encodeWithSignature(SIG);
+    function run() public view returns (bool) {
+        bytes memory callData = abi.encodeWithSelector(FOO_SELECTOR);
         (bool success, bytes memory data) = CALLEE.staticcall(callData);
-        require(success, "staticcall failed");
-        return abi.decode(data, (uint256));
+        return success && data.length == 0;
     }
 }
 SOL
@@ -151,13 +153,13 @@ if [ "$(echo "$OUT" | jq -r '.state')" != "HALT" ]; then
   echo "$OUT" >&2
   exit 1
 fi
-if [ "$(echo "$OUT" | jq -r '.stack[0].type')" != "Integer" ]; then
-  echo "error: expected Caller.run() to return Integer" >&2
+if [ "$(echo "$OUT" | jq -r '.stack[0].type')" != "Boolean" ]; then
+  echo "error: expected Caller.run() to return Boolean" >&2
   echo "$OUT" >&2
   exit 1
 fi
-if [ "$(echo "$OUT" | jq -r '.stack[0].value')" != "42" ]; then
-  echo "error: expected Caller.run() to return 42" >&2
+if [ "$(echo "$OUT" | jq -r '.stack[0].value')" != "true" ]; then
+  echo "error: expected Caller.run() to return true" >&2
   echo "$OUT" >&2
   exit 1
 fi

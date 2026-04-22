@@ -39,11 +39,24 @@ pub(crate) struct ManifestPermissionsOverride {
 }
 
 #[derive(Clone, Debug)]
-struct CompileOptions {
-    optimizer_level: u8,
-    use_callt: bool,
-    deny_wildcard_permissions: bool,
-    deny_wildcard_contracts: bool,
-    deny_wildcard_methods: bool,
-    manifest_permissions: Option<ManifestPermissionsOverride>,
+pub struct CompileOptions {
+    pub optimizer_level: u8,
+    pub use_callt: bool,
+    pub deny_wildcard_permissions: bool,
+    pub deny_wildcard_contracts: bool,
+    pub deny_wildcard_methods: bool,
+    pub(crate) manifest_permissions: Option<ManifestPermissionsOverride>,
+}
+
+impl CompileOptions {
+    pub fn new(optimizer_level: u8, use_callt: bool) -> Self {
+        Self {
+            optimizer_level,
+            use_callt,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            manifest_permissions: None,
+        }
+    }
 }

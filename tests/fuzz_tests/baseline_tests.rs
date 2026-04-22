@@ -13,7 +13,7 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
+use neo_solidity::cli::{compile_contracts, compile_contracts_with_options, CompileOptions};
 use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 

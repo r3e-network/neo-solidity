@@ -61,7 +61,7 @@ fn apply_manifest_permissions_override(
     Ok(())
 }
 
-fn compile_contracts_with_options(
+pub fn compile_contracts_with_options(
     source: &str,
     verbose: bool,
     options: CompileOptions,

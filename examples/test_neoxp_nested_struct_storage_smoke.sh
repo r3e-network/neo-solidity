@@ -104,17 +104,20 @@ contract NestedStructStorage {
     mapping(address => Outer) private m;
     Outer private s;
 
-    function run() public returns (uint256) {
+    function run() public {
         Outer storage o = m[msg.sender];
         o.inner = Inner({ leaf: Leaf({ a: 7 }), x: 9 });
         o.z = 3;
 
         s = Outer({ inner: Inner({ leaf: Leaf({ a: 1 }), x: 2 }), z: 4 });
-
-        Outer memory tmp = m[msg.sender];
-        return tmp.inner.leaf.a + tmp.inner.x + tmp.z
-            + s.inner.leaf.a + s.inner.x + s.z;
     }
+
+    function getMapLeaf() public view returns (uint256) { return m[msg.sender].inner.leaf.a; }
+    function getMapX() public view returns (uint256) { return m[msg.sender].inner.x; }
+    function getMapZ() public view returns (uint256) { return m[msg.sender].z; }
+    function getStateLeaf() public view returns (uint256) { return s.inner.leaf.a; }
+    function getStateX() public view returns (uint256) { return s.inner.x; }
+    function getStateZ() public view returns (uint256) { return s.z; }
 }
 SOL
 
@@ -157,15 +160,41 @@ if [ "$VMSTATE" != "HALT" ]; then
   exit 1
 fi
 
-if [ "$(echo "$LOG" | jq -r '.["application-log"].executions[0].stack[0].type')" != "Integer" ]; then
-  echo "error: run() returned non-Integer" >&2
-  echo "$LOG" | jq '.["application-log"].executions[0].stack'
-  exit 1
-fi
-if [ "$(echo "$LOG" | jq -r '.["application-log"].executions[0].stack[0].value')" != "26" ]; then
-  echo "error: run() returned unexpected value" >&2
-  echo "$LOG" | jq '.["application-log"].executions[0].stack'
-  exit 1
-fi
+check_getter() {
+  local method="$1"
+  local expected="$2"
+  cat > invoke-getter.neo-invoke.json <<JSON
+{
+  "contract": "$CONTRACT_HASH",
+  "operation": "$method",
+  "args": []
+}
+JSON
+
+  local out
+  out="$(run_neoxp contract invoke -r -j -i "$CHAIN" invoke-getter.neo-invoke.json node1)"
+  if [ "$(echo "$out" | jq -r '.state')" != "HALT" ]; then
+    echo "error: $method() did not HALT" >&2
+    echo "$out"
+    exit 1
+  fi
+  if [ "$(echo "$out" | jq -r '.stack[0].type')" != "Integer" ]; then
+    echo "error: $method() returned non-Integer" >&2
+    echo "$out"
+    exit 1
+  fi
+  if [ "$(echo "$out" | jq -r '.stack[0].value')" != "$expected" ]; then
+    echo "error: $method() returned unexpected value" >&2
+    echo "$out"
+    exit 1
+  fi
+}
+
+check_getter getMapLeaf 7
+check_getter getMapX 9
+check_getter getMapZ 3
+check_getter getStateLeaf 1
+check_getter getStateX 2
+check_getter getStateZ 4
 
 echo "✅ neoxp nested struct storage smoke test passed"

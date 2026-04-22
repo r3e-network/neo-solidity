@@ -23,8 +23,7 @@
 /// Emitted instructions:
 /// ```text
 ///   PushLiteral ByteArray([0x4e, 0x48, 0x7b, 0x71])     ; selector
-///   PushLiteral Integer(code)                           ; code
-///   CallBuiltin AbiEncode 1                             ; 32-byte BE payload
+///   PushLiteral ByteArray([0x00 * 31, code])           ; 32-byte BE payload
 ///   CallBuiltin BytesConcat 2                           ; selector || payload
 ///   Throw
 /// ```
@@ -38,11 +37,9 @@ fn emit_panic(code: u8, instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
         panic_selector.to_vec(),
     )));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(code))));
-    instructions.push(Instruction::CallBuiltin {
-        builtin: BuiltinCall::AbiEncode,
-        arg_count: 1,
-    });
+    let mut payload = vec![0u8; 32];
+    payload[31] = code;
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(payload)));
     instructions.push(Instruction::CallBuiltin {
         builtin: BuiltinCall::BytesConcat,
         arg_count: 2,

@@ -82,6 +82,25 @@ fn lower_variable_expression(
         // hard unknown-identifier error.
         instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![0u8; 20])));
         true
+    } else if ctx.function_names.contains(&identifier.name) {
+        // Task #186 — a bare reference to an internal function name in value
+        // position (e.g. passed as an argument of function-pointer type such as
+        // `apply_(add, 2, 3)`) materializes the function's bytecode offset as a
+        // PUSHINT32 literal. The bytecode emitter patches the placeholder with
+        // `method.offset` once all methods have been laid out; the runtime
+        // later consumes it via `CALLA` through a `CallIndirect` instruction.
+        //
+        // We resolve the overload-neutral `neo_name` for the zero-arg overload
+        // key first; if that fails we fall back to the raw identifier, which
+        // matches the `neo_name` used as a CALL_L target for same-name,
+        // same-arity overloads in `try_lower_variable_call`.
+        let neo_name = ctx
+            .function_overloads
+            .iter()
+            .find_map(|((n, _), v)| if n == &identifier.name { Some(v.clone()) } else { None })
+            .unwrap_or_else(|| identifier.name.clone());
+        instructions.push(Instruction::PushFunctionOffset { name: neo_name });
+        true
     } else {
         // Compatibility fallback for unresolved constants/symbols from foreign
         // environments (e.g., chain-specific helper contracts).

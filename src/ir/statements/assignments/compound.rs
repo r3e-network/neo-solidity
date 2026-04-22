@@ -20,7 +20,6 @@ fn emit_compound_binary_op_for_lhs(
     // Task #67: int256 compound-assign overflow guard.
     let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(lhs, &one, ctx, op);
     if emit_guard {
-        emit_widen_both_u256(instructions);
         emit_checked_arith_guard(ctx, instructions, op);
     } else if emit_i256_guard {
         emit_checked_arith_guard_i256(ctx, instructions, op);
@@ -253,9 +252,25 @@ fn lower_compound_assignment(
 
     if let Expression::MemberAccess(_, inner, member) = lhs {
         // Memory struct field compound assignment: `tmp.field op= rhs`.
+        // The base may be either a local or a function parameter — both hold
+        // the struct as an NeoVM Array slot (Rc<RefCell<Vec<StackItem>>>), so
+        // LoadLocal/LoadParameter yields a reference whose ArraySet mutates in
+        // place. Task #191 widened this branch from local-only to also accept
+        // parameter bases so that free-function-attach chains (`using {inc}
+        // for Counter; c.inc().inc()...`) where `inc(Counter memory c)` does
+        // `c.value++` actually mutate the passed-in copy.
         if let Expression::Variable(base) = inner.as_ref() {
-            if let Some(local_index) = ctx.resolve_local(&base.name) {
-                if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx)
+            let load_base = if let Some(local_index) = ctx.resolve_local(&base.name) {
+                Some(Instruction::LoadLocal(local_index))
+            } else if let Some(param_index) = ctx.param_index_map.get(&base.name).copied() {
+                Some(Instruction::LoadParameter(param_index))
+            } else {
+                None
+            };
+
+            if let Some(load_base) = load_base {
+                if let Some(ValueType::Struct { fields, .. }) =
+                    infer_type_from_expression(inner, ctx)
                 {
                     if let Some((field_index, _field)) = fields
                         .iter()
@@ -267,7 +282,7 @@ fn lower_compound_assignment(
                             ctx.allocate_local(format!("__compound_value_{tmp_id}"), None);
 
                         // Load current field value.
-                        instructions.push(Instruction::LoadLocal(local_index));
+                        instructions.push(load_base.clone());
                         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                             BigInt::from(field_index as u64),
                         )));
@@ -280,8 +295,8 @@ fn lower_compound_assignment(
                         emit_compound_binary_op_for_lhs(lhs, ctx, instructions, op);
                         instructions.push(Instruction::StoreLocal(result_local));
 
-                        // Store updated field value back into the struct local.
-                        instructions.push(Instruction::LoadLocal(local_index));
+                        // Store updated field value back into the struct ref.
+                        instructions.push(load_base);
                         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                             BigInt::from(field_index as u64),
                         )));

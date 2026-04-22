@@ -155,21 +155,20 @@ fn try_lower_type_constructor_call(
                     // they sneak through the type checker we prefer "top byte first" semantics.
                     let arg_type = infer_type_from_expression(arg, ctx);
                     if matches!(arg_type, Some(ValueType::ByteArray { .. })) {
-                        // CONVERT→ByteArray first to materialize a fresh (non-aliased) copy
-                        // of the underlying byte buffer. REVERSEITEMS mutates its operand in
-                        // place via `Rc<RefCell<Vec<u8>>>`, so reversing the parameter
-                        // referent directly would corrupt the caller's view of the same
-                        // bytes32 (e.g. `y = b;` emitted after `uint256(b)` would observe
-                        // the reversed bytes). The ConvertTarget::ByteArray path clones the
-                        // Vec into a brand-new Rc, isolating the mutation.
+                        // Task #207 — real NeoVM accepts REVERSEITEMS for
+                        // mutable Buffers/Arrays, but NOT for ByteString.
+                        // The old lowering did:
+                        //   CONVERT ByteArray; DUP; REVERSEITEMS
+                        // which worked in the local runtime but faults under
+                        // Neo-Express with:
+                        //   Invalid type for REVERSEITEMS: ByteString
+                        // Re-materialize the bytes into a NEWBUFFER first,
+                        // then reverse the mutable buffer in place before the
+                        // final CONVERT→Integer.
                         instructions.push(Instruction::Convert {
                             target: ConvertTarget::ByteArray,
                         });
-                        // Dup + REVERSEITEMS: the second Rc is consumed by REVERSE, which
-                        // mutates the shared buffer in place, leaving the first Rc on the
-                        // stack pointing to the now-reversed bytes.
-                        instructions.push(Instruction::Dup);
-                        instructions.push(Instruction::ReverseItems);
+                        materialize_byte_array_buffer(&mut *ctx, instructions, true);
                     }
                     if matches!(
                         arg_type,
@@ -410,4 +409,40 @@ fn coerce_to_fixed_bytes(
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
+}
+
+fn materialize_byte_array_buffer(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    reverse: bool,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__bytearray_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__bytearray_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__bytearray_size_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::MemCpy);
+
+    if reverse {
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::ReverseItems);
+    } else {
+        instructions.push(Instruction::LoadLocal(dst_local));
+    }
 }

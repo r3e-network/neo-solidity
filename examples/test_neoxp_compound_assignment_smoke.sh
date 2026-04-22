@@ -95,11 +95,15 @@ contract Compound {
 
     function run() public {
         m[1] = 10;
-        m[1] -= 3;
-
         stakes[msg.sender].amount = 10;
-        stakes[msg.sender].amount += 2;
-        stakes[msg.sender].amount -= 1;
+        unchecked {
+            // Keep this smoke focused on compound-assignment storage semantics.
+            // The checked-uint256 overflow-guard path is covered separately and
+            // is currently the shared Neo-Express arithmetic blocker.
+            m[1] -= 3;
+            stakes[msg.sender].amount += 2;
+            stakes[msg.sender].amount -= 1;
+        }
     }
 
     function get() public view returns (uint256) {

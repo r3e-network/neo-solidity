@@ -283,6 +283,83 @@ fn lower_return_statement(
                 if return_types.len() == 1
                     && matches!(return_types.first(), Some(ValueType::Array(_)))
                 {
+                    // Task #185 — nested fixed-size array return (e.g.
+                    // `uint[3][2] memory`). The EVM canonical encoding is a
+                    // flat concat of leaf values: `pad32_be(a[0][0]) ||
+                    // pad32_be(a[0][1]) || ... || pad32_be(a[N-1][M-1])`,
+                    // NOT the dynamic-array `offset || length || elements`
+                    // wrapper that generic `AbiEncode(Array)` emits. We
+                    // detect this from the raw Solidity type string (e.g.
+                    // "uint[3][2]") since `ValueType::Array` alone does not
+                    // preserve fixed-size dimensions. When it matches, stash
+                    // the array in a local, unroll the nested index
+                    // traversal into per-leaf `ArrayGet` sequences, then
+                    // call `AbiEncode(N_leaves)` so the runtime static-only
+                    // fast path emits exactly `N × 32` flat bytes.
+                    let ret_ty_strings = ctx.return_type_strings();
+                    if let Some(first_ty) = ret_ty_strings.first() {
+                        if let Some(dims) = parse_nested_fixed_array_shape(first_ty) {
+                            if dims.len() >= 2 {
+                                let total_leaves: usize = dims.iter().product();
+                                if total_leaves > 0 {
+                                    // Stash the outer array in a temp local
+                                    // so each per-leaf traversal can start
+                                    // from the same base.
+                                    let tmp_id = ctx.next_label();
+                                    let array_local = ctx.allocate_local(
+                                        format!("__flat_ret_arr_{tmp_id}"),
+                                        None,
+                                    );
+                                    instructions.push(Instruction::StoreLocal(array_local));
+
+                                    // Enumerate every leaf coordinate in
+                                    // row-major (outer-most first) order so
+                                    // the flat output matches the Solidity
+                                    // static encoding layout.
+                                    let mut coord = vec![0usize; dims.len()];
+                                    loop {
+                                        // Walk from the stashed array down
+                                        // through each dimension: load
+                                        // array, PushLiteral(i_k), ArrayGet
+                                        // for k in 0..dims.len().
+                                        instructions.push(Instruction::LoadLocal(array_local));
+                                        for &idx in &coord {
+                                            instructions.push(Instruction::PushLiteral(
+                                                LiteralValue::Integer(BigInt::from(idx as u64)),
+                                            ));
+                                            instructions.push(Instruction::ArrayGet);
+                                        }
+
+                                        // Advance to the next coordinate
+                                        // (least-significant dim increments
+                                        // first, with carry into outer
+                                        // dims) until all coords exhausted.
+                                        let mut i = dims.len();
+                                        let mut done = true;
+                                        while i > 0 {
+                                            i -= 1;
+                                            coord[i] += 1;
+                                            if coord[i] < dims[i] {
+                                                done = false;
+                                                break;
+                                            }
+                                            coord[i] = 0;
+                                        }
+                                        if done {
+                                            break;
+                                        }
+                                    }
+
+                                    instructions.push(Instruction::CallBuiltin {
+                                        builtin: BuiltinCall::AbiEncode,
+                                        arg_count: total_leaves,
+                                    });
+                                    instructions.push(Instruction::Return);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
                     instructions.push(Instruction::CallBuiltin {
                         builtin: BuiltinCall::AbiEncode,
                         arg_count: 1,
@@ -646,6 +723,116 @@ fn emit_pad_bytesn_to_32(
     });
 }
 
+fn is_direct_static_revert_arg(expr: &Expression, ctx: &LoweringContext) -> bool {
+    if resolve_struct_type_for_revert_arg(expr, ctx).is_some() {
+        return false;
+    }
+    matches!(
+        infer_type_from_expression(expr, ctx),
+        Some(ValueType::Integer { signed: false, .. })
+            | Some(ValueType::Boolean)
+            | Some(ValueType::Address)
+            | Some(ValueType::ByteArray { fixed_len: Some(_) })
+    )
+}
+
+fn emit_revert_static_slot_32(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    reverse: bool,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__revert_slot_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__revert_slot_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__revert_slot_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__revert_slot_count_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    let ge_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+    instructions.push(Instruction::Drop(ValueType::Any));
+
+    if reverse {
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::ReverseItems);
+        instructions.push(Instruction::Convert {
+            target: ConvertTarget::ByteArray,
+        });
+    } else {
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::Convert {
+            target: ConvertTarget::ByteArray,
+        });
+    }
+}
+
+fn lower_direct_static_revert_arg_slot(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let Some(value_type) = infer_type_from_expression(expr, ctx) else {
+        return false;
+    };
+    if !lower_expression(expr, ctx, instructions) {
+        return false;
+    }
+    if is_fixed_bytes_cast_expr(expr) {
+        instructions.push(Instruction::Swap);
+        instructions.push(Instruction::Drop(ValueType::Any));
+    }
+
+    match value_type {
+        ValueType::Integer { signed: false, .. } | ValueType::Boolean | ValueType::Address => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_revert_static_slot_32(ctx, instructions, true);
+            true
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } => {
+            if len == 32 {
+                true
+            } else if len < 32 {
+                emit_pad_bytesn_to_32(ctx, instructions, len as usize);
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
 /// Task #181 — recursively render a `ValueType` as its EVM-canonical ABI
 /// signature fragment. Used by `revert_arg_canonical_type` to expand struct
 /// args into their parenthesised tuple form (`(address,uint256)`) instead of
@@ -824,6 +1011,35 @@ fn revert_error_selector(name: &str, arg_types: &[String]) -> [u8; 4] {
     [digest[0], digest[1], digest[2], digest[3]]
 }
 
+/// Build the canonical `Error(string)` revert envelope for a compile-time
+/// string literal without routing through the on-chain `StdLib.abiEncode`
+/// helper.
+///
+/// Layout:
+/// - 4 bytes: selector = keccak256("Error(string)")[..4]
+/// - 32 bytes: offset = 0x20
+/// - 32 bytes: string length
+/// - N bytes: UTF-8 string data
+/// - padding: zero bytes to the next 32-byte boundary
+fn error_string_literal_envelope(literal_bytes: &[u8]) -> Vec<u8> {
+    let selector = revert_error_selector("Error", &["string".to_string()]);
+    let padded_len = literal_bytes.len().div_ceil(32) * 32;
+    let mut out = Vec::with_capacity(4 + 32 + 32 + padded_len);
+    out.extend_from_slice(&selector);
+
+    let mut offset_slot = [0u8; 32];
+    offset_slot[31] = 0x20;
+    out.extend_from_slice(&offset_slot);
+
+    let mut len_slot = [0u8; 32];
+    len_slot[24..].copy_from_slice(&(literal_bytes.len() as u64).to_be_bytes());
+    out.extend_from_slice(&len_slot);
+
+    out.extend_from_slice(literal_bytes);
+    out.resize(4 + 32 + 32 + padded_len, 0);
+    out
+}
+
 fn lower_revert_statement(
     ident: Option<&solang_parser::pt::IdentifierPath>,
     args: &[Expression],
@@ -848,6 +1064,32 @@ fn lower_revert_statement(
             .map(|arg| revert_arg_canonical_type(arg, ctx))
             .collect();
         let selector = revert_error_selector(&name, &arg_types);
+
+        let direct_static_path = args.iter().all(|arg| is_direct_static_revert_arg(arg, ctx));
+        if direct_static_path {
+            let pre_len = instructions.len();
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                selector.to_vec(),
+            )));
+            let mut success = true;
+            for arg in args {
+                if !lower_direct_static_revert_arg_slot(arg, ctx, instructions) {
+                    success = false;
+                    break;
+                }
+            }
+            if success {
+                if !args.is_empty() {
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::BytesConcat,
+                        arg_count: args.len() + 1,
+                    });
+                }
+                instructions.push(Instruction::Throw);
+                return true;
+            }
+            instructions.truncate(pre_len);
+        }
 
         // Task #181 — struct args must be flattened into per-field stack
         // items (Task #124 pattern) so the AbiEncode builtin emits the
@@ -906,7 +1148,31 @@ fn lower_revert_statement(
     // `Error(string)` selector (0x08c379a0) || abi.encode(msg). We follow
     // the same shape so tooling can decode the revert reason uniformly.
     if args.len() == 1 {
-        if let Expression::StringLiteral(_) = &args[0] {
+        if let Expression::StringLiteral(parts) = &args[0] {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                error_string_literal_envelope(&string_literal_bytes(parts)),
+            )));
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+        let arg_is_string = matches!(
+            infer_type_from_expression(&args[0], ctx),
+            Some(ValueType::String)
+        ) || matches!(&args[0], Expression::StringLiteral(_))
+            || matches!(
+                &args[0],
+                Expression::FunctionCall(_, func, _)
+                    if matches!(
+                        func.as_ref(),
+                        Expression::MemberAccess(_, inner, member)
+                            if member.name == "concat"
+                                && matches!(
+                                    inner.as_ref(),
+                                    Expression::Type(_, solang_parser::pt::Type::String)
+                                )
+                    )
+            );
+        if arg_is_string {
             let selector = revert_error_selector("Error", &["string".to_string()]);
             let pre_len = instructions.len();
             if lower_expression(&args[0], ctx, instructions) {
@@ -1020,4 +1286,100 @@ fn lower_revert_named_args(
     instructions.push(Instruction::PushLiteral(LiteralValue::Null));
     instructions.push(Instruction::Throw);
     true
+}
+
+/// Task #185 — parse a Solidity return type string like "uint[3][2]" into
+/// its nested fixed-size dimensions in OUTER-FIRST order (matches Solidity
+/// source convention: `uint[3][2]` is an array of 2 arrays of 3 uints, so
+/// this returns `vec![2, 3]`).
+///
+/// Returns `None` when:
+/// - the type isn't a nested fixed-size array (contains `[]` dynamic, or is
+///   a scalar/struct),
+/// - any dimension is non-numeric or zero,
+/// - the leaf element type is not a static 32-byte ABI primitive (uintN/
+///   intN/address/bool/bytesN); nested dynamics (string/bytes/T[]) or
+///   structs would require recursive tail encoding and fall back to the
+///   generic `AbiEncode(1)` path.
+///
+/// Mutates nothing. Whitespace-tolerant. Ignores trailing " memory" /
+/// " calldata" / " storage" markers that `format!("{}", pt::Type)` may emit
+/// on parameters.
+fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
+    // Strip any storage-location suffix and surrounding whitespace.
+    let cleaned: String = ty_str.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    let base = cleaned
+        .strip_suffix("memory")
+        .or_else(|| cleaned.strip_suffix("calldata"))
+        .or_else(|| cleaned.strip_suffix("storage"))
+        .unwrap_or(&cleaned);
+
+    // Walk from the rightmost `[N]` inward, collecting dimensions. Solidity
+    // source order `uint[3][2]` parses as `(uint[3])[2]`: the RIGHTMOST
+    // bracket pair is the OUTERMOST dimension (here `[2]` → outer dim 2),
+    // with each inner `[N]` one step closer to the leaf scalar type. Because
+    // we walk right-to-left (outer first) and push in that order, the final
+    // vector is ALREADY in outer-first order — no reversal needed.
+    let mut remaining = base;
+    let mut dims_outer_first: Vec<usize> = Vec::new();
+    while let Some(close_idx) = remaining.rfind(']') {
+        if close_idx + 1 != remaining.len() {
+            // Trailing characters after the last `]` would mean something
+            // like `uint[3][2]foo` — not a parseable array type.
+            return None;
+        }
+        let open_idx = remaining.rfind('[')?;
+        if open_idx >= close_idx {
+            return None;
+        }
+        let dim_text = &remaining[open_idx + 1..close_idx];
+        if dim_text.is_empty() {
+            // Dynamic array `T[]` — cannot flat-encode at compile time.
+            return None;
+        }
+        let dim: usize = dim_text.parse().ok()?;
+        if dim == 0 {
+            return None;
+        }
+        dims_outer_first.push(dim);
+        remaining = &remaining[..open_idx];
+    }
+
+    if dims_outer_first.is_empty() {
+        return None;
+    }
+
+    // Leaf type must be a static 32-byte ABI primitive. Anything else
+    // (string / bytes / T[] / structs / mappings) needs dynamic-tail
+    // encoding and falls outside this flat path.
+    if !is_static_32_byte_leaf_type(remaining) {
+        return None;
+    }
+
+    Some(dims_outer_first)
+}
+
+/// Task #185 — predicate for scalar Solidity types whose EVM canonical
+/// encoding is a single 32-byte BE-padded slot. Matches the signature used
+/// by `abi_is_dynamic` / `abi_pad32_be` in the runtime's StdLib handler so
+/// the flat-array return path only fires for cases where the runtime's
+/// static fast-path produces correct output.
+fn is_static_32_byte_leaf_type(ty: &str) -> bool {
+    let compact = ty.trim();
+    match compact {
+        "uint" | "int" | "address" | "bool" => true,
+        _ => {
+            if let Some(width) = compact.strip_prefix("uint").or_else(|| compact.strip_prefix("int")) {
+                if let Ok(bits) = width.parse::<u32>() {
+                    return bits > 0 && bits <= 256 && bits % 8 == 0;
+                }
+            }
+            if let Some(width) = compact.strip_prefix("bytes") {
+                if let Ok(len) = width.parse::<u32>() {
+                    return (1..=32).contains(&len);
+                }
+            }
+            false
+        }
+    }
 }

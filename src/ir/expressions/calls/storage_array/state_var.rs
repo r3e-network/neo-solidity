@@ -48,6 +48,30 @@ fn lower_state_array_push(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
+    // Task #203 — Per Solidity spec, zero-arg `.push()` on an array-of-
+    // mappings (e.g. `mapping(uint => uint)[] grids; grids.push();`) is
+    // the ONLY valid push shape because mappings cannot be passed by
+    // value. Mapping elements are pure storage-slot-derivation — there
+    // is no on-chain materialised "empty mapping" value — so the push
+    // lowering just needs to increment the length slot. The subsequent
+    // `grids[g][k] = v` / `grids[g][k]` double-indexed accesses derive
+    // their keccak slots from the (g, k) pair, so no element-write is
+    // required.
+    if args.is_empty() && matches!(element_type, ValueType::Mapping { .. }) {
+        let len_local = ctx.allocate_local("__array_len".to_string(), None);
+        instructions.push(Instruction::LoadState(state_index));
+        instructions.push(Instruction::StoreLocal(len_local));
+
+        // Increment length.
+        instructions.push(Instruction::LoadLocal(len_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+        instructions.push(Instruction::StoreState(state_index));
+
+        instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+        return true;
+    }
+
     if args.len() != 1 {
         ctx.record_error("array push expects exactly one argument");
         return false;
@@ -83,6 +107,14 @@ fn lower_state_array_push(
             key_types: Vec::new(),
             field_keys: Vec::new(),
             element_type: element_type.clone(),
+        });
+    } else if matches!(element_type, ValueType::Array(_)) {
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index,
+            key_types: vec![ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }],
         });
     } else {
         instructions.push(Instruction::StoreMappingElement {
@@ -173,6 +205,14 @@ fn lower_state_array_pop(
             key_types: Vec::new(),
             field_keys: Vec::new(),
             element_type: element_type.clone(),
+        });
+    } else if matches!(element_type, ValueType::Array(_)) {
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index,
+            key_types: vec![ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }],
         });
     } else {
         instructions.push(Instruction::StoreMappingElement {

@@ -89,12 +89,29 @@ fn lower_emit_evm_shape(
         }
     }
 
-    // Step 1: push topic[0] as a 32-byte ByteArray literal. This serves as
-    // the `eventName` argument to System.Runtime.Notify — the runtime
-    // detects the 32-byte form and routes through the EVM-shape branch.
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-        signature.topic0.to_vec(),
-    )));
+    // Step 1: push the `eventName` argument for System.Runtime.Notify.
+    //
+    // Non-anonymous: push topic[0] = keccak256(canonical signature) as a
+    // 32-byte ByteArray. The runtime detects `event_name.len() == 32` and
+    // routes through the EVM-shape branch, prepending topic[0] to the
+    // topics vector.
+    //
+    // Anonymous: per the EVM ABI (and Solidity handbook §Events), the
+    // signature-hash topic0 is suppressed so the event can carry up to 4
+    // indexed topics (vs. 3 for non-anonymous). We push an empty ByteArray
+    // as the event_name sentinel — the runtime recognises the zero-length
+    // form and emits `topics = [indexed_topics...]` with NO topic0 prepend.
+    // The zero-length sentinel is unambiguous: the legacy Neo-native path
+    // always uses the declared event name (non-empty by construction) and
+    // the EVM non-anonymous path uses a 32-byte keccak, so `len == 0`
+    // uniquely identifies the anonymous-EVM case.
+    if signature.is_anonymous {
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+    } else {
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            signature.topic0.to_vec(),
+        )));
+    }
 
     // Step 2: for each indexed arg, lower the expression and then coerce to
     // a 32-byte topic slot.

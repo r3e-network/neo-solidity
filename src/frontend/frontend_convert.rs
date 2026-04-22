@@ -1,47 +1,124 @@
+fn normalize_using_target_type(expr: &Expression) -> String {
+    fn normalize_type_string(raw: &str) -> String {
+        let compact = raw
+            .chars()
+            .filter(|c| !c.is_ascii_whitespace())
+            .collect::<String>()
+            .replace("payable", "");
+        let lowered = compact.to_ascii_lowercase();
+        match lowered.as_str() {
+            "uint" => "uint256".to_string(),
+            "int" => "int256".to_string(),
+            "byte" => "bytes1".to_string(),
+            other => other.to_string(),
+        }
+    }
+
+    match expr {
+        Expression::Type(_, ty) => normalize_type_string(&format!("{ty}")),
+        _ => normalize_type_string(&format!("{expr}")),
+    }
+}
+
+fn using_function_name(function: &UsingFunction) -> Option<String> {
+    function.path.identifiers.last().map(|identifier| identifier.name.clone())
+}
+
+fn using_function_library_name(function: &UsingFunction) -> Option<String> {
+    if function.path.identifiers.len() < 2 {
+        return None;
+    }
+
+    Some(
+        function.path.identifiers[..function.path.identifiers.len() - 1]
+            .iter()
+            .map(|id| id.name.as_str())
+            .collect::<Vec<_>>()
+            .join("."),
+    )
+}
+
+/// Convert a `solang_parser::pt::Using` directive into the IR-level state that
+/// `ContractIR` tracks. Used by both `convert_contract` (for contract-scope
+/// `using`) and `parse_source` (for file-scope `using`, Solidity 0.8.13+).
+///
+/// Returns a tuple `(directive, library_name, has_for_star, is_function_list)`
+/// where `library_name` is present when the directive binds a library name
+/// (either `using L for T` or `using { L.f } for T`).
+fn convert_using_directive(using: &Using) -> (UsingDirectiveIR, Vec<String>, bool, bool) {
+    let target_type = using.ty.as_ref().map(normalize_using_target_type);
+
+    let mut library_names: Vec<String> = Vec::new();
+    if let UsingList::Library(ref path) = using.list {
+        let lib_name: String = path
+            .identifiers
+            .iter()
+            .map(|id| id.name.as_str())
+            .collect::<Vec<_>>()
+            .join(".");
+        library_names.push(lib_name);
+    }
+    if let UsingList::Functions(ref functions) = using.list {
+        for function in functions {
+            if let Some(lib_name) = using_function_library_name(function) {
+                if !library_names.contains(&lib_name) {
+                    library_names.push(lib_name);
+                }
+            }
+        }
+    }
+
+    // `using X for *` — ty is None when the target is `*`
+    let has_for_star = using.ty.is_none();
+    let is_function_list = matches!(&using.list, UsingList::Functions(_));
+
+    let function_names = match &using.list {
+        UsingList::Functions(functions) => {
+            let names: Vec<String> = functions.iter().filter_map(using_function_name).collect();
+            Some(names)
+        }
+        _ => None,
+    };
+
+    (
+        UsingDirectiveIR {
+            target_type,
+            function_names,
+        },
+        library_names,
+        has_for_star,
+        is_function_list,
+    )
+}
+
+/// Merge a parsed `using` directive into an existing [`ContractIR`].
+///
+/// Used for Solidity 0.8.13+ file-level `using { L.f1, L.f2 } for T;` where
+/// the directive is declared at the source unit (not contract) level and
+/// applies to every contract in the file. Mirrors the bookkeeping that
+/// `convert_contract` performs for contract-scope `using` directives.
+fn apply_file_level_using(contract: &mut ContractIR, using: &Using) {
+    let (directive, library_names, has_for_star, is_function_list) =
+        convert_using_directive(using);
+
+    for lib_name in library_names {
+        if !contract.using_for_libraries.contains(&lib_name) {
+            contract.using_for_libraries.push(lib_name);
+        }
+    }
+    if has_for_star {
+        contract.has_using_for_star = true;
+    }
+    if is_function_list {
+        contract.has_using_function_list = true;
+    }
+    contract.using_directives.push(directive);
+}
+
 fn convert_contract(
     contract: ContractDefinition,
     comment_map: &HashMap<usize, NatspecDocIR>,
 ) -> ContractIR {
-    fn normalize_using_target_type(expr: &Expression) -> String {
-        fn normalize_type_string(raw: &str) -> String {
-            let compact = raw
-                .chars()
-                .filter(|c| !c.is_ascii_whitespace())
-                .collect::<String>()
-                .replace("payable", "");
-            let lowered = compact.to_ascii_lowercase();
-            match lowered.as_str() {
-                "uint" => "uint256".to_string(),
-                "int" => "int256".to_string(),
-                "byte" => "bytes1".to_string(),
-                other => other.to_string(),
-            }
-        }
-
-        match expr {
-            Expression::Type(_, ty) => normalize_type_string(&format!("{ty}")),
-            _ => normalize_type_string(&format!("{expr}")),
-        }
-    }
-
-    fn using_function_name(function: &UsingFunction) -> Option<String> {
-        function.path.identifiers.last().map(|identifier| identifier.name.clone())
-    }
-
-    fn using_function_library_name(function: &UsingFunction) -> Option<String> {
-        if function.path.identifiers.len() < 2 {
-            return None;
-        }
-
-        Some(
-            function.path.identifiers[..function.path.identifiers.len() - 1]
-                .iter()
-                .map(|id| id.name.as_str())
-                .collect::<Vec<_>>()
-                .join("."),
-        )
-    }
-
     let name = contract
         .name
         .as_ref()
@@ -85,51 +162,20 @@ fn convert_contract(
             ContractPart::StructDefinition(def) => structs.push(convert_struct(*def)),
             ContractPart::EnumDefinition(def) => enums.push(convert_enum(*def)),
             ContractPart::Using(using) => {
-                let target_type = using.ty.as_ref().map(normalize_using_target_type);
-                // Collect the library name for diagnostics and dispatch tracking.
-                if let UsingList::Library(ref path) = using.list {
-                    let lib_name: String = path
-                        .identifiers
-                        .iter()
-                        .map(|id| id.name.as_str())
-                        .collect::<Vec<_>>()
-                        .join(".");
+                let (directive, library_names, for_star, function_list) =
+                    convert_using_directive(using.as_ref());
+                for lib_name in library_names {
                     if !using_for_libraries.contains(&lib_name) {
                         using_for_libraries.push(lib_name);
                     }
                 }
-                if let UsingList::Functions(ref functions) = using.list {
-                    for function in functions {
-                        if let Some(lib_name) = using_function_library_name(function) {
-                            if !using_for_libraries.contains(&lib_name) {
-                                using_for_libraries.push(lib_name);
-                            }
-                        }
-                    }
-                }
-                // Detect advanced `using` forms so we can emit targeted diagnostics.
-                if using.ty.is_none() {
-                    // `using X for *` — ty is None when the target is `*`
+                if for_star {
                     has_using_for_star = true;
                 }
-                if matches!(&using.list, UsingList::Functions(_)) {
-                    // `using { f, g } for Y`
+                if function_list {
                     has_using_function_list = true;
                 }
-
-                let function_names = match &using.list {
-                    UsingList::Functions(functions) => {
-                        let names: Vec<String> =
-                            functions.iter().filter_map(using_function_name).collect();
-                        Some(names)
-                    }
-                    _ => None,
-                };
-
-                using_directives.push(UsingDirectiveIR {
-                    target_type,
-                    function_names,
-                });
+                using_directives.push(directive);
             }
             ContractPart::TypeDefinition(td) => {
                 has_type_definitions = true;
@@ -279,7 +325,11 @@ fn convert_event(event: EventDefinition) -> EventIR {
         })
         .collect();
 
-    EventIR { name, parameters }
+    EventIR {
+        name,
+        parameters,
+        anonymous: event.anonymous,
+    }
 }
 
 fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {

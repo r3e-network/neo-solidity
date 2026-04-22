@@ -114,6 +114,10 @@ pub struct EventMetadata {
     pub name: String,
     pub normalized_name: String,
     pub parameters: Vec<EventParameter>,
+    /// `true` when the event was declared `anonymous` in Solidity source.
+    /// Anonymous events suppress the `keccak256(signature)` topic0 per the
+    /// EVM ABI; the IR lowering reads this to skip the topic0 prepend.
+    pub anonymous: bool,
 }
 
 #[derive(Debug, Clone)]

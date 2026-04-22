@@ -156,7 +156,29 @@ impl ExecutionContext {
                 }
             }
             StackItem::Boolean(b) => vec![if *b { 1 } else { 0 }],
-            StackItem::Array(_) | StackItem::Map(_) => Vec::new(),
+            // Task #193 — `abi.encodePacked(T[])` on dynamic arrays: per the
+            // Solidity spec, array elements are padded to 32 bytes each
+            // (distinct from the direct-scalar packed widths), concatenated
+            // with NO length prefix and NO offset. For a `uint256[] a = [1, 2,
+            // 3]` input that yields 96 bytes = BE(1, 32) || BE(2, 32) ||
+            // BE(3, 32). Iterate the inner StackItem list and emit each
+            // element's 32-byte BE slot via `abi_pad32_be`; nested Array /
+            // Map elements fall back to zero-slot (same convention as the
+            // encode path — nested dynamic shapes are out of scope until a
+            // harness exercises them).
+            //
+            // Distinct from the `abiencode` dispatch which wraps `T[]` in
+            // offset+length+elements (via `abi_dynamic_tail_bytes`); the
+            // packed variant suppresses both the offset and the length.
+            StackItem::Array(arr) => {
+                let elements = arr.borrow().clone();
+                let mut out = Vec::with_capacity(elements.len() * 32);
+                for el in elements.iter() {
+                    out.extend_from_slice(&Self::abi_pad32_be(el));
+                }
+                out
+            }
+            StackItem::Map(_) => Vec::new(),
         }
     }
 
@@ -189,6 +211,24 @@ impl ExecutionContext {
             }
             StackItem::Array(_) | StackItem::Map(_) => true,
         }
+    }
+
+    /// Task #192 — predicate for "scalar-shaped" stack items that fit in a
+    /// single 32-byte ABI slot. Used by the struct-array tail encoder to
+    /// decide whether an inner `StackItem::Array` element (a flattened
+    /// struct value) is safe to inline as K consecutive 32-byte slots.
+    ///
+    /// STATIC-shaped items:
+    ///   * `Integer` / `UnsignedInteger` / `Boolean` / `Null` — always fit.
+    ///   * `ByteArray` of length 16, 20, or 32 — the static widths recognised
+    ///     by `abi_is_dynamic` (PUSHINT128, raw `address`, bytes32/keccak).
+    ///
+    /// DYNAMIC (returns false):
+    ///   * `ByteArray` of any other length — string/bytes payload that would
+    ///     need its own offset+length+padded-data tail.
+    ///   * `Array` / `Map` — nested dynamic containers.
+    fn is_static_struct_field(item: &StackItem) -> bool {
+        !Self::abi_is_dynamic(item)
     }
 
     /// Produce the EVM-canonical tail-section bytes for a DYNAMIC ABI arg:
@@ -224,13 +264,44 @@ impl ExecutionContext {
                 // length prefix followed by N × 32-byte BE-padded element
                 // slots (no padding between slots; each element already
                 // occupies a full 32-byte word).
+                //
+                // Task #192 — nested struct-array shape. When the element is
+                // itself a `StackItem::Array` of SCALARS (i.e. a struct value
+                // whose fields were flattened onto a NeoVM Array on the stack,
+                // per Task #181's boundary convention), the EVM canonical
+                // encoding inlines each struct's fields as consecutive 32-byte
+                // slots: `length || (field0 || field1 || ... || fieldK-1)*N`.
+                // This matches `abi.encode((uint256,bool)[])` for all-static
+                // struct fields, where the struct contributes K head slots
+                // and the OUTER array is just length + N*K flat slots (no
+                // per-element offset indirection because each struct is
+                // static — it occupies exactly K*32 bytes inline).
+                //
+                // Heuristic: an element is treated as a struct value when it
+                // is `StackItem::Array` AND every inner field is itself a
+                // scalar (Integer / UnsignedInteger / Boolean / Null, or a
+                // ByteArray of address/bytesN/integer width). Nested dynamic
+                // elements (strings, bytes, deeper arrays) fall outside this
+                // static-struct fast path and keep the existing zero-slot
+                // fallback (same as pre-#192 behaviour).
                 let elements = arr.borrow().clone();
                 let n = elements.len();
-                let mut out = Vec::with_capacity(32 + n * 32);
+                let mut out = Vec::new();
                 let mut len_slot = [0u8; 32];
                 len_slot[24..].copy_from_slice(&(n as u64).to_be_bytes());
                 out.extend_from_slice(&len_slot);
                 for el in elements.iter() {
+                    if let StackItem::Array(fields) = el {
+                        let field_items = fields.borrow().clone();
+                        if !field_items.is_empty()
+                            && field_items.iter().all(Self::is_static_struct_field)
+                        {
+                            for field in field_items.iter() {
+                                out.extend_from_slice(&Self::abi_pad32_be(field));
+                            }
+                            continue;
+                        }
+                    }
                     out.extend_from_slice(&Self::abi_pad32_be(el));
                 }
                 out

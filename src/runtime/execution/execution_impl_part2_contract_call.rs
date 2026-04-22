@@ -43,15 +43,10 @@ impl ExecutionContext {
                 .copied()
                 .or_else(|| self.self_method_offsets.get("fallback").copied());
             if let Some(target_offset) = resolved_offset {
-                // Unpack the params array and push args in reverse so that the
-                // target method's INITSLOT pops them into arg slots in order.
                 let args_vec = match &params {
                     StackItem::Array(items) => items.borrow().clone(),
                     _ => Vec::new(),
                 };
-                for arg in args_vec.iter().rev() {
-                    self.push_stack(arg.clone())?;
-                }
                 // The SYSCALL opcode handler normally post-increments the
                 // instruction pointer by 5 (see instruction/syscall.rs). The
                 // return address must therefore be `instruction_pointer + 5`
@@ -79,6 +74,22 @@ impl ExecutionContext {
                 // X" guard that the EVM convention relies on.
                 let synthetic_caller =
                     Self::derive_self_offsets_caller_hash(&self.default_account_bytes);
+                // Task #197 — push the call frame BEFORE unpacking args onto
+                // the evaluation stack. The frame's `stack_base` snapshots
+                // `self.stack.len()` at the moment of creation, and
+                // `return_from_function` later uses
+                // `self.stack.len() > frame.stack_base` to decide whether the
+                // callee produced a return value. If the args are pushed
+                // first, the stack_base is inflated by `args.len()`, and the
+                // callee's INITSLOT pops them back down — so a single-return
+                // callee leaves `stack.len() == stack_base` on the caller's
+                // side, the check reads as "no return", and the Task #160
+                // `syscall_result_expected` path synthesises a spurious Null
+                // that clobbers the real return value. Moving the frame
+                // push ahead of the arg push keeps stack_base at the
+                // pre-call baseline, so a callee producing exactly one
+                // result lands at `stack_base + 1` and the check fires
+                // correctly.
                 self.push_call_frame(return_address)?;
                 if let Some(frame) = self.call_stack.last_mut() {
                     frame.msg_sender_override = Some(synthetic_caller);
@@ -94,6 +105,11 @@ impl ExecutionContext {
                     // — turning a happy-path `try Target(t).voidFn() {}` into
                     // an unintended catch firing.
                     frame.syscall_result_expected = true;
+                }
+                // Unpack the params array and push args in reverse so that the
+                // target method's INITSLOT pops them into arg slots in order.
+                for arg in args_vec.iter().rev() {
+                    self.push_stack(arg.clone())?;
                 }
                 self.instruction_pointer = target_offset;
                 self.syscall_suppress_ip_advance = true;

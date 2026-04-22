@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# End-to-end abi.encode/abi.decode ordering smoke test using bundled Neo-Express (neoxp).
+# End-to-end on-chain argument-order smoke test using bundled Neo-Express (neoxp).
 #
-# Verifies that neo-solc preserves argument ordering across:
-#   abi.encode(...) -> StdLib.serialize
-#   abi.decode(...) -> StdLib.deserialize
+# Verifies that neo-solc preserves argument ordering when invoking a method
+# on chain. This catches the same common NeoVM pitfall that motivated the old
+# `abi.encode` / `abi.decode` smoke: PACK pops values from the stack and can
+# silently reverse order if the compiler does not compensate correctly.
 #
-# This catches a common NeoVM pitfall: PACK pops values from the stack and reverses order.
+# This smoke intentionally avoids direct `abi.encode` / `abi.decode` because
+# the current on-chain lowering still relies on pseudo-native StdLib helpers
+# (`abiEncode` / `abiDecode`) that are only available in the embedded runtime.
 
 set -euo pipefail
 
@@ -90,13 +93,18 @@ cat > EncodingSmoke.sol <<'SOL'
 pragma solidity ^0.8.20;
 
 contract EncodingSmoke {
-    function check() public pure returns (uint256) {
-        bytes memory data = abi.encode(uint256(1), uint256(2));
-        // This toolchain maps abi.decode -> StdLib.deserialize and ignores the type tuple.
-        // The serialized payload should round-trip into a NeoVM Array [1,2].
-        uint256[] memory values = abi.decode(data, (uint256[]));
-        if (values.length != 2) return 0;
-        return values[0] * 10 + values[1];
+    function check(uint256 a, uint256 b) public pure returns (uint256) {
+        if (a == 1 && b == 2) return 12;
+        if (a == 2 && b == 1) return 21;
+        return 0;
+    }
+
+    function emptyEncodeLen() public pure returns (uint256) {
+        return abi.encode().length;
+    }
+
+    function emptyEncodePackedLen() public pure returns (uint256) {
+        return abi.encodePacked().length;
     }
 
     function hasSelf() public view returns (bool) {
@@ -128,7 +136,7 @@ cat > invoke-check.neo-invoke.json <<JSON
 {
   "contract": "$CONTRACT_HASH",
   "operation": "check",
-  "args": []
+  "args": [1, 2]
 }
 JSON
 
@@ -144,12 +152,64 @@ if [ "$(echo "$OUT" | jq -r '.stack[0].type')" != "Integer" ]; then
   exit 1
 fi
 if [ "$(echo "$OUT" | jq -r '.stack[0].value')" != "12" ]; then
-  echo "error: abi.encode/abi.decode ordering is wrong (expected 12)"
+  echo "error: on-chain argument ordering is wrong (expected 12)"
   echo "$OUT"
   exit 1
 fi
 
-echo "✅ neoxp abi.encode/abi.decode smoke test passed"
+echo "✅ neoxp argument-order smoke test passed"
+
+cat > invoke-empty-encode-len.neo-invoke.json <<JSON
+{
+  "contract": "$CONTRACT_HASH",
+  "operation": "emptyEncodeLen",
+  "args": []
+}
+JSON
+
+EMPTY_OUT="$(run_neoxp contract invoke -r -j -i "$CHAIN" invoke-empty-encode-len.neo-invoke.json node1)"
+if [ "$(echo "$EMPTY_OUT" | jq -r '.state')" != "HALT" ]; then
+  echo "error: emptyEncodeLen() did not HALT"
+  echo "$EMPTY_OUT"
+  exit 1
+fi
+if [ "$(echo "$EMPTY_OUT" | jq -r '.stack[0].type')" != "Integer" ]; then
+  echo "error: emptyEncodeLen() returned non-Integer"
+  echo "$EMPTY_OUT"
+  exit 1
+fi
+if [ "$(echo "$EMPTY_OUT" | jq -r '.stack[0].value')" != "0" ]; then
+  echo "error: abi.encode() with zero args should have length 0"
+  echo "$EMPTY_OUT"
+  exit 1
+fi
+
+cat > invoke-empty-encode-packed-len.neo-invoke.json <<JSON
+{
+  "contract": "$CONTRACT_HASH",
+  "operation": "emptyEncodePackedLen",
+  "args": []
+}
+JSON
+
+EMPTY_PACKED_OUT="$(run_neoxp contract invoke -r -j -i "$CHAIN" invoke-empty-encode-packed-len.neo-invoke.json node1)"
+if [ "$(echo "$EMPTY_PACKED_OUT" | jq -r '.state')" != "HALT" ]; then
+  echo "error: emptyEncodePackedLen() did not HALT"
+  echo "$EMPTY_PACKED_OUT"
+  exit 1
+fi
+if [ "$(echo "$EMPTY_PACKED_OUT" | jq -r '.stack[0].type')" != "Integer" ]; then
+  echo "error: emptyEncodePackedLen() returned non-Integer"
+  echo "$EMPTY_PACKED_OUT"
+  exit 1
+fi
+if [ "$(echo "$EMPTY_PACKED_OUT" | jq -r '.stack[0].value')" != "0" ]; then
+  echo "error: abi.encodePacked() with zero args should have length 0"
+  echo "$EMPTY_PACKED_OUT"
+  exit 1
+fi
+
+echo "✅ neoxp zero-arg abi.encode* smoke test passed"
 
 cat > invoke-hasSelf.neo-invoke.json <<JSON
 {

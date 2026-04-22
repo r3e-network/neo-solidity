@@ -14,6 +14,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let function_names = HashSet::new();
     let function_overloads: HashMap<(String, usize), String> = HashMap::new();
     let function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
+    let function_return_types: HashMap<(String, usize), ValueType> = HashMap::new();
     let using_target_types: Vec<Option<String>> = Vec::new();
     let using_function_list_targets: HashMap<String, Vec<Option<String>>> = HashMap::new();
     let using_function_list_scope_targets: Vec<Option<String>> = Vec::new();
@@ -23,6 +24,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let defined_struct_types: Vec<ValueType> = Vec::new();
     let super_method_map: HashMap<String, String> = HashMap::new();
     let library_storage_bodies: HashMap<(String, usize), LibraryStorageBody> = HashMap::new();
+    let storage_pointer_returning_fns: HashMap<String, String> = HashMap::new();
 
     let mut ctx = LoweringContext::new(
         "test_emit",
@@ -45,6 +47,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &function_names,
         &function_overloads,
         &function_first_param_types,
+        &function_return_types,
         &using_target_types,
         &using_function_list_targets,
         &using_function_list_scope_targets,
@@ -52,6 +55,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &void_functions,
         &super_method_map,
         &library_storage_bodies,
+        &storage_pointer_returning_fns,
     );
 
     let expr = Expression::FunctionCall(

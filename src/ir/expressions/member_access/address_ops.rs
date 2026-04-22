@@ -92,6 +92,29 @@ fn try_lower_length_property(
         }
     }
 
+    // Task #196 — `fn_that_returns_storage_pointer().length`. The inner
+    // expression is `FunctionCall(Variable(fn), [])`; unwrap it to the
+    // backing state-variable and re-run the Array-state-var fast path
+    // above. Without this, the legacy `GetSize` fallback at the bottom
+    // of this function fires on whatever the call returned (for an
+    // array state var, that's the LENGTH integer via `LoadState` →
+    // `emit_coerce_storage_value(Array)`), and SIZE on an Integer
+    // raises `SIZE: unsupported type`.
+    if let Expression::FunctionCall(_, func, args) = inner {
+        if args.is_empty() {
+            if let Expression::Variable(fn_ident) = func.as_ref() {
+                if let Some(state_var_name) = ctx.storage_pointer_returning_fn(&fn_ident.name) {
+                    if let Some(state_index) = ctx.state_index_map.get(state_var_name) {
+                        if matches!(ctx.state_type(*state_index), Some(ValueType::Array(_))) {
+                            instructions.push(Instruction::LoadState(*state_index));
+                            return Some(true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Task #161 — `.length` on a storage-indirected dynamic array (e.g.
     // `records[msg.sender].length` where `records` is
     // `mapping(address => uint[])`, or `m[k].arr.length` for a struct-array

@@ -5,6 +5,9 @@
 # - low-level calls are wrapped in NeoVM TRY/ENDTRY
 # - a callee FAULT does not propagate as FAULT to the caller
 # - instead, `(bool success, bytes data)` reports `success=false` and the caller HALTs
+#
+# This smoke intentionally avoids `abi.encodeWithSignature(...)` because the
+# on-chain `abiEncode` helper is still isolated in the dedicated ABI smoke lane.
 
 set -euo pipefail
 
@@ -115,9 +118,10 @@ pragma solidity ^0.8.20;
 
 contract Caller {
     address constant CALLEE = address($CALLEE_HASH);
+    bytes4 constant FOO_SELECTOR = bytes4(keccak256("foo()"));
 
     function run() public view returns (bool ok) {
-        (bool success, bytes memory data) = CALLEE.staticcall(abi.encodeWithSignature("foo()"));
+        (bool success, bytes memory data) = CALLEE.staticcall(abi.encodeWithSelector(FOO_SELECTOR));
         data;
         return success;
     }
@@ -162,4 +166,3 @@ if [ "$(echo "$OUT" | jq -r '.stack[0].value')" != "false" ]; then
 fi
 
 echo "✅ neoxp low-level call failure smoke test passed"
-

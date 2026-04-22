@@ -134,19 +134,6 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         .map(normalize_library_for_neo)
         .collect();
 
-    // Merge library definitions into primary contracts so that library functions
-    // (including `using for`-style member calls) can be lowered as internal calls.
-    if has_primary && !libraries.is_empty() {
-        for contract in primary.iter_mut() {
-            for lib in &libraries {
-                contract.functions.extend(lib.functions.clone());
-                contract.state_variables.extend(lib.state_variables.clone());
-                contract.structs.extend(lib.structs.clone());
-                contract.enums.extend(lib.enums.clone());
-            }
-        }
-    }
-
     // Task #83 — when a primary contract `A` runs `B b = new B(); b.foo();`
     // the compiler emits a 20-byte zero placeholder for `b` and lowers
     // `b.foo()` as `System.Contract.Call([0;20], "foo", flags, args)`. B's
@@ -196,6 +183,51 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                         .collect::<Vec<_>>(),
                 )
             })
+            .collect();
+        // Task #197 — parallel state-variable map. When a sibling's external
+        // function body references state variables (e.g. Mock.balanceOf
+        // reading `_bal[a]`), merging only the FunctionIR leaves the
+        // identifier unresolved in the caller's `state_index_map`, so the
+        // variable lowering falls through to the `Integer(0)` placeholder
+        // path (src/ir/expressions/variable.rs) and downstream opcodes like
+        // SIZE/PICKITEM fault on the wrong StackItem type. The storage key
+        // is derived from the state variable's name (see
+        // `value_types.rs::compute_state_slot`), so merging Mock's `_bal`
+        // into Client lets Client's compiled balanceOf read the same
+        // storage slot Mock.mint wrote to.
+        let sibling_state_map: std::collections::HashMap<String, Vec<StateVariableIR>> =
+            primary
+                .iter()
+                .map(|c| (c.name.clone(), c.state_variables.clone()))
+                .collect();
+        // Task #198 — parallel constructor map. For `new Child(x, y)` inside a
+        // Parent contract, the compiled Child lives in a separate artifact, so
+        // the Parent's runtime invocation of its own `_deploy` never runs the
+        // Child constructor. Without executing the ctor body, Child's state
+        // variables (`a`, `b`) stay at their zero defaults — and the follow-up
+        // `c.a()` / `c.b()` cross-contract calls (routed through sibling-merge
+        // self-offsets; Task #83) therefore observe zeros.
+        //
+        // Fix: expose each sibling's constructor as a regular, internal,
+        // name-mangled function (`__ctor__<SiblingName>`) in the caller's
+        // merged function table. The `new Child(x, y)` lowering then calls
+        // `__ctor__Child(x, y)` in-line, running the ctor body against the
+        // already-merged sibling state-variable slots (Task #197). The address
+        // return value stays at the 20-byte zero placeholder that Task #83
+        // already routes to self-offsets dispatch.
+        let sibling_ctor_map: std::collections::HashMap<String, FunctionIR> = primary
+            .iter()
+            .filter_map(|c| {
+                let ctor = c
+                    .functions
+                    .iter()
+                    .find(|f| matches!(f.ty, FunctionTy::Constructor))?;
+                Some((c.name.clone(), ctor.clone()))
+            })
+            .collect();
+        let primary_contract_map: std::collections::HashMap<String, ContractIR> = primary
+            .iter()
+            .map(|c| (c.name.clone(), c.clone()))
             .collect();
         let primary_names: std::collections::HashSet<String> =
             primary.iter().map(|c| c.name.clone()).collect();
@@ -323,11 +355,32 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 std::collections::HashSet::new();
             let mut iface_refs: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
+            // Task #194 — collect method names statically resolvable from
+            // low-level-call payloads like
+            // `addr.call(abi.encodeWithSelector(bytes4(keccak256("m(T)"))))`,
+            // `addr.call(abi.encodeWithSignature("m(T)", …))`, or
+            // `addr.call(abi.encodeCall(Iface.m, …))`. Previously the
+            // sibling-merge pass only detected references through `new X()`,
+            // `X(addr)` casts, interface casts, and typed params/returns/
+            // state-vars. A low-level `.call()` with a constant selector is
+            // semantically identical to a typed `X(addr).m(…)` — the
+            // compiler routes it through the zero-placeholder
+            // `self_method_offsets` dispatch (see Task #83) — but without
+            // this scan the target method never lands in the merged table
+            // and the call silently returns `Null`.
+            let mut low_level_method_refs: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
             for function in &contract.functions {
                 if let Some(body) = function.body.as_ref() {
                     collect_new_contract_refs(body, &primary_names, &mut referenced);
                     // Task #115 — interface casts `I(expr)` in statements.
                     collect_interface_casts_stmt(body, &interface_names, &mut iface_refs);
+                    // Task #194 — low-level calls whose payload encodes a
+                    // statically resolvable method name.
+                    collect_low_level_call_method_refs_stmt(
+                        body,
+                        &mut low_level_method_refs,
+                    );
                 }
                 // Task K4 — function params/returns typed as a sibling contract
                 // (e.g. `function bounce() external returns (B) {...}`, or
@@ -360,6 +413,10 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 if let Some(init) = state.initializer.as_ref() {
                     collect_new_refs_expr(init, &primary_names, &mut referenced);
                     collect_interface_casts_expr(init, &interface_names, &mut iface_refs);
+                    collect_low_level_call_method_refs_expr(
+                        init,
+                        &mut low_level_method_refs,
+                    );
                 }
             }
             // Task #115 — expand interface references to the primary contracts
@@ -371,6 +428,55 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                         if prim != &contract.name {
                             referenced.insert(prim.clone());
                         }
+                    }
+                }
+            }
+            // Task #194 — expand low-level-call method references to every
+            // sibling primary that declares a method of that name. When
+            // multiple siblings satisfy the same name (e.g. both X and Y
+            // declare `foo()`), merge all of them so the dispatcher sees the
+            // union; which one actually fires at runtime is decided by the
+            // caller's address (handled in `handle_contract_call`). We skip
+            // the host contract itself — its methods are already visible
+            // through normal dispatch.
+            if !low_level_method_refs.is_empty() {
+                for (prim_name, prim_methods) in &primary_method_names {
+                    if prim_name == &contract.name {
+                        continue;
+                    }
+                    if low_level_method_refs
+                        .iter()
+                        .any(|m| prim_methods.contains(m))
+                    {
+                        referenced.insert(prim_name.clone());
+                    }
+                }
+            }
+            // Task #206 — close over TRANSITIVE sibling references. The
+            // zero-hash self-dispatch table is built from the caller
+            // artifact's manifest only, so if `Client` references `Middle`
+            // and `Middle` references `Target`, the merged `Client`
+            // artifact must carry both `wrap` and `fail`. Without this
+            // closure, the grandchild call silently falls through
+            // `handle_contract_call`'s zero-hash branch and returns `Null`.
+            let mut transitive_queue: Vec<String> = referenced.iter().cloned().collect();
+            while let Some(sibling_name) = transitive_queue.pop() {
+                let Some(sibling_contract) = primary_contract_map.get(&sibling_name) else {
+                    continue;
+                };
+                let transitive_refs = collect_direct_sibling_contract_refs(
+                    sibling_contract,
+                    &primary_names,
+                    &interface_names,
+                    &interface_impls,
+                    &primary_method_names,
+                );
+                for transitive in transitive_refs {
+                    if transitive == contract.name {
+                        continue;
+                    }
+                    if referenced.insert(transitive.clone()) {
+                        transitive_queue.push(transitive);
                     }
                 }
             }
@@ -396,6 +502,70 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                         contract.functions.push(sibling_fn.clone());
                     }
                 }
+            }
+
+            // Task #197 — merge sibling state variables after their external
+            // functions. Without this, a merged stateful method like
+            // `Mock.balanceOf` → `return _bal[a]` would resolve `_bal`
+            // against the caller's (Client's) `state_index_map`, find no
+            // match, and fall through `variable.rs::lower_variable_expression`'s
+            // final compatibility arm which pushes `Integer(0)` as a neutral
+            // placeholder. Downstream SIZE/PICKITEM opcodes then fault on
+            // the scalar, surfacing as "SIZE: unsupported type" at runtime.
+            //
+            // Storage-key derivation is name-based (see
+            // `value_types.rs::compute_state_slot`), so merging Mock's
+            // `_bal` into Client produces the same keccak-derived slot
+            // that Mock.mint writes to — the cross-contract read lands on
+            // the same storage entry. Host-wins-on-collision preserves any
+            // state variable the caller already declares.
+            let mut existing_state_names: std::collections::HashSet<String> = contract
+                .state_variables
+                .iter()
+                .filter_map(|s| s.name.clone())
+                .collect();
+            for sibling_name in &sibling_names {
+                let Some(sibling_states) = sibling_state_map.get(sibling_name) else {
+                    continue;
+                };
+                for sibling_state in sibling_states {
+                    if let Some(name) = sibling_state.name.as_ref() {
+                        if existing_state_names.insert(name.clone()) {
+                            contract.state_variables.push(sibling_state.clone());
+                        }
+                    }
+                }
+            }
+
+            // Task #198 — merge sibling constructors as name-mangled internal
+            // regular functions so the caller's `new Child(args)` lowering can
+            // invoke the ctor body in-line. Without this, `new Child(x, y)`
+            // silently drops its args and the follow-up `c.a()` / `c.b()`
+            // reads land on uninitialized storage (all zeros). Re-typing from
+            // `Constructor` to `Function` prevents the caller's own `_deploy`
+            // prologue from accidentally calling the merged entry at deploy
+            // time (constructor_indices is populated by FunctionKind, so
+            // Regular entries are skipped there).
+            for sibling_name in &sibling_names {
+                let Some(sibling_ctor) = sibling_ctor_map.get(sibling_name) else {
+                    continue;
+                };
+                let mangled_name = format!("__ctor__{sibling_name}");
+                let sig = (mangled_name.clone(), sibling_ctor.parameters.len());
+                if !existing_sigs.insert(sig) {
+                    continue;
+                }
+                let mut cloned = sibling_ctor.clone();
+                cloned.name = mangled_name;
+                cloned.ty = FunctionTy::Function;
+                cloned.visibility = VisibilityKind::Internal;
+                // Base-constructor invocations (`base_or_modifiers`) were
+                // already resolved by `apply_modifiers_and_base_constructors`
+                // in the owning contract's pipeline; clear the residue so the
+                // caller's modifier-application pass (which ran before this
+                // merge) doesn't re-expand anything.
+                cloned.base_or_modifiers.clear();
+                contract.functions.push(cloned);
             }
         }
     }
@@ -555,6 +725,19 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     for contract in selected.drain(..) {
         let (mut flattened, flatten_warnings) =
             flatten_contract_inheritance(contract, &contract_map)?;
+        // Merge user-defined libraries AFTER inheritance flattening so the
+        // flattener doesn't mistake cloned library helpers for inheritance
+        // overrides. The final flattened contract still needs the library
+        // helpers/types present before `convert_contract` so direct library
+        // calls and `using for` member-style calls lower correctly.
+        if has_primary && !libraries.is_empty() {
+            for lib in &libraries {
+                flattened.functions.extend(lib.functions.clone());
+                flattened.state_variables.extend(lib.state_variables.clone());
+                flattened.structs.extend(lib.structs.clone());
+                flattened.enums.extend(lib.enums.clone());
+            }
+        }
         apply_modifiers_and_base_constructors(&mut flattened, &contract_map)?;
         let mut metadata = convert_contract(
             flattened,
@@ -865,4 +1048,420 @@ fn collect_new_refs_expr(
         }
         _ => {}
     }
+}
+
+/// Task #194 — statement walker that collects statically resolvable method
+/// names from low-level `addr.call(...)` / `addr.staticcall(...)` payloads.
+/// Mirrors the shape of `collect_new_contract_refs` but feeds a different
+/// alphabet: plain method names (e.g. `"getValue"`) that the sibling-merge
+/// pass later cross-references against every sibling primary's declared
+/// method set.
+fn collect_low_level_call_method_refs_stmt(
+    stmt: &Statement,
+    sink: &mut std::collections::HashSet<String>,
+) {
+    match stmt {
+        Statement::Block { statements, .. } => {
+            for s in statements {
+                collect_low_level_call_method_refs_stmt(s, sink);
+            }
+        }
+        Statement::If(_, cond, t, e) => {
+            collect_low_level_call_method_refs_expr(cond, sink);
+            collect_low_level_call_method_refs_stmt(t, sink);
+            if let Some(s) = e {
+                collect_low_level_call_method_refs_stmt(s, sink);
+            }
+        }
+        Statement::While(_, cond, body) | Statement::DoWhile(_, body, cond) => {
+            collect_low_level_call_method_refs_expr(cond, sink);
+            collect_low_level_call_method_refs_stmt(body, sink);
+        }
+        Statement::Expression(_, expr) => {
+            collect_low_level_call_method_refs_expr(expr, sink);
+        }
+        Statement::VariableDefinition(_, _, init) => {
+            if let Some(expr) = init {
+                collect_low_level_call_method_refs_expr(expr, sink);
+            }
+        }
+        Statement::For(_, i, c, n, b) => {
+            if let Some(s) = i {
+                collect_low_level_call_method_refs_stmt(s, sink);
+            }
+            if let Some(e) = c {
+                collect_low_level_call_method_refs_expr(e, sink);
+            }
+            if let Some(e) = n {
+                collect_low_level_call_method_refs_expr(e, sink);
+            }
+            if let Some(s) = b {
+                collect_low_level_call_method_refs_stmt(s, sink);
+            }
+        }
+        Statement::Return(_, Some(expr)) | Statement::Emit(_, expr) => {
+            collect_low_level_call_method_refs_expr(expr, sink);
+        }
+        Statement::Revert(_, _, args) => {
+            for e in args {
+                collect_low_level_call_method_refs_expr(e, sink);
+            }
+        }
+        Statement::Try(_, expr, returns, clauses) => {
+            collect_low_level_call_method_refs_expr(expr, sink);
+            if let Some((_, b)) = returns {
+                collect_low_level_call_method_refs_stmt(b, sink);
+            }
+            for c in clauses {
+                match c {
+                    CatchClause::Simple(_, _, b) | CatchClause::Named(_, _, _, b) => {
+                        collect_low_level_call_method_refs_stmt(b, sink);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Task #194 — expression walker that recognises `<receiver>.call(payload)`
+/// / `<receiver>.staticcall(payload)` / `<receiver>.delegatecall(payload)`
+/// shapes, then peels the `abi.encodeWith{Selector,Signature}` /
+/// `abi.encodeCall` wrapper on the payload to extract the Solidity method
+/// name when it can be resolved at compile time. The extracted name is
+/// later matched against every sibling primary's declared public/external
+/// method set.
+///
+/// Static resolution handles:
+///   - `abi.encodeWithSignature("m(T)", …)` — literal signature string,
+///     name taken from the pre-`(` fragment.
+///   - `abi.encodeWithSelector(bytes4(keccak256("m(T)")))` —
+///     compile-time hash of a literal signature string.
+///   - `abi.encodeWithSelector(Type.method.selector)` /
+///     `abi.encodeCall(Type.method, (…))` — static member-access.
+///
+/// Runtime-computed selectors (e.g. `abi.encodeWithSelector(someRuntimeSel,
+/// …)`) stay unresolved and yield nothing — the compiler's caller-side
+/// lowering similarly cannot route those through sibling-merge, so they
+/// fall through to the real cross-contract dispatch path.
+fn collect_low_level_call_method_refs_expr(
+    expr: &Expression,
+    sink: &mut std::collections::HashSet<String>,
+) {
+    if let Expression::FunctionCall(_, func, args) = expr {
+        if args.len() == 1 {
+            if let Expression::MemberAccess(_, _recv, member) = func.as_ref() {
+                let is_low_level = matches!(
+                    member.name.as_str(),
+                    "call" | "staticcall" | "delegatecall"
+                );
+                if is_low_level {
+                    if let Some(name) = extract_static_method_name_from_payload(&args[0]) {
+                        if !name.trim().is_empty() {
+                            sink.insert(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    match expr {
+        Expression::New(_, i)
+        | Expression::Parenthesis(_, i)
+        | Expression::MemberAccess(_, i, _)
+        | Expression::Delete(_, i) => collect_low_level_call_method_refs_expr(i, sink),
+        Expression::FunctionCall(_, func, args) => {
+            collect_low_level_call_method_refs_expr(func, sink);
+            for a in args {
+                collect_low_level_call_method_refs_expr(a, sink);
+            }
+        }
+        Expression::FunctionCallBlock(_, call, block) => {
+            collect_low_level_call_method_refs_expr(call, sink);
+            collect_low_level_call_method_refs_stmt(block, sink);
+        }
+        Expression::NamedFunctionCall(_, func, args) => {
+            collect_low_level_call_method_refs_expr(func, sink);
+            for a in args {
+                collect_low_level_call_method_refs_expr(&a.expr, sink);
+            }
+        }
+        Expression::ArraySubscript(_, a, b) => {
+            collect_low_level_call_method_refs_expr(a, sink);
+            if let Some(e) = b {
+                collect_low_level_call_method_refs_expr(e, sink);
+            }
+        }
+        Expression::ConditionalOperator(_, c, a, b) => {
+            collect_low_level_call_method_refs_expr(c, sink);
+            collect_low_level_call_method_refs_expr(a, sink);
+            collect_low_level_call_method_refs_expr(b, sink);
+        }
+        Expression::Assign(_, a, b) => {
+            collect_low_level_call_method_refs_expr(a, sink);
+            collect_low_level_call_method_refs_expr(b, sink);
+        }
+        Expression::ArrayLiteral(_, values) => {
+            for v in values {
+                collect_low_level_call_method_refs_expr(v, sink);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Task #194 — peel the `abi.encodeWith{Selector,Signature}` /
+/// `abi.encodeCall` wrapper of a low-level call payload to extract the
+/// Solidity method name when it is statically resolvable.
+fn extract_static_method_name_from_payload(expr: &Expression) -> Option<String> {
+    match expr {
+        Expression::Parenthesis(_, inner) => extract_static_method_name_from_payload(inner),
+        Expression::FunctionCall(_, func, args) => {
+            // `bytes(<inner>)` / `bytes4(<inner>)` / `string(<inner>)` casts
+            // are transparent — recurse through them.
+            if args.len() == 1 {
+                if let Expression::Variable(id) = func.as_ref() {
+                    if id.name == "bytes" || id.name == "string" {
+                        return extract_static_method_name_from_payload(&args[0]);
+                    }
+                }
+                if matches!(func.as_ref(), Expression::Type(_, _)) {
+                    return extract_static_method_name_from_payload(&args[0]);
+                }
+            }
+
+            let Expression::MemberAccess(_, inner, member) = func.as_ref() else {
+                return None;
+            };
+
+            if !matches!(inner.as_ref(), Expression::Variable(id) if id.name == "abi") {
+                return None;
+            }
+
+            match member.name.as_str() {
+                "encodeWithSignature" => {
+                    let first = args.first()?;
+                    let signature = extract_static_signature_string(first)?;
+                    let name = signature
+                        .split('(')
+                        .next()
+                        .unwrap_or(signature.as_str())
+                        .trim()
+                        .to_string();
+                    if name.is_empty() {
+                        None
+                    } else {
+                        Some(name)
+                    }
+                }
+                "encodeWithSelector" => {
+                    let first = args.first()?;
+                    extract_static_selector_method_name(first)
+                }
+                "encodeCall" => {
+                    // `abi.encodeCall(X.method, (…))` — member-access
+                    // function reference resolves to the member name.
+                    let first = args.first()?;
+                    extract_static_encode_call_method_name(first)
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Task #194 — analogue of `resolve_selector_method_name` in
+/// `ir/build/selectors.rs` that operates on raw `solang_parser::pt`
+/// expressions (the analyse pass runs before the IR is built).
+fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
+    match expr {
+        Expression::Parenthesis(_, inner) => extract_static_selector_method_name(inner),
+        Expression::MemberAccess(_, inner, member) => {
+            if member.name == "selector" {
+                match inner.as_ref() {
+                    Expression::MemberAccess(_, _, function_name) => {
+                        let name = function_name.name.trim();
+                        if name.is_empty() {
+                            None
+                        } else {
+                            Some(name.to_string())
+                        }
+                    }
+                    Expression::Variable(function_name) => {
+                        let name = function_name.name.trim();
+                        if name.is_empty() {
+                            None
+                        } else {
+                            Some(name.to_string())
+                        }
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        Expression::FunctionCall(_, func, args) => {
+            if matches!(func.as_ref(), Expression::Type(_, _)) && args.len() == 1 {
+                return extract_static_selector_method_name(&args[0]);
+            }
+            if let Expression::Variable(id) = func.as_ref() {
+                if id.name == "bytes" || id.name == "string" {
+                    if args.len() == 1 {
+                        return extract_static_selector_method_name(&args[0]);
+                    }
+                }
+                if id.name == "keccak256" && args.len() == 1 {
+                    let signature = extract_static_signature_string(&args[0])?;
+                    let name = signature
+                        .split('(')
+                        .next()
+                        .unwrap_or(signature.as_str())
+                        .trim()
+                        .to_string();
+                    if name.is_empty() {
+                        return None;
+                    }
+                    return Some(name);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Task #194 — recognise the function reference argument of
+/// `abi.encodeCall(funcRef, tuple)`. Accepts `Type.method`,
+/// `instance.method`, or nested member-access chains and returns the
+/// outermost member name.
+fn extract_static_encode_call_method_name(expr: &Expression) -> Option<String> {
+    match expr {
+        Expression::Parenthesis(_, inner) => extract_static_encode_call_method_name(inner),
+        Expression::MemberAccess(_, _inner, member) => {
+            if member.name == "selector" {
+                // `abi.encodeCall(X.method.selector, …)` — uncommon but we
+                // can still recover the method name by looking one level up.
+                if let Expression::MemberAccess(_, _, function_name) = _inner.as_ref() {
+                    let name = function_name.name.trim();
+                    if !name.is_empty() {
+                        return Some(name.to_string());
+                    }
+                }
+                return None;
+            }
+            let name = member.name.trim();
+            if name.is_empty() {
+                None
+            } else {
+                Some(name.to_string())
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Task #194 — compile-time constant string extraction. Peels `bytes(…)`
+/// / `string(…)` casts and unwraps `Parenthesis` but stops at the first
+/// non-literal (e.g. `constant`-stored strings are not read here because
+/// the analyse pass doesn't have access to the lowering context yet).
+fn extract_static_signature_string(expr: &Expression) -> Option<String> {
+    match expr {
+        Expression::Parenthesis(_, inner) => extract_static_signature_string(inner),
+        Expression::StringLiteral(parts) => {
+            let mut bytes = Vec::new();
+            for part in parts {
+                bytes.extend_from_slice(part.string.as_bytes());
+            }
+            Some(String::from_utf8_lossy(&bytes).to_string())
+        }
+        Expression::FunctionCall(_, func, args) if args.len() == 1 => match func.as_ref() {
+            Expression::Type(_, _) => extract_static_signature_string(&args[0]),
+            Expression::Variable(id) if id.name == "bytes" || id.name == "string" => {
+                extract_static_signature_string(&args[0])
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Task #206 — compute the DIRECT sibling-primary references a contract body
+/// introduces. Used by the sibling-merge closure so multi-hop cross-contract
+/// call chains pull every reachable primary into the root artifact's
+/// self-dispatch table.
+fn collect_direct_sibling_contract_refs(
+    contract: &ContractIR,
+    primary_names: &std::collections::HashSet<String>,
+    interface_names: &std::collections::HashSet<String>,
+    interface_impls: &std::collections::HashMap<String, Vec<String>>,
+    primary_method_names: &std::collections::HashMap<
+        String,
+        std::collections::HashSet<String>,
+    >,
+) -> std::collections::HashSet<String> {
+    let mut referenced: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    let mut iface_refs: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    let mut low_level_method_refs: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+
+    for function in &contract.functions {
+        if let Some(body) = function.body.as_ref() {
+            collect_new_contract_refs(body, primary_names, &mut referenced);
+            collect_interface_casts_stmt(body, interface_names, &mut iface_refs);
+            collect_low_level_call_method_refs_stmt(body, &mut low_level_method_refs);
+        }
+        for p in function.parameters.iter().chain(function.returns.iter()) {
+            if primary_names.contains(&p.ty) {
+                referenced.insert(p.ty.clone());
+            }
+            if interface_names.contains(&p.ty) {
+                iface_refs.insert(p.ty.clone());
+            }
+        }
+    }
+
+    for state in &contract.state_variables {
+        if primary_names.contains(&state.ty) {
+            referenced.insert(state.ty.clone());
+        }
+        if interface_names.contains(&state.ty) {
+            iface_refs.insert(state.ty.clone());
+        }
+        if let Some(init) = state.initializer.as_ref() {
+            collect_new_refs_expr(init, primary_names, &mut referenced);
+            collect_interface_casts_expr(init, interface_names, &mut iface_refs);
+            collect_low_level_call_method_refs_expr(init, &mut low_level_method_refs);
+        }
+    }
+
+    for iface in &iface_refs {
+        if let Some(impls) = interface_impls.get(iface) {
+            for prim in impls {
+                if prim != &contract.name {
+                    referenced.insert(prim.clone());
+                }
+            }
+        }
+    }
+
+    if !low_level_method_refs.is_empty() {
+        for (prim_name, prim_methods) in primary_method_names {
+            if prim_name == &contract.name {
+                continue;
+            }
+            if low_level_method_refs
+                .iter()
+                .any(|method| prim_methods.contains(method))
+            {
+                referenced.insert(prim_name.clone());
+            }
+        }
+    }
+
+    referenced.remove(&contract.name);
+    referenced
 }

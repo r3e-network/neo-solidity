@@ -16,6 +16,7 @@ impl Function {
         function_names: &HashSet<String>,
         function_overloads: &HashMap<(String, usize), String>,
         function_first_param_types: &HashMap<(String, usize), ValueType>,
+        function_return_types: &HashMap<(String, usize), ValueType>,
         using_target_types: &[Option<String>],
         using_function_list_targets: &HashMap<String, Vec<Option<String>>>,
         using_function_list_scope_targets: &[Option<String>],
@@ -23,6 +24,7 @@ impl Function {
         void_functions: &HashSet<String>,
         super_method_map: &HashMap<String, String>,
         library_storage_bodies: &HashMap<(String, usize), LibraryStorageBody>,
+        storage_pointer_returning_fns: &HashMap<String, String>,
     ) -> Result<(Self, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
         let parameters: Vec<ValueType> = metadata
             .parameters
@@ -67,6 +69,7 @@ impl Function {
             function_names,
             function_overloads,
             function_first_param_types,
+            function_return_types,
             using_target_types,
             using_function_list_targets,
             using_function_list_scope_targets,
@@ -74,7 +77,29 @@ impl Function {
             void_functions,
             super_method_map,
             library_storage_bodies,
+            storage_pointer_returning_fns,
         );
+
+        // Task #186 — register function-pointer bindings for parameters whose
+        // declared Solidity type is `function (...) ... returns (...)`. The
+        // type string is produced verbatim by `solang-parser::Display`; the
+        // shape we recognize is a leading "function" token followed by a
+        // parenthesized argument list and an optional `returns (...)` clause.
+        // Parsing by string is sufficient because `NeoType` maps function
+        // types to `None`, so the ValueType layer cannot carry this info; we
+        // avoid plumbing a new ValueType variant through 55+ sites and keep
+        // the change local.
+        for param in metadata.parameters.iter() {
+            if let Some(name) = &param.name {
+                if let Some(binding) = parse_function_pointer_type(&param.ty) {
+                    ctx.register_function_pointer_binding(
+                        name,
+                        binding.0,
+                        binding.1,
+                    );
+                }
+            }
+        }
 
         let mut instructions: Vec<Instruction> = Vec::new();
         let mut return_slots: Vec<Option<usize>> = Vec::new();
@@ -109,6 +134,17 @@ impl Function {
             }
         }
         ctx.set_return_info(return_slots.clone(), returns.clone());
+        // Task #185 — plumb the raw Solidity type strings for return
+        // parameters (e.g. "uint[3][2]") so `lower_return_statement` can
+        // detect nested fixed-size arrays and pick flat EVM-canonical
+        // encoding over the dynamic-array offset+length wrapper.
+        ctx.set_return_type_strings(
+            metadata
+                .return_parameters
+                .iter()
+                .map(|param| param.ty.clone())
+                .collect(),
+        );
 
         // Task #114 — activate the modifier-return redirect before lowering
         // the body. `lower_return_statement` will check this and emit
@@ -253,5 +289,84 @@ impl Function {
             },
             warnings,
         ))
+    }
+}
+
+/// Task #186 — parse a Solidity type string of the form
+/// `"function (T1, T2, ...) [mutability] [returns (R1, R2, ...)]"` and extract
+/// the argument count and whether a return clause is present. Returns `None`
+/// when the string is not a function type. Used to detect function-pointer
+/// parameters that need `CallIndirect` dispatch at call sites, since the
+/// `NeoType` layer maps function types to `None` and the ValueType erases
+/// this info.
+fn parse_function_pointer_type(ty: &str) -> Option<(usize, bool)> {
+    let trimmed = ty.trim();
+    if !trimmed.starts_with("function") {
+        return None;
+    }
+    let rest = trimmed[..].strip_prefix("function")?.trim_start();
+    if !rest.starts_with('(') {
+        return None;
+    }
+    // Scan to matching `)` respecting nested parens (tuple types).
+    let bytes = rest.as_bytes();
+    let mut depth: i32 = 0;
+    let mut end: Option<usize> = None;
+    let mut comma_count: usize = 0;
+    let mut any_token = false;
+    for (i, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' => {
+                depth += 1;
+            }
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = Some(i);
+                    break;
+                }
+            }
+            b',' if depth == 1 => {
+                comma_count += 1;
+            }
+            c if !c.is_ascii_whitespace() && depth >= 1 => {
+                any_token = true;
+            }
+            _ => {}
+        }
+    }
+    let end_idx = end?;
+    let arg_count = if any_token { comma_count + 1 } else { 0 };
+    let tail = rest[end_idx + 1..].trim_start();
+    let has_return = tail.contains("returns");
+    Some((arg_count, has_return))
+}
+
+#[cfg(test)]
+mod function_pointer_type_tests {
+    use super::parse_function_pointer_type;
+
+    #[test]
+    fn parses_two_arg_with_return() {
+        let s = "function (uint256, uint256) pure returns (uint256)";
+        assert_eq!(parse_function_pointer_type(s), Some((2, true)));
+    }
+
+    #[test]
+    fn parses_void_function_type() {
+        assert_eq!(parse_function_pointer_type("function ()"), Some((0, false)));
+    }
+
+    #[test]
+    fn rejects_non_function_types() {
+        assert_eq!(parse_function_pointer_type("uint256"), None);
+        assert_eq!(parse_function_pointer_type("mapping(uint => uint)"), None);
+    }
+
+    #[test]
+    fn parses_nested_tuple_args() {
+        // Defensive: tuple-shaped args should not mis-split on inner commas.
+        let s = "function ((uint256, bool), address) returns (uint256)";
+        assert_eq!(parse_function_pointer_type(s), Some((2, true)));
     }
 }

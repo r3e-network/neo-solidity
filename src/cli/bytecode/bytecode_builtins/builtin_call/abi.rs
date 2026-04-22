@@ -4,6 +4,14 @@ fn emit_abi_encode(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
+    if arg_count == 0 {
+        // `abi.encode()` is the empty byte string. Lower it directly rather
+        // than routing through the pseudo-native StdLib helper, which does
+        // not exist on real Neo N3 / Neo-Express.
+        push_data(bytecode, &[]);
+        return;
+    }
+
     let total_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &total_bigint);
     bytecode.push(0xC0); // PACK
@@ -30,6 +38,12 @@ fn emit_abi_encode_packed(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
+    if arg_count == 0 {
+        // `abi.encodePacked()` is also the empty byte string.
+        push_data(bytecode, &[]);
+        return;
+    }
+
     let total_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &total_bigint);
     bytecode.push(0xC0); // PACK

@@ -33,8 +33,8 @@ reference ports adapted for Neo N3.
 - `new/Bank.sol`: banking contract with deposits, withdrawals, and transfers.
 - `new/MultiSigWalletNEP17.sol`: multisig wallet for GAS/NEO via NEP-17 transfers.
 - `new/Vault.sol`: GAS-only vault using `onNEP17Payment` + strict manifest-safe transfers.
-- `new/UpgradeLifecycleShowcase.sol`: owner+witness-gated upgrade/destroy lifecycle via `NativeCalls.updateContract`/`destroyContract`.
-- `new/WitnessGuardShowcase.sol`: owner/guardian authorization with `Runtime.checkWitness` and temporary account locks.
+- `new/UpgradeLifecycleShowcase.sol`: owner bootstrap + witness-gated upgrade/destroy lifecycle via `NativeCalls.updateContract`/`destroyContract`.
+- `new/WitnessGuardShowcase.sol`: owner bootstrap + guardian authorization with `Runtime.checkWitness` and lock/unlock controls.
 - `new/NFT.sol`: minimal NEP-11-style NFT implementation.
 - `new/NeoInteropShowcase.sol`: Runtime/Storage/Syscalls/NativeCalls intrinsic showcase.
 - `new/LowLevelCallShowcase.sol`: `address.call` / `address.staticcall` with `abi.encodeWith*` payloads.
@@ -103,7 +103,7 @@ bash examples/test_strict_compatibility_sweep.sh
 
 The sweep excludes intentionally failing diagnostic fixtures (for example fixed-point
 or unsupported EVM-only samples) and validates strict-safe contracts only. It also
-checks that excluded negative fixtures still fail under strict flags.
+checks that the remaining excluded negative fixtures still fail under strict flags.
 
 To enforce strict manifest permissions for only `examples/new` samples:
 

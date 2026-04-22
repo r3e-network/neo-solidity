@@ -353,10 +353,26 @@ fn lower_assignment(
                     }
 
                     if lowered {
-                        instructions.push(Instruction::CallBuiltin {
-                            builtin: BuiltinCall::AbiEncode,
-                            arg_count: encode_args.len(),
-                        });
+                        if encode_args.is_empty() {
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::zero(),
+                            )));
+                            instructions.push(Instruction::NewArray {
+                                element_type: ValueType::Any,
+                            });
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::NativeCall {
+                                    contract: NativeContract::StdLib,
+                                    method: "serialize".to_string(),
+                                },
+                                arg_count: 1,
+                            });
+                        } else {
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::AbiEncode,
+                                arg_count: encode_args.len(),
+                            });
+                        }
                         instructions.push(Instruction::StoreLocal(index));
                         ctx.set_call_data_local(index, method_name);
                     }
@@ -418,10 +434,26 @@ fn lower_assignment(
                 }
 
                 if lowered {
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::AbiEncode,
-                        arg_count: encode_args.len(),
-                    });
+                    if encode_args.is_empty() {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::zero(),
+                        )));
+                        instructions.push(Instruction::NewArray {
+                            element_type: ValueType::Any,
+                        });
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::NativeCall {
+                                contract: NativeContract::StdLib,
+                                method: "serialize".to_string(),
+                            },
+                            arg_count: 1,
+                        });
+                    } else {
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::AbiEncode,
+                            arg_count: encode_args.len(),
+                        });
+                    }
                     instructions.push(Instruction::StoreLocal(index));
                     ctx.set_call_data_local(index, method_name);
                 }
@@ -438,6 +470,62 @@ fn lower_assignment(
             }
         }
         return;
+    }
+
+    // Task #191 — memory struct field assignment: `s.field = rhs` where `s` is a
+    // local or function parameter whose type is a struct represented as an
+    // array of fields. The compound-assignment path (`s.field += v`,
+    // `s.field++`) already handles the local-base case via ArrayGet/ArraySet,
+    // but plain assignment had no MemberAccess-LHS branch and fell through to
+    // the silent-drop fallback below. This made every `s.field = v` a no-op,
+    // which in turn made free-function-attach chains like
+    // `c.inc().inc().inc()` (where `inc(Counter memory c)` writes `c.value`)
+    // appear to flatten to identity — the returned copy was always the
+    // untouched initial struct.
+    //
+    // NeoVM Array slots hold an Rc<RefCell<Vec<StackItem>>>, so loading the
+    // parameter/local and then ArraySet-ing a field mutates the underlying
+    // storage in place. No write-back to the parameter/local slot is needed
+    // because the slot still holds the same reference.
+    if let Expression::MemberAccess(_, inner, member) = lhs {
+        if let Expression::Variable(base) = inner.as_ref() {
+            if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx) {
+                if let Some((field_index, _field)) = fields
+                    .iter()
+                    .enumerate()
+                    .find(|(_, field)| field.name == member.name)
+                {
+                    let load_base = if let Some(local_index) = ctx.resolve_local(&base.name) {
+                        Some(Instruction::LoadLocal(local_index))
+                    } else if let Some(param_index) =
+                        ctx.param_index_map.get(&base.name).copied()
+                    {
+                        Some(Instruction::LoadParameter(param_index))
+                    } else {
+                        None
+                    };
+
+                    if let Some(load_base) = load_base {
+                        // Emit: load base → push field_index → load rhs → ArraySet.
+                        // ArraySet pops (array, index, value) and mutates the
+                        // array in place.
+                        instructions.push(load_base);
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(field_index as u64),
+                        )));
+                        if !lower_expression(rhs, ctx, instructions) {
+                            // Leave the half-built frame balanced: we've pushed
+                            // base + index; drop them to keep the stack clean.
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                            return;
+                        }
+                        instructions.push(Instruction::ArraySet);
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     // Fallback: evaluate RHS (if possible) and drop to allow compilation to continue.
@@ -506,6 +594,11 @@ fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::LoadLocal(new_len_local));
     instructions.push(Instruction::StoreState(state_index));
 
+    let element_type = match ctx.state_type(state_index).cloned() {
+        Some(ValueType::Array(elem)) => (*elem).clone(),
+        _ => ValueType::Any,
+    };
+
     // Copy loop: for (i = 0; i < new_len; i++) { slot[i] = src[i] }
     let copy_cond_label = ctx.next_label();
     let copy_end_label = ctx.next_label();
@@ -526,10 +619,17 @@ fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::LoadLocal(idx_local));
     instructions.push(Instruction::ArrayGet);
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::StoreMappingElement {
-        state_index,
-        key_types: vec![uint256.clone()],
-    });
+    if matches!(element_type, ValueType::Array(_)) {
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index,
+            key_types: vec![uint256.clone()],
+        });
+    } else {
+        instructions.push(Instruction::StoreMappingElement {
+            state_index,
+            key_types: vec![uint256.clone()],
+        });
+    }
 
     // idx += 1
     instructions.push(Instruction::LoadLocal(idx_local));
@@ -543,11 +643,6 @@ fn lower_storage_array_assign_from_memory(
     // Matches the `.pop()` convention of overwriting removed slots with the
     // element type's default value so subsequent reads of the shrunk tail
     // return 0 / "" / etc. instead of stale data.
-    let element_type = match ctx.state_type(state_index).cloned() {
-        Some(ValueType::Array(elem)) => (*elem).clone(),
-        _ => ValueType::Any,
-    };
-
     let delete_cond_label = ctx.next_label();
     let delete_end_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(new_len_local));
@@ -561,10 +656,17 @@ fn lower_storage_array_assign_from_memory(
 
     push_default_for_value_type(&element_type, ctx, instructions);
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::StoreMappingElement {
-        state_index,
-        key_types: vec![uint256.clone()],
-    });
+    if matches!(element_type, ValueType::Array(_)) {
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index,
+            key_types: vec![uint256.clone()],
+        });
+    } else {
+        instructions.push(Instruction::StoreMappingElement {
+            state_index,
+            key_types: vec![uint256.clone()],
+        });
+    }
 
     instructions.push(Instruction::LoadLocal(idx_local));
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));

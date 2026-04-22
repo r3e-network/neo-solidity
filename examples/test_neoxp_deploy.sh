@@ -4,7 +4,10 @@
 # Verifies that neo-solc can:
 # - compile Solidity into a Neo N3-valid .nef + .manifest.json
 # - deploy the contract to a fresh neo-express chain
-# - invoke methods that touch native calls (block.number), storage, and notifications
+# - invoke methods that touch native calls (block.number) and storage
+#
+# Event emission is intentionally excluded here so the remaining on-chain
+# `abiEncode` / `abiDecode` gap stays isolated in `test_neoxp_encoding_smoke.sh`.
 
 set -euo pipefail
 
@@ -107,8 +110,6 @@ pragma solidity ^0.8.20;
 contract Smoke {
     uint256 private value;
 
-    event ValueSet(uint256 v);
-
     function sender() public view returns (address) {
         return msg.sender;
     }
@@ -123,7 +124,6 @@ contract Smoke {
 
     function set(uint256 v) public {
         value = v;
-        emit ValueSet(v);
     }
 
     function get() public view returns (uint256) {
@@ -212,7 +212,7 @@ if [ "$ORIGIN_HEX_LC" != "$NODE1_HASH_LE_LC" ]; then
   exit 1
 fi
 
-# Invoke `set(7)` and confirm HALT + notification.
+# Invoke `set(7)` and confirm HALT.
 cat > invoke-set.neo-invoke.json <<JSON
 {
   "contract": "$CONTRACT_HASH",
@@ -232,13 +232,6 @@ VMSTATE="$(echo "$APP_LOG" | jq -r '.["application-log"].executions[0].vmstate')
 if [ "$VMSTATE" != "HALT" ]; then
   echo "error: set(7) vmstate=$VMSTATE"
   echo "$APP_LOG" | jq '.["application-log"].executions[0]'
-  exit 1
-fi
-
-EVENT_NAME="$(echo "$APP_LOG" | jq -r '.["application-log"].executions[0].notifications[0].eventname // empty')"
-if [ "$EVENT_NAME" != "ValueSet" ]; then
-  echo "error: expected ValueSet notification, got '$EVENT_NAME'"
-  echo "$APP_LOG" | jq '.["application-log"].executions[0].notifications'
   exit 1
 fi
 

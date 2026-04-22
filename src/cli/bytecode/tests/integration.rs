@@ -96,6 +96,56 @@ fn event_emission_places_name_first_in_payload() {
 }
 
 #[test]
+fn zero_arg_abi_encode_skips_pseudo_native_stdlib_call() {
+    let source = r#"
+        pragma solidity ^0.8.19;
+
+        contract EmptyEncode {
+            function f() public pure returns (bytes memory) {
+                return abi.encode();
+            }
+        }
+        "#;
+
+    let mut metadata = analyse_source(source).expect("analysis failed");
+    let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2, false)
+        .expect("bytecode generation")
+        .script;
+
+    assert!(
+        !bytecode.windows(b"abiEncode".len()).any(|window| window == b"abiEncode"),
+        "zero-arg abi.encode() should not lower to StdLib.abiEncode"
+    );
+}
+
+#[test]
+fn static_custom_error_revert_skips_pseudo_native_abi_encode() {
+    let source = r#"
+        pragma solidity ^0.8.19;
+
+        contract StaticError {
+            error Unauthorized(address who, uint256 code);
+
+            function boom() public pure {
+                revert Unauthorized(address(0x1234), 7);
+            }
+        }
+        "#;
+
+    let mut metadata = analyse_source(source).expect("analysis failed");
+    let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2, false)
+        .expect("bytecode generation")
+        .script;
+
+    assert!(
+        !bytecode.windows(b"abiEncode".len()).any(|window| window == b"abiEncode"),
+        "static custom-error revert should not lower to StdLib.abiEncode"
+    );
+}
+
+#[test]
 fn empty_contract_emits_ret_instruction() {
     // No functions other than constructors -> should produce a single RET (0x40)
     let mut metadata = ContractMetadata {

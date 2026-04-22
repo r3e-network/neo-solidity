@@ -66,6 +66,36 @@ fn lower_storage_reference_push(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
+    // Task #203 — Zero-arg `.push()` on array-of-mappings (even when
+    // reached via a storage reference such as
+    // `m[k].grids.push()` where `grids` is `mapping(K=>V)[]`) is the
+    // ONLY valid push shape. Mapping elements are pure storage-slot-
+    // derivation, so we only need to bump the length slot — no
+    // element write is required.
+    if args.is_empty() {
+        if let ValueType::Array(element_type) = &reference.value_type {
+            if matches!(element_type.as_ref(), ValueType::Mapping { .. }) {
+                let len_local = ctx.allocate_local("__array_len".to_string(), None);
+                if !emit_storage_load(reference, ctx, instructions) {
+                    return false;
+                }
+                instructions.push(Instruction::StoreLocal(len_local));
+
+                // Increment length.
+                instructions.push(Instruction::LoadLocal(len_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+
+                if !emit_storage_store(reference, ctx, instructions) {
+                    return false;
+                }
+
+                instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+                return true;
+            }
+        }
+    }
+
     if args.len() != 1 {
         ctx.record_error("array push expects exactly one argument");
         return false;
@@ -124,6 +154,16 @@ fn lower_storage_reference_push(
             key_types: reference.key_types.clone(),
             field_keys: Vec::new(),
             element_type: (**element_type).clone(),
+        });
+    } else if matches!(element_type.as_ref(), ValueType::Array(_)) {
+        let mut key_types = reference.key_types.clone();
+        key_types.push(ValueType::Integer {
+            signed: false,
+            bits: 256,
+        });
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index: reference.state_index,
+            key_types,
         });
     } else {
         let mut key_types = reference.key_types.clone();
@@ -254,6 +294,11 @@ fn lower_storage_reference_pop(
             key_types: reference.key_types.clone(),
             field_keys: Vec::new(),
             element_type: element_type.clone(),
+        });
+    } else if matches!(element_type, ValueType::Array(_)) {
+        instructions.push(Instruction::StoreArrayDeepCopy {
+            state_index: reference.state_index,
+            key_types: key_types.clone(),
         });
     } else {
         instructions.push(Instruction::StoreMappingElement {

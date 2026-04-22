@@ -13,7 +13,7 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
 }
 
 fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
-    use ir::Instruction::{Drop, LoadParameter, StoreParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadStructFieldMappingElement, StoreStructFieldMappingElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, NewMap, ArrayGet, ArraySet, HasKey, MemCpy, Substr, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
+    use ir::Instruction::{Drop, LoadParameter, StoreParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, StoreArrayDeepCopy, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadStructFieldMappingElement, StoreStructFieldMappingElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, PushFunctionOffset, CallIndirect, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, NewMap, ArrayGet, ArraySet, HasKey, MemCpy, Substr, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
 
     match instr {
         Drop(_) => {
@@ -62,6 +62,9 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
             state.stack.push(AbstractValue::Unknown);
         }
         StoreMappingElement { key_types, .. } => {
+            pop_n(&mut state.stack, key_types.len() + 1)?;
+        }
+        StoreArrayDeepCopy { key_types, .. } => {
             pop_n(&mut state.stack, key_types.len() + 1)?;
         }
         LoadStructField { key_types, .. } => {
@@ -117,6 +120,20 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
                     state.stack.push(AbstractValue::executing_script_hash());
                 }
                 _ => state.stack.push(AbstractValue::Unknown),
+            }
+        }
+        PushFunctionOffset { .. } => {
+            // Task #186 — pushes the target function's bytecode offset as an
+            // integer literal. Stack effect: +1 (one new opaque integer).
+            state.stack.push(AbstractValue::Unknown);
+        }
+        CallIndirect { arg_count, has_return } => {
+            // Task #186 — indirect call through a function-pointer value.
+            // Consumes `arg_count` arguments + 1 target offset; pushes a
+            // return value iff the callee returns something.
+            pop_n(&mut state.stack, *arg_count + 1)?;
+            if *has_return {
+                state.stack.push(AbstractValue::Unknown);
             }
         }
         EmitEvent { arg_count, .. } | EmitEventByName { arg_count, .. } => {

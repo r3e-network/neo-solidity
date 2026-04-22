@@ -999,6 +999,40 @@ fn assert_compile_warns(contract_path: &str, expected_warning: &str) {
     );
 }
 
+/// Compile a contract and assert that compilation succeeds and stderr does
+/// not contain the given warning substring.
+fn assert_compile_not_warns(contract_path: &str, unexpected_warning: &str) {
+    let compiler = get_compiler_path();
+    assert!(compiler.exists(), "Compiler not found");
+
+    let contract_path = get_example_path(contract_path);
+    let output_prefix =
+        unique_output_prefix("evm-compat-no-warn", &contract_path).expect("output prefix");
+
+    let output = Command::new(&compiler)
+        .arg(&contract_path)
+        .arg("-I")
+        .arg("devpack")
+        .arg("-O2")
+        .arg("-o")
+        .arg(&output_prefix)
+        .output()
+        .expect("Failed to run compiler");
+
+    assert!(
+        output.status.success(),
+        "Expected compilation to succeed for {:?}, stderr:\n{}",
+        contract_path,
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains(unexpected_warning),
+        "Did not expect stderr to contain warning '{unexpected_warning}', got:\n{stderr}"
+    );
+}
+
 // block.coinbase/difficulty/gaslimit/basefee are now auto-mapped to Neo N3
 // equivalents (address(0), Runtime.getRandom, Policy.getExecFeeFactor,
 // Policy.getFeePerByte) with compile-time warnings instead of errors.
@@ -1160,6 +1194,14 @@ fn test_library_showcase_manifest_has_compute_method() {
 #[test]
 fn test_library_external_function_showcase_compiles() {
     assert_compiles("new/LibraryExternalError.sol");
+}
+
+#[test]
+fn test_solidity_features_complete_has_no_false_override_warning() {
+    assert_compile_not_warns(
+        "new/SolidityFeaturesComplete.sol",
+        "overrides 'Ownable::add' which is not marked 'virtual'",
+    );
 }
 
 #[test]

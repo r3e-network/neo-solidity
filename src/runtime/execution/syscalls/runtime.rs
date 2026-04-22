@@ -132,18 +132,29 @@ impl ExecutionContext {
                 // Neo N3 signature: `Notify(eventName, stateArray)`.
                 //
                 // The Solidity frontend uses this same syscall to deliver an
-                // EVM-canonical `LogEntry { topics, data }`. The two shapes are
-                // distinguished by the `eventName` length:
+                // EVM-canonical `LogEntry { topics, data }`. The three shapes
+                // are distinguished by the `eventName` length:
                 //
-                //   * **EVM shape** — `eventName.len() == 32` AND `stateArray`
-                //     is a non-empty `Array`. The 32-byte event_name is
-                //     `keccak256("Name(type1,type2,...)")` i.e. `topic[0]`.
+                //   * **EVM non-anonymous shape** — `eventName.len() == 32`
+                //     AND `stateArray` is an `Array`. The 32-byte event_name
+                //     is `keccak256("Name(type1,type2,...)")` i.e. `topic[0]`.
                 //     The stateArray is `[topic1, topic2, ..., data]` —
                 //     indexed-arg topics first (already 32 bytes each), then
                 //     the abi-encoded non-indexed `data` payload as the final
                 //     element. This matches Ethereum's log model: Etherscan,
                 //     TheGraph, and Ethers consumers subscribe by the
                 //     signature keccak and filter by indexed-topic values.
+                //
+                //   * **EVM anonymous shape** — `eventName.is_empty()` AND
+                //     `stateArray` is an `Array`. Per the EVM ABI (and the
+                //     Solidity handbook §Events), anonymous events suppress
+                //     the signature-hash topic0 so they can carry up to 4
+                //     indexed topics. Layout is the same as non-anonymous
+                //     except NO topic0 is prepended — `topics` is composed
+                //     solely of the indexed-arg slots from the stateArray.
+                //     The empty event_name is the lowering sentinel (the
+                //     non-anonymous and legacy paths both use non-empty
+                //     names, so it uniquely identifies the anonymous case).
                 //
                 //   * **Legacy Neo shape** — any other combination. The
                 //     event_name is a short ByteArray (the event's
@@ -156,10 +167,11 @@ impl ExecutionContext {
                 let state = self.pop_stack()?;
 
                 let event_name_bytes = Self::stack_item_to_bytes(event_name);
-                let is_evm_shape =
-                    event_name_bytes.len() == 32 && matches!(state, StackItem::Array(_));
+                let state_is_array = matches!(state, StackItem::Array(_));
+                let is_evm_non_anonymous = event_name_bytes.len() == 32 && state_is_array;
+                let is_evm_anonymous = event_name_bytes.is_empty() && state_is_array;
 
-                if is_evm_shape {
+                if is_evm_non_anonymous || is_evm_anonymous {
                     // Split the stateArray into [topic1, topic2, ..., data].
                     // The data element is always the LAST element — indexed
                     // args precede it in declaration order.
@@ -184,7 +196,11 @@ impl ExecutionContext {
                     };
 
                     let mut topics = Vec::with_capacity(1 + indexed_topics.len());
-                    topics.push(event_name_bytes);
+                    if is_evm_non_anonymous {
+                        // Non-anonymous: topic0 = keccak(signature) prepended.
+                        topics.push(event_name_bytes);
+                    }
+                    // Anonymous: topics = indexed topics only; no topic0.
                     topics.extend(indexed_topics);
                     self.logs.push(LogEntry {
                         address: self.default_account.clone(),

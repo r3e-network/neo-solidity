@@ -83,6 +83,17 @@ fn emit_ir_function(
                     use_callt,
                     &mut token_patches,
                 ),
+                ir::Instruction::StoreArrayDeepCopy {
+                    state_index,
+                    key_types,
+                } => emit_store_mapping_array_deep_copy(
+                    &mut local,
+                    module,
+                    *state_index,
+                    key_types,
+                    use_callt,
+                    &mut token_patches,
+                ),
                 ir::Instruction::LoadStructField {
                     state_index,
                     key_types,
@@ -220,7 +231,44 @@ fn emit_ir_function(
                     call_patches.push(CallPatch {
                         position: patch_pos,
                         target: name.clone(),
+                        kind: CallPatchKind::CallRelative,
                     });
+                }
+                ir::Instruction::PushFunctionOffset { name } => {
+                    // Task #186 — push the target function's absolute bytecode
+                    // offset as a 4-byte integer literal (PUSHINT32). Fixed up
+                    // after all methods are emitted.
+                    local.push(0x02); // PUSHINT32
+                    let patch_pos = local.len();
+                    local.extend_from_slice(&[0, 0, 0, 0]);
+                    call_patches.push(CallPatch {
+                        position: patch_pos,
+                        target: name.clone(),
+                        kind: CallPatchKind::AbsoluteOffset,
+                    });
+                }
+                ir::Instruction::CallIndirect { arg_count, .. } => {
+                    // Task #186 — indirect call through an internal function-
+                    // pointer value.
+                    //
+                    // IR-layer convention: emit `PushFunctionOffset` FIRST,
+                    // then the N argument expressions left-to-right. The stack
+                    // going into this instruction is therefore:
+                    //     [..., target, arg0, arg1, ..., argN-1]
+                    // (argN-1 on top).
+                    //
+                    // NeoVM `INITSLOT` binds arg0 = first popped = top-of-stack,
+                    // so the callee needs `arg0` on top after CALLA consumes
+                    // `target`. REVERSEN(arg_count + 1) flips the window to:
+                    //     [..., argN-1, ..., arg1, arg0, target]
+                    // CALLA then pops `target` and jumps, leaving:
+                    //     [..., argN-1, ..., arg1, arg0]
+                    // which INITSLOT pops into slot 0 = arg0, slot 1 = arg1, ...
+                    if *arg_count >= 1 {
+                        push_integer_bigint(&mut local, &BigInt::from(*arg_count + 1));
+                        local.push(0x55); // REVERSEN
+                    }
+                    local.push(0x36); // CALLA
                 }
                 ir::Instruction::EmitEvent {
                     event_index,

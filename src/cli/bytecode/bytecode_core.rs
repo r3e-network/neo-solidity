@@ -1,7 +1,19 @@
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CallPatchKind {
+    /// CALL_L — fixup writes a 4-byte signed offset relative to the CALL_L
+    /// opcode position (opcode byte preceding `position`).
+    CallRelative,
+    /// PUSHINT32 — fixup writes a 4-byte signed absolute offset of the target
+    /// function. Used by `PushFunctionOffset` for internal function-pointer
+    /// values consumed later by `CALLA`.
+    AbsoluteOffset,
+}
+
 #[derive(Clone, Debug)]
 struct CallPatch {
     position: usize,
     target: String,
+    kind: CallPatchKind,
 }
 
 #[derive(Clone, Debug)]
@@ -134,6 +146,7 @@ pub(crate) fn generate_contract_bytecode(
             call_fixups.push(CallPatch {
                 position: base_position + patch.position,
                 target: patch.target,
+                kind: patch.kind,
             });
         }
 
@@ -153,12 +166,21 @@ pub(crate) fn generate_contract_bytecode(
 
     for fixup in call_fixups {
         if let Some(target_offset) = offset_map.get(&fixup.target) {
-            // CALL_L uses a 4-byte signed offset from the beginning of the CALL_L opcode.
-            let opcode_pos = fixup.position.saturating_sub(1) as i32;
-            let relative = (*target_offset as i32)
-                .checked_sub(opcode_pos)
-                .unwrap_or(0);
-            let bytes = relative.to_le_bytes();
+            let bytes = match fixup.kind {
+                CallPatchKind::CallRelative => {
+                    // CALL_L uses a 4-byte signed offset from the beginning of the CALL_L opcode.
+                    let opcode_pos = fixup.position.saturating_sub(1) as i32;
+                    let relative = (*target_offset as i32)
+                        .checked_sub(opcode_pos)
+                        .unwrap_or(0);
+                    relative.to_le_bytes()
+                }
+                CallPatchKind::AbsoluteOffset => {
+                    // PUSHINT32 operand is the absolute bytecode offset that `CALLA`
+                    // will consume. Task #186.
+                    (*target_offset as i32).to_le_bytes()
+                }
+            };
             if fixup.position + 4 <= bytecode.len() {
                 bytecode[fixup.position..fixup.position + 4].copy_from_slice(&bytes);
             }

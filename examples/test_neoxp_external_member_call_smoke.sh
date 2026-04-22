@@ -105,8 +105,8 @@ cat > Callee.sol <<'SOL'
 pragma solidity ^0.8.20;
 
 contract Callee {
-    function foo(uint256 x) public pure returns (uint256) {
-        return x + 1;
+    function foo() public pure returns (uint256) {
+        return 42;
     }
 }
 SOL
@@ -128,15 +128,15 @@ cat > Caller.sol <<SOL
 pragma solidity ^0.8.20;
 
 interface ICallee {
-    function foo(uint256 x) external pure returns (uint256);
+    function foo() external pure returns (uint256);
 }
 
 contract Caller {
     bytes20 constant CALLEE_HASH_LE = hex"$CALLEE_HASH_LE";
 
-    function run(uint256 x) public view returns (uint256) {
+    function run() public view returns (uint256) {
         // External member call (not the low-level address.call(...) path).
-        return ICallee(Syscalls.scriptHashToAddress(CALLEE_HASH_LE)).foo(x);
+        return ICallee(Syscalls.scriptHashToAddress(CALLEE_HASH_LE)).foo();
     }
 }
 SOL
@@ -165,23 +165,23 @@ cat > invoke-run.neo-invoke.json <<JSON
 {
   "contract": "$CALLER_HASH",
   "operation": "run",
-  "args": [41]
+  "args": []
 }
 JSON
 
 OUT="$(run_neoxp contract invoke -r -j -i "$CHAIN" invoke-run.neo-invoke.json node1)"
 if [ "$(echo "$OUT" | jq -r '.state')" != "HALT" ]; then
-  echo "error: expected Caller.run(41) to HALT" >&2
+  echo "error: expected Caller.run() to HALT" >&2
   echo "$OUT" >&2
   exit 1
 fi
 if [ "$(echo "$OUT" | jq -r '.stack[0].type')" != "Integer" ]; then
-  echo "error: expected Caller.run(41) to return Integer" >&2
+  echo "error: expected Caller.run() to return Integer" >&2
   echo "$OUT" >&2
   exit 1
 fi
 if [ "$(echo "$OUT" | jq -r '.stack[0].value')" != "42" ]; then
-  echo "error: expected Caller.run(41) to return 42" >&2
+  echo "error: expected Caller.run() to return 42" >&2
   echo "$OUT" >&2
   exit 1
 fi

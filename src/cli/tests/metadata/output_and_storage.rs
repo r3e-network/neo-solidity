@@ -208,6 +208,7 @@ fn standard_abi_includes_constructor_and_event() {
                     }),
                 },
             ],
+            anonymous: false,
         }],
         uses_storage: true,
         state_variables: vec![],

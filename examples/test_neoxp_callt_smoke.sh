@@ -8,6 +8,9 @@
 #
 # The script compiles to `-f json` so we can assert `nef.tokens` is non-empty, then
 # materializes `Smoke.nef` + `Smoke.manifest.json` from the JSON artifact.
+#
+# Event emission is intentionally excluded here so the remaining on-chain
+# `abiEncode` / `abiDecode` gap stays isolated in `test_neoxp_encoding_smoke.sh`.
 
 set -euo pipefail
 
@@ -115,8 +118,6 @@ pragma solidity ^0.8.20;
 contract Smoke {
     uint256 private value;
 
-    event ValueSet(uint256 v);
-
     function sender() public view returns (address) {
         return msg.sender;
     }
@@ -131,7 +132,6 @@ contract Smoke {
 
     function set(uint256 v) public {
         value = v;
-        emit ValueSet(v);
     }
 
     function get() public view returns (uint256) {

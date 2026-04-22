@@ -20,7 +20,24 @@ fn low_level_call_serializes_exception_into_return_data() {
         .expect("expected run function");
 
     let instrs = &run_fn.basic_blocks[0].instructions;
-    let serialize_calls: Vec<_> = instrs
+    let catch_label = instrs
+        .iter()
+        .find_map(|instr| match instr {
+            ir::Instruction::Try { catch_target } => Some(*catch_target),
+            _ => None,
+        })
+        .expect("expected low-level call lowering to emit TRY");
+    let catch_index = instrs
+        .iter()
+        .position(|instr| matches!(instr, ir::Instruction::Label(id) if *id == catch_label))
+        .expect("expected low-level call catch label");
+    let catch_end = instrs[catch_index + 1..]
+        .iter()
+        .position(|instr| matches!(instr, ir::Instruction::EndTry { .. }))
+        .map(|offset| catch_index + 1 + offset)
+        .expect("expected low-level call catch block to end with ENDTRY");
+
+    let serialize_calls: Vec<_> = instrs[catch_index + 1..catch_end]
         .iter()
         .filter(|instr| {
             matches!(

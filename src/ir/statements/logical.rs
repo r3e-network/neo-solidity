@@ -104,28 +104,13 @@ fn lower_require(
         // clause's 4-byte selector guard misses the bare `"msg"` payload and
         // falls through to a rethrow — breaking `try this.f()` for any callee
         // whose revert path terminates in `require(_, "msg")` (batch60 JJ3).
-        if let Expression::StringLiteral(_) = &args[1] {
-            let selector = revert_error_selector("Error", &["string".to_string()]);
-            let pre_len = instructions.len();
-            if lower_expression(&args[1], ctx, instructions) {
-                let mut arg_instrs = instructions.split_off(pre_len);
-                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                    selector.to_vec(),
-                )));
-                instructions.append(&mut arg_instrs);
-                instructions.push(Instruction::CallBuiltin {
-                    builtin: BuiltinCall::AbiEncode,
-                    arg_count: 1,
-                });
-                instructions.push(Instruction::CallBuiltin {
-                    builtin: BuiltinCall::BytesConcat,
-                    arg_count: 2,
-                });
-                instructions.push(Instruction::Throw);
-                instructions.push(Instruction::Label(ok_label));
-                return;
-            }
-            instructions.truncate(pre_len);
+        if let Expression::StringLiteral(parts) = &args[1] {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                error_string_literal_envelope(&string_literal_bytes(parts)),
+            )));
+            instructions.push(Instruction::Throw);
+            instructions.push(Instruction::Label(ok_label));
+            return;
         }
 
         // Preserve diagnostics/type checking for the revert message expression and surface it

@@ -41,6 +41,17 @@ impl Module {
             })
             .collect();
 
+        // Task #204 — set of declared enum type names in this contract
+        // scope. Passed into event canonicalization so bare `State`-style
+        // references in event parameters canonicalize to `uint8` per the
+        // Solidity ABI spec (enums are always encoded as `uint8` since they
+        // have ≤256 variants).
+        let enum_name_set: HashSet<String> = metadata
+            .enums
+            .iter()
+            .map(|e| e.name.clone())
+            .collect();
+
         // Build the EVM-canonical event-signature map — one `EventSignature`
         // per declared event, with the keccak-256 of the canonical signature
         // string precomputed as `topic[0]`. The `lower_emit` statement reads
@@ -52,7 +63,7 @@ impl Module {
             .events
             .iter()
             .map(|event| {
-                let canonical = event_canonical_signature(event);
+                let canonical = event_canonical_signature(event, &enum_name_set);
                 let mut hasher = sha3::Keccak256::new();
                 hasher.update(canonical.as_bytes());
                 let digest = hasher.finalize();
@@ -62,7 +73,7 @@ impl Module {
                     .parameters
                     .iter()
                     .map(|p| {
-                        let canonical_type = event_canonical_param_type(&p.ty);
+                        let canonical_type = event_canonical_param_type(&p.ty, &enum_name_set);
                         let is_dynamic = event_canonical_type_is_dynamic(&canonical_type);
                         EventParamInfo {
                             canonical_type,
@@ -77,6 +88,7 @@ impl Module {
                         canonical,
                         topic0,
                         params,
+                        is_anonymous: event.anonymous,
                     },
                 )
             })
@@ -101,6 +113,10 @@ impl Module {
 
         let mut function_overloads = HashMap::new();
         let mut function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
+        // Task #191 — first return-parameter type per overload. Populated
+        // alongside `function_first_param_types` so that call-site type
+        // inference (e.g. `c.inc().value`) can resolve the struct field index.
+        let mut function_return_types: HashMap<(String, usize), ValueType> = HashMap::new();
         let mut function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
         for method in &metadata.methods {
             let key = (method.name.clone(), method.parameters.len());
@@ -108,6 +124,10 @@ impl Module {
             if let Some(first_param) = method.parameters.first() {
                 function_first_param_types
                     .insert(key.clone(), ValueType::from_parameter(first_param));
+            }
+            if let Some(first_return) = method.return_parameters.first() {
+                function_return_types
+                    .insert(key.clone(), ValueType::from_parameter(first_return));
             }
             let param_names: Vec<String> = method
                 .parameters
@@ -191,6 +211,57 @@ impl Module {
             })
             .collect();
 
+        // Task #196 — collect zero-arg internal methods that trivially
+        // return a storage pointer to a state variable. The Solidity source
+        // shape is `function ref() internal view returns (T storage) {
+        // return arr; }`. At call sites, `ref().push(v)` /  `ref().length`
+        // / `ref()[i] = v` must alias `arr` directly — otherwise the return
+        // value is `LoadState(arr_state_index)` which, for an array state
+        // variable, evaluates to the LENGTH integer (see
+        // `emit_coerce_storage_value` in
+        // `src/cli/bytecode/bytecode_helpers/storage/state.rs`), and
+        // `.length` then fails with `SIZE: unsupported type` while
+        // `.push(v)` silently falls through to a compatibility no-op.
+        //
+        // This extends Task #117's alias tracking across the function-
+        // return boundary: Task #117 fixed the LOCAL-binding form
+        // (`uint[] storage a = arr;` → `a[idx] = v`), and this fix
+        // extends to FUNCTION-RETURN (`ref()` → `arr`).
+        //
+        // Eligibility constraints (keep this narrow — only simple pointer-
+        // forwarders qualify):
+        //   - zero parameters (no argument flow to trace),
+        //   - exactly one return parameter marked `storage`,
+        //   - body extracts to a single `return <var>;` where `<var>` is
+        //     a state variable name (use `extract_return_expression` so
+        //     both bare `Statement::Return` and one-statement blocks work).
+        let storage_pointer_returning_fns: HashMap<String, String> = metadata
+            .methods
+            .iter()
+            .filter_map(|method| {
+                if !method.parameters.is_empty() {
+                    return None;
+                }
+                if method.return_parameters.len() != 1 {
+                    return None;
+                }
+                let ret_param = method.return_parameters.first()?;
+                if ret_param.storage.as_deref() != Some("storage") {
+                    return None;
+                }
+                let body_expr =
+                    crate::solidity::extract_return_expression(&method.body)?;
+                let state_var_name = match body_expr {
+                    solang_parser::pt::Expression::Variable(id) => id.name,
+                    _ => return None,
+                };
+                if !state_index_map.contains_key(&state_var_name) {
+                    return None;
+                }
+                Some((method.name.clone(), state_var_name))
+            })
+            .collect();
+
         let mut functions = Vec::new();
         let mut constructor_indices = Vec::new();
         let mut deploy_metadata: Option<&FunctionMetadata> = None;
@@ -219,6 +290,7 @@ impl Module {
                 &function_names,
                 &function_overloads,
                 &function_first_param_types,
+                &function_return_types,
                 &using_target_types,
                 &using_function_list_targets,
                 &using_function_list_scope_targets,
@@ -226,6 +298,7 @@ impl Module {
                 &void_functions,
                 &metadata.super_method_map,
                 &library_storage_bodies,
+                &storage_pointer_returning_fns,
             ) {
                 Ok((function, mut function_warnings)) => {
                     if matches!(function.kind, FunctionKind::Constructor) {
@@ -261,6 +334,7 @@ impl Module {
                 &function_names,
                 &function_overloads,
                 &function_first_param_types,
+                &function_return_types,
                 &using_target_types,
                 &using_function_list_targets,
                 &using_function_list_scope_targets,
@@ -268,6 +342,7 @@ impl Module {
                 &void_functions,
                 &metadata.super_method_map,
                 &library_storage_bodies,
+                &storage_pointer_returning_fns,
             ) {
                 Ok((function, mut deploy_warnings)) => {
                     functions.push(function);

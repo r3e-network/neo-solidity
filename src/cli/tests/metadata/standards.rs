@@ -667,6 +667,7 @@ fn event_validation_accepts_correct_transfer_event() {
                 }),
             },
         ],
+        anonymous: false,
     }];
 
     let result = detect_supported_standards(&methods, &events);

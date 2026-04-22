@@ -7,6 +7,43 @@ fn resolve_storage_reference(
     }
 
     match expression {
+        // Task #196 — unwrap a zero-arg internal function that trivially
+        // forwards a state variable as `T storage`. At the IR layer the
+        // call returns `LoadState(state_index)` which, for an Array state
+        // variable, is the LENGTH integer (not the backing Array) — so
+        // `foo().length` crashes at `SIZE: unsupported type` and
+        // `foo().push(v)` silently no-ops. Resolving the call back into
+        // the underlying `Variable(state_var)` lets the existing
+        // storage-reference machinery alias the actual slot: subsequent
+        // `.push(v)`, `.length`, `[i] = v`, etc. walk through the same
+        // `emit_storage_load` / `StoreMappingElement` path that
+        // direct state-var access uses. Extends Task #117 across the
+        // function-return boundary.
+        Expression::FunctionCall(_, func, args) if args.is_empty() => {
+            if let Expression::Variable(fn_ident) = func.as_ref() {
+                if let Some(state_var_name) = ctx.storage_pointer_returning_fn(&fn_ident.name) {
+                    let state_index = *ctx.state_index_map.get(state_var_name)?;
+                    let state_type = ctx.state_type(state_index)?;
+                    if matches!(
+                        state_type,
+                        ValueType::Struct { .. }
+                            | ValueType::Array(_)
+                            | ValueType::Mapping { .. }
+                    ) {
+                        return Some(StorageReference {
+                            state_index,
+                            key_expressions: Vec::new(),
+                            key_types: Vec::new(),
+                            value_type: state_type.clone(),
+                            field_path: Vec::new(),
+                            trailing_key_expressions: Vec::new(),
+                            trailing_key_types: Vec::new(),
+                        });
+                    }
+                }
+            }
+            None
+        }
         Expression::Variable(identifier) => {
             if let Some(alias) = ctx.storage_alias(&identifier.name).cloned() {
                 return Some(alias);

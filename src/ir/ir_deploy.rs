@@ -16,6 +16,7 @@ fn build_deploy_function_with_warnings(
     function_names: &HashSet<String>,
     function_overloads: &HashMap<(String, usize), String>,
     function_first_param_types: &HashMap<(String, usize), ValueType>,
+    function_return_types: &HashMap<(String, usize), ValueType>,
     using_target_types: &[Option<String>],
     using_function_list_targets: &HashMap<String, Vec<Option<String>>>,
     using_function_list_scope_targets: &[Option<String>],
@@ -23,6 +24,7 @@ fn build_deploy_function_with_warnings(
     void_functions: &HashSet<String>,
     super_method_map: &HashMap<String, String>,
     library_storage_bodies: &HashMap<(String, usize), LibraryStorageBody>,
+    storage_pointer_returning_fns: &HashMap<String, String>,
 ) -> Result<(Function, Vec<crate::solidity::Diagnostic>), Vec<IrDiagnostic>> {
     let parameters: Vec<ValueType> = metadata
         .parameters
@@ -60,6 +62,7 @@ fn build_deploy_function_with_warnings(
         function_names,
         function_overloads,
         function_first_param_types,
+        function_return_types,
         using_target_types,
         using_function_list_targets,
         using_function_list_scope_targets,
@@ -67,6 +70,7 @@ fn build_deploy_function_with_warnings(
         void_functions,
         super_method_map,
         library_storage_bodies,
+        storage_pointer_returning_fns,
     );
 
     // Lower state variable initializers (non-constant) into a deploy-time prologue.
@@ -76,6 +80,25 @@ fn build_deploy_function_with_warnings(
             continue;
         }
         if let Some(initializer) = state.initializer.as_ref() {
+            // Task #202 — inline array-literal state-var initializers
+            // (`uint256[] public nums = [1, 2, 3, 4, 5];`) must populate
+            // the storage-array representation: length slot + one
+            // mapping-keyed slot per element. The naive `StoreState` path
+            // writes the whole NeoVM Array as a single opaque blob to the
+            // length slot, so subsequent `nums.length` reads see a
+            // corrupted integer (the array object coerced to an int) and
+            // `nums[i]` mapping lookups all miss. Re-use the runtime
+            // `storage_arr = memory_arr` helper, which is the same
+            // machinery used at runtime for assignment to a storage array.
+            if matches!(ctx.state_type(index), Some(ValueType::Array(_))) {
+                lower_storage_array_assign_from_memory(
+                    index,
+                    initializer,
+                    &mut ctx,
+                    &mut init_instructions,
+                );
+                continue;
+            }
             if lower_expression(initializer, &mut ctx, &mut init_instructions) {
                 init_instructions.push(Instruction::StoreState(index));
             }
