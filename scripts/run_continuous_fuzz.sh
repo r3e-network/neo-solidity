@@ -42,7 +42,7 @@ while true; do
     cat /tmp/fuzz-continuous/cargofuzz1-$ROUND.log
     exit 1
   fi
-  COV1=$(grep "^#.*cov:" /tmp/fuzz-continuous/cargofuzz1-$ROUND.log | tail -1 | awk '{for(i=1;i<=NF;i++) if($i=="cov:") print $(i+1)}' || true)
+  COV1=$(grep -a "^#.*cov:" /tmp/fuzz-continuous/cargofuzz1-$ROUND.log | tail -1 | awk '{for(i=1;i<=NF;i++) if($i=="cov:") print $(i+1)}' || true)
   echo "[$(date)] ✅ cargo-fuzz target 1 done (cov: ${COV1:-N/A})"
 
   # 3. Cargo-fuzz target 2 (NEF parser) - short burst
@@ -53,7 +53,7 @@ while true; do
     cat /tmp/fuzz-continuous/cargofuzz2-$ROUND.log
     exit 1
   fi
-  COV2=$(grep "^#.*cov:" /tmp/fuzz-continuous/cargofuzz2-$ROUND.log | tail -1 | awk '{for(i=1;i<=NF;i++) if($i=="cov:") print $(i+1)}' || true)
+  COV2=$(grep -a "^#.*cov:" /tmp/fuzz-continuous/cargofuzz2-$ROUND.log | tail -1 | awk '{for(i=1;i<=NF;i++) if($i=="cov:") print $(i+1)}' || true)
   echo "[$(date)] ✅ cargo-fuzz target 2 done (cov: ${COV2:-N/A})"
 
   echo "[$(date)] Round $ROUND complete. Sleeping 5s..."
