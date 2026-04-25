@@ -120,6 +120,8 @@ impl ExecutionContext {
                 let key = Self::stack_item_to_bytes(slot_item);
                 let value = Self::stack_item_to_bytes(value_item);
 
+                self.enforce_storage_limit(&key, &value)?;
+
                 let entry = self
                     .storage_overlay
                     .entry(key.clone())
@@ -178,6 +180,8 @@ impl ExecutionContext {
                 let key = Self::stack_item_to_bytes(key_item);
                 let value = Self::stack_item_to_bytes(value_item);
 
+                self.enforce_storage_limit(&key, &value)?;
+
                 let entry = self
                     .storage_overlay
                     .entry(key.clone())
@@ -225,5 +229,45 @@ impl ExecutionContext {
             }
             _ => Ok(false),
         }
+    }
+
+    /// Bug #17: enforce `storage_limit` on every Put. Without this, the
+    /// `storage_limit` field is dead — an attacker contract could `Storage.put`
+    /// arbitrary-length values until the host process OOM-aborts. The check
+    /// computes the cumulative byte footprint of the in-memory `storage_overlay`
+    /// (key + value across all live entries) plus the new entry's contribution,
+    /// and rejects when the total would exceed `storage_limit`. When replacing
+    /// an existing key, the old value's bytes are subtracted before adding the
+    /// new write.
+    fn enforce_storage_limit(&self, key: &[u8], value: &[u8]) -> Result<(), RuntimeError> {
+        // Existing total across live overlay entries.
+        let mut current: usize = 0;
+        for (k, entry) in self.storage_overlay.iter() {
+            if let Some(v) = &entry.value {
+                current = current.saturating_add(k.len()).saturating_add(v.len());
+            }
+        }
+        // Subtract the entry being replaced, if any.
+        let replaced = self
+            .storage_overlay
+            .get(key)
+            .and_then(|e| e.value.as_ref().map(|v| key.len() + v.len()))
+            .unwrap_or(0);
+        let after_replace = current.saturating_sub(replaced);
+        let new_entry = if value.is_empty() {
+            0 // delete (overlay value=None) — no new bytes
+        } else {
+            key.len().saturating_add(value.len())
+        };
+        let projected = after_replace.saturating_add(new_entry);
+        if projected > self.storage_limit {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "Storage.Put: would exceed storage_limit ({} + {} > {})",
+                    after_replace, new_entry, self.storage_limit
+                ),
+            });
+        }
+        Ok(())
     }
 }

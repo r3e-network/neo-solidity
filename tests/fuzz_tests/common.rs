@@ -13,28 +13,135 @@ use proptest::prelude::*;
 pub fn is_solidity_reserved(s: &str) -> bool {
     matches!(
         s,
-        "abstract" | "after" | "alias" | "anonymous" | "apply" | "as" | "assembly" | "async"
-            | "auto" | "bool" | "break" | "byte" | "bytes" | "case" | "catch" | "constant"
-            | "constructor" | "continue" | "contract" | "copyof" | "days" | "default" | "define"
-            | "delete" | "do" | "else" | "emit" | "enum" | "error" | "event" | "external"
-            | "fallback" | "false" | "final" | "for" | "from" | "function" | "hex" | "if"
-            | "immutable" | "implements" | "import" | "in" | "indexed" | "inline" | "instance"
-            | "interface" | "internal" | "is" | "let" | "library" | "macro" | "mapping" | "match"
-            | "memory" | "modifier" | "mutable" | "new" | "null" | "of" | "override" | "partial"
-            | "payable" | "persistent" | "pragma" | "private" | "promise" | "public" | "pure"
-            | "receive" | "record" | "reference" | "relocatable" | "return" | "returns" | "revert"
-            | "sealed" | "seconds" | "sizeof" | "static" | "storage" | "string" | "struct"
-            | "super" | "supports" | "switch" | "temporary" | "this" | "throw" | "true" | "try"
-            | "type" | "typedef" | "typeof" | "unchecked" | "unicode" | "using" | "var" | "view"
-            | "virtual" | "weeks" | "while" | "wei" | "years" | "address" | "fixed" | "int"
-            | "int8" | "int16" | "int32" | "int64" | "int128" | "int256" | "uint" | "uint8"
-            | "uint16" | "uint32" | "uint64" | "uint128" | "uint256" | "bytes1" | "bytes32"
+        "abstract"
+            | "after"
+            | "alias"
+            | "anonymous"
+            | "apply"
+            | "as"
+            | "assembly"
+            | "async"
+            | "auto"
+            | "bool"
+            | "break"
+            | "byte"
+            | "bytes"
+            | "case"
+            | "catch"
+            | "constant"
+            | "constructor"
+            | "continue"
+            | "contract"
+            | "copyof"
+            | "days"
+            | "default"
+            | "define"
+            | "delete"
+            | "do"
+            | "else"
+            | "emit"
+            | "enum"
+            | "error"
+            | "event"
+            | "external"
+            | "fallback"
+            | "false"
+            | "final"
+            | "for"
+            | "from"
+            | "function"
+            | "hex"
+            | "if"
+            | "immutable"
+            | "implements"
+            | "import"
+            | "in"
+            | "indexed"
+            | "inline"
+            | "instance"
+            | "interface"
+            | "internal"
+            | "is"
+            | "let"
+            | "library"
+            | "macro"
+            | "mapping"
+            | "match"
+            | "memory"
+            | "modifier"
+            | "mutable"
+            | "new"
+            | "null"
+            | "of"
+            | "override"
+            | "partial"
+            | "payable"
+            | "persistent"
+            | "pragma"
+            | "private"
+            | "promise"
+            | "public"
+            | "pure"
+            | "receive"
+            | "record"
+            | "reference"
+            | "relocatable"
+            | "return"
+            | "returns"
+            | "revert"
+            | "sealed"
+            | "seconds"
+            | "sizeof"
+            | "static"
+            | "storage"
+            | "string"
+            | "struct"
+            | "super"
+            | "supports"
+            | "switch"
+            | "temporary"
+            | "this"
+            | "throw"
+            | "true"
+            | "try"
+            | "type"
+            | "typedef"
+            | "typeof"
+            | "unchecked"
+            | "unicode"
+            | "using"
+            | "var"
+            | "view"
+            | "virtual"
+            | "weeks"
+            | "while"
+            | "wei"
+            | "years"
+            | "address"
+            | "fixed"
+            | "int"
+            | "int8"
+            | "int16"
+            | "int32"
+            | "int64"
+            | "int128"
+            | "int256"
+            | "uint"
+            | "uint8"
+            | "uint16"
+            | "uint32"
+            | "uint64"
+            | "uint128"
+            | "uint256"
+            | "bytes1"
+            | "bytes32"
     )
 }
 
 pub fn identifier_strategy() -> impl Strategy<Value = String> {
-    "[a-zA-Z_][a-zA-Z0-9_]{0,30}"
-        .prop_filter("not a Solidity reserved keyword", |s| !is_solidity_reserved(s))
+    "[a-zA-Z_][a-zA-Z0-9_]{0,30}".prop_filter("not a Solidity reserved keyword", |s| {
+        !is_solidity_reserved(s)
+    })
 }
 
 pub fn uint_value_strategy() -> impl Strategy<Value = String> {
@@ -92,7 +199,10 @@ pub enum ObservedBehavior {
 pub fn compile_and_execute(source: &str) -> neo_solidity::runtime::ExecutionResult {
     let artifacts = compile_contracts(source, false, 2)
         .unwrap_or_else(|e| panic!("arith-scope compile failed: {:?}\nsource:\n{}", e, source));
-    assert!(!artifacts.is_empty(), "arith-scope compile produced no artifacts");
+    assert!(
+        !artifacts.is_empty(),
+        "arith-scope compile produced no artifacts"
+    );
     let mut runtime = NeoRuntime::new(RuntimeConfig::default())
         .expect("arith-scope runtime construction must not fail");
     runtime
@@ -124,9 +234,7 @@ pub fn observe(result: &neo_solidity::runtime::ExecutionResult) -> ObservedBehav
     // abi.encode(code)` (selector = 0x4e487b71) for assert/div-by-zero/
     // mod-by-zero/empty-pop/enum-cast panics, so reading the selector +
     // last byte of the 32-byte BE uint is the shape-agnostic path.
-    if result.return_data.len() >= 36
-        && &result.return_data[..4] == &[0x4eu8, 0x48, 0x7b, 0x71]
-    {
+    if result.return_data.len() >= 36 && &result.return_data[..4] == &[0x4eu8, 0x48, 0x7b, 0x71] {
         // High bits must be zero for the code to fit in a byte — which is
         // true for every panic code Solidity 0.8 defines (0x01..=0x51).
         if result.return_data[4..35].iter().all(|b| *b == 0) {

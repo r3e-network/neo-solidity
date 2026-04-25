@@ -92,11 +92,7 @@ impl Function {
         for param in metadata.parameters.iter() {
             if let Some(name) = &param.name {
                 if let Some(binding) = parse_function_pointer_type(&param.ty) {
-                    ctx.register_function_pointer_binding(
-                        name,
-                        binding.0,
-                        binding.1,
-                    );
+                    ctx.register_function_pointer_binding(name, binding.0, binding.1);
                 }
             }
         }
@@ -207,6 +203,8 @@ impl Function {
                         // Guarded on `is_externally_callable` — internal
                         // functions keep the Array shape so intra-contract
                         // callers can still destructure via `ArrayGet`.
+                        let static_slot_return =
+                            returns.iter().all(build_is_static_abi_slot_value_type);
                         for (slot, value_type) in return_slots.iter().zip(returns.iter()) {
                             if let Some(local_index) = slot {
                                 instructions.push(Instruction::LoadLocal(*local_index));
@@ -217,11 +215,28 @@ impl Function {
                                     &mut instructions,
                                 );
                             }
+                            if static_slot_return
+                                && !build_emit_static_abi_slot_for_value_type(
+                                    value_type,
+                                    &mut ctx,
+                                    &mut instructions,
+                                )
+                            {
+                                ctx.record_error("failed to encode static ABI return slot");
+                                break;
+                            }
                         }
-                        instructions.push(Instruction::CallBuiltin {
-                            builtin: BuiltinCall::AbiEncode,
-                            arg_count: returns.len(),
-                        });
+                        if static_slot_return {
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::BytesConcat,
+                                arg_count: returns.len(),
+                            });
+                        } else {
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::AbiEncode,
+                                arg_count: returns.len(),
+                            });
+                        }
                         instructions.push(Instruction::Return);
                     } else {
                         // Legacy Array-packed shape for internal/private multi-return.
@@ -290,6 +305,163 @@ impl Function {
             warnings,
         ))
     }
+}
+
+fn build_is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
+    matches!(
+        value_type,
+        ValueType::Integer { .. }
+            | ValueType::Boolean
+            | ValueType::Address
+            | ValueType::ByteArray {
+                fixed_len: Some(1..=32)
+            }
+    )
+}
+
+fn build_emit_static_abi_slot_for_value_type(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    match value_type {
+        ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            build_emit_static_slot_32(ctx, instructions, true);
+            true
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len == 32 => true,
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len < 32 => {
+            build_emit_pad_bytesn_to_32(ctx, instructions, *len as usize);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn build_emit_static_slot_32(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    reverse: bool,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_ret_slot_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__abi_ret_slot_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__abi_ret_slot_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__abi_ret_slot_count_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    let ge_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+
+    if reverse {
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::ReverseItems);
+    } else {
+        instructions.push(Instruction::LoadLocal(dst_local));
+    }
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+}
+
+fn build_emit_pad_bytesn_to_32(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    n: usize,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_ret_bytesn_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__abi_ret_bytesn_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__abi_ret_bytesn_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__abi_ret_bytesn_count_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    let ge_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(n as u64),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(n as u64),
+    )));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
 }
 
 /// Task #186 — parse a Solidity type string of the form

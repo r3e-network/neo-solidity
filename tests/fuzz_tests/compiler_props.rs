@@ -7,8 +7,8 @@
 
 use super::common::*;
 use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use neo_solidity::runtime::types::StackItem;
+use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ==================== Compiler Fuzz Tests ====================

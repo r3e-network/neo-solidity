@@ -6,6 +6,19 @@
 // - External member calls with read-only flags
 // - Syscalls.contractCall in view functions
 
+fn assert_low_level_ir_error_contains(source: &str, expected: &str) {
+    let err = compile_contracts(source, false, 2).expect_err("expected low-level call failure");
+    match err {
+        CompileError::Ir(diags) => {
+            assert!(
+                diags.iter().any(|diag| diag.message.contains(expected)),
+                "expected IR diagnostic containing {expected:?}, got: {diags:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
 #[test]
 fn encode_with_selector_recovers_method_name_for_low_level_calls() {
     let source = r#"
@@ -680,5 +693,52 @@ fn low_level_call_rejects_signature_without_function_name() {
             );
         }
         other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn opaque_dynamic_low_level_call_payload_fails_instead_of_fake_success() {
+    let source = r#"
+    pragma solidity ^0.8.20;
+
+    contract OpaquePayloadHarness {
+        function run(address target, bytes memory data) public returns (bool ok, bytes memory out) {
+            (ok, out) = target.call(data);
+        }
+    }
+    "#;
+
+    assert_low_level_ir_error_contains(source, "opaque bytes");
+}
+
+#[test]
+fn unsupported_evm_precompile_range_is_rejected_explicitly() {
+    for index in 0x06u8..=0x09 {
+        let source = format!(
+            r#"
+            pragma solidity ^0.8.20;
+
+            contract UnsupportedPrecompileHarness {{
+                function run(bytes memory data) public view returns (bool ok, bytes memory out) {{
+                    (ok, out) = address(0x{index:02x}).staticcall(data);
+                }}
+            }}
+            "#
+        );
+
+        let err =
+            compile_contracts(&source, false, 2).expect_err("unsupported EVM precompile must fail");
+        match err {
+            CompileError::Ir(diags) => {
+                assert!(
+                    diags.iter().any(|diag| {
+                        diag.message.contains("unsupported EVM precompile")
+                            && diag.message.contains(&format!("0x{index:02x}"))
+                    }),
+                    "expected unsupported precompile diagnostic for 0x{index:02x}, got: {diags:?}"
+                );
+            }
+            other => panic!("unexpected error variant for 0x{index:02x}: {other:?}"),
+        }
     }
 }

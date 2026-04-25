@@ -98,7 +98,9 @@ fn try_lower_member_builtin(
         };
 
         // Push the 4-byte selector.
-        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(selector_bytes)));
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            selector_bytes,
+        )));
 
         // Extract the tuple argument list: `(arg0, arg1, ...)` or a single
         // non-tuple expression. The AST shape is `Expression::List` for
@@ -111,6 +113,19 @@ fn try_lower_member_builtin(
             Expression::Parenthesis(_, inner) => vec![inner.as_ref()],
             other => vec![other],
         };
+
+        if let Some(result) =
+            lower_abi_encode_args_direct_for_encode_call(&payload_args, ctx, instructions)
+        {
+            if !result {
+                return Some(false);
+            }
+            instructions.push(Instruction::CallBuiltin {
+                builtin: BuiltinCall::BytesConcat,
+                arg_count: 2,
+            });
+            return Some(true);
+        }
 
         // Task #89 — `bytesN(..)` / `address(..)` casts route through
         // `coerce_to_fixed_bytes` which leaves the MEMCPY-returned dst
@@ -136,9 +151,7 @@ fn try_lower_member_builtin(
         for arg in &payload_args {
             // Detect struct-typed arg whose expression is a bare Variable —
             // then use `LoadParameter(base+i)` for each flattened field.
-            if let Some((base_slot, field_count)) =
-                resolve_struct_param_flat_slots(arg, ctx)
-            {
+            if let Some((base_slot, field_count)) = resolve_struct_param_flat_slots(arg, ctx) {
                 for i in 0..field_count {
                     instructions.push(Instruction::LoadParameter(base_slot + i));
                 }
@@ -150,10 +163,7 @@ fn try_lower_member_builtin(
                 success = false;
                 continue;
             }
-            if is_fixed_bytes_cast_expr(arg) {
-                instructions.push(Instruction::Swap);
-                instructions.push(Instruction::Drop(ValueType::Any));
-            }
+            // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
             flat_arg_count += 1;
         }
         if !success {
@@ -208,6 +218,23 @@ fn try_lower_member_builtin(
 
             instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(selector)));
 
+            if payload_args.is_empty() {
+                return Some(true);
+            }
+
+            if let Some(result) =
+                lower_abi_encode_args_direct_from_slice(payload_args, ctx, instructions)
+            {
+                if !result {
+                    return Some(false);
+                }
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::BytesConcat,
+                    arg_count: 2,
+                });
+                return Some(true);
+            }
+
             let mut success = true;
             for arg in payload_args {
                 if !lower_expression(arg, ctx, instructions) {
@@ -241,6 +268,23 @@ fn try_lower_member_builtin(
             return Some(false);
         }
 
+        if payload_args.is_empty() {
+            return Some(true);
+        }
+
+        if let Some(result) =
+            lower_abi_encode_args_direct_from_slice(payload_args, ctx, instructions)
+        {
+            if !result {
+                return Some(false);
+            }
+            instructions.push(Instruction::CallBuiltin {
+                builtin: BuiltinCall::BytesConcat,
+                arg_count: 2,
+            });
+            return Some(true);
+        }
+
         let mut success = true;
         for arg in payload_args {
             if !lower_expression(arg, ctx, instructions) {
@@ -269,8 +313,7 @@ fn try_lower_member_builtin(
         return Some(result);
     }
 
-    if let Some(result) = try_lower_syscalls_member_builtin(base, member, args, ctx, instructions)
-    {
+    if let Some(result) = try_lower_syscalls_member_builtin(base, member, args, ctx, instructions) {
         return Some(result);
     }
 

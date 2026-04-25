@@ -325,6 +325,85 @@ fn lower_assignment(
         }
         instructions.append(&mut rhs_instrs);
 
+        // Detect `(a, b, ...) = this.<method>()` where `<method>` is an
+        // externally-callable function in the current contract returning
+        // multiple values. The external-call lowering routes `this.<method>`
+        // through `System.Contract.Call` (which for self-dispatch runs the
+        // callee's body, including its ABI-encoding epilogue) — so after
+        // `lower_expression(rhs)` the stack carries an EVM-canonical
+        // 32-byte-per-slot ABI-encoded ByteString, NOT a NeoVM `Array`.
+        //
+        // The standard destructure path below (STLOC → PICKITEM[i]) indexes
+        // the top-of-stack item as an Array, which for a ByteString yields
+        // individual bytes (each 0x00 for a well-aligned BE slot). Mirror
+        // Solidity's `(a, b) = abi.decode(this.f(), (T1, T2, ...))` sugar by
+        // ABI-decoding the buffer into an Array of native values, matching
+        // the arity and static types of the LHS tuple targets. The existing
+        // PICKITEM chain then operates on the Array correctly.
+        //
+        // Only static-slot types (uint*/int*/bool/address/bytesN) are
+        // handled here; dynamic types (string/bytes/T[]) fall through to the
+        // legacy path.
+        if is_this_external_tuple_call(rhs, ctx) {
+            // Walk the declared LHS parameter types (not the `TupleTarget`
+            // enum, which is function-local) to collect static-slot types
+            // suitable for the compile-time EVM ABI-decode path. Any miss
+            // (Ignore/Invalid/nested/dynamic-type) falls back to the legacy
+            // destructure.
+            let target_static_types: Option<Vec<ValueType>> = params
+                .iter()
+                .map(|(_, param)| {
+                    let parameter = param.as_ref()?;
+                    let ty = infer_type_from_expression(&parameter.ty, ctx)?;
+                    if abi_static_slot_count(&ty) == Some(1) {
+                        Some(ty)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if let Some(static_types) = target_static_types {
+                // Stack top: ABI-encoded ByteString of `static_types.len() * 32` bytes.
+                let buffer_local = ctx.allocate_local(
+                    "__this_tuple_abi_buf".to_string(),
+                    Some(ValueType::ByteArray { fixed_len: None }),
+                );
+                instructions.push(Instruction::StoreLocal(buffer_local));
+
+                // Materialise a fresh Array of the same arity as the LHS.
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(static_types.len() as u64),
+                )));
+                instructions.push(Instruction::NewArray {
+                    element_type: ValueType::Any,
+                });
+                let array_local = ctx.allocate_local(
+                    "__this_tuple_array".to_string(),
+                    Some(ValueType::Array(Box::new(ValueType::Any))),
+                );
+                instructions.push(Instruction::StoreLocal(array_local));
+
+                // For each slot, decode in-place from the buffer.
+                for (index, value_type) in static_types.iter().enumerate() {
+                    instructions.push(Instruction::LoadLocal(array_local));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::from(index as u64),
+                    )));
+                    emit_abi_decode_static_slot(
+                        buffer_local,
+                        index,
+                        value_type,
+                        ctx,
+                        instructions,
+                    );
+                    instructions.push(Instruction::ArraySet);
+                }
+
+                // Hand the populated Array to the legacy tuple-destructure below.
+                instructions.push(Instruction::LoadLocal(array_local));
+            }
+        }
+
         let tuple_local = ctx.allocate_local("__tuple_assign".to_string(), None);
         instructions.push(Instruction::StoreLocal(tuple_local));
 
@@ -495,15 +574,15 @@ fn lower_assignment(
                     .enumerate()
                     .find(|(_, field)| field.name == member.name)
                 {
-                    let load_base = if let Some(local_index) = ctx.resolve_local(&base.name) {
-                        Some(Instruction::LoadLocal(local_index))
-                    } else if let Some(param_index) =
-                        ctx.param_index_map.get(&base.name).copied()
-                    {
-                        Some(Instruction::LoadParameter(param_index))
-                    } else {
-                        None
-                    };
+                    let load_base = ctx
+                        .resolve_local(&base.name)
+                        .map(Instruction::LoadLocal)
+                        .or_else(|| {
+                            ctx.param_index_map
+                                .get(&base.name)
+                                .copied()
+                                .map(Instruction::LoadParameter)
+                        });
 
                     if let Some(load_base) = load_base {
                         // Emit: load base → push field_index → load rhs → ArraySet.
@@ -675,3 +754,54 @@ fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::Jump { target: delete_cond_label });
     instructions.push(Instruction::Label(delete_end_label));
 }
+
+/// True if `rhs` is an external-target member call that, at the lowered
+/// bytecode level, goes through `System.Contract.Call` and therefore
+/// leaves an EVM-canonical ABI-encoded ByteString on the stack for
+/// multi-return methods. Covers three shapes:
+///
+///   1. `this.<method>(...)`            — Variable("this") inner
+///   2. `IContract(addr).<method>(...)` — FunctionCall(ContractType, [addr]) inner
+///   3. `<addr-typed var>.<method>(...)` — inner infers to `ValueType::Address`
+///
+/// Without this broader match, (2) and (3) skipped the compile-time
+/// ABI-decode and the destructure PICKITEM chain indexed the raw
+/// encoded bytes — producing zero-valued per-byte reads.
+fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringContext) -> bool {
+    let Expression::FunctionCall(_, func, _) = rhs else {
+        return false;
+    };
+    let Expression::MemberAccess(_, inner, _member) = func.as_ref() else {
+        return false;
+    };
+
+    // Shape 1 — `this.method()`.
+    if matches!(inner.as_ref(), Expression::Variable(id) if id.name == "this") {
+        return true;
+    }
+
+    // Shape 2 — `IContract(addr).method()` / `IContract(other).method()`.
+    // The inner is a single-arg FunctionCall whose callee resolves to a
+    // contract / interface type name.
+    if let Expression::FunctionCall(_, cast_func, cast_args) = inner.as_ref() {
+        if cast_args.len() == 1 {
+            let is_contract_type = match cast_func.as_ref() {
+                Expression::Variable(id) => ctx.is_contract_type_name(&id.name),
+                Expression::MemberAccess(_, _, id) => ctx.is_contract_type_name(&id.name),
+                _ => false,
+            };
+            if is_contract_type {
+                return true;
+            }
+        }
+    }
+
+    // Shape 3 — any other inner that type-infers to `Address`. This catches
+    // stored state vars / parameters of contract/interface types that flow
+    // through type inference as `Address`.
+    matches!(
+        infer_type_from_expression(inner.as_ref(), ctx),
+        Some(ValueType::Address)
+    )
+}
+

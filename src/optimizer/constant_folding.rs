@@ -207,11 +207,7 @@ impl Optimizer {
                 }
             }
             // x - 0 = x
-            "sub" => {
-                if arg2_const == Some(0) {
-                    return Some(args[0].clone());
-                }
-            }
+            "sub" if arg2_const == Some(0) => return Some(args[0].clone()),
             // x * 1 = 1 * x = x, x * 0 = 0 * x = 0, x * 2^n = shl(n, x)
             "mul" => {
                 if arg1_const == Some(1) {
@@ -300,11 +296,7 @@ impl Optimizer {
                     }
                 }
             }
-            "sdiv" => {
-                if arg2_const == Some(1) {
-                    return Some(args[0].clone());
-                }
-            }
+            "sdiv" if arg2_const == Some(1) => return Some(args[0].clone()),
             // x % 2^n = and(x, 2^n - 1)
             "mod" => {
                 if let Some(val) = arg2_const {
@@ -330,22 +322,18 @@ impl Optimizer {
                 }
             }
             // x & x = x, x | x = x
-            "and" | "or" => {
-                if self.nodes_equal(&args[0], &args[1]) {
-                    return Some(args[0].clone());
-                }
+            "and" | "or" if self.nodes_equal(&args[0], &args[1]) => {
+                return Some(args[0].clone());
             }
             // x ^ x = 0
-            "xor" => {
-                if self.nodes_equal(&args[0], &args[1]) {
-                    return Some(AstNode {
-                        node_type: AstNodeType::Literal {
-                            value: "0".to_string(),
-                        },
-                        line,
-                        column,
-                    });
-                }
+            "xor" if self.nodes_equal(&args[0], &args[1]) => {
+                return Some(AstNode {
+                    node_type: AstNodeType::Literal {
+                        value: "0".to_string(),
+                    },
+                    line,
+                    column,
+                });
             }
             _ => {}
         }

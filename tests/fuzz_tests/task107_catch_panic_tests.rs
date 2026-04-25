@@ -44,21 +44,32 @@ contract C {
         catch (bytes memory) { return 0xfc; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("107 0x11 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("107 0x11 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("107 0x11 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "handle", &[] as &[StackItem]).expect("107 0x11 call");
-    assert!(r.success,
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "handle",
+            &[] as &[StackItem],
+        )
+        .expect("107 0x11 call");
+    assert!(
+        r.success,
         "107 0x11 handle() must succeed (catch absorbed panic); exc={:?}",
-        r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(decode_uint_le(&r.return_data),
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        decode_uint_le(&r.return_data),
         num_bigint::BigUint::from(0x11u64),
         "107 0x11 handle() must return Panic 0x11 via `catch Panic(uint)`; \
          got rd_hex={} (0xfe=try-success, 0xfd=Error path, 0xfc=bytes path)",
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 }
 
 // Panic 0x21 — enum-cast out-of-range.  `Status(uint8(3))` with only 3
@@ -81,21 +92,32 @@ contract C {
         catch (bytes memory) { return 0xfc; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("107 0x21 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("107 0x21 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("107 0x21 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "handle", &[] as &[StackItem]).expect("107 0x21 call");
-    assert!(r.success,
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "handle",
+            &[] as &[StackItem],
+        )
+        .expect("107 0x21 call");
+    assert!(
+        r.success,
         "107 0x21 handle() must succeed (catch absorbed panic); exc={:?}",
-        r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(decode_uint_le(&r.return_data),
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        decode_uint_le(&r.return_data),
         num_bigint::BigUint::from(0x21u64),
         "107 0x21 handle() must return Panic 0x21 via `catch Panic(uint)`; \
          got rd_hex={} (0xfe=try-success, 0xfd=Error path, 0xfc=bytes path)",
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 }
 
 // Panic 0x32 — array-index OOB.  `arr[5]` on a 3-length array must revert
@@ -119,21 +141,32 @@ contract C {
         catch (bytes memory) { return 0xfc; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("107 0x32 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("107 0x32 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("107 0x32 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "handle", &[] as &[StackItem]).expect("107 0x32 call");
-    assert!(r.success,
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "handle",
+            &[] as &[StackItem],
+        )
+        .expect("107 0x32 call");
+    assert!(
+        r.success,
         "107 0x32 handle() must succeed (catch absorbed panic); exc={:?}",
-        r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(decode_uint_le(&r.return_data),
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        decode_uint_le(&r.return_data),
         num_bigint::BigUint::from(0x32u64),
         "107 0x32 handle() must return Panic 0x32 via `catch Panic(uint)`; \
          got rd_hex={} (0xfe=try-success, 0xfd=Error path, 0xfc=bytes path)",
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 }
 
 // Panic 0x41 — abi.decode short buffer.  `abi.decode(hex"00", (uint256))`
@@ -156,21 +189,32 @@ contract C {
         catch (bytes memory) { return 0xfc; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("107 0x41 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("107 0x41 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("107 0x41 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "handle", &[] as &[StackItem]).expect("107 0x41 call");
-    assert!(r.success,
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "handle",
+            &[] as &[StackItem],
+        )
+        .expect("107 0x41 call");
+    assert!(
+        r.success,
         "107 0x41 handle() must succeed (catch absorbed panic); exc={:?}",
-        r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(decode_uint_le(&r.return_data),
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        decode_uint_le(&r.return_data),
         num_bigint::BigUint::from(0x41u64),
         "107 0x41 handle() must return Panic 0x41 via `catch Panic(uint)`; \
          got rd_hex={} (0xfe=try-success, 0xfd=Error path, 0xfc=bytes path)",
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 }
 
 // ==================== Task #108 — Runtime-side INT256_MIN / -1 Panic envelope ====================
@@ -211,22 +255,31 @@ contract C {
         catch (bytes memory) { return 0xfc; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("108 compile: {:?}", e));
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("108 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("108 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "handle", &[] as &[StackItem]).expect("108 call");
-    assert!(r.success,
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "handle",
+            &[] as &[StackItem],
+        )
+        .expect("108 call");
+    assert!(
+        r.success,
         "108 handle() must succeed (catch absorbed panic); exc={:?}",
-        r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(decode_uint_le(&r.return_data),
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        decode_uint_le(&r.return_data),
         num_bigint::BigUint::from(0x11u64),
         "108 handle() must return Panic 0x11 via `catch Panic(uint)` for \
          INT256_MIN / -1; got rd_hex={} (0xfe=try-success, 0xfd=Error path, \
          0xfc=bytes path — the legacy \"Panic: 0x11\" ByteString shape would \
          route through 0xfc since UTF-8 bytes don't decode as Panic(uint256))",
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 }
-

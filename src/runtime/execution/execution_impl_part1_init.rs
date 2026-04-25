@@ -30,6 +30,7 @@ impl ExecutionContext {
             static_fields: Vec::new(),
             memory: Vec::new(),
             memory_limit: config.memory_limit,
+            storage_limit: config.storage_limit,
             return_data: Vec::new(),
             logs: Vec::new(),
             call_stack: Vec::new(),

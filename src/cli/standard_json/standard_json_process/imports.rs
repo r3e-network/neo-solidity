@@ -1,7 +1,25 @@
+#[derive(Debug, Clone)]
+struct StandardJsonContractSource {
+    file_name: String,
+    contract_name: String,
+}
+
+struct CombinedStandardJsonSource {
+    source: String,
+    contract_sources: Vec<StandardJsonContractSource>,
+    source_units: Vec<CombinedStandardJsonSourceUnit>,
+}
+
+struct CombinedStandardJsonSourceUnit {
+    root_file: String,
+    source: String,
+    contract_sources: Vec<StandardJsonContractSource>,
+}
+
 fn build_combined_source_with_import_validation(
     sources: &[(String, String, String)],
     errors: &mut Vec<Value>,
-) -> String {
+) -> CombinedStandardJsonSource {
     use solang_parser::pt::{Import, ImportPath, SourceUnitPart};
     use std::collections::{HashMap, HashSet, VecDeque};
     use std::path::{Component, Path};
@@ -230,17 +248,119 @@ fn build_combined_source_with_import_validation(
         );
     }
 
-    let mut combined = String::new();
-    for (idx, file) in order.iter().enumerate() {
+    fn append_sources_for_files(files: &[String], content_map: &HashMap<String, String>) -> String {
+        let mut combined = String::new();
+        for (idx, file) in files.iter().enumerate() {
+            let Some(content) = content_map.get(file) else {
+                continue;
+            };
+            if idx > 0 {
+                combined.push_str("\n\n");
+            }
+            combined.push_str(&format!("// --- {file}\n"));
+            combined.push_str(content);
+        }
+        combined
+    }
+
+    let mut parsed_contracts: HashMap<String, Vec<(String, ContractKind)>> = HashMap::new();
+    for file in &order {
         let Some(content) = content_map.get(file) else {
             continue;
         };
-        if idx > 0 {
-            combined.push_str("\n\n");
+        if let Ok(contracts) = parse_source(content) {
+            let mut file_contracts = Vec::new();
+            for contract in contracts {
+                file_contracts.push((contract.name, contract.kind));
+            }
+            parsed_contracts.insert(file.clone(), file_contracts);
         }
-        combined.push_str(&format!("// --- {file}\n"));
-        combined.push_str(content);
     }
 
-    combined
+    let has_primary_contract = parsed_contracts.values().flatten().any(|(_, kind)| {
+        matches!(
+            kind,
+            ContractKind::Contract | ContractKind::AbstractContract
+        )
+    });
+
+    fn selected_contract_sources(
+        files: &[String],
+        parsed_contracts: &HashMap<String, Vec<(String, ContractKind)>>,
+        has_primary_contract: bool,
+    ) -> Vec<StandardJsonContractSource> {
+        let mut contract_sources = Vec::new();
+        for file in files {
+            let Some(contracts) = parsed_contracts.get(file) else {
+                continue;
+            };
+            for (contract_name, kind) in contracts {
+                if has_primary_contract
+                    && !matches!(
+                        kind,
+                        ContractKind::Contract | ContractKind::AbstractContract
+                    )
+                {
+                    continue;
+                }
+                contract_sources.push(StandardJsonContractSource {
+                    file_name: file.clone(),
+                    contract_name: contract_name.clone(),
+                });
+            }
+        }
+        contract_sources
+    }
+
+    fn collect_closure_order(
+        node: &str,
+        deps: &HashMap<String, Vec<String>>,
+        visited: &mut HashSet<String>,
+        visiting: &mut HashSet<String>,
+        order: &mut Vec<String>,
+    ) {
+        if visited.contains(node) {
+            return;
+        }
+        if !visiting.insert(node.to_string()) {
+            return;
+        }
+        if let Some(children) = deps.get(node) {
+            for dep in children {
+                collect_closure_order(dep, deps, visited, visiting, order);
+            }
+        }
+        visiting.remove(node);
+        visited.insert(node.to_string());
+        order.push(node.to_string());
+    }
+
+    let combined = append_sources_for_files(&order, &content_map);
+    let contract_sources =
+        selected_contract_sources(&order, &parsed_contracts, has_primary_contract);
+    let source_units = sources
+        .iter()
+        .map(|(file, _, _)| {
+            let mut visited = HashSet::new();
+            let mut visiting = HashSet::new();
+            let mut unit_order = Vec::new();
+            collect_closure_order(file, &deps, &mut visited, &mut visiting, &mut unit_order);
+
+            CombinedStandardJsonSourceUnit {
+                root_file: file.clone(),
+                source: append_sources_for_files(&unit_order, &content_map),
+                contract_sources: selected_contract_sources(
+                    &unit_order,
+                    &parsed_contracts,
+                    has_primary_contract,
+                ),
+            }
+        })
+        .collect();
+
+    CombinedStandardJsonSource {
+        source: combined,
+        contract_sources,
+        source_units,
+    }
 }

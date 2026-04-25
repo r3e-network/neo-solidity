@@ -4,6 +4,10 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 **Legend**: Supported | Partial | Not Supported
 
+This matrix is a NeoVM support guide, not a promise of full EVM runtime
+compatibility. Ethereum contracts should be reviewed against
+`docs/internals/parity-and-limitations.md` before production deployment.
+
 ---
 
 ## Types
@@ -22,7 +26,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `mapping`               | Supported | Key-value via Neo Storage prefix model                                 |
 | `struct`                | Supported | Value types and nested structs                                         |
 | `enum`                  | Supported | Compiled to uint8 constants                                            |
-| `function` types        | Partial   | Internal function pointers only; external function types not supported |
+| `function` types        | Not Supported | Function pointer types are rejected by the Neo type resolver; use named functions and inheritance |
 | `type(...)` expressions | Supported | `.min`, `.max`, `.name`, `.interfaceId` for integer/contract types     |
 
 ## Control Flow
@@ -109,12 +113,12 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 
 | Solidity Feature          | Status    | Notes                                           |
 | ------------------------- | --------- | ----------------------------------------------- |
-| `abi.encode`              | Supported | Maps to `StdLib.serialize`                      |
-| `abi.decode`              | Supported | Maps to `StdLib.deserialize`                    |
-| `abi.encodePacked`        | Partial   | Concatenation-based encoding                    |
-| `abi.encodeWithSignature` | Supported | Used for low-level call lowering                |
-| `abi.encodeWithSelector`  | Supported | Used for low-level call lowering                |
-| `abi.encodeCall`          | Supported | Maps to `StdLib.serialize` (same as abi.encode) |
+| `abi.encode`              | Partial   | Selected compiler/runtime paths are supported; dynamic payloads and standalone production use need Neo-Express validation |
+| `abi.decode`              | Partial   | Maps to `StdLib.deserialize`; dynamic production behavior should be validated on Neo-Express |
+| `abi.encodePacked`        | Partial   | Concatenation-based encoding; not full Solidity ABI packed parity for every type |
+| `abi.encodeWithSignature` | Partial   | Used for low-level call lowering; standalone use approximates calldata |
+| `abi.encodeWithSelector`  | Partial   | Used for low-level call lowering; standalone use approximates calldata |
+| `abi.encodeCall`          | Partial   | Maps through the same limited serialization path as `abi.encode` |
 
 ## Neo N3 Specific
 
@@ -150,7 +154,7 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 ## EVM Feature Compatibility
 
 | Solidity Feature                        | Status        | Notes                                                                                                   |
-| --------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------ |
+| --------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
 | Inline assembly (`assembly {}`)         | Partial       | Compiles as no-op with warning; special handlers for extsload/exttload                                  |
 | `delegatecall`                          | Partial       | Compiles as `System.Contract.Call` with warning; isolated storage semantics differ                      |
 | `selfdestruct`                          | Supported     | Auto-mapped to `ContractManagement.destroy()` with warning                                              |
@@ -168,13 +172,13 @@ Solidity feature support status for the Neo Solidity Compiler (`neo-solc`).
 | `block.sha3`                            | Supported     | Auto-mapped to Ledger.currentHash (the current block's hash) with warning. Deprecated in Solidity 0.8+. |
 | `address.codehash`                      | Supported     | Auto-mapped to contract script hash with warning                                                        |
 | `address.balance`                       | Supported     | Auto-mapped to Gas.balanceOf                                                                            |
-| `address.call`                          | Supported     | Auto-mapped to System.Contract.Call                                                                     |
-| `address.staticcall`                    | Supported     | Auto-mapped to System.Contract.Call (read-only)                                                         |
+| `address.call`                          | Partial       | Auto-mapped to System.Contract.Call; ABI payload and return wrapping differ from EVM                    |
+| `address.staticcall`                    | Partial       | Auto-mapped to System.Contract.Call (read-only); ABI payload and return wrapping differ from EVM        |
 | `address.transfer`                      | Supported     | Auto-mapped to Gas.transfer                                                                             |
 | `address.send`                          | Supported     | Auto-mapped to Gas.transfer                                                                             |
 | `msg.value`                             | Partial       | Mapped inside `onNEP17Payment` callback; not available elsewhere                                        |
-| `msg.data`                              | Supported     | Approximated as `selector                                                                               |     | abi.encode(current args)` outside onNEP17Payment |
-| `msg.sig`                               | Supported     | Compiles to empty bytes4 (method dispatch by name on Neo N3)                                            |
+| `msg.data`                              | Partial       | Approximated as selector plus encoded current args outside onNEP17Payment                              |
+| `msg.sig`                               | Partial       | Approximated as the current function selector; internal-call propagation differs from EVM               |
 | Yul / inline Yul                        | Not Supported | Compiler accepts Solidity source only                                                                   |
 | User-defined value types                | Supported     | `type X is Y` transparent aliases; `wrap`/`unwrap` are no-ops                                           |
 | Transient storage (`tstore`/`tload`)    | Not Supported | EIP-1153; no Neo equivalent                                                                             |

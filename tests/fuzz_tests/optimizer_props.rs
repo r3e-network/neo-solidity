@@ -9,8 +9,8 @@
 use super::common::*;
 use neo_solidity::cli::compile_contracts;
 use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use neo_solidity::runtime::types::StackItem;
+use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 use sha2::{Digest, Sha256};
 
@@ -27,8 +27,8 @@ fn compile_and_call(
         return Err("no artifacts".to_string());
     }
     let art = &artifacts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default())
-        .map_err(|e| format!("runtime failed: {e:?}"))?;
+    let mut rt =
+        NeoRuntime::new(RuntimeConfig::default()).map_err(|e| format!("runtime failed: {e:?}"))?;
     rt.call_method(&art.bytecode, &art.tokens, &art.manifest, method, args)
         .map_err(|e| format!("call_method failed: {e:?}"))
 }
@@ -40,7 +40,10 @@ fn assert_results_equivalent(
     b: &neo_solidity::runtime::ExecutionResult,
 ) {
     assert_eq!(a.success, b.success, "success mismatch between O0 and O3");
-    assert_eq!(a.return_data, b.return_data, "return_data mismatch between O0 and O3");
+    assert_eq!(
+        a.return_data, b.return_data,
+        "return_data mismatch between O0 and O3"
+    );
     match (&a.exception, &b.exception) {
         (None, None) => {}
         (Some(ae), Some(be)) => {
@@ -473,5 +476,606 @@ contract TestContract {{
                 prop_assert_eq!(t1.call_flags, t2.call_flags, "token call_flags mismatch");
             }
         }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(12))]
+
+    // ------------------------------------------------------------------
+    // 10. Optimizer semantic equivalence — arithmetic pipeline across all 4 levels
+    // ------------------------------------------------------------------
+    // Compiles a non-trivial arithmetic pipeline at O0/O1/O2/O3 and asserts
+    // the return_data is identical at every level. A divergence would be an
+    // optimizer bug.
+    #[test]
+    fn optimizer_semantic_equivalence_arithmetic_pipeline(
+        a in any::<u32>(),
+        b in any::<u32>(),
+        c in any::<u32>(),
+    ) {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract TestContract {
+    function compute(uint256 a, uint256 b, uint256 c) public pure returns (uint256) {
+        unchecked {
+            return (a + b) * c + (a ^ b) - (a % (c + 1));
+        }
+    }
+}"#
+        .to_string();
+
+        let args = [
+            StackItem::Integer(a as i64),
+            StackItem::Integer(b as i64),
+            StackItem::Integer(c as i64),
+        ];
+
+        let r0 = compile_and_call(&source, 0, "compute", &args);
+        let r1 = compile_and_call(&source, 1, "compute", &args);
+        let r2 = compile_and_call(&source, 2, "compute", &args);
+        let r3 = compile_and_call(&source, 3, "compute", &args);
+
+        prop_assert!(r0.is_ok(), "O0 execution failed: {:?}", r0.err());
+        prop_assert!(r1.is_ok(), "O1 execution failed: {:?}", r1.err());
+        prop_assert!(r2.is_ok(), "O2 execution failed: {:?}", r2.err());
+        prop_assert!(r3.is_ok(), "O3 execution failed: {:?}", r3.err());
+
+        let out0 = r0.unwrap().return_data;
+        let out1 = r1.unwrap().return_data;
+        let out2 = r2.unwrap().return_data;
+        let out3 = r3.unwrap().return_data;
+
+        prop_assert_eq!(&out0, &out1, "return_data mismatch between O0 and O1");
+        prop_assert_eq!(&out1, &out2, "return_data mismatch between O1 and O2");
+        prop_assert_eq!(&out2, &out3, "return_data mismatch between O2 and O3");
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Manifest event parameter type fidelity
+//
+// Generates a contract with N events (N in 1..=4), each with 1..=4 parameters
+// drawn from a small set of Solidity ABI types and a randomized `indexed`
+// flag. Compiles, then asserts that the Neo manifest's `abi.events` array
+// contains each declared event exactly once, with parameter list lengths and
+// per-parameter Neo manifest type strings matching what the Solidity-to-Neo
+// type mapping prescribes.
+//
+// Expected mapping (based on `neotype_to_manifest_type` /
+// `solidity_to_manifest_type` in src/cli/cli_parts/cli_manifest/build.rs and
+// src/cli/standard_json/standard_json_output.rs):
+//   uint256  -> Integer
+//   int256   -> Integer
+//   address  -> Hash160
+//   bool     -> Boolean
+//   bytes32  -> Hash256
+//   string   -> String
+//   bytes    -> ByteArray
+// ----------------------------------------------------------------------------
+
+/// One Solidity ABI type the test can sample.
+#[derive(Clone, Debug)]
+struct ParamType {
+    /// Solidity source-level type, e.g. "uint256"
+    solidity: &'static str,
+    /// Expected Neo manifest type string, e.g. "Integer"
+    expected_manifest: &'static str,
+}
+
+fn param_type_strategy() -> impl Strategy<Value = ParamType> {
+    prop_oneof![
+        Just(ParamType { solidity: "uint256", expected_manifest: "Integer" }),
+        Just(ParamType { solidity: "int256",  expected_manifest: "Integer" }),
+        Just(ParamType { solidity: "address", expected_manifest: "Hash160" }),
+        Just(ParamType { solidity: "bool",    expected_manifest: "Boolean" }),
+        Just(ParamType { solidity: "bytes32", expected_manifest: "Hash256" }),
+        Just(ParamType { solidity: "string",  expected_manifest: "String"  }),
+        Just(ParamType { solidity: "bytes",   expected_manifest: "ByteArray" }),
+    ]
+}
+
+/// (parameter type, indexed?)
+fn event_param_strategy() -> impl Strategy<Value = (ParamType, bool)> {
+    (param_type_strategy(), any::<bool>())
+}
+
+/// One event: its parameter list (1..=4 entries).
+fn event_decl_strategy() -> impl Strategy<Value = Vec<(ParamType, bool)>> {
+    proptest::collection::vec(event_param_strategy(), 1..=4)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(24))]
+
+    #[test]
+    fn manifest_event_parameter_type_fidelity(
+        // 1..=4 events, each a list of (type, indexed)
+        events in proptest::collection::vec(event_decl_strategy(), 1..=4),
+    ) {
+        // Generate stable, unique event names: Ev0, Ev1, ...
+        // Param names are also fixed (p0, p1, ...) to avoid identifier-collision
+        // noise; the property under test is *type fidelity*, not naming.
+        let mut event_decls = String::new();
+        for (i, params) in events.iter().enumerate() {
+            event_decls.push_str("    event Ev");
+            event_decls.push_str(&i.to_string());
+            event_decls.push('(');
+            for (j, (pt, indexed)) in params.iter().enumerate() {
+                if j > 0 { event_decls.push_str(", "); }
+                event_decls.push_str(pt.solidity);
+                if *indexed {
+                    // `indexed` is only legal for value types; all 7 types we
+                    // sample accept it in Solidity 0.8.x. (string/bytes get
+                    // hashed when indexed but the declaration is still valid.)
+                    event_decls.push_str(" indexed");
+                }
+                event_decls.push_str(" p");
+                event_decls.push_str(&j.to_string());
+            }
+            event_decls.push_str(");\n");
+        }
+
+        let source = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract EvTypes {{
+{events}
+    function noop() public pure returns (uint256) {{ return 0; }}
+}}"#,
+            events = event_decls,
+        );
+
+        let artifacts = compile_contracts(&source, false, 2)
+            .map_err(|e| TestCaseError::fail(format!("compile failed: {e:?}")))?;
+        prop_assert!(!artifacts.is_empty(), "no artifacts produced");
+        let manifest = &artifacts[0].manifest;
+
+        let manifest_events = manifest
+            .get("abi")
+            .and_then(|abi| abi.get("events"))
+            .and_then(|e| e.as_array())
+            .expect("manifest abi.events must be an array");
+
+        // 1) Each declared event appears exactly once.
+        for (i, _) in events.iter().enumerate() {
+            let name = format!("Ev{i}");
+            let occurrences = manifest_events
+                .iter()
+                .filter(|e| e.get("name").and_then(|n| n.as_str()) == Some(name.as_str()))
+                .count();
+            prop_assert_eq!(
+                occurrences, 1,
+                "event '{}' should appear exactly once in manifest abi.events (found {})",
+                name, occurrences
+            );
+        }
+
+        // 2) Per-event: parameter count + per-parameter Neo manifest type.
+        for (i, params) in events.iter().enumerate() {
+            let name = format!("Ev{i}");
+            let event_obj = manifest_events
+                .iter()
+                .find(|e| e.get("name").and_then(|n| n.as_str()) == Some(name.as_str()))
+                .expect("event located above");
+
+            let manifest_params = event_obj
+                .get("parameters")
+                .and_then(|p| p.as_array())
+                .expect("event parameters must be an array");
+
+            prop_assert_eq!(
+                manifest_params.len(), params.len(),
+                "event '{}' parameter count mismatch: manifest={} source={}",
+                name, manifest_params.len(), params.len()
+            );
+
+            for (j, (decl_pt, _indexed)) in params.iter().enumerate() {
+                let m_param = &manifest_params[j];
+                let m_type = m_param
+                    .get("type")
+                    .and_then(|t| t.as_str())
+                    .expect("manifest event parameter must have a 'type' string");
+                prop_assert_eq!(
+                    m_type, decl_pt.expected_manifest,
+                    "event '{}' param[{}] type mismatch: solidity '{}' should map to '{}', got '{}'",
+                    name, j, decl_pt.solidity, decl_pt.expected_manifest, m_type
+                );
+
+                // Per Neo N3 manifest spec, event params must NOT carry the
+                // Solidity `indexed` field. (Already covered by a unit test,
+                // but cheap to assert here and protects against regressions
+                // when type-mapping code is touched.)
+                prop_assert!(
+                    m_param.get("indexed").is_none(),
+                    "event '{}' param[{}] manifest must not include 'indexed'",
+                    name, j
+                );
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Optimizer 4-level differential on randomly-generated pure expressions
+//
+// Background: the structured cargo-fuzz target
+// (`fuzz/fuzz_targets/fuzz_target_structured_sol.rs`) generates random
+// Solidity but only compiles each iteration at *one* random opt-level per
+// run, so opt-level divergence on randomly-generated source is invisible to
+// that harness. The hand-written tests above (cases 1..=10) all hard-code
+// one source per test.
+//
+// This block fills the gap: a proptest-grammar-driven differential where
+// the *source itself* is randomly generated, and every case is compiled at
+// O0/O1/O2/O3 with the same input. Any divergence (success flag,
+// return_data, exception type) at any pair of levels is a real optimizer
+// bug and surfaces as a counterexample.
+//
+// Grammar (independent from cargo-fuzz / `arbitrary` — proptest uses
+// different traits):
+//
+//   Expr ::= Lit          // small uint256 literal
+//          | Var          // one of: a, b, c
+//          | Bin Op Expr Expr     // arithmetic / bitwise
+//          | Shift Sh Expr Sh     // shift by a small fixed amount
+//          | Cmp Cmp Expr Expr    // comparison (lifted to uint256)
+//          | Tern Expr Expr Expr  // ternary (cond ? t : e)
+//
+//   Op  ::= + | - | * | / | % | & | | | ^
+//   Sh  ::= << | >>     (rhs = small u8 in 0..32, never panics)
+//   Cmp ::= == | != | < | <= | > | >=
+//
+// Constraints:
+//   - Depth-bounded (≤4 nesting levels) so each case finishes <100ms.
+//   - Pure: no storage, events, external calls, or state changes.
+//   - All arithmetic is wrapped in `unchecked { ... }` so overflow does
+//     NOT introduce optimizer-orthogonal Panic(0x11) noise. Div / mod
+//     guards against zero RHS by replacing with `(rhs | 1)` at the source
+//     level, eliminating Panic(0x12) noise too. Goal is to maximize the
+//     fraction of cases that exercise the *successful return-data* path,
+//     where a divergence is unambiguous evidence of an optimizer bug.
+// ----------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+enum DOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Xor,
+}
+
+impl DOp {
+    fn sym(&self) -> &'static str {
+        match self {
+            DOp::Add => "+",
+            DOp::Sub => "-",
+            DOp::Mul => "*",
+            DOp::Div => "/",
+            DOp::Mod => "%",
+            DOp::And => "&",
+            DOp::Or => "|",
+            DOp::Xor => "^",
+        }
+    }
+    /// True if this op needs a non-zero RHS to avoid Panic(0x12).
+    fn needs_nonzero_rhs(&self) -> bool {
+        matches!(self, DOp::Div | DOp::Mod)
+    }
+}
+
+#[derive(Clone, Debug)]
+enum DCmp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl DCmp {
+    fn sym(&self) -> &'static str {
+        match self {
+            DCmp::Eq => "==",
+            DCmp::Ne => "!=",
+            DCmp::Lt => "<",
+            DCmp::Le => "<=",
+            DCmp::Gt => ">",
+            DCmp::Ge => ">=",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum DShift {
+    Shl,
+    Shr,
+}
+
+impl DShift {
+    fn sym(&self) -> &'static str {
+        match self {
+            DShift::Shl => "<<",
+            DShift::Shr => ">>",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum DExpr {
+    Lit(u32),
+    /// Variable index 0..=2 → a / b / c (the three formal parameters).
+    Var(u8),
+    Bin(DOp, Box<DExpr>, Box<DExpr>),
+    Shift(DShift, Box<DExpr>, u8 /* 0..32 */),
+    Cmp(DCmp, Box<DExpr>, Box<DExpr>),
+    Tern(Box<DExpr>, Box<DExpr>, Box<DExpr>),
+}
+
+impl DExpr {
+    /// Render Solidity source for this expression. Wraps every binary op in
+    /// parentheses to sidestep precedence subtleties — the property under
+    /// test is *opt-level fidelity*, not Solidity precedence.
+    ///
+    /// `Div` / `Mod` rewrite their RHS as `((rhs) | 1)` to guarantee a
+    /// non-zero divisor without changing the value when the RHS is already
+    /// odd-and-nonzero, which is the common case for the small literals we
+    /// generate. (`x | 1` is always odd and never zero, so Panic(0x12) is
+    /// statically impossible.) Comparison results are coerced to `uint256`
+    /// via the `(... ? 1 : 0)` ternary so the outer expression always has
+    /// type uint256.
+    fn render(&self, out: &mut String) {
+        match self {
+            DExpr::Lit(n) => {
+                out.push_str(&format!("uint256({})", n));
+            }
+            DExpr::Var(i) => {
+                let v = match i % 3 {
+                    0 => "a",
+                    1 => "b",
+                    _ => "c",
+                };
+                out.push_str(v);
+            }
+            DExpr::Bin(op, l, r) => {
+                out.push('(');
+                l.render(out);
+                out.push(' ');
+                out.push_str(op.sym());
+                out.push(' ');
+                if op.needs_nonzero_rhs() {
+                    // Force RHS != 0 to dodge Panic(0x12).
+                    out.push_str("((");
+                    r.render(out);
+                    out.push_str(") | 1)");
+                } else {
+                    r.render(out);
+                }
+                out.push(')');
+            }
+            DExpr::Shift(s, lhs, amt) => {
+                // Bound shift amount to 0..32 so it stays well under the
+                // 255 guard and within EVM-/Solidity-defined behavior.
+                out.push('(');
+                lhs.render(out);
+                out.push(' ');
+                out.push_str(s.sym());
+                out.push_str(&format!(" {}", amt % 32));
+                out.push(')');
+            }
+            DExpr::Cmp(op, l, r) => {
+                // Lift bool to uint256 so any sub-expr is uint256-typed.
+                out.push_str("((");
+                l.render(out);
+                out.push(' ');
+                out.push_str(op.sym());
+                out.push(' ');
+                r.render(out);
+                out.push_str(") ? uint256(1) : uint256(0))");
+            }
+            DExpr::Tern(c, t, e) => {
+                // Cast cond to bool via `!= 0`. Both arms are uint256.
+                out.push_str("((");
+                c.render(out);
+                out.push_str(" != 0) ? ");
+                t.render(out);
+                out.push_str(" : ");
+                e.render(out);
+                out.push(')');
+            }
+        }
+    }
+}
+
+/// Leaf-only strategy — used at depth 0 of the recursive grammar.
+fn dexpr_leaf_strategy() -> impl Strategy<Value = DExpr> {
+    prop_oneof![
+        // Cap literals at u16::MAX so a single MUL of two literals stays
+        // well within i64 (max 65535 * 65535 ≈ 2^32). Going wider exposes
+        // an unfixed runtime/optimizer divergence (bug #16): the runtime's
+        // narrow i64 strict-arithmetic path faults on overflow, while the
+        // optimizer constant-folds in BigInt and returns the wrapped value.
+        // Resolving that requires plumbing unsigned BigInt for uint256 ops
+        // throughout the runtime — out of scope here. Re-widen this bound
+        // when bug #16 lands.
+        (0u32..=u16::MAX as u32).prop_map(DExpr::Lit),
+        (0u8..=2).prop_map(DExpr::Var),
+    ]
+}
+
+/// Recursive expression strategy bounded by `depth` (0 = leaf only).
+/// Depth ≤ 4 keeps rendered source small and proptest cases <100 ms.
+fn dexpr_strategy() -> impl Strategy<Value = DExpr> {
+    let leaf = dexpr_leaf_strategy();
+    leaf.prop_recursive(
+        4,  // levels deep
+        32, // total nodes across the tree
+        4,  // collection size (here: branch fan-out hint)
+        |inner| {
+            let op = prop_oneof![
+                Just(DOp::Add),
+                Just(DOp::Sub),
+                Just(DOp::Mul),
+                Just(DOp::Div),
+                Just(DOp::Mod),
+                Just(DOp::And),
+                Just(DOp::Or),
+                Just(DOp::Xor),
+            ];
+            let cmp = prop_oneof![
+                Just(DCmp::Eq),
+                Just(DCmp::Ne),
+                Just(DCmp::Lt),
+                Just(DCmp::Le),
+                Just(DCmp::Gt),
+                Just(DCmp::Ge),
+            ];
+            let shift = prop_oneof![Just(DShift::Shl), Just(DShift::Shr)];
+            prop_oneof![
+                (op, inner.clone(), inner.clone())
+                    .prop_map(|(o, l, r)| DExpr::Bin(o, Box::new(l), Box::new(r))),
+                (shift, inner.clone(), 0u8..32u8)
+                    .prop_map(|(s, l, amt)| DExpr::Shift(s, Box::new(l), amt)),
+                (cmp, inner.clone(), inner.clone())
+                    .prop_map(|(c, l, r)| DExpr::Cmp(c, Box::new(l), Box::new(r))),
+                (inner.clone(), inner.clone(), inner.clone())
+                    .prop_map(|(c, t, e)| DExpr::Tern(Box::new(c), Box::new(t), Box::new(e))),
+            ]
+        },
+    )
+}
+
+/// Render a complete contract whose single external view function evaluates
+/// the generated expression on three uint256 parameters and returns the
+/// result. Every binop is inside `unchecked` so overflow yields the EVM
+/// wrapping value rather than a panic — the assertion target is
+/// optimizer-level fidelity, not Solidity-mode panics.
+fn render_diff_contract(expr: &DExpr) -> String {
+    let mut body = String::new();
+    expr.render(&mut body);
+    format!(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract D {{
+    function f(uint256 a, uint256 b, uint256 c) public pure returns (uint256) {{
+        unchecked {{
+            return {body};
+        }}
+    }}
+}}"#,
+        body = body
+    )
+}
+
+/// One execution result reduced to the three fields that matter for an
+/// opt-level differential. Comparing this projection avoids tripping on
+/// gas_used / metadata fields that are *expected* to differ across
+/// optimization levels.
+#[derive(Debug, PartialEq, Eq)]
+struct DiffOutcome {
+    success: bool,
+    return_data: Vec<u8>,
+    /// `None` when no exception; otherwise the canonical exception type
+    /// name. Message text is excluded because optimization can affect
+    /// formatting of stack-trace-derived messages without changing the
+    /// classification.
+    exception_kind: Option<&'static str>,
+}
+
+impl DiffOutcome {
+    fn from_result(r: &neo_solidity::runtime::ExecutionResult) -> Self {
+        let exception_kind = r.exception.as_ref().map(|e| e.exception_type.as_str());
+        DiffOutcome {
+            success: r.success,
+            return_data: r.return_data.clone(),
+            exception_kind,
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
+    // ------------------------------------------------------------------
+    // 11. Optimizer 4-level differential on randomly-generated pure
+    //     arithmetic / bitwise / shift / comparison expressions
+    // ------------------------------------------------------------------
+    // Generates a random uint256-typed expression tree (depth ≤ 4) over
+    // three formal parameters a / b / c, wraps it in a one-function
+    // contract, then compiles at O0/O1/O2/O3 and asserts that all four
+    // produce the same {success, return_data, exception classification}
+    // for the same input. Any pairwise divergence is a real optimizer
+    // bug.
+    //
+    // This is the proptest analogue of what the structured cargo-fuzz
+    // target *cannot* see: that target picks one random opt-level per
+    // iteration, so per-source O0-vs-O3 disagreement is invisible there.
+    #[test]
+    fn optimizer_four_level_differential_random_expr(
+        expr in dexpr_strategy(),
+        // Bounded matching `dexpr_leaf_strategy`'s u16 cap — see its comment
+        // for the bug-#16 rationale. Re-widen once bug #16 is fixed.
+        a in 0u32..=u16::MAX as u32,
+        b in 0u32..=u16::MAX as u32,
+        c in 0u32..=u16::MAX as u32,
+    ) {
+        let source = render_diff_contract(&expr);
+        let args = [
+            StackItem::Integer(a as i64),
+            StackItem::Integer(b as i64),
+            StackItem::Integer(c as i64),
+        ];
+
+        let r0 = compile_and_call(&source, 0, "f", &args);
+        let r1 = compile_and_call(&source, 1, "f", &args);
+        let r2 = compile_and_call(&source, 2, "f", &args);
+        let r3 = compile_and_call(&source, 3, "f", &args);
+
+        // If every level fails to compile/execute *the same way*, that's
+        // not an optimizer bug — it's a frontend property. Skip those.
+        // But if some succeed and others don't, that *is* a bug — fail.
+        let oks = [r0.is_ok(), r1.is_ok(), r2.is_ok(), r3.is_ok()];
+        let any_ok = oks.iter().any(|x| *x);
+        let all_ok = oks.iter().all(|x| *x);
+        prop_assert!(
+            !any_ok || all_ok,
+            "compile/exec succeeded at some opt levels but not others — opt-level-dependent compile bug.\n\
+             O0={:?} O1={:?} O2={:?} O3={:?}\nsource:\n{}",
+            r0.as_ref().err(), r1.as_ref().err(), r2.as_ref().err(), r3.as_ref().err(),
+            source
+        );
+        if !all_ok {
+            // All four failed at the frontend or runtime in the same way;
+            // not interesting for opt-diff.
+            return Ok(());
+        }
+
+        let o0 = DiffOutcome::from_result(&r0.unwrap());
+        let o1 = DiffOutcome::from_result(&r1.unwrap());
+        let o2 = DiffOutcome::from_result(&r2.unwrap());
+        let o3 = DiffOutcome::from_result(&r3.unwrap());
+
+        // Pairwise compare against O0 — transitivity gives full equivalence
+        // and the failure message names the diverging level directly.
+        prop_assert_eq!(
+            &o0, &o1,
+            "O0 vs O1 divergence — optimizer bug.\nsource:\n{}\nargs: a={} b={} c={}",
+            source, a, b, c
+        );
+        prop_assert_eq!(
+            &o0, &o2,
+            "O0 vs O2 divergence — optimizer bug.\nsource:\n{}\nargs: a={} b={} c={}",
+            source, a, b, c
+        );
+        prop_assert_eq!(
+            &o0, &o3,
+            "O0 vs O3 divergence — optimizer bug.\nsource:\n{}\nargs: a={} b={} c={}",
+            source, a, b, c
+        );
     }
 }

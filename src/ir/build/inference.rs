@@ -125,6 +125,26 @@ fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
     }
 }
 
+fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &str) -> Option<ValueType> {
+    ctx.defined_struct_types
+        .iter()
+        .chain(ctx.state_types.iter())
+        .chain(ctx.param_types.iter())
+        .chain(ctx.return_types.iter())
+        .chain(ctx.local_types.values())
+        .find_map(|ty| find_named_struct_type(ty, name))
+}
+
+fn infer_struct_constructor_type(func: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+    match func {
+        Expression::Variable(identifier) => infer_defined_struct_type_by_name(ctx, &identifier.name),
+        Expression::MemberAccess(_, _, identifier) => {
+            infer_defined_struct_type_by_name(ctx, &identifier.name)
+        }
+        _ => None,
+    }
+}
+
 /// Returns true when the expression is structurally a Solidity type expression
 /// rather than a value expression. Used to distinguish fixed-size array types
 /// (`T[N]`) from value-subscripts (`arr[i]`) when both parse as
@@ -140,7 +160,18 @@ fn is_type_expression(expr: &Expression) -> bool {
     }
 }
 
+// `stacker::maybe_grow` wrapper — this function recurses through
+// `Parenthesis`, `Conditional`, and `MemberAccess` arms. Deeply nested
+// sources (e.g. 30k-paren chains, 10k-long `a.b.c.d...` selectors) would
+// otherwise stack-overflow the compiler. See sibling guards in
+// `src/ir/expressions/dispatch/entry.rs`.
 fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        infer_type_from_expression_inner(expr, ctx)
+    })
+}
+
+fn infer_type_from_expression_inner(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     match expr {
         Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx),
         Expression::BoolLiteral(_, _) => Some(ValueType::Boolean),
@@ -164,6 +195,26 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
             }
         }
         Expression::FunctionCall(_, func, args) if args.len() == 1 => {
+            if let Some(ty) = infer_struct_constructor_type(func.as_ref(), ctx) {
+                return Some(ty);
+            }
+
+            if let Expression::Variable(identifier) = func.as_ref() {
+                match identifier.name.as_str() {
+                    "keccak256" | "sha256" => {
+                        return Some(ValueType::ByteArray {
+                            fixed_len: Some(32),
+                        });
+                    }
+                    "ripemd160" => {
+                        return Some(ValueType::ByteArray {
+                            fixed_len: Some(20),
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
             if let Expression::MemberAccess(_, inner, member) = func.as_ref() {
                 if let Expression::Variable(base) = inner.as_ref() {
                     match (base.name.as_str(), member.name.as_str()) {
@@ -219,12 +270,44 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
         //     the method name with the literal argument count, matching how
         //     `function_return_types` is populated at module-build time.
         Expression::FunctionCall(_, func, args) => {
+            if let Some(ty) = infer_struct_constructor_type(func.as_ref(), ctx) {
+                return Some(ty);
+            }
+
+            if let Expression::Variable(identifier) = func.as_ref() {
+                match identifier.name.as_str() {
+                    "keccak256" | "sha256" => {
+                        return Some(ValueType::ByteArray {
+                            fixed_len: Some(32),
+                        });
+                    }
+                    "ripemd160" => {
+                        return Some(ValueType::ByteArray {
+                            fixed_len: Some(20),
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
             if let Expression::Variable(identifier) = func.as_ref() {
                 if let Some(ty) = ctx.get_function_return_type(&identifier.name, args.len()) {
                     return Some(ty.clone());
                 }
             }
             if let Expression::MemberAccess(_, inner, method) = func.as_ref() {
+                if method.name == "concat" {
+                    match inner.as_ref() {
+                        Expression::Type(_, solang_parser::pt::Type::String) => {
+                            return Some(ValueType::String);
+                        }
+                        Expression::Type(_, solang_parser::pt::Type::DynamicBytes) => {
+                            return Some(ValueType::ByteArray { fixed_len: None });
+                        }
+                        _ => {}
+                    }
+                }
+
                 // `x.f(args)` attached via `using { f } for T;` lowers to
                 // `f(x, args)` — the registered return-type key therefore uses
                 // `args.len() + 1` for the library-attach form. Try both
@@ -258,6 +341,7 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
             }
             None
         }
+        Expression::NamedFunctionCall(_, func, _) => infer_struct_constructor_type(func, ctx),
         Expression::ArrayLiteral(_, elements) => Some(ValueType::Array(Box::new(
             infer_literal_array_element_type(elements),
         ))),
@@ -304,17 +388,27 @@ fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Optio
                     // with scope-priority ordering: local → param → return → state → defined
                     // structs. This prevents cross-scope type collisions when the same name
                     // appears at multiple levels.
-                    ctx.local_types
-                        .values()
-                        .chain(ctx.param_types.iter())
-                        .chain(ctx.return_types.iter())
-                        .chain(ctx.state_types.iter())
-                        .chain(ctx.defined_struct_types.iter())
-                        .find_map(|ty| find_named_struct_type(ty, &identifier.name))
+                    infer_defined_struct_type_by_name(ctx, &identifier.name)
                 })
             }
         }
         Expression::MemberAccess(_, inner, member) => {
+            if member.name == "length"
+                && matches!(
+                    infer_type_from_expression(inner, ctx),
+                    Some(
+                        ValueType::ByteArray { .. }
+                            | ValueType::String
+                            | ValueType::Array(_)
+                    )
+                )
+            {
+                return Some(ValueType::Integer {
+                    signed: false,
+                    bits: 256,
+                });
+            }
+
             if member.name == "selector" {
                 return Some(ValueType::ByteArray { fixed_len: Some(4) });
             }

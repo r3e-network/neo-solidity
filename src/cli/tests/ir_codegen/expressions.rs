@@ -5,3 +5,4 @@ include!("expressions/address_iterator.rs");
 include!("expressions/type_casts.rs");
 include!("expressions/tuples.rs");
 include!("expressions/new_arrays.rs");
+include!("expressions/crypto.rs");

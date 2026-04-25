@@ -70,10 +70,31 @@ jobs:
       - name: Build fuzz targets
         run: cargo +nightly fuzz build
 
-      - name: Run parser/compiler fuzz target (60s)
+      - name: Run compile-pipeline fuzz target (fuzz_target_1, 60s)
         run: |
-          timeout 60 cargo +nightly fuzz run fuzz_target_1 || true
+          cargo +nightly fuzz run fuzz_target_1 -- -max_total_time=60
 
-      - name: Run NEF parser fuzz target (60s)
+      - name: Run NEF parser fuzz target (fuzz_target_2, 60s)
         run: |
-          timeout 60 cargo +nightly fuzz run fuzz_target_2 || true
+          cargo +nightly fuzz run fuzz_target_2 -- -max_total_time=60
+
+      - name: Run bytecode disassembler fuzz target (60s)
+        run: |
+          cargo +nightly fuzz run fuzz_target_disasm -- -max_total_time=60
+
+      - name: Run NEF parse/serialize round-trip fuzz target (60s)
+        run: |
+          cargo +nightly fuzz run fuzz_target_nef_roundtrip -- -max_total_time=60
+
+      - name: Run manifest JSON parser fuzz target (60s)
+        run: |
+          cargo +nightly fuzz run fuzz_target_manifest_json -- -max_total_time=60
+
+      - name: Upload crash artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 30

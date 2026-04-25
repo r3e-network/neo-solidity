@@ -193,12 +193,30 @@ fn try_lower_member_call(
         // `ValueType::Address` (libraries land in `contract_types`) and the
         // external-target fallback below emits
         // `System.Contract.Call([0;20], "val", …)` → empty return-data.
+        //
+        // The exclusion list below is critical: `this` / `super` resolve
+        // through `resolve_static_library_base` (they're Variable expressions
+        // that match `!param && !local && !state`), so without explicit
+        // exclusion the path would miscompile `this.externalFn()` as an
+        // internal CALL_L, bypassing the external ABI-return contract and
+        // returning StackItems unsuitable for tuple destructuring. Leaves the
+        // genuine merged-library case (`Lib.val()` where Lib isn't a builtin
+        // namespace and isn't `this`/`super`) on the internal-call path.
         let merged_static_library_call = resolve_static_library_base(inner.as_ref(), ctx)
             .as_deref()
             .is_some_and(|base| {
                 !matches!(
                     base,
-                    "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
+                    "Runtime"
+                        | "abi"
+                        | "Storage"
+                        | "Syscalls"
+                        | "Neo"
+                        | "NativeCalls"
+                        | "StdLib"
+                        | "CryptoLib"
+                        | "this"
+                        | "super"
                 )
             })
             && ctx.function_names.contains(&member.name)
@@ -702,7 +720,7 @@ fn inline_library_storage_call(
     let mut arg_temp_slots: Vec<usize> = Vec::with_capacity(args.len());
     for (index, arg) in args.iter().enumerate() {
         let param_type = body_info.value_param_types.get(index).cloned().flatten();
-        let tmp = ctx.allocate_local(format!("__libarg_{}", index), param_type);
+        let tmp = ctx.allocate_local(format!("__libarg_{index}"), param_type);
         if !lower_expression(arg, ctx, instructions) {
             ok = false;
         }

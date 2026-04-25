@@ -13,10 +13,21 @@ impl ExecutionContext {
 
     fn new_array(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("NEWARRAY")?;
-        let mut items = Vec::with_capacity(count);
-        for _ in 0..count {
-            items.push(StackItem::Null);
+        // Bound user-supplied count against memory_limit. Without this check,
+        // a malicious PUSHINT + NEWARRAY/NEWSTRUCT/NEWARRAY_T sequence can
+        // request ~2^31 elements and OOM-abort the host before gas accounting
+        // fires. Mirrors the PUSHDATA4 length check in instruction/push.rs.
+        let item_size = std::mem::size_of::<StackItem>();
+        let required = count.saturating_mul(item_size);
+        if required > self.memory_limit {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "NEWARRAY: requested {} items ({} bytes) exceeds memory limit {}",
+                    count, required, self.memory_limit
+                ),
+            });
         }
+        let items = vec![StackItem::Null; count];
         self.push_stack(StackItem::array(items))
     }
 

@@ -16,15 +16,12 @@ fn emit_contract_call(
     bytecode.push(0x50); // SWAP -> [contract, method, flags, args]
     bytecode.push(0x54); // REVERSE4 -> [args, flags, method, contract]
     emit_syscall(bytecode, "System.Contract.Call");
-    // Task #194 — Solidity low-level `.call()` returns `(bool, bytes)` where
-    // `bytes` is the EVM-canonical ABI-encoded return value of the callee.
-    // Previously we ran `StdLib.serialize` on the raw return StackItem, which
-    // produces NEO-binary format (type tag + length + value), not the
-    // 32-byte BE-padded encoding that `abi.decode(data, (T))` expects. Wrap
-    // the return in a single-element array and emit `StdLib.abiEncode` so
-    // the byte shape matches what Solidity callers see on an EVM, making
-    // `abi.decode(data, (uint))` round-trip on simple scalar returns.
-    emit_abi_encode_single_return(bytecode, use_callt, token_patches);
+    // Neo N3 has no native ABI encoder. Return data must still be executable
+    // on-chain, so wrap non-null results with real StdLib.serialize. IR-level
+    // static ABI fast paths can preserve EVM byte shapes where type
+    // information is available; this low-level fallback must not emit
+    // pseudo-native StdLib.abiEncode.
+    emit_serialize_single_return(bytecode, use_callt, token_patches);
 }
 
 fn emit_contract_call_with_flags(
@@ -44,19 +41,15 @@ fn emit_contract_call_with_flags(
     );
     bytecode.push(0x54); // REVERSE4 -> [args, flags, method, contract]
     emit_syscall(bytecode, "System.Contract.Call");
-    // Task #194 — same ABI-encoded wrapping as the non-flags path so that
-    // `target.staticcall(abi.encodeWithSelector(…))` round-trips through
-    // `abi.decode` on the return side.
-    emit_abi_encode_single_return(bytecode, use_callt, token_patches);
+    // Same production-safe serialized wrapping as the non-flags path.
+    emit_serialize_single_return(bytecode, use_callt, token_patches);
 }
 
-/// Task #194 — wrap a single return `StackItem` on the top of the stack in
-/// a one-element Array and hand it to `StdLib.abiEncode`, yielding the
-/// EVM-canonical ABI-encoded `bytes` blob expected by Solidity's low-level
-/// `(bool, bytes)` tuple. The wrapper is necessary because `abiEncode`
-/// takes an outer "positional args" array (how the bytecode emitter packs
-/// multi-arg `abi.encode(a,b,c)` callsites) and we only have one value.
-fn emit_abi_encode_single_return(
+/// Wrap a single return `StackItem` on the top of the stack as low-level call
+/// returndata. Null still maps to empty bytes; non-null values use real
+/// StdLib.serialize so emitted NEFs do not depend on pseudo-native ABI helper
+/// methods that are absent from Neo N3.
+fn emit_serialize_single_return(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -64,8 +57,7 @@ fn emit_abi_encode_single_return(
     // Stack: [returnValue]
     // NeoVM uses `Null` for "no return value". Solidity low-level calls
     // surface that as empty returndata, not as an ABI-encoded null sentinel.
-    // Short-circuit the null case so void methods can succeed on chain without
-    // depending on the pseudo-native `StdLib.abiEncode` helper.
+    // Short-circuit the null case so void methods surface empty returndata.
     bytecode.push(0x4A); // DUP
     bytecode.push(0xD8); // ISNULL
     let jmp_if_not_null_pos = bytecode.len();
@@ -86,13 +78,10 @@ fn emit_abi_encode_single_return(
     // PUSH1 — arity for PACK.
     bytecode.push(0x11); // PUSH1
     bytecode.push(0xC0); // PACK -> [Array([returnValue])]
-    // abiEncode unwraps the single-element outer Array and treats the
-    // sole inner item as a positional arg, producing the 32-byte BE slot
-    // (scalar) or offset+length+padded-data tail (dynamic).
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "abiEncode",
+        "serialize",
         1,
         use_callt,
         token_patches,

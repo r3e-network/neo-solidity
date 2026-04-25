@@ -172,32 +172,42 @@ fn emit_ir_function(
                     field_keys,
                     trailing_key_types,
                     value_type,
-                } => emit_load_struct_field_mapping_element(
-                    &mut local,
-                    module,
-                    *state_index,
-                    key_types,
-                    field_keys.as_slice(),
-                    trailing_key_types,
-                    value_type,
-                    use_callt,
-                    &mut token_patches,
-                ),
+                } => {
+                    let slot = StructFieldMappingSlot {
+                        module,
+                        state_index: *state_index,
+                        key_types,
+                        field_keys: field_keys.as_slice(),
+                        trailing_key_types,
+                        use_callt,
+                    };
+                    emit_load_struct_field_mapping_element(
+                        &mut local,
+                        &slot,
+                        value_type,
+                        &mut token_patches,
+                    )
+                }
                 ir::Instruction::StoreStructFieldMappingElement {
                     state_index,
                     key_types,
                     field_keys,
                     trailing_key_types,
-                } => emit_store_struct_field_mapping_element(
-                    &mut local,
-                    module,
-                    *state_index,
-                    key_types,
-                    field_keys.as_slice(),
-                    trailing_key_types,
-                    use_callt,
-                    &mut token_patches,
-                ),
+                } => {
+                    let slot = StructFieldMappingSlot {
+                        module,
+                        state_index: *state_index,
+                        key_types,
+                        field_keys: field_keys.as_slice(),
+                        trailing_key_types,
+                        use_callt,
+                    };
+                    emit_store_struct_field_mapping_element(
+                        &mut local,
+                        &slot,
+                        &mut token_patches,
+                    )
+                }
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value, use_callt, &mut token_patches)
                 }

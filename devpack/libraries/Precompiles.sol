@@ -7,25 +7,26 @@ import "../contracts/Syscalls.sol";
  * @title Precompiles
  * @dev EVM precompiled contract compatibility layer for Neo N3.
  *
- * Maps Ethereum precompiles (addresses 0x01-0x09) to Neo N3 CryptoLib
- * native contract operations where possible. Functions that have no
- * Neo N3 equivalent revert with a clear message.
+ * Maps Ethereum-style precompile helper addresses (0x01-0x09) to Neo N3
+ * native contract operations where possible. These helpers are not a full
+ * byte-for-byte EVM precompile emulation layer; functions with no Neo N3
+ * equivalent revert with a clear message.
  *
  * Supported:
  *   0x01 ecrecover   → CryptoLib.recoverSecp256K1
  *   0x02 sha256      → CryptoLib.sha256
  *   0x03 ripemd160   → CryptoLib.ripemd160
  *   0x04 identity    → pass-through (no-op)
- *   0x05 modexp      → NeoVM BigInteger arithmetic
- *   0x06 ecAdd       → CryptoLib.bls12381Add (BLS12-381, not BN256)
- *   0x07 ecMul       → CryptoLib.bls12381Mul (BLS12-381, not BN256)
- *   0x08 ecPairing   → CryptoLib.bls12381Pairing (BLS12-381, not BN256)
+ *   0x05 modexp      → uint256 helper using NeoVM BigInteger arithmetic
+ *                       (not full EIP-198 byte-payload parity)
+ *   0x06 ecAdd       → Neo BLS12-381 adaptation, not Ethereum BN256
+ *   0x07 ecMul       → Neo BLS12-381 adaptation, not Ethereum BN256
+ *   0x08 ecPairing   → Neo BLS12-381 adaptation, not Ethereum BN256
  *   0x09 blake2f     → not available on Neo N3
  *
- * @notice ZK operations use BLS12-381 (Neo N3 native) instead of BN256
- * (alt_bn128). Proof systems must be adapted accordingly. BLS12-381 is
- * considered more secure than BN254 and is used by Ethereum 2.0, Zcash
- * Sapling, and other modern protocols.
+ * @notice ZK operations use BLS12-381 (Neo N3 native) instead of Ethereum
+ * BN256/alt_bn128. Proof systems and proof encodings must be adapted before
+ * using these helpers.
  */
 library Precompiles {
 
@@ -90,7 +91,9 @@ library Precompiles {
     /**
      * @dev Modular exponentiation: base^exp % mod.
      * @notice NeoVM uses arbitrary-precision BigInteger natively, so this
-     * operation is performed using standard arithmetic operators.
+     * operation is performed using standard arithmetic operators. This helper
+     * accepts typed uint256 values and does not implement EIP-198's raw input
+     * byte layout, variable-length operands, or gas schedule.
      * @param base The base value
      * @param exp The exponent
      * @param mod The modulus (must be non-zero)
@@ -119,13 +122,12 @@ library Precompiles {
         }
     }
 
-    // ========== 0x06: BN256/BLS12-381 Point Addition ==========
+    // ========== 0x06: BLS12-381 Point Addition ==========
 
     /**
-     * @dev Elliptic curve point addition on BLS12-381 G1.
-     * @notice Neo N3 provides BLS12-381 instead of BN256 (alt_bn128).
-     * Contracts using BN256 ecAdd must be adapted to BLS12-381 encoding.
-     * BLS12-381 is the same curve used by Ethereum 2.0 and Zcash Sapling.
+     * @dev Neo BLS12-381 G1 point addition adaptation.
+     * @notice This is not Ethereum's BN256/alt_bn128 ecAdd precompile.
+     * Contracts using Ethereum BN256 proofs must migrate curves and encoding.
      * @param p1 First G1 point (serialized)
      * @param p2 Second G1 point (serialized)
      * @return result Sum point p1 + p2 (serialized)
@@ -134,11 +136,11 @@ library Precompiles {
         return Syscalls.bls12381Add(p1, p2);
     }
 
-    // ========== 0x07: BN256/BLS12-381 Scalar Multiplication ==========
+    // ========== 0x07: BLS12-381 Scalar Multiplication ==========
 
     /**
-     * @dev Elliptic curve scalar multiplication on BLS12-381 G1.
-     * @notice Neo N3 provides BLS12-381 instead of BN256 (alt_bn128).
+     * @dev Neo BLS12-381 G1 scalar multiplication adaptation.
+     * @notice This is not Ethereum's BN256/alt_bn128 ecMul precompile.
      * @param point G1 point (serialized)
      * @param scalar Scalar multiplier (serialized as big-endian bytes)
      * @return result point * scalar (serialized)
@@ -147,12 +149,12 @@ library Precompiles {
         return Syscalls.bls12381Mul(point, scalar, false);
     }
 
-    // ========== 0x08: BN256/BLS12-381 Pairing Check ==========
+    // ========== 0x08: BLS12-381 Pairing Check ==========
 
     /**
-     * @dev Elliptic curve pairing check on BLS12-381.
-     * @notice Neo N3 provides BLS12-381 instead of BN256 (alt_bn128).
-     * This is the core primitive for ZK-SNARK verification on Neo N3.
+     * @dev Neo BLS12-381 pairing adaptation.
+     * @notice This is not Ethereum's BN256/alt_bn128 pairing precompile.
+     * Proof systems must use Neo-compatible BLS12-381 point encodings.
      * @param g1 Serialized G1 point(s)
      * @param g2 Serialized G2 point(s)
      * @return result Pairing computation result
@@ -177,7 +179,8 @@ library Precompiles {
      * @dev Verify a ZK proof using BLS12-381 pairing.
      * @notice This is a simplified Groth16-style verification skeleton.
      * Actual proof verification requires properly encoded proof elements
-     * and a verification key specific to your circuit.
+     * and a verification key specific to your circuit. Ethereum BN256
+     * verifier contracts are not plug-compatible with this helper.
      * @param proofA G1 proof element A
      * @param proofB G2 proof element B
      * @param proofC G1 proof element C

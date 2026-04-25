@@ -74,6 +74,80 @@ impl ExecutionContext {
                 }
                 StackItem::Null
             }
+            // `ContractManagement.isContract(addr)` — returns true when the
+            // supplied hash is the currently-executing contract OR has been
+            // deployed into the in-memory registry. The embedded test-harness
+            // runtime does not call `deploy` before invoking methods (see
+            // the self-registry fallback in `getcontract` above), so without
+            // this explicit self-check the Solidity-level
+            // `NativeCalls.isContract(address(this))` would return `false`
+            // even though the contract is actively executing.
+            "iscontract" => {
+                if let StackItem::Array(args) = params {
+                    if let Some(StackItem::ByteArray(hash_bytes)) = args.borrow().first() {
+                        let hash_slice = hash_bytes.borrow();
+                        // Self-check: compiled contract is running — treat
+                        // its `default_account_bytes` as an existing contract.
+                        if hash_slice.as_slice() == self.default_account_bytes.as_slice()
+                            && !self.bytecode.is_empty()
+                        {
+                            return StackItem::Boolean(true);
+                        }
+                        // Registry check: anything deployed via `deploy` lives here.
+                        return StackItem::Boolean(
+                            self.lookup_contract(hash_slice.as_slice()).is_some(),
+                        );
+                    }
+                }
+                StackItem::Boolean(false)
+            }
+            // `ContractManagement.hasMethod(addr, method, paramCount)` —
+            // returns true when the method exists on the target contract.
+            // For the currently-executing contract, consult the `self_method_offsets`
+            // table populated from the manifest.
+            "hasmethod" => {
+                if let StackItem::Array(args) = params {
+                    let args_ref = args.borrow();
+                    if args_ref.len() >= 2 {
+                        if let Some(StackItem::ByteArray(hash_bytes)) = args_ref.first() {
+                            let hash_slice = hash_bytes.borrow();
+                            let method_bytes = Self::stack_item_to_bytes(args_ref[1].clone());
+                            let method = String::from_utf8(method_bytes).unwrap_or_default();
+                            if hash_slice.as_slice() == self.default_account_bytes.as_slice()
+                                && self.self_method_offsets.contains_key(&method)
+                            {
+                                return StackItem::Boolean(true);
+                            }
+                            if let Some(state) = self.lookup_contract(hash_slice.as_slice()) {
+                                if let Ok(manifest_json) =
+                                    serde_json::from_slice::<serde_json::Value>(&state.manifest)
+                                {
+                                    if let Some(methods) = manifest_json
+                                        .get("abi")
+                                        .and_then(|abi| abi.get("methods"))
+                                        .and_then(|m| m.as_array())
+                                    {
+                                        let exists = methods.iter().any(|m| {
+                                            m.get("name").and_then(|n| n.as_str())
+                                                == Some(method.as_str())
+                                        });
+                                        return StackItem::Boolean(exists);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                StackItem::Boolean(false)
+            }
+            // `ContractManagement.getMinimumDeploymentFee()` — Neo N3
+            // default is 10 GAS (10 * 10^8 = 1_000_000_000 fractions). The
+            // embedded runtime has no policy-driven state, so return the
+            // canonical default so Solidity-level tests see a non-zero
+            // value instead of `Null` (which decodes to 0 and falsely
+            // passes `require(fee > 0)`-style guards without running the
+            // real Policy call).
+            "getminimumdeploymentfee" => StackItem::Integer(1_000_000_000),
             _ => StackItem::Null,
         }
     }

@@ -21,7 +21,9 @@ fn try_lower_resolved_builtin_call(
         BuiltinCall::RuntimeNotify => (2, Some(2)),
         BuiltinCall::RuntimeCheckWitness => (1, Some(1)),
         // Solidity allows abi.encode()/encodePacked() with zero arguments.
-        BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked | BuiltinCall::AbiEncodeCall => (0, None),
+        BuiltinCall::AbiEncode | BuiltinCall::AbiEncodePacked | BuiltinCall::AbiEncodeCall => {
+            (0, None)
+        }
         BuiltinCall::AbiEncodeWithSignature => (1, None),
         BuiltinCall::AbiDecode => (2, None),
         BuiltinCall::Keccak256 => (1, Some(1)),
@@ -55,6 +57,26 @@ fn try_lower_resolved_builtin_call(
         return Some(false);
     }
 
+    if matches!(builtin, BuiltinCall::AbiEncode | BuiltinCall::AbiEncodeCall) {
+        if let Some(result) = lower_abi_encode_args_direct_from_slice(args, ctx, instructions) {
+            return Some(result);
+        }
+    }
+
+    if matches!(builtin, BuiltinCall::AbiEncodePacked) {
+        if let Some(result) =
+            lower_abi_encode_packed_args_direct_from_slice(args, ctx, instructions)
+        {
+            return Some(result);
+        }
+    }
+
+    if matches!(builtin, BuiltinCall::AbiDecode) {
+        if let Some(result) = lower_abi_decode_direct(args, ctx, instructions) {
+            return Some(result);
+        }
+    }
+
     // Task #66 — `abi.encodePacked` width-aware packing for narrow integers.
     //
     // Per Solidity spec, `abi.encodePacked(uintN)` emits exactly N/8 bytes in
@@ -79,9 +101,7 @@ fn try_lower_resolved_builtin_call(
         let narrow_widths: Option<Vec<usize>> = args
             .iter()
             .map(|arg| match infer_type_from_expression(arg, ctx) {
-                Some(ValueType::Integer { bits, .. })
-                    if matches!(bits, 8 | 16 | 32 | 64 | 128) =>
-                {
+                Some(ValueType::Integer { bits, .. }) if matches!(bits, 8 | 16 | 32 | 64 | 128) => {
                     Some(bits as usize)
                 }
                 _ => None,
@@ -101,10 +121,7 @@ fn try_lower_resolved_builtin_call(
                     target: ConvertTarget::ByteArray,
                 });
                 coerce_to_fixed_bytes(bits / 8, true, ctx, instructions);
-                // Discard the MEMCPY-push-back that `coerce_to_fixed_bytes`
-                // leaves below the canonical ByteString result.
-                instructions.push(Instruction::Swap);
-                instructions.push(Instruction::Drop(ValueType::Any));
+                // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
             }
             if success {
                 instructions.push(Instruction::CallBuiltin {
@@ -146,7 +163,9 @@ fn try_lower_resolved_builtin_call(
                         BigInt::from(expected_bytes),
                     )));
                     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-                    instructions.push(Instruction::JumpIf { target: decode_ok_label });
+                    instructions.push(Instruction::JumpIf {
+                        target: decode_ok_label,
+                    });
                     emit_panic(0x41, instructions);
                     instructions.push(Instruction::Label(decode_ok_label));
                 }
@@ -187,10 +206,7 @@ fn try_lower_resolved_builtin_call(
                     success = false;
                     continue;
                 }
-                if is_fixed_bytes_cast_expr(arg) {
-                    instructions.push(Instruction::Swap);
-                    instructions.push(Instruction::Drop(ValueType::Any));
-                }
+                // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
                 flat_arg_count += 1;
             }
         }
@@ -213,10 +229,7 @@ fn try_lower_resolved_builtin_call(
                     success = false;
                     continue;
                 }
-                if is_fixed_bytes_cast_expr(arg) {
-                    instructions.push(Instruction::Swap);
-                    instructions.push(Instruction::Drop(ValueType::Any));
-                }
+                // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
             }
         }
     }
@@ -366,4 +379,3 @@ fn is_dynamic_abi_type(expr: &Expression) -> bool {
         _ => false,
     }
 }
-

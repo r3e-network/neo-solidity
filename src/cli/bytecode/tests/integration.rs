@@ -29,8 +29,8 @@ fn mapping_code_generation_emits_storage_ops() {
     assert!(bytecode.windows(4).any(|window| window == call_id));
 
     const CRYPTOLIB_HASH_LE: [u8; 20] = [
-        0x1B, 0xF5, 0x75, 0xAB, 0x11, 0x89, 0x68, 0x84, 0x13, 0x61, 0x0A, 0x35, 0xA1, 0x28,
-        0x86, 0xCD, 0xE0, 0xB6, 0x6C, 0x72,
+        0x1B, 0xF5, 0x75, 0xAB, 0x11, 0x89, 0x68, 0x84, 0x13, 0x61, 0x0A, 0x35, 0xA1, 0x28, 0x86,
+        0xCD, 0xE0, 0xB6, 0x6C, 0x72,
     ];
     let mut cryptolib_push = vec![0x0C, 0x14];
     cryptolib_push.extend_from_slice(&CRYPTOLIB_HASH_LE);
@@ -114,9 +114,48 @@ fn zero_arg_abi_encode_skips_pseudo_native_stdlib_call() {
         .script;
 
     assert!(
-        !bytecode.windows(b"abiEncode".len()).any(|window| window == b"abiEncode"),
+        !bytecode
+            .windows(b"abiEncode".len())
+            .any(|window| window == b"abiEncode"),
         "zero-arg abi.encode() should not lower to StdLib.abiEncode"
     );
+}
+
+#[test]
+fn nonzero_abi_helpers_do_not_emit_pseudo_native_stdlib_calls() {
+    let source = r#"
+        pragma solidity ^0.8.19;
+
+        contract EncodeDecode {
+            function encode(uint256 value) public pure returns (bytes memory) {
+                return abi.encode(value);
+            }
+
+            function packed(uint256 value) public pure returns (bytes memory) {
+                return abi.encodePacked(value);
+            }
+
+            function decode(bytes memory data) public pure returns (uint256) {
+                return abi.decode(data, (uint256));
+            }
+        }
+        "#;
+
+    let mut metadata = analyse_source(source).expect("analysis failed");
+    let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
+    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2, false)
+        .expect("bytecode generation")
+        .script;
+
+    for pseudo_method in [b"abiEncode".as_slice(), b"abiEncodePacked", b"abiDecode"] {
+        assert!(
+            !bytecode
+                .windows(pseudo_method.len())
+                .any(|window| window == pseudo_method),
+            "ABI helpers must not lower to nonexistent StdLib.{}",
+            std::str::from_utf8(pseudo_method).unwrap()
+        );
+    }
 }
 
 #[test]
@@ -140,7 +179,9 @@ fn static_custom_error_revert_skips_pseudo_native_abi_encode() {
         .script;
 
     assert!(
-        !bytecode.windows(b"abiEncode".len()).any(|window| window == b"abiEncode"),
+        !bytecode
+            .windows(b"abiEncode".len())
+            .any(|window| window == b"abiEncode"),
         "static custom-error revert should not lower to StdLib.abiEncode"
     );
 }

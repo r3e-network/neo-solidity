@@ -15,17 +15,20 @@ fn emit_abi_encode(
     let total_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &total_bigint);
     bytecode.push(0xC0); // PACK
-    // PACK pops values from the stack and therefore reverses their order.
-    // For `abi.encode(a, b, c)` we must preserve the original argument order.
+                         // PACK pops values from the stack and therefore reverses their order.
+                         // For `abi.encode(a, b, c)` we must preserve the original argument order.
     if arg_count > 1 {
         bytecode.push(0x4A); // DUP (keep a reference to the array on the stack)
         bytecode.push(0xD1); // REVERSEITEMS (consumes one reference, reverses in-place)
     }
-    // Task #44 — target the EVM-canonical encoder (BE-padded 32-byte slots).
+    // Production Neo N3 has no StdLib.abiEncode helper. The high-level IR
+    // lowers many static ABI shapes directly before bytecode emission; this
+    // fallback keeps remaining shapes executable on chain by using real Neo
+    // StdLib serialization instead of a pseudo-native test-runtime method.
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "abiEncode",
+        "serialize",
         1,
         use_callt,
         token_patches,
@@ -51,12 +54,13 @@ fn emit_abi_encode_packed(
         bytecode.push(0x4A); // DUP
         bytecode.push(0xD1); // REVERSEITEMS
     }
-    // Task #44 — target the packed encoder (per-element BE width, no padding
-    // between slots).
+    // Production Neo N3 has no StdLib.abiEncodePacked helper. Static/narrow
+    // packed forms are lowered before this point; use real StdLib.serialize
+    // for the remaining fallback instead of emitting a nonexistent method.
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "abiEncodePacked",
+        "serialize",
         1,
         use_callt,
         token_patches,
@@ -68,12 +72,14 @@ fn emit_abi_decode(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
-    // Task #44 — round-trip decoder. Accepts the BE-packed payload produced
-    // by `abiEncode` and yields an Array of UnsignedInteger slots.
+    // Production Neo N3 has no StdLib.abiDecode helper. Decode the fallback
+    // Neo-serialized ABI payloads with real StdLib.deserialize; static
+    // canonical ABI decode fast paths are handled in IR where target types are
+    // still available.
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
-        "abiDecode",
+        "deserialize",
         1,
         use_callt,
         token_patches,

@@ -74,7 +74,7 @@ pub(crate) fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
             "type": "event",
             "name": event.name,
             "inputs": inputs,
-            "anonymous": false,
+            "anonymous": event.anonymous,
         }));
     }
 

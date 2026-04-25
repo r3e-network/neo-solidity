@@ -998,9 +998,7 @@ fn lower_yul_mstore(
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
-    // MEMCPY leaves `scratch` on the stack; drop it and reverse the buffer
-    // in place so it now holds the 32 BE bytes of `value`.
-    instructions.push(Instruction::Drop(ValueType::Any));
+    // Real NeoVM MEMCPY: Pop 5, Push 0. Load scratch explicitly.
     instructions.push(Instruction::LoadLocal(scratch_local));
     instructions.push(Instruction::ReverseItems);
 
@@ -1011,8 +1009,7 @@ fn lower_yul_mstore(
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
     instructions.push(Instruction::MemCpy);
-    // MEMCPY pushes `dst` back — discard it; the buffer was already stored.
-    instructions.push(Instruction::Drop(ValueType::Any));
+    // Real NeoVM MEMCPY: Pop 5, Push 0. Nothing to discard.
     true
 }
 
@@ -1310,7 +1307,7 @@ fn lower_yul_returndatacopy(
     instructions.push(Instruction::LoadLocal(src_local));
     instructions.push(Instruction::LoadLocal(len_local));
     instructions.push(Instruction::MemCpy);
-    instructions.push(Instruction::Drop(ValueType::Any));
+    // Real NeoVM MEMCPY: Pop 5, Push 0. Nothing to discard.
 
     // Skip target: zero-length fast path and end of the non-fault path meet
     // here. The `ok_label` arm falls through to `skip_label`; both paths

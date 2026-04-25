@@ -1,3 +1,5 @@
+type StorageKeyValues = Vec<(Vec<u8>, Vec<u8>)>;
+
 impl NeoRuntime {
     /// Get current state of the runtime
     pub fn get_state_snapshot(&self) -> state::StateSnapshot {
@@ -50,7 +52,7 @@ impl NeoRuntime {
         &mut self,
         account: &str,
         prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, RuntimeError> {
+    ) -> Result<StorageKeyValues, RuntimeError> {
         let query = storage::StorageQuery {
             account: account.to_string(),
             key_prefix: Some(prefix.to_vec()),
@@ -94,4 +96,3 @@ impl NeoRuntime {
         }
     }
 }
-

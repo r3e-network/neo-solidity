@@ -1,4 +1,9 @@
-pub(crate) fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
+/// Disassemble NeoVM bytecode into a human-readable textual listing.
+///
+/// This function is total: any byte sequence (including malformed or
+/// truncated bytecode) produces some output without panicking. That
+/// invariant is fuzzed by `fuzz/fuzz_targets/fuzz_target_disasm.rs`.
+pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
     let width = if bytecode.len() <= 0xFFFF { 4 } else { 6 };
     let mut out = String::new();
     let mut pc: usize = 0;

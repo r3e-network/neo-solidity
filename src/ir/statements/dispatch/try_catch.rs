@@ -192,6 +192,28 @@ fn emit_selector_guard(
     instructions.push(Instruction::JumpIf { target: fail_label });
 }
 
+fn emit_decode_be_u256_low_u64(
+    source_local: usize,
+    slot_offset: u64,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp = ctx.allocate_local("__catch_u256_low_u64".to_string(), None);
+    instructions.push(Instruction::LoadLocal(source_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        slot_offset + 24,
+    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(8u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::StoreLocal(tmp));
+    instructions.push(Instruction::LoadLocal(tmp));
+    instructions.push(Instruction::LoadLocal(tmp));
+    instructions.push(Instruction::ReverseItems);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Integer,
+    });
+}
+
 /// Bind the `uint code` parameter for a `catch Panic(uint code)` clause.
 /// The payload is `0x4e487b71 || abi.encode(uint256 code)`; extract bytes
 /// [4..36] via SUBSTR and Convert to Integer.
@@ -212,20 +234,11 @@ fn bind_panic_code_parameter(
         .unwrap_or(ValueType::Integer { signed: false, bits: 256 });
     let slot = ctx.allocate_local(name, Some(inferred));
 
-    // SUBSTR(payload, 4, 32) → 32-byte big-endian uint256.
-    // Route through StdLib.abiDecode which unpacks a 32-byte BE slot into
-    // `UnsignedInteger` (when high bits zero) or a 32-byte ByteArray chunk
-    // (for out-of-range values). Panic codes specified by Solidity 0.8
-    // (0x01, 0x11, 0x12, 0x21, 0x22, 0x31, 0x32, 0x41, 0x51) all fit in
-    // one byte, so the common case is the fast UnsignedInteger arm.
-    instructions.push(Instruction::LoadLocal(catch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(4u8))));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
-    instructions.push(Instruction::Substr);
-    instructions.push(Instruction::CallBuiltin {
-        builtin: BuiltinCall::AbiDecode,
-        arg_count: 1,
-    });
+    // Decode the low u64 directly from the big-endian ABI word. Do not route
+    // through the AbiDecode fallback: on production NeoVM that maps to
+    // StdLib.deserialize, which expects Neo JSON serialization rather than raw
+    // EVM ABI bytes.
+    emit_decode_be_u256_low_u64(catch_local, 4, ctx, instructions);
     instructions.push(Instruction::StoreLocal(slot));
 }
 
@@ -254,18 +267,10 @@ fn bind_error_message_parameter(
 
     // Read string length from bytes [36..68] (BE uint256). Offset 68 in
     // the payload is where the actual string bytes start (4-byte selector
-    // + 32-byte head offset + 32-byte length = 68). Route through
-    // StdLib.abiDecode to turn the 32-byte BE chunk into an
-    // UnsignedInteger (works for any reasonable length < 2^64).
+    // + 32-byte head offset + 32-byte length = 68). Decode the low u64
+    // directly from raw ABI bytes for the same reason as Panic(uint).
     let len_tmp = ctx.allocate_local("__catch_err_len".to_string(), None);
-    instructions.push(Instruction::LoadLocal(catch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(36u8))));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
-    instructions.push(Instruction::Substr);
-    instructions.push(Instruction::CallBuiltin {
-        builtin: BuiltinCall::AbiDecode,
-        arg_count: 1,
-    });
+    emit_decode_be_u256_low_u64(catch_local, 36, ctx, instructions);
     instructions.push(Instruction::StoreLocal(len_tmp));
 
     // SUBSTR(payload, 68, len_tmp) → raw string bytes.

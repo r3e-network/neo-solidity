@@ -198,6 +198,84 @@ fn standard_json_reports_missing_import_error() {
 }
 
 #[test]
+fn standard_json_reports_duplicate_contract_name_import_closure() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source_a = r#"
+    pragma solidity ^0.8.19;
+    import "./B.sol";
+
+    contract Duplicate {
+        function fromA() public pure returns (uint256) {
+            return 1;
+        }
+    }
+    "#;
+
+    let source_b = r#"
+    pragma solidity ^0.8.19;
+
+    contract Duplicate {
+        function fromB() public pure returns (uint256) {
+            return 2;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source_a },
+            "B.sol": { "content": source_b }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed with diagnostics");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+    let errors = output["errors"].as_array().expect("errors array");
+
+    assert!(
+        errors.iter().any(|error| {
+            error["code"] == "STANDARD_JSON_OUTPUT_ERROR"
+                && error["sourceLocation"]["file"] == "A.sol"
+                && error["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains("duplicate contract names"))
+        }),
+        "expected duplicate import-closure diagnostic: {output}"
+    );
+    assert!(
+        output["contracts"]["A.sol"]["Duplicate"].is_null(),
+        "A.sol Duplicate must not be emitted from an ambiguous import closure: {output}"
+    );
+}
+
+#[test]
 fn standard_json_accepts_import_aliasing_for_dependency_resolution() {
     let temp = tempdir().expect("tempdir");
     let input_path = temp.path().join("input.json");

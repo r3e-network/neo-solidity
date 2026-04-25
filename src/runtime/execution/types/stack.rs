@@ -47,7 +47,28 @@ impl StackItemSerde {
     fn from_item(item: &StackItem) -> Self {
         match item {
             StackItem::Integer(value) => StackItemSerde::Integer(*value),
-            StackItem::UnsignedInteger(value) => StackItemSerde::UnsignedInteger(*value),
+            // Canonicalise `UnsignedInteger(v)` to `Integer(v as i64)` whenever
+            // it fits, so the `StdLib.serialize` JSON envelope (used for storage
+            // slot derivation via `keccak256(serialize(key) || base)`) does not
+            // diverge between callers that pass a numeric argument as
+            // `Integer(0i64)` vs `UnsignedInteger(0u64)`. Compiled IR only ever
+            // produces `Integer`-shaped values for integer locals/storage reads,
+            // so without this collapse `pushArr(uint256 v)` writes under
+            // `serialize(Integer(len))` while `getArr(uint256 i)` reads from
+            // `serialize(UnsignedInteger(i))` — surfaced by the storage
+            // state-machine proptest as `getArr(0)` returning `0` for a
+            // freshly-pushed value. Wide values (`v > i64::MAX`) keep the
+            // `UnsignedInteger` envelope; callers pushing those are already
+            // outside the i64 narrow path that any IR-emitted integer would
+            // produce, so a divergence there would be visible at the arithmetic
+            // level too — not silently in slot derivation.
+            StackItem::UnsignedInteger(value) => {
+                if *value <= i64::MAX as u64 {
+                    StackItemSerde::Integer(*value as i64)
+                } else {
+                    StackItemSerde::UnsignedInteger(*value)
+                }
+            }
             StackItem::ByteArray(bytes) => StackItemSerde::ByteArray(bytes.borrow().clone()),
             StackItem::Array(items) => StackItemSerde::Array(
                 items

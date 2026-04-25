@@ -604,7 +604,13 @@ impl ExecutionContext {
                     } else {
                         body
                     };
-                    let magnitude = i128::from_str_radix(body, radix).unwrap_or(0);
+                    // Bug #21: `atoi("--42", 10)` previously returned 42 because
+                    // `i128::from_str_radix` accepts a leading `-` in `body`,
+                    // making the outer `neg` flag a second negation. Parse the
+                    // magnitude as **unsigned** so any sign character in `body`
+                    // (including a second `-`, a `+`, or anything else
+                    // non-digit) yields 0.
+                    let magnitude = u128::from_str_radix(body, radix).unwrap_or(0) as i128;
                     let signed = if neg { -magnitude } else { magnitude };
                     // Saturate into i64 (Integer slot width).
                     let clamped = signed.clamp(i64::MIN as i128, i64::MAX as i128) as i64;
@@ -706,10 +712,24 @@ impl ExecutionContext {
             return None;
         }
         let mut out = Vec::with_capacity(cleaned.len() / 4 * 3);
-        for chunk in cleaned.chunks_exact(4) {
+        for (chunk_idx, chunk) in cleaned.chunks_exact(4).enumerate() {
             let pad = chunk.iter().rev().take_while(|b| **b == b'=').count();
             if pad > 2 {
                 return None;
+            }
+            // Bug #22: previously this loop accepted `=` at any position in
+            // the chunk and treated it as a literal zero sextet, so inputs
+            // like "AB=C" decoded to non-empty bytes instead of erroring.
+            // Reject `=` anywhere except the trailing-padding region of the
+            // FINAL chunk (mid-chunk and non-final-chunk pad bytes are
+            // illegal per RFC 4648).
+            let total_eq = chunk.iter().filter(|b| **b == b'=').count();
+            if total_eq != pad {
+                return None; // `=` outside trailing-pad position
+            }
+            let is_final_chunk = chunk_idx + 1 == cleaned.len() / 4;
+            if pad > 0 && !is_final_chunk {
+                return None; // pad only allowed in final chunk
             }
             let mut vals = [0u8; 4];
             for (i, &c) in chunk.iter().enumerate() {

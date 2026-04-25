@@ -161,6 +161,7 @@ fn should_emit_u256_arith_guard(
     is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx)
 }
 
+
 /// Batch-#30 H1: detect narrow unsigned integer operands (uint8/16/32/64/128)
 /// so we can emit a width-aware post-op overflow check. The runtime performs
 /// arithmetic through the i64/BigInt stack-item paths which DON'T wrap at the
@@ -548,13 +549,6 @@ fn emit_checked_arith_guard(
     // looking for a numeric wrap (which doesn't happen).
     let done_label = ctx.next_label();
 
-    // UINT256_MAX literal used by the Add/Mul post-checks. Encoded as a
-    // 33-byte signed LE ByteArray where the high byte is `0x00` so
-    // `BigInt::from_signed_bytes_le` decodes it as the positive `2^256 - 1`
-    // rather than the signed `-1`.
-    let mut uint256_max_bytes: Vec<u8> = vec![0xffu8; 32];
-    uint256_max_bytes.push(0x00);
-
     match operator {
         BinaryOperator::Add => {
             // Compute result = lhs + rhs.
@@ -563,14 +557,16 @@ fn emit_checked_arith_guard(
             instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
             instructions.push(Instruction::StoreLocal(result_local));
 
-            // Overflow if `result > UINT256_MAX`. Since runtime Adds at the
-            // full BigInt width, the sum of two uint256 values can exceed
-            // 2^256-1 by up to +2^256-1.
-            // Task #107 — canonical EVM Panic(uint256) envelope.
+            // Overflow guard: the runtime adds at full BigInt width and stores
+            // the raw result as a signed-LE ByteArray via
+            // `bigint_to_stack_item`. For values > 2^256-1 the ByteArray exceeds
+            // 32 bytes. We detect overflow by checking `GetSize(result) > 32`.
+            // This avoids pushing a 33-byte UINT256_MAX literal (which real
+            // NeoVM rejects — Integer max is 32 bytes).
             instructions.push(Instruction::LoadLocal(result_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                uint256_max_bytes.clone(),
-            )));
+            instructions.push(Instruction::Convert { target: ConvertTarget::ByteArray });
+            instructions.push(Instruction::GetSize);
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
             // JumpIf-on-false: if overflow is FALSE (safe), skip the THROW.
             instructions.push(Instruction::JumpIf { target: done_label });
@@ -606,12 +602,11 @@ fn emit_checked_arith_guard(
             instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
             instructions.push(Instruction::StoreLocal(result_local));
 
-            // Overflow if `result > UINT256_MAX`.
-            // Task #107 — canonical EVM Panic(uint256) envelope.
+            // Overflow guard: same size-check approach as Add.
             instructions.push(Instruction::LoadLocal(result_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                uint256_max_bytes.clone(),
-            )));
+            instructions.push(Instruction::Convert { target: ConvertTarget::ByteArray });
+            instructions.push(Instruction::GetSize);
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
             instructions.push(Instruction::JumpIf { target: done_label });
             emit_panic(0x11, instructions);
@@ -682,17 +677,11 @@ fn lower_binary_expr(
     if !lower_expression(left, ctx, instructions) {
         return false;
     }
-    if is_fixed_bytes_cast_expr(left) {
-        instructions.push(Instruction::Swap);
-        instructions.push(Instruction::Drop(ValueType::Any));
-    }
+    // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
     if !lower_expression(right, ctx, instructions) {
         return false;
     }
-    if is_fixed_bytes_cast_expr(right) {
-        instructions.push(Instruction::Swap);
-        instructions.push(Instruction::Drop(ValueType::Any));
-    }
+    // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
 
     // Solidity 0.8+ panics on division/modulo by zero.
     if matches!(operator, BinaryOperator::Div | BinaryOperator::Mod) {

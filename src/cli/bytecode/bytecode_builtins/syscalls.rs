@@ -30,7 +30,8 @@ fn emit_native_contract_call(
 
     if use_callt {
         if let Ok(params) = u16::try_from(arg_count) {
-            if !method.starts_with('_') && method.len() <= neo_solidity::neo::MAX_TOKEN_METHOD_LENGTH
+            if !method.starts_with('_')
+                && method.len() <= neo_solidity::neo::MAX_TOKEN_METHOD_LENGTH
             {
                 if let Some(has_return_value) = native_method_has_return_value(contract, method) {
                     bytecode.push(0x37); // CALLT
@@ -63,8 +64,8 @@ fn emit_native_contract_call(
     let arg_count_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &arg_count_bigint);
     bytecode.push(0xC0); // PACK
-    // PACK pops values from the stack and reverses their order. Native contract
-    // calls must preserve the original argument ordering.
+                         // PACK pops values from the stack and reverses their order. Native contract
+                         // calls must preserve the original argument ordering.
     if arg_count > 1 {
         bytecode.push(0x4A); // DUP (keep a reference to the array on the stack)
         bytecode.push(0xD1); // REVERSEITEMS (consumes one reference, reverses in-place)
@@ -90,20 +91,43 @@ fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {
 }
 
 fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Option<bool> {
-    use ir::NativeContract::{Neo, Gas, ContractManagement, Policy, Oracle, RoleManagement, Notary};
+    use ir::NativeContract::{
+        ContractManagement, Gas, Neo, Notary, Oracle, Policy, RoleManagement,
+    };
 
     let is_mutating = match (contract, method) {
-        (Neo, "transfer" | "vote" | "registerCandidate" | "unregisterCandidate" | "setGasPerBlock"
-        | "setRegisterPrice") => true,
+        (
+            Neo,
+            "transfer"
+            | "vote"
+            | "registerCandidate"
+            | "unregisterCandidate"
+            | "setGasPerBlock"
+            | "setRegisterPrice",
+        ) => true,
         (Gas, "transfer") => true,
         (ContractManagement, "deploy" | "update" | "destroy" | "setMinimumDeploymentFee") => true,
-        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice" | "setAttributeFee"
-        | "setMillisecondsPerBlock" | "setMaxValidUntilBlockIncrement" | "setMaxTraceableBlocks"
-        | "blockAccount" | "unblockAccount" | "recoverFund"
-        | "setWhitelistFeeContract" | "removeWhitelistFeeContract") => true,
+        (
+            Policy,
+            "setFeePerByte"
+            | "setExecFeeFactor"
+            | "setStoragePrice"
+            | "setAttributeFee"
+            | "setMillisecondsPerBlock"
+            | "setMaxValidUntilBlockIncrement"
+            | "setMaxTraceableBlocks"
+            | "blockAccount"
+            | "unblockAccount"
+            | "recoverFund"
+            | "setWhitelistFeeContract"
+            | "removeWhitelistFeeContract",
+        ) => true,
         (Oracle, "request" | "setPrice" | "finish") => true,
         (RoleManagement, "designateAsRole") => true,
-        (Notary, "lockDepositUntil" | "withdraw" | "setMaxNotValidBeforeDelta" | "onNEP17Payment") => true,
+        (
+            Notary,
+            "lockDepositUntil" | "withdraw" | "setMaxNotValidBeforeDelta" | "onNEP17Payment",
+        ) => true,
         _ => {
             if native_method_has_return_value(contract, method).is_some() {
                 return Some(false);
@@ -116,44 +140,120 @@ fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Opti
 }
 
 fn native_method_has_return_value(contract: ir::NativeContract, method: &str) -> Option<bool> {
-    use ir::NativeContract::{StdLib, CryptoLib, Ledger, Neo, Gas, ContractManagement, Policy, Oracle, RoleManagement, Notary, Treasury};
+    use ir::NativeContract::{
+        ContractManagement, CryptoLib, Gas, Ledger, Neo, Notary, Oracle, Policy, RoleManagement,
+        StdLib, Treasury,
+    };
 
     let has_return = match (contract, method) {
-        (StdLib, "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
-        | "base64Decode" | "base64UrlEncode" | "base64UrlDecode" | "base58Encode" | "base58Decode"
-        | "base58CheckEncode" | "base58CheckDecode" | "hexEncode" | "hexDecode" | "itoa" | "atoi"
-        | "memoryCompare" | "memorySearch" | "stringSplit" | "strLen"
-        // Task #44 — EVM-canonical ABI encoders (see
-        // src/runtime/execution/execution_impl_part2_native/stdlib.rs).
-        | "abiEncode" | "abiEncodePacked" | "abiDecode") => true,
-        (CryptoLib, "sha256" | "ripemd160" | "keccak256" | "murmur32" | "recoverSecp256K1"
-        | "verifyWithECDsa" | "verifyWithEd25519" | "bls12381Serialize" | "bls12381Deserialize"
-        | "bls12381Equal" | "bls12381Add" | "bls12381Mul" | "bls12381Pairing") => true,
-        (Ledger, "currentIndex" | "getBlock" | "getTransaction" | "getTransactionHeight"
-        | "getTransactionFromBlock") => true,
-        (Neo, "symbol" | "decimals" | "totalSupply" | "balanceOf" | "transfer" | "vote" | "getCandidates"
-        | "registerCandidate" | "unregisterCandidate" | "getGasPerBlock" | "getRegisterPrice"
-        | "getAccountState" | "unclaimedGas" | "getCandidateVote" | "getCommittee"
-        | "getCommitteeAddress" | "getNextBlockValidators" | "getAllCandidates") => true,
+        (
+            StdLib,
+            "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
+            | "base64Decode" | "base64UrlEncode" | "base64UrlDecode" | "base58Encode"
+            | "base58Decode" | "base58CheckEncode" | "base58CheckDecode" | "hexEncode"
+            | "hexDecode" | "itoa" | "atoi" | "memoryCompare" | "memorySearch" | "stringSplit"
+            | "strLen",
+        ) => true,
+        (
+            CryptoLib,
+            "sha256"
+            | "ripemd160"
+            | "keccak256"
+            | "murmur32"
+            | "recoverSecp256K1"
+            | "verifyWithECDsa"
+            | "verifyWithEd25519"
+            | "bls12381Serialize"
+            | "bls12381Deserialize"
+            | "bls12381Equal"
+            | "bls12381Add"
+            | "bls12381Mul"
+            | "bls12381Pairing",
+        ) => true,
+        (
+            Ledger,
+            "currentIndex"
+            | "getBlock"
+            | "getTransaction"
+            | "getTransactionHeight"
+            | "getTransactionFromBlock",
+        ) => true,
+        (
+            Neo,
+            "symbol"
+            | "decimals"
+            | "totalSupply"
+            | "balanceOf"
+            | "transfer"
+            | "vote"
+            | "getCandidates"
+            | "registerCandidate"
+            | "unregisterCandidate"
+            | "getGasPerBlock"
+            | "getRegisterPrice"
+            | "getAccountState"
+            | "unclaimedGas"
+            | "getCandidateVote"
+            | "getCommittee"
+            | "getCommitteeAddress"
+            | "getNextBlockValidators"
+            | "getAllCandidates",
+        ) => true,
         (Neo, "setGasPerBlock" | "setRegisterPrice") => false,
         (Gas, "symbol" | "decimals" | "totalSupply" | "balanceOf" | "transfer") => true,
-        (ContractManagement, "deploy" | "getContract" | "getContractById" | "getContractHashes"
-        | "hasMethod" | "isContract" | "getMinimumDeploymentFee") => true,
+        (
+            ContractManagement,
+            "deploy"
+            | "getContract"
+            | "getContractById"
+            | "getContractHashes"
+            | "hasMethod"
+            | "isContract"
+            | "getMinimumDeploymentFee",
+        ) => true,
         (ContractManagement, "update" | "destroy" | "setMinimumDeploymentFee") => false,
-        (Policy, "getFeePerByte" | "getExecFeeFactor" | "getExecPicoFeeFactor" | "getStoragePrice"
-        | "getMillisecondsPerBlock" | "getMaxValidUntilBlockIncrement" | "getMaxTraceableBlocks"
-        | "getAttributeFee" | "blockAccount" | "unblockAccount" | "isBlocked"
-        | "getBlockedAccounts" | "recoverFund" | "getWhitelistFeeContracts") => true,
-        (Policy, "setFeePerByte" | "setExecFeeFactor" | "setStoragePrice" | "setAttributeFee"
-        | "setMillisecondsPerBlock" | "setMaxValidUntilBlockIncrement"
-        | "setMaxTraceableBlocks" | "setWhitelistFeeContract"
-        | "removeWhitelistFeeContract") => false,
+        (
+            Policy,
+            "getFeePerByte"
+            | "getExecFeeFactor"
+            | "getExecPicoFeeFactor"
+            | "getStoragePrice"
+            | "getMillisecondsPerBlock"
+            | "getMaxValidUntilBlockIncrement"
+            | "getMaxTraceableBlocks"
+            | "getAttributeFee"
+            | "blockAccount"
+            | "unblockAccount"
+            | "isBlocked"
+            | "getBlockedAccounts"
+            | "recoverFund"
+            | "getWhitelistFeeContracts",
+        ) => true,
+        (
+            Policy,
+            "setFeePerByte"
+            | "setExecFeeFactor"
+            | "setStoragePrice"
+            | "setAttributeFee"
+            | "setMillisecondsPerBlock"
+            | "setMaxValidUntilBlockIncrement"
+            | "setMaxTraceableBlocks"
+            | "setWhitelistFeeContract"
+            | "removeWhitelistFeeContract",
+        ) => false,
         (Oracle, "getPrice" | "verify") => true,
         (Oracle, "request" | "setPrice" | "finish") => false,
         (RoleManagement, "getDesignatedByRole") => true,
         (RoleManagement, "designateAsRole") => false,
-        (Notary, "balanceOf" | "expirationOf" | "lockDepositUntil" | "withdraw"
-        | "getMaxNotValidBeforeDelta" | "verify") => true,
+        (
+            Notary,
+            "balanceOf"
+            | "expirationOf"
+            | "lockDepositUntil"
+            | "withdraw"
+            | "getMaxNotValidBeforeDelta"
+            | "verify",
+        ) => true,
         (Notary, "setMaxNotValidBeforeDelta" | "onNEP17Payment") => false,
         (Treasury, "verify") => true,
         (Treasury, "onNEP17Payment" | "onNEP11Payment") => false,

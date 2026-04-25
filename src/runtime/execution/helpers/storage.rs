@@ -1,6 +1,15 @@
 impl ExecutionContext {
     fn build_storage_entries(&self, prefix: Vec<u8>) -> Result<Vec<StackItem>, RuntimeError> {
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        // Bug #18: bound the host-query result set against `storage_limit` so a
+        // host with a giant prefix-matching key set can't be weaponised into a
+        // multi-GB Vec allocation here. The host-side `StorageQuery::limit`
+        // field accepts a usize cap; using `storage_limit / MIN_ENTRY_BYTES`
+        // gives a generous upper bound (a 10 MiB default with 16-byte
+        // estimated min entry size = 640K entries) that still rejects truly
+        // pathological queries before they materialise.
+        const MIN_ENTRY_BYTES: usize = 16;
+        let max_entries = self.storage_limit.saturating_div(MIN_ENTRY_BYTES).max(1);
         if let (Some(mut ptr), Some(account)) = (self.storage_host, self.storage_account.as_ref()) {
             // # Safety
             //
@@ -18,7 +27,7 @@ impl ExecutionContext {
             let query = storage::StorageQuery {
                 account: account.clone(),
                 key_prefix: Some(prefix.clone()),
-                limit: None,
+                limit: Some(max_entries),
                 include_pending: true,
             };
             entries = storage.query(query)?;
@@ -35,6 +44,20 @@ impl ExecutionContext {
                 }
                 None => entries.retain(|(k, _)| k != key),
             }
+        }
+
+        // Final cap: even after merging the overlay, refuse to materialise a
+        // result set bigger than `max_entries` (covers the case where the
+        // overlay alone has > max_entries matching keys, since the host-side
+        // `limit` only constrains the host query).
+        if entries.len() > max_entries {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "Storage.Find: result set ({} entries) exceeds storage_limit cap ({} entries)",
+                    entries.len(),
+                    max_entries
+                ),
+            });
         }
 
         entries.sort_by(|a, b| a.0.cmp(&b.0));

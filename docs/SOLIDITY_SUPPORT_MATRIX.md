@@ -12,6 +12,11 @@ Legend:
 - ❌ Not supported
 - 🚫 Intentionally blocked with diagnostic error
 
+Scope note: this matrix describes neo-solc support on NeoVM, not full EVM
+compatibility. Features marked supported may still have Neo-specific semantics.
+For migration guidance and production validation gaps, see
+`docs/internals/parity-and-limitations.md`.
+
 ---
 
 ## A. Types
@@ -22,7 +27,7 @@ Legend:
 | `int8`..`int256`                         | ✅     | All widths parsed; NeoVM uses arbitrary-precision BigInteger          |
 | `uint8`..`uint256`                       | ✅     | All widths parsed; NeoVM uses arbitrary-precision BigInteger          |
 | `address`                                | ✅     | Maps to Neo UInt160 (Hash160, 20 bytes)                               |
-| `address payable`                        | ⚠️     | Parsed and canonicalized to `address`; `transfer`/`send` are EVM-only |
+| `address payable`                        | ✅     | Parsed and canonicalized to `address`; payable has no separate Neo type |
 | `bytes1`..`bytes32`                      | ✅     | Fixed-length byte arrays via `NeoType::ByteArray { fixed_len }`       |
 | `bytes` (dynamic)                        | ✅     | Dynamic byte array                                                    |
 | `string`                                 | ✅     | UTF-8 string type                                                     |
@@ -44,7 +49,7 @@ Legend:
 ## B. Expressions
 
 | Feature                                       | Status | Notes                                                                                                           |
-| --------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------- | --- | ----------------- |
+| --------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
 | Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                                                                |
 | Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                                                          |
 | Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                                                        |
@@ -59,12 +64,12 @@ Legend:
 | `type(X).min` / `type(X).max`                 | ✅     | Supported for integer types                                                                                     |
 | `type(T).name`                                | ✅     | Compile-time string constant for contract/type names                                                            |
 | `type(I).interfaceId`                         | ✅     | Computed from selector XOR of interface methods                                                                 |
-| `abi.encode(...)`                             | ⚠️     | Supported in context of `address.call`/`staticcall`; standalone limited                                         |
+| `abi.encode(...)`                             | ⚠️     | Supported for selected compiler/runtime paths; dynamic payloads and standalone production use need Neo-Express validation |
 | `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding                                                      |
-| `abi.encodeWithSignature(...)`                | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)` |
-| `abi.encodeWithSelector(...)`                 | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)` |
-| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize` (same as `abi.encode`)                                                               |
-| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument                                            |
+| `abi.encodeWithSignature(...)`                | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as selector plus encoded args |
+| `abi.encodeWithSelector(...)`                 | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as selector plus encoded args |
+| `abi.encodeCall(...)`                         | ⚠️     | Maps through the same limited serialization path as `abi.encode`; validate dynamic production behavior on Neo-Express |
+| `abi.decode(...)`                             | ⚠️     | Maps to `StdLib.deserialize`; dynamic and production Neo N3 behavior should be verified on Neo-Express          |
 | Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                                                            |
 
 ---
@@ -172,10 +177,10 @@ Legend:
 ## H. EVM-Specific Features (with Neo Alternatives)
 
 | Feature                                 | Status | Neo Alternative                                                                                                                     |
-| --------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------ |
+| --------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`                                                                                            |
 | `msg.value`                             | ⚠️     | Only mapped inside `onNEP17Payment` callback                                                                                        |
-| `msg.data`                              | ⚠️     | Approximated as `selector                                                                                                           |     | abi.encode(current args)` outside onNEP17Payment |
+| `msg.data`                              | ⚠️     | Approximated as selector plus encoded current args outside onNEP17Payment                                                            |
 | `msg.sig`                               | ⚠️     | Approximated as the current function selector; internal-call propagation still differs from EVM                                     |
 | `block.timestamp`                       | ✅     | Maps to `Runtime.GetTime()` (normalized to seconds)                                                                                 |
 | `block.number`                          | ✅     | Maps to `Ledger.CurrentIndex()`                                                                                                     |
@@ -191,11 +196,11 @@ Legend:
 | `block.sha3`                            | ⚠️     | Auto-mapped to `Ledger.currentHash`; deprecated in Solidity 0.8+                                                                    |
 | `keccak256(...)`                        | ✅     | Maps to `CryptoLib.keccak256`                                                                                                       |
 | `sha256(...)`                           | ✅     | Maps to `CryptoLib.sha256`                                                                                                          |
-| `ecrecover(...)`                        | ✅     | Maps to `CryptoLib.verifyWithECDsa`                                                                                                 |
+| `ecrecover(...)`                        | ✅     | Uses `CryptoLib.recoverSecp256K1`, then derives the Ethereum address with `keccak256` and `RIGHT 20`                                |
 | `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                                                                          |
-| `address.call(...)`                     | ✅     | Maps to `System.Contract.Call`                                                                                                      |
-| `address.staticcall(...)`               | ✅     | Maps to `System.Contract.Call` (read-only flag)                                                                                     |
-| `address.delegatecall(...)`             | ⚠️     | Emits warning; compiled as System.Contract.Call with different storage semantics                                                    |
+| `address.call(...)`                     | ⚠️     | Maps to `System.Contract.Call`; return wrapping and ABI payload parity differ from EVM and need Neo-Express validation              |
+| `address.staticcall(...)`               | ⚠️     | Maps to `System.Contract.Call` (read-only flag); return wrapping and ABI payload parity differ from EVM                             |
+| `address.delegatecall(...)`             | 🚫     | Blocked at compile time; Neo N3 has no equivalent caller-storage execution semantics                                                |
 | `address.transfer(amount)`              | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer fail                                                         |
 | `address.send(amount)`                  | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool                                                                    |
 | `address.balance`                       | ✅     | Auto-mapped to `GAS.balanceOf(address)`                                                                                             |
@@ -237,20 +242,20 @@ Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callb
 
 | Category            | ✅      | ⚠️     | ❌    | 🚫    |
 | ------------------- | ------- | ------ | ----- | ----- |
-| A. Types            | 16      | 2      | 2     | 0     |
-| B. Expressions      | 18      | 3      | 0     | 0     |
+| A. Types            | 17      | 1      | 2     | 0     |
+| B. Expressions      | 16      | 5      | 0     | 0     |
 | C. Statements       | 15      | 2      | 0     | 0     |
 | D. Functions        | 9       | 4      | 0     | 0     |
 | E. OOP Features     | 9       | 1      | 0     | 0     |
 | F. Storage & Memory | 12      | 0      | 0     | 1     |
 | G. Error Handling   | 9       | 1      | 0     | 0     |
-| H. EVM-Specific     | 23      | 6      | 0     | 3     |
+| H. EVM-Specific     | 21      | 7      | 0     | 4     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **114** | **23** | **2** | **4** |
+| **Total**           | **111** | **25** | **2** | **5** |
 
 **Total features audited: 143**
 
-- ✅ Fully supported: 114 (80%)
-- ⚠️ Partial support: 23 (16%)
+- ✅ Fully supported: 111 (78%)
+- ⚠️ Partial support: 25 (17%)
 - ❌ Not supported: 2 (1%)
-- 🚫 Intentionally blocked: 4 (3%)
+- 🚫 Intentionally blocked: 5 (3%)

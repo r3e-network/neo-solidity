@@ -113,6 +113,57 @@ fn lower_return_statement(
                 && return_types.len() >= 2
                 && params.len() == return_types.len()
             {
+                let tuple_exprs: Option<Vec<Expression>> = params
+                    .iter()
+                    .map(|(_, param)| param.as_ref().map(|p| p.ty.clone()))
+                    .collect();
+                if let Some(tuple_exprs) = tuple_exprs.as_ref() {
+                    if !tuple_exprs
+                        .iter()
+                        .any(|expr| matches!(expr, Expression::List(_, _)))
+                    {
+                        let original_len = instructions.len();
+                        if let Some(ok) =
+                            lower_abi_encode_args_direct_from_slice(tuple_exprs, ctx, instructions)
+                        {
+                            if ok {
+                                instructions.push(Instruction::Return);
+                                return true;
+                            }
+                            instructions.truncate(original_len);
+                        }
+                    }
+                }
+
+                let original_len = instructions.len();
+                if return_types.iter().all(is_static_abi_slot_value_type) {
+                    let mut success = true;
+                    for ((_, param), value_type) in params.iter().zip(return_types.iter()) {
+                        let Some(parameter) = param else {
+                            success = false;
+                            break;
+                        };
+                        if !lower_static_abi_return_expr_slot(
+                            &parameter.ty,
+                            value_type,
+                            ctx,
+                            instructions,
+                        ) {
+                            success = false;
+                            break;
+                        }
+                    }
+                    if success {
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::BytesConcat,
+                            arg_count: return_types.len(),
+                        });
+                        instructions.push(Instruction::Return);
+                        return true;
+                    }
+                    instructions.truncate(original_len);
+                }
+
                 let original_len = instructions.len();
                 // Task #94 — flatten nested tuple return expressions so
                 // `return ((1, 2), 3)` for `returns ((uint,uint), uint)`
@@ -122,12 +173,8 @@ fn lower_return_statement(
                 // Spec: Solidity inlines a static inner tuple into the
                 // parent's head section.
                 let mut flat_count = 0usize;
-                let mut success = flatten_tuple_return_params(
-                    params,
-                    ctx,
-                    instructions,
-                    &mut flat_count,
-                );
+                let mut success =
+                    flatten_tuple_return_params(params, ctx, instructions, &mut flat_count);
                 if success && flat_count < params.len() {
                     // Defensive: the flatten walk must produce at least one
                     // leaf per declared param. An empty inner tuple would
@@ -136,7 +183,7 @@ fn lower_return_statement(
                 }
                 if success {
                     instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::AbiEncode,
+                        builtin: BuiltinCall::BytesConcat,
                         arg_count: flat_count,
                     });
                     instructions.push(Instruction::Return);
@@ -181,7 +228,9 @@ fn lower_return_statement(
                                 BigInt::from(expected_bytes),
                             )));
                             instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-                            instructions.push(Instruction::JumpIf { target: decode_ok_label });
+                            instructions.push(Instruction::JumpIf {
+                                target: decode_ok_label,
+                            });
                             emit_panic(0x41, instructions);
                             instructions.push(Instruction::Label(decode_ok_label));
                             instructions.push(Instruction::Return);
@@ -245,13 +294,55 @@ fn lower_return_statement(
                         // through to panic(0x41), matching Task #84's short-
                         // buffer Panic(uint256) envelope.
                         instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-                        instructions.push(Instruction::JumpIf { target: decode_ok_label });
+                        instructions.push(Instruction::JumpIf {
+                            target: decode_ok_label,
+                        });
                         emit_panic(0x41, instructions);
                         instructions.push(Instruction::Label(decode_ok_label));
                         instructions.push(Instruction::Return);
                         return true;
                     }
                     instructions.truncate(pre_len);
+                }
+            }
+
+            if ctx.is_externally_callable() && return_types.len() == 1 {
+                if let Some(decoded_types) = abi_decode_value_types(&abi_decode_args[1], ctx) {
+                    let decoded_type = decoded_types.first();
+                    let return_type = return_types.first();
+                    let matching_single_type = decoded_types.len() == 1
+                        && decoded_type.zip(return_type).is_some_and(|(decoded, ret)| {
+                            decoded == ret
+                                || (abi_static_slot_count(decoded) == Some(1)
+                                    && abi_static_slot_count(ret) == Some(1))
+                                || (abi_value_type_is_dynamic(decoded)
+                                    && abi_value_type_is_dynamic(ret))
+                        });
+
+                    if matching_single_type
+                        && decoded_type.is_some_and(abi_value_type_is_dynamic)
+                    {
+                        if let Some(buffer_expr) = abi_decode_args.first() {
+                            let pre_len = instructions.len();
+                            if lower_expression(buffer_expr, ctx, instructions) {
+                                let decode_ok_label = ctx.next_label();
+                                instructions.push(Instruction::Dup);
+                                instructions.push(Instruction::GetSize);
+                                instructions.push(Instruction::PushLiteral(
+                                    LiteralValue::Integer(BigInt::from(64u32)),
+                                ));
+                                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+                                instructions.push(Instruction::JumpIf {
+                                    target: decode_ok_label,
+                                });
+                                emit_panic(0x41, instructions);
+                                instructions.push(Instruction::Label(decode_ok_label));
+                                instructions.push(Instruction::Return);
+                                return true;
+                            }
+                            instructions.truncate(pre_len);
+                        }
+                    }
                 }
             }
         }
@@ -279,7 +370,7 @@ fn lower_return_statement(
             // shape, so re-wrapping them would regress. Struct / mapping
             // single-value returns are out of scope until a harness exists.
             if ctx.is_externally_callable() {
-                let return_types = ctx.return_types();
+                let return_types = ctx.return_types().to_vec();
                 if return_types.len() == 1
                     && matches!(return_types.first(), Some(ValueType::Array(_)))
                 {
@@ -293,23 +384,36 @@ fn lower_return_statement(
                     // "uint[3][2]") since `ValueType::Array` alone does not
                     // preserve fixed-size dimensions. When it matches, stash
                     // the array in a local, unroll the nested index
-                    // traversal into per-leaf `ArrayGet` sequences, then
-                    // call `AbiEncode(N_leaves)` so the runtime static-only
-                    // fast path emits exactly `N × 32` flat bytes.
+                    // traversal into per-leaf `ArrayGet` sequences, then emit
+                    // each leaf as a direct 32-byte ABI slot.
                     let ret_ty_strings = ctx.return_type_strings();
                     if let Some(first_ty) = ret_ty_strings.first() {
                         if let Some(dims) = parse_nested_fixed_array_shape(first_ty) {
-                            if dims.len() >= 2 {
-                                let total_leaves: usize = dims.iter().product();
+                            if let Some(leaf_type) =
+                                array_leaf_static_value_type(return_types.first().unwrap())
+                            {
+                                // Cap the unrolled instruction count so a
+                                // pathological return type like
+                                // `uint[1000000000][1000000000] memory`
+                                // (from a malicious source) doesn't OOM /
+                                // time-out the compiler emitting billions
+                                // of `LoadLocal`/`ArrayGet` pairs.
+                                // Real contract returns top out at a few
+                                // hundred leaves; 65_536 is a generous
+                                // cap well above any legitimate use.
+                                const MAX_FIXED_ARRAY_LEAVES: usize = 65_536;
+                                let total_leaves: usize = dims
+                                    .iter()
+                                    .try_fold(1usize, |acc, d| acc.checked_mul(*d))
+                                    .filter(|n| *n <= MAX_FIXED_ARRAY_LEAVES)
+                                    .unwrap_or(0);
                                 if total_leaves > 0 {
                                     // Stash the outer array in a temp local
                                     // so each per-leaf traversal can start
                                     // from the same base.
                                     let tmp_id = ctx.next_label();
-                                    let array_local = ctx.allocate_local(
-                                        format!("__flat_ret_arr_{tmp_id}"),
-                                        None,
-                                    );
+                                    let array_local = ctx
+                                        .allocate_local(format!("__flat_ret_arr_{tmp_id}"), None);
                                     instructions.push(Instruction::StoreLocal(array_local));
 
                                     // Enumerate every leaf coordinate in
@@ -328,6 +432,14 @@ fn lower_return_statement(
                                                 LiteralValue::Integer(BigInt::from(idx as u64)),
                                             ));
                                             instructions.push(Instruction::ArrayGet);
+                                        }
+                                        if !emit_static_abi_slot_for_value_type(
+                                            &leaf_type,
+                                            ctx,
+                                            instructions,
+                                        ) {
+                                            ctx.record_error("failed to encode fixed-array return leaf");
+                                            return false;
                                         }
 
                                         // Advance to the next coordinate
@@ -351,7 +463,7 @@ fn lower_return_statement(
                                     }
 
                                     instructions.push(Instruction::CallBuiltin {
-                                        builtin: BuiltinCall::AbiEncode,
+                                        builtin: BuiltinCall::BytesConcat,
                                         arg_count: total_leaves,
                                     });
                                     instructions.push(Instruction::Return);
@@ -360,10 +472,18 @@ fn lower_return_statement(
                             }
                         }
                     }
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::AbiEncode,
-                        arg_count: 1,
-                    });
+                    if emit_abi_encode_single_stack_value_for_type(
+                        return_types.first().unwrap(),
+                        ctx,
+                        instructions,
+                    )
+                    .is_none()
+                    {
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::AbiEncode,
+                            arg_count: 1,
+                        });
+                    }
                 }
             }
             instructions.push(Instruction::Return);
@@ -407,17 +527,31 @@ fn lower_return_statement(
         // internal/private functions, preserve the legacy Array shape so
         // intra-contract callers can destructure via `ArrayGet`.
         if ctx.is_externally_callable() {
+            let static_slot_return = return_types.iter().all(is_static_abi_slot_value_type);
             for (slot, value_type) in return_slots.iter().zip(return_types.iter()) {
                 if let Some(local_index) = slot {
                     instructions.push(Instruction::LoadLocal(*local_index));
                 } else {
                     push_default_for_value_type(value_type, ctx, instructions);
                 }
+                if static_slot_return
+                    && !emit_static_abi_slot_for_value_type(value_type, ctx, instructions)
+                {
+                    ctx.record_error("failed to encode static ABI return slot");
+                    return false;
+                }
             }
-            instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::AbiEncode,
-                arg_count: return_types.len(),
-            });
+            if static_slot_return {
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::BytesConcat,
+                    arg_count: return_types.len(),
+                });
+            } else {
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::AbiEncode,
+                    arg_count: return_types.len(),
+                });
+            }
             instructions.push(Instruction::Return);
             return true;
         }
@@ -429,23 +563,20 @@ fn lower_return_statement(
             Some(ValueType::Array(Box::new(ValueType::Any))),
         );
 
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            return_types.len() as u64,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(return_types.len() as u64),
+        )));
         instructions.push(Instruction::NewArray {
             element_type: ValueType::Any,
         });
         instructions.push(Instruction::StoreLocal(tuple_local));
 
-        for (index, (slot, value_type)) in return_slots
-            .iter()
-            .zip(return_types.iter())
-            .enumerate()
+        for (index, (slot, value_type)) in return_slots.iter().zip(return_types.iter()).enumerate()
         {
             instructions.push(Instruction::LoadLocal(tuple_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                index as u64,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(index as u64),
+            )));
 
             if let Some(local_index) = slot {
                 instructions.push(Instruction::LoadLocal(*local_index));
@@ -505,9 +636,9 @@ fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usiz
             if params.len() != expected_arity {
                 return false;
             }
-            params.iter().all(|(_, param)| {
-                param.as_ref().is_some_and(|p| is_static_abi_type(&p.ty))
-            })
+            params
+                .iter()
+                .all(|(_, param)| param.as_ref().is_some_and(|p| is_static_abi_type(&p.ty)))
         }
         // Parenthesis / single-type forms can never match arity >= 2.
         _ => false,
@@ -535,10 +666,7 @@ fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usiz
 /// bound (`size >= head_slots*32`) since dynamic payloads vary, and
 /// (b) future refinements (e.g. enforcing that offsets are in-range)
 /// can slot in here without perturbing the static-tuple path.
-fn abi_decode_types_match_return_arity_mixed(
-    args: &[Expression],
-    expected_arity: usize,
-) -> bool {
+fn abi_decode_types_match_return_arity_mixed(args: &[Expression], expected_arity: usize) -> bool {
     if expected_arity < 2 {
         return false;
     }
@@ -596,48 +724,11 @@ fn flatten_tuple_return_params(
                 }
             }
             expr => {
-                if !lower_expression(expr, ctx, instructions) {
+                let Some(value_type) = infer_type_from_expression(expr, ctx) else {
                     return false;
-                }
-                // Task #109 workaround replica — `bytesN(..)` / `address(..)`
-                // cast expressions route through `coerce_to_fixed_bytes` in
-                // `src/ir/expressions/calls/type_constructors.rs`. The embedded
-                // MEMCPY pushes its destination buffer back onto the stack
-                // (C-style memcpy semantics — see
-                // `src/runtime/execution/execution_impl_part3_bytes.rs::memcpy_bytes`).
-                // That leaves an extra buffer BENEATH the canonical ByteString
-                // result; every other caller of `coerce_to_fixed_bytes`
-                // (builtins.rs, resolved.rs, member_access.rs, events.rs,
-                // binary.rs) discards it via `Swap; Drop`. The tuple-return
-                // flatten path previously did NOT — fine when every leaf
-                // happened to be a scalar, but broken for the
-                // `return (msg.data.length, bytes4(...));` pattern probed by
-                // `batch47_w4_msg_data_length_and_selector_via_call_method`:
-                // the leaked buffer would be consumed by the subsequent PACK
-                // instead of the Integer it shadowed, corrupting the ABI head.
-                if is_fixed_bytes_cast_expr(expr) {
-                    instructions.push(Instruction::Swap);
-                    instructions.push(Instruction::Drop(ValueType::Any));
-                }
-                // Task #112 — for static `bytesN` leaves (fixed_len in 1..=32),
-                // the value reaching the `abiEncode` builtin is a ByteArray
-                // whose length equals N. The runtime classifier (`abi_is_dynamic`
-                // in `stdlib.rs`) only recognises {16, 20, 32} as static widths
-                // — bytesN values of other widths (e.g. `bytes4` from a
-                // selector slice) would be misclassified as dynamic bytes
-                // and encoded with an offset/length/tail header.
-                //
-                // To keep the runtime classifier simple (it cannot distinguish
-                // `bytes4` from a 4-byte `bytes`/`string` literal), pre-pad
-                // static bytesN leaves here: emit the EVM-canonical left-aligned
-                // 32-byte slot (`bytesN_content || 00 * (32-N)`). The 32-byte
-                // width then matches the existing static heuristic.
-                if let Some(ValueType::ByteArray { fixed_len: Some(n) }) =
-                    infer_type_from_expression(expr, ctx)
-                {
-                    if n >= 1 && n <= 32 && n != 32 {
-                        emit_pad_bytesn_to_32(ctx, instructions, n as usize);
-                    }
+                };
+                if !lower_static_abi_return_expr_slot(expr, &value_type, ctx, instructions) {
+                    return false;
                 }
                 *flat_count += 1;
             }
@@ -654,11 +745,7 @@ fn flatten_tuple_return_params(
 /// into `dst[0..N]`, then re-push the destination and canonicalise as
 /// ByteArray. The tail 32-N bytes remain zero-padded — matching
 /// `abi.encode(bytesN)`'s spec (left-aligned content, zero-padded on the right).
-fn emit_pad_bytesn_to_32(
-    ctx: &mut LoweringContext,
-    instructions: &mut Vec<Instruction>,
-    n: usize,
-) {
+fn emit_pad_bytesn_to_32(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>, n: usize) {
     let tmp_id = ctx.next_label();
     let src_local = ctx.allocate_local(format!("__bytesn_pad_src_{tmp_id}"), None);
     let dst_local = ctx.allocate_local(format!("__bytesn_pad_dst_{tmp_id}"), None);
@@ -668,9 +755,9 @@ fn emit_pad_bytesn_to_32(
     instructions.push(Instruction::StoreLocal(src_local));
 
     // Allocate a zero-initialised 32-byte destination buffer.
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        32u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::NewBuffer);
     instructions.push(Instruction::StoreLocal(dst_local));
 
@@ -687,9 +774,9 @@ fn emit_pad_bytesn_to_32(
     let ge_label = ctx.next_label();
     let end_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        n as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(n as u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: ge_label });
     // size >= n → count = n
@@ -697,30 +784,81 @@ fn emit_pad_bytesn_to_32(
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Jump { target: end_label });
     instructions.push(Instruction::Label(ge_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        n as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(n as u64),
+    )));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Label(end_label));
 
     // NeoVM MEMCPY stack order: [dst, dst_offset, src, src_offset, count].
     // dst_offset = 0 (left-aligned per EVM `abi.encode(bytesN)` layout).
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
-    // Runtime note: the embedded NeoVM MEMCPY mirrors C-style memcpy —
-    // `dst` is left on the stack after the in-place update. That matches
-    // `coerce_to_fixed_bytes` and its siblings (see the comment on
-    // `memcpy_bytes` in `src/runtime/execution/execution_impl_part3_bytes.rs`).
-    // We therefore do NOT re-load the destination: MEMCPY already pushed the
-    // padded buffer. Canonicalise via Convert so the downstream `abiEncode`
+    // Real NeoVM MEMCPY: Pop 5, Push 0. Load dst explicitly.
+    instructions.push(Instruction::LoadLocal(dst_local));
+    // Canonicalise via Convert so the downstream `abiEncode`
     // sees a stable ByteString (value equality with storage-loaded slots).
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
+}
+
+fn is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
+    matches!(
+        value_type,
+        ValueType::Integer { .. }
+            | ValueType::Boolean
+            | ValueType::Address
+            | ValueType::ByteArray {
+                fixed_len: Some(1..=32)
+            }
+    )
+}
+
+fn emit_static_abi_slot_for_value_type(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    match value_type {
+        ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_revert_static_slot_32(ctx, instructions, true);
+            true
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len == 32 => true,
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len < 32 => {
+            emit_pad_bytesn_to_32(ctx, instructions, *len as usize);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn lower_static_abi_return_expr_slot(
+    expr: &Expression,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if !lower_expression(expr, ctx, instructions) {
+        return false;
+    }
+    emit_static_abi_slot_for_value_type(value_type, ctx, instructions)
 }
 
 fn is_direct_static_revert_arg(expr: &Expression, ctx: &LoweringContext) -> bool {
@@ -748,7 +886,9 @@ fn emit_revert_static_slot_32(
     let count_local = ctx.allocate_local(format!("__revert_slot_count_{tmp_id}"), None);
 
     instructions.push(Instruction::StoreLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::NewBuffer);
     instructions.push(Instruction::StoreLocal(dst_local));
 
@@ -759,24 +899,32 @@ fn emit_revert_static_slot_32(
     let ge_label = ctx.next_label();
     let end_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: ge_label });
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Jump { target: end_label });
     instructions.push(Instruction::Label(ge_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Label(end_label));
 
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
-    instructions.push(Instruction::Drop(ValueType::Any));
+    // Real NeoVM MEMCPY: Pop 5, Push 0. Nothing to discard.
 
     if reverse {
         instructions.push(Instruction::LoadLocal(dst_local));
@@ -804,10 +952,7 @@ fn lower_direct_static_revert_arg_slot(
     if !lower_expression(expr, ctx, instructions) {
         return false;
     }
-    if is_fixed_bytes_cast_expr(expr) {
-        instructions.push(Instruction::Swap);
-        instructions.push(Instruction::Drop(ValueType::Any));
-    }
+    // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
 
     match value_type {
         ValueType::Integer { signed: false, .. } | ValueType::Boolean | ValueType::Address => {
@@ -980,8 +1125,8 @@ fn lower_and_flatten_revert_arg(
                     return 0;
                 }
                 let tmp_id = ctx.next_label();
-                let tmp_local =
-                    ctx.allocate_local(format!("__revert_struct_{tmp_id}"), Some(struct_ty.clone()));
+                let tmp_local = ctx
+                    .allocate_local(format!("__revert_struct_{tmp_id}"), Some(struct_ty.clone()));
                 instructions.push(Instruction::StoreLocal(tmp_local));
                 for i in 0..fields.len() {
                     instructions.push(Instruction::LoadLocal(tmp_local));
@@ -1091,6 +1236,32 @@ fn lower_revert_statement(
             instructions.truncate(pre_len);
         }
 
+        let pre_len = instructions.len();
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            selector.to_vec(),
+        )));
+        if args.is_empty() {
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+        if let Some(ok) = lower_abi_encode_args_direct_from_slice(args, ctx, instructions) {
+            if ok {
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::BytesConcat,
+                    arg_count: 2,
+                });
+                instructions.push(Instruction::Throw);
+                return true;
+            }
+            instructions.truncate(pre_len);
+            instructions.push(Instruction::PushLiteral(LiteralValue::String(
+                name.into_bytes(),
+            )));
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+        instructions.truncate(pre_len);
+
         // Task #181 — struct args must be flattened into per-field stack
         // items (Task #124 pattern) so the AbiEncode builtin emits the
         // canonical 2-slot packed struct head (`addr || role`) instead of
@@ -1175,6 +1346,23 @@ fn lower_revert_statement(
         if arg_is_string {
             let selector = revert_error_selector("Error", &["string".to_string()]);
             let pre_len = instructions.len();
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                selector.to_vec(),
+            )));
+            if let Some(ok) =
+                lower_abi_encode_args_direct_from_slice(&[args[0].clone()], ctx, instructions)
+            {
+                if ok {
+                    instructions.push(Instruction::CallBuiltin {
+                        builtin: BuiltinCall::BytesConcat,
+                        arg_count: 2,
+                    });
+                    instructions.push(Instruction::Throw);
+                    return true;
+                }
+            }
+            instructions.truncate(pre_len);
+
             if lower_expression(&args[0], ctx, instructions) {
                 let mut arg_instrs = instructions.split_off(pre_len);
                 instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
@@ -1237,6 +1425,35 @@ fn lower_revert_named_args(
 
         // Task #181 — named-args mirror of the positional custom-error
         // flatten. See `lower_revert_statement` for rationale.
+        let direct_args: Vec<Expression> = args.iter().map(|arg| arg.expr.clone()).collect();
+        let direct_pre_len = instructions.len();
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            selector.to_vec(),
+        )));
+        if direct_args.is_empty() {
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+        if let Some(ok) =
+            lower_abi_encode_args_direct_from_slice(&direct_args, ctx, instructions)
+        {
+            if ok {
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::BytesConcat,
+                    arg_count: 2,
+                });
+                instructions.push(Instruction::Throw);
+                return true;
+            }
+            instructions.truncate(direct_pre_len);
+            instructions.push(Instruction::PushLiteral(LiteralValue::String(
+                name.into_bytes(),
+            )));
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+        instructions.truncate(direct_pre_len);
+
         let pre_len = instructions.len();
         let mut flat_count = 0usize;
         let mut success = true;
@@ -1307,7 +1524,10 @@ fn lower_revert_named_args(
 /// on parameters.
 fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
     // Strip any storage-location suffix and surrounding whitespace.
-    let cleaned: String = ty_str.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    let cleaned: String = ty_str
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .collect();
     let base = cleaned
         .strip_suffix("memory")
         .or_else(|| cleaned.strip_suffix("calldata"))
@@ -1359,6 +1579,18 @@ fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
     Some(dims_outer_first)
 }
 
+fn array_leaf_static_value_type(value_type: &ValueType) -> Option<ValueType> {
+    let mut current = value_type;
+    while let ValueType::Array(inner) = current {
+        current = inner.as_ref();
+    }
+    if is_static_abi_type_value(current) {
+        Some(current.clone())
+    } else {
+        None
+    }
+}
+
 /// Task #185 — predicate for scalar Solidity types whose EVM canonical
 /// encoding is a single 32-byte BE-padded slot. Matches the signature used
 /// by `abi_is_dynamic` / `abi_pad32_be` in the runtime's StdLib handler so
@@ -1369,7 +1601,10 @@ fn is_static_32_byte_leaf_type(ty: &str) -> bool {
     match compact {
         "uint" | "int" | "address" | "bool" => true,
         _ => {
-            if let Some(width) = compact.strip_prefix("uint").or_else(|| compact.strip_prefix("int")) {
+            if let Some(width) = compact
+                .strip_prefix("uint")
+                .or_else(|| compact.strip_prefix("int"))
+            {
                 if let Ok(bits) = width.parse::<u32>() {
                     return bits > 0 && bits <= 256 && bits % 8 == 0;
                 }

@@ -17,19 +17,32 @@ fn canonical_param_type(ty: &str) -> String {
     ty.split_whitespace().next().unwrap_or_default().to_string()
 }
 
-fn build_contract_file_map(sources: &[(String, String, String)]) -> HashMap<String, String> {
-    let mut map = HashMap::new();
-
-    for (file_name, content, _) in sources {
-        if let Ok(contracts) = parse_source(content) {
-            for contract in contracts {
-                map.entry(contract.name.clone())
-                    .or_insert_with(|| file_name.clone());
-            }
+fn take_next_contract_source(
+    contract_sources: &mut VecDeque<StandardJsonContractSource>,
+    contract_name: &str,
+) -> Option<String> {
+    while let Some(contract_source) = contract_sources.pop_front() {
+        if contract_source.contract_name == contract_name {
+            return Some(contract_source.file_name);
         }
     }
 
-    map
+    None
+}
+
+fn has_duplicate_contract_names(contract_sources: &[StandardJsonContractSource]) -> bool {
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for contract_source in contract_sources {
+        let count = counts
+            .entry(contract_source.contract_name.as_str())
+            .or_insert(0);
+        *count += 1;
+        if *count > 1 {
+            return true;
+        }
+    }
+
+    false
 }
 
 pub(crate) fn standard_json_manual_code(typ: &str) -> &'static str {

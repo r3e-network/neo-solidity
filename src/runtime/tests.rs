@@ -283,10 +283,7 @@ fn test_runtime_metadata_overrides_apply_once() {
     // this test happened to work with the default zero UInt160 because the
     // reversed hex is still all zeros; once `default_account_bytes` is
     // derived from bytecode this invariant has to be explicit.
-    let mut default_be = runtime
-        .execution_context
-        .default_account_bytes()
-        .to_vec();
+    let mut default_be = runtime.execution_context.default_account_bytes().to_vec();
     default_be.reverse();
     let expected_default = format!("0x{}", hex::encode(default_be));
     assert_eq!(
@@ -322,8 +319,11 @@ fn test_bitwise_not_uint256_zero_returns_all_ones() {
     assert!(result.success, "exec failed: {:?}", result.exception);
     // `~0` = 2^256 - 1 → 32 bytes of 0xFF.
     assert_eq!(result.return_data.len(), 32);
-    assert!(result.return_data.iter().all(|&b| b == 0xFF),
-        "expected 32 bytes of 0xFF, got {:?}", result.return_data);
+    assert!(
+        result.return_data.iter().all(|&b| b == 0xFF),
+        "expected 32 bytes of 0xFF, got {:?}",
+        result.return_data
+    );
 }
 
 #[test]

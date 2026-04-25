@@ -115,39 +115,63 @@ fn lower_emit_evm_shape(
 
     // Step 2: for each indexed arg, lower the expression and then coerce to
     // a 32-byte topic slot.
-    //   - static types → AbiEncode single-arg (BE-pad to 32 bytes)
-    //   - dynamic types → Keccak256(value)
+    //   - static types → direct 32-byte BE-padded slot (via
+    //     `lower_static_abi_slots_for_expr`, which produces real EVM-canonical
+    //     bytes instead of the `StdLib.serialize` / JSON-shaped fallback).
+    //   - dynamic types → Keccak256(value).
     //
-    // Task #109 — `bytesN(..)` / `address(..)` cast args leak the MEMCPY
-    // dst buffer beneath the canonical result (see Step 3 comment). Even
-    // for single-arg AbiEncode/Keccak256 (both PACK arg_count=1 then pop
-    // one item), the leaked buffer would remain UNDER the topic result,
-    // later corrupting the outer state-array PACK. Apply `Swap; Drop`
-    // BEFORE the coercing builtin runs so the leak is gone before the
-    // builtin's own PACK captures what's underneath.
+    // Falling back to `CallBuiltin::AbiEncode(1)` is ONLY safe when the
+    // expression isn't a static value type — that path goes through
+    // `StdLib.serialize([arg])` and produces a Neo-native / JSON-shaped
+    // blob rather than a 32-byte EVM topic slot. See the fuzz harness
+    // `event_with_indexed_and_dynamic_args_lowers` which caught this when
+    // `msg.sender` (an indexed static address) surfaced as ~130 bytes.
     let mut success = true;
     for (arg, info) in indexed.iter().zip(indexed_params.iter()) {
-        if !lower_expression(arg, ctx, instructions) {
-            success = false;
-            break;
-        }
-        if is_fixed_bytes_cast_expr(arg) {
-            instructions.push(Instruction::Swap);
-            instructions.push(Instruction::Drop(ValueType::Any));
-        }
         if info.is_dynamic {
+            if !lower_expression(arg, ctx, instructions) {
+                success = false;
+                break;
+            }
             instructions.push(Instruction::CallBuiltin {
                 builtin: BuiltinCall::Keccak256,
                 arg_count: 1,
             });
-        } else {
-            // AbiEncode of a single arg = 32-byte BE pad. Reuses the
-            // canonical encoder so address/bytesN/integer normalisation is
-            // shared with abi.encode.
-            instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::AbiEncode,
-                arg_count: 1,
-            });
+            continue;
+        }
+        let pre = instructions.len();
+        match lower_static_abi_slots_for_expr(arg, ctx, instructions, false) {
+            Some(0) => {
+                success = false;
+                break;
+            }
+            Some(1) => {
+                // 32-byte BE-padded slot already on the stack.
+            }
+            Some(n) => {
+                // Struct-as-indexed: concat the per-field slots and hash,
+                // matching Solidity's `keccak256(abi.encode(struct))` rule
+                // for indexed reference-type args.
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::BytesConcat,
+                    arg_count: n,
+                });
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::Keccak256,
+                    arg_count: 1,
+                });
+            }
+            None => {
+                instructions.truncate(pre);
+                if !lower_expression(arg, ctx, instructions) {
+                    success = false;
+                    break;
+                }
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::AbiEncode,
+                    arg_count: 1,
+                });
+            }
         }
     }
 
@@ -168,21 +192,34 @@ fn lower_emit_evm_shape(
     // each leaky arg with `Swap; Drop` to discard the leaked buffer and
     // keep only the canonical result.
     if success {
-        for arg in &non_indexed {
-            if !lower_expression(arg, ctx, instructions) {
-                success = false;
-                break;
+        if non_indexed.is_empty() {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+        } else {
+            let pre_data = instructions.len();
+            let refs: Vec<&Expression> = non_indexed.clone();
+            match lower_abi_encode_args_direct(&refs, ctx, instructions) {
+                Some(true) => {
+                    // EVM-canonical data bytes already on the stack.
+                }
+                Some(false) => {
+                    success = false;
+                }
+                None => {
+                    instructions.truncate(pre_data);
+                    for arg in &non_indexed {
+                        if !lower_expression(arg, ctx, instructions) {
+                            success = false;
+                            break;
+                        }
+                    }
+                    if success {
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::AbiEncode,
+                            arg_count: non_indexed.len(),
+                        });
+                    }
+                }
             }
-            if is_fixed_bytes_cast_expr(arg) {
-                instructions.push(Instruction::Swap);
-                instructions.push(Instruction::Drop(ValueType::Any));
-            }
-        }
-        if success {
-            instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::AbiEncode,
-                arg_count: non_indexed.len(),
-            });
         }
     }
 

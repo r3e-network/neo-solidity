@@ -1,4 +1,144 @@
+/// Wave-#14 Finding #2 — per-byte gas surcharge for `Storage.Put`.
+///
+/// Neo N3 charges roughly `100_000 * (key_len + value_len)` for storage
+/// writes. The flat 1000-gas cost previously baked into
+/// `syscall_gas_table` made it trivially cheap to write 1MB values,
+/// enabling DoS via storage growth. Start at `100` per byte: a 16-byte
+/// key+value pair now costs ~2_600 gas, while a 1KB pair costs ~100K.
+const STORAGE_PUT_PER_BYTE_GAS: u64 = 100;
+
+/// Wave-#14 Finding #4 — per-verify gas surcharge for `CheckMultisig`.
+///
+/// secp256k1 verification is ~50µs, comparable to other ~200K-gas crypto
+/// ops; charge `1000` per inner verify. With 64×64 = 4096 verifies the
+/// upfront charge is 4_096_000, which exceeds typical test gas budgets
+/// (10M default) only for genuinely worst-case inputs.
+const CHECKMULTISIG_PER_VERIFY_GAS: u64 = 1_000;
+
+/// CryptoLib native contract hash (UInt160, internal little-endian byte
+/// order). Mirrored from `spec::native_contracts::NATIVE_CONTRACTS` so
+/// the per-byte hash surcharge can recognize the target without pulling
+/// the full lookup-table into a constant context.
+///
+/// `HASH_PER_BYTE_GAS` (the per-byte rate) lives in
+/// `instruction/flow/calls.rs` next to the CALLT dispatch — both
+/// dispatch sites share the same rate.
+const CRYPTOLIB_CONTRACT_HASH: [u8; 20] = *b"\x1b\xf5\x75\xab\x11\x89\x68\x84\x13\x61\x0a\x35\xa1\x28\x86\xcd\xe0\xb6\x6c\x72";
+
 impl ExecutionContext {
+    /// Compute extra gas owed by a syscall whose handler does work
+    /// proportional to user-controlled stack inputs (Wave-#14 Findings
+    /// #2/#4/#5). Peeks the top stack items WITHOUT popping; the handler
+    /// still pops them as before. Returns 0 for syscalls without
+    /// per-input scaling.
+    fn syscall_extra_input_gas(&self, syscall_id: [u8; 4]) -> u64 {
+        let Some(name) = spec::syscall_name(&syscall_id) else {
+            return 0;
+        };
+        match name {
+            // Finding #2 — Storage.Put scales with key.len + value.len.
+            // Stack layout differs across the two variants (see
+            // execution/syscalls/storage.rs for the canonical order):
+            //   System.Storage.Put       — stack = [value, key, context]
+            //                               (context on top, then key, then value)
+            //   System.Storage.Local.Put — stack = [value, key]
+            //                               (key on top, then value)
+            "System.Storage.Put" => {
+                let depth = self.stack.len();
+                if depth < 3 {
+                    return 0;
+                }
+                let key_len = stack_item_byte_len(&self.stack[depth - 2]) as u64;
+                let value_len = stack_item_byte_len(&self.stack[depth - 3]) as u64;
+                key_len
+                    .saturating_add(value_len)
+                    .saturating_mul(STORAGE_PUT_PER_BYTE_GAS)
+            }
+            "System.Storage.Local.Put" => {
+                let depth = self.stack.len();
+                if depth < 2 {
+                    return 0;
+                }
+                let key_len = stack_item_byte_len(&self.stack[depth - 1]) as u64;
+                let value_len = stack_item_byte_len(&self.stack[depth - 2]) as u64;
+                key_len
+                    .saturating_add(value_len)
+                    .saturating_mul(STORAGE_PUT_PER_BYTE_GAS)
+            }
+            // Finding #4 — CheckMultisig runs O(N*M) secp256k1 verifies.
+            // Stack at entry: [..., pubkeys, signatures] (signatures on
+            // top).
+            "System.Crypto.CheckMultisig" => {
+                let depth = self.stack.len();
+                if depth < 2 {
+                    return 0;
+                }
+                let sig_count = stack_item_array_len(&self.stack[depth - 1]) as u64;
+                let pub_count = stack_item_array_len(&self.stack[depth - 2]) as u64;
+                sig_count
+                    .saturating_mul(pub_count)
+                    .saturating_mul(CHECKMULTISIG_PER_VERIFY_GAS)
+            }
+            // Finding #5 — CryptoLib hash methods routed through
+            // `System.Contract.Call` (the default lowering when
+            // `use_callt=false`) hash arbitrary-length input for free.
+            // Charge per-byte upfront, mirroring the CALLT path.
+            // Stack at entry: [args_array, flags, method, hash] with
+            // `hash` on top — see
+            // execution/execution_impl_part2_contract_call.rs.
+            "System.Contract.Call" => {
+                let depth = self.stack.len();
+                if depth < 4 {
+                    return 0;
+                }
+                let hash_item = &self.stack[depth - 1];
+                let method_item = &self.stack[depth - 2];
+                let args_item = &self.stack[depth - 4];
+
+                // Compare contract hash bytewise against CryptoLib's.
+                // The hash arrives as a 20-byte ByteArray.
+                let hash_matches_cryptolib = match hash_item {
+                    StackItem::ByteArray(bytes) => {
+                        let b = bytes.borrow();
+                        b.len() == 20 && b.as_slice() == &CRYPTOLIB_CONTRACT_HASH[..]
+                    }
+                    _ => false,
+                };
+                if !hash_matches_cryptolib {
+                    return 0;
+                }
+
+                // Decode method name (utf8 ByteArray) and check
+                // membership in the per-byte-charge set.
+                let method_bytes = match method_item {
+                    StackItem::ByteArray(b) => b.borrow().clone(),
+                    _ => return 0,
+                };
+                let Ok(method_str) = std::str::from_utf8(&method_bytes) else {
+                    return 0;
+                };
+                if !is_cryptolib_hash_method(method_str) {
+                    return 0;
+                }
+
+                // The args array typically has a single ByteArray
+                // element (the input to be hashed). Murmur32 takes
+                // (data, seed) — only the data byte-length matters
+                // for cost.
+                let input_bytes = match args_item {
+                    StackItem::Array(items) => items
+                        .borrow()
+                        .first()
+                        .map(stack_item_byte_len)
+                        .unwrap_or(0),
+                    other => stack_item_byte_len(other),
+                };
+                (input_bytes as u64).saturating_mul(HASH_PER_BYTE_GAS)
+            }
+            _ => 0,
+        }
+    }
+
     fn execute_syscall_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         if opcode != 0x41 {
             return Ok(false);
@@ -19,8 +159,23 @@ impl ExecutionContext {
         // at the start of execute_instruction). The syscall_gas map contains only the
         // extra cost for each syscall, not the total cost.
         if let Some(extra_cost) = self.syscall_gas.get(&syscall_id) {
+            // Wave-#14 Findings #2/#4/#5 — fold per-input scaling into
+            // the upfront charge so DoS-shaped inputs fail fast on gas
+            // instead of running the (expensive) handler body. Use
+            // `checked_add` and bail with a graceful OutOfGas on
+            // overflow.
+            let extra_input = self.syscall_extra_input_gas(syscall_id);
+            let total_extra = match extra_cost.checked_add(extra_input) {
+                Some(t) => t,
+                None => {
+                    return Err(RuntimeError::OutOfGas {
+                        used: u64::MAX,
+                        limit: self.gas_limit,
+                    });
+                }
+            };
             // Use checked_add to detect overflow instead of saturating silently
-            let projected = match self.gas_used.checked_add(*extra_cost) {
+            let projected = match self.gas_used.checked_add(total_extra) {
                 Some(p) => p,
                 None => {
                     return Err(RuntimeError::OutOfGas {
@@ -53,3 +208,43 @@ impl ExecutionContext {
     }
 }
 
+/// Approximate byte-length of a `StackItem` for per-byte gas pricing.
+/// Mirrors the heuristic used by `Self::stack_item_to_bytes` so the
+/// gas-pricing peek matches the bytes the handler will actually
+/// process (plus a small fixed cost for non-bytes types). For
+/// arrays/maps we fall back to a small constant since they aren't
+/// legal Storage.Put inputs in practice — pricing them at zero would
+/// let an attacker substitute an Array wrapper to dodge the surcharge.
+fn stack_item_byte_len(item: &StackItem) -> usize {
+    match item {
+        StackItem::ByteArray(bytes) => bytes.borrow().len(),
+        StackItem::Integer(_) | StackItem::UnsignedInteger(_) => 8,
+        StackItem::Boolean(_) => 1,
+        StackItem::Null => 0,
+        StackItem::Array(items) => items.borrow().len().max(32),
+        StackItem::Map(map) => map.borrow().len().max(32),
+    }
+}
+
+/// Element count of a `StackItem::Array`; 1 for non-array operands
+/// (treated as a single "implicit" element by the CheckMultisig
+/// handler).
+fn stack_item_array_len(item: &StackItem) -> usize {
+    match item {
+        StackItem::Array(items) => items.borrow().len(),
+        _ => 1,
+    }
+}
+
+/// True for CryptoLib hash methods that take a single byte-array
+/// argument and run in time linear in input length (Wave-#14
+/// Finding #5). Compared case-insensitively because the compiler
+/// emits the case it inherits from Solidity (e.g. "keccak256") while
+/// the runtime invocation path lowercases — match either form.
+fn is_cryptolib_hash_method(method: &str) -> bool {
+    let lower = method.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "sha256" | "keccak256" | "ripemd160" | "sha1" | "murmur32"
+    )
+}

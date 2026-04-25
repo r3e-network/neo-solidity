@@ -46,17 +46,10 @@ fn try_lower_runtime_member_builtin(
             if !lower_expression(&args[0], ctx, instructions) {
                 return Some(false);
             }
-            if !lower_expression(&args[1], ctx, instructions) {
+            let payload_args = [args[1].clone(), args[2].clone()];
+            if !lower_neo_serialized_arg_array(&payload_args, ctx, instructions) {
                 return Some(false);
             }
-            if !lower_expression(&args[2], ctx, instructions) {
-                return Some(false);
-            }
-
-            instructions.push(Instruction::CallBuiltin {
-                builtin: BuiltinCall::AbiEncode,
-                arg_count: 2,
-            });
             validate_runtime_notify_call(
                 &[
                     args[0].clone(),
@@ -78,6 +71,34 @@ fn try_lower_runtime_member_builtin(
                 ],
                 ctx,
             );
+            instructions.push(Instruction::CallBuiltin {
+                builtin: BuiltinCall::RuntimeNotify,
+                arg_count: 2,
+            });
+            Some(true)
+        }
+        "notify" => {
+            if args.len() != 2 {
+                ctx.record_error(format!(
+                    "Runtime.notify requires 2 argument(s), got {}",
+                    args.len()
+                ));
+                return Some(false);
+            }
+
+            if !lower_expression(&args[0], ctx, instructions) {
+                return Some(false);
+            }
+
+            if let Some(encoded_args) = extract_abi_encode_args(&args[1]) {
+                if !lower_neo_serialized_arg_array(encoded_args, ctx, instructions) {
+                    return Some(false);
+                }
+                validate_runtime_notify_call(args, ctx);
+            } else if !lower_expression(&args[1], ctx, instructions) {
+                return Some(false);
+            }
+
             instructions.push(Instruction::CallBuiltin {
                 builtin: BuiltinCall::RuntimeNotify,
                 arg_count: 2,

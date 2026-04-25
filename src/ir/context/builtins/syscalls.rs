@@ -131,6 +131,13 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::CryptoLib,
             method: "keccak256".to_string(),
         }),
+        // Devpack `Syscalls.neoKeccak256` is an alias used when the caller
+        // wants to disambiguate from Solidity's bare `keccak256` intrinsic.
+        // Maps to the same CryptoLib native method.
+        "neoKeccak256" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "keccak256".to_string(),
+        }),
         "recoverSecp256K1" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::CryptoLib,
             method: "recoverSecp256K1".to_string(),

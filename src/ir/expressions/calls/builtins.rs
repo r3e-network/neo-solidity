@@ -77,10 +77,7 @@ fn try_lower_type_concat(
             success = false;
             continue;
         }
-        if is_fixed_bytes_cast_expr(arg) {
-            instructions.push(Instruction::Swap);
-            instructions.push(Instruction::Drop(ValueType::Any));
-        }
+        // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
     }
 
     if success {
@@ -91,43 +88,4 @@ fn try_lower_type_concat(
     }
 
     Some(success)
-}
-
-/// True iff `expr` is a `bytesN(...)` or `address(...)` cast (exactly one
-/// argument under a `Type` node) whose lowering actually invokes
-/// `coerce_to_fixed_bytes` — the MEMCPY-returned dst buffer it leaves behind
-/// is what callers need to `Swap; Drop`. `address(<numeric_literal>)` and
-/// `address(this)` take non-coercing fast paths (see
-/// `type_constructors::try_lower_type_constructor_call`) and therefore do NOT
-/// leak; treating them as leaky would double-drop the canonical result (see
-/// fuzz harness batch35_k5_encode_call_selector_matches_keccak_uint_bool_addr
-/// regressing with stack underflow after Task #89).
-fn is_fixed_bytes_cast_expr(expr: &Expression) -> bool {
-    let Expression::FunctionCall(_, func, args) = expr else {
-        return false;
-    };
-    if args.len() != 1 {
-        return false;
-    }
-    let Expression::Type(_, ty) = func.as_ref() else {
-        return false;
-    };
-
-    match ty {
-        // `bytesN(arg)` always routes through `coerce_to_fixed_bytes` when the
-        // argument lowers successfully.
-        PtType::Bytes(_) => true,
-        // `address(lit)` / `address(this)` take non-coercing fast paths.
-        PtType::Address | PtType::AddressPayable | PtType::Payable => {
-            let arg = &args[0];
-            if matches!(arg, Expression::Variable(id) if id.name == "this") {
-                return false;
-            }
-            if address_bytes_le_from_expression(arg).is_some() {
-                return false;
-            }
-            true
-        }
-        _ => false,
-    }
 }

@@ -41,6 +41,61 @@ fn lower_require(
                     .collect();
                 let selector = revert_error_selector(&error_ident.name, &arg_types);
 
+                let direct_static_path = error_args
+                    .iter()
+                    .all(|arg| is_direct_static_revert_arg(arg, ctx));
+                if direct_static_path {
+                    let pre_len = instructions.len();
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        selector.to_vec(),
+                    )));
+                    let mut success = true;
+                    for error_arg in error_args {
+                        if !lower_direct_static_revert_arg_slot(error_arg, ctx, instructions) {
+                            success = false;
+                            break;
+                        }
+                    }
+                    if success {
+                        if !error_args.is_empty() {
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::BytesConcat,
+                                arg_count: error_args.len() + 1,
+                            });
+                        }
+                        instructions.push(Instruction::Throw);
+                        instructions.push(Instruction::Label(ok_label));
+                        return;
+                    }
+                    instructions.truncate(pre_len);
+                }
+
+                let pre_len = instructions.len();
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                    selector.to_vec(),
+                )));
+                if error_args.is_empty() {
+                    instructions.push(Instruction::Throw);
+                    instructions.push(Instruction::Label(ok_label));
+                    return;
+                }
+                if let Some(ok) =
+                    lower_abi_encode_args_direct_from_slice(error_args, ctx, instructions)
+                {
+                    if ok {
+                        instructions.push(Instruction::CallBuiltin {
+                            builtin: BuiltinCall::BytesConcat,
+                            arg_count: 2,
+                        });
+                        instructions.push(Instruction::Throw);
+                        instructions.push(Instruction::Label(ok_label));
+                        return;
+                    }
+                    instructions.truncate(pre_len);
+                } else {
+                    instructions.truncate(pre_len);
+                }
+
                 let pre_len = instructions.len();
                 let mut pushed = 0usize;
                 let mut success = true;

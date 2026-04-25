@@ -1,3 +1,15 @@
+/// Maximum nested-struct resolution depth.
+///
+/// Solidity allows self-referencing structs (`struct Node { Node[] children; }`)
+/// and mutually-recursive pairs (`struct A { B[] bs; } struct B { A[] as_; }`),
+/// both of which are legal Solidity sources but would otherwise drive
+/// `NeoType::from_solidity` into unbounded recursion when expanding
+/// struct fields. Depth-capping the recursion at 64 is a generous
+/// bound (deeper than any hand-written production schema) that
+/// converts the cycle into a `NeoType::Any` leaf instead of a stack
+/// overflow. Discovered via `fuzz/corpus/fuzz_target_1/.quarantined_seed_pathological_recursive_types.sol`.
+const MAX_STRUCT_RESOLUTION_DEPTH: u32 = 64;
+
 impl NeoType {
     pub fn from_solidity(
         ty: &str,
@@ -5,6 +17,25 @@ impl NeoType {
         enums: &[EnumTypeMetadata],
         contract_types: &[String],
     ) -> Result<Self, TypeParseError> {
+        Self::from_solidity_bounded(ty, structs, enums, contract_types, 0)
+    }
+
+    fn from_solidity_bounded(
+        ty: &str,
+        structs: &[StructTypeMetadata],
+        enums: &[EnumTypeMetadata],
+        contract_types: &[String],
+        depth: u32,
+    ) -> Result<Self, TypeParseError> {
+        if depth >= MAX_STRUCT_RESOLUTION_DEPTH {
+            // Cycle or pathologically deep type — break the recursion.
+            // Returning `Any` preserves compilation for legal recursive
+            // struct shapes (the outer pass still encodes the struct by
+            // name; field-type introspection beyond this depth is lost
+            // but rare in practice and always lossy in EVM compatibility
+            // terms anyway).
+            return Ok(NeoType::Any);
+        }
         let ty = strip_data_location(ty);
         let lower = ty.to_ascii_lowercase();
 
@@ -12,7 +43,13 @@ impl NeoType {
         // Support dynamic arrays (`T[]`) and fixed-size arrays (`T[n]`).
         if lower.ends_with("[]") {
             let inner = &ty[..ty.len() - 2];
-            let element = NeoType::from_solidity(inner, structs, enums, contract_types)?;
+            let element = NeoType::from_solidity_bounded(
+                inner,
+                structs,
+                enums,
+                contract_types,
+                depth + 1,
+            )?;
             return Ok(NeoType::Array(Box::new(element)));
         }
 
@@ -21,8 +58,13 @@ impl NeoType {
                 if let Some((_inner_ty, size_str)) = stripped.rsplit_once('[') {
                     if !size_str.is_empty() && size_str.chars().all(|c| c.is_ascii_digit()) {
                         let inner_original = &ty[..ty.len() - size_str.len() - 2];
-                        let element =
-                            NeoType::from_solidity(inner_original, structs, enums, contract_types)?;
+                        let element = NeoType::from_solidity_bounded(
+                            inner_original,
+                            structs,
+                            enums,
+                            contract_types,
+                            depth + 1,
+                        )?;
                         return Ok(NeoType::Array(Box::new(element)));
                     }
                 }
@@ -103,14 +145,26 @@ impl NeoType {
         }
 
         if lower.starts_with("mapping") {
-            return parse_mapping_type(ty, structs, enums, contract_types);
+            return parse_mapping_type_bounded(
+                ty,
+                structs,
+                enums,
+                contract_types,
+                depth + 1,
+            );
         }
 
         if let Some(struct_meta) = lookup_struct(ty, structs) {
             let mut fields = Vec::new();
             for field in &struct_meta.fields {
-                let field_type = NeoType::from_solidity(&field.ty, structs, enums, contract_types)
-                    .unwrap_or(NeoType::Any);
+                let field_type = NeoType::from_solidity_bounded(
+                    &field.ty,
+                    structs,
+                    enums,
+                    contract_types,
+                    depth + 1,
+                )
+                .unwrap_or(NeoType::Any);
                 fields.push(StructFieldType {
                     name: field.name.clone(),
                     ty: Box::new(field_type),
@@ -224,11 +278,12 @@ fn lookup_enum<'a>(ty: &str, enums: &'a [EnumTypeMetadata]) -> Option<&'a EnumTy
         .find(|e| normalize(&e.name).eq_ignore_ascii_case(name))
 }
 
-fn parse_mapping_type(
+fn parse_mapping_type_bounded(
     ty: &str,
     structs: &[StructTypeMetadata],
     enums: &[EnumTypeMetadata],
     contract_types: &[String],
+    depth: u32,
 ) -> Result<NeoType, TypeParseError> {
     // Expect "mapping(<key> => <value>)"
     let after_keyword = ty
@@ -242,23 +297,25 @@ fn parse_mapping_type(
     }
     rest = &rest[1..]; // skip '('
 
-    // Find matching ')'
-    let mut depth = 1isize;
+    // Find matching ')' — note: `paren_depth` here shadowed the outer
+    // recursion-depth parameter `depth` before the bounded-parse rewrite,
+    // so it's renamed to keep the two distinct.
+    let mut paren_depth = 1isize;
     let mut idx = 0usize;
     let bytes = rest.as_bytes();
-    while idx < bytes.len() && depth > 0 {
+    while idx < bytes.len() && paren_depth > 0 {
         match bytes[idx] as char {
-            '(' => depth += 1,
-            ')' => depth -= 1,
+            '(' => paren_depth += 1,
+            ')' => paren_depth -= 1,
             _ => {}
         }
-        if depth == 0 {
+        if paren_depth == 0 {
             break;
         }
         idx += 1;
     }
 
-    if depth != 0 {
+    if paren_depth != 0 {
         return Err(TypeParseError::Unsupported(ty.to_string()));
     }
 
@@ -296,7 +353,7 @@ fn parse_mapping_type(
         return Err(TypeParseError::Unsupported(ty.to_string()));
     }
 
-    let key = parse_mapping_component(key_str, structs, enums, contract_types)?;
+    let key = parse_mapping_component_bounded(key_str, structs, enums, contract_types, depth)?;
 
     // Solidity requires mapping keys to be elementary types (integers, bool,
     // address, string, bytes, enums, contract types). Arrays, structs, and
@@ -310,7 +367,8 @@ fn parse_mapping_type(
         _ => {}
     }
 
-    let value = parse_mapping_component(value_str, structs, enums, contract_types)?;
+    let value =
+        parse_mapping_component_bounded(value_str, structs, enums, contract_types, depth)?;
 
     Ok(NeoType::Mapping {
         key: Box::new(key),
@@ -318,20 +376,33 @@ fn parse_mapping_type(
     })
 }
 
-fn parse_mapping_component(
+fn parse_mapping_component_bounded(
     raw: &str,
     structs: &[StructTypeMetadata],
     enums: &[EnumTypeMetadata],
     contract_types: &[String],
+    depth: u32,
 ) -> Result<NeoType, TypeParseError> {
     let trimmed = raw.trim();
 
-    if let Ok(parsed) = NeoType::from_solidity(trimmed, structs, enums, contract_types) {
+    if let Ok(parsed) = NeoType::from_solidity_bounded(
+        trimmed,
+        structs,
+        enums,
+        contract_types,
+        depth,
+    ) {
         return Ok(parsed);
     }
 
     if let Some(stripped) = strip_named_mapping_component(trimmed) {
-        if let Ok(parsed) = NeoType::from_solidity(stripped, structs, enums, contract_types) {
+        if let Ok(parsed) = NeoType::from_solidity_bounded(
+            stripped,
+            structs,
+            enums,
+            contract_types,
+            depth,
+        ) {
             return Ok(parsed);
         }
     }

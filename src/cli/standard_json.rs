@@ -26,14 +26,13 @@ use super::{
     compile_contracts_with_options, CompilationArtifacts, CompileOptions,
     ManifestPermissionsOverride, COMPILER_ID,
 };
-use neo_solidity::frontend::parse_source;
-use neo_solidity::frontend::VisibilityKind;
+use neo_solidity::frontend::{parse_source, ContractKind, VisibilityKind};
 use neo_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};
 use neo_solidity::solidity::{ContractMetadata, DiagnosticSeverity, FunctionKind, StateMutability};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha3::{Digest, Keccak256};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 
 include!("standard_json/standard_json_types.rs");

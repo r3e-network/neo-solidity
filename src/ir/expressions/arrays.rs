@@ -353,7 +353,7 @@ fn emit_storage_array_subscript_with_bounds(
             // `lower_storage_reference_push`.
             for expr_idx in head_key_expr_indices {
                 if let Some(expr) = mapping.key_expressions.get(*expr_idx) {
-                    if !lower_expression(*expr, ctx, instructions) {
+                    if !lower_expression(expr, ctx, instructions) {
                         return false;
                     }
                 } else {

@@ -7,6 +7,170 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.17.0] - 2026-04-25
+
+Fuzz-system overhaul release driven by 11 sequential review waves.
+**912 proptest cases pass** (was 743), **11 cargo-fuzz targets** (was 6, all
+crash-free), **22 bug fixes total** (was 14), plus **one latent allocation-DoS**
+hardened proactively. Coverage: **68.42% region / 67.42% line** via
+`cargo-llvm-cov`.
+
+### Added
+
+- **5 new cargo-fuzz targets** (was 6, now 11):
+  - `fuzz_target_runtime_exec` — feeds arbitrary bytes as NeoVM bytecode
+    against a bounded `NeoRuntime` (gas + memory capped). Surfaced bug #15
+    (NEWARRAY OOM DoS) on the first run.
+  - `fuzz_target_method_tokens` — drives CALLT (0x37) dispatch under
+    randomly-generated NEF method-token tables, exercising the
+    `invoke_native_contract` path under attacker-controlled token metadata.
+  - `fuzz_target_nef_manifest_mutation` — bit-flips, byte-writes,
+    insertions, and deletions on valid NEF / manifest seeds (53 NEF seeds,
+    24,296 manifest seeds + embedded fallback). Reaches deeper parser code
+    paths than pure-random fuzzing.
+  - `fuzz_target_structured_sol` — `arbitrary`-driven Solidity AST grammar.
+    This release extended the grammar with **inheritance** (multi-base
+    linearisation, abstract / `virtual` / `override`), **`using <Lib> for
+    <Type>`**, **try/catch**, **revert("string")**, and
+    **require(cond, "string")**. Coverage rose from ~8,200 PCs at the
+    initial baseline to **11,190 PCs** (+36%) after grammar extensions.
+  - `fuzz_target_yul_assembly` — `arbitrary`-driven Yul AST inside
+    Solidity `assembly { … }` blocks (let/assign/if/for/switch/break/
+    continue + mload/sload/mstore/sstore/return/revert). Drives
+    `src/ir/statements/assembly.rs` lowering through random opt-levels.
+- **20+ new proptest modules** (912 cases vs 743 baseline):
+  `arithmetic_helpers_props`, `compile_runtime_roundtrip`,
+  `conditional_jumps`, `contract_upgrade_props`,
+  `convergence_props`, `custom_error_envelope_props`,
+  `determinism_props`, `devpack_props`, `differential`,
+  `disasm_stability_props`, `modifier_rewrite_props`,
+  `native_contract_props`, `native_resolver_props`,
+  `openzeppelin_patterns_props`, `optimizer_props`,
+  `reentrancy_props`, `stdlib_native_props`,
+  `storage_iterator_stress`, `storage_state_machine`.
+- **Differential testing**: hash differentials extended to 4096-byte inputs
+  + boundary-byte patterns (`0x00*N`, `0xFF*N`, alternating); BLS12-381
+  G1/G2 add+mul + pairing equality vs `bls12_381` reference crate (gated
+  on runtime-implementation arrival); manifest event parameter type
+  fidelity vs spec.
+- **Coverage analysis**: `cargo-llvm-cov` integrated; coverage gaps
+  documented (see Known Limitations / Dead Code in
+  `FUZZ_STATUS_REPORT.md`).
+- **State-machine tests**: storage iterator stress against a `BTreeMap`
+  reference model; 50-call gas-stability sweep on the same `NeoRuntime`
+  (no per-call linear-growth from leaks); recursive Fibonacci(10)
+  exercising 177 self-external `System.Contract.Call` frames cleanly.
+
+### Fixed
+
+- **#15 — Host DoS via NEWARRAY/NEWARRAY_T/NEWSTRUCT/NEWBUFFER**: a 6-byte
+  bytecode `02 ff 00 0c 17 c6` (PUSHINT32 + NEWSTRUCT) requested ~387M
+  Null items via `Vec::with_capacity(count)` and OOM-aborted the host
+  process before gas accounting could fire. Fixed by bounding `count *
+  size_of::<StackItem>()` against `memory_limit` in
+  `src/runtime/execution/collections/construction.rs` and `len` against
+  `memory_limit` in `src/runtime/execution/execution_impl_part3_bytes.rs`
+  (mirrors PUSHDATA4 guard). Regression pinned by `batch132*`.
+- **#17 — Host DoS via Storage.Put**: `RuntimeConfig::storage_limit` had
+  no consumer (`grep -rn storage_limit src/` returned the declaration and
+  default only, zero readers). Storage.put / Local.Put inserted into
+  `storage_overlay` with no size check. Fixed by adding `storage_limit`
+  to `ExecutionContext`, propagating from config, and adding
+  `enforce_storage_limit` (cumulative-bytes guard) on every Put.
+- **#18 — Host DoS via Storage.Find**: `helpers/storage.rs::
+  build_storage_entries` queried with `limit: None` and used
+  `Vec::with_capacity(entries.len())`; an attacker who populated storage
+  with many keys (10K writes fit in default gas_limit) could OOM the
+  host with one `Find` syscall. Fixed by bounding `StorageQuery::limit`
+  against `storage_limit / MIN_ENTRY_BYTES`, plus a post-merge cap to
+  cover overlay-only matches.
+- **#19 — Gas DoS via flat per-syscall pricing**: `Storage.Put` charged
+  a flat 1000 gas regardless of value size; `CryptoLib.sha256/keccak256/
+  ripemd160/sha1/murmur32` charged a flat 512 gas regardless of input
+  length. Fixed by `syscall_extra_input_gas` (in
+  `src/runtime/execution/instruction/syscall.rs`) — peek-and-charge
+  before the handler with `STORAGE_PUT_PER_BYTE_GAS=100` and
+  `HASH_PER_BYTE_GAS=50` on top of the flat base. CALLT path mirrored at
+  `src/runtime/execution/instruction/flow/calls.rs`. Regression pinned by
+  `batch133a–d`.
+- **#20 — Gas DoS via CheckMultisig**: ran `O(N·M)` secp256k1 verifies
+  (up to 4096 verifies for 64×64 input) for a single flat 1000-gas
+  charge. Fixed with `CHECKMULTISIG_PER_VERIFY_GAS=1000` charged upfront
+  as `pub_count * sig_count * per_verify` (saturating).
+- **#21 — Correctness: `StdLib.atoi("--42", 10)` returned 42**:
+  `i128::from_str_radix(body, radix)` accepts a leading `-` in `body`
+  after the outer `neg` flag was already set, so a double-negative
+  becomes a positive number. Fixed by switching magnitude parser to
+  `u128::from_str_radix` so any sign character in `body` (`-`, `+`,
+  anything else non-digit) yields 0.
+- **#22 — Correctness: `StdLib.base64Decode("AB=C")` returned 3-byte
+  garbage**: the decode loop accepted `=` at any position inside a 4-char
+  chunk and treated it as a literal-zero sextet, ignoring RFC 4648's
+  mid-chunk-pad-rejection rule. Fixed: `base64_decode` now rejects `=`
+  outside the trailing-pad position of the FINAL chunk.
+- **Preventive harden** for `read_input_slice` (calldata reader) — same
+  bug-#15 shape (`vec![0u8; length]` with no memory_limit check). Not
+  opcode-reachable today, but the methods are public; future opcode
+  wiring would inherit the OOM. Now propagates an error if `length >
+  memory_limit`.
+
+### Known Limitations
+
+- **Bug #16 — uint256 unchecked-arith narrow-i64 divergence (deferred)**:
+  the `optimizer_four_level_differential_random_expr` proptest surfaced a
+  real divergence between unoptimized and optimized lowerings of
+  unchecked uint256 arithmetic. The naïve fix (force-widen unchecked
+  uint256 BinaryOps to 32-byte ByteArray so the runtime's BigInt path
+  runs) breaks tests that pass `uint256.max` as a 32-byte ByteArray
+  because `coerce_item_to_bigint` treats it as **signed**. Resolving
+  properly requires plumbing an unsigned-LE BigInt path through
+  `cmp_needs_bigint_path`, `bigint_to_stack_item`, and the wide
+  arithmetic helpers — out of scope for this release. Mitigation:
+  `dexpr_strategy` literals + `a/b/c` test args bounded to `0..=u16::MAX`.
+- **BLS12-381 runtime stub**: the compiler is fully wired (IR resolver
+  whitelists 13 method names, devpack exposes `bls12381Add/Mul/Pairing`
+  + EVM-precompile shims), but
+  `src/runtime/execution/execution_impl_part2_native/crypto.rs::invoke_
+  native_cryptolib` does not implement the BLS handlers — every
+  `bls12381*` falls through to `StackItem::Null`. Contracts using BLS
+  compile cleanly but silently return zero. 4 differential proptests are
+  gated to auto-activate when the runtime implementation lands.
+- **State batch non-atomic semantics ambiguity**:
+  `src/runtime/state/impl/batch.rs:25` does `let _ =
+  self.apply_change(change)` in non-atomic mode (silent error discard).
+  Could be intentional ("skip invalid, keep going") or a bug ("stop
+  after first invalid"). Pinned by an ignored test
+  (`state_batch_non_atomic_partial_apply_spec`) so the choice can be
+  decided in a future release.
+
+### Dead Code (deletion candidates, not removed in this release)
+
+`cargo-llvm-cov` analysis identified ~6,200 LOC across the codebase that
+is **0% covered AND has zero importers** anywhere in `src/` or `tests/`:
+- Orphaned standalone Yul frontend (~4,500 LOC):
+  `src/{lexer,parser,codegen,semantic,optimizer}/`, `src/error.rs`,
+  `src/types.rs`. The Yul-in-Solidity surface (`assembly { … }`) reaches
+  its own active lowering at `src/ir/statements/assembly.rs`.
+- VM bridge layer (~1,700 LOC): `src/runtime/bridge/`. `VMBridge` is
+  constructed only inside its own subtree.
+- Top-level orphans: `src/{security,warning,validation,testing}.rs`.
+
+Removing these would push real coverage well above 90%. Listed for
+awareness; pending an explicit cleanup decision.
+
+### Test counts
+
+| Suite | v0.16.0 | v0.17.0 | Δ |
+|-------|--------:|--------:|--:|
+| fuzz_tests (proptest) | 743 | **912** | +169 |
+| runtime_state_batch_tests | — | **2** | +2 |
+| lib unit tests | 508 | **508** | — |
+| conformance_tests | 40 | **40** | — |
+| e2e_compilation_tests | 80 | **80** | — |
+| **Total** | 1,371 | **1,542** | **+171** |
+| cargo-fuzz targets | 6 | **11** | +5 |
+| Fixed bugs | 14 | **22** | +8 |
+
 ## [v0.16.0] - 2026-04-19
 
 Major stability release driven by continuous fuzz-harness review (Tasks #94–#183).

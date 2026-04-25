@@ -2,7 +2,24 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
     literal_from_expression_with_warning(expr, &mut |_| {})
 }
 
+// `stacker::maybe_grow` wrapper — `literal_from_expression_with_warning`
+// recurses on `Parenthesis(_)` (inner), which a pathological source like
+// `1 + (((...(1)...)))` drives into a deep self-call. Stacker lets the
+// compiler walk the chain without overflowing. See the sibling guards in
+// `src/ir/expressions/dispatch/entry.rs` and `src/ir/statements/dispatch/statement.rs`.
 fn literal_from_expression_with_warning<F>(
+    expr: &Expression,
+    on_warning: &mut F,
+) -> Option<LiteralValue>
+where
+    F: FnMut(String),
+{
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        literal_from_expression_with_warning_inner(expr, on_warning)
+    })
+}
+
+fn literal_from_expression_with_warning_inner<F>(
     expr: &Expression,
     on_warning: &mut F,
 ) -> Option<LiteralValue>
@@ -16,9 +33,12 @@ where
             let exponent = parse_signed_decimal_i32(exp)?;
 
             if exponent >= 0 {
-                value *= pow10(exponent as u32);
+                // `try_pow10` rejects exponents > `MAX_DECIMAL_EXPONENT`
+                // (1024) to prevent compile-time OOM on pathological
+                // sources like `1e2000000000`.
+                value *= try_pow10(exponent as u32)?;
             } else {
-                let divisor = pow10((-exponent) as u32);
+                let divisor = try_pow10((-exponent) as u32)?;
                 if (&value % &divisor).is_zero() {
                     value /= divisor;
                 } else {
@@ -49,14 +69,17 @@ where
                 BigInt::parse_bytes(fraction_digits.as_bytes(), 10)?
             };
 
-            let mut numerator = int_part * pow10(frac_len) + frac_part;
-            let mut denominator = pow10(frac_len);
+            // Guard against pathological literals like `1.{10 MB of digits}`
+            // or exponents > 10^1024 — see `MAX_DECIMAL_EXPONENT` guidance.
+            let frac_pow = try_pow10(frac_len)?;
+            let mut numerator = int_part * &frac_pow + frac_part;
+            let mut denominator = frac_pow;
 
             let exponent = parse_signed_decimal_i32(exp)?;
             if exponent >= 0 {
-                numerator *= pow10(exponent as u32);
+                numerator *= try_pow10(exponent as u32)?;
             } else {
-                denominator *= pow10((-exponent) as u32);
+                denominator *= try_pow10((-exponent) as u32)?;
             }
 
             if let Some(unit) = unit.as_ref() {
@@ -237,9 +260,36 @@ fn has_ether_unit(expr: &Expression) -> bool {
     }
 }
 
+/// Maximum `10^exp` we'll materialise for a Solidity numeric literal.
+///
+/// Solidity's `uint256.max` is ~1.1579 × 10^77, so any legal literal fits
+/// under 10^78. We accept exponents up to `MAX_DECIMAL_EXPONENT = 1024`
+/// (generous — covers every legitimate scientific-notation or rational
+/// literal plus a wide safety margin for intermediate computations like
+/// `1.0000000000000001e100`), and reject anything larger as unreasonable.
+///
+/// Without this cap, a pathological Solidity source like `uint x = 1e2_000_000_000;`
+/// would call `BigInt::pow(10, 2_000_000_000)`, which attempts to allocate
+/// ~830 MB of decimal digits and either OOMs or takes minutes of compile
+/// time — a denial-of-service vector via arbitrary user input. The
+/// `fuzz_target_1` corpus routinely discovers shapes that would hit this
+/// without the guard; see docs/FUZZ.md for triage guidance.
+const MAX_DECIMAL_EXPONENT: u32 = 1024;
+
 fn pow10(exp: u32) -> BigInt {
+    try_pow10(exp).expect("pow10 caller must validate exponent ≤ MAX_DECIMAL_EXPONENT")
+}
+
+/// Fallible variant of `pow10` for call sites that parse user-controlled
+/// exponents. Returns `None` on exponents that would exceed
+/// `MAX_DECIMAL_EXPONENT`, signalling an invalid Solidity literal rather
+/// than a panic.
+fn try_pow10(exp: u32) -> Option<BigInt> {
+    if exp > MAX_DECIMAL_EXPONENT {
+        return None;
+    }
     let ten = BigInt::from(10u8);
-    ten.pow(exp)
+    Some(ten.pow(exp))
 }
 
 fn parse_hex_bigint(value: &str) -> Option<BigInt> {

@@ -1,4 +1,19 @@
+// `stacker::maybe_grow` at the entry lets the compiler handle
+// pathologically nested block / if-else / loop statements (e.g.
+// `{ { { ... } } }` 10k+ deep) without stack-overflowing. See
+// `src/ir/expressions/dispatch/entry.rs::lower_expression` for the
+// sibling guard and `docs/FUZZ.md` for the bug-class catalogue.
 fn lower_statement(
+    statement: &Statement,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        lower_statement_inner(statement, ctx, instructions)
+    })
+}
+
+fn lower_statement_inner(
     statement: &Statement,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

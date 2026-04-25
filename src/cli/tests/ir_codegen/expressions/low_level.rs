@@ -56,3 +56,31 @@ fn low_level_call_serializes_exception_into_return_data() {
         "expected low-level call catch handler to serialize exception into return data"
     );
 }
+
+#[test]
+fn opaque_dynamic_low_level_call_is_rejected_before_ir_codegen() {
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract OpaqueCallHarness {
+        function run(address target, bytes memory data) public returns (bool ok, bytes memory ret) {
+            return target.call(data);
+        }
+    }
+    "#;
+
+    let err = compile_contracts(source, false, 2)
+        .expect_err("opaque low-level call payload must fail instead of faking success");
+    match err {
+        CompileError::Ir(diags) => {
+            assert!(
+                diags.iter().any(|diag| {
+                    diag.message.contains("opaque bytes")
+                        && diag.message.contains("fake `(true, bytes(\"\"))` result")
+                }),
+                "expected opaque payload diagnostic, got: {diags:?}"
+            );
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}

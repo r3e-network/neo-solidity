@@ -10,19 +10,16 @@ fn abi_encode_preserves_argument_order() {
     }
     "#;
 
-    let mut metadata = analyse_source(source).expect("analysis failed");
-    let ir_module = ir::Module::from_contract(&metadata).expect("IR lowering failed");
-    let bytecode = generate_contract_bytecode(&mut metadata, &ir_module, false, 2, false)
-        .expect("bytecode generation")
-        .script;
+    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
+    let result = crate::cli::tests::common::execute_bytecode(&artifacts[0].bytecode);
+    assert!(result.is_success(), "expected encode() to succeed");
 
-    // Expect: PUSH1, PUSH2, PUSH2(count), PACK, DUP, REVERSEITEMS
-    let expected_sequence = [0x11u8, 0x12u8, 0x12u8, 0xC0u8, 0x4Au8, 0xD1u8];
-    assert!(
-        bytecode
-            .windows(expected_sequence.len())
-            .any(|window| window == expected_sequence),
-        "expected abi.encode to reverse PACK order via DUP+REVERSEITEMS"
+    let mut expected = vec![0u8; 64];
+    expected[24..32].copy_from_slice(&1u64.to_be_bytes());
+    expected[56..64].copy_from_slice(&2u64.to_be_bytes());
+    assert_eq!(
+        result.return_data, expected,
+        "abi.encode(uint256(1), uint256(2)) must preserve argument order"
     );
 }
 
@@ -60,13 +57,15 @@ fn msg_data_lowers_to_runtime_input_data_with_arguments() {
     let msg_data_loads = instrs
         .iter()
         .filter(|instr| {
-            matches!(instr, ir::Instruction::LoadRuntimeValue(ir::RuntimeValue::MsgData))
+            matches!(
+                instr,
+                ir::Instruction::LoadRuntimeValue(ir::RuntimeValue::MsgData)
+            )
         })
         .count();
     assert_eq!(
         msg_data_loads, 1,
-        "expected msg.data to lower to a single LoadRuntimeValue(MsgData) — found {}",
-        msg_data_loads,
+        "expected msg.data to lower to a single LoadRuntimeValue(MsgData) — found {msg_data_loads}",
     );
 
     // The old selector-prefix synthesis must be gone: no AbiEncode + BytesConcat
@@ -214,14 +213,14 @@ fn abi_encode_with_signature_lowers_to_selector_prefix_plus_encoded_args() {
         "expected abi.encodeWithSignature to push the selector prefix"
     );
     assert!(
-        instrs.iter().any(|instr| matches!(
+        !instrs.iter().any(|instr| matches!(
             instr,
             ir::Instruction::CallBuiltin {
                 builtin: ir::BuiltinCall::AbiEncode,
-                arg_count: 1,
+                ..
             }
         )),
-        "expected abi.encodeWithSignature to encode the argument payload"
+        "static abi.encodeWithSignature payload should lower without pseudo-native AbiEncode"
     );
     assert!(
         instrs.iter().any(|instr| matches!(
@@ -283,14 +282,14 @@ fn abi_encode_with_selector_lowers_to_selector_prefix_plus_encoded_args() {
         "expected abi.encodeWithSelector to push the selector prefix"
     );
     assert!(
-        instrs.iter().any(|instr| matches!(
+        !instrs.iter().any(|instr| matches!(
             instr,
             ir::Instruction::CallBuiltin {
                 builtin: ir::BuiltinCall::AbiEncode,
-                arg_count: 1,
+                ..
             }
         )),
-        "expected abi.encodeWithSelector to encode the argument payload"
+        "static abi.encodeWithSelector payload should lower without pseudo-native AbiEncode"
     );
     assert!(
         instrs.iter().any(|instr| matches!(

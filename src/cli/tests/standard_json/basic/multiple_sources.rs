@@ -101,3 +101,89 @@ fn standard_json_handles_multiple_sources() {
         .map(|v| v.as_array().map(|arr| arr.is_empty()).unwrap_or(true))
         .unwrap_or(true));
 }
+
+#[test]
+fn standard_json_keeps_duplicate_contract_names_under_each_source() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source_a = r#"
+    pragma solidity ^0.8.19;
+
+    contract Duplicate {
+        function fromA() public pure returns (uint256) {
+            return 1;
+        }
+    }
+    "#;
+
+    let source_b = r#"
+    pragma solidity ^0.8.19;
+
+    contract Duplicate {
+        function fromB() public pure returns (uint256) {
+            return 2;
+        }
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "A.sol": { "content": source_a },
+            "B.sol": { "content": source_b }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+
+    let a_contract = &output["contracts"]["A.sol"]["Duplicate"];
+    let b_contract = &output["contracts"]["B.sol"]["Duplicate"];
+
+    assert!(
+        a_contract["evm"]["methodIdentifiers"]["fromA()"].is_string(),
+        "expected A.sol Duplicate artifact to contain fromA(): {output}"
+    );
+    assert!(
+        a_contract["evm"]["methodIdentifiers"]["fromB()"].is_null(),
+        "A.sol Duplicate must not receive B.sol methods: {output}"
+    );
+    assert!(
+        b_contract["evm"]["methodIdentifiers"]["fromB()"].is_string(),
+        "expected B.sol Duplicate artifact to contain fromB(): {output}"
+    );
+    assert!(
+        b_contract["evm"]["methodIdentifiers"]["fromA()"].is_null(),
+        "B.sol Duplicate must not receive A.sol methods: {output}"
+    );
+
+    assert!(output
+        .get("errors")
+        .map(|v| v.as_array().map(|arr| arr.is_empty()).unwrap_or(true))
+        .unwrap_or(true));
+}

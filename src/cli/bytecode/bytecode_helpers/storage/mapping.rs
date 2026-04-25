@@ -251,29 +251,33 @@ fn emit_store_array_value_deep_copy(
 /// Task #82: derive the storage slot for a mapping-in-struct-field access such as
 /// `slots[k].balances[a]`. Stack before: [trailing_keyN, ..., trailing_key0, outer_keyN, ..., outer_key0]
 /// Stack after: [slot_bytes].
+struct StructFieldMappingSlot<'a> {
+    module: &'a ir::Module,
+    state_index: usize,
+    key_types: &'a [ValueType],
+    field_keys: &'a [[u8; 32]],
+    trailing_key_types: &'a [ValueType],
+    use_callt: bool,
+}
+
 fn emit_struct_field_mapping_slot(
     bytecode: &mut Vec<u8>,
-    module: &ir::Module,
-    state_index: usize,
-    key_types: &[ValueType],
-    field_keys: &[[u8; 32]],
-    trailing_key_types: &[ValueType],
-    use_callt: bool,
+    slot: &StructFieldMappingSlot<'_>,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
     emit_struct_field_slot(
         bytecode,
-        module,
-        state_index,
-        key_types,
-        field_keys,
-        use_callt,
+        slot.module,
+        slot.state_index,
+        slot.key_types,
+        slot.field_keys,
+        slot.use_callt,
         token_patches,
     );
     // Stack now: [trailing_keyN, ..., trailing_key0, field_slot].
-    for key_type in trailing_key_types {
+    for key_type in slot.trailing_key_types {
         bytecode.push(0x50); // swap slot <-> key
-        emit_serialize_key(bytecode, key_type, use_callt, token_patches);
+        emit_serialize_key(bytecode, key_type, slot.use_callt, token_patches);
         bytecode.push(0x50); // swap key_bytes <-> slot
         bytecode.push(0x8B); // CAT
         emit_native_contract_call(
@@ -281,7 +285,7 @@ fn emit_struct_field_mapping_slot(
             ir::NativeContract::CryptoLib,
             "keccak256",
             1,
-            use_callt,
+            slot.use_callt,
             token_patches,
         );
     }
@@ -289,25 +293,11 @@ fn emit_struct_field_mapping_slot(
 
 fn emit_load_struct_field_mapping_element(
     bytecode: &mut Vec<u8>,
-    module: &ir::Module,
-    state_index: usize,
-    key_types: &[ValueType],
-    field_keys: &[[u8; 32]],
-    trailing_key_types: &[ValueType],
+    slot: &StructFieldMappingSlot<'_>,
     value_type: &ValueType,
-    use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
-    emit_struct_field_mapping_slot(
-        bytecode,
-        module,
-        state_index,
-        key_types,
-        field_keys,
-        trailing_key_types,
-        use_callt,
-        token_patches,
-    );
+    emit_struct_field_mapping_slot(bytecode, slot, token_patches);
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Get");
     emit_coerce_storage_value(bytecode, value_type);
@@ -315,24 +305,10 @@ fn emit_load_struct_field_mapping_element(
 
 fn emit_store_struct_field_mapping_element(
     bytecode: &mut Vec<u8>,
-    module: &ir::Module,
-    state_index: usize,
-    key_types: &[ValueType],
-    field_keys: &[[u8; 32]],
-    trailing_key_types: &[ValueType],
-    use_callt: bool,
+    slot: &StructFieldMappingSlot<'_>,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
-    emit_struct_field_mapping_slot(
-        bytecode,
-        module,
-        state_index,
-        key_types,
-        field_keys,
-        trailing_key_types,
-        use_callt,
-        token_patches,
-    );
+    emit_struct_field_mapping_slot(bytecode, slot, token_patches);
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");
 }

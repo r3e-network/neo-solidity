@@ -1,3 +1,18 @@
+/// Wave-#14 Finding #5 — per-byte gas surcharge for CryptoLib hash
+/// methods invoked via `CALLT`. Neo's native hash ops charge roughly
+/// `byte_len * 50` so an 800KB input costs ~40M gas instead of a flat
+/// 512. Matches the rate used by `System.Crypto.*` syscalls.
+const HASH_PER_BYTE_GAS: u64 = 50;
+
+/// Known CryptoLib hash methods that take a single byte-array argument
+/// and run in time linear in input length.
+fn cryptolib_hash_method_per_byte_charge(method: &str) -> bool {
+    matches!(
+        method.to_ascii_lowercase().as_str(),
+        "sha256" | "keccak256" | "ripemd160" | "sha1" | "murmur32"
+    )
+}
+
 impl ExecutionContext {
     fn execute_flow_calls(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
@@ -70,6 +85,37 @@ impl ExecutionContext {
                 }
                 args.reverse();
 
+                // Wave-#14 Finding #5 — CALLT's flat 512 base allowed
+                // attackers to hash arbitrary-length inputs (sha256,
+                // keccak256, ripemd160, sha1, murmur32) for free.
+                // Add a per-byte surcharge BEFORE invoking the native
+                // handler so DoS-shaped inputs fail fast on gas.
+                if spec::native_contract_name(&token.hash) == Some("CryptoLib")
+                    && cryptolib_hash_method_per_byte_charge(&token.method)
+                {
+                    let input_bytes = args
+                        .first()
+                        .map(stack_item_byte_len_for_hash)
+                        .unwrap_or(0) as u64;
+                    let extra = input_bytes.saturating_mul(HASH_PER_BYTE_GAS);
+                    let projected = match self.gas_used.checked_add(extra) {
+                        Some(p) => p,
+                        None => {
+                            return Err(RuntimeError::OutOfGas {
+                                used: u64::MAX,
+                                limit: self.gas_limit,
+                            });
+                        }
+                    };
+                    if projected > self.gas_limit {
+                        return Err(RuntimeError::OutOfGas {
+                            used: projected,
+                            limit: self.gas_limit,
+                        });
+                    }
+                    self.gas_used = projected;
+                }
+
                 let params = StackItem::array(args);
                 let result = self.invoke_native_contract(&token.hash, &token.method, params);
                 if token.has_return_value {
@@ -105,3 +151,20 @@ impl ExecutionContext {
         Ok(())
     }
 }
+
+/// Byte-length of a `StackItem` for CALLT hash-method gas pricing.
+/// Mirrors `Self::stack_item_to_bytes` so the surcharge tracks the
+/// bytes the hash function actually digests. Non-bytes operands are
+/// treated as their LE-encoded width to avoid a free path via integer
+/// pushes (the handler converts them to bytes anyway).
+fn stack_item_byte_len_for_hash(item: &StackItem) -> usize {
+    match item {
+        StackItem::ByteArray(bytes) => bytes.borrow().len(),
+        StackItem::Integer(_) | StackItem::UnsignedInteger(_) => 8,
+        StackItem::Boolean(_) => 1,
+        StackItem::Null => 0,
+        StackItem::Array(items) => items.borrow().len().max(32),
+        StackItem::Map(map) => map.borrow().len().max(32),
+    }
+}
+

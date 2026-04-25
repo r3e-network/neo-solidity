@@ -9,12 +9,27 @@ fn lower_power_expression(
         literal_from_expression(right),
     ) {
         if let Some(exp) = exp_lit.to_u32() {
-            let mut result = BigInt::one();
-            for _ in 0..exp {
-                result *= &base;
+            // Constant-fold `base ** exp` at compile time, but cap the
+            // iteration count so a pathological source like
+            // `uint x = 2 ** 4294967295;` doesn't spin the compiler in
+            // a 4-billion-iter BigInt loop. Real Solidity literals that
+            // fit in a uint256 slot have `exp < 256` for `base >= 2`, so
+            // any legal use is well under the cap. Above the cap we
+            // fall through to the runtime-loop lowering below, which is
+            // bounded by the executing contract's gas budget rather than
+            // the compiler's memory.
+            const MAX_LITERAL_POW_EXP: u32 = 1024;
+            if exp <= MAX_LITERAL_POW_EXP {
+                let mut result = BigInt::one();
+                for _ in 0..exp {
+                    result *= &base;
+                }
+                instructions
+                    .push(Instruction::PushLiteral(LiteralValue::Integer(result)));
+                return true;
             }
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(result)));
-            return true;
+            // exp > MAX_LITERAL_POW_EXP: fall through to the runtime
+            // exponentiation loop below. The compiler stays bounded.
         }
     }
 

@@ -76,66 +76,110 @@ pub(crate) fn process_standard_json_content(
     if !ordered_sources.is_empty() {
         let combined_source =
             build_combined_source_with_import_validation(&ordered_sources, &mut errors);
+        let has_duplicate_contracts =
+            has_duplicate_contract_names(&combined_source.contract_sources);
+        let mut compile_units = Vec::new();
+        if has_duplicate_contracts {
+            for source_unit in combined_source.source_units {
+                let emits_root_contract = source_unit
+                    .contract_sources
+                    .iter()
+                    .any(|contract_source| contract_source.file_name == source_unit.root_file);
+                if !emits_root_contract {
+                    continue;
+                }
+                if has_duplicate_contract_names(&source_unit.contract_sources) {
+                    errors.push(json!({
+                        "component": "neo-solidity",
+                        "severity": "error",
+                        "type": "StandardJsonOutput",
+                        "code": standard_json_manual_code("StandardJsonOutput"),
+                        "sourceLocation": { "file": source_unit.root_file },
+                        "formattedMessage": "Cannot safely compile standard-json source unit because its import closure contains duplicate contract names",
+                        "message": "Cannot safely compile standard-json source unit because its import closure contains duplicate contract names",
+                    }));
+                    continue;
+                }
+                compile_units.push((
+                    Some(source_unit.root_file),
+                    source_unit.source,
+                    source_unit.contract_sources,
+                ));
+            }
+        } else {
+            compile_units.push((
+                None,
+                combined_source.source,
+                combined_source.contract_sources,
+            ));
+        }
 
-        let contract_file_map = build_contract_file_map(&ordered_sources);
+        let mut emitted_contracts = 0usize;
+        let mut compile_failed = false;
 
-        match compile_contracts_with_options(
-            &combined_source,
-            false,
-            CompileOptions {
-                optimizer_level,
-                use_callt: options.use_callt,
-                deny_wildcard_permissions: options.deny_wildcard_permissions,
-                deny_wildcard_contracts: options.deny_wildcard_contracts,
-                deny_wildcard_methods: options.deny_wildcard_methods,
-                manifest_permissions: options.manifest_permissions.clone(),
-            },
-        ) {
-            Ok(artifacts) => {
-                let artifacts: Vec<CompilationArtifacts> = if options.contract_names.is_empty() {
-                    artifacts
-                } else {
-                    artifacts
-                        .into_iter()
-                        .filter(|artifact| {
-                            options
-                                .contract_names
-                                .iter()
-                                .any(|name| name == &artifact.metadata.name)
-                        })
-                        .collect()
-                };
+        for (root_file, source, unit_contract_sources) in compile_units {
+            let mut contract_sources: VecDeque<StandardJsonContractSource> =
+                unit_contract_sources.into();
 
-                if artifacts.is_empty() {
-                    let file_name = &ordered_sources[0].0;
-                    if options.contract_names.is_empty() {
-                        errors.push(json!({
-                            "component": "neo-solidity",
-                            "severity": "error",
-                            "type": "NoContracts",
-                            "code": standard_json_manual_code("NoContracts"),
-                            "sourceLocation": { "file": file_name },
-                            "formattedMessage": format!("No contracts found in {file_name}"),
-                            "message": format!("No contracts found in {file_name}"),
-                        }));
+            match compile_contracts_with_options(
+                &source,
+                false,
+                CompileOptions {
+                    optimizer_level,
+                    use_callt: options.use_callt,
+                    deny_wildcard_permissions: options.deny_wildcard_permissions,
+                    deny_wildcard_contracts: options.deny_wildcard_contracts,
+                    deny_wildcard_methods: options.deny_wildcard_methods,
+                    manifest_permissions: options.manifest_permissions.clone(),
+                },
+            ) {
+                Ok(artifacts) => {
+                    let artifacts: Vec<CompilationArtifacts> = if options.contract_names.is_empty()
+                    {
+                        artifacts
                     } else {
-                        let names = options.contract_names.join(", ");
-                        errors.push(json!({
-                            "component": "neo-solidity",
-                            "severity": "error",
-                            "type": "ContractNotFound",
-                            "code": standard_json_manual_code("ContractNotFound"),
-                            "sourceLocation": { "file": file_name },
-                            "formattedMessage": format!("No matching contract(s) found for --contract {names}"),
-                            "message": format!("No matching contract(s) found for --contract {names}"),
-                        }));
-                    }
-                } else {
+                        artifacts
+                            .into_iter()
+                            .filter(|artifact| {
+                                options
+                                    .contract_names
+                                    .iter()
+                                    .any(|name| name == &artifact.metadata.name)
+                            })
+                            .collect()
+                    };
+
                     for artifact in artifacts {
-                        let target_file = contract_file_map
-                            .get(&artifact.metadata.name)
-                            .cloned()
-                            .unwrap_or_else(|| ordered_sources[0].0.clone());
+                        let target_file = take_next_contract_source(
+                            &mut contract_sources,
+                            &artifact.metadata.name,
+                        )
+                        .unwrap_or_else(|| {
+                            let fallback = ordered_sources[0].0.clone();
+                            errors.push(json!({
+                                "component": "neo-solidity",
+                                "severity": "error",
+                                "type": "StandardJsonOutput",
+                                "code": standard_json_manual_code("StandardJsonOutput"),
+                                "sourceLocation": { "file": fallback },
+                                "formattedMessage": format!(
+                                    "Failed to attribute compiled contract '{}' to a standard-json source unit",
+                                    artifact.metadata.name
+                                ),
+                                "message": format!(
+                                    "Failed to attribute compiled contract '{}' to a standard-json source unit",
+                                    artifact.metadata.name
+                                ),
+                            }));
+                            fallback
+                        });
+
+                        if root_file
+                            .as_ref()
+                            .is_some_and(|root_file| root_file != &target_file)
+                        {
+                            continue;
+                        }
 
                         let source_keccak = ordered_sources
                             .iter()
@@ -212,19 +256,49 @@ pub(crate) fn process_standard_json_content(
                         };
 
                         per_file.insert(artifact.metadata.name.clone(), compiled_contract);
+                        emitted_contracts += 1;
 
                         for warning in &artifact.warnings {
                             errors.push(diagnostic_to_standard_error(warning, &target_file));
                         }
                     }
                 }
+                Err(err) => {
+                    compile_failed = true;
+                    let file_hint = root_file.as_deref().unwrap_or_else(|| {
+                        ordered_sources
+                            .first()
+                            .map(|(name, _, _)| name.as_str())
+                            .unwrap_or("unknown")
+                    });
+                    errors.extend(err.into_errors(file_hint));
+                }
             }
-            Err(err) => {
-                let file_hint = ordered_sources
-                    .first()
-                    .map(|(name, _, _)| name.as_str())
-                    .unwrap_or("unknown");
-                errors.extend(err.into_errors(file_hint));
+        }
+
+        if emitted_contracts == 0 && !compile_failed {
+            let file_name = &ordered_sources[0].0;
+            if options.contract_names.is_empty() {
+                errors.push(json!({
+                    "component": "neo-solidity",
+                    "severity": "error",
+                    "type": "NoContracts",
+                    "code": standard_json_manual_code("NoContracts"),
+                    "sourceLocation": { "file": file_name },
+                    "formattedMessage": format!("No contracts found in {file_name}"),
+                    "message": format!("No contracts found in {file_name}"),
+                }));
+            } else {
+                let names = options.contract_names.join(", ");
+                errors.push(json!({
+                    "component": "neo-solidity",
+                    "severity": "error",
+                    "type": "ContractNotFound",
+                    "code": standard_json_manual_code("ContractNotFound"),
+                    "sourceLocation": { "file": file_name },
+                    "formattedMessage": format!("No matching contract(s) found for --contract {names}"),
+                    "message": format!("No matching contract(s) found for --contract {names}"),
+                }));
             }
         }
     }

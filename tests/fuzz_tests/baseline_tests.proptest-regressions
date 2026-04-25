@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc fe52e8e399e3e0490895ccdcffc588c9d4008fb0fe69dbc88ca0c3f0abaec73f # shrinks to _unused = 0
+cc f953fa08da25186c808b64494840b82349cee0822e1904801e20c7605d1d9826 # shrinks to fn_name = "_", base = 2, exp = 116936316, modulus = 3207326223

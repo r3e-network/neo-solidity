@@ -37,11 +37,11 @@ fn try_lower_expression_unary(
 /// 1. Evaluate the inner expression.
 /// 2. If the operand is signed intN and not inside `unchecked { }` and not a
 ///    literal number, emit:
-///      DUP
-///      Push(type(intN).min)
-///      Eq
-///      JumpIf (branch on FALSE — skip THROW when condition FALSE (safe))
-///      emit_panic(0x11)  // canonical EVM Panic(uint256) envelope
+///    DUP
+///    Push(type(intN).min)
+///    Eq
+///    JumpIf (branch on FALSE — skip THROW when condition FALSE (safe))
+///    emit_panic(0x11)  // canonical EVM Panic(uint256) envelope
 ///    leaving the original operand on the stack for the subsequent negation.
 /// 3. Multiply by -1 to compute the negation.
 fn lower_negate_expression(

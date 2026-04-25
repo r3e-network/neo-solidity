@@ -760,6 +760,16 @@ fn collect_new_contract_refs(
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
 ) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_new_contract_refs_inner(stmt, primary_names, sink)
+    })
+}
+
+fn collect_new_contract_refs_inner(
+    stmt: &Statement,
+    primary_names: &std::collections::HashSet<String>,
+    sink: &mut std::collections::HashSet<String>,
+) {
     match stmt {
         Statement::Block { statements, .. } => {
             for s in statements {
@@ -778,11 +788,10 @@ fn collect_new_contract_refs(
             collect_new_contract_refs(body, primary_names, sink);
         }
         Statement::Expression(_, expr) => collect_new_refs_expr(expr, primary_names, sink),
-        Statement::VariableDefinition(_, _, init) => {
-            if let Some(expr) = init {
-                collect_new_refs_expr(expr, primary_names, sink);
-            }
+        Statement::VariableDefinition(_, _, Some(expr)) => {
+            collect_new_refs_expr(expr, primary_names, sink);
         }
+        Statement::VariableDefinition(_, _, None) => {}
         Statement::For(_, i, c, n, b) => {
             if let Some(s) = i {
                 collect_new_contract_refs(s, primary_names, sink);
@@ -831,6 +840,16 @@ fn collect_interface_casts_stmt(
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
 ) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_interface_casts_stmt_inner(stmt, interface_names, sink)
+    })
+}
+
+fn collect_interface_casts_stmt_inner(
+    stmt: &Statement,
+    interface_names: &std::collections::HashSet<String>,
+    sink: &mut std::collections::HashSet<String>,
+) {
     match stmt {
         Statement::Block { statements, .. } => {
             for s in statements {
@@ -851,11 +870,10 @@ fn collect_interface_casts_stmt(
         Statement::Expression(_, expr) => {
             collect_interface_casts_expr(expr, interface_names, sink)
         }
-        Statement::VariableDefinition(_, _, init) => {
-            if let Some(expr) = init {
-                collect_interface_casts_expr(expr, interface_names, sink);
-            }
+        Statement::VariableDefinition(_, _, Some(expr)) => {
+            collect_interface_casts_expr(expr, interface_names, sink);
         }
+        Statement::VariableDefinition(_, _, None) => {}
         Statement::For(_, i, c, n, b) => {
             if let Some(s) = i {
                 collect_interface_casts_stmt(s, interface_names, sink);
@@ -899,6 +917,16 @@ fn collect_interface_casts_stmt(
 /// Matches `FunctionCall(Variable(I), _)` where `I` is a known interface
 /// name. The parser emits this shape for interface casts like `I(addr)`.
 fn collect_interface_casts_expr(
+    expr: &Expression,
+    interface_names: &std::collections::HashSet<String>,
+    sink: &mut std::collections::HashSet<String>,
+) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_interface_casts_expr_inner(expr, interface_names, sink)
+    })
+}
+
+fn collect_interface_casts_expr_inner(
     expr: &Expression,
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -964,6 +992,16 @@ fn collect_interface_casts_expr(
 /// `Expression::New(FunctionCall(Variable(name), _))` and recurses through
 /// the usual expression containers.
 fn collect_new_refs_expr(
+    expr: &Expression,
+    primary_names: &std::collections::HashSet<String>,
+    sink: &mut std::collections::HashSet<String>,
+) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_new_refs_expr_inner(expr, primary_names, sink)
+    })
+}
+
+fn collect_new_refs_expr_inner(
     expr: &Expression,
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -1060,6 +1098,15 @@ fn collect_low_level_call_method_refs_stmt(
     stmt: &Statement,
     sink: &mut std::collections::HashSet<String>,
 ) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_low_level_call_method_refs_stmt_inner(stmt, sink)
+    })
+}
+
+fn collect_low_level_call_method_refs_stmt_inner(
+    stmt: &Statement,
+    sink: &mut std::collections::HashSet<String>,
+) {
     match stmt {
         Statement::Block { statements, .. } => {
             for s in statements {
@@ -1080,11 +1127,10 @@ fn collect_low_level_call_method_refs_stmt(
         Statement::Expression(_, expr) => {
             collect_low_level_call_method_refs_expr(expr, sink);
         }
-        Statement::VariableDefinition(_, _, init) => {
-            if let Some(expr) = init {
-                collect_low_level_call_method_refs_expr(expr, sink);
-            }
+        Statement::VariableDefinition(_, _, Some(expr)) => {
+            collect_low_level_call_method_refs_expr(expr, sink);
         }
+        Statement::VariableDefinition(_, _, None) => {}
         Statement::For(_, i, c, n, b) => {
             if let Some(s) = i {
                 collect_low_level_call_method_refs_stmt(s, sink);
@@ -1145,6 +1191,15 @@ fn collect_low_level_call_method_refs_stmt(
 /// lowering similarly cannot route those through sibling-merge, so they
 /// fall through to the real cross-contract dispatch path.
 fn collect_low_level_call_method_refs_expr(
+    expr: &Expression,
+    sink: &mut std::collections::HashSet<String>,
+) {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        collect_low_level_call_method_refs_expr_inner(expr, sink)
+    })
+}
+
+fn collect_low_level_call_method_refs_expr_inner(
     expr: &Expression,
     sink: &mut std::collections::HashSet<String>,
 ) {
@@ -1214,6 +1269,12 @@ fn collect_low_level_call_method_refs_expr(
 /// `abi.encodeCall` wrapper of a low-level call payload to extract the
 /// Solidity method name when it is statically resolvable.
 fn extract_static_method_name_from_payload(expr: &Expression) -> Option<String> {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        extract_static_method_name_from_payload_inner(expr)
+    })
+}
+
+fn extract_static_method_name_from_payload_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_method_name_from_payload(inner),
         Expression::FunctionCall(_, func, args) => {
@@ -1275,6 +1336,12 @@ fn extract_static_method_name_from_payload(expr: &Expression) -> Option<String> 
 /// `ir/build/selectors.rs` that operates on raw `solang_parser::pt`
 /// expressions (the analyse pass runs before the IR is built).
 fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        extract_static_selector_method_name_inner(expr)
+    })
+}
+
+fn extract_static_selector_method_name_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_selector_method_name(inner),
         Expression::MemberAccess(_, inner, member) => {
@@ -1307,10 +1374,8 @@ fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
                 return extract_static_selector_method_name(&args[0]);
             }
             if let Expression::Variable(id) = func.as_ref() {
-                if id.name == "bytes" || id.name == "string" {
-                    if args.len() == 1 {
-                        return extract_static_selector_method_name(&args[0]);
-                    }
+                if (id.name == "bytes" || id.name == "string") && args.len() == 1 {
+                    return extract_static_selector_method_name(&args[0]);
                 }
                 if id.name == "keccak256" && args.len() == 1 {
                     let signature = extract_static_signature_string(&args[0])?;
@@ -1337,6 +1402,12 @@ fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
 /// `instance.method`, or nested member-access chains and returns the
 /// outermost member name.
 fn extract_static_encode_call_method_name(expr: &Expression) -> Option<String> {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        extract_static_encode_call_method_name_inner(expr)
+    })
+}
+
+fn extract_static_encode_call_method_name_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_encode_call_method_name(inner),
         Expression::MemberAccess(_, _inner, member) => {
@@ -1367,6 +1438,12 @@ fn extract_static_encode_call_method_name(expr: &Expression) -> Option<String> {
 /// non-literal (e.g. `constant`-stored strings are not read here because
 /// the analyse pass doesn't have access to the lowering context yet).
 fn extract_static_signature_string(expr: &Expression) -> Option<String> {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        extract_static_signature_string_inner(expr)
+    })
+}
+
+fn extract_static_signature_string_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_signature_string(inner),
         Expression::StringLiteral(parts) => {

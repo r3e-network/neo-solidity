@@ -1,6 +1,17 @@
 impl ExecutionContext {
     fn new_buffer(&mut self) -> Result<(), RuntimeError> {
         let len = self.pop_usize("NEWBUFFER")?;
+        // Bound user-supplied length against memory_limit to prevent OOM DoS
+        // from attacker-supplied bytecode (PUSHINT + NEWBUFFER). Mirrors the
+        // PUSHDATA4 length check in instruction/push.rs.
+        if len > self.memory_limit {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "NEWBUFFER: requested length {} exceeds memory limit {}",
+                    len, self.memory_limit
+                ),
+            });
+        }
         self.push_stack(StackItem::byte_array(vec![0u8; len]))
     }
 
@@ -40,20 +51,10 @@ impl ExecutionContext {
                     dst_ref[dst_offset..dst_end].copy_from_slice(src_slice);
                 }
 
-                // Implementation note: this runtime deliberately leaves `dst`
-                // on the stack after MEMCPY (C-style `memcpy` return).
-                // Multiple compiler callers — `coerce_to_fixed_bytes` (and
-                // its `bytesN(..)`/`address(..)` clients), the Task #66
-                // narrow-integer `abi.encodePacked` CAT chain, event indexed
-                // arg lowering, and the binary-op fixed-bytes coercion —
-                // rely on this: they follow the MEMCPY with a `Swap; Drop`
-                // to discard the leaked buffer and keep the canonical
-                // ByteString result. Changing this to not-push breaks all
-                // of those callers (stack underflow when the Swap;Drop then
-                // consumes the canonical result). Task #112 therefore
-                // keeps the legacy push and threads the workaround through
-                // `emit_pad_bytesn_to_32` as well.
-                self.push_stack(StackItem::ByteArray(dst))
+                // Real NeoVM MEMCPY: Pop 5, Push 0. The destination buffer
+                // is modified in-place via Rc<RefCell> interior mutability;
+                // nothing is pushed back onto the evaluation stack.
+                Ok(())
             }
             other => Err(RuntimeError::ExecutionError {
                 message: format!("MEMCPY: unsupported destination {other:?}"),

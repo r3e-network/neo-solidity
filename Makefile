@@ -3,7 +3,7 @@
 # Repository: https://github.com/r3e-network/neo-solidity
 
 .PHONY: all build clean test test-all test-all-full test-fuzz-gate test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs docs-api docs-site install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
-.PHONY: test-compile-strict production-gate
+.PHONY: test-compile-strict production-gate test-fuzz-start test-fuzz-status test-fuzz-stop test-fuzz-cargo-all test-fuzz-differential test-fuzz-coverage
 
 all: build
 
@@ -31,6 +31,39 @@ test-fuzz-continuous:
 	@echo "🧪 Running continuous fuzz suite with deep case counts..."
 	@./scripts/run_fuzz_suite.sh deep
 
+test-fuzz-cargo-all:
+	@echo "🧪 Running every cargo-fuzz target (60s each)..."
+	@for t in $$(cargo +nightly fuzz list); do \
+		echo "== $$t =="; \
+		cargo +nightly fuzz run $$t -- -max_total_time=60 || exit 1; \
+	done
+	@echo "✅ All cargo-fuzz targets clean"
+
+test-fuzz-differential:
+	@echo "🧪 Running differential proptests (compiler vs reference crates)..."
+	cargo test --test fuzz_tests differential
+
+test-fuzz-coverage:
+	@echo "🧪 Generating per-test coverage for the fuzz suite..."
+	@command -v cargo-llvm-cov >/dev/null 2>&1 || { \
+		echo "cargo-llvm-cov not installed; run: cargo install cargo-llvm-cov"; \
+		exit 1; \
+	}
+	cargo llvm-cov --test fuzz_tests --html
+	@echo "✅ HTML report written to target/llvm-cov/html/index.html"
+
+test-fuzz-start:
+	@echo "🧪 Starting background fuzz run..."
+	bash scripts/fuzz_start.sh
+
+test-fuzz-status:
+	@echo "🧪 Checking background fuzz run status..."
+	bash scripts/fuzz_status.sh
+
+test-fuzz-stop:
+	@echo "🧪 Stopping background fuzz run..."
+	bash scripts/fuzz_stop.sh
+
 test-fuzz-ci:
 	@echo "🧪 Running CI fuzz suite..."
 	@./scripts/run_fuzz_suite.sh ci
@@ -46,6 +79,7 @@ production-gate:
 	@echo "🛡️  Running production readiness gate..."
 	cargo fmt --all -- --check
 	cargo clippy --all-targets --all-features -- -D warnings
+	node --check scripts/github_contracts_pipeline.js
 	cargo build --release
 	cargo test --workspace --all-features
 	$(MAKE) tooling-test

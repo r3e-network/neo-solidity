@@ -87,8 +87,28 @@ fn emit_ecrecover(
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // not-null path: derive Ethereum address from uncompressed pubkey.
-    // Stack: [pubkey65]
+    // Some invalid signatures return an empty byte string rather than Null;
+    // treat any short value as failed recovery before slicing pubkey[1..65].
     let not_null_pos = bytecode.len();
+    bytecode.push(0x4A); // DUP
+    bytecode.push(0xCA); // SIZE
+    push_integer_bigint(bytecode, &BigInt::from(65u8));
+    bytecode.push(0xB5); // LT
+    let jmp_if_long_enough_pos = bytecode.len();
+    bytecode.push(0x27); // JMPIFNOT_L
+    let jmp_if_long_enough_operand = bytecode.len();
+    bytecode.extend_from_slice(&[0, 0, 0, 0]);
+
+    // short path
+    bytecode.push(0x45); // DROP
+    push_data(bytecode, &[0u8; 20]);
+    let jmp_short_end_pos = bytecode.len();
+    bytecode.push(0x23); // JMP_L
+    let jmp_short_end_operand = bytecode.len();
+    bytecode.extend_from_slice(&[0, 0, 0, 0]);
+
+    // long-enough path: Stack: [pubkey65]
+    let long_enough_pos = bytecode.len();
 
     // Strip the leading 0x04 byte: SUBSTR(pubkey65, 1, 64) => [pubkey64 (x||y)]
     push_integer_bigint(bytecode, &BigInt::from(1u8)); // start offset
@@ -116,6 +136,18 @@ fn emit_ecrecover(
         .unwrap_or(0);
     bytecode[jmp_if_not_null_operand..jmp_if_not_null_operand + 4]
         .copy_from_slice(&rel_not_null.to_le_bytes());
+
+    let rel_long_enough = (long_enough_pos as i32)
+        .checked_sub(jmp_if_long_enough_pos as i32)
+        .unwrap_or(0);
+    bytecode[jmp_if_long_enough_operand..jmp_if_long_enough_operand + 4]
+        .copy_from_slice(&rel_long_enough.to_le_bytes());
+
+    let rel_short_end = (end_pos as i32)
+        .checked_sub(jmp_short_end_pos as i32)
+        .unwrap_or(0);
+    bytecode[jmp_short_end_operand..jmp_short_end_operand + 4]
+        .copy_from_slice(&rel_short_end.to_le_bytes());
 
     let rel_end = (end_pos as i32)
         .checked_sub(jmp_end_pos as i32)
@@ -155,6 +187,27 @@ fn emit_precompile_ecrecover(
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
     // Stack: [payload]
+    // Short or non-canonical payloads cannot supply the four ABI words.
+    // Match the invalid-signature path and return a zero-padded 32-byte slot
+    // instead of faulting before the low-level call can return `(true, out)`.
+    bytecode.push(0x4A); // DUP
+    bytecode.push(0xCA); // SIZE
+    push_integer_bigint(bytecode, &BigInt::from(128u8));
+    bytecode.push(0xB5); // LT
+    let jmp_payload_long_enough_pos = bytecode.len();
+    bytecode.push(0x27); // JMPIFNOT_L
+    let jmp_payload_long_enough_operand = bytecode.len();
+    bytecode.extend_from_slice(&[0, 0, 0, 0]);
+
+    bytecode.push(0x45); // DROP
+    push_data(bytecode, &[0u8; 32]);
+    let jmp_payload_end_pos = bytecode.len();
+    bytecode.push(0x23); // JMP_L
+    let jmp_payload_end_operand = bytecode.len();
+    bytecode.extend_from_slice(&[0, 0, 0, 0]);
+
+    let payload_long_enough_pos = bytecode.len();
+
     // hash = SUBSTR(payload, 0, 32). Dup payload for each slice.
     bytecode.push(0x4A); // DUP → [payload, payload]
     push_integer_bigint(bytecode, &BigInt::from(0u8));
@@ -193,6 +246,19 @@ fn emit_precompile_ecrecover(
     push_data(bytecode, &[0u8; 12]);
     bytecode.push(0x50); // SWAP → [pad12, address20]
     bytecode.push(0x8B); // CAT → [address32]
+
+    let payload_end_pos = bytecode.len();
+    let rel_payload_long_enough = (payload_long_enough_pos as i32)
+        .checked_sub(jmp_payload_long_enough_pos as i32)
+        .unwrap_or(0);
+    bytecode[jmp_payload_long_enough_operand..jmp_payload_long_enough_operand + 4]
+        .copy_from_slice(&rel_payload_long_enough.to_le_bytes());
+
+    let rel_payload_end = (payload_end_pos as i32)
+        .checked_sub(jmp_payload_end_pos as i32)
+        .unwrap_or(0);
+    bytecode[jmp_payload_end_operand..jmp_payload_end_operand + 4]
+        .copy_from_slice(&rel_payload_end.to_le_bytes());
 }
 
 /// Task #H6b: emit the 0x05 modexp precompile routing — MINIMAL 1-byte-operand

@@ -153,24 +153,24 @@ fn collect_native_permissions(ir_module: &ir::Module) -> BTreeMap<String, BTreeS
                         }
                     }
                     ir::Instruction::LoadMappingElement { key_types, .. }
-                    | ir::Instruction::StoreMappingElement { key_types, .. } => {
+                    | ir::Instruction::StoreMappingElement { key_types, .. }
+                        if !key_types.is_empty() =>
+                    {
                         // Mapping storage slots are derived via:
                         //   StdLib.serialize(key) + CryptoLib.keccak256(...)
                         //
                         // When `key_types` is empty, the slot is the base slot and no hashing is
                         // performed, so avoid adding unnecessary permissions.
-                        if !key_types.is_empty() {
-                            require_native_method(
-                                &mut native_methods,
-                                ir::NativeContract::StdLib,
-                                "serialize",
-                            );
-                            require_native_method(
-                                &mut native_methods,
-                                ir::NativeContract::CryptoLib,
-                                "keccak256",
-                            );
-                        }
+                        require_native_method(
+                            &mut native_methods,
+                            ir::NativeContract::StdLib,
+                            "serialize",
+                        );
+                        require_native_method(
+                            &mut native_methods,
+                            ir::NativeContract::CryptoLib,
+                            "keccak256",
+                        );
                     }
                     ir::Instruction::LoadStructField { key_types, .. }
                     | ir::Instruction::StoreStructField { key_types, .. } => {

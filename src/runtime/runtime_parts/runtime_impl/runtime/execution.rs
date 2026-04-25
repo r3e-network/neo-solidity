@@ -585,7 +585,8 @@ fn manifest_type_to_canonical_solidity(manifest_type: &str) -> String {
         "ByteArray" => "bytes".to_string(),
         "Array" => "bytes[]".to_string(),
         "Map" => "bytes".to_string(),
-        "Any" | "Void" | _ => "bytes".to_string(),
+        "Any" | "Void" => "bytes".to_string(),
+        _ => "bytes".to_string(),
     }
 }
 

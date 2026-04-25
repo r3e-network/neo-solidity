@@ -14,11 +14,9 @@ fn collect_interface_events_recursive(
         };
 
         match base_contract.kind {
-            ContractKind::Interface => {
-                if seen.insert(base_name.clone()) {
-                    out.extend(base_contract.events.clone());
-                    collect_interface_events_recursive(base_contract, contract_map, seen, out);
-                }
+            ContractKind::Interface if seen.insert(base_name.clone()) => {
+                out.extend(base_contract.events.clone());
+                collect_interface_events_recursive(base_contract, contract_map, seen, out);
             }
             ContractKind::Contract | ContractKind::AbstractContract => {
                 collect_interface_events_recursive(base_contract, contract_map, seen, out);
@@ -55,18 +53,16 @@ fn collect_interface_types_recursive(
         };
 
         match base_contract.kind {
-            ContractKind::Interface => {
-                if seen.insert(base_name.clone()) {
-                    structs.extend(base_contract.structs.clone());
-                    enums.extend(base_contract.enums.clone());
-                    collect_interface_types_recursive(
-                        base_contract,
-                        contract_map,
-                        seen,
-                        structs,
-                        enums,
-                    );
-                }
+            ContractKind::Interface if seen.insert(base_name.clone()) => {
+                structs.extend(base_contract.structs.clone());
+                enums.extend(base_contract.enums.clone());
+                collect_interface_types_recursive(
+                    base_contract,
+                    contract_map,
+                    seen,
+                    structs,
+                    enums,
+                );
             }
             ContractKind::Contract | ContractKind::AbstractContract => {
                 collect_interface_types_recursive(base_contract, contract_map, seen, structs, enums);

@@ -137,23 +137,41 @@ contract Mock is IERC20 {
 contract Client {
     function get(IERC20 token, address user) external view returns (uint) { return token.balanceOf(user); }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("OOO1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "OOO1 compile: {:?}. If this fires on \
             `interface IERC20`, the interface declaration with 2 methods \
             regressed. If on `Mock is IERC20`, the contract-inherits-\
             interface path regressed. If on the `IERC20 token` parameter \
             in Client.get, the interface-as-parameter lowering regressed \
             (batch79 CCC4 pins this shape for a single-method interface; \
-            OOO1 extends to multi-method).", e));
+            OOO1 extends to multi-method).",
+            e
+        )
+    });
     // Confirm all three artifacts emitted.
-    let mock = arts.iter()
+    let mock = arts
+        .iter()
         .find(|a| a.metadata.name == "Mock")
-        .unwrap_or_else(|| panic!("OOO1 Mock artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
-    let client = arts.iter()
+        .unwrap_or_else(|| {
+            panic!(
+                "OOO1 Mock artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
+    let client = arts
+        .iter()
         .find(|a| a.metadata.name == "Client")
-        .unwrap_or_else(|| panic!("OOO1 Client artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "OOO1 Client artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     // alice address: 0x11 * 20 (LE on the boundary).
     let alice = [0x11u8; 20];
@@ -173,20 +191,27 @@ contract Client {
     //     storage account (Hash160(client.bytecode)) so the subsequent
     //     balanceOf read lands on the same keccak-derived slot.
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("OOO1 rt");
-    let r_mint = rt.call_method(&client.bytecode, &client.tokens, &client.manifest,
-        "mint",
-        &[
-            StackItem::byte_array(alice.to_vec()),
-            StackItem::Integer(100),
-        ])
+    let r_mint = rt
+        .call_method(
+            &client.bytecode,
+            &client.tokens,
+            &client.manifest,
+            "mint",
+            &[
+                StackItem::byte_array(alice.to_vec()),
+                StackItem::Integer(100),
+            ],
+        )
         .expect("OOO1 mint(alice, 100) host-level");
-    assert!(r_mint.success,
+    assert!(
+        r_mint.success,
         "OOO1 mint(alice, 100) must succeed; exc={:?}. If exc cites the \
          mapping write `_bal[to] += amt`, the compound-assign on mapping \
          storage regressed. If exc cites an unknown method, the \
          sibling-merge (Task #83/#115) regressed and Mock.mint is no \
          longer visible through Client's dispatch.",
-        r_mint.exception.as_ref().map(|e| &e.message));
+        r_mint.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) Call Client.get(mock, alice). The `IERC20 token` parameter is
     //     interface-typed; per batch79 CCC4 precedent the zero-placeholder
@@ -195,27 +220,37 @@ contract Client {
     //     (matching CCC4), since Client.get invokes a SIBLING contract's
     //     balanceOf and the sibling-merge makes Mock's method reachable.
     let zero_target = [0u8; 20];
-    let r_get = rt.call_method(&client.bytecode, &client.tokens, &client.manifest,
-        "get",
-        &[
-            StackItem::byte_array(zero_target.to_vec()),
-            StackItem::byte_array(alice.to_vec()),
-        ])
+    let r_get = rt
+        .call_method(
+            &client.bytecode,
+            &client.tokens,
+            &client.manifest,
+            "get",
+            &[
+                StackItem::byte_array(zero_target.to_vec()),
+                StackItem::byte_array(alice.to_vec()),
+            ],
+        )
         .expect("OOO1 Client.get(mock, alice) host-level");
     // OOO1 is marked #[ignore] if the cross-contract dispatch doesn't
     // return 100 — the sibling-merge path for multi-method interfaces
     // with stateful mocks may need additional wiring. The reported
     // behavior is captured verbatim for Task #197+ triage.
-    assert!(r_get.success,
+    assert!(
+        r_get.success,
         "OOO1 Client.get(mock, alice) must succeed; exc={:?}, rd_hex={}. \
          If exc cites the cross-contract dispatch, the multi-method \
          interface-as-parameter path regressed (batch79 CCC4 precedent \
          for single-method). If exc cites the balanceOf body, the \
          mapping read after mapping write failed cross-call. Task #197+ \
          candidate: IERC20-like multi-method interface + stateful mock.",
-        r_get.exception.as_ref().map(|e| &e.message), hex::encode(&r_get.return_data));
+        r_get.exception.as_ref().map(|e| &e.message),
+        hex::encode(&r_get.return_data)
+    );
     let v = decode_uint_le(&r_get.return_data);
-    assert_eq!(v.clone(), BigUint::from(100u64),
+    assert_eq!(
+        v.clone(),
+        BigUint::from(100u64),
         "OOO1 Client.get(mock, alice) must equal 100 (the minted balance); \
          got {} rd_hex={}. If 0, either (a) mint didn't persist to storage \
          (the cross-call used a different instance of Mock), or (b) the \
@@ -223,7 +258,9 @@ contract Client {
          mapping slot. If some other value, a state-spill from an unrelated \
          write leaked into the slot. Task #197+ candidate: IERC20-like \
          interface multi-method call sequence preserves state.",
-        v, hex::encode(&r_get.return_data));
+        v,
+        hex::encode(&r_get.return_data)
+    );
 }
 
 // OOO2 — Large constant folding with transitive reference.
@@ -294,50 +331,79 @@ contract C {
     function add(string memory s) external { strs.push(s); }
     function get(uint i) external view returns (string memory) { return strs[i]; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("OOO3 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "OOO3 compile: {:?}. If this fires on \
             `string[] public strs;`, the public string[] auto-getter \
             regressed (the compiler inserts a `strs(uint i)` getter for \
             any public array state var; OOO3 pins this for the dynamic-\
             element form). If on `add(string memory s)`, the string-\
             memory parameter + strs.push regressed (batch58 HH2 pins the \
             string CALLDATA form; OOO3 extends to memory). If on \
-            `strs[i]`, the per-index lookup on string[] regressed.", e));
+            `strs[i]`, the per-index lookup on string[] regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("OOO3 rt");
 
     // (i) add("foo").
-    let p1 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "add", &[StackItem::byte_array(b"foo".to_vec())])
+    let p1 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "add",
+            &[StackItem::byte_array(b"foo".to_vec())],
+        )
         .expect("OOO3 add(foo) host-level");
-    assert!(p1.success,
+    assert!(
+        p1.success,
         "OOO3 add(\"foo\") must succeed; exc={:?}. If exc cites the \
          `string memory` parameter + strs.push, the string-memory-to-\
          string[] push lowering regressed (batch58 HH2 pins the calldata \
          form; OOO3 pins the memory form).",
-        p1.exception.as_ref().map(|e| &e.message));
+        p1.exception.as_ref().map(|e| &e.message)
+    );
 
     // (ii) add("bar").
-    let p2 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "add", &[StackItem::byte_array(b"bar".to_vec())])
+    let p2 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "add",
+            &[StackItem::byte_array(b"bar".to_vec())],
+        )
         .expect("OOO3 add(bar) host-level");
-    assert!(p2.success,
+    assert!(
+        p2.success,
         "OOO3 add(\"bar\") after add(\"foo\") must succeed; exc={:?}",
-        p2.exception.as_ref().map(|e| &e.message));
+        p2.exception.as_ref().map(|e| &e.message)
+    );
 
     // (iii) get(1) → "bar".
-    let g1 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "get", &[StackItem::Integer(1)])
+    let g1 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "get",
+            &[StackItem::Integer(1)],
+        )
         .expect("OOO3 get(1) host-level");
-    assert!(g1.success,
+    assert!(
+        g1.success,
         "OOO3 get(1) must succeed after two adds; exc={:?}. If exc surfaces \
          \"index out of range\", either (a) the outer-array length slot \
          is stale (didn't increment on add), or (b) the per-index offset \
          lookup regressed for the dynamic-element array shape.",
-        g1.exception.as_ref().map(|e| &e.message));
+        g1.exception.as_ref().map(|e| &e.message)
+    );
     // The returned string surfaces as raw UTF-8 bytes (batch32 H1 / HH2
     // precedent — no length prefix).
-    assert!(g1.return_data.windows(3).any(|w| w == b"bar"),
+    assert!(
+        g1.return_data.windows(3).any(|w| w == b"bar"),
         "OOO3 get(1) return must contain UTF-8 bytes of \"bar\"; got {} \
          bytes rd_hex={} utf8={:?}. If empty or b\"foo\", the index 1 \
          read returned the wrong element (index inversion OR the per-\
@@ -345,8 +411,10 @@ contract C {
          return lowering is adding a length prefix it shouldn't for \
          the raw external call path. Task #197+ candidate: public \
          string[] get at non-zero index.",
-        g1.return_data.len(), hex::encode(&g1.return_data),
-        std::str::from_utf8(&g1.return_data).ok());
+        g1.return_data.len(),
+        hex::encode(&g1.return_data),
+        std::str::from_utf8(&g1.return_data).ok()
+    );
 }
 
 // OOO4 — 4-way if/if/if/else ladder with early returns.
@@ -428,20 +496,26 @@ contract C {
         return \"\\u2603 snowman\";
     }
 }";
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("OOO5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "OOO5 compile: {:?}. If this fires on \
             `\"\\u2603 snowman\"`, the `\\u` escape sequence parser \
             regressed (Solidity recognizes `\\u` followed by 4 hex digits \
             as a unicode codepoint). If on the UTF-8 encoding of the \
-            codepoint, the U+2603 → 3-byte UTF-8 output regressed.", e));
+            codepoint, the U+2603 → 3-byte UTF-8 output regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("OOO5 rt");
     let r = rt.execute(&art.bytecode, &[]).expect("OOO5 f() host-level");
-    assert!(r.success,
+    assert!(
+        r.success,
         "OOO5 f() must succeed (pure string literal return); exc={:?}. \
          If exc cites the escape sequence or UTF-8 encoding, the \
          `\\u2603` → 3-byte UTF-8 lowering regressed.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
 
     // Expected: 0xe2 0x98 0x83 || b" snowman"
     //   U+2603 UTF-8: [0xe2, 0x98, 0x83]
@@ -450,12 +524,18 @@ contract C {
     let mut expected = Vec::new();
     expected.extend_from_slice(&[0xe2u8, 0x98, 0x83]);
     expected.extend_from_slice(b" snowman");
-    assert_eq!(expected.len(), 11, "OOO5 expected buffer sanity: 3 + 8 = 11 bytes");
+    assert_eq!(
+        expected.len(),
+        11,
+        "OOO5 expected buffer sanity: 3 + 8 = 11 bytes"
+    );
 
     // Per batch32 H4(b) / batch49 Y1 precedent, `returns (string memory)`
     // surfaces as raw UTF-8 bytes on the external return path (no length
     // prefix, no ABI wrap).
-    assert_eq!(&r.return_data[..], &expected[..],
+    assert_eq!(
+        &r.return_data[..],
+        &expected[..],
         "OOO5 f() must return UTF-8 encoded snowman + \" snowman\" = 0x{}; \
          got 0x{} (len={}). If the first 3 bytes differ, the \\u2603 \
          escape was either (a) mis-encoded as UTF-16 (would yield 2 bytes \
@@ -466,7 +546,10 @@ contract C {
          recognized at all and surfaced as the raw text `u2603`. Task \
          #197+ candidate: `\\u` unicode escape → UTF-8 encoding in string \
          literal.",
-        hex::encode(&expected), hex::encode(&r.return_data), r.return_data.len());
+        hex::encode(&expected),
+        hex::encode(&r.return_data),
+        r.return_data.len()
+    );
 }
 
 // Task ID resolution for Batch #91 on first exec:
@@ -629,46 +712,70 @@ contract C {
     uint256 public counter;
     function set(uint256 x) external { counter = x; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("PPP1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "PPP1 compile: {:?}. If this fires on \
             `function set(uint256 x) external {{ counter = x; }}` without \
             a `returns` clause, the void (no-return) external function \
             form regressed. If on `uint256 public counter;`, the \
             primitive public auto-getter synthesis regressed (batch60 \
             JJ1 pins the counter + `inc(bool c)` compound-assign form; \
-            PPP1 pins the MINIMAL void + simple-assign form).", e));
+            PPP1 pins the MINIMAL void + simple-assign form).",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("PPP1 rt");
 
     // (1) set(42) — void call writes counter = 42 to storage.
-    let r_set = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "set", &[StackItem::Integer(42)])
+    let r_set = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "set",
+            &[StackItem::Integer(42)],
+        )
         .expect("PPP1 set(42) host-level");
-    assert!(r_set.success,
+    assert!(
+        r_set.success,
         "PPP1 set(42) must succeed (void external call); exc={:?}. If \
          exc cites the missing `returns` clause, the void-fn lowering \
          regressed. If cites the simple-assign `counter = x`, the \
          primitive state-var write regressed.",
-        r_set.exception.as_ref().map(|e| &e.message));
+        r_set.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) counter() — reads the stored value back via the auto-getter.
-    let r_get = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "counter", &[] as &[StackItem])
+    let r_get = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "counter",
+            &[] as &[StackItem],
+        )
         .expect("PPP1 counter() host-level");
-    assert!(r_get.success,
+    assert!(
+        r_get.success,
         "PPP1 counter() must succeed after set(42); exc={:?}. If exc \
          cites the auto-getter synthesis, the primitive `public uint` \
          getter regressed.",
-        r_get.exception.as_ref().map(|e| &e.message));
+        r_get.exception.as_ref().map(|e| &e.message)
+    );
     let got = decode_uint_le(&r_get.return_data);
-    assert_eq!(got.clone(), BigUint::from(42u64),
+    assert_eq!(
+        got.clone(),
+        BigUint::from(42u64),
         "PPP1 counter() after set(42) must equal 42; got {} (rd_hex={}). \
          If 0, the set(42) write didn't persist to storage (a state-\
          revert-across-calls bug would zero the slot). If some other \
          value, a state-spill from an unrelated write leaked. Task \
          #198+ candidate: void-setter + primitive auto-getter round-\
          trip.",
-        got, hex::encode(&r_get.return_data));
+        got,
+        hex::encode(&r_get.return_data)
+    );
 }
 
 // PPP2 — Storage dynamic array of struct with STRING field.
@@ -690,8 +797,9 @@ contract C {
         return (l.ts, l.msg);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("PPP2 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "PPP2 compile: {:?}. If this fires on \
             `struct Log {{ uint ts; string msg; }}`, the struct with a \
             dynamic string field regressed (batch31 H4 pins the memory \
             form; PPP2 extends to storage). If on `Log[] public logs`, \
@@ -700,64 +808,87 @@ contract C {
             STRING variant). If on `logs.push(Log(ts, m))` with `string \
             memory m`, the struct-literal with string-memory field flow \
             regressed. If on `Log memory l = logs[i];`, the storage-to-\
-            memory struct copy with a string field regressed.", e));
+            memory struct copy with a string field regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("PPP2 rt");
 
     // (1) add(100, "hello") — push onto the storage Log[].
-    let r_add = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "add", &[
-            StackItem::Integer(100),
-            StackItem::byte_array(b"hello".to_vec()),
-        ])
+    let r_add = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "add",
+            &[
+                StackItem::Integer(100),
+                StackItem::byte_array(b"hello".to_vec()),
+            ],
+        )
         .expect("PPP2 add(100, \"hello\") host-level");
-    assert!(r_add.success,
+    assert!(
+        r_add.success,
         "PPP2 add(100, \"hello\") must succeed; exc={:?}. If exc cites \
          the struct-literal `Log(ts, m)`, the two-field struct-literal \
          with uint + string-memory regressed. If cites `.push`, the \
          storage-array push with a heterogeneous struct regressed.",
-        r_add.exception.as_ref().map(|e| &e.message));
+        r_add.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) get(0) — must round-trip (100, "hello"). Tuple returns post-
     //     Task-#64 land as EVM-canonical 2-slot head plus the dynamic
     //     string tail, OR the runtime may surface a Neo-native
     //     concatenated form. Probe structurally (timestamp value appears
     //     + string bytes appear), matching batch53 CC4's precedent.
-    let r_get = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "get", &[StackItem::Integer(0)])
+    let r_get = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "get",
+            &[StackItem::Integer(0)],
+        )
         .expect("PPP2 get(0) host-level");
-    assert!(r_get.success,
+    assert!(
+        r_get.success,
         "PPP2 get(0) must succeed after add; exc={:?}. If exc surfaces \
          `out of bounds`, the array-length slot didn't increment on \
          push. If cites `logs[i]` or `l.msg`, the storage struct-with-\
          string read regressed (distinct from CC4's BYTES path).",
-        r_get.exception.as_ref().map(|e| &e.message));
+        r_get.exception.as_ref().map(|e| &e.message)
+    );
 
     // Structural probe: the payload must contain "hello" bytes.
     let rd = &r_get.return_data;
     let has_hello = rd.windows(5).any(|w| w == b"hello");
-    assert!(has_hello,
+    assert!(
+        has_hello,
         "PPP2 get(0) return must contain UTF-8 bytes of \"hello\" (the \
          string-field payload); got {} bytes rd_hex={}. If missing, the \
          struct-field-string read path is not surfacing the stored \
          string — distinct from CC4's bytes-field form. Task #198+ \
          candidate: storage struct-with-string field read through \
          storage-to-memory copy.",
-        rd.len(), hex::encode(rd));
+        rd.len(),
+        hex::encode(rd)
+    );
 
     // Structural probe: the timestamp 100 must appear as LE-8 or BE-32.
     let ts_le8: [u8; 8] = 100i64.to_le_bytes();
     let mut ts_be32 = [0u8; 32];
     let ts_be = BigUint::from(100u64).to_bytes_be();
     ts_be32[32 - ts_be.len()..].copy_from_slice(&ts_be);
-    let has_ts = rd.windows(8).any(|w| w == ts_le8)
-        || rd.windows(32).any(|w| w == ts_be32);
-    assert!(has_ts,
+    let has_ts = rd.windows(8).any(|w| w == ts_le8) || rd.windows(32).any(|w| w == ts_be32);
+    assert!(
+        has_ts,
         "PPP2 get(0) return must contain the timestamp 100 as LE-8 or \
          BE-32 bytes; got rd_hex={}. If missing, the uint-field surface \
          on the struct tuple-return regressed. Task #198+ candidate: \
          struct-field uint read through storage-to-memory copy.",
-        hex::encode(rd));
+        hex::encode(rd)
+    );
 }
 
 // PPP3 — Bit manipulation triple: setBit / clearBit / hasBit.
@@ -943,23 +1074,38 @@ contract A { uint public x = 1; }
 contract B is A { uint public x_b = 2; }
 contract C is B { uint public x_c = 3; }
 "#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("PPP5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "PPP5 compile: {:?}. If this fires on \
             the 3-level inheritance chain `A → B is A → C is B`, the \
             multi-level inherit-without-ctor form regressed (batch32 K1 \
             pins the 3-level CTOR-CHAIN form A(_a+3) → B(_b+2) → C(_c) \
             with ctor args; PPP5 pins the INITIALIZER-ONLY form where \
             each contract has only `= <lit>` on the state var). If on \
             the per-contract `public` auto-getter, the auto-getter \
-            synthesis regressed.", e));
+            synthesis regressed.",
+            e
+        )
+    });
     // Should emit 3 artifacts: A, B, C. Only C is deployable (the \
     // concrete final). The other two artifacts exist but we pick C.
-    assert_eq!(arts.len(), 3, "PPP5 must emit 3 artifacts (A, B, C); got {}",
-        arts.len());
-    let c_art = arts.iter()
+    assert_eq!(
+        arts.len(),
+        3,
+        "PPP5 must emit 3 artifacts (A, B, C); got {}",
+        arts.len()
+    );
+    let c_art = arts
+        .iter()
         .find(|a| a.metadata.name == "C")
-        .unwrap_or_else(|| panic!("PPP5 C artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "PPP5 C artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("PPP5 rt");
 
@@ -969,18 +1115,27 @@ contract C is B { uint public x_c = 3; }
     //     prologue for the C.x() read (per batch32 K1 / batch46 AA1
     //     precedent). C has no constructor, and none of A/B do either,
     //     so the ctor-args slice is empty.
-    let r_x = rt.call_method_with_deploy_args(
-        &c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "x", &[] as &[StackItem],
-        Some(&[] as &[StackItem]),
-    ).expect("PPP5 C.x() host-level");
-    assert!(r_x.success,
+    let r_x = rt
+        .call_method_with_deploy_args(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "x",
+            &[] as &[StackItem],
+            Some(&[] as &[StackItem]),
+        )
+        .expect("PPP5 C.x() host-level");
+    assert!(
+        r_x.success,
         "PPP5 C.x() must succeed after deploy; exc={:?}. If exc cites \
          the auto-getter on an inherited state var, the cross-level \
          auto-getter synthesis regressed (C must expose A's `x` getter).",
-        r_x.exception.as_ref().map(|e| &e.message));
+        r_x.exception.as_ref().map(|e| &e.message)
+    );
     let got_x = decode_uint_le(&r_x.return_data);
-    assert_eq!(got_x.clone(), BigUint::from(1u64),
+    assert_eq!(
+        got_x.clone(),
+        BigUint::from(1u64),
         "PPP5 C.x() must equal 1 (A's `uint public x = 1` initializer \
          fires at deploy); got {} (rd_hex={}). If 0, either (a) A's \
          state-var initializer never ran (the `_deploy` prologue doesn't \
@@ -990,23 +1145,35 @@ contract C is B { uint public x_c = 3; }
          RUN class; PPP5 extends it to the `call_method_with_deploy_args` \
          path which is supposed to fix it. Task #198+ candidate: 3-level \
          inheritance initializer chain via deploy prologue.",
-        got_x, hex::encode(&r_x.return_data));
+        got_x,
+        hex::encode(&r_x.return_data)
+    );
 
     // (2) C.x_b() — B's initializer value. After the prior call, the
     //     override is drained (per batch46 AA1 Task #105 note), but the
     //     storage persists across calls on the same runtime instance.
     //     Use the plain `call_method` path — storage is already
     //     populated from the deploy in (1).
-    let r_xb = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "x_b", &[] as &[StackItem])
+    let r_xb = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "x_b",
+            &[] as &[StackItem],
+        )
         .expect("PPP5 C.x_b() host-level");
-    assert!(r_xb.success,
+    assert!(
+        r_xb.success,
         "PPP5 C.x_b() must succeed after deploy; exc={:?}. If exc cites \
          `x_b`, the auto-getter for B's state var (inherited through \
          C's VTable) regressed.",
-        r_xb.exception.as_ref().map(|e| &e.message));
+        r_xb.exception.as_ref().map(|e| &e.message)
+    );
     let got_xb = decode_uint_le(&r_xb.return_data);
-    assert_eq!(got_xb.clone(), BigUint::from(2u64),
+    assert_eq!(
+        got_xb.clone(),
+        BigUint::from(2u64),
         "PPP5 C.x_b() must equal 2 (B's `uint public x_b = 2` initializer); \
          got {} (rd_hex={}). If 0, B's initializer didn't run during \
          _deploy. If 1 or 3, the auto-getter landed on the wrong slot \
@@ -1014,19 +1181,31 @@ contract C is B { uint public x_c = 3; }
          slots should be [x=0, x_b=1, x_c=2] per C3 linearization of \
          A < B < C). Task #198+ candidate: middle-level state-var \
          initializer in 3-level chain.",
-        got_xb, hex::encode(&r_xb.return_data));
+        got_xb,
+        hex::encode(&r_xb.return_data)
+    );
 
     // (3) C.x_c() — C's own initializer value.
-    let r_xc = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "x_c", &[] as &[StackItem])
+    let r_xc = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "x_c",
+            &[] as &[StackItem],
+        )
         .expect("PPP5 C.x_c() host-level");
-    assert!(r_xc.success,
+    assert!(
+        r_xc.success,
         "PPP5 C.x_c() must succeed after deploy; exc={:?}. If exc cites \
          `x_c`, C's own auto-getter regressed (the leaf-contract's \
          public state var should have a vanilla auto-getter).",
-        r_xc.exception.as_ref().map(|e| &e.message));
+        r_xc.exception.as_ref().map(|e| &e.message)
+    );
     let got_xc = decode_uint_le(&r_xc.return_data);
-    assert_eq!(got_xc.clone(), BigUint::from(3u64),
+    assert_eq!(
+        got_xc.clone(),
+        BigUint::from(3u64),
         "PPP5 C.x_c() must equal 3 (C's `uint public x_c = 3` initializer); \
          got {} (rd_hex={}). If 0, C's own initializer didn't run during \
          _deploy (so neither did the inherited ones — this would be \
@@ -1035,7 +1214,9 @@ contract C is B { uint public x_c = 3; }
          weirder). If 1 or 2, slot collision with an inherited level. \
          Task #198+ candidate: leaf-level state-var initializer in 3-\
          level chain.",
-        got_xc, hex::encode(&r_xc.return_data));
+        got_xc,
+        hex::encode(&r_xc.return_data)
+    );
 }
 
 // Task ID resolution for Batch #92 on first exec:
@@ -1320,27 +1501,39 @@ contract C {
         return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("QQQ2 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "QQQ2 compile: {:?}. If this fires on \
             `bytes(a)` cast or `keccak256(bytes memory)`, the string-to-\
             bytes + keccak composition regressed (the cast surfaces the \
             raw UTF-8 payload without a length prefix). If on `==` \
             between two bytes32 values, the keccak-digest equality \
-            comparison regressed.", e));
+            comparison regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("QQQ2 rt");
 
     // (1) eq("abc", "abcd") → false.
-    let r_ne = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "eq", &[
-            StackItem::byte_array(b"abc".to_vec()),
-            StackItem::byte_array(b"abcd".to_vec()),
-        ])
+    let r_ne = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "eq",
+            &[
+                StackItem::byte_array(b"abc".to_vec()),
+                StackItem::byte_array(b"abcd".to_vec()),
+            ],
+        )
         .expect("QQQ2 eq(abc, abcd) host-level");
-    assert!(r_ne.success,
+    assert!(
+        r_ne.success,
         "QQQ2 eq(\"abc\", \"abcd\") must succeed; exc={:?}. If exc cites \
          `bytes(a)` on a string-memory parameter, the cast regressed.",
-        r_ne.exception.as_ref().map(|e| &e.message));
+        r_ne.exception.as_ref().map(|e| &e.message)
+    );
     // bool false lands as the single byte 0x00 in min-width LE
     // OR as a 32-zero-byte BE slot. Both shapes indicate false.
     let rd_ne = &r_ne.return_data;
@@ -1348,32 +1541,44 @@ contract C {
         || (rd_ne.len() == 1 && rd_ne[0] == 0x00)
         || (rd_ne.len() == 32 && rd_ne.iter().all(|b| *b == 0))
         || rd_ne.iter().all(|b| *b == 0);
-    assert!(is_false,
+    assert!(
+        is_false,
         "QQQ2 eq(\"abc\", \"abcd\") must return false (length mismatch → \
          distinct keccak digests); got rd_hex={} len={}. If a non-zero \
          byte surfaced, either (a) both calls hashed to the same digest \
          (the `bytes(string)` cast is collapsing to a constant, which is \
          wrong), or (b) the `==` comparison inverted. Task #198+ \
          candidate: string equality at length-mismatch boundary.",
-        hex::encode(rd_ne), rd_ne.len());
+        hex::encode(rd_ne),
+        rd_ne.len()
+    );
 
     // (2) eq("", "") → true.
-    let r_eq = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "eq", &[
-            StackItem::byte_array(Vec::<u8>::new()),
-            StackItem::byte_array(Vec::<u8>::new()),
-        ])
+    let r_eq = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "eq",
+            &[
+                StackItem::byte_array(Vec::<u8>::new()),
+                StackItem::byte_array(Vec::<u8>::new()),
+            ],
+        )
         .expect("QQQ2 eq(empty, empty) host-level");
-    assert!(r_eq.success,
+    assert!(
+        r_eq.success,
         "QQQ2 eq(\"\", \"\") must succeed; exc={:?}. If exc cites the \
          empty-bytes hashing path, `keccak256(empty bytes)` regressed.",
-        r_eq.exception.as_ref().map(|e| &e.message));
+        r_eq.exception.as_ref().map(|e| &e.message)
+    );
     // bool true lands as 0x01 in min-width LE or BE-32 one-slot ending in 0x01.
     let rd_eq = &r_eq.return_data;
     let is_true = (rd_eq.len() == 1 && rd_eq[0] == 0x01)
         || (rd_eq.len() == 32 && rd_eq[..31].iter().all(|b| *b == 0) && rd_eq[31] == 0x01)
         || (!rd_eq.is_empty() && rd_eq[0] == 0x01);
-    assert!(is_true,
+    assert!(
+        is_true,
         "QQQ2 eq(\"\", \"\") must return true (both hash to keccak256(\"\") = \
          0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470); \
          got rd_hex={} len={}. If all-zero return, either (a) keccak256 on \
@@ -1381,7 +1586,9 @@ contract C {
          impossible), or (b) the `bytes(string)` cast mapped the empty \
          string to a non-empty sentinel so the two sides computed different \
          digests. Task #198+ candidate: string equality on empty strings.",
-        hex::encode(rd_eq), rd_eq.len());
+        hex::encode(rd_eq),
+        rd_eq.len()
+    );
 }
 
 // QQQ3 — `abi.encode(address, bool, uint256)` mixed static types.
@@ -1503,28 +1710,39 @@ pragma solidity ^0.8.19;
 contract C {
     function gasBefore() external view returns (uint) { return gasleft(); }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("QQQ4 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "QQQ4 compile: {:?}. If this fires on \
             `gasleft()`, the builtin resolution regressed (src/ir/expressions/\
             calls/variable_calls.rs:65 wires it to System.Runtime.GasLeft). \
             If on `returns (uint)`, the return path for the gas value \
-            regressed.", e));
+            regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("QQQ4 rt");
-    let r = rt.execute(&art.bytecode, &[]).expect("QQQ4 gasBefore() host-level");
-    assert!(r.success,
+    let r = rt
+        .execute(&art.bytecode, &[])
+        .expect("QQQ4 gasBefore() host-level");
+    assert!(
+        r.success,
         "QQQ4 gasBefore() must succeed; exc={:?}. If exc cites \
          `System.Runtime.GasLeft`, the syscall dispatch regressed.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
     let got = decode_uint_le(&r.return_data);
-    assert!(got > BigUint::from(0u64),
+    assert!(
+        got > BigUint::from(0u64),
         "QQQ4 gasBefore() must return a positive uint (gasleft always >0 \
          during execution); got {} rd_hex={}. If 0, the syscall returned 0 \
          (execution budget exhausted — but this runs at the entry, so \
          budget should be the default initial amount). If the return is \
          empty, the syscall did not emit a value onto the stack. Task \
          #198+ candidate: gasleft() builtin routing.",
-        got, hex::encode(&r.return_data));
+        got,
+        hex::encode(&r.return_data)
+    );
 }
 
 // QQQ5 — Try/catch with out-of-bounds array access via EXTERNAL contract.
@@ -1572,21 +1790,36 @@ contract C {
         catch { return "other"; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("QQQ5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "QQQ5 compile: {:?}. If this fires on \
             the try/catch Panic(uint) cross-contract form, the catch-\
             Panic arm with an EXTERNAL target regressed (task107 0x32 \
             pins the SAME-CONTRACT form via `this.willPanic()`; QQQ5 \
             extends to cross-contract). If on `Target(t).getAt(99)`, \
-            the address-to-interface cast regressed.", e));
-    assert!(arts.len() >= 2,
+            the address-to-interface cast regressed.",
+            e
+        )
+    });
+    assert!(
+        arts.len() >= 2,
         "QQQ5 must emit at least 2 artifacts (Target, C); got {} names={:?}",
         arts.len(),
-        arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>());
-    let c_art = arts.iter()
+        arts.iter()
+            .map(|a| a.metadata.name.clone())
+            .collect::<Vec<_>>()
+    );
+    let c_art = arts
+        .iter()
         .find(|a| a.metadata.name == "C")
-        .unwrap_or_else(|| panic!("QQQ5 C artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "QQQ5 C artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("QQQ5 rt");
 
@@ -1594,15 +1827,23 @@ contract C {
     // sibling-merge path makes Target.getAt reachable via zero-placeholder
     // dispatch on C's bytecode (Task #83/#115 sibling-merge).
     let zero_target = [0u8; 20];
-    let r = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "f", &[StackItem::byte_array(zero_target.to_vec())])
+    let r = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "f",
+            &[StackItem::byte_array(zero_target.to_vec())],
+        )
         .expect("QQQ5 f host-level");
-    assert!(r.success,
+    assert!(
+        r.success,
         "QQQ5 C.f(target) must succeed (catch arm absorbs panic); exc={:?}. \
          If exc cites the try/catch not firing, the cross-contract panic \
          propagation to the catch-Panic arm regressed. Task #198+ \
          candidate: cross-contract try/catch Panic(uint) on array OOB.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
 
     // The return must be "panic" (the catch-Panic arm). If "other", the
     // panic fell through to the generic catch (meaning the 0x32 envelope
@@ -1613,7 +1854,8 @@ contract C {
     let has_panic = rd.windows(5).any(|w| w == b"panic");
     let has_other = rd.windows(5).any(|w| w == b"other");
     let has_ok = rd.windows(2).any(|w| w == b"ok");
-    assert!(has_panic,
+    assert!(
+        has_panic,
         "QQQ5 C.f(target) must return \"panic\" (catch Panic(uint c) arm \
          fires for 0x32 array OOB); got rd_hex={} utf8={:?} (has_panic={}, \
          has_other={}, has_ok={}). If \"other\", the panic envelope didn't \
@@ -1624,8 +1866,12 @@ contract C {
          the panic was absorbed silently (the try returned successfully, \
          which is impossible for a[99] on an empty array). Task #198+ \
          candidate: cross-contract try/catch Panic(uint) for 0x32 array OOB.",
-        hex::encode(rd), std::str::from_utf8(rd).ok(),
-        has_panic, has_other, has_ok);
+        hex::encode(rd),
+        std::str::from_utf8(rd).ok(),
+        has_panic,
+        has_other,
+        has_ok
+    );
 }
 
 // Task ID resolution for Batch #93 on first exec:
@@ -1823,29 +2069,43 @@ contract C {
         return r;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "RRR1 compile: {:?}. If this fires on \
             `assembly {{ if gt(...) {{ ... }} }}`, the yul `if` parser \
             regressed (solang-parser accepts it and the Task #200 \
             lowering in src/ir/statements/assembly.rs now consumes it). \
             If on `iszero(gt(...))`, the yul-nested-expression parse \
-            regressed.", e));
+            regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("RRR1 rt");
 
     // (1) f(5) → must equal 50 (gt(5, 10) = 0 → iszero(0) = 1 → second
     //     `if` fires → r := 50).
-    let r5 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[StackItem::Integer(5)])
+    let r5 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[StackItem::Integer(5)],
+        )
         .expect("RRR1 f(5) host-level");
-    assert!(r5.success,
+    assert!(
+        r5.success,
         "RRR1 f(5) must succeed; exc={:?}. If exc cites the assembly \
          block, the Task #200 yul `if` lowering regressed. If exc \
          cites `return r`, the outer Solidity local wasn't readable \
          at the return site.",
-        r5.exception.as_ref().map(|e| &e.message));
+        r5.exception.as_ref().map(|e| &e.message)
+    );
     let v5 = decode_uint_le(&r5.return_data);
-    assert_eq!(v5.clone(), BigUint::from(50u64),
+    assert_eq!(
+        v5.clone(),
+        BigUint::from(50u64),
         "RRR1 f(5) must equal 50 (yul `iszero(gt(5, 10))` is 1 → \
          `r := 50`); got {} rd_hex={}. If 0, the yul `if` body did \
          not execute — either the Task #200 lowering regressed and \
@@ -1853,18 +2113,30 @@ contract C {
          `r := 50` write never reached the outer Solidity local. \
          If 100, the first `if` branch fired erroneously (gt(5, 10) \
          would have had to evaluate to 1 — which it doesn't).",
-        v5, hex::encode(&r5.return_data));
+        v5,
+        hex::encode(&r5.return_data)
+    );
 
     // (2) f(15) → must equal 100 (gt(15, 10) = 1 → first `if` fires →
     //     r := 100; iszero(1) = 0 so the second `if` is skipped).
-    let r15 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[StackItem::Integer(15)])
+    let r15 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[StackItem::Integer(15)],
+        )
         .expect("RRR1 f(15) host-level");
-    assert!(r15.success,
+    assert!(
+        r15.success,
         "RRR1 f(15) must succeed; exc={:?}.",
-        r15.exception.as_ref().map(|e| &e.message));
+        r15.exception.as_ref().map(|e| &e.message)
+    );
     let v15 = decode_uint_le(&r15.return_data);
-    assert_eq!(v15.clone(), BigUint::from(100u64),
+    assert_eq!(
+        v15.clone(),
+        BigUint::from(100u64),
         "RRR1 f(15) must equal 100 (yul `gt(15, 10)` is 1 → first \
          `if` fires → `r := 100`; `iszero(1)` = 0 so the second \
          `if` is skipped and doesn't overwrite); got {} rd_hex={}. \
@@ -1875,7 +2147,9 @@ contract C {
          truthy, so the second `if` would fire too and the LATER \
          write (`r := 50`) would overwrite the `r := 100` from the \
          first branch.",
-        v15, hex::encode(&r15.return_data));
+        v15,
+        hex::encode(&r15.return_data)
+    );
 }
 
 // RRR2 — Nested storage pointer chain: Outer.Inner.items dynamic array.
@@ -1896,8 +2170,9 @@ contract C {
     function push_(uint v) external { outer_.data.items.push(v); }
     function len() external view returns (uint) { return outer_.data.items.length; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR2 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "RRR2 compile: {:?}. If this fires on \
             `struct Inner {{ uint[] items; }}`, the struct-with-dynamic-\
             array-field declaration regressed. If on `struct Outer {{ \
             Inner data; }}`, the struct-holding-another-struct declaration \
@@ -1906,40 +2181,62 @@ contract C {
             on the nested dynamic-array field regressed (batch28 H2 pins \
             COMPILE-ONLY nested-struct public getter; RRR2 extends to \
             DYNAMIC-ARRAY FIELD + push + length readback at state-var \
-            level).", e));
+            level).",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("RRR2 rt");
 
     // push_(1); push_(2) — two sequential pushes into outer_.data.items.
     // State must persist across the two calls (batch84 HHH3 invariant).
     for v in [1u64, 2] {
-        let r_push = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-            "push_", &[StackItem::Integer(v as i64)])
+        let r_push = rt
+            .call_method(
+                &art.bytecode,
+                &art.tokens,
+                &art.manifest,
+                "push_",
+                &[StackItem::Integer(v as i64)],
+            )
             .expect("RRR2 push_ host-level");
-        assert!(r_push.success,
+        assert!(
+            r_push.success,
             "RRR2 push_({}) must succeed (outer_.data.items.push(v) resolves \
              the 2-level nested-struct member chain then pushes into the \
              dynamic-array field); exc={:?}. If exc cites the member access, \
              the struct-of-struct member-resolution regressed. If exc cites \
              the `.push`, the push-on-nested-dynamic-array-field regressed. \
              Task #200+ candidate: nested storage pointer chain push.",
-            v, r_push.exception.as_ref().map(|e| &e.message));
+            v,
+            r_push.exception.as_ref().map(|e| &e.message)
+        );
     }
 
     // len() — must return 2 (both pushes landed).
-    let r_len = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "len", &[] as &[StackItem])
+    let r_len = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "len",
+            &[] as &[StackItem],
+        )
         .expect("RRR2 len() host-level");
-    assert!(r_len.success,
+    assert!(
+        r_len.success,
         "RRR2 len() must succeed (outer_.data.items.length reads the \
          nested dynamic-array field's length slot); exc={:?}. If exc \
          cites SIZE unsupported type, the length read routed through a \
          non-Array type (batch88 LLL1 Task #196 shape). If exc cites \
          storage load, the length-slot derivation for the nested-struct \
          dynamic-array regressed.",
-        r_len.exception.as_ref().map(|e| &e.message));
+        r_len.exception.as_ref().map(|e| &e.message)
+    );
     let v_len = decode_uint_le(&r_len.return_data);
-    assert_eq!(v_len.clone(), BigUint::from(2u64),
+    assert_eq!(
+        v_len.clone(),
+        BigUint::from(2u64),
         "RRR2 len() must equal 2 after push_(1); push_(2); got {} \
          rd_hex={}. If 0, neither push landed — the nested member-chain \
          `outer_.data.items` materialised a COPY instead of aliasing \
@@ -1950,7 +2247,9 @@ contract C {
          from the wrong location (nested-struct sub-slot offset drifted \
          from the write path to the read path). Task #200+ candidate: \
          nested storage pointer chain push + length readback.",
-        v_len, hex::encode(&r_len.return_data));
+        v_len,
+        hex::encode(&r_len.return_data)
+    );
 }
 
 // RRR3 — Library MathLib.max(a, b) with ternary body `a >= b ? a : b`.
@@ -2048,23 +2347,38 @@ contract C {
         catch { return "other"; }
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR4 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "RRR4 compile: {:?}. If this fires on \
             the three-arm try/catch ladder (Error + Panic + catch-all), \
             the full-ladder parse regressed (task107 pins Error + Panic + \
             bytes arms; RRR4 pins the catch-all fallback form). If on \
             `revert()` (no reason), the bare-revert statement parse \
             regressed. If on the `10 / 0` div-by-zero, the const-folding \
             path didn't drop the statement (expected: compiler emits \
-            Panic(0x12) at runtime).", e));
-    assert!(arts.len() >= 2,
+            Panic(0x12) at runtime).",
+            e
+        )
+    });
+    assert!(
+        arts.len() >= 2,
         "RRR4 must emit at least 2 artifacts (Target, C); got {} names={:?}",
         arts.len(),
-        arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>());
-    let c_art = arts.iter()
+        arts.iter()
+            .map(|a| a.metadata.name.clone())
+            .collect::<Vec<_>>()
+    );
+    let c_art = arts
+        .iter()
         .find(|a| a.metadata.name == "C")
-        .unwrap_or_else(|| panic!("RRR4 C artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "RRR4 C artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("RRR4 rt");
     // Zero-placeholder target address — per batch79 CCC4 / batch93 QQQ5
@@ -2075,21 +2389,30 @@ contract C {
 
     // (1) kind=0 → revert("short") → catch Error(string memory r) binds
     //     r = "short" → return r → rd = b"short" (5 bytes).
-    let r0 = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "f", &[
-            StackItem::byte_array(zero_target.to_vec()),
-            StackItem::Integer(0),
-        ])
+    let r0 = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "f",
+            &[
+                StackItem::byte_array(zero_target.to_vec()),
+                StackItem::Integer(0),
+            ],
+        )
         .expect("RRR4 f(target, 0) host-level");
-    assert!(r0.success,
+    assert!(
+        r0.success,
         "RRR4 f(target, 0) must succeed (catch Error(string) absorbs \
          the target's revert(\"short\")); exc={:?}, rd_hex={}. If exc, \
          the cross-contract Error(string) propagation (Task #125) \
          regressed under the three-arm ladder form.",
         r0.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r0.return_data));
+        hex::encode(&r0.return_data)
+    );
     let has_short = r0.return_data.windows(5).any(|w| w == b"short");
-    assert!(has_short,
+    assert!(
+        has_short,
         "RRR4 f(target, 0) must return \"short\" (catch Error(string \
          memory r) binds r = \"short\"); got rd_hex={} utf8={:?}. If \
          \"ok\", the try arm fired (impossible — kind=0 reverts). If \
@@ -2098,26 +2421,36 @@ contract C {
          misrouted to the catch-all arm. Task #200+ candidate: three-\
          arm catch-ladder Error(string) dispatch.",
         hex::encode(&r0.return_data),
-        std::str::from_utf8(&r0.return_data).ok());
+        std::str::from_utf8(&r0.return_data).ok()
+    );
 
     // (2) kind=1 → 10/0 (Panic 0x12 div-by-zero) → catch Panic(uint c)
     //     returns b"panic" (5 bytes).
-    let r1 = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "f", &[
-            StackItem::byte_array(zero_target.to_vec()),
-            StackItem::Integer(1),
-        ])
+    let r1 = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "f",
+            &[
+                StackItem::byte_array(zero_target.to_vec()),
+                StackItem::Integer(1),
+            ],
+        )
         .expect("RRR4 f(target, 1) host-level");
-    assert!(r1.success,
+    assert!(
+        r1.success,
         "RRR4 f(target, 1) must succeed (catch Panic(uint c) absorbs \
          the target's 10/0 div-by-zero panic); exc={:?}, rd_hex={}. \
          If exc, the cross-contract Panic(0x12) propagation (Task #199 \
          extended the 0x32 path; RRR4 pins the 0x12 div-by-zero path) \
          regressed.",
         r1.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r1.return_data));
+        hex::encode(&r1.return_data)
+    );
     let has_panic = r1.return_data.windows(5).any(|w| w == b"panic");
-    assert!(has_panic,
+    assert!(
+        has_panic,
         "RRR4 f(target, 1) must return \"panic\" (catch Panic(uint c) \
          arm fires for 0x12 div-by-zero); got rd_hex={} utf8={:?}. If \
          \"short\" or similar string, the Panic envelope was misrouted \
@@ -2127,26 +2460,36 @@ contract C {
          try arm fired). Task #200+ candidate: three-arm catch-ladder \
          Panic(0x12) dispatch.",
         hex::encode(&r1.return_data),
-        std::str::from_utf8(&r1.return_data).ok());
+        std::str::from_utf8(&r1.return_data).ok()
+    );
 
     // (3) kind=2 → revert() (no reason) → catch {} returns b"other"
     //     (5 bytes). The bare revert doesn't match Error(string) or
     //     Panic(uint) so the catch-all fires.
-    let r2 = rt.call_method(&c_art.bytecode, &c_art.tokens, &c_art.manifest,
-        "f", &[
-            StackItem::byte_array(zero_target.to_vec()),
-            StackItem::Integer(2),
-        ])
+    let r2 = rt
+        .call_method(
+            &c_art.bytecode,
+            &c_art.tokens,
+            &c_art.manifest,
+            "f",
+            &[
+                StackItem::byte_array(zero_target.to_vec()),
+                StackItem::Integer(2),
+            ],
+        )
         .expect("RRR4 f(target, 2) host-level");
-    assert!(r2.success,
+    assert!(
+        r2.success,
         "RRR4 f(target, 2) must succeed (catch {{}} absorbs the \
          target's bare revert()); exc={:?}, rd_hex={}. If exc, the \
          catch-all fallback didn't fire on bare revert (no reason) \
          cross-contract.",
         r2.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r2.return_data));
+        hex::encode(&r2.return_data)
+    );
     let has_other = r2.return_data.windows(5).any(|w| w == b"other");
-    assert!(has_other,
+    assert!(
+        has_other,
         "RRR4 f(target, 2) must return \"other\" (catch {{}} arm fires \
          for bare revert() with no reason); got rd_hex={} utf8={:?}. If \
          \"short\", the bare-revert envelope was misrouted to the \
@@ -2156,7 +2499,8 @@ contract C {
          fired). Task #200+ candidate: three-arm catch-ladder bare-revert \
          catch-all dispatch.",
         hex::encode(&r2.return_data),
-        std::str::from_utf8(&r2.return_data).ok());
+        std::str::from_utf8(&r2.return_data).ok()
+    );
 }
 
 // RRR5 — `pragma solidity ^0.8.0;` (caret-range form) compiles and runs.
@@ -2173,28 +2517,44 @@ pragma solidity ^0.8.0;
 contract C {
     function f() external pure returns (uint) { return 1; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "RRR5 compile: {:?}. If this fires on \
             `pragma solidity ^0.8.0`, the caret-range version match \
             regressed in solang's pragma parser (every other probe uses \
             `^0.8.19` fixed). If on the commented-out experimental \
-            pragma, the line-comment scan regressed (should be a no-op).", e));
+            pragma, the line-comment scan regressed (should be a no-op).",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("RRR5 rt");
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[] as &[StackItem])
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[] as &[StackItem],
+        )
         .expect("RRR5 f() host-level");
-    assert!(r.success,
+    assert!(
+        r.success,
         "RRR5 f() must succeed; exc={:?}. If exc cites the pragma, the \
          caret-range match failed at a later compile stage.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
     let v = decode_uint_le(&r.return_data);
-    assert_eq!(v.clone(), BigUint::from(1u64),
+    assert_eq!(
+        v.clone(),
+        BigUint::from(1u64),
         "RRR5 f() must equal 1 (return 1); got {} rd_hex={}. If 0, the \
          return statement was elided or the uint return path regressed. \
          Task #200+ candidate: caret-range pragma `^0.8.0` compile + \
          basic return.",
-        v, hex::encode(&r.return_data));
+        v,
+        hex::encode(&r.return_data)
+    );
 }
 
 // Task ID resolution for Batch #94 on first exec:
@@ -2359,8 +2719,9 @@ contract C {
         return (o.price, o.qty, o.active);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("SSS1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "SSS1 compile: {:?}. If this fires on \
             `mapping(bytes32 => mapping(uint => Order))`, the bytes32-\
             keyed nested-mapping-with-struct-value type regressed \
             (batch87 KKK2 pins the `mapping(uint => mapping(address => \
@@ -2372,28 +2733,38 @@ contract C {
             bytes32-keyed nested-mapping slot into memory regressed. \
             If on `(o.price, o.qty, o.active)`, the (uint, uint, bool) \
             3-tuple return from a memory struct's three fields \
-            regressed.", e));
+            regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("SSS1 rt");
 
     // Fixed 32-byte hash for the outer key. Non-trivial bits in most
     // bytes so any slot-derivation drift surfaces as a missed lookup.
     let hash: [u8; 32] = [
-        0xde, 0xad, 0xbe, 0xef, 0x01, 0x23, 0x45, 0x67,
-        0x89, 0xab, 0xcd, 0xef, 0xfe, 0xed, 0xfa, 0xce,
-        0xca, 0xfe, 0xba, 0xbe, 0x11, 0x22, 0x33, 0x44,
-        0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+        0xde, 0xad, 0xbe, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xed, 0xfa,
+        0xce, 0xca, 0xfe, 0xba, 0xbe, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa,
+        0xbb, 0xcc,
     ];
 
     // (1) set(hash, 1, 100, 5) — writes orders[hash][1] = Order(100, 5, true).
-    let r_set = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "set", &[
-            StackItem::byte_array(hash.to_vec()),
-            StackItem::Integer(1),
-            StackItem::Integer(100),
-            StackItem::Integer(5),
-        ]).expect("SSS1 set(hash, 1, 100, 5) host-level");
-    assert!(r_set.success,
+    let r_set = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "set",
+            &[
+                StackItem::byte_array(hash.to_vec()),
+                StackItem::Integer(1),
+                StackItem::Integer(100),
+                StackItem::Integer(5),
+            ],
+        )
+        .expect("SSS1 set(hash, 1, 100, 5) host-level");
+    assert!(
+        r_set.success,
         "SSS1 set(hash, 1, 100, 5) must succeed; exc={:?}. If exc cites \
          the struct-literal-to-nested-mapping-slot write, the \
          `orders[pair][id] = Order(p, q, true)` lowering regressed. If \
@@ -2402,21 +2773,28 @@ contract C {
          keyed mapping at the SINGLE-LEVEL; SSS1 extends to NESTED \
          with STRUCT VALUE). Task #201+ candidate: bytes32-keyed \
          nested-mapping struct-value write.",
-        r_set.exception.as_ref().map(|e| &e.message));
+        r_set.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) get(hash, 1) — must return (100, 5, true) as a (uint, uint, bool).
-    let r_get = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "get", &[
-            StackItem::byte_array(hash.to_vec()),
-            StackItem::Integer(1),
-        ]).expect("SSS1 get(hash, 1) host-level");
-    assert!(r_get.success,
+    let r_get = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "get",
+            &[StackItem::byte_array(hash.to_vec()), StackItem::Integer(1)],
+        )
+        .expect("SSS1 get(hash, 1) host-level");
+    assert!(
+        r_get.success,
         "SSS1 get(hash, 1) must succeed; exc={:?}. If exc cites the \
          struct load from the nested mapping, the bytes32-keyed \
          nested-mapping-to-memory-struct read regressed. If cites the \
          tuple return, the (uint, uint, bool) 3-tuple return from a \
          memory struct regressed. Task #201+ candidate.",
-        r_get.exception.as_ref().map(|e| &e.message));
+        r_get.exception.as_ref().map(|e| &e.message)
+    );
 
     // Tuple (uint, uint, bool) return — follow batch87 KKK2 precedent:
     // accept BE32-padded 3-slot form (96 bytes) OR narrower LE form
@@ -2426,68 +2804,96 @@ contract C {
         // BE32 form per Y5 / KKK2 precedent: slot 0 low byte = 100 =
         // 0x64 (price); slot 1 low byte = 5 (qty); slot 2 low byte =
         // 1 (true/active).
-        assert_eq!(rd[31], 0x64u8,
+        assert_eq!(
+            rd[31],
+            0x64u8,
             "SSS1 tuple slot 0 low byte must be 100 (0x64) — o.price; \
              got 0x{:02x} rd_hex={}. If 0, the struct write was \
              dropped or the wrong field was loaded. Task #201+ \
              candidate: bytes32-keyed nested-mapping struct-value \
              price field.",
-            rd[31], hex::encode(rd));
-        assert_eq!(rd[63], 0x05u8,
+            rd[31],
+            hex::encode(rd)
+        );
+        assert_eq!(
+            rd[63],
+            0x05u8,
             "SSS1 tuple slot 1 low byte must be 5 (0x05) — o.qty; \
              got 0x{:02x} rd_hex={}. If 0, the qty field default \
              leaked through (the struct initialization set qty=5 but \
              the read returns 0). Task #201+ candidate.",
-            rd[63], hex::encode(rd));
-        assert_eq!(rd[95], 0x01u8,
+            rd[63],
+            hex::encode(rd)
+        );
+        assert_eq!(
+            rd[95],
+            0x01u8,
             "SSS1 tuple slot 2 low byte must be 1 (0x01) — o.active; \
              got 0x{:02x} rd_hex={}. If 0, the bool field default \
              leaked through (the struct initialization set active=true \
              but the read returns false). If nonzero but not 1, the \
              bool representation regressed from canonical 0x01. Task \
              #201+ candidate.",
-            rd[95], hex::encode(rd));
+            rd[95],
+            hex::encode(rd)
+        );
         // Upper bytes of each slot must be zero (BE32 zero pad).
         for i in 0..31 {
-            assert_eq!(rd[i], 0u8,
+            assert_eq!(
+                rd[i], 0u8,
                 "SSS1 slot 0 upper byte {} must be zero; got 0x{:02x}",
-                i, rd[i]);
+                i, rd[i]
+            );
         }
         for i in 32..63 {
-            assert_eq!(rd[i], 0u8,
+            assert_eq!(
+                rd[i], 0u8,
                 "SSS1 slot 1 upper byte {} must be zero; got 0x{:02x}",
-                i, rd[i]);
+                i, rd[i]
+            );
         }
         for i in 64..95 {
-            assert_eq!(rd[i], 0u8,
+            assert_eq!(
+                rd[i], 0u8,
                 "SSS1 slot 2 upper byte {} must be zero; got 0x{:02x}",
-                i, rd[i]);
+                i, rd[i]
+            );
         }
     } else {
         // Non-BE32 return shape — fall back to value-invariance check:
         // all three values (100, 5, 1) must appear somewhere, return
         // non-empty. Matches KKK2's precedent of accepting both BE32
         // and LE-narrow tuple forms.
-        assert!(!rd.is_empty(),
+        assert!(
+            !rd.is_empty(),
             "SSS1 get(hash, 1) return must be non-empty; got 0 bytes. \
-             Task #201+ candidate.");
+             Task #201+ candidate."
+        );
         let contains_100 = rd.contains(&0x64u8);
         let contains_5 = rd.contains(&0x05u8);
         let contains_1 = rd.contains(&0x01u8);
-        assert!(contains_100 && contains_5 && contains_1,
+        assert!(
+            contains_100 && contains_5 && contains_1,
             "SSS1 get(hash, 1) return must encode all three values \
              (100=0x64, 5=0x05, 1=0x01) somewhere; got rd_hex={} \
              contains_100={} contains_5={} contains_1={}. If any \
              missing, the struct write dropped a field or the read \
              path diverged. Task #201+ candidate: bytes32-keyed \
              nested-mapping struct-value 3-tuple return.",
-            hex::encode(rd), contains_100, contains_5, contains_1);
+            hex::encode(rd),
+            contains_100,
+            contains_5,
+            contains_1
+        );
         // Value-decode parity: the raw LE-decoded value shouldn't be
         // zero (at least ONE non-zero field must be present).
         let v = decode_uint_le(rd);
-        assert!(v != BigUint::from(0u64) || rd.iter().any(|b| *b != 0),
+        assert!(
+            v != BigUint::from(0u64) || rd.iter().any(|b| *b != 0),
             "SSS1 tuple return must encode at least one non-zero field; \
-             got rd_hex={}", hex::encode(rd));
+             got rd_hex={}",
+            hex::encode(rd)
+        );
     }
 }
 
@@ -2754,8 +3160,9 @@ contract C {
     function f(address a) external pure returns (address payable) { return payable(a); }
     function g(address payable a) external pure returns (address) { return a; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("SSS4 compile: {:?}. If this fires \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "SSS4 compile: {:?}. If this fires \
             on `return payable(a)`, the `payable(address)` explicit \
             cast regressed (Task #128 fixed this form in \
             src/ir/expressions/calls/type_constructors.rs — batch57 \
@@ -2763,89 +3170,125 @@ contract C {
             that direction). If on `return a` with `address payable \
             a` → `address` return, the IMPLICIT narrowing regressed \
             — this is a complement path never explicitly pinned. \
-            Task #201+ candidate: address-payable implicit narrowing.", e));
+            Task #201+ candidate: address-payable implicit narrowing.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("SSS4 rt");
 
     // Probe address: non-trivial bits in every byte (per GG5 precedent).
     let probe: [u8; 20] = [
-        0xde, 0xad, 0xbe, 0xef, 0x01, 0x23, 0x45, 0x67,
-        0x89, 0xab, 0xcd, 0xef, 0xfe, 0xed, 0xfa, 0xce,
-        0xca, 0xfe, 0xba, 0xbe,
+        0xde, 0xad, 0xbe, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xed, 0xfa,
+        0xce, 0xca, 0xfe, 0xba, 0xbe,
     ];
     let probe_le: Vec<u8> = probe.iter().rev().copied().collect();
 
     // (1) f(probe) — `address` → `payable(a)` cast (explicit). Must
     // preserve the 20-byte pattern (modulo endianness — per GG5).
-    let rf = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[StackItem::byte_array(probe.to_vec())])
+    let rf = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[StackItem::byte_array(probe.to_vec())],
+        )
         .expect("SSS4 f(address) call");
-    assert!(rf.success,
+    assert!(
+        rf.success,
         "SSS4 f(address) must succeed (pure type-level cast); exc={:?}. \
          If exc, the `payable(address)` cast lowering regressed (Task \
          #128 fix in src/ir/expressions/calls/type_constructors.rs \
          didn't hold). GG5 is the regression-guard twin.",
-        rf.exception.as_ref().map(|e| &e.message));
-    assert_eq!(rf.return_data.len(), 20,
+        rf.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        rf.return_data.len(),
+        20,
         "SSS4 f return must be 20 bytes (address width preserved); got \
          {} bytes rd_hex={}. If not 20, the `payable()` cast is \
          mutating the value (Task #128 regression).",
-        rf.return_data.len(), hex::encode(&rf.return_data));
+        rf.return_data.len(),
+        hex::encode(&rf.return_data)
+    );
     let f_matches_be = rf.return_data.as_slice() == &probe[..];
     let f_matches_le = rf.return_data.as_slice() == probe_le.as_slice();
-    assert!(f_matches_be || f_matches_le,
+    assert!(
+        f_matches_be || f_matches_le,
         "SSS4 f(address) must return the SAME 20 bytes as `a` (type-\
          only cast); probe_be=0x{} probe_le=0x{} got rd_hex={}. If \
          different, the `payable(address)` cast is mutating the \
          underlying bytes (Task #128 regression — would corrupt every \
          downstream .transfer()/.send()/.call{{value:}}). Task #201+ \
          candidate.",
-        hex::encode(probe), hex::encode(&probe_le),
-        hex::encode(&rf.return_data));
+        hex::encode(probe),
+        hex::encode(&probe_le),
+        hex::encode(&rf.return_data)
+    );
 
     // (2) g(probe) — `address payable` → `address` cast (implicit
     // narrowing via `return a;`). This direction was never explicitly
     // pinned pre-SSS4. Must also preserve the 20-byte pattern.
-    let rg = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "g", &[StackItem::byte_array(probe.to_vec())])
+    let rg = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "g",
+            &[StackItem::byte_array(probe.to_vec())],
+        )
         .expect("SSS4 g(address payable) call");
-    assert!(rg.success,
+    assert!(
+        rg.success,
         "SSS4 g(address payable) must succeed (pure type-level \
          implicit narrowing); exc={:?}. If exc, the address-payable \
          → address implicit conversion lowering regressed. This is \
          the complement direction to GG5's payable(address) cast and \
          was never explicitly pinned. Task #201+ candidate: \
          address-payable implicit narrowing.",
-        rg.exception.as_ref().map(|e| &e.message));
-    assert_eq!(rg.return_data.len(), 20,
+        rg.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        rg.return_data.len(),
+        20,
         "SSS4 g return must be 20 bytes (address width preserved \
          across implicit narrowing); got {} bytes rd_hex={}. If not \
          20, the narrowing mutated the value — which would be a \
          Solidity-spec violation since address and address payable \
          share the same 20-byte representation.",
-        rg.return_data.len(), hex::encode(&rg.return_data));
+        rg.return_data.len(),
+        hex::encode(&rg.return_data)
+    );
     let g_matches_be = rg.return_data.as_slice() == &probe[..];
     let g_matches_le = rg.return_data.as_slice() == probe_le.as_slice();
-    assert!(g_matches_be || g_matches_le,
+    assert!(
+        g_matches_be || g_matches_le,
         "SSS4 g(address payable) must return the SAME 20 bytes as `a` \
          (implicit narrowing is type-only); probe_be=0x{} probe_le=0x{} \
          got rd_hex={}. If different, the address-payable → address \
          narrowing is mutating the underlying bytes — would corrupt \
          every address-typed downstream call. Task #201+ candidate.",
-        hex::encode(probe), hex::encode(&probe_le),
-        hex::encode(&rg.return_data));
+        hex::encode(probe),
+        hex::encode(&probe_le),
+        hex::encode(&rg.return_data)
+    );
 
     // Cross-consistency: f and g must return IDENTICAL byte patterns
     // for the same probe input (both are type-only casts over the
     // same 20 bytes). This catches any divergence where one direction
     // normalises the bytes but the other doesn't.
-    assert_eq!(rf.return_data, rg.return_data,
+    assert_eq!(
+        rf.return_data,
+        rg.return_data,
         "SSS4 f(a) and g(a) must return identical 20-byte patterns \
          (both casts are type-only, operating on the same probe \
          bytes); f_rd_hex={} g_rd_hex={}. If divergent, one direction \
          is doing byte-level work the other isn't. Task #201+ \
          candidate: address/address-payable cast consistency.",
-        hex::encode(&rf.return_data), hex::encode(&rg.return_data));
+        hex::encode(&rf.return_data),
+        hex::encode(&rg.return_data)
+    );
 }
 
 // SSS5 — `require(c)` with NO reason string. f(true) succeeds; f(false)
@@ -2861,8 +3304,9 @@ contract C {
         require(c);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("SSS5 compile: {:?}. If this fires \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "SSS5 compile: {:?}. If this fires \
             on `require(c)` (one-arg form with no reason string), the \
             single-arg `require(bool)` form regressed (batches_31_45 \
             M2b pins the TWO-ARG `require(false, \"fail\")` form as \
@@ -2870,16 +3314,26 @@ contract C {
             supplied). If the compiler synthesises a default reason \
             string where none was given, that's also a divergence \
             (the Solidity spec says require(bool) reverts with NO \
-            payload).", e));
+            payload).",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("SSS5 rt");
 
     // (1) f(true) — condition passes, require is a no-op, returns.
     // `external pure` + no `returns` = empty return_data on success.
-    let rt_true = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[StackItem::Boolean(true)])
+    let rt_true = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[StackItem::Boolean(true)],
+        )
         .expect("SSS5 f(true) host-level");
-    assert!(rt_true.success,
+    assert!(
+        rt_true.success,
         "SSS5 f(true) must succeed (require(true) is a no-op, \
          external pure fn with no returns just falls through to \
          implicit return); exc={:?} rd_hex={}. If fault, either (a) \
@@ -2887,22 +3341,31 @@ contract C {
          (b) require(bool) was lowered as an unconditional revert. \
          Task #201+ candidate: require(bool) single-arg true path.",
         rt_true.exception.as_ref().map(|e| &e.message),
-        hex::encode(&rt_true.return_data));
+        hex::encode(&rt_true.return_data)
+    );
 
     // (2) f(false) — condition fails, require reverts WITHOUT a
     // reason. The revert envelope must NOT carry an Error(string)
     // payload (since no reason was supplied). The compiler should
     // emit a bare revert (empty return_data) per Solidity spec.
-    let rt_false = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[StackItem::Boolean(false)])
+    let rt_false = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[StackItem::Boolean(false)],
+        )
         .expect("SSS5 f(false) host-level (revert != host error)");
-    assert!(!rt_false.success,
+    assert!(
+        !rt_false.success,
         "SSS5 f(false) must REVERT (require(false) with no reason \
          = bare revert); got success=true rd_hex={}. If success, the \
          single-arg require wasn't wired to revert when the \
          condition fails. Task #201+ candidate: require(bool) \
          single-arg false path.",
-        hex::encode(&rt_false.return_data));
+        hex::encode(&rt_false.return_data)
+    );
 
     // The return_data must NOT carry an Error(string) envelope
     // (selector = keccak256("Error(string)")[..4] = 0x08c379a0).
@@ -2910,9 +3373,9 @@ contract C {
     // an Error(string) envelope would be a spec violation (require
     // with no reason must not synthesise one).
     let rd = &rt_false.return_data;
-    let has_error_selector = rd.len() >= 4
-        && &rd[..4] == &[0x08u8, 0xc3, 0x79, 0xa0];
-    assert!(!has_error_selector,
+    let has_error_selector = rd.len() >= 4 && &rd[..4] == &[0x08u8, 0xc3, 0x79, 0xa0];
+    assert!(
+        !has_error_selector,
         "SSS5 f(false) revert payload must NOT start with \
          keccak256(\"Error(string)\")[..4] = 0x08c379a0 (require \
          without reason emits bare revert, not Error(string)); got \
@@ -2921,7 +3384,9 @@ contract C {
          spec violation — require(bool) is the bare-revert form). \
          Task #201+ candidate: require(bool) reason-free revert \
          envelope shape.",
-        hex::encode(rd), rd.len());
+        hex::encode(rd),
+        rd.len()
+    );
 }
 
 // Task ID resolution for Batch #95 on first exec:
@@ -3125,8 +3590,9 @@ contract Token {
         allowance[owner][spender] = value;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "TTT1 compile: {:?}. If this fires on \
             the `permit(...)` signature (7-arg external with mixed \
             uint8/bytes32/address/uint types), the multi-arg external-fn \
             declaration regressed. If on `keccak256(abi.encode(TYPEHASH, \
@@ -3138,7 +3604,10 @@ contract Token {
             escape-sequence concat with bytes32 args regressed. If on \
             `allowance[owner][spender] = value` after the hash ladder, \
             the nested-mapping write following a multi-hash prologue \
-            regressed. Task #202+ candidate: EIP-2612 permit() compile.", e));
+            regressed. Task #202+ candidate: EIP-2612 permit() compile.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT1 rt");
 
@@ -3156,17 +3625,25 @@ contract Token {
     let r_bytes: [u8; 32] = [0xaau8; 32];
     let s_bytes: [u8; 32] = [0xbbu8; 32];
 
-    let r_permit = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "permit", &[
-            StackItem::byte_array(owner.to_vec()),
-            StackItem::byte_array(spender.to_vec()),
-            StackItem::Integer(value as i64),
-            StackItem::Integer(deadline as i64),
-            StackItem::Integer(v as i64),
-            StackItem::byte_array(r_bytes.to_vec()),
-            StackItem::byte_array(s_bytes.to_vec()),
-        ]).expect("TTT1 permit(owner, spender, value, deadline, v, r, s) host-level");
-    assert!(r_permit.success,
+    let r_permit = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "permit",
+            &[
+                StackItem::byte_array(owner.to_vec()),
+                StackItem::byte_array(spender.to_vec()),
+                StackItem::Integer(value as i64),
+                StackItem::Integer(deadline as i64),
+                StackItem::Integer(v as i64),
+                StackItem::byte_array(r_bytes.to_vec()),
+                StackItem::byte_array(s_bytes.to_vec()),
+            ],
+        )
+        .expect("TTT1 permit(owner, spender, value, deadline, v, r, s) host-level");
+    assert!(
+        r_permit.success,
         "TTT1 permit must succeed (deadline is far-future so the \
          block.timestamp <= deadline require passes; signature verify \
          is skipped in the source); exc={:?} rd_hex={}. If exc cites \
@@ -3177,24 +3654,36 @@ contract Token {
          the allowance write, the nested-mapping state write after the \
          hash prologue regressed. Task #202+ candidate.",
         r_permit.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r_permit.return_data));
+        hex::encode(&r_permit.return_data)
+    );
 
     // Verify the allowance state write landed: call `allowance(owner,
     // spender)` (the auto-getter for the public nested mapping) and
     // assert it returns `value`.
-    let r_allow = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "allowance", &[
-            StackItem::byte_array(owner.to_vec()),
-            StackItem::byte_array(spender.to_vec()),
-        ]).expect("TTT1 allowance(owner, spender) host-level");
-    assert!(r_allow.success,
+    let r_allow = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "allowance",
+            &[
+                StackItem::byte_array(owner.to_vec()),
+                StackItem::byte_array(spender.to_vec()),
+            ],
+        )
+        .expect("TTT1 allowance(owner, spender) host-level");
+    assert!(
+        r_allow.success,
         "TTT1 allowance(owner, spender) must succeed (auto-getter for \
          public nested mapping); exc={:?}. If exc, the auto-getter \
          generation for `mapping(address => mapping(address => uint)) \
          public allowance` regressed. Task #202+ candidate.",
-        r_allow.exception.as_ref().map(|e| &e.message));
+        r_allow.exception.as_ref().map(|e| &e.message)
+    );
     let got = decode_uint_le(&r_allow.return_data);
-    assert_eq!(got.clone(), BigUint::from(value),
+    assert_eq!(
+        got.clone(),
+        BigUint::from(value),
         "TTT1 allowance[owner][spender] must equal value ({}) — the \
          permit() call's state write; got {} rd_hex={}. If 0, the \
          allowance write was dropped — either (a) the hash ladder \
@@ -3203,7 +3692,10 @@ contract Token {
          read, or (c) the eval-order threw the nonces++ read before \
          establishing the write. If a different non-zero value, the \
          `allowance[owner][spender] = value` RHS was mis-threaded.",
-        value, got, hex::encode(&r_allow.return_data));
+        value,
+        got,
+        hex::encode(&r_allow.return_data)
+    );
 }
 
 // TTT2 — Nested mapping 2x2 window sum. set 4 cells then sum2x2
@@ -3322,8 +3814,9 @@ contract C {
     constructor() { owner = msg.sender; }
     function doIt() external onlyOwner returns (uint) { return 42; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT3 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "TTT3 compile: {:?}. If this fires on \
             `error Unauthorized();` the zero-arg custom error declaration \
             regressed. If on `if (msg.sender != owner) revert \
             Unauthorized();` inside the modifier, the custom-error-in-\
@@ -3334,7 +3827,10 @@ contract C {
             (batch51 AA1 precedent). If on `doIt() external onlyOwner \
             returns (uint)`, the modifier-guarded return-path lowering \
             regressed. Task #202+ candidate: Unauthorized() modifier \
-            + zero-arg custom error.", e));
+            + zero-arg custom error.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT3 rt");
 
@@ -3350,12 +3846,18 @@ contract C {
     // (a) Deploy and call doIt() from alice.
     rt.override_caller_account(&alice_hex)
         .expect("TTT3 override alice for deploy");
-    let r_alice = rt.call_method_with_deploy_args(
-        &art.bytecode, &art.tokens, &art.manifest,
-        "doIt", &[] as &[StackItem],
-        Some(&[] as &[StackItem]),
-    ).expect("TTT3 doIt(alice) host-level");
-    assert!(r_alice.success,
+    let r_alice = rt
+        .call_method_with_deploy_args(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "doIt",
+            &[] as &[StackItem],
+            Some(&[] as &[StackItem]),
+        )
+        .expect("TTT3 doIt(alice) host-level");
+    assert!(
+        r_alice.success,
         "TTT3 doIt() from alice must succeed (ctor captured alice as \
          owner, modifier's `msg.sender != owner` check is false, body \
          returns 42); exc={:?}. If exc carries the Unauthorized \
@@ -3365,23 +3867,35 @@ contract C {
          = msg.sender` didn't land on the state slot, or (c) the \
          modifier's `msg.sender != owner` check is inverted. Task #202+ \
          candidate: modifier-custom-error success path.",
-        r_alice.exception.as_ref().map(|e| &e.message));
+        r_alice.exception.as_ref().map(|e| &e.message)
+    );
     let got_42 = decode_uint_le(&r_alice.return_data);
-    assert_eq!(got_42.clone(), BigUint::from(42u64),
+    assert_eq!(
+        got_42.clone(),
+        BigUint::from(42u64),
         "TTT3 doIt() from alice must return 42 (body after modifier \
          `_;`); got {} rd_hex={}. If 0, the modifier ate the return \
          value. If different, the `return 42;` literal regressed.",
-        got_42, hex::encode(&r_alice.return_data));
+        got_42,
+        hex::encode(&r_alice.return_data)
+    );
 
     // (b) Call doIt() from bob — msg.sender = bob != owner = alice,
     // modifier's `if (msg.sender != owner)` fires → revert
     // Unauthorized().
     rt.override_caller_account(&bob_hex)
         .expect("TTT3 override bob for doIt");
-    let r_bob = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "doIt", &[] as &[StackItem])
+    let r_bob = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "doIt",
+            &[] as &[StackItem],
+        )
         .expect("TTT3 doIt(bob) host-level (revert != host error)");
-    assert!(!r_bob.success,
+    assert!(
+        !r_bob.success,
         "TTT3 doIt() from bob must REVERT (bob != alice = owner, \
          modifier's `msg.sender != owner` is true, `revert \
          Unauthorized()` fires); got success=true rd_hex={}. If \
@@ -3389,7 +3903,8 @@ contract C {
          permitted) — a CRITICAL auth-bypass regression. Or the \
          caller override didn't swap from alice to bob for the second \
          call. Task #202+ candidate: modifier-custom-error revert path.",
-        hex::encode(&r_bob.return_data));
+        hex::encode(&r_bob.return_data)
+    );
 
     // Selector: keccak256("Unauthorized()")[..4].
     let sel = {
@@ -3397,10 +3912,14 @@ contract C {
         [d[0], d[1], d[2], d[3]]
     };
     // Pre-check the computed selector — documents the expected value.
-    assert_eq!(sel, [0x82u8, 0xb4, 0x29, 0x00],
+    assert_eq!(
+        sel,
+        [0x82u8, 0xb4, 0x29, 0x00],
         "TTT3 pre-check: keccak256(\"Unauthorized()\")[..4] must be \
          0x82b42900 (static fact, only fires if the sha3 crate broke). \
-         Got 0x{}", hex::encode(sel));
+         Got 0x{}",
+        hex::encode(sel)
+    );
 
     let rd = &r_bob.return_data;
     // The revert must PREFIX with the Unauthorized() selector. The
@@ -3409,7 +3928,8 @@ contract C {
     // `Bad(uint)` which had selector + BE32(n)). Accept >= 4 bytes
     // with matching prefix (matches batch90 NNN5 / batch95 SSS3
     // precedent of allowing envelope padding).
-    assert!(rd.len() >= 4 && &rd[..4] == &sel[..],
+    assert!(
+        rd.len() >= 4 && &rd[..4] == &sel[..],
         "TTT3 doIt(bob) revert payload must PREFIX with keccak256(\
          \"Unauthorized()\")[..4] = 0x82b42900; got rd_hex={} (len \
          {}). If absent, the custom-error selector wasn't threaded \
@@ -3419,7 +3939,9 @@ contract C {
          gap). If present but not as prefix, an extra envelope wrapped \
          the payload. Task #202+ candidate: modifier-custom-error \
          selector prefix.",
-        hex::encode(rd), rd.len());
+        hex::encode(rd),
+        rd.len()
+    );
 }
 
 // TTT4 — abi.encodeCall(this.fa, (hex"deadbeef")) with dynamic bytes arg.
@@ -3585,15 +4107,19 @@ contract C {
         return s;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "TTT5 compile: {:?}. If this fires on \
             `uint256[] public nums = [1, 2, 3, 4, 5];` — the INLINE \
             array-literal initializer on a state variable — the inline \
             init regressed (distinct from the constructor-push form; \
             TTT5 pins the compiler-recognises-source-literal-init path). \
             If on `nums.length`, the .length read on an inline-\
             initialized storage array regressed. If on `nums[i]`, the \
-            index-load on an inline-initialized storage array regressed.", e));
+            index-load on an inline-initialized storage array regressed.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT5 rt");
 
@@ -3601,20 +4127,29 @@ contract C {
     // of _deploy (no user ctor here, but inline state-var init happens
     // at deploy-time per Solidity spec) so nums = [1,2,3,4,5] must be
     // populated before sum() reads .length.
-    let r = rt.call_method_with_deploy_args(
-        &art.bytecode, &art.tokens, &art.manifest,
-        "sum", &[] as &[StackItem],
-        Some(&[] as &[StackItem]),
-    ).expect("TTT5 sum host-level");
-    assert!(r.success,
+    let r = rt
+        .call_method_with_deploy_args(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "sum",
+            &[] as &[StackItem],
+            Some(&[] as &[StackItem]),
+        )
+        .expect("TTT5 sum host-level");
+    assert!(
+        r.success,
         "TTT5 sum() must succeed; exc={:?}. If exc cites `nums.length`, \
          the inline-initialized storage array's length wasn't set at \
          deploy-time. If exc cites `nums[i]`, the index-load path \
          diverged for inline-initialized arrays. Task #202+ candidate: \
          inline storage-array initializer.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
     let got = decode_uint_le(&r.return_data);
-    assert_eq!(got.clone(), BigUint::from(15u64),
+    assert_eq!(
+        got.clone(),
+        BigUint::from(15u64),
         "TTT5 sum() must equal 1 + 2 + 3 + 4 + 5 = 15; got {} \
          (rd_hex={}). If 0, either (a) nums.length read as 0 — the \
          inline init didn't persist to storage at deploy-time, (b) \
@@ -3625,7 +4160,9 @@ contract C {
          If a superset (e.g. 21 = 1+2+3+4+5+6), an extra default-0 \
          slot got non-zero. Task #202+ candidate: inline storage-array \
          initializer sum.",
-        got, hex::encode(&r.return_data));
+        got,
+        hex::encode(&r.return_data)
+    );
 }
 
 // Task ID resolution for Batch #96 on first exec:
@@ -3864,8 +4401,9 @@ contract C {
     function set(uint g, uint k, uint v) external { grids[g][k] = v; }
     function get(uint g, uint k) external view returns (uint) { return grids[g][k]; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("UUU2 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "UUU2 compile: {:?}. If this fires on \
             `mapping(uint => uint)[] public grids;`, the ARRAY-OF-MAPPINGS \
             state-var type regressed (distinct from mapping-of-mappings \
             / nested-mapping forms covered elsewhere — UUU2 pins the \
@@ -3875,51 +4413,77 @@ contract C {
             into-mapping double-indexed write regressed. If on `grids\
             [g][k]` read, the matching double-indexed load regressed. \
             Task #203+ candidate: array-of-mappings double-indexed \
-            write.", e));
+            write.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("UUU2 rt");
 
     // (1) init(3) — pushes 3 fresh empty mapping elements onto grids.
-    let r_init = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "init", &[StackItem::Integer(3)])
+    let r_init = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "init",
+            &[StackItem::Integer(3)],
+        )
         .expect("UUU2 init(3) host-level");
-    assert!(r_init.success,
+    assert!(
+        r_init.success,
         "UUU2 init(3) must succeed (3 push-empty-mapping calls inside a \
          for-loop); exc={:?}. If exc cites `grids.push()`, the push-\
          empty-mapping form regressed. If cites the for loop, the loop \
          over an array length parameter regressed. Task #203+ candidate.",
-        r_init.exception.as_ref().map(|e| &e.message));
+        r_init.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) set(1, 100, 500) — grids[1][100] = 500 (double-indexed write).
-    let r_set = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "set", &[
-            StackItem::Integer(1),
-            StackItem::Integer(100),
-            StackItem::Integer(500),
-        ])
+    let r_set = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "set",
+            &[
+                StackItem::Integer(1),
+                StackItem::Integer(100),
+                StackItem::Integer(500),
+            ],
+        )
         .expect("UUU2 set(1, 100, 500) host-level");
-    assert!(r_set.success,
+    assert!(
+        r_set.success,
         "UUU2 set(1, 100, 500) must succeed (double-indexed write \
          grids[1][100] = 500 into the second of three mapping \
          elements); exc={:?}. If exc cites `grids[g][k] = v`, the \
          array-of-mappings double-indexed write regressed. Task #203+ \
          candidate.",
-        r_set.exception.as_ref().map(|e| &e.message));
+        r_set.exception.as_ref().map(|e| &e.message)
+    );
 
     // (3) get(1, 100) must return 500 (double-indexed read).
-    let r_get = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "get", &[
-            StackItem::Integer(1),
-            StackItem::Integer(100),
-        ])
+    let r_get = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "get",
+            &[StackItem::Integer(1), StackItem::Integer(100)],
+        )
         .expect("UUU2 get(1, 100) host-level");
-    assert!(r_get.success,
+    assert!(
+        r_get.success,
         "UUU2 get(1, 100) must succeed (double-indexed read from \
          previously-written slot); exc={:?}. If exc, the read path \
          for array-of-mappings regressed. Task #203+ candidate.",
-        r_get.exception.as_ref().map(|e| &e.message));
+        r_get.exception.as_ref().map(|e| &e.message)
+    );
     let got = decode_uint_le(&r_get.return_data);
-    assert_eq!(got.clone(), BigUint::from(500u64),
+    assert_eq!(
+        got.clone(),
+        BigUint::from(500u64),
         "UUU2 get(1, 100) must equal 500 (the value set via \
          set(1, 100, 500)); got {} (rd_hex={}). If 0, the read \
          returned default — either (a) the write didn't land on the \
@@ -3929,7 +4493,9 @@ contract C {
          100 resolved to a different mapping slot than the write. \
          Task #203+ candidate: array-of-mappings double-indexed \
          write roundtrip.",
-        got, hex::encode(&r_get.return_data));
+        got,
+        hex::encode(&r_get.return_data)
+    );
 }
 
 // UUU3 — Complex event: `event Complex(string name, address indexed a,
@@ -3947,8 +4513,9 @@ contract C {
     event Complex(string name, address indexed a, bytes32 h);
     function f(string memory n, address a, bytes32 h) external { emit Complex(n, a, h); }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("UUU3 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "UUU3 compile: {:?}. If this fires on \
             `event Complex(string name, address indexed a, bytes32 h);`, \
             the MIXED-indexed event shape regressed (baseline H4 pins \
             indexed-address + indexed-bytes32 + non-indexed-uint + \
@@ -3956,7 +4523,10 @@ contract C {
             ADDRESS + NON-INDEXED-BYTES32 — a different shape where \
             the dynamic arg leads and the indexed is in the middle). \
             If on `emit Complex(n, a, h);`, the 3-arg emit regressed. \
-            Task #203+ candidate: complex event mixed-indexed shape.", e));
+            Task #203+ candidate: complex event mixed-indexed shape.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("UUU3 rt");
 
@@ -3965,58 +4535,81 @@ contract C {
     let addr = [0x33u8; 20];
     let h = [0x44u8; 32];
 
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "f", &[
-            StackItem::byte_array(name.as_bytes().to_vec()),
-            StackItem::byte_array(addr.to_vec()),
-            StackItem::byte_array(h.to_vec()),
-        ])
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[
+                StackItem::byte_array(name.as_bytes().to_vec()),
+                StackItem::byte_array(addr.to_vec()),
+                StackItem::byte_array(h.to_vec()),
+            ],
+        )
         .expect("UUU3 f(name, a, h) host-level");
-    assert!(r.success,
+    assert!(
+        r.success,
         "UUU3 f(name, a, h) must succeed (3-arg emit); exc={:?}. If \
          exc cites the emit with mixed-indexed args, the shape \
          regressed. Task #203+ candidate.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
 
     // Verify log structure: exactly 1 LogEntry emitted.
-    assert_eq!(r.logs.len(), 1,
+    assert_eq!(
+        r.logs.len(),
+        1,
         "UUU3 emit Complex must produce exactly 1 LogEntry; got {}. If \
          0, the emit path didn't fire. If >1, the emit fired multiple \
          times.",
-        r.logs.len());
+        r.logs.len()
+    );
     let log = &r.logs[0];
     // topics.len() == 2: [0] = signature, [1] = indexed address.
     // The non-indexed (string, bytes32) are packed into data.
-    assert_eq!(log.topics.len(), 2,
+    assert_eq!(
+        log.topics.len(),
+        2,
         "UUU3 topics must have length 2 (sig + indexed address); got \
          {}. If 1, the indexed address dropped out of topics. If 3+, \
          a non-indexed arg was wrongly promoted to a topic.",
-        log.topics.len());
+        log.topics.len()
+    );
 
     // topics[0] = keccak256("Complex(string,address,bytes32)").
     let mut hasher = Keccak256::new();
     hasher.update(b"Complex(string,address,bytes32)");
     let expected_topic0 = hasher.finalize();
-    assert_eq!(&log.topics[0][..], &expected_topic0[..],
+    assert_eq!(
+        &log.topics[0][..],
+        &expected_topic0[..],
         "UUU3 topics[0] must be keccak256(\"Complex(string,address,\
          bytes32)\"); got 0x{}. If mismatched, the canonical signature \
          is computed from a different arg-type sequence.",
-        hex::encode(&log.topics[0]));
+        hex::encode(&log.topics[0])
+    );
 
     // topics[1] = the indexed address (32-byte left-padded). Per EVM
     // convention, indexed address = 12 zeros + 20-byte address. Accept
     // the standard layout OR the address bytes appearing anywhere
     // (some runtimes use 20-byte raw — baseline H4 just checks len=32).
-    assert_eq!(log.topics[1].len(), 32,
-        "UUU3 topics[1] must be 32 bytes; got {}.", log.topics[1].len());
-    let has_addr = log.topics[1][12..32] == addr
-        || log.topics[1].windows(20).any(|w| w == &addr[..]);
-    assert!(has_addr,
+    assert_eq!(
+        log.topics[1].len(),
+        32,
+        "UUU3 topics[1] must be 32 bytes; got {}.",
+        log.topics[1].len()
+    );
+    let has_addr =
+        log.topics[1][12..32] == addr || log.topics[1].windows(20).any(|w| w == &addr[..]);
+    assert!(
+        has_addr,
         "UUU3 topics[1] must contain the indexed address 0x3333...33 \
          (expected at bytes[12..32] per EVM left-pad convention); got \
          0x{}. If the bytes don't appear, the indexed-address topic \
          wasn't lowered.",
-        hex::encode(&log.topics[1]));
+        hex::encode(&log.topics[1])
+    );
 
     // data = abi.encode(string name, bytes32 h). Per baseline H4 /
     // batch46 precedent, we probe for substring anchors rather than
@@ -4025,14 +4618,19 @@ contract C {
     let data = &log.data;
     let has_test = data.windows(4).any(|w| w == b"test");
     let has_h = data.windows(32).any(|w| w.iter().all(|b| *b == 0x44u8));
-    assert!(has_test && has_h,
+    assert!(
+        has_test && has_h,
         "UUU3 data must contain BOTH the 4-byte \"test\" payload AND \
          the 32-byte bytes32 h (all 0x44) somewhere in the envelope; \
          got data_hex={} (len {}) has_test={} has_h={}. If has_test=\
          false, the string body dropped. If has_h=false, the bytes32 \
          h value dropped. Task #203+ candidate: complex event data \
          envelope with (string, bytes32).",
-        hex::encode(data), data.len(), has_test, has_h);
+        hex::encode(data),
+        data.len(),
+        has_test,
+        has_h
+    );
 }
 
 // UUU4 — Runtime array length in conditional: `f(uint[] memory a)
@@ -4403,8 +5001,9 @@ contract C {
         return out;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("VVV1 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "VVV1 compile: {:?}. If this fires on \
             `new uint[](arr.length)`, the `new uint[](n)` form sourcing \
             n from a storage-array `.length` regressed (batch66 PP3 \
             pins `new uint[](a.length + b.length)` with MEMORY-array \
@@ -4412,45 +5011,67 @@ contract C {
             storage-to-memory copy via explicit index regressed. If \
             on `return out`, the memory-array return shape regressed \
             (batch66 PP3 precedent). Task #204+ candidate: storage \
-            iteration via explicit index.", e));
+            iteration via explicit index.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("VVV1 rt");
 
     // (1) push_(1); push_(2); push_(3) — populate arr = [1, 2, 3].
     for v in &[1u64, 2u64, 3u64] {
-        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-            "push_", &[StackItem::Integer(*v as i64)])
+        let r = rt
+            .call_method(
+                &art.bytecode,
+                &art.tokens,
+                &art.manifest,
+                "push_",
+                &[StackItem::Integer(*v as i64)],
+            )
             .expect("VVV1 push_ host-level");
-        assert!(r.success,
+        assert!(
+            r.success,
             "VVV1 push_({}) must succeed; exc={:?}. If exc cites \
              arr.push, the dynamic-storage-array push regressed \
              (batch50 Z5 / batch84 HHH3 precedent).",
-            v, r.exception.as_ref().map(|e| &e.message));
+            v,
+            r.exception.as_ref().map(|e| &e.message)
+        );
     }
 
     // (2) iter() — must return [1, 2, 3] as a uint[] memory.
-    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "iter", &[] as &[StackItem])
+    let r = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "iter",
+            &[] as &[StackItem],
+        )
         .expect("VVV1 iter() host-level");
-    assert!(r.success,
+    assert!(
+        r.success,
         "VVV1 iter() must succeed (allocate + loop-copy from storage \
          into memory + return); exc={:?}. If exc cites `new uint[]`, \
          the storage-length-sourced allocation regressed. If cites \
          `out[i] = arr[i]`, the indexed storage-read + indexed memory-\
          write regressed. If cites `return out`, the memory-array \
          return regressed. Task #204+ candidate.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
 
     // Per batch66 PP3 precedent, the return shape is either EVM-
     // canonical offset+length+BE-32-elements or a narrower form.
     // Search for each expected element as a BE-32 scalar in order;
     // this tolerates either shape while pinning the ordering.
     let rd = &r.return_data;
-    assert!(!rd.is_empty(),
+    assert!(
+        !rd.is_empty(),
         "VVV1 iter() return must not be empty; got 0 bytes. If empty, \
          either (a) the iter function returned without emitting the \
          array, or (b) the memory-array serialization dropped the \
-         entire payload. Task #204+ candidate.");
+         entire payload. Task #204+ candidate."
+    );
     let expected_elements = [1u64, 2u64, 3u64];
     let mut search_start = 0usize;
     for (pos, want) in expected_elements.iter().enumerate() {
@@ -4462,10 +5083,14 @@ contract C {
         let mut found = None;
         let mut i = search_start;
         while i + 32 <= rd.len() {
-            if &rd[i..i + 32] == needle { found = Some(i); break; }
+            if &rd[i..i + 32] == needle {
+                found = Some(i);
+                break;
+            }
             i += 1;
         }
-        assert!(found.is_some(),
+        assert!(
+            found.is_some(),
             "VVV1 iter()[{}] = {} must appear as BE-32 bytes in the \
              return AT OR AFTER offset {}; got rd_hex={}. If the \
              element is absent, either (a) the storage-read arr[i] \
@@ -4475,7 +5100,13 @@ contract C {
              was misread). Pin the first-absent index (pos={}): the \
              preceding elements appeared in order up to offset {}. \
              Task #204+ candidate.",
-            pos, want, search_start, hex::encode(rd), pos, search_start);
+            pos,
+            want,
+            search_start,
+            hex::encode(rd),
+            pos,
+            search_start
+        );
         search_start = found.unwrap() + 32;
     }
 }
@@ -4578,8 +5209,9 @@ contract C {
         return v;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("VVV3 compile: {:?}. If this fires \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "VVV3 compile: {:?}. If this fires \
             on `new bytes(32)`, the dynamic bytes-memory allocation \
             regressed. If on the assembly block, the \
             mstore/mload-via-memory-reference form regressed (batch18 \
@@ -4589,11 +5221,15 @@ contract C {
             the Yul add-with-0x20-to-skip-length-prefix idiom \
             regressed. If on `v :=`, the Yul-local-to-Solidity-local \
             writeback regressed. Task #204+ candidate: assembly with \
-            memory data reference.", e));
+            memory data reference.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("VVV3 rt");
     let r = rt.execute(&art.bytecode, &[]).expect("VVV3 f() execute");
-    assert!(r.success,
+    assert!(
+        r.success,
         "VVV3 f() must succeed — the assembly block must be able to \
          mstore to and mload from buf's data body via `add(buf, \
          0x20)`; exc={:?}. If exc cites mstore/mload, the assembly \
@@ -4602,9 +5238,12 @@ contract C {
          (AUDIT_REPORT line 248 flagged silently-dropped assembly \
          ops in the past — this probe pins the fixed shape). Task \
          #204+ candidate.",
-        r.exception.as_ref().map(|e| &e.message));
+        r.exception.as_ref().map(|e| &e.message)
+    );
     let v = decode_uint_le(&r.return_data);
-    assert_eq!(v.clone(), BigUint::from(42u64),
+    assert_eq!(
+        v.clone(),
+        BigUint::from(42u64),
         "VVV3 f() must equal 42 — the assembly mstore wrote 42 into \
          buf's data body, then the assembly mload read it back into \
          v; got {} rd_hex={}. If 0, either (a) the mstore was a \
@@ -4617,7 +5256,9 @@ contract C {
          at the wrong offset or mload read from the wrong offset. \
          Task #204+ candidate: assembly mstore/mload via memory \
          pointer dereference.",
-        v, hex::encode(&r.return_data));
+        v,
+        hex::encode(&r.return_data)
+    );
 }
 
 // VVV4 — Operator precedence — bitwise and arithmetic.
@@ -4981,8 +5622,9 @@ contract C {
         emit Transition(prev, state);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("WWW1 compile: {:?}. If this fires \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "WWW1 compile: {:?}. If this fires \
             on `enum State {{ ... }}` + `State public state;`, the \
             public enum state-var auto-getter regressed (batch71 UU5 \
             precedent for `State public state`). If on the 3-way \
@@ -4990,42 +5632,78 @@ contract C {
             (batch59 II3 pins enum ==). If on `emit Transition(prev, \
             state);` with enum args, the enum-as-event-arg encoding \
             regressed. Task #204 candidate: state machine with \
-            per-transition event emission.", e));
+            per-transition event emission.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("WWW1 rt");
 
     // advance() 3 times on the same runtime. Each call should emit
     // exactly one Transition log; the `state` storage var persists
     // between calls so the ladder picks the next branch each time.
-    let r1 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "advance", &[] as &[StackItem])
+    let r1 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "advance",
+            &[] as &[StackItem],
+        )
         .expect("WWW1 advance()#1 host-level");
-    assert!(r1.success,
+    assert!(
+        r1.success,
         "WWW1 advance()#1 from Init must succeed; exc={:?}.",
-        r1.exception.as_ref().map(|e| &e.message));
-    assert_eq!(r1.logs.len(), 1,
+        r1.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        r1.logs.len(),
+        1,
         "WWW1 advance()#1 must emit exactly 1 Transition log; got {}.",
-        r1.logs.len());
+        r1.logs.len()
+    );
 
-    let r2 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "advance", &[] as &[StackItem])
+    let r2 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "advance",
+            &[] as &[StackItem],
+        )
         .expect("WWW1 advance()#2 host-level");
-    assert!(r2.success,
+    assert!(
+        r2.success,
         "WWW1 advance()#2 from Active must succeed; exc={:?}.",
-        r2.exception.as_ref().map(|e| &e.message));
-    assert_eq!(r2.logs.len(), 1,
+        r2.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        r2.logs.len(),
+        1,
         "WWW1 advance()#2 must emit exactly 1 Transition log; got {}.",
-        r2.logs.len());
+        r2.logs.len()
+    );
 
-    let r3 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "advance", &[] as &[StackItem])
+    let r3 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "advance",
+            &[] as &[StackItem],
+        )
         .expect("WWW1 advance()#3 host-level");
-    assert!(r3.success,
+    assert!(
+        r3.success,
         "WWW1 advance()#3 from Paused must succeed; exc={:?}.",
-        r3.exception.as_ref().map(|e| &e.message));
-    assert_eq!(r3.logs.len(), 1,
+        r3.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        r3.logs.len(),
+        1,
         "WWW1 advance()#3 must emit exactly 1 Transition log; got {}.",
-        r3.logs.len());
+        r3.logs.len()
+    );
 
     // topics[0] on each log must be keccak256("Transition(uint8,uint8)") —
     // enum types canonicalize to uint8 per EVM spec for 4-variant enums.
@@ -5038,13 +5716,17 @@ contract C {
 
     for (idx, r) in [&r1, &r2, &r3].iter().enumerate() {
         let log = &r.logs[0];
-        assert!(log.topics.len() >= 1,
+        assert!(
+            log.topics.len() >= 1,
             "WWW1 advance()#{} log[0] must have >= 1 topic; got {}.",
-            idx + 1, log.topics.len());
+            idx + 1,
+            log.topics.len()
+        );
         let t0 = &log.topics[0];
-        let sig_matches = t0.as_slice() == &expected_topic0[..]
-            || t0.as_slice() == &expected_topic0_u256[..];
-        assert!(sig_matches,
+        let sig_matches =
+            t0.as_slice() == &expected_topic0[..] || t0.as_slice() == &expected_topic0_u256[..];
+        assert!(
+            sig_matches,
             "WWW1 advance()#{} log[0].topics[0] must equal keccak256(\
              \"Transition(uint8,uint8)\") (= {}) OR keccak256(\"\
              Transition(uint256,uint256)\") (= {}); got {}. Task #204 \
@@ -5052,13 +5734,16 @@ contract C {
             idx + 1,
             hex::encode(&expected_topic0[..]),
             hex::encode(&expected_topic0_u256[..]),
-            hex::encode(t0));
+            hex::encode(t0)
+        );
     }
 
     // Verify the (from, to) enum values appear in each log's data.
     let expected_pairs: [(u8, u8); 3] = [(0, 1), (1, 2), (2, 3)];
-    for (idx, (r, (from, to))) in [&r1, &r2, &r3].iter()
-        .zip(expected_pairs.iter()).enumerate()
+    for (idx, (r, (from, to))) in [&r1, &r2, &r3]
+        .iter()
+        .zip(expected_pairs.iter())
+        .enumerate()
     {
         let data = &r.logs[0].data;
         let has_be32_shape = data.len() >= 64
@@ -5066,12 +5751,17 @@ contract C {
             && data[31] == *from
             && data[32..63].iter().all(|b| *b == 0)
             && data[63] == *to;
-        let has_ordinals = data.iter().any(|b| *b == *from)
-            && data.iter().any(|b| *b == *to);
-        assert!(has_be32_shape || has_ordinals,
+        let has_ordinals = data.iter().any(|b| *b == *from) && data.iter().any(|b| *b == *to);
+        assert!(
+            has_be32_shape || has_ordinals,
             "WWW1 advance()#{} log[0].data must carry (from={}, to={}) \
              ordinals; got data_hex={} len={}. Task #204 candidate.",
-            idx + 1, from, to, hex::encode(data), data.len());
+            idx + 1,
+            from,
+            to,
+            hex::encode(data),
+            data.len()
+        );
     }
 }
 
@@ -5112,79 +5802,126 @@ contract C {
     function numRows() external view returns (uint) { return matrix.length; }
     function cellCount(uint r) external view returns (uint) { return matrix[r].length; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("WWW2 compile: {:?}. If this fires \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "WWW2 compile: {:?}. If this fires \
             on `uint[][] public matrix;`, the nested dynamic-array \
             state var + public auto-getter regressed. If on \
             `matrix.push(row)` with a memory uint[] arg, the \
             memory-to-storage nested-array push regressed. If on \
             `matrix[r].length`, the per-row length slot read \
             regressed. Task #205 candidate: nested uint[][] \
-            storage array with per-row length.", e));
+            storage array with per-row length.",
+            e
+        )
+    });
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("WWW2 rt");
 
     // (1) addRow([1, 2, 3]).
-    let row1 = StackItem::Array(std::rc::Rc::new(std::cell::RefCell::new(
-        vec![StackItem::Integer(1), StackItem::Integer(2), StackItem::Integer(3)],
-    )));
-    let r_add1 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "addRow", &[row1])
+    let row1 = StackItem::Array(std::rc::Rc::new(std::cell::RefCell::new(vec![
+        StackItem::Integer(1),
+        StackItem::Integer(2),
+        StackItem::Integer(3),
+    ])));
+    let r_add1 = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "addRow", &[row1])
         .expect("WWW2 addRow([1,2,3]) host-level");
-    assert!(r_add1.success,
+    assert!(
+        r_add1.success,
         "WWW2 addRow([1,2,3]) must succeed; exc={:?}.",
-        r_add1.exception.as_ref().map(|e| &e.message));
+        r_add1.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) addRow([4, 5]).
-    let row2 = StackItem::Array(std::rc::Rc::new(std::cell::RefCell::new(
-        vec![StackItem::Integer(4), StackItem::Integer(5)],
-    )));
-    let r_add2 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "addRow", &[row2])
+    let row2 = StackItem::Array(std::rc::Rc::new(std::cell::RefCell::new(vec![
+        StackItem::Integer(4),
+        StackItem::Integer(5),
+    ])));
+    let r_add2 = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "addRow", &[row2])
         .expect("WWW2 addRow([4,5]) host-level");
-    assert!(r_add2.success,
+    assert!(
+        r_add2.success,
         "WWW2 addRow([4,5]) after addRow([1,2,3]) must succeed; exc={:?}.",
-        r_add2.exception.as_ref().map(|e| &e.message));
+        r_add2.exception.as_ref().map(|e| &e.message)
+    );
 
     // (3) numRows() must equal 2 (matrix.length).
-    let r_num = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "numRows", &[] as &[StackItem])
+    let r_num = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "numRows",
+            &[] as &[StackItem],
+        )
         .expect("WWW2 numRows() host-level");
-    assert!(r_num.success,
+    assert!(
+        r_num.success,
         "WWW2 numRows() must succeed; exc={:?}.",
-        r_num.exception.as_ref().map(|e| &e.message));
+        r_num.exception.as_ref().map(|e| &e.message)
+    );
     let num = decode_uint_le(&r_num.return_data);
-    assert_eq!(num.clone(), BigUint::from(2u64),
+    assert_eq!(
+        num.clone(),
+        BigUint::from(2u64),
         "WWW2 numRows() must equal 2 after two addRow calls; got {} \
          rd_hex={}. Task #205 candidate.",
-        num, hex::encode(&r_num.return_data));
+        num,
+        hex::encode(&r_num.return_data)
+    );
 
     // (4) cellCount(0) must equal 3 (first row has 3 elements).
-    let r_c0 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "cellCount", &[StackItem::Integer(0)])
+    let r_c0 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "cellCount",
+            &[StackItem::Integer(0)],
+        )
         .expect("WWW2 cellCount(0) host-level");
-    assert!(r_c0.success,
+    assert!(
+        r_c0.success,
         "WWW2 cellCount(0) must succeed; exc={:?}.",
-        r_c0.exception.as_ref().map(|e| &e.message));
+        r_c0.exception.as_ref().map(|e| &e.message)
+    );
     let c0 = decode_uint_le(&r_c0.return_data);
-    assert_eq!(c0.clone(), BigUint::from(3u64),
+    assert_eq!(
+        c0.clone(),
+        BigUint::from(3u64),
         "WWW2 cellCount(0) must equal 3 (first row = [1,2,3]); got {} \
          rd_hex={}. Task #205 candidate: per-row length on uint[][] \
          returning serialized row payload instead of length.",
-        c0, hex::encode(&r_c0.return_data));
+        c0,
+        hex::encode(&r_c0.return_data)
+    );
 
     // (5) cellCount(1) must equal 2 (second row has 2 elements).
-    let r_c1 = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        "cellCount", &[StackItem::Integer(1)])
+    let r_c1 = rt
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "cellCount",
+            &[StackItem::Integer(1)],
+        )
         .expect("WWW2 cellCount(1) host-level");
-    assert!(r_c1.success,
+    assert!(
+        r_c1.success,
         "WWW2 cellCount(1) must succeed; exc={:?}",
-        r_c1.exception.as_ref().map(|e| &e.message));
+        r_c1.exception.as_ref().map(|e| &e.message)
+    );
     let c1 = decode_uint_le(&r_c1.return_data);
-    assert_eq!(c1.clone(), BigUint::from(2u64),
+    assert_eq!(
+        c1.clone(),
+        BigUint::from(2u64),
         "WWW2 cellCount(1) must equal 2 (second row = [4,5]); got {} \
          rd_hex={}. Task #205 candidate.",
-        c1, hex::encode(&r_c1.return_data));
+        c1,
+        hex::encode(&r_c1.return_data)
+    );
 }
 
 // WWW3 — Fallback + receive dual-entry, receive always reverts.
@@ -5200,8 +5937,9 @@ contract C {
     receive() external payable { revert("no-receive"); }
     fallback() external { /* ok */ }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("WWW3 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "WWW3 compile: {:?}. If this fires on \
             `receive() external payable`, the receive-entry lowering \
             regressed. If on `fallback() external`, the plain (non-\
             payable) fallback lowering regressed. If on the combined \
@@ -5209,15 +5947,21 @@ contract C {
             (batch31 R4 pins standalone fallback; batch43 S3 pins \
             standalone receive — WWW3 pins the DUAL-entry form). \
             Task #204+ candidate: receive+fallback dual-entry dispatch \
-            with receive-always-reverts.", e));
+            with receive-always-reverts.",
+            e
+        )
+    });
     let art = &arts[0];
 
     // Detect manifest method names. The compiler may remap receive() to
     // `onNEP17Payment` (batch31/41/43/79 precedent) when no explicit
     // onNEP17Payment sibling exists. Fallback keeps its name OR may
     // remap to a default entry. We probe the manifest to be robust.
-    let methods = art.manifest["abi"]["methods"].as_array().expect("WWW3 methods");
-    let names: Vec<String> = methods.iter()
+    let methods = art.manifest["abi"]["methods"]
+        .as_array()
+        .expect("WWW3 methods");
+    let names: Vec<String> = methods
+        .iter()
         .filter_map(|m| m.get("name").and_then(serde_json::Value::as_str))
         .map(String::from)
         .collect();
@@ -5226,10 +5970,12 @@ contract C {
     } else if names.iter().any(|n| n == "receive") {
         "receive"
     } else {
-        panic!("WWW3 no receive/onNEP17Payment entry in manifest; got \
+        panic!(
+            "WWW3 no receive/onNEP17Payment entry in manifest; got \
                 methods={:?}. The receive() body must be exposed under \
                 some name for the dual-entry dispatch to function.",
-               names);
+            names
+        );
     };
     let fallback_name = if names.iter().any(|n| n == "fallback") {
         "fallback"
@@ -5240,11 +5986,14 @@ contract C {
         // `fallback` means the body is reachable via an unknown-method
         // dispatch. For this probe we assert the name is present —
         // if absent, the dual-entry surface regressed.
-        panic!("WWW3 no fallback entry in manifest; got methods={:?}. \
+        panic!(
+            "WWW3 no fallback entry in manifest; got methods={:?}. \
                 A dual-entry receive+fallback contract must expose the \
                 fallback body under some discoverable name. Task #204+ \
                 candidate: fallback manifest entry missing in dual-\
-                entry form.", names);
+                entry form.",
+            names
+        );
     };
 
     // (1) Call receive path with value=5 → must revert with "no-receive".
@@ -5259,38 +6008,60 @@ contract C {
     } else {
         vec![]
     };
-    let r_recv = rt_r.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        receive_name, &args_r)
+    let r_recv = rt_r
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            receive_name,
+            &args_r,
+        )
         .expect("WWW3 receive-path host-level");
-    assert!(!r_recv.success,
+    assert!(
+        !r_recv.success,
         "WWW3 receive-path (value=5) must REVERT (receive body calls \
          revert(\"no-receive\")); got success=true rd_hex={}. If success, \
          either (a) the revert inside receive was silently dropped, or \
          (b) the receive body was never executed (remap dispatched \
          elsewhere). Task #204+ candidate: receive-always-reverts \
          dispatch.",
-        hex::encode(&r_recv.return_data));
-    let exc_msg = r_recv.exception.as_ref().map(|e| e.message.as_str()).unwrap_or("");
+        hex::encode(&r_recv.return_data)
+    );
+    let exc_msg = r_recv
+        .exception
+        .as_ref()
+        .map(|e| e.message.as_str())
+        .unwrap_or("");
     let has_reason = r_recv.return_data.windows(10).any(|w| w == b"no-receive")
         || exc_msg.contains("no-receive");
-    assert!(has_reason,
+    assert!(
+        has_reason,
         "WWW3 receive-path revert must carry \"no-receive\" literal \
          (batch40 P5 / batch43 S3 precedent — require/revert string \
          surfaces via exception.message OR return_data substring); \
          got exc_msg={:?} rd_hex={}. If absent, the revert-reason \
          propagation dropped the string. Task #204+ candidate: \
          revert-reason propagation in receive body.",
-        exc_msg, hex::encode(&r_recv.return_data));
+        exc_msg,
+        hex::encode(&r_recv.return_data)
+    );
 
     // (2) Call fallback path with NO value, NO calldata semantic match
     //     → fallback body is empty (comment is /* ok */) so it must
     //     succeed with no revert.
     let mut rt_f = NeoRuntime::new(RuntimeConfig::default()).expect("WWW3 rt-fallback");
     // Do NOT override_value — fallback path expects no value transfer.
-    let r_fb = rt_f.call_method(&art.bytecode, &art.tokens, &art.manifest,
-        fallback_name, &[])
+    let r_fb = rt_f
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            fallback_name,
+            &[],
+        )
         .expect("WWW3 fallback-path host-level");
-    assert!(r_fb.success,
+    assert!(
+        r_fb.success,
         "WWW3 fallback-path (no value, empty body) must SUCCEED; got \
          success=false exc={:?} rd_hex={}. If exc, either (a) the \
          fallback body was mis-generated (the /* ok */ comment body \
@@ -5300,7 +6071,8 @@ contract C {
          entries are conflated. Task #204+ candidate: fallback dispatch \
          in dual-entry form.",
         r_fb.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r_fb.return_data));
+        hex::encode(&r_fb.return_data)
+    );
 }
 
 // WWW4 — Cross-contract view call. `Caller.f(address t) external view
@@ -5322,27 +6094,50 @@ contract Caller {
         return Target(t).getX();
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("WWW4 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "WWW4 compile: {:?}. If this fires on \
             `contract Target`, the first contract lowering regressed. \
             If on `Caller.f(address t) external view`, the `external \
             view` modifier + `return Target(t).getX()` cross-contract \
             view call regressed. Solidity spec allows calling view \
             functions on other contracts from a view function — this \
             is purely an informational (non-state-changing) operation. \
-            Task #204+ candidate: external view cross-contract dispatch.", e));
-    assert_eq!(arts.len(), 2,
+            Task #204+ candidate: external view cross-contract dispatch.",
+            e
+        )
+    });
+    assert_eq!(
+        arts.len(),
+        2,
         "WWW4 must emit 2 artifacts (Target + Caller); got {} names={:?}",
         arts.len(),
-        arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>());
-    let target = arts.iter()
+        arts.iter()
+            .map(|a| a.metadata.name.clone())
+            .collect::<Vec<_>>()
+    );
+    let target = arts
+        .iter()
         .find(|a| a.metadata.name == "Target")
-        .unwrap_or_else(|| panic!("WWW4 Target artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
-    let caller = arts.iter()
+        .unwrap_or_else(|| {
+            panic!(
+                "WWW4 Target artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
+    let caller = arts
+        .iter()
         .find(|a| a.metadata.name == "Caller")
-        .unwrap_or_else(|| panic!("WWW4 Caller artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "WWW4 Caller artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     // (1) setX(42) on Target — writes Target.x = 42 in the sibling-merged
     //     state. Use Target's own bytecode + manifest so the write lands
@@ -5350,23 +6145,38 @@ contract Caller {
     //     sibling-merge pass keeps each contract's state accessible via
     //     its own manifest).
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("WWW4 rt");
-    let r_set = rt.call_method(&target.bytecode, &target.tokens, &target.manifest,
-        "setX", &[StackItem::Integer(42)])
+    let r_set = rt
+        .call_method(
+            &target.bytecode,
+            &target.tokens,
+            &target.manifest,
+            "setX",
+            &[StackItem::Integer(42)],
+        )
         .expect("WWW4 setX(42) host-level");
-    assert!(r_set.success,
+    assert!(
+        r_set.success,
         "WWW4 Target.setX(42) must succeed; exc={:?}. If exc, the \
          Target contract's state-write regressed.",
-        r_set.exception.as_ref().map(|e| &e.message));
+        r_set.exception.as_ref().map(|e| &e.message)
+    );
 
     // (2) Caller.f(target) — cross-contract view call, must return 42.
     //     Use zero-placeholder routing (batch79 CCC4 / batch88 LLL5
     //     precedent) — the Task #83 sibling-merge pass makes
     //     Target.getX reachable through Caller's self_method_offsets.
     let zero_target = [0u8; 20];
-    let r_f = rt.call_method(&caller.bytecode, &caller.tokens, &caller.manifest,
-        "f", &[StackItem::byte_array(zero_target.to_vec())])
+    let r_f = rt
+        .call_method(
+            &caller.bytecode,
+            &caller.tokens,
+            &caller.manifest,
+            "f",
+            &[StackItem::byte_array(zero_target.to_vec())],
+        )
         .expect("WWW4 Caller.f(target) host-level");
-    assert!(r_f.success,
+    assert!(
+        r_f.success,
         "WWW4 Caller.f(target) must succeed (cross-contract view \
          call); exc={:?}, rd_hex={}. If exc, either (a) the `external \
          view` modifier rejected the cross-contract call (spec says \
@@ -5374,9 +6184,12 @@ contract Caller {
          function), or (b) the cross-contract dispatch to getX \
          regressed. Task #204+ candidate: cross-contract view dispatch.",
         r_f.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r_f.return_data));
+        hex::encode(&r_f.return_data)
+    );
     let v = decode_uint_le(&r_f.return_data);
-    assert_eq!(v.clone(), BigUint::from(42u64),
+    assert_eq!(
+        v.clone(),
+        BigUint::from(42u64),
         "WWW4 Caller.f(target) must equal 42 (Target.x after setX(42)); \
          got {} rd_hex={}. If 0, either (a) the setX write didn't \
          persist into the sibling-merged state accessible from Caller, \
@@ -5384,7 +6197,9 @@ contract Caller {
          different (uninitialized) x slot. If some other value, a \
          state-spill from an unrelated slot leaked. Task #204+ \
          candidate: cross-contract view reads sibling-merged state.",
-        v, hex::encode(&r_f.return_data));
+        v,
+        hex::encode(&r_f.return_data)
+    );
 }
 
 // WWW5 — Reverting nested try/catch chain through three contracts.
@@ -5442,8 +6257,9 @@ contract Client {
         return "ok";
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("WWW5 compile: {:?}. If this fires on \
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "WWW5 compile: {:?}. If this fires on \
             `revert(string.concat(\"middle: \", r))`, the revert-with-\
             string.concat-expression regressed (batch52 BB2 pins 2-arg \
             concat as a return; batch55 EE4 pins 3-arg concat as a \
@@ -5453,16 +6269,30 @@ contract Client {
             try/catch chain (Middle calls Target, Client calls Middle), \
             the sibling-merge path for a CHAIN (not just a pair) \
             regressed. Task #204+ candidate: reverting nested try/catch \
-            chain with string.concat in revert reason.", e));
-    assert!(arts.len() >= 3,
+            chain with string.concat in revert reason.",
+            e
+        )
+    });
+    assert!(
+        arts.len() >= 3,
         "WWW5 must emit at least 3 artifacts (Target + Middle + Client); \
          got {} names={:?}",
         arts.len(),
-        arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>());
-    let client = arts.iter()
+        arts.iter()
+            .map(|a| a.metadata.name.clone())
+            .collect::<Vec<_>>()
+    );
+    let client = arts
+        .iter()
         .find(|a| a.metadata.name == "Client")
-        .unwrap_or_else(|| panic!("WWW5 Client artifact missing; got names={:?}",
-            arts.iter().map(|a| a.metadata.name.clone()).collect::<Vec<_>>()));
+        .unwrap_or_else(|| {
+            panic!(
+                "WWW5 Client artifact missing; got names={:?}",
+                arts.iter()
+                    .map(|a| a.metadata.name.clone())
+                    .collect::<Vec<_>>()
+            )
+        });
 
     // Zero-placeholder routing: Task #83 sibling-merge makes Target.fail
     // + Middle.wrap reachable through Client's self_method_offsets. Pass
@@ -5471,16 +6301,23 @@ contract Client {
     let zero_m = [0u8; 20];
     let zero_t = [0u8; 20];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("WWW5 rt");
-    let r = rt.call_method(&client.bytecode, &client.tokens, &client.manifest,
-        "top", &[
-            StackItem::byte_array(zero_m.to_vec()),
-            StackItem::byte_array(zero_t.to_vec()),
-        ])
+    let r = rt
+        .call_method(
+            &client.bytecode,
+            &client.tokens,
+            &client.manifest,
+            "top",
+            &[
+                StackItem::byte_array(zero_m.to_vec()),
+                StackItem::byte_array(zero_t.to_vec()),
+            ],
+        )
         .expect("WWW5 Client.top(m, t) host-level");
 
     // Outer call must succeed — the outer catch absorbs Middle's revert
     // and returns the reason string.
-    assert!(r.success,
+    assert!(
+        r.success,
         "WWW5 Client.top(m, t) must succeed (outer catch absorbs \
          Middle's re-revert); exc={:?}, rd_hex={}. If exc, either \
          (a) Target's revert didn't propagate to Middle's catch, \
@@ -5489,7 +6326,8 @@ contract Client {
          the envelope. Task #204+ candidate: chained revert \
          propagation through two try/catch levels.",
         r.exception.as_ref().map(|e| &e.message),
-        hex::encode(&r.return_data));
+        hex::encode(&r.return_data)
+    );
 
     // Expected return: b"middle: inner" (13 bytes — "middle: " is 8
     // bytes + "inner" is 5 bytes). Per batch52 BB2 / batch55 EE5 /
@@ -5497,7 +6335,8 @@ contract Client {
     // length prefix. We probe for the full expected substring to pin
     // both the prefix AND the inner reason.
     let has_full = r.return_data.windows(13).any(|w| w == b"middle: inner");
-    assert!(has_full,
+    assert!(
+        has_full,
         "WWW5 Client.top(m, t) must return \"middle: inner\" (string.\
          concat(\"middle: \", \"inner\") captured by outer catch); got \
          {} bytes rd_hex={} utf8={:?}. If b\"inner\" (5 bytes) only, \
@@ -5510,8 +6349,10 @@ contract Client {
          fired and the call returned before the catch arm. Task \
          #204+ candidate: string.concat in revert-reason through \
          two-level try/catch chain.",
-        r.return_data.len(), hex::encode(&r.return_data),
-        std::str::from_utf8(&r.return_data).ok());
+        r.return_data.len(),
+        hex::encode(&r.return_data),
+        std::str::from_utf8(&r.return_data).ok()
+    );
 }
 
 // Task ID resolution for Batch #99 on first exec:

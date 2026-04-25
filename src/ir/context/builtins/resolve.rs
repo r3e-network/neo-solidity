@@ -9,6 +9,18 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
                 "Syscalls" => return resolve_syscalls_member(member_name),
                 "NativeCalls" => return resolve_native_calls_member(member_name),
                 "Neo" => return resolve_neo_member(member_name),
+                // Task — `StdLib.<method>(...)` and `CryptoLib.<method>(...)`
+                // in Solidity source must lower to a `BuiltinCall::NativeCall`
+                // to the matching Neo N3 native contract. Before this was
+                // wired, the compiler fell through to the generic function-
+                // call handler, which evaluated and dropped the args then
+                // pushed PUSH0 as the result. Fuzz regression: the
+                // Solidity→bytecode path for `StdLib.itoa(12345, 10)` and
+                // `CryptoLib.sha256(bytes)` returned zeros at runtime even
+                // though the underlying native implementations are correct
+                // (see baseline_tests.rs::callt_stdlib_itoa_roundtrip_via_token).
+                "StdLib" => return resolve_stdlib_member(member_name),
+                "CryptoLib" => return resolve_cryptolib_member(member_name),
                 _ => {}
             }
         }
@@ -20,6 +32,28 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
         }
         if identifier.name == "keccak256" {
             return Some(BuiltinCall::Keccak256);
+        }
+        // Solidity exposes `sha256(bytes)` and `ripemd160(bytes)` as
+        // global built-in hashers (EVM precompiles 0x02 and 0x03). Route
+        // them to the CryptoLib native contract's `sha256`/`ripemd160`
+        // methods. Before this wiring the compiler fell through to the
+        // generic function-call handler, which evaluated and dropped the
+        // argument and pushed 0 — so `sha256(b"abc")` returned 8 zero
+        // bytes at runtime instead of the canonical digest. `keccak256`
+        // already has a dedicated `BuiltinCall::Keccak256` variant
+        // because its EVM semantics differ from Neo's default; `sha256`
+        // and `ripemd160` have a direct 1:1 native mapping.
+        if identifier.name == "sha256" {
+            return Some(BuiltinCall::NativeCall {
+                contract: NativeContract::CryptoLib,
+                method: "sha256".to_string(),
+            });
+        }
+        if identifier.name == "ripemd160" {
+            return Some(BuiltinCall::NativeCall {
+                contract: NativeContract::CryptoLib,
+                method: "ripemd160".to_string(),
+            });
         }
         if identifier.name == "type" {
             return Some(BuiltinCall::TypeOf);
@@ -151,6 +185,22 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "bls12381Add",
             "bls12381Mul",
             "bls12381Pairing",
+            // G1/G2 affine ops mirror the CryptoLib.* path resolver at
+            // roughly line 585. Keeping them out of the Syscalls whitelist
+            // would make `Syscalls.bls12381G1Add(...)` fail with an
+            // "unsupported builtin library call" diagnostic even though the
+            // CryptoLib side accepts the call — the audit agent flagged
+            // this asymmetry.
+            "bls12381G1Add",
+            "bls12381G1Mul",
+            "bls12381G1Neg",
+            "bls12381G2Add",
+            "bls12381G2Mul",
+            "bls12381G2Neg",
+            // Alias for `keccak256` — the devpack's `Syscalls.sol` exposes
+            // it as `neoKeccak256` so the name doesn't shadow Solidity's
+            // bare `keccak256` intrinsic. Unwired here before the audit.
+            "neoKeccak256",
             "serialize",
             "deserialize",
             "itoa",
@@ -507,8 +557,52 @@ fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
         "verifyWithWitness" => Some(BuiltinCall::Syscall(
             "System.Runtime.CheckWitness".to_string(),
         )),
-        "sha256Hash" => Some(BuiltinCall::Syscall("System.Crypto.SHA256".to_string())),
-        "ripemd160Hash" => Some(BuiltinCall::Syscall("System.Crypto.RIPEMD160".to_string())),
+        "sha256Hash" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "sha256".to_string(),
+        }),
+        "ripemd160Hash" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: "ripemd160".to_string(),
+        }),
+        _ => None,
+    }
+}
+
+/// `StdLib.<method>(...)` — resolve bare member-access into a NativeCall to
+/// the StdLib native contract (hash c0ef39cee0e4e925c6c2a06a79e1440dd86fceac).
+/// Solidity source can write either `StdLib.itoa(v, 10)` or the devpack's
+/// `Syscalls.itoa(v, 10)`; both must land at the same CALLT. See
+/// `resolve_syscalls_member` for the sibling dispatch.
+fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
+    match member {
+        "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "itoa" | "atoi"
+        | "base64Encode" | "base64Decode" | "base64UrlEncode" | "base64UrlDecode"
+        | "base58Encode" | "base58Decode" | "base58CheckEncode" | "base58CheckDecode"
+        | "hexEncode" | "hexDecode" | "memoryCompare" | "memorySearch" | "stringSplit"
+        | "strLen" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::StdLib,
+            method: member.to_string(),
+        }),
+        _ => None,
+    }
+}
+
+/// `CryptoLib.<method>(...)` — resolve bare member-access into a NativeCall
+/// to the CryptoLib native contract (hash 1bf575ab11896884136110a35a12886cde0b66c72).
+/// Keeps parity with `Syscalls.sha256` / `Syscalls.ripemd160` / etc.
+fn resolve_cryptolib_member(member: &str) -> Option<BuiltinCall> {
+    match member {
+        "sha256" | "ripemd160" | "verifyWithECDsa" | "murmur32" | "keccak256"
+        | "recoverSecp256K1" | "verifyWithEd25519" | "bls12381Serialize"
+        | "bls12381Deserialize" | "bls12381Equal" | "bls12381Add" | "bls12381Mul"
+        | "bls12381Pairing" | "bls12381G1Add" | "bls12381G1Mul" | "bls12381G2Add"
+        | "bls12381G2Mul" | "bls12381G1Neg" | "bls12381G2Neg" => {
+            Some(BuiltinCall::NativeCall {
+                contract: NativeContract::CryptoLib,
+                method: member.to_string(),
+            })
+        }
         _ => None,
     }
 }

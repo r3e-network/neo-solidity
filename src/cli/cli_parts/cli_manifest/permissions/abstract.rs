@@ -170,8 +170,8 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
             state.stack.push(AbstractValue::Unknown);
         }
         MemCpy => {
+            // Real NeoVM: Pop 5, Push 0 (in-place buffer modification).
             pop_n(&mut state.stack, 5)?;
-            state.stack.push(AbstractValue::Unknown);
         }
         Substr => {
             // Substr pops [bytes, index, count] and pushes [bytes_substr].

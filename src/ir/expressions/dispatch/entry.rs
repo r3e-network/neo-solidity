@@ -1,5 +1,25 @@
 // Expression lowering.
+//
+// `stacker::maybe_grow` at the entry point lets the compiler handle
+// pathologically nested expressions (e.g. `((((((x))))))` or `!!!!!x`
+// 10k+ deep) without stack-overflowing. A fuzz-audit in April 2026
+// surfaced six such cases (nested parens / unary / binop chains /
+// MemberAccess chains / statement blocks) — see docs/FUZZ.md's
+// "Recent bug class: DoS-via-unbounded-recursion / expansion" for
+// the full catalogue. The 1-MB grow ceiling is generous: real Solidity
+// parsers cap expression depth much lower so legitimate code never
+// needs the extra stack.
 fn lower_expression(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+        lower_expression_inner(expr, ctx, instructions)
+    })
+}
+
+fn lower_expression_inner(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

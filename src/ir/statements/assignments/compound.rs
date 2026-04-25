@@ -28,16 +28,10 @@ fn emit_compound_binary_op_for_lhs(
     }
 }
 
-/// Task #118: lower the RHS of a compound assignment and clean up the leaked
-/// MEMCPY destination buffer that `coerce_to_fixed_bytes` (invoked by
-/// `bytesN(..)` / `address(..)` casts — see `is_fixed_bytes_cast_expr`)
-/// leaves beneath the canonical ByteString result. Without this cleanup, a
-/// compound op like `r |= bytes32(shifted)` would pop the leaked dst buffer
-/// and the canonical result for its two operands — completely ignoring the
-/// already-loaded `r` value beneath and leaking it onto the stack. Mirrors
-/// the Swap;Drop pattern already used by `lower_binary_expr` in
-/// `src/ir/expressions/dispatch/binary.rs`. See fuzz harness
-/// `batch51_aa4_bytes_to_bytes32_bitwise_shl_or_assembly`.
+/// Task #118: lower the RHS of a compound assignment. Older runtime shims
+/// treated MEMCPY as returning a destination buffer and needed stack cleanup
+/// here; real NeoVM MEMCPY pushes no value, so the lowered RHS is already the
+/// canonical result.
 fn lower_compound_rhs(
     rhs: &Expression,
     ctx: &mut LoweringContext,
@@ -46,10 +40,7 @@ fn lower_compound_rhs(
     if !lower_expression(rhs, ctx, instructions) {
         return false;
     }
-    if is_fixed_bytes_cast_expr(rhs) {
-        instructions.push(Instruction::Swap);
-        instructions.push(Instruction::Drop(ValueType::Any));
-    }
+    // No Swap; Drop needed: real NeoVM MEMCPY pushes nothing.
     true
 }
 
@@ -260,13 +251,15 @@ fn lower_compound_assignment(
         // for Counter; c.inc().inc()...`) where `inc(Counter memory c)` does
         // `c.value++` actually mutate the passed-in copy.
         if let Expression::Variable(base) = inner.as_ref() {
-            let load_base = if let Some(local_index) = ctx.resolve_local(&base.name) {
-                Some(Instruction::LoadLocal(local_index))
-            } else if let Some(param_index) = ctx.param_index_map.get(&base.name).copied() {
-                Some(Instruction::LoadParameter(param_index))
-            } else {
-                None
-            };
+            let load_base = ctx
+                .resolve_local(&base.name)
+                .map(Instruction::LoadLocal)
+                .or_else(|| {
+                    ctx.param_index_map
+                        .get(&base.name)
+                        .copied()
+                        .map(Instruction::LoadParameter)
+                });
 
             if let Some(load_base) = load_base {
                 if let Some(ValueType::Struct { fields, .. }) =
@@ -356,18 +349,11 @@ fn lower_compound_assignment(
     // Compatibility fallback: preserve side effects and produce a placeholder result.
     let mut success = true;
     if lower_expression(lhs, ctx, instructions) {
-        if is_fixed_bytes_cast_expr(lhs) {
-            // MEMCPY-leaked dst buffer beneath the canonical result — drop both.
-            instructions.push(Instruction::Drop(ValueType::Any));
-        }
         instructions.push(Instruction::Drop(ValueType::Any));
     } else {
         success = false;
     }
     if lower_expression(rhs, ctx, instructions) {
-        if is_fixed_bytes_cast_expr(rhs) {
-            instructions.push(Instruction::Drop(ValueType::Any));
-        }
         instructions.push(Instruction::Drop(ValueType::Any));
     } else {
         success = false;

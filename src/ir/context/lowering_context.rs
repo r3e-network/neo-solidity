@@ -301,8 +301,13 @@ impl<'a> LoweringContext<'a> {
         arg_count: usize,
         has_return: bool,
     ) {
-        self.function_pointer_bindings
-            .insert(name.to_string(), FunctionPointerBinding { arg_count, has_return });
+        self.function_pointer_bindings.insert(
+            name.to_string(),
+            FunctionPointerBinding {
+                arg_count,
+                has_return,
+            },
+        );
     }
 
     /// Task #186 — look up a function-pointer binding for an identifier.
@@ -338,10 +343,6 @@ impl<'a> LoweringContext<'a> {
     /// `Expression::Variable("this")`.
     fn current_contract_name(&self) -> &str {
         &self.current_contract_name
-    }
-
-    fn parameter_count(&self) -> usize {
-        self.param_types.len()
     }
 
     fn set_return_info(&mut self, slots: Vec<Option<usize>>, types: Vec<ValueType>) {
@@ -399,11 +400,7 @@ impl<'a> LoweringContext<'a> {
     /// (in declaration order for multi-return) and jumps to `end_label`,
     /// bypassing the raw RET that would otherwise skip the modifier
     /// epilogue (e.g. `locked = 0;` after `_;`).
-    fn set_modifier_return_redirect(
-        &mut self,
-        slots: Vec<Option<usize>>,
-        end_label: usize,
-    ) {
+    fn set_modifier_return_redirect(&mut self, slots: Vec<Option<usize>>, end_label: usize) {
         self.modifier_return_redirect = Some((slots, end_label));
     }
 
@@ -759,11 +756,7 @@ impl<'a> LoweringContext<'a> {
     /// return value, or the build pipeline didn't register it). Callers
     /// should degrade gracefully (e.g., `infer_type_from_expression` falls
     /// through to the existing type-inference logic).
-    fn get_function_return_type(
-        &self,
-        name: &str,
-        arg_count: usize,
-    ) -> Option<&ValueType> {
+    fn get_function_return_type(&self, name: &str, arg_count: usize) -> Option<&ValueType> {
         self.function_return_types
             .get(&(name.to_string(), arg_count))
     }

@@ -59,10 +59,7 @@ mod batch18_example_regression {
             .unwrap_or_else(|e| panic!("read_dir({}) failed: {}", dir, e))
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
-            .filter(|p| {
-                p.is_file()
-                    && p.extension().and_then(|e| e.to_str()) == Some("sol")
-            })
+            .filter(|p| p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("sol"))
             .collect();
         out.sort();
         out
@@ -79,8 +76,10 @@ mod batch18_example_regression {
         // safety if we're unsure.
         src.lines().any(|line| {
             let trimmed = line.trim_start();
-            trimmed.starts_with("import ") || trimmed.starts_with("import\"")
-                || trimmed.starts_with("import{") || trimmed.starts_with("import (")
+            trimmed.starts_with("import ")
+                || trimmed.starts_with("import\"")
+                || trimmed.starts_with("import{")
+                || trimmed.starts_with("import (")
         }) || src.contains("\nimport ")
     }
 
@@ -141,7 +140,8 @@ mod batch18_example_regression {
             match compile_contracts(&src, false, 2) {
                 Ok(artifacts) => {
                     if artifacts.is_empty() {
-                        unexpected_failures.push((path.clone(), "compiled OK but zero artifacts".into()));
+                        unexpected_failures
+                            .push((path.clone(), "compiled OK but zero artifacts".into()));
                     } else {
                         // Take the manifest from the FIRST artifact. Most
                         // example files have exactly one contract; those with
@@ -314,17 +314,29 @@ mod batch18_example_regression {
             }
 
             // 3. `permissions` is an array (can be empty).
-            if !manifest.get("permissions").map(|v| v.is_array()).unwrap_or(false) {
+            if !manifest
+                .get("permissions")
+                .map(|v| v.is_array())
+                .unwrap_or(false)
+            {
                 missing.push("permissions:array");
             }
 
             // 4. `supportedstandards` is an array.
-            if !manifest.get("supportedstandards").map(|v| v.is_array()).unwrap_or(false) {
+            if !manifest
+                .get("supportedstandards")
+                .map(|v| v.is_array())
+                .unwrap_or(false)
+            {
                 missing.push("supportedstandards:array");
             }
 
             // 5. `groups` is an array.
-            if !manifest.get("groups").map(|v| v.is_array()).unwrap_or(false) {
+            if !manifest
+                .get("groups")
+                .map(|v| v.is_array())
+                .unwrap_or(false)
+            {
                 missing.push("groups:array");
             }
 
@@ -3719,4 +3731,3 @@ contract C {
             result.exception.as_ref().map(|e| &e.message));
     }
 }
-

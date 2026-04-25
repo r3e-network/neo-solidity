@@ -87,6 +87,70 @@ fn standard_json_carries_features_and_permissions() {
 }
 
 #[test]
+fn standard_json_abi_preserves_event_anonymous_flag() {
+    let temp = tempdir().expect("tempdir");
+    let input_path = temp.path().join("input.json");
+    let output_path = temp.path().join("out.json");
+
+    let source = r#"
+    pragma solidity ^0.8.19;
+
+    contract EventAbi {
+        event Visible(address indexed account);
+        event Hidden(address indexed account) anonymous;
+    }
+    "#;
+
+    let input_json = json!({
+        "language": "Solidity",
+        "sources": {
+            "EventAbi.sol": { "content": source }
+        },
+        "settings": {}
+    });
+    fs::write(
+        &input_path,
+        serde_json::to_string_pretty(&input_json).unwrap(),
+    )
+    .expect("write input");
+
+    process_standard_json(
+        input_path.to_str().unwrap(),
+        Some(output_path.to_str().unwrap()),
+        StandardJsonOptions {
+            optimizer_level: 2,
+            use_callt: false,
+            deny_wildcard_permissions: false,
+            deny_wildcard_contracts: false,
+            deny_wildcard_methods: false,
+            nef_source: None,
+            manifest_permissions: None,
+            contract_names: Vec::new(),
+        },
+    )
+    .expect("standard-json processing should succeed");
+
+    let output: Value =
+        serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
+            .expect("output json");
+    let abi = output["contracts"]["EventAbi.sol"]["EventAbi"]["abi"]
+        .as_array()
+        .expect("abi array");
+
+    let visible = abi
+        .iter()
+        .find(|entry| entry["type"] == "event" && entry["name"] == "Visible")
+        .expect("Visible event");
+    let hidden = abi
+        .iter()
+        .find(|entry| entry["type"] == "event" && entry["name"] == "Hidden")
+        .expect("Hidden event");
+
+    assert_eq!(visible["anonymous"], Value::Bool(false));
+    assert_eq!(hidden["anonymous"], Value::Bool(true));
+}
+
+#[test]
 fn standard_json_exposes_neo_method_map_for_overloads() {
     let temp = tempdir().expect("tempdir");
     let input_path = temp.path().join("input.json");
@@ -201,7 +265,8 @@ fn standard_json_exposes_neo_method_map_for_same_arity_overloads() {
     assert_eq!(method_map["foo(uint256)"], "foo(uint256)");
     assert_eq!(method_map["foo(address)"], "foo(address)");
 
-    let methods = output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["manifest"]["abi"]["methods"]
+    let methods = output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["manifest"]
+        ["abi"]["methods"]
         .as_array()
         .expect("methods array");
     let method_names: Vec<_> = methods

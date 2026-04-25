@@ -112,9 +112,12 @@ fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) {
                 bytecode,
                 |bytecode| bytecode.push(0x10), // PUSH0
                 |bytecode| {
-                    // Coerce ByteString -> Integer via `value + 0`.
-                    bytecode.push(0x10); // PUSH0
-                    bytecode.push(0x9E); // ADD
+                    // Coerce ByteString -> Integer via CONVERT.
+                    // The old `ADD(ByteString, Integer(0))` approach
+                    // concatenated on real NeoVM (mixed-type ADD → CAT),
+                    // producing a 33-byte ByteString for 32-byte values.
+                    bytecode.push(0xDB); // CONVERT
+                    bytecode.push(0x21); // type = Integer
                 },
             );
         }

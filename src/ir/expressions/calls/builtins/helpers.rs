@@ -21,8 +21,14 @@ fn value_type_satisfies_manifest_type(actual: &ValueType, expected: ManifestType
         ValueType::Any => None,
         ValueType::Integer { .. } => Some(expected == ManifestType::Integer),
         ValueType::Boolean => Some(expected == ManifestType::Boolean),
-        ValueType::String => Some(matches!(expected, ManifestType::String | ManifestType::ByteArray)),
-        ValueType::Address => Some(matches!(expected, ManifestType::Hash160 | ManifestType::ByteArray)),
+        ValueType::String => Some(matches!(
+            expected,
+            ManifestType::String | ManifestType::ByteArray
+        )),
+        ValueType::Address => Some(matches!(
+            expected,
+            ManifestType::Hash160 | ManifestType::ByteArray
+        )),
         ValueType::ByteArray { fixed_len } => match expected {
             ManifestType::Hash160 => Some(matches!(fixed_len, Some(20))),
             ManifestType::Hash256 => Some(matches!(fixed_len, Some(32))),
@@ -56,7 +62,9 @@ fn extract_abi_encode_args(expr: &Expression) -> Option<&[Expression]> {
         return None;
     };
 
-    if base.name == "abi" && (member.name == "encode" || member.name == "encodePacked" || member.name == "encodeCall") {
+    if base.name == "abi"
+        && (member.name == "encode" || member.name == "encodePacked" || member.name == "encodeCall")
+    {
         Some(args.as_slice())
     } else {
         None
@@ -263,4 +271,974 @@ fn is_static_abi_type_value(ty: &ValueType) -> bool {
         ValueType::Struct { .. } => false,
         ValueType::Any => false,
     }
+}
+
+fn lower_abi_encode_args_direct_from_slice(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    let refs: Vec<&Expression> = args.iter().collect();
+    lower_abi_encode_args_direct(&refs, ctx, instructions)
+}
+
+fn lower_abi_encode_args_direct(
+    args: &[&Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    lower_abi_encode_args_direct_impl(args, ctx, instructions, false)
+}
+
+fn lower_abi_encode_args_direct_for_encode_call(
+    args: &[&Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    lower_abi_encode_args_direct_impl(args, ctx, instructions, true)
+}
+
+fn lower_abi_encode_args_direct_impl(
+    args: &[&Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    flatten_struct_params: bool,
+) -> Option<bool> {
+    if args.is_empty() {
+        instructions.push(Instruction::PushLiteral(
+            LiteralValue::ByteArray(Vec::new()),
+        ));
+        return Some(true);
+    }
+
+    if let Some(result) = lower_abi_encode_head_tail_direct(args, ctx, instructions) {
+        return Some(result);
+    }
+
+    let pre_len = instructions.len();
+    let mut slot_count = 0usize;
+    for arg in args {
+        match lower_static_abi_slots_for_expr(arg, ctx, instructions, flatten_struct_params) {
+            Some(slots) => slot_count += slots,
+            None => {
+                instructions.truncate(pre_len);
+                return None;
+            }
+        }
+    }
+
+    if slot_count == 0 {
+        instructions.truncate(pre_len);
+        return None;
+    }
+
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: slot_count,
+    });
+    Some(true)
+}
+
+fn lower_abi_encode_head_tail_direct(
+    args: &[&Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    let arg_types: Vec<ValueType> = args
+        .iter()
+        .map(|arg| infer_type_from_expression(arg, ctx))
+        .collect::<Option<Vec<_>>>()?;
+
+    if !arg_types.iter().any(abi_value_type_is_dynamic) {
+        return None;
+    }
+
+    let mut head_slot_count = 0usize;
+    for value_type in &arg_types {
+        if abi_value_type_is_dynamic(value_type) {
+            if !abi_dynamic_value_type_is_supported(value_type) {
+                return None;
+            }
+            head_slot_count += 1;
+        } else if let Some(slots) = abi_static_slot_count(value_type) {
+            head_slot_count += slots;
+        } else {
+            return None;
+        }
+    }
+
+    let pre_len = instructions.len();
+    let mut value_locals = Vec::with_capacity(args.len());
+    for (index, (arg, value_type)) in args.iter().zip(arg_types.iter()).enumerate() {
+        if !lower_expression(arg, ctx, instructions) {
+            instructions.truncate(pre_len);
+            return Some(false);
+        }
+        let tmp_id = ctx.next_label();
+        let local = ctx.allocate_local(
+            format!("__abi_arg_{index}_{tmp_id}"),
+            Some(value_type.clone()),
+        );
+        instructions.push(Instruction::StoreLocal(local));
+        value_locals.push(local);
+    }
+
+    let offset_local = ctx.allocate_local("__abi_tail_offset".to_string(), None);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (head_slot_count * 32) as u64,
+    ))));
+    instructions.push(Instruction::StoreLocal(offset_local));
+
+    let mut tail_locals = Vec::new();
+    let mut part_count = 0usize;
+
+    for (local, value_type) in value_locals.iter().zip(arg_types.iter()) {
+        if abi_value_type_is_dynamic(value_type) {
+            instructions.push(Instruction::LoadLocal(offset_local));
+            emit_abi_u256_slot(ctx, instructions);
+            part_count += 1;
+
+            instructions.push(Instruction::LoadLocal(*local));
+            emit_abi_dynamic_tail_for_value_type(value_type, ctx, instructions)?;
+            let tail_local = ctx.allocate_local("__abi_tail".to_string(), None);
+            instructions.push(Instruction::StoreLocal(tail_local));
+
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::LoadLocal(tail_local));
+            instructions.push(Instruction::GetSize);
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::StoreLocal(offset_local));
+            tail_locals.push(tail_local);
+        } else {
+            let slots =
+                emit_abi_static_slots_from_local(*local, value_type, ctx, instructions)?;
+            part_count += slots;
+        }
+    }
+
+    for tail_local in tail_locals {
+        instructions.push(Instruction::LoadLocal(tail_local));
+        part_count += 1;
+    }
+
+    if part_count == 0 {
+        instructions.truncate(pre_len);
+        return None;
+    }
+
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: part_count,
+    });
+    Some(true)
+}
+
+fn lower_abi_encode_packed_args_direct_from_slice(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    if args.is_empty() {
+        instructions.push(Instruction::PushLiteral(
+            LiteralValue::ByteArray(Vec::new()),
+        ));
+        return Some(true);
+    }
+
+    let pre_len = instructions.len();
+    for arg in args {
+        if !lower_packed_abi_bytes_for_expr(arg, ctx, instructions)? {
+            instructions.truncate(pre_len);
+            return Some(false);
+        }
+    }
+
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: args.len(),
+    });
+    Some(true)
+}
+
+fn lower_static_abi_slots_for_expr(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    flatten_struct_params: bool,
+) -> Option<usize> {
+    let value_type = infer_type_from_expression(expr, ctx)?;
+    match value_type {
+        ValueType::Struct { fields, .. } => {
+            if fields.is_empty()
+                || !fields
+                    .iter()
+                    .all(|field| is_static_abi_type_value(&field.ty))
+            {
+                return None;
+            }
+
+            if flatten_struct_params {
+                if let Some((base_slot, field_count)) = resolve_struct_param_flat_slots(expr, ctx) {
+                    if field_count != fields.len() {
+                        return None;
+                    }
+                    for (index, field) in fields.iter().enumerate() {
+                        instructions.push(Instruction::LoadParameter(base_slot + index));
+                        emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
+                    }
+                    return Some(fields.len());
+                }
+            }
+
+            let tmp_id = ctx.next_label();
+            let struct_local = ctx.allocate_local(format!("__abi_static_struct_{tmp_id}"), None);
+            if !lower_expression(expr, ctx, instructions) {
+                return Some(0);
+            }
+            instructions.push(Instruction::StoreLocal(struct_local));
+
+            for (index, field) in fields.iter().enumerate() {
+                instructions.push(Instruction::LoadLocal(struct_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(index as u64),
+                )));
+                instructions.push(Instruction::ArrayGet);
+                emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
+            }
+            Some(fields.len())
+        }
+        other if is_static_abi_type_value(&other) => {
+            if !lower_expression(expr, ctx, instructions) {
+                return Some(0);
+            }
+            emit_expr_static_abi_slot_for_value_type(&other, ctx, instructions)?;
+            Some(1)
+        }
+        _ => None,
+    }
+}
+
+fn emit_expr_static_abi_slot_for_value_type(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    match value_type {
+        ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_abi_fixed_buffer(ctx, instructions, 32, true);
+            Some(())
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len == 32 => Some(()),
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } if *len < 32 => {
+            emit_abi_bytesn_slot(ctx, instructions, *len as usize);
+            Some(())
+        }
+        _ => None,
+    }
+}
+
+fn lower_packed_abi_bytes_for_expr(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    let value_type = infer_type_from_expression(expr, ctx)?;
+    let pre_len = instructions.len();
+    if !lower_expression(expr, ctx, instructions) {
+        return Some(false);
+    }
+
+    let lowered = match value_type {
+        ValueType::Integer { bits, .. } => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_abi_fixed_buffer(ctx, instructions, (bits / 8) as usize, true);
+            Some(true)
+        }
+        ValueType::Boolean => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_abi_fixed_buffer(ctx, instructions, 1, true);
+            Some(true)
+        }
+        ValueType::Address => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_abi_fixed_buffer(ctx, instructions, 20, true);
+            Some(true)
+        }
+        ValueType::ByteArray { fixed_len: Some(_) }
+        | ValueType::ByteArray { fixed_len: None }
+        | ValueType::String => Some(true),
+        ValueType::Array(element_type) if is_static_abi_type_value(&element_type) => {
+            emit_abi_packed_static_array(&element_type, ctx, instructions)?;
+            Some(true)
+        }
+        _ => None,
+    };
+
+    if lowered.is_none() {
+        instructions.truncate(pre_len);
+    }
+    lowered
+}
+
+fn lower_abi_decode_direct(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<bool> {
+    if args.len() != 2 {
+        return None;
+    }
+
+    let types = abi_decode_value_types(&args[1], ctx)?;
+    if types.is_empty()
+        || !types
+            .iter()
+            .all(|value_type| abi_static_slot_count(value_type) == Some(1))
+    {
+        return None;
+    }
+
+    let pre_len = instructions.len();
+    if !lower_expression(&args[0], ctx, instructions) {
+        instructions.truncate(pre_len);
+        return Some(false);
+    }
+
+    let buffer_local = ctx.allocate_local("__abi_decode_buf".to_string(), None);
+    instructions.push(Instruction::StoreLocal(buffer_local));
+
+    let expected_bytes = types.len() * 32;
+    let decode_ok_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        expected_bytes as u64,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+    instructions.push(Instruction::JumpIf {
+        target: decode_ok_label,
+    });
+    emit_panic(0x41, instructions);
+    instructions.push(Instruction::Label(decode_ok_label));
+
+    if types.len() == 1 {
+        emit_abi_decode_static_slot(buffer_local, 0, &types[0], ctx, instructions);
+        return Some(true);
+    }
+
+    let tuple_local = ctx.allocate_local(
+        "__abi_decode_tuple".to_string(),
+        Some(ValueType::Array(Box::new(ValueType::Any))),
+    );
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        types.len() as u64,
+    ))));
+    instructions.push(Instruction::NewArray {
+        element_type: ValueType::Any,
+    });
+    instructions.push(Instruction::StoreLocal(tuple_local));
+
+    for (index, value_type) in types.iter().enumerate() {
+        instructions.push(Instruction::LoadLocal(tuple_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            index as u64,
+        ))));
+        emit_abi_decode_static_slot(buffer_local, index, value_type, ctx, instructions);
+        instructions.push(Instruction::ArraySet);
+    }
+
+    instructions.push(Instruction::LoadLocal(tuple_local));
+    Some(true)
+}
+
+fn lower_neo_serialized_arg_array(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let tmp_id = ctx.next_label();
+    let array_local = ctx.allocate_local(format!("__neo_serialized_args_{tmp_id}"), None);
+
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        args.len() as u64,
+    ))));
+    instructions.push(Instruction::NewArray {
+        element_type: ValueType::Any,
+    });
+    instructions.push(Instruction::StoreLocal(array_local));
+
+    let mut success = true;
+    for (index, arg) in args.iter().enumerate() {
+        instructions.push(Instruction::LoadLocal(array_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            index as u64,
+        ))));
+        if !lower_expression(arg, ctx, instructions) {
+            success = false;
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        }
+        instructions.push(Instruction::ArraySet);
+    }
+
+    instructions.push(Instruction::LoadLocal(array_local));
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::NativeCall {
+            contract: NativeContract::StdLib,
+            method: "serialize".to_string(),
+        },
+        arg_count: 1,
+    });
+
+    success
+}
+
+fn abi_decode_value_types(
+    types_expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<Vec<ValueType>> {
+    match types_expr {
+        Expression::List(_, params) => params
+            .iter()
+            .map(|(_, param)| {
+                param
+                    .as_ref()
+                    .and_then(|parameter| infer_type_from_expression(&parameter.ty, ctx))
+            })
+            .collect(),
+        Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx).map(|ty| vec![ty]),
+        other => infer_type_from_expression(other, ctx).map(|ty| vec![ty]),
+    }
+}
+
+fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
+    match value_type {
+        ValueType::Struct { fields, .. }
+            if !fields.is_empty()
+                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+        {
+            Some(fields.len())
+        }
+        other if is_static_abi_type_value(other) => Some(1),
+        _ => None,
+    }
+}
+
+fn abi_value_type_is_dynamic(value_type: &ValueType) -> bool {
+    matches!(
+        value_type,
+        ValueType::ByteArray { fixed_len: None } | ValueType::String | ValueType::Array(_)
+    )
+}
+
+fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> bool {
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String => true,
+        ValueType::Array(element_type) => abi_static_slot_count(element_type).is_some(),
+        _ => false,
+    }
+}
+
+fn emit_abi_static_slots_from_local(
+    local: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<usize> {
+    match value_type {
+        ValueType::Struct { fields, .. }
+            if !fields.is_empty()
+                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+        {
+            for (index, field) in fields.iter().enumerate() {
+                instructions.push(Instruction::LoadLocal(local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                    index as u64,
+                ))));
+                instructions.push(Instruction::ArrayGet);
+                emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
+            }
+            Some(fields.len())
+        }
+        other if is_static_abi_type_value(other) => {
+            instructions.push(Instruction::LoadLocal(local));
+            emit_expr_static_abi_slot_for_value_type(other, ctx, instructions)?;
+            Some(1)
+        }
+        _ => None,
+    }
+}
+
+fn emit_abi_encode_single_stack_value_for_type(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    if abi_value_type_is_dynamic(value_type) {
+        if !abi_dynamic_value_type_is_supported(value_type) {
+            return None;
+        }
+
+        let value_local = ctx.allocate_local("__abi_single_value".to_string(), None);
+        instructions.push(Instruction::StoreLocal(value_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            32u8,
+        ))));
+        emit_abi_u256_slot(ctx, instructions);
+        instructions.push(Instruction::LoadLocal(value_local));
+        emit_abi_dynamic_tail_for_value_type(value_type, ctx, instructions)?;
+        instructions.push(Instruction::CallBuiltin {
+            builtin: BuiltinCall::BytesConcat,
+            arg_count: 2,
+        });
+        return Some(());
+    }
+
+    if abi_static_slot_count(value_type) == Some(1) {
+        emit_expr_static_abi_slot_for_value_type(value_type, ctx, instructions)?;
+        return Some(());
+    }
+
+    None
+}
+
+fn emit_abi_dynamic_tail_for_value_type(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String => {
+            emit_abi_dynamic_bytes_tail(ctx, instructions);
+            Some(())
+        }
+        ValueType::Array(element_type) if abi_static_slot_count(element_type).is_some() => {
+            emit_abi_dynamic_static_array_tail(element_type, ctx, instructions)
+        }
+        _ => None,
+    }
+}
+
+fn emit_abi_dynamic_bytes_tail(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_dyn_bytes_src_{tmp_id}"), None);
+    let len_local = ctx.allocate_local(format!("__abi_dyn_bytes_len_{tmp_id}"), None);
+    let padded_len_local =
+        ctx.allocate_local(format!("__abi_dyn_bytes_padded_len_{tmp_id}"), None);
+    let padded_local = ctx.allocate_local(format!("__abi_dyn_bytes_padded_{tmp_id}"), None);
+    let len_slot_local = ctx.allocate_local(format!("__abi_dyn_bytes_len_slot_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    instructions.push(Instruction::LoadLocal(len_local));
+    emit_abi_u256_slot(ctx, instructions);
+    instructions.push(Instruction::StoreLocal(len_slot_local));
+
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        31u8,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        32u8,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Div));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        32u8,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    instructions.push(Instruction::StoreLocal(padded_len_local));
+
+    instructions.push(Instruction::LoadLocal(padded_len_local));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(padded_local));
+
+    instructions.push(Instruction::LoadLocal(padded_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::MemCpy);
+
+    instructions.push(Instruction::LoadLocal(len_slot_local));
+    instructions.push(Instruction::LoadLocal(padded_local));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: 2,
+    });
+}
+
+fn emit_abi_dynamic_static_array_tail(
+    element_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    emit_abi_static_array_buffer(element_type, ctx, instructions, true)
+}
+
+fn emit_abi_packed_static_array(
+    element_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    emit_abi_static_array_buffer(element_type, ctx, instructions, false)
+}
+
+fn emit_abi_static_slots_for_stack_value(
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<usize> {
+    match value_type {
+        ValueType::Struct { fields, .. }
+            if !fields.is_empty()
+                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+        {
+            let tmp_id = ctx.next_label();
+            let struct_local = ctx.allocate_local(format!("__abi_stack_struct_{tmp_id}"), None);
+            instructions.push(Instruction::StoreLocal(struct_local));
+            for (index, field) in fields.iter().enumerate() {
+                instructions.push(Instruction::LoadLocal(struct_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                    index as u64,
+                ))));
+                instructions.push(Instruction::ArrayGet);
+                emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
+            }
+            Some(fields.len())
+        }
+        other if is_static_abi_type_value(other) => {
+            emit_expr_static_abi_slot_for_value_type(other, ctx, instructions)?;
+            Some(1)
+        }
+        _ => None,
+    }
+}
+
+fn emit_abi_static_array_buffer(
+    element_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    include_length: bool,
+) -> Option<()> {
+    let element_slot_count = abi_static_slot_count(element_type)?;
+    if element_slot_count == 0 {
+        return None;
+    }
+    let element_byte_len = element_slot_count * 32;
+    let tmp_id = ctx.next_label();
+    let arr_local = ctx.allocate_local(format!("__abi_arr_{tmp_id}"), None);
+    let len_local = ctx.allocate_local(format!("__abi_arr_len_{tmp_id}"), None);
+    let out_local = ctx.allocate_local(format!("__abi_arr_out_{tmp_id}"), None);
+    let idx_local = ctx.allocate_local(format!("__abi_arr_idx_{tmp_id}"), None);
+    let elem_slot_local = ctx.allocate_local(format!("__abi_arr_elem_slot_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(arr_local));
+    instructions.push(Instruction::LoadLocal(arr_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        element_byte_len as u64,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    if include_length {
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            32u8,
+        ))));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    }
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(out_local));
+
+    if include_length {
+        instructions.push(Instruction::LoadLocal(len_local));
+        emit_abi_u256_slot(ctx, instructions);
+        let len_slot_local = ctx.allocate_local(format!("__abi_arr_len_slot_{tmp_id}"), None);
+        instructions.push(Instruction::StoreLocal(len_slot_local));
+        instructions.push(Instruction::LoadLocal(out_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::LoadLocal(len_slot_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            32u8,
+        ))));
+        instructions.push(Instruction::MemCpy);
+    }
+
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    let loop_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::Label(loop_label));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: end_label });
+
+    instructions.push(Instruction::LoadLocal(arr_local));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::ArrayGet);
+    let emitted_slots = emit_abi_static_slots_for_stack_value(element_type, ctx, instructions)?;
+    if emitted_slots != element_slot_count {
+        return None;
+    }
+    if emitted_slots > 1 {
+        instructions.push(Instruction::CallBuiltin {
+            builtin: BuiltinCall::BytesConcat,
+            arg_count: emitted_slots,
+        });
+    }
+    instructions.push(Instruction::StoreLocal(elem_slot_local));
+
+    instructions.push(Instruction::LoadLocal(out_local));
+    if include_length {
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            32u8,
+        ))));
+    } else {
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    }
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        element_byte_len as u64,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::LoadLocal(elem_slot_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        element_byte_len as u64,
+    ))));
+    instructions.push(Instruction::MemCpy);
+
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(idx_local));
+    instructions.push(Instruction::Jump { target: loop_label });
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(out_local));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    Some(())
+}
+
+fn emit_abi_decode_static_slot(
+    buffer_local: usize,
+    index: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    match value_type {
+        ValueType::Integer { .. } | ValueType::Boolean => {
+            emit_abi_decode_slot_slice(buffer_local, index, 0, 32, instructions);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            materialize_byte_array_buffer(ctx, instructions, true);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::Integer,
+            });
+        }
+        ValueType::Address => {
+            emit_abi_decode_slot_slice(buffer_local, index, 12, 20, instructions);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            materialize_byte_array_buffer(ctx, instructions, true);
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } => {
+            let len = (*len).min(32) as usize;
+            emit_abi_decode_slot_slice(buffer_local, index, 0, len, instructions);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+        }
+        _ => {
+            emit_abi_decode_slot_slice(buffer_local, index, 0, 32, instructions);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+        }
+    }
+}
+
+fn emit_abi_decode_slot_slice(
+    buffer_local: usize,
+    index: usize,
+    slot_offset: usize,
+    len: usize,
+    instructions: &mut Vec<Instruction>,
+) {
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (index * 32 + slot_offset) as u64,
+    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        len as u64,
+    ))));
+    instructions.push(Instruction::Substr);
+}
+
+fn emit_abi_u256_slot(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let _ = emit_expr_static_abi_slot_for_value_type(
+        &ValueType::Integer {
+            signed: false,
+            bits: 256,
+        },
+        ctx,
+        instructions,
+    );
+}
+
+fn emit_abi_fixed_buffer(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    len: usize,
+    reverse: bool,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_fixed_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__abi_fixed_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__abi_fixed_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__abi_fixed_count_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    let ge_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+
+    if reverse {
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::LoadLocal(dst_local));
+        instructions.push(Instruction::ReverseItems);
+    } else {
+        instructions.push(Instruction::LoadLocal(dst_local));
+    }
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+}
+
+fn emit_abi_bytesn_slot(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    len: usize,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_bytesn_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__abi_bytesn_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__abi_bytesn_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__abi_bytesn_count_{tmp_id}"), None);
+
+    instructions.push(Instruction::StoreLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    let ge_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump { target: end_label });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
 }

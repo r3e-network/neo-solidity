@@ -45,10 +45,43 @@ mod bytecode;
 #[cfg(test)]
 pub(crate) use crate::codegen::interop_id_bytes;
 pub(crate) use bytecode::generate_contract_bytecode;
+// Public re-export of the NeoVM bytecode disassembler so external tooling
+// (fuzz targets, debugging consumers) can call it without touching
+// `pub(crate)` internals. The function is total — any byte sequence
+// produces a string without panicking. See
+// `fuzz/fuzz_targets/fuzz_target_disasm.rs`.
+pub use bytecode::disassemble_neovm_bytecode;
 mod ir_optimize;
 pub(crate) use ir_optimize::optimize_ir;
 mod standard_json;
 pub(crate) use standard_json::*;
+
+/// Fuzz-only public entry point for the Solidity standard-JSON input parser.
+///
+/// Accepts arbitrary bytes, converts to UTF-8 (returns `Err` on invalid
+/// UTF-8 rather than panicking), and invokes the internal standard-JSON
+/// processor with safe defaults (no output path, default options). The
+/// function is total — it must never panic. Callers (the fuzz target)
+/// ignore the returned `Result` and only watch for panics.
+///
+/// This wrapper exists so `fuzz/fuzz_targets/fuzz_target_standard_json.rs`
+/// can exercise the standard-JSON parser without touching `pub(crate)`
+/// internals. See that target for the libfuzzer harness.
+pub fn fuzz_process_standard_json_content(input: &[u8]) -> Result<(), String> {
+    let input_str = std::str::from_utf8(input)
+        .map_err(|err| format!("standard-json fuzz input was not valid UTF-8: {err}"))?;
+    let options = StandardJsonOptions {
+        optimizer_level: 0,
+        use_callt: false,
+        deny_wildcard_permissions: false,
+        deny_wildcard_contracts: false,
+        deny_wildcard_methods: false,
+        nef_source: None,
+        manifest_permissions: None,
+        contract_names: Vec::new(),
+    };
+    process_standard_json_content(input_str, None, options)
+}
 
 include!("cli_parts/cli_defs.rs");
 include!("cli_parts/cli_run.rs");

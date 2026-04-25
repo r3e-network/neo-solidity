@@ -1,9 +1,8 @@
 #[test]
-fn tuple_return_is_lowered_via_abi_encode() {
-    // Task #64: multi-value `return (a, b)` must route through the
-    // `abiEncode` StdLib builtin (same handler Task #44 wired up for
-    // `abi.encode(...)`) so the main-frame RET emits BE-packed 32-byte
-    // slots instead of a serde_json-serialised StackItem::Array.
+fn tuple_return_is_lowered_to_static_abi_slots() {
+    // Multi-value static `return (a, b)` must produce BE-packed 32-byte
+    // slots without routing through pseudo-native StdLib ABI helpers that do
+    // not exist on real Neo N3.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -24,20 +23,31 @@ fn tuple_return_is_lowered_via_abi_encode() {
         .expect("expected foo");
 
     let instrs = &foo.basic_blocks[0].instructions;
-    let encode_call = instrs.iter().find(|instr| {
+    let concat_call = instrs.iter().find(|instr| {
         matches!(
             instr,
             ir::Instruction::CallBuiltin {
-                builtin: ir::BuiltinCall::AbiEncode,
+                builtin: ir::BuiltinCall::BytesConcat,
                 arg_count: 2,
             }
         )
     });
     assert!(
-        encode_call.is_some(),
-        "expected tuple return to emit CallBuiltin AbiEncode with arg_count=2; \
-         got instructions: {:?}",
-        instrs
+        concat_call.is_some(),
+        "expected tuple return to emit static ABI slot BytesConcat with arg_count=2; \
+         got instructions: {instrs:?}",
+    );
+    assert!(
+        !instrs.iter().any(|instr| {
+            matches!(
+                instr,
+                ir::Instruction::CallBuiltin {
+                    builtin: ir::BuiltinCall::AbiEncode,
+                    ..
+                }
+            )
+        }),
+        "static tuple return must not depend on pseudo-native AbiEncode"
     );
     // No NewArray should be emitted for the return value — that was the
     // pre-Task-#64 shape that leaked as JSON at main-frame RET.
