@@ -457,9 +457,20 @@ fn lower_assignment(
                     }
                 }
                 Ok(None) => {
-                    if lower_expression(rhs, ctx, instructions) {
-                        instructions.push(Instruction::StoreLocal(index));
-                        ctx.clear_call_data_local(index);
+                    // Wave-#28: same-contract dynamic-return path. See
+                    // `try_lower_this_external_dynamic_assign` for details.
+                    let dst_type = ctx.local_type(index).cloned();
+                    let decoded = match dst_type.as_ref() {
+                        Some(ty) => try_lower_this_external_dynamic_assign(
+                            index, rhs, ty, ctx, instructions,
+                        ),
+                        None => false,
+                    };
+                    if !decoded {
+                        if lower_expression(rhs, ctx, instructions) {
+                            instructions.push(Instruction::StoreLocal(index));
+                            ctx.clear_call_data_local(index);
+                        }
                     }
                 }
                 Err(message) => {
@@ -803,5 +814,74 @@ fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringContext) -> b
         infer_type_from_expression(inner.as_ref(), ctx),
         Some(ValueType::Address)
     )
+}
+
+/// Wave-#28 fix — same-contract `T[] memory got = this.method();` (and the
+/// interface-cast / address-typed call shapes covered by
+/// `is_this_external_tuple_call`) where `method` returns a single
+/// dynamic-ABI-shaped value (`T[]` / `bytes` / `string`).
+///
+/// Background. Bug #25 wired up `abi.decode(buf, (T[]))` correctly in the
+/// builtins helpers (`emit_abi_decode_dynamic_top_level`). The sibling
+/// fix (above, ~line 347) extends the same compile-time decode to the
+/// tuple-destructure RHS — but only for **static-1-slot** members. A
+/// single-LHS dynamic return (`uint256[] memory got = this.makeArray()`)
+/// dropped through to the generic `Variable` branch which `StoreLocal`'d
+/// the raw ABI ByteString. Subsequent `got.length` then read the byte
+/// length of the encoded payload (e.g. 224 = 32 head + 32 length-prefix +
+/// 5*32 elements for a five-element `uint256[]`) instead of the element
+/// count (5).
+///
+/// This helper, called from both the plain-assignment branch and the
+/// `lower_variable_definition_statement` initializer path, detects the
+/// pattern, runs the dynamic-decode chain on the buffer, and stores the
+/// resulting NeoVM Array (or ByteString for string/bytes) into the
+/// destination slot. Callers must have already verified the LHS slot
+/// type — passed via `dst_type` — and resolved the slot index. Returns
+/// `true` if the decode-and-store path fired (the caller must skip its
+/// own lowering of `rhs`); `false` otherwise (caller falls back).
+///
+/// Static-slot single-LHS returns (`uint256 x = this.foo()`) are NOT
+/// routed through here — they are handled by the existing single-result
+/// dispatch lowering elsewhere in the call chain. Dynamic types are the
+/// novel case: their wire shape (head-offset + length + payload) needs
+/// the dedicated walker.
+fn try_lower_this_external_dynamic_assign(
+    slot: usize,
+    rhs: &Expression,
+    dst_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if !abi_dynamic_decode_value_type_is_supported(dst_type) {
+        return false;
+    }
+    if !is_this_external_tuple_call(rhs, ctx) {
+        return false;
+    }
+
+    // Lower the call into a temp buffer; on failure restore the caller's
+    // instruction list to avoid half-built stack frames (matches the
+    // tuple-destructure branch's `pre_len`/`truncate` discipline).
+    let pre_len = instructions.len();
+    if !lower_expression(rhs, ctx, instructions) {
+        instructions.truncate(pre_len);
+        return false;
+    }
+
+    let buffer_local = ctx.allocate_local(
+        "__this_dyn_abi_buf".to_string(),
+        Some(ValueType::ByteArray { fixed_len: None }),
+    );
+    instructions.push(Instruction::StoreLocal(buffer_local));
+
+    // Decode the top-level dynamic value (`T[]` => Array of decoded
+    // elements; `string`/`bytes` => ByteString). Stack on exit:
+    // `[decoded_value]`.
+    emit_abi_decode_dynamic_top_level(buffer_local, dst_type, ctx, instructions);
+
+    instructions.push(Instruction::StoreLocal(slot));
+    ctx.clear_call_data_local(slot);
+    true
 }
 

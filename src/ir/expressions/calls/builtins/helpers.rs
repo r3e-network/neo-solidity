@@ -524,7 +524,16 @@ fn emit_expr_static_abi_slot_for_value_type(
     instructions: &mut Vec<Instruction>,
 ) -> Option<()> {
     match value_type {
-        ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
+        // Bug #23: signed integers must be sign-extended (0xff..) when negative,
+        // not zero-padded. Route signed-true through the sign-aware buffer.
+        ValueType::Integer { signed: true, .. } => {
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_abi_fixed_buffer_signed(ctx, instructions);
+            Some(())
+        }
+        ValueType::Integer { signed: false, .. } | ValueType::Boolean | ValueType::Address => {
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::ByteArray,
             });
@@ -603,11 +612,23 @@ fn lower_abi_decode_direct(
     }
 
     let types = abi_decode_value_types(&args[1], ctx)?;
-    if types.is_empty()
-        || !types
-            .iter()
-            .all(|value_type| abi_static_slot_count(value_type) == Some(1))
-    {
+    if types.is_empty() {
+        return None;
+    }
+
+    // Each declared decode type must be either single-slot static or one of
+    // the dynamic types we know how to walk (string / bytes / T[] for
+    // static-1-slot T). Bug #24/#25 fix: previously we only accepted
+    // static-1-slot types here and fell through to `StdLib.deserialize`
+    // (which is Neo-native, NOT EVM-ABI-compatible) for any dynamic type,
+    // producing an opaque StackItem callers couldn't `.length` / re-decode.
+    let supported = types
+        .iter()
+        .all(|value_type| {
+            abi_static_slot_count(value_type) == Some(1)
+                || abi_dynamic_decode_value_type_is_supported(value_type)
+        });
+    if !supported {
         return None;
     }
 
@@ -620,22 +641,37 @@ fn lower_abi_decode_direct(
     let buffer_local = ctx.allocate_local("__abi_decode_buf".to_string(), None);
     instructions.push(Instruction::StoreLocal(buffer_local));
 
-    let expected_bytes = types.len() * 32;
-    let decode_ok_label = ctx.next_label();
-    instructions.push(Instruction::LoadLocal(buffer_local));
-    instructions.push(Instruction::GetSize);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        expected_bytes as u64,
-    ))));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-    instructions.push(Instruction::JumpIf {
-        target: decode_ok_label,
-    });
-    emit_panic(0x41, instructions);
-    instructions.push(Instruction::Label(decode_ok_label));
+    let any_dynamic = types
+        .iter()
+        .any(|value_type| abi_dynamic_decode_value_type_is_supported(value_type));
+
+    if !any_dynamic {
+        // All declared types are static-1-slot; total payload size is
+        // exactly `types.len() * 32`. Mismatches panic 0x41.
+        let expected_bytes = types.len() * 32;
+        let decode_ok_label = ctx.next_label();
+        instructions.push(Instruction::LoadLocal(buffer_local));
+        instructions.push(Instruction::GetSize);
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+            expected_bytes as u64,
+        ))));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+        instructions.push(Instruction::JumpIf {
+            target: decode_ok_label,
+        });
+        emit_panic(0x41, instructions);
+        instructions.push(Instruction::Label(decode_ok_label));
+    }
+    // For the dynamic case we cannot statically know the total size; the
+    // per-slot decoders bound-check the length / offset reads themselves.
 
     if types.len() == 1 {
-        emit_abi_decode_static_slot(buffer_local, 0, &types[0], ctx, instructions);
+        let value_type = &types[0];
+        if abi_dynamic_decode_value_type_is_supported(value_type) {
+            emit_abi_decode_dynamic_top_level(buffer_local, value_type, ctx, instructions);
+        } else {
+            emit_abi_decode_static_slot(buffer_local, 0, value_type, ctx, instructions);
+        }
         return Some(true);
     }
 
@@ -656,12 +692,489 @@ fn lower_abi_decode_direct(
         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
             index as u64,
         ))));
-        emit_abi_decode_static_slot(buffer_local, index, value_type, ctx, instructions);
+        if abi_dynamic_decode_value_type_is_supported(value_type) {
+            // Tuple member is dynamic: head slot at index `index` is a
+            // u256 byte-offset (relative to the start of the encoded
+            // buffer) pointing at the value's tail. Walk that offset to
+            // reach the length+payload (string/bytes) or length+elements
+            // (static-element array).
+            emit_abi_decode_dynamic_tuple_member(
+                buffer_local,
+                index,
+                value_type,
+                ctx,
+                instructions,
+            );
+        } else {
+            emit_abi_decode_static_slot(buffer_local, index, value_type, ctx, instructions);
+        }
         instructions.push(Instruction::ArraySet);
     }
 
     instructions.push(Instruction::LoadLocal(tuple_local));
     Some(true)
+}
+
+/// Predicate matching dynamic ABI value types whose `abi.decode` lowering
+/// is implemented by [`emit_abi_decode_dynamic_top_level`] /
+/// [`emit_abi_decode_dynamic_tuple_member`].
+///
+/// Currently: `string`, `bytes` (= `ByteArray { fixed_len: None }`), and
+/// `T[]` where `T` is a single-slot static ABI type (uint/int/address/
+/// bool/bytesN). Nested-dynamic (`string[]`, `bytes[]`, `T[][]`) is left
+/// for follow-up — `abi_static_slot_count(element_type) == Some(1)` is
+/// the existing predicate for "element fits in a single 32-byte slot".
+fn abi_dynamic_decode_value_type_is_supported(value_type: &ValueType) -> bool {
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String => true,
+        ValueType::Array(element_type) => abi_static_slot_count(element_type) == Some(1),
+        _ => false,
+    }
+}
+
+/// Decode a single top-level dynamic value from the encoded buffer in
+/// `buffer_local`.
+///
+/// Layout produced by `abi.encode(x)` for a single dynamic `x`:
+///   `BE32(0x20) || <tail at offset 0x20>`
+/// i.e. a leading 32-byte head holding the offset 0x20 (= 32) of the tail,
+/// followed by the tail payload (length + bytes for `string`/`bytes`, or
+/// length + elements for `T[]`).
+///
+/// Stack on exit: `[decoded_value]` (ByteString for string/bytes, Array
+/// of element values for `T[]`).
+fn emit_abi_decode_dynamic_top_level(
+    buffer_local: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    // For a single top-level dynamic arg, the tail offset is fixed at
+    // 0x20. Skip dereferencing the head — go straight to the tail.
+    emit_abi_decode_dynamic_tail(buffer_local, 32, value_type, ctx, instructions);
+}
+
+/// Decode a dynamic tuple member at head index `index`.
+///
+/// Reads the u256 offset from `buffer[index*32 .. index*32+32]` (which is
+/// the byte offset of the member's tail relative to the start of the
+/// encoded buffer) and dispatches to [`emit_abi_decode_dynamic_tail`] at
+/// that runtime offset.
+fn emit_abi_decode_dynamic_tuple_member(
+    buffer_local: usize,
+    index: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    // Read the offset slot. We can fold it through a temp local.
+    let tmp_id = ctx.next_label();
+    let offset_local = ctx.allocate_local(format!("__abi_dyn_off_{tmp_id}"), None);
+    emit_abi_decode_u256_at(buffer_local, index * 32, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(offset_local));
+    emit_abi_decode_dynamic_tail_runtime(
+        buffer_local,
+        offset_local,
+        value_type,
+        ctx,
+        instructions,
+    );
+}
+
+/// Decode a dynamic tail at a constant byte offset `tail_offset` within
+/// `buffer_local`.
+fn emit_abi_decode_dynamic_tail(
+    buffer_local: usize,
+    tail_offset: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String => {
+            emit_abi_decode_bytes_tail_const(buffer_local, tail_offset, ctx, instructions);
+        }
+        ValueType::Array(element_type) => {
+            emit_abi_decode_static_element_array_tail_const(
+                buffer_local,
+                tail_offset,
+                element_type,
+                ctx,
+                instructions,
+            );
+        }
+        _ => {
+            // Should never happen — gated by
+            // `abi_dynamic_decode_value_type_is_supported`. Push a sane
+            // empty-bytes fallback rather than panic from inside the
+            // lowering helper.
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+        }
+    }
+}
+
+/// Same as [`emit_abi_decode_dynamic_tail`] but with the tail offset
+/// supplied at runtime via `offset_local`. Used for tuple members where
+/// the offset is read from a head slot.
+fn emit_abi_decode_dynamic_tail_runtime(
+    buffer_local: usize,
+    offset_local: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String => {
+            emit_abi_decode_bytes_tail_runtime(buffer_local, offset_local, ctx, instructions);
+        }
+        ValueType::Array(element_type) => {
+            emit_abi_decode_static_element_array_tail_runtime(
+                buffer_local,
+                offset_local,
+                element_type,
+                ctx,
+                instructions,
+            );
+        }
+        _ => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+        }
+    }
+}
+
+/// Read the (length-/offset-shaped) u256 stored at byte offset
+/// `byte_offset` inside `buffer_local` (BE-encoded 32-byte slot) and
+/// push it as a NeoVM `Integer`.
+///
+/// The runtime's `CONVERT → Integer` of a >8-byte ByteArray returns a
+/// signed-LE `ByteArray`, NOT an `Integer`, to preserve precision (see
+/// `convert_item` in `runtime/execution/execution_impl_part3_conversion.rs`
+/// and the Task #111 history). That breaks downstream callers (SUBSTR
+/// `pop_usize`) which require a real Integer.
+///
+/// EVM-canonical length/offset slots are bounded by `usize::MAX` in
+/// practice (calldata cannot exceed a few MB on any real chain, let alone
+/// 2^64 bytes), so it is safe to read only the low 8 bytes of the slot
+/// and rely on the ≤8-byte fast path of `convert_item` which produces an
+/// `Integer(i64)`. The high 24 bytes of every well-formed length/offset
+/// slot are zero — if a malicious / corrupted payload claims a length
+/// exceeding `i64::MAX`, the subsequent `SUBSTR` will fault on bounds
+/// anyway.
+fn emit_abi_decode_u256_at(
+    buffer_local: usize,
+    byte_offset: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    // The low 8 bytes of the 32-byte BE slot live at `byte_offset + 24`.
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (byte_offset + 24) as u64,
+    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(8u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    // Reverse BE→LE so the ≤8-byte CONVERT→Integer path interprets the
+    // bytes correctly.
+    materialize_byte_array_buffer(ctx, instructions, true);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Integer,
+    });
+}
+
+/// Read the u256 stored at the runtime byte offset held in `offset_local`.
+/// Same low-8-bytes shortcut as [`emit_abi_decode_u256_at`].
+fn emit_abi_decode_u256_at_runtime(
+    buffer_local: usize,
+    offset_local: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    // adj_offset = offset_local + 24 (skip the 24 BE high-zero bytes).
+    instructions.push(Instruction::LoadLocal(offset_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(24u8))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(8u8))));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    materialize_byte_array_buffer(ctx, instructions, true);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Integer,
+    });
+}
+
+/// Decode a `string` / `bytes` tail at a constant byte offset.
+///
+/// Layout: `[length_at_tail_offset .. tail_offset+32) || data`. The
+/// returned ByteString is exactly the `length` payload bytes (NOT the
+/// padded-to-32 ABI slot).
+fn emit_abi_decode_bytes_tail_const(
+    buffer_local: usize,
+    tail_offset: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let len_local = ctx.allocate_local(format!("__abi_dec_blen_{tmp_id}"), None);
+
+    // length = u256 at [tail_offset .. tail_offset+32).
+    emit_abi_decode_u256_at(buffer_local, tail_offset, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    // result = Substr(buffer, tail_offset + 32, length)
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (tail_offset + 32) as u64,
+    ))));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+}
+
+/// Decode a `string` / `bytes` tail at a runtime byte offset.
+fn emit_abi_decode_bytes_tail_runtime(
+    buffer_local: usize,
+    offset_local: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let len_local = ctx.allocate_local(format!("__abi_dec_rblen_{tmp_id}"), None);
+
+    emit_abi_decode_u256_at_runtime(buffer_local, offset_local, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    instructions.push(Instruction::LoadLocal(buffer_local));
+    // payload starts at offset_local + 32.
+    instructions.push(Instruction::LoadLocal(offset_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+}
+
+/// Decode a `T[]` tail (T = static-1-slot) at a constant byte offset.
+///
+/// Layout: `BE32(n) || BE32(x[0]) || .. || BE32(x[n-1])`. Produces a
+/// `StackItem::Array` of `n` decoded element values (NOT the encoded
+/// slots), so callers can index/`.length` it like a normal Solidity
+/// memory array.
+fn emit_abi_decode_static_element_array_tail_const(
+    buffer_local: usize,
+    tail_offset: usize,
+    element_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let len_local = ctx.allocate_local(format!("__abi_dec_alen_{tmp_id}"), None);
+    let arr_local = ctx.allocate_local(
+        format!("__abi_dec_arr_{tmp_id}"),
+        Some(ValueType::Array(Box::new(element_type.clone()))),
+    );
+    let idx_local = ctx.allocate_local(format!("__abi_dec_aidx_{tmp_id}"), None);
+    let elem_off_local = ctx.allocate_local(format!("__abi_dec_aelmoff_{tmp_id}"), None);
+
+    // length = u256 at [tail_offset .. tail_offset+32).
+    emit_abi_decode_u256_at(buffer_local, tail_offset, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    // arr = NewArray(length).
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::NewArray {
+        element_type: element_type.clone(),
+    });
+    instructions.push(Instruction::StoreLocal(arr_local));
+
+    // for idx in 0..length: arr[idx] = decode_element(buffer, tail_offset + 32 + idx*32)
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    let loop_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::Label(loop_label));
+    // condition: idx < length. JumpIf jumps when condition is FALSE
+    // (NeoVM JMPIFNOT_L). So `if !(idx<len) goto end` ≡ while idx<len.
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: end_label });
+
+    // elem_off = tail_offset + 32 + idx * 32.
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (tail_offset + 32) as u64,
+    ))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(elem_off_local));
+
+    // arr[idx] = decode_element(...)
+    instructions.push(Instruction::LoadLocal(arr_local));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    emit_abi_decode_static_slot_at_runtime_offset(buffer_local, elem_off_local, element_type, ctx, instructions);
+    instructions.push(Instruction::ArraySet);
+
+    // idx += 1.
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(idx_local));
+    instructions.push(Instruction::Jump { target: loop_label });
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(arr_local));
+}
+
+/// Decode a `T[]` tail at a runtime byte offset (tuple-member case).
+fn emit_abi_decode_static_element_array_tail_runtime(
+    buffer_local: usize,
+    offset_local: usize,
+    element_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let len_local = ctx.allocate_local(format!("__abi_dec_ralen_{tmp_id}"), None);
+    let base_local = ctx.allocate_local(format!("__abi_dec_rabase_{tmp_id}"), None);
+    let arr_local = ctx.allocate_local(
+        format!("__abi_dec_rarr_{tmp_id}"),
+        Some(ValueType::Array(Box::new(element_type.clone()))),
+    );
+    let idx_local = ctx.allocate_local(format!("__abi_dec_raidx_{tmp_id}"), None);
+    let elem_off_local = ctx.allocate_local(format!("__abi_dec_raelmoff_{tmp_id}"), None);
+
+    emit_abi_decode_u256_at_runtime(buffer_local, offset_local, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    // base = offset_local + 32 (first element).
+    instructions.push(Instruction::LoadLocal(offset_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(base_local));
+
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::NewArray {
+        element_type: element_type.clone(),
+    });
+    instructions.push(Instruction::StoreLocal(arr_local));
+
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    let loop_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    instructions.push(Instruction::Label(loop_label));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: end_label });
+
+    // elem_off = base + idx * 32.
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u8))));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    instructions.push(Instruction::LoadLocal(base_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(elem_off_local));
+
+    instructions.push(Instruction::LoadLocal(arr_local));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    emit_abi_decode_static_slot_at_runtime_offset(buffer_local, elem_off_local, element_type, ctx, instructions);
+    instructions.push(Instruction::ArraySet);
+
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(idx_local));
+    instructions.push(Instruction::Jump { target: loop_label });
+    instructions.push(Instruction::Label(end_label));
+
+    instructions.push(Instruction::LoadLocal(arr_local));
+}
+
+/// Decode a single static-1-slot element at a runtime byte offset inside
+/// `buffer_local`. Mirrors [`emit_abi_decode_static_slot`] but operates
+/// at a runtime offset rather than a compile-time slot index.
+fn emit_abi_decode_static_slot_at_runtime_offset(
+    buffer_local: usize,
+    offset_local: usize,
+    value_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    match value_type {
+        ValueType::Integer { .. } | ValueType::Boolean => {
+            instructions.push(Instruction::LoadLocal(buffer_local));
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                32u8,
+            ))));
+            instructions.push(Instruction::Substr);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            materialize_byte_array_buffer(ctx, instructions, true);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::Integer,
+            });
+        }
+        ValueType::Address => {
+            // EVM ABI: addresses are 20 bytes left-padded with 12 zero
+            // bytes inside a 32-byte slot, so the value lives in
+            // `[slot+12 .. slot+32)`.
+            instructions.push(Instruction::LoadLocal(buffer_local));
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                12u8,
+            ))));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                20u8,
+            ))));
+            instructions.push(Instruction::Substr);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            materialize_byte_array_buffer(ctx, instructions, true);
+        }
+        ValueType::ByteArray {
+            fixed_len: Some(len),
+        } => {
+            let len = (*len).min(32) as usize;
+            instructions.push(Instruction::LoadLocal(buffer_local));
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                len as u64,
+            ))));
+            instructions.push(Instruction::Substr);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+        }
+        _ => {
+            instructions.push(Instruction::LoadLocal(buffer_local));
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                32u8,
+            ))));
+            instructions.push(Instruction::Substr);
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+        }
+    }
 }
 
 fn lower_neo_serialized_arg_array(
@@ -1182,6 +1695,133 @@ fn emit_abi_fixed_buffer(
     } else {
         instructions.push(Instruction::LoadLocal(dst_local));
     }
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+}
+
+/// Bug #23 fix: emit a 32-byte ABI-encoded slot for a signed integer whose
+/// signed-LE byte representation is on top of the stack.
+///
+/// Differs from `emit_abi_fixed_buffer(.., 32, true)` in one key way: when the
+/// source value is negative (high bit of its highest LE byte is set), the
+/// destination buffer is initialised to all `0xff` bytes (sign-extension)
+/// rather than zeros. The low `count` bytes (= min(size, 32)) of the source
+/// are then copied in, and the result is reversed to big-endian — matching
+/// EVM canonical ABI sign-extension for `intN` (N ∈ {8, 16, 32, 64, 128}).
+///
+/// Stack on entry: `[src_signed_le_bytearray]`.
+/// Stack on exit:  `[abi_slot_bytearray]` (32-byte big-endian, sign-extended).
+fn emit_abi_fixed_buffer_signed(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let src_local = ctx.allocate_local(format!("__abi_sfixed_src_{tmp_id}"), None);
+    let dst_local = ctx.allocate_local(format!("__abi_sfixed_dst_{tmp_id}"), None);
+    let size_local = ctx.allocate_local(format!("__abi_sfixed_size_{tmp_id}"), None);
+    let count_local = ctx.allocate_local(format!("__abi_sfixed_count_{tmp_id}"), None);
+    let fill_local = ctx.allocate_local(format!("__abi_sfixed_fill_{tmp_id}"), None);
+
+    // Save the source ByteArray.
+    instructions.push(Instruction::StoreLocal(src_local));
+
+    // size = src.size().
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::StoreLocal(size_local));
+
+    // count = min(size, 32). Same shape as `emit_abi_fixed_buffer`.
+    let ge_label = ctx.next_label();
+    let count_done_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf { target: ge_label });
+    instructions.push(Instruction::LoadLocal(size_local));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Jump {
+        target: count_done_label,
+    });
+    instructions.push(Instruction::Label(ge_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::StoreLocal(count_local));
+    instructions.push(Instruction::Label(count_done_label));
+
+    // Detect negative: convert src (signed-LE ByteArray) to Integer and test < 0.
+    // NeoVM's CONVERT to Integer treats the operand as signed little-endian, so
+    // this matches the original Solidity-level sign of the value.
+    //
+    // CRITICAL: in this codebase `Instruction::JumpIf` lowers to NeoVM
+    // `JMPIFNOT_L` (see `bytecode_emit_ir.rs` ~line 340) — i.e. jumps when the
+    // condition is FALSE. So `JumpIf { target }` after `Lt` jumps when
+    // `val < 0` is FALSE → fall-through is the negative case.
+    let pos_label = ctx.next_label();
+    let init_done_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Integer,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    // Jump to pos_label when `val < 0` is FALSE (positive/zero).
+    instructions.push(Instruction::JumpIf { target: pos_label });
+
+    // Negative path (fall-through when `val < 0` is TRUE): 0xff-filled
+    // 32-byte buffer. NewBuffer only zero-fills, so we allocate a fresh zero
+    // buffer and MemCpy a literal `[0xff; 32]` ByteArray over it.
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+    // Stash the literal ByteArray into a local so MemCpy's [src, src_offset]
+    // operands resolve to a stable ByteString (mirrors the dynamic-bytes-tail
+    // pattern at line 832+).
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+        0xffu8;
+        32
+    ])));
+    instructions.push(Instruction::StoreLocal(fill_local));
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(fill_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::MemCpy);
+    instructions.push(Instruction::Jump {
+        target: init_done_label,
+    });
+
+    // Positive (or zero) path: zero-filled buffer.
+    instructions.push(Instruction::Label(pos_label));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
+    instructions.push(Instruction::NewBuffer);
+    instructions.push(Instruction::StoreLocal(dst_local));
+
+    instructions.push(Instruction::Label(init_done_label));
+
+    // MemCpy the low `count` bytes of src into dst at offset 0. The remaining
+    // `32 - count` high bytes of dst keep their fill value (0x00 or 0xff).
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(src_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(count_local));
+    instructions.push(Instruction::MemCpy);
+
+    // Reverse to big-endian and convert Buffer → ByteArray.
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::LoadLocal(dst_local));
+    instructions.push(Instruction::ReverseItems);
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });

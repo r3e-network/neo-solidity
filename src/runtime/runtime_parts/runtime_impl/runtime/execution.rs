@@ -290,13 +290,24 @@ impl NeoRuntime {
                 let saved_pending_block_height = self.execution_context.pending_block_height;
                 let saved_pending_caller_account =
                     self.execution_context.pending_caller_account.clone();
-                // Task #113 — snapshot pending msg.value override so the user
-                // method, not `_deploy`, observes it. Same rationale as the
-                // timestamp/block_height snapshot above: `initialize` drains
-                // pending_* slots, and the caller's intent for `override_value`
-                // is the user-facing invocation, not the implicit
-                // deploy-prologue run.
-                let saved_pending_msg_value = self.execution_context.pending_msg_value;
+                // Task #113 (Strategy A revision) — `pending_msg_value` is
+                // intentionally NOT snapshotted/restored across `_deploy`.
+                // A `payable constructor` must observe `msg.value` set via
+                // `override_value(N)`, so the value is allowed to drain into
+                // the deploy-prologue invocation and the constructor reads
+                // it through the normal `MsgValue` syscall path. The
+                // remaining override slots (timestamp / block_height /
+                // caller_account) keep their snapshot/restore semantics
+                // because state-variable initializers and `_deploy` itself
+                // do not read those, and the caller's intent for those
+                // overrides is the user-facing method invocation.
+                //
+                // Side-effect: a user-facing method invoked in the same
+                // `call_method` call that triggered `_deploy` will observe
+                // `msg.value == 0` unless the caller calls `override_value`
+                // again before subsequent `call_method` invocations. This
+                // matches Neo N3 semantics where the deploy trigger and
+                // user invocations are separate transactions.
 
                 // Reverse-push convention (see `invoke_at_offset`): args[0]
                 // is popped first off the VM stack and becomes arg0 in the
@@ -329,7 +340,8 @@ impl NeoRuntime {
                 self.execution_context.pending_timestamp = saved_pending_timestamp;
                 self.execution_context.pending_block_height = saved_pending_block_height;
                 self.execution_context.pending_caller_account = saved_pending_caller_account;
-                self.execution_context.pending_msg_value = saved_pending_msg_value;
+                // `pending_msg_value` deliberately not restored — see the
+                // snapshot-site comment above (Strategy A).
             }
             self.deploy_triggered = true;
         }

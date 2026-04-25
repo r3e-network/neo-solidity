@@ -3,8 +3,17 @@
 ## Executive Summary
 
 The fuzz system has been **reviewed, refactored, and expanded** into a
-professional-grade suite. **912 proptest cases pass, 1 ignored, 11
-cargo-fuzz targets** (all crash-free). Added **differential testing**
+professional-grade suite. **951 proptest cases pass, 0 ignored, 11
+cargo-fuzz targets** (all crash-free), each with libfuzzer dictionaries
+(`fuzz/dict/<target>.dict`, 970 total domain-specific tokens). Plus 3
+runtime state-batch tests (canonical "skip-and-continue" semantics
+locked in). End-to-end smoke tests cover **54 single-source +
+13 multi-source example/devpack contracts** (all compile cleanly + 42
+runtime-invoked). Multi-source standard JSON resolver verified across
+simple/transitive/circular/library import shapes. Constructor lifecycle
+verified across declaration-init, ctor-body init, ctor-with-args,
+deploy-runs-once, modifier-on-constructor, and payable-constructor
+`msg.value`. Added **differential testing**
 (compiler vs reference crates), **seed corpora** (bootstrapped from
 `examples/*.sol` and repo `.nef` / `.manifest.json` artifacts), and a
 **contributor guide** (`docs/FUZZ.md`). Coverage measured at **68.42%
@@ -12,8 +21,19 @@ region / 67.42% line** via `cargo-llvm-cov` (excluding ~6,200 LOC of
 orphaned modules that are 0%-covered AND have zero importers — see
 [Dead Code](#dead-code-deletion-candidates) below).
 
-Twenty-two compiler/runtime bugs were surfaced and fixed during the review — see
-[Fixed Bugs](#fixed-bugs) below. One latent allocation-DoS (in `read_input_slice`,
+**Twenty-eight** compiler/runtime bugs were surfaced and fixed during the
+review — see [Fixed Bugs](#fixed-bugs) below. **All deferred bugs from the
+v0.17.0 release have landed** (#16, #23, #24, #25, plus the BLS12-381 runtime
+stub closed as #26 and the wave-#28 in-contract `T[].length` divergence
+closed as #28), and the state-batch non-atomic semantics ambiguity is
+resolved with a canonical "skip-and-continue" contract documented and
+pinned in `tests/runtime_state_batch_tests.rs`.
+
+### No open limitations
+
+All architectural bugs, correctness divergences, DoS surfaces, and
+behaviour limitations surfaced across the 33-wave fuzz review have been
+resolved. Suite is fully green with 0 ignored tests. One latent allocation-DoS (in `read_input_slice`,
 not opcode-reachable today) was hardened proactively after a follow-up audit.
 One additional divergence (bug #16) was discovered by the new optimizer-level
 differential proptest and is documented as a [Known Limitation](#known-limitations)
@@ -25,7 +45,7 @@ pending an architectural fix to the runtime's BigInt path.
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| fuzz_tests (proptest) | **912** | ✅ 0 failed, 1 ignored |
+| fuzz_tests (proptest) | **968** | ✅ 0 failed, 0 ignored |
 | runtime_state_batch_tests | **2** | ✅ 0 failed, 1 ignored |
 | lib unit tests | **508** | ✅ 0 failed |
 | conformance_tests | **40** | ✅ 0 failed |
@@ -87,6 +107,12 @@ regression test pinning the expected behavior.
 | 18 | **Host DoS**: `Storage.Find` eagerly materialised the full prefix-matching key set into a `Vec`, identical shape to bug #15 | `helpers/storage.rs::build_storage_entries` queried with `limit: None` and `Vec::with_capacity(entries.len())`; an attacker who populated storage with many keys (10K writes fit in default gas_limit) could OOM the host with one `Find` syscall | Same file — bound `StorageQuery::limit` against `storage_limit / MIN_ENTRY_BYTES`, plus a post-merge cap to cover overlay-only matches. Surfaced by wave-#14 storage-DoS audit |
 | 19 | **Gas DoS**: `Storage.Put` charged a flat 1000 gas regardless of value size; `CryptoLib.sha256` / `keccak256` / `ripemd160` / `sha1` / `murmur32` charged a flat ~512 gas regardless of input length | `src/runtime/spec/gas.rs::syscall_gas_table` returned a single number per name; the dispatcher peeked the gas table but never inspected stack args. Real Neo N3 charges ~`100_000 * (key_len + value_len)` for Put and ~`50 * input_len` for hash methods | `src/runtime/execution/instruction/syscall.rs::syscall_extra_input_gas` (new): peeks top-of-stack key/value/input bytes before the handler runs and adds `STORAGE_PUT_PER_BYTE_GAS=100` (Storage.Put / Local.Put) or `HASH_PER_BYTE_GAS=50` (Contract.Call → CryptoLib hash) on top of the flat base, with `checked_add` graceful gas-exhausted on overflow. CALLT path mirrored at `src/runtime/execution/instruction/flow/calls.rs`. Surfaced by wave-#14 storage/gas DoS audit, regression pinned by `batch133a`–`batch133d` |
 | 20 | **Gas DoS**: `CheckMultisig` ran `O(N·M)` secp256k1 verifies (up to 4096 verifies for 64×64 input) for a single flat 1000-gas charge | Same dispatch shape as #19 — flat per-syscall fee; the inner-loop verify cost wasn't accounted for | Same file — `CHECKMULTISIG_PER_VERIFY_GAS=1000` charged upfront as `pub_count * sig_count * per_verify` (saturating). Surfaced by wave-#14 audit |
+| 23 | **Correctness: narrow signed-int `abi.encode` zero-padded instead of sign-extending**: `int8(-1)` encoded to `00..00 (24B) \|\| ff..ff (8B)` instead of `ff..ff (32B)`. Real on-chain consumers reading per the EVM ABI spec saw a large positive number instead of -1; same gap for `int16`/`int32`/`int64`/`int128` | `emit_expr_static_abi_slot_for_value_type` lumped signed and unsigned ints into the same path that allocates a zero-filled `NEWBUFFER(32)` and `MemCpy`'s the variable-length source over the low bytes — high bytes stayed `0x00` regardless of sign | New `emit_abi_fixed_buffer_signed` helper in `src/ir/expressions/calls/builtins/helpers.rs` — branches at runtime on `Convert(src) → Integer < 0`. Negative branch `MemCpy`'s a literal `[0xFF; 32]` ByteArray over the destination buffer before copying the source low bytes, giving canonical EVM sign-extension. Pinned by `roundtrip_int{8,16,32,64,128,256}` proptests in `tests/fuzz_tests/abi_roundtrip_props.rs`. Surfaced by wave-#23 round-trip fuzz |
+| 24 | **Correctness: `abi.decode` pass-through for dynamic types** (`string`, `bytes`): `abi.decode(abi.encode("abc"), (string))` returned the raw 96-byte payload (head + length + pad), not the decoded `"abc"`. Subsequent `bytes(y).length` faulted `SIZE: unsupported type`. The fallback path went through `StdLib.deserialize` (Neo-native, NOT EVM-ABI) | `lower_abi_decode_direct` rejected dynamic value types (`abi_static_slot_count != Some(1)`) and fell through to the slow path | Extended `lower_abi_decode_direct` with new helpers in `src/ir/expressions/calls/builtins/helpers.rs`: `emit_abi_decode_dynamic_top_level`, `emit_abi_decode_bytes_tail_const`/`_runtime`, `emit_abi_decode_u256_at` — walks the EVM-canonical `BE32(offset) \|\| BE32(length) \|\| data \|\| pad` chain, returning a contiguous ByteString. Hazard: runtime `Convert → Integer` of >8-byte ByteArray returns a ByteArray (not Integer) for precision; the helper reads only the low 8 bytes of length/offset slots before parsing. Pinned by `roundtrip_string`/`roundtrip_bytes` proptests |
+| 25 | **Correctness: `abi.decode` unusable for dynamic arrays** (`T[]` for static T): `.length` on a decoded array faulted `SIZE: unsupported type`. Decoder didn't materialise an `Array` StackItem | Same root cause as #24 | Same patch — `emit_abi_decode_static_element_array_tail_const`/`_runtime` walk N elements (N from the length slot) and build a `NEWARRAY` of decoded scalars via SUBSTR + CONVERT per slot. Pinned by `roundtrip_uint256_array`/`roundtrip_address_array`/`roundtrip_tuple_uint_string_bool` proptests |
+| 16 | **Correctness: `unchecked { uint256 op uint256 }` faulted at O0/O1 (narrow i64 path) but constant-folded correctly at O2/O3** — surfaced by `optimizer_four_level_differential_random_expr` as an opt-level divergence. Solidity spec mandates wraparound mod 2^256 for unchecked, but the narrow path either faulted or wrapped at i64 | The IR widened uint256 operands to 32-byte BE ByteArray only in *checked* arithmetic guards. In `unchecked` context, plain `BinaryOp(Add/Sub/Mul)` ran the narrow i64 path — wrong both ways under `strict_arithmetic` | New helpers `emit_widen_to_u256_unsigned` / `emit_truncate_u256` in `src/ir/expressions/dispatch/binary.rs`. Widening appends a trailing `0x00` byte (forces positive sign-LE interpretation in `coerce_item_to_bigint`), triggering `cmp_needs_bigint_path` so the runtime's BigInt path runs. Post-op truncates to 32 bytes mod 2^256. Sidesteps the prior naïve-fix's signed-interpretation breakage of `batch102_zzz1_unchecked_overflow_wraps_to_zero`. Removed the `u16::MAX` grammar workaround from `optimizer_props.rs` — the test now runs against full `u32::MAX` literal/arg domain |
+| 26 | **Functional gap: BLS12-381 runtime returned `StackItem::Null` for all 12 native methods** — compiler+IR were wired (resolver, devpack `bls12381*`, EVM-precompile shims) but `invoke_native_cryptolib` had no handler, so contracts using BLS compiled cleanly and silently returned zero from any operation. Affects ZK proof verification, threshold signatures, EVM-bridge precompiles | Stubbed `_ => StackItem::Null` fall-through in `crypto.rs` | Implemented all 12 handlers (`bls12381Serialize/Deserialize/Equal/Add/Mul/Pairing/G1Add/G1Mul/G1Neg/G2Add/G2Mul/G2Neg`) using `bls12_381 = "0.8"` (moved from dev-dep to runtime dep). Length-dispatched G1/G2 (48 vs 96 byte compressed). Scalars accept BE 32-byte input. Pairing serialized via `Fp12` Debug bytes (deterministic, equality-preserving). Subgroup checks via `from_compressed`'s built-in torsion verification. Pinned by `differential_bls12381_g1_add/g1_mul/g2_add/pairing` proptests — all 4 now pass byte-for-byte against the reference crate |
+| 28 | **Correctness: in-contract `this.method()` returns of `T[] memory` corrupted `.length`** — `got.length` read the wire-byte-length (e.g. 224 = 32 + 32 + 5*32) instead of the element count (5). Off-chain decoders worked correctly; the divergence was in the Solidity-side same-contract decode path. Surfaced by wave-#28's ERC-1155 `balanceOfBatch` test | `lower_variable_definition_statement` for `T[] memory got = this.method()` stored the raw EVM-canonical ABI ByteString as a local, so `.length` ran `GetSize` on the bytestring instead of an array | New `try_lower_this_external_dynamic_assign` helper in `src/ir/statements/assignments/lower_assignment.rs` — routes single-LHS dynamic returns through the same `emit_abi_decode_dynamic_top_level` chain that fixes #25 for `abi.decode`. Wired into both the resolved-local branch and the variable-declaration initializer branch of `expressions.rs`. Pinned by 3 regression tests in `tests/fuzz_tests/in_contract_array_return_props.rs` |
 | 21 | **Correctness**: `StdLib.atoi("--42", 10)` returned 42 instead of 0 (or error) | `i128::from_str_radix(body, radix)` accepts a leading `-` in `body` after the outer `neg` flag was already set, so a double-negative becomes a positive number | `src/runtime/execution/execution_impl_part2_native/stdlib.rs::atoi` — switched magnitude parser from `i128::from_str_radix` to `u128::from_str_radix` so any sign character in `body` (`-`, `+`, anything else non-digit) yields 0. Surfaced by `tests/fuzz_tests/stdlib_native_props.rs` differential vs `s.parse::<i64>()` |
 | 22 | **Correctness**: `StdLib.base64Decode("AB=C")` returned the 3-byte garbage `[0x00, 0x10, 0x02]` instead of empty/error | The decode loop accepted `=` at any position inside a 4-char chunk and treated it as a literal-zero sextet, ignoring RFC 4648's mid-chunk-pad-rejection rule | Same file — `base64_decode` now rejects `=` outside the trailing-pad position of the FINAL chunk; matches `base64` crate STANDARD engine. Surfaced by `tests/fuzz_tests/stdlib_native_props.rs` differential vs `base64` crate |
 
@@ -94,57 +120,13 @@ regression test pinning the expected behavior.
 
 ## Known Limitations
 
-### BLS12-381 runtime stub (deferred)
+### ABI codec gaps — RESOLVED
 
-The compiler is fully wired for BLS12-381 operations: the IR builder
-whitelists all 13 method names (`bls12381Serialize/Deserialize/Equal/Add/
-Mul/Pairing/G1Add/G1Mul/G1Neg/G2Add/G2Mul/G2Neg`), `CryptoLib.<method>`
-namespace resolution works, and the devpack exposes `bls12381Add/Mul/
-Pairing` plus EVM-precompile shims `ecAdd/ecMul/ecPairing`. **However**,
-`src/runtime/execution/execution_impl_part2_native/crypto.rs::invoke_
-native_cryptolib` does not implement the BLS handlers — every
-`bls12381*` method falls through to `StackItem::Null`, surfacing as
-empty `return_data`. Contracts using BLS will compile cleanly and
-appear to execute, but silently return zero from any BLS operation.
-
-**Mitigation**: 4 differential proptests in `tests/fuzz_tests/
-differential.rs` (`differential_bls12381_g1_add/g1_mul/g2_add/pairing`)
-are gated on the runtime returning non-empty `return_data` — they
-become byte-equality assertions against the `bls12_381` reference
-crate the moment the runtime implementation lands. Until then they
-serve as a deployment-readiness gate: when this gap is closed, these
-tests fail loudly on any divergence from the reference.
-
-### Bug #16 — uint256 narrow-i64 vs BigInt-folded divergence (deferred)
-
-The new four-level optimizer-differential proptest
-(`optimizer_four_level_differential_random_expr`) surfaced a real divergence
-between unoptimized and optimized lowerings of unchecked uint256 arithmetic:
-
-- At O0/O1 the IR emits a plain `BinaryOp(Mul)` and the runtime's narrow
-  i64 path either faults (when `strict_mode=true`, the default) or wraps
-  to a negative i64 — both wrong for Solidity's "wraparound mod 2^256"
-  semantics.
-- At O2/O3 the optimizer constant-folds the multiplication in BigInt,
-  producing the true wide result; downstream comparisons then evaluate
-  correctly.
-
-A naïve fix (force-widen unchecked uint256 BinaryOps to 32-byte ByteArray
-so the runtime's BigInt path runs) breaks pre-existing tests that pass
-`uint256.max` as a 32-byte ByteArray, because `coerce_item_to_bigint`
-treats it as **signed** (`from_signed_bytes_le` → `-1` instead of
-`2^256 − 1`). Resolving this properly requires plumbing an unsigned-LE
-BigInt path through `cmp_needs_bigint_path`, `bigint_to_stack_item`, and
-the wide arithmetic helpers — a coordinated runtime/IR change that is
-out of scope for the current fuzz-system pass.
-
-**Mitigation in the fuzz suite**: `dexpr_strategy` literals and `a`/`b`/`c`
-test args are bounded to `0..=u16::MAX` so a single MUL of two operands
-stays well within i64 (max ≈ 2^32). The differential test still exercises
-all four optimization levels across additions, subtractions, divisions,
-modulos, bitwise ops, shifts, comparisons, and ternaries — only the
-runtime's bug-#16 surface is sidestepped. Re-widen these bounds when
-the architectural fix lands.
+Bugs #23 (narrow-int sign-extension), #24 (`abi.decode` pass-through for
+`string`/`bytes`), and #25 (`abi.decode` unusable for `T[]`) were all
+surfaced by `tests/fuzz_tests/abi_roundtrip_props.rs` and fixed across
+waves #24 and #25. All 21 round-trip tests now pass with 0 ignored. See
+[Fixed Bugs](#fixed-bugs) entries #23-#25 below.
 
 ## Refactor Deliverables
 

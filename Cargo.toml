@@ -1,6 +1,6 @@
 [package]
 name = "neo-solidity"
-version = "0.17.0"
+version = "0.18.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Production-ready Solidity-to-NeoVM compilation system"
@@ -41,6 +41,18 @@ solang-parser = { package = "foundry-solang-parser", version = "0.3.9" }
 # `{{{{{{...}}}}}}` ~10k+ deep). See `src/ir/expressions/dispatch/entry.rs`
 # and the "Recent bug class" section in docs/FUZZ.md.
 stacker = "0.1"
+# BLS12-381 elliptic curve operations backing the runtime's
+# `CryptoLib.bls12381*` native handlers
+# (src/runtime/execution/execution_impl_part2_native/crypto.rs). The runtime
+# uses the `bls12_381` crate's `G1Affine`/`G2Affine`/`Scalar`/`pairing` API to
+# parse compressed points, perform group arithmetic, and run the bilinear
+# pairing. The same crate is used as an oracle in the differential proptests
+# (tests/fuzz_tests/differential.rs::differential_bls12381_*) — keeping it on
+# the runtime side keeps the implementation and oracle in lockstep.
+bls12_381 = "0.8"
+# Transitive of bls12_381; re-exported here so the runtime can use
+# `Group::generator()` and `Group::identity()` for BLS12-381 curve constants.
+group = "0.13"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -52,20 +64,6 @@ pretty_assertions = "1.0"
 # the in-runtime murmur3_x86_32 implementation. See
 # tests/fuzz_tests/differential.rs::differential_cryptolib_murmur32.
 murmur3 = "0.5"
-# Reference oracle for differential testing of CryptoLib.bls12381* G1/G2 curve
-# operations against the runtime path. See
-# tests/fuzz_tests/differential.rs::differential_bls12381_*.
-# Note: at the time of writing, the runtime stub at
-# src/runtime/execution/execution_impl_part2_native/crypto.rs falls through to
-# StackItem::Null for every bls12381* method, so the differential tests run in
-# "partial-implementation" mode: they assert success-or-stub but skip
-# byte-equality assertions until the runtime implementation lands. They will
-# start enforcing equality automatically once the runtime returns real point
-# data.
-bls12_381 = "0.8"
-# Transitive of bls12_381; re-imported in differential tests for the
-# `Group::generator()` trait fn used by the bls12381_g1/g2 proptests.
-group = "0.13"
 # Reference oracle for differential testing of StdLib.base64Encode/Decode
 # against the in-runtime hand-rolled RFC 4648 codec
 # (src/runtime/execution/execution_impl_part2_native/stdlib.rs::base64_encode).

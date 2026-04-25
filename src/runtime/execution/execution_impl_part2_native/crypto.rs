@@ -121,7 +121,365 @@ impl ExecutionContext {
                     Err(_) => StackItem::Null,
                 }
             }
+            // ============================================================
+            // BLS12-381 native handlers.
+            //
+            // These back the `CryptoLib.bls12381*` surface that the IR
+            // resolver wires to `BuiltinCall::NativeCall { CryptoLib, ... }`
+            // (see src/ir/context/builtins/syscalls.rs:149-196 and
+            // src/ir/context/builtins/resolve.rs::resolve_cryptolib_member).
+            // The bytecode emitter PACKs the call's args into a
+            // `StackItem::Array`, so each handler unpacks the array and
+            // operates on the elements directly. Method names arrive in
+            // lower-case here because the dispatcher (`dispatch.rs`)
+            // lower-cases them before matching.
+            //
+            // Encoding contract:
+            //   * G1 points: 48-byte ZCash compressed encoding
+            //   * G2 points: 96-byte ZCash compressed encoding
+            //   * Scalars:   32 bytes, BIG-ENDIAN — to match how the
+            //     differential proptests construct scalars
+            //     (`scalar_bytes[24..].copy_from_slice(&s.to_be_bytes())`)
+            //     and the typical Solidity convention for hash-derived
+            //     scalars. We reverse to LE before handing to
+            //     `Scalar::from_bytes`, falling back to `from_bytes_wide`
+            //     for inputs >= the curve order.
+            //   * Gt elements: serialized via the deterministic `Debug`
+            //     representation (Fp12 → "(c0) + (c1)*w" → ...). This is
+            //     stable across the same crate version, which is all the
+            //     differential tests need (they compare two runtime calls
+            //     against each other, not against an external oracle).
+            "bls12381serialize" => Self::bls12381_serialize_handler(params),
+            "bls12381deserialize" => Self::bls12381_deserialize_handler(params),
+            "bls12381equal" => Self::bls12381_equal_handler(params),
+            "bls12381add" => Self::bls12381_add_handler(params),
+            "bls12381mul" => Self::bls12381_mul_handler(params),
+            "bls12381pairing" => Self::bls12381_pairing_handler(params),
+            "bls12381g1add" => Self::bls12381_g1_add_handler(params),
+            "bls12381g1mul" => Self::bls12381_g1_mul_handler(params),
+            "bls12381g1neg" => Self::bls12381_g1_neg_handler(params),
+            "bls12381g2add" => Self::bls12381_g2_add_handler(params),
+            "bls12381g2mul" => Self::bls12381_g2_mul_handler(params),
+            "bls12381g2neg" => Self::bls12381_g2_neg_handler(params),
             _ => StackItem::Null,
         }
+    }
+
+    // --------------------------------------------------------------
+    // BLS12-381 helpers
+    // --------------------------------------------------------------
+
+    /// Unpack the standard `StackItem::Array(args)` envelope, returning
+    /// `None` for any non-Array shape so the caller can short-circuit to
+    /// `Null` (mirroring the sha256/ripemd160/etc. handlers).
+    fn bls_unpack_args(params: &StackItem) -> Option<Vec<StackItem>> {
+        if let StackItem::Array(args) = params {
+            Some(args.borrow().clone())
+        } else {
+            None
+        }
+    }
+
+    /// Parse a 48-byte ZCash-compressed G1 point. Returns None for any
+    /// length mismatch or invalid encoding (subgroup check included via
+    /// `from_compressed`).
+    fn bls_parse_g1(bytes: &[u8]) -> Option<bls12_381::G1Affine> {
+        if bytes.len() != 48 {
+            return None;
+        }
+        let mut buf = [0u8; 48];
+        buf.copy_from_slice(bytes);
+        bls12_381::G1Affine::from_compressed(&buf).into_option()
+    }
+
+    /// Parse a 96-byte ZCash-compressed G2 point.
+    fn bls_parse_g2(bytes: &[u8]) -> Option<bls12_381::G2Affine> {
+        if bytes.len() != 96 {
+            return None;
+        }
+        let mut buf = [0u8; 96];
+        buf.copy_from_slice(bytes);
+        bls12_381::G2Affine::from_compressed(&buf).into_option()
+    }
+
+    /// Parse a 32-byte big-endian scalar. Reverses to LE, then tries
+    /// `Scalar::from_bytes` (which enforces canonical < modulus). For
+    /// inputs >= modulus (e.g. an arbitrary 32-byte hash treated as a
+    /// scalar), falls back to `Scalar::from_bytes_wide` over a 64-byte
+    /// zero-extended buffer so we always produce a defined element of
+    /// the scalar field rather than failing.
+    fn bls_parse_scalar(bytes: &[u8]) -> Option<bls12_381::Scalar> {
+        if bytes.is_empty() || bytes.len() > 32 {
+            return None;
+        }
+        // Right-align into a 32-byte BE buffer (handle short inputs).
+        let mut be = [0u8; 32];
+        let off = 32 - bytes.len();
+        be[off..].copy_from_slice(bytes);
+        // Reverse to LE for the bls12_381 crate.
+        let mut le = [0u8; 32];
+        for (i, b) in be.iter().rev().enumerate() {
+            le[i] = *b;
+        }
+        if let Some(s) = bls12_381::Scalar::from_bytes(&le).into_option() {
+            return Some(s);
+        }
+        // Out-of-range: reduce via wide. from_bytes_wide takes a 64-byte
+        // LE input and reduces modulo the curve order.
+        let mut wide = [0u8; 64];
+        wide[..32].copy_from_slice(&le);
+        Some(bls12_381::Scalar::from_bytes_wide(&wide))
+    }
+
+    /// Deterministic Gt encoding. Gt's inner Fp12 is `pub(crate)`, so we
+    /// can't reach into it for a structured serialization, but Fp12's
+    /// Debug impl walks through Fp6/Fp2/Fp components and Fp's Debug uses
+    /// the canonical big-endian byte form (see `Fp::fmt`). Two Gt values
+    /// that compare equal therefore Debug-print to the same string, and
+    /// equal Debug strings give equal byte vectors — which is exactly what
+    /// the differential pairing test asserts (lhs_bytes == rhs_bytes for
+    /// `e(a*G1, b*G2) == e(G1, ab*G2)`).
+    fn bls_serialize_gt(gt: &bls12_381::Gt) -> Vec<u8> {
+        format!("{:?}", gt).into_bytes()
+    }
+
+    /// Helper to fetch arg N as bytes, defaulting to empty.
+    fn bls_arg_bytes(args: &[StackItem], idx: usize) -> Vec<u8> {
+        args.get(idx)
+            .cloned()
+            .map(Self::stack_item_to_bytes)
+            .unwrap_or_default()
+    }
+
+    /// Helper to fetch arg N as bool.
+    fn bls_arg_bool(args: &[StackItem], idx: usize) -> bool {
+        match args.get(idx) {
+            Some(StackItem::Boolean(b)) => *b,
+            Some(StackItem::Integer(i)) => *i != 0,
+            Some(StackItem::UnsignedInteger(u)) => *u != 0,
+            Some(StackItem::ByteArray(b)) => b.borrow().iter().any(|x| *x != 0),
+            _ => false,
+        }
+    }
+
+    // --------------------------------------------------------------
+    // BLS12-381 handlers
+    // --------------------------------------------------------------
+
+    fn bls12381_serialize_handler(params: StackItem) -> StackItem {
+        // Round-trip a point: validate and re-emit the canonical
+        // compressed encoding. Length-dispatch on G1 (48) vs G2 (96).
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let bytes = Self::bls_arg_bytes(&args, 0);
+        match bytes.len() {
+            48 => match Self::bls_parse_g1(&bytes) {
+                Some(p) => StackItem::byte_array(p.to_compressed().to_vec()),
+                None => StackItem::Null,
+            },
+            96 => match Self::bls_parse_g2(&bytes) {
+                Some(p) => StackItem::byte_array(p.to_compressed().to_vec()),
+                None => StackItem::Null,
+            },
+            _ => StackItem::Null,
+        }
+    }
+
+    fn bls12381_deserialize_handler(params: StackItem) -> StackItem {
+        // Inverse of serialize: parse and re-emit. The runtime model
+        // uses the compressed bytes themselves as the "opaque handle",
+        // so deserialize is structurally identical to serialize.
+        Self::bls12381_serialize_handler(params)
+    }
+
+    fn bls12381_equal_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Boolean(false);
+        };
+        let a = Self::bls_arg_bytes(&args, 0);
+        let b = Self::bls_arg_bytes(&args, 1);
+        if a.len() != b.len() {
+            return StackItem::Boolean(false);
+        }
+        let equal = match a.len() {
+            48 => match (Self::bls_parse_g1(&a), Self::bls_parse_g1(&b)) {
+                (Some(pa), Some(pb)) => pa == pb,
+                _ => false,
+            },
+            96 => match (Self::bls_parse_g2(&a), Self::bls_parse_g2(&b)) {
+                (Some(pa), Some(pb)) => pa == pb,
+                _ => false,
+            },
+            _ => false,
+        };
+        StackItem::Boolean(equal)
+    }
+
+    fn bls12381_add_handler(params: StackItem) -> StackItem {
+        // Length-dispatch: both 48 → G1 add, both 96 → G2 add.
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let a = Self::bls_arg_bytes(&args, 0);
+        let b = Self::bls_arg_bytes(&args, 1);
+        if a.len() != b.len() {
+            return StackItem::Null;
+        }
+        match a.len() {
+            48 => Self::bls_g1_add_bytes(&a, &b),
+            96 => Self::bls_g2_add_bytes(&a, &b),
+            _ => StackItem::Null,
+        }
+    }
+
+    fn bls12381_mul_handler(params: StackItem) -> StackItem {
+        // Devpack signature: `bls12381Mul(bytes point, bytes scalar, bool neg)`.
+        // Direct Solidity calls (`CryptoLib.bls12381Mul(p, k, false)`) follow
+        // the same shape. The third arg is optional in our handler — if a
+        // 2-arg variant is invoked (e.g. via `bls12381G1Mul`) we treat neg
+        // as false.
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let p = Self::bls_arg_bytes(&args, 0);
+        let s = Self::bls_arg_bytes(&args, 1);
+        let neg = Self::bls_arg_bool(&args, 2);
+        match p.len() {
+            48 => Self::bls_g1_mul_bytes(&p, &s, neg),
+            96 => Self::bls_g2_mul_bytes(&p, &s, neg),
+            _ => StackItem::Null,
+        }
+    }
+
+    fn bls12381_pairing_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let g1 = Self::bls_arg_bytes(&args, 0);
+        let g2 = Self::bls_arg_bytes(&args, 1);
+        let Some(p1) = Self::bls_parse_g1(&g1) else {
+            return StackItem::Null;
+        };
+        let Some(p2) = Self::bls_parse_g2(&g2) else {
+            return StackItem::Null;
+        };
+        let gt = bls12_381::pairing(&p1, &p2);
+        StackItem::byte_array(Self::bls_serialize_gt(&gt))
+    }
+
+    fn bls12381_g1_add_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let a = Self::bls_arg_bytes(&args, 0);
+        let b = Self::bls_arg_bytes(&args, 1);
+        Self::bls_g1_add_bytes(&a, &b)
+    }
+
+    fn bls12381_g1_mul_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let p = Self::bls_arg_bytes(&args, 0);
+        let s = Self::bls_arg_bytes(&args, 1);
+        let neg = Self::bls_arg_bool(&args, 2);
+        Self::bls_g1_mul_bytes(&p, &s, neg)
+    }
+
+    fn bls12381_g1_neg_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let p = Self::bls_arg_bytes(&args, 0);
+        let Some(point) = Self::bls_parse_g1(&p) else {
+            return StackItem::Null;
+        };
+        let negated = bls12_381::G1Affine::from(-bls12_381::G1Projective::from(point));
+        StackItem::byte_array(negated.to_compressed().to_vec())
+    }
+
+    fn bls12381_g2_add_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let a = Self::bls_arg_bytes(&args, 0);
+        let b = Self::bls_arg_bytes(&args, 1);
+        Self::bls_g2_add_bytes(&a, &b)
+    }
+
+    fn bls12381_g2_mul_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let p = Self::bls_arg_bytes(&args, 0);
+        let s = Self::bls_arg_bytes(&args, 1);
+        let neg = Self::bls_arg_bool(&args, 2);
+        Self::bls_g2_mul_bytes(&p, &s, neg)
+    }
+
+    fn bls12381_g2_neg_handler(params: StackItem) -> StackItem {
+        let Some(args) = Self::bls_unpack_args(&params) else {
+            return StackItem::Null;
+        };
+        let p = Self::bls_arg_bytes(&args, 0);
+        let Some(point) = Self::bls_parse_g2(&p) else {
+            return StackItem::Null;
+        };
+        let negated = bls12_381::G2Affine::from(-bls12_381::G2Projective::from(point));
+        StackItem::byte_array(negated.to_compressed().to_vec())
+    }
+
+    // --------------------------------------------------------------
+    // Group-arithmetic primitives shared by the abstract bls12381*
+    // path and the bls12381G{1,2}* path.
+    // --------------------------------------------------------------
+
+    fn bls_g1_add_bytes(a: &[u8], b: &[u8]) -> StackItem {
+        let (Some(pa), Some(pb)) = (Self::bls_parse_g1(a), Self::bls_parse_g1(b)) else {
+            return StackItem::Null;
+        };
+        let sum = bls12_381::G1Projective::from(pa) + bls12_381::G1Projective::from(pb);
+        let out = bls12_381::G1Affine::from(sum);
+        StackItem::byte_array(out.to_compressed().to_vec())
+    }
+
+    fn bls_g2_add_bytes(a: &[u8], b: &[u8]) -> StackItem {
+        let (Some(pa), Some(pb)) = (Self::bls_parse_g2(a), Self::bls_parse_g2(b)) else {
+            return StackItem::Null;
+        };
+        let sum = bls12_381::G2Projective::from(pa) + bls12_381::G2Projective::from(pb);
+        let out = bls12_381::G2Affine::from(sum);
+        StackItem::byte_array(out.to_compressed().to_vec())
+    }
+
+    fn bls_g1_mul_bytes(p: &[u8], s: &[u8], neg: bool) -> StackItem {
+        let Some(point) = Self::bls_parse_g1(p) else {
+            return StackItem::Null;
+        };
+        let Some(scalar) = Self::bls_parse_scalar(s) else {
+            return StackItem::Null;
+        };
+        let mut prod = bls12_381::G1Projective::from(point) * scalar;
+        if neg {
+            prod = -prod;
+        }
+        let out = bls12_381::G1Affine::from(prod);
+        StackItem::byte_array(out.to_compressed().to_vec())
+    }
+
+    fn bls_g2_mul_bytes(p: &[u8], s: &[u8], neg: bool) -> StackItem {
+        let Some(point) = Self::bls_parse_g2(p) else {
+            return StackItem::Null;
+        };
+        let Some(scalar) = Self::bls_parse_scalar(s) else {
+            return StackItem::Null;
+        };
+        let mut prod = bls12_381::G2Projective::from(point) * scalar;
+        if neg {
+            prod = -prod;
+        }
+        let out = bls12_381::G2Affine::from(prod);
+        StackItem::byte_array(out.to_compressed().to_vec())
     }
 }

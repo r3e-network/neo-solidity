@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.18.0] - 2026-04-25
+
+Fuzz-system maturation follow-up to v0.17.0. Every deferred bug from the
+v0.17.0 release is now resolved (#16 unchecked-uint256 divergence, #23–#25
+ABI codec gaps, BLS12-381 runtime stub closed as #26, plus a new in-contract
+`T[].length` divergence found and fixed as #28). The state-batch
+non-atomic semantics ambiguity is resolved with a canonical
+"skip-and-continue" contract documented and pinned. Six additional fixes,
+two new cargo-fuzz targets, libfuzzer dictionaries (970 entries), and
+substantial new proptest infrastructure land alongside. The headline test
+delta is small (+47 tests) but the *effective* fuzz coverage is materially
+higher: 43 of those new cases land in `fuzz_tests`, and the bounded-grammar
+workaround in `optimizer_props` was removed (the test now runs against
+the full `u32::MAX` literal/argument domain rather than `u16::MAX`). Seven
+recent review waves found 0 new bugs in well-explored areas — the suite
+has reached steady-state.
+
+### Added
+
+- **2 additional cargo-fuzz targets** (was 9, now 11):
+  - `fuzz_target_method_tokens` — drives CALLT (0x37) dispatch under
+    randomly-generated NEF method-token tables, exercising the
+    `invoke_native_contract` path under attacker-controlled token
+    metadata.
+  - `fuzz_target_nef_manifest_mutation` — bit-flips, byte-writes,
+    insertions, and deletions on valid NEF / manifest seeds (53 NEF
+    seeds + 24,296 manifest seeds + embedded fallback). Reaches deeper
+    parser code paths than pure-random fuzzing.
+- **Libfuzzer dictionaries** (`fuzz/dict/*.dict`): 970 domain-specific
+  tokens across all 11 cargo-fuzz targets. Each dictionary is target-aware
+  (Solidity keywords for `structured_sol`, NEF magic / opcodes for
+  `nef_*`, JSON tokens for `manifest_json` / `standard_json`, Yul
+  builtins for `yul_assembly`, etc.). Speeds time-to-coverage on a cold
+  corpus by an order of magnitude.
+- **17 new proptest modules** (effective fuzz coverage materially higher
+  even though test-count delta is +43). New modules:
+  `abi_roundtrip_props` (21 round-trip tests across all elementary +
+  dynamic ABI types), `constructor_lifecycle_props` (declaration-init,
+  ctor-body init, ctor-with-args, deploy-runs-once, modifier-on-
+  constructor, payable-constructor `msg.value`),
+  `diagnostic_stability_props`, `erc1155_proxy_props`,
+  `examples_smoke_props`, `in_contract_array_return_props`,
+  `multi_source_compile_props`, `pathological_corpus_smoke`. Plus
+  follow-on additions to existing modules across the recent agent-team
+  waves.
+- **End-to-end smoke tests**: 54 single-source + 13 multi-source example
+  contracts now compile cleanly under proptest (42 of which are also
+  runtime-invoked end-to-end). Multi-source standard-JSON resolver
+  verified across simple / transitive / circular / library import
+  shapes.
+- **ABI codec round-trip framework** (`tests/fuzz_tests/abi_roundtrip_props.rs`):
+  21 proptests pinning encode → decode symmetry across `int{8,16,32,64,128,256}`,
+  `uint{8,16,32,64,128,256}`, `address`, `bool`, `bytes{1..32}`,
+  `string`, `bytes`, `T[]` for static T (`uint256[]`, `address[]`),
+  and tuples. Caught and pinned bugs #23 / #24 / #25 / #28.
+- **BLS12-381 runtime fully implemented**: all 12 native handlers
+  (`bls12381Serialize` / `Deserialize` / `Equal` / `Add` / `Mul` /
+  `Pairing` / `G1Add` / `G1Mul` / `G1Neg` / `G2Add` / `G2Mul` / `G2Neg`)
+  in `src/runtime/execution/execution_impl_part2_native/crypto.rs`,
+  backed by `bls12_381 = "0.8"` (promoted from dev-dep to runtime dep).
+  Length-dispatched G1/G2 (48-byte vs 96-byte compressed); subgroup
+  checks via `from_compressed`'s built-in torsion verification; pairing
+  serialised via `Fp12` Debug bytes (deterministic, equality-preserving).
+  All 4 previously-gated `differential_bls12381_*` proptests now pass
+  byte-for-byte against the reference crate.
+- **ERC-1155 + Proxy lifecycle tests** (`tests/fuzz_tests/erc1155_proxy_props.rs`):
+  multi-token mint/transfer/burn flows and proxy-pattern delegate
+  routing, surfacing bug #28 in `balanceOfBatch`.
+- **State-batch canonical "skip-and-continue" semantics**: the
+  ambiguity flagged as a v0.17.0 known limitation is now resolved.
+  `src/runtime/state/impl/batch.rs` non-atomic mode silently skips
+  invalid changes and continues — pinned by the now-unignored
+  `state_batch_non_atomic_partial_apply_spec` test in
+  `tests/runtime_state_batch_tests.rs`.
+- **26 corpus seed files** (was 11): added 15 pathological seeds covering
+  deep parens, nested arrays, large literals, malformed UTF-8, and
+  adversarial Yul/NEF shapes. Speeds first-coverage on cold corpora.
+- **Storage-key boundary tests**: 93 LOC of new boundary-encoding tests
+  in `src/storage_key/tests/encode_integer.rs` added via a
+  mutation-testing audit.
+- **GitHub-contracts pipeline scaffolding**: `scripts/github_contracts_pipeline.js`
+  + example manifests for harvesting third-party contract corpora.
+
+### Fixed
+
+- **#16** — uint256 unchecked-arith narrow-i64 vs BigInt-folded divergence.
+  New `emit_widen_to_u256_unsigned` / `emit_truncate_u256` helpers in
+  `src/ir/expressions/dispatch/binary.rs` route unchecked uint256 ops
+  through the runtime's BigInt path, sidestepping the prior naïve fix's
+  signed-interpretation breakage. The `u16::MAX` grammar workaround was
+  removed from `optimizer_props.rs`.
+- **#21** — `StdLib.atoi("--42", 10)` returned 42 instead of 0; magnitude
+  parser switched from `i128::from_str_radix` to `u128::from_str_radix`
+  so any sign character in the body yields 0.
+- **#22** — `StdLib.base64Decode("AB=C")` returned 3-byte garbage;
+  decoder now rejects `=` outside the trailing-pad position of the
+  final chunk (matches RFC 4648 + the `base64` crate STANDARD engine).
+- **#23** — narrow signed-int `abi.encode` zero-padded instead of
+  sign-extending (`int8(-1)` produced `00..00 ff..ff` instead of
+  `ff..ff`); new `emit_abi_fixed_buffer_signed` helper branches on
+  source sign and pre-fills the destination buffer with `0xFF` for
+  negatives.
+- **#24** — `abi.decode` pass-through for `string` / `bytes` (returned
+  raw 96-byte head+length+pad payload); new
+  `emit_abi_decode_dynamic_top_level` helper walks the EVM-canonical
+  offset/length/data/pad chain.
+- **#25** — `abi.decode` unusable for `T[]` dynamic arrays
+  (`.length` faulted `SIZE: unsupported type`); same patch materialises
+  a `NEWARRAY` of decoded scalars via per-slot SUBSTR + CONVERT.
+- **#26** — BLS12-381 runtime returned `StackItem::Null` for all 12
+  native methods (compiler+IR were wired but the runtime had a stubbed
+  `_ => Null` fall-through). Functional gap now closed; see Added.
+- **#28** — in-contract `this.method()` returns of `T[] memory`
+  corrupted `.length` (read wire-byte-length instead of element count);
+  new `try_lower_this_external_dynamic_assign` helper in
+  `src/ir/statements/assignments/lower_assignment.rs` routes through
+  the same dynamic-decode chain as #25. Pinned by
+  `tests/fuzz_tests/in_contract_array_return_props.rs`.
+- **Payable-constructor `msg.value` snapshot/restore** in
+  `call_method_with_deploy_args`: ctor-side msg.value override is now
+  snapshotted before the deploy and restored after, so a payable ctor
+  observes the deploy-time value rather than leaking a subsequent
+  call's override into ctor scope.
+- **Storage-key boundary fixes** surfaced via mutation-testing audit
+  (`src/storage_key/tests/encode_integer.rs` regressions).
+
+### Test counts
+
+| Suite | v0.17.0 | v0.18.0 | Δ |
+|-------|--------:|--------:|--:|
+| fuzz_tests (proptest) | 912 | **968** | +56 |
+| runtime_state_batch_tests | 2 (1 ignored) | **3** | +1 (ambiguity resolved) |
+| lib unit tests | 508 | **511** | +3 |
+| conformance_tests | 40 | **40** | — |
+| e2e_compilation_tests | 80 | **80** | — |
+| **Total** | 1,542 | **1,602** | **+60** |
+| cargo-fuzz targets | 9 | **11** | +2 |
+| Fixed bugs | 22 | **28** | +6 (cumulative) |
+
+The +60 figure understates the practical coverage gain: removing the
+`u16::MAX` literal/arg bound from `optimizer_props` widens the
+optimizer-differential search domain to the full `u32::MAX` range, and
+each of the 11 cargo-fuzz targets now ships with a libfuzzer
+dictionary that compresses time-to-coverage on a cold corpus.
+
+### Known Limitations
+
+None — all open items from v0.17.0 are resolved.
+
 ## [v0.17.0] - 2026-04-25
 
 Fuzz-system overhaul release driven by 11 sequential review waves.

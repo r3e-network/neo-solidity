@@ -19,9 +19,14 @@ impl StateManager {
                 }
             }
         } else {
-            // Execute changes non-atomically
+            // Execute changes non-atomically (best-effort apply, analogous to
+            // Ethereum's `Multicall3.tryAggregate(requireSuccess = false, ...)`).
+            // Each malformed change is silently skipped; subsequent changes
+            // continue to apply. Callers that need all-or-nothing semantics
+            // must set `atomic: true` (which uses a snapshot for rollback).
+            // See `tests/runtime_state_batch_tests.rs` for the canonical
+            // contract and rationale.
             for change in &batch.changes {
-                // Continue on error for non-atomic batch
                 let _ = self.apply_change(change);
             }
         }

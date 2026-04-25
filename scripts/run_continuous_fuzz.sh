@@ -61,11 +61,25 @@ while true; do
   for TARGET in "${TARGETS[@]}"; do
     LOGFILE="/tmp/fuzz-continuous/${TARGET}-$ROUND.log"
     echo "[$(date)] Running cargo-fuzz ${TARGET} for ${CARGO_FUZZ_TIME}s..."
+
+    # Per-target libfuzzer dictionary (fuzz/dict/<target>.dict). Dictionaries
+    # seed libfuzzer's mutation engine with domain-specific tokens (opcode
+    # mnemonics, syscall names, manifest JSON keys, Solidity keywords, ...)
+    # so the engine can synthesize valid tokens on iteration 1 instead of
+    # discovering them by random byte mutation.
+    DICT_FILE="fuzz/dict/${TARGET}.dict"
+    DICT_ARG=()
+    if [ -f "$DICT_FILE" ]; then
+      DICT_ARG=("-dict=${DICT_FILE}")
+    fi
+
     # `cargo +nightly fuzz run ... -- -max_total_time=N` self-terminates;
     # wrap in `timeout` as a belt-and-suspenders guard in case the target
     # ignores -max_total_time.
     timeout "$((CARGO_FUZZ_TIME + 30))" \
-      cargo +nightly fuzz run "$TARGET" -- -max_total_time="$CARGO_FUZZ_TIME" \
+      cargo +nightly fuzz run "$TARGET" -- \
+        "${DICT_ARG[@]}" \
+        -max_total_time="$CARGO_FUZZ_TIME" \
       > "$LOGFILE" 2>&1 || true
 
     # A real crash shows as `ERROR:` in libFuzzer output. An OOM / ASAN

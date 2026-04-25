@@ -73,6 +73,9 @@ ERC20Simple.json
 coverage/
 *.lcov
 
+# cargo-mutants output (mutation-testing audit artifacts)
+mutants.out/
+
 # Test artifact source files
 BadLibrary.*
 LibraryExternalError.*

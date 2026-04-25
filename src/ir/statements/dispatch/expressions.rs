@@ -106,9 +106,34 @@ fn lower_variable_definition_statement(
                             }
                         }
                         Ok(None) => {
-                            if lower_expression(initializer, ctx, instructions) {
-                                instructions.push(Instruction::StoreLocal(slot));
-                                ctx.clear_call_data_local(slot);
+                            // Wave-#28 fix: `T[] memory got = this.method();`
+                            // (and the interface-cast / address-typed shapes
+                            // covered by `is_this_external_tuple_call`) must
+                            // run the EVM-canonical dynamic-array decode on
+                            // the returned ByteString before storing into
+                            // the local. Without this, `got.length` reads
+                            // the wire byte count (e.g. 224 for a five-elem
+                            // `uint256[]`) instead of the decoded element
+                            // count (5). See
+                            // `try_lower_this_external_dynamic_assign` in
+                            // `ir/statements/assignments/lower_assignment.rs`
+                            // for the full rationale.
+                            let decoded = if let Some(dst_type) = inferred_type.as_ref() {
+                                try_lower_this_external_dynamic_assign(
+                                    slot,
+                                    initializer,
+                                    dst_type,
+                                    ctx,
+                                    instructions,
+                                )
+                            } else {
+                                false
+                            };
+                            if !decoded {
+                                if lower_expression(initializer, ctx, instructions) {
+                                    instructions.push(Instruction::StoreLocal(slot));
+                                    ctx.clear_call_data_local(slot);
+                                }
                             }
                         }
                         Err(message) => {

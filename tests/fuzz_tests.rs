@@ -20,6 +20,8 @@
 #![allow(clippy::useless_format)]
 #![allow(clippy::useless_vec)]
 
+#[path = "fuzz_tests/abi_roundtrip_props.rs"]
+mod abi_roundtrip_props;
 #[path = "fuzz_tests/arithmetic_helpers_props.rs"]
 mod arithmetic_helpers_props;
 #[path = "fuzz_tests/arithmetic_props.rs"]
@@ -48,6 +50,10 @@ mod batches_81_90;
 mod batches_91_100;
 #[path = "fuzz_tests/common.rs"]
 mod common;
+#[path = "fuzz_tests/constant_immutable_gap_props.rs"]
+mod constant_immutable_gap_props;
+#[path = "fuzz_tests/constructor_lifecycle_props.rs"]
+mod constructor_lifecycle_props;
 #[path = "fuzz_tests/contract_upgrade_props.rs"]
 mod contract_upgrade_props;
 #[path = "fuzz_tests/convergence_props.rs"]
@@ -58,16 +64,34 @@ mod custom_error_envelope_props;
 mod determinism_props;
 #[path = "fuzz_tests/devpack_props.rs"]
 mod devpack_props;
+#[path = "fuzz_tests/diagnostic_stability_props.rs"]
+mod diagnostic_stability_props;
 #[path = "fuzz_tests/disasm_stability_props.rs"]
 mod disasm_stability_props;
+#[path = "fuzz_tests/erc1155_proxy_props.rs"]
+mod erc1155_proxy_props;
+#[path = "fuzz_tests/examples_smoke_props.rs"]
+mod examples_smoke_props;
+#[path = "fuzz_tests/fallback_receive_props.rs"]
+mod fallback_receive_props;
+#[path = "fuzz_tests/in_contract_array_return_props.rs"]
+mod in_contract_array_return_props;
+#[path = "fuzz_tests/library_deployment_props.rs"]
+mod library_deployment_props;
 #[path = "fuzz_tests/modifier_rewrite_props.rs"]
 mod modifier_rewrite_props;
+#[path = "fuzz_tests/multi_source_compile_props.rs"]
+mod multi_source_compile_props;
 #[path = "fuzz_tests/native_contract_props.rs"]
 mod native_contract_props;
 #[path = "fuzz_tests/native_resolver_props.rs"]
 mod native_resolver_props;
 #[path = "fuzz_tests/openzeppelin_patterns_props.rs"]
 mod openzeppelin_patterns_props;
+#[path = "fuzz_tests/pathological_corpus_smoke.rs"]
+mod pathological_corpus_smoke;
+#[path = "fuzz_tests/performance_regression.rs"]
+mod performance_regression;
 #[path = "fuzz_tests/differential.rs"]
 mod differential;
 #[path = "fuzz_tests/compile_runtime_roundtrip.rs"]

@@ -381,6 +381,105 @@ fn emit_widen_both_u256(instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::Swap);
 }
 
+/// Bug #16: widen the top-of-stack uint256 operand into a >8-byte ByteArray
+/// whose `from_signed_bytes_le` decoding is **non-negative** — i.e. an
+/// unsigned-magnitude representation. This routes the runtime through its
+/// wide-BigInt arithmetic path (`cmp_needs_bigint_path` triggers when either
+/// operand is a ByteArray > 8 bytes) without the signed-BigInt accident that
+/// reinterprets `[0xFF; 32]` as `-1`.
+///
+/// Strategy:
+///   1. CONVERT operand to ByteArray (signed-LE encoding from the runtime).
+///   2. Append a single 0x00 byte. In LE, the LAST byte's high bit is the
+///      sign bit for `from_signed_bytes_le`; a trailing 0x00 forces a
+///      positive interpretation regardless of the original payload.
+///
+/// Stack transformation:
+///   [..., x] -> [..., bytes_le(x) ++ 0x00]
+fn emit_widen_to_u256_unsigned(instructions: &mut Vec<Instruction>) {
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8])));
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: 2,
+    });
+}
+
+/// Bug #16: widen both operands currently on the stack ([lhs, rhs]) using the
+/// unsigned-magnitude representation (see `emit_widen_to_u256_unsigned`). Used
+/// by the `unchecked { ... }` uint256 Add/Sub/Mul lowering so all four
+/// optimizer levels behave the same way.
+fn emit_widen_both_u256_unsigned(instructions: &mut Vec<Instruction>) {
+    emit_widen_to_u256_unsigned(instructions);
+    instructions.push(Instruction::Swap);
+    emit_widen_to_u256_unsigned(instructions);
+    instructions.push(Instruction::Swap);
+}
+
+/// Bug #16: post-op truncate the top-of-stack result to its low 32 bytes
+/// (mod 2^256). Pairs with `emit_widen_both_u256_unsigned` for unchecked
+/// uint256 Add/Sub/Mul: after the BigInt-wide op, a result like 2^256 sits
+/// on the stack as a 33-byte signed-LE ByteArray — without this truncation,
+/// `decode_uint_le` would yield 2^256 instead of 0.
+///
+/// Strategy:
+///   1. CONVERT result to ByteArray.
+///   2. Append 32 zero bytes (so a too-narrow result becomes ≥ 32 bytes).
+///   3. SUBSTR(0, 32) — take the low 32 bytes.
+///
+/// Stack transformation:
+///   [..., x] -> [..., bytes_le(x)[0..32]]
+fn emit_truncate_u256(instructions: &mut Vec<Instruction>) {
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8; 32])));
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: 2,
+    });
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::Substr);
+}
+
+/// Bug #16: gate for unchecked uint256 Add/Sub/Mul. Returns `true` when:
+///   - in an `unchecked { ... }` block (so the checked guard does NOT fire);
+///   - operator is Add/Sub/Mul;
+///   - at least one operand is `uint256`;
+///   - not both operands are compile-time literals (constant-folded);
+///   - not an int256 op (those flow through their own guard).
+///
+/// When this fires, the lowering widens both operands to a >8-byte unsigned
+/// representation so the runtime's wide-BigInt arithmetic path takes over —
+/// avoiding the i64 narrow-path strict-overflow fault that diverges from
+/// constant-folded results at higher optimizer levels.
+fn should_widen_unchecked_u256(
+    left: &Expression,
+    right: &Expression,
+    ctx: &LoweringContext,
+    operator: BinaryOperator,
+) -> bool {
+    if !ctx.in_unchecked_block() {
+        return false;
+    }
+    if !matches!(
+        operator,
+        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Mul
+    ) {
+        return false;
+    }
+    if is_literal_number(left) && is_literal_number(right) {
+        return false;
+    }
+    if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return false;
+    }
+    is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx)
+}
+
 /// Task #67: emit the int256 checked-arithmetic range-check guard for
 /// Add/Sub/Mul. Consumes [lhs, rhs] and pushes the result.
 ///
@@ -663,6 +762,19 @@ fn lower_binary_expr(
     } else {
         None
     };
+    // Bug #16: in `unchecked { }` blocks, uint256 Add/Sub/Mul that take the
+    // narrow i64 path fault under strict_arithmetic at O0/O1 while the
+    // optimizer constant-folds at O2/O3 (the canonical optimizer-divergence
+    // surface). Force-widen both operands to a >8-byte unsigned-magnitude
+    // ByteArray so the runtime's wide-BigInt arithmetic path runs at every
+    // opt level. Post-op, truncate the result to mod 2^256 so the canonical
+    // wrap-to-zero return shape (`unchecked { uint256.max + 1 } == 0`) is
+    // preserved. Mutually exclusive with the checked guards above.
+    let emit_unchecked_u256_widen = !emit_guard
+        && !emit_i256_guard
+        && emit_narrow_u_bits.is_none()
+        && emit_narrow_i_bits.is_none()
+        && should_widen_unchecked_u256(left, right, ctx, operator);
 
     // Fixed-width byte/address casts (`bytesN(..)`, `address(..)`) now
     // canonicalize through `coerce_to_fixed_bytes` into a single ByteString
@@ -743,6 +855,14 @@ fn lower_binary_expr(
         // panicking. See fuzz test
         // `batch65_oo3_int128_checked_arithmetic_endpoints`.
         emit_checked_arith_guard_narrow_i(ctx, instructions, operator, bits);
+    } else if emit_unchecked_u256_widen {
+        // Bug #16: widen to unsigned-magnitude representation so the wide
+        // BigInt path runs at all optimizer levels (no narrow-path strict
+        // overflow fault, no signed-BigInt sign flip). After the op, mod 2^256
+        // truncate so the result keeps the canonical 32-byte uint256 shape.
+        emit_widen_both_u256_unsigned(instructions);
+        instructions.push(Instruction::BinaryOp(operator));
+        emit_truncate_u256(instructions);
     } else {
         instructions.push(Instruction::BinaryOp(operator));
     }

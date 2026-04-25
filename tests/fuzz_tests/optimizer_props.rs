@@ -895,15 +895,11 @@ impl DExpr {
 /// Leaf-only strategy — used at depth 0 of the recursive grammar.
 fn dexpr_leaf_strategy() -> impl Strategy<Value = DExpr> {
     prop_oneof![
-        // Cap literals at u16::MAX so a single MUL of two literals stays
-        // well within i64 (max 65535 * 65535 ≈ 2^32). Going wider exposes
-        // an unfixed runtime/optimizer divergence (bug #16): the runtime's
-        // narrow i64 strict-arithmetic path faults on overflow, while the
-        // optimizer constant-folds in BigInt and returns the wrapped value.
-        // Resolving that requires plumbing unsigned BigInt for uint256 ops
-        // throughout the runtime — out of scope here. Re-widen this bound
-        // when bug #16 lands.
-        (0u32..=u16::MAX as u32).prop_map(DExpr::Lit),
+        // Bug #16 (resolved): unchecked uint256 Add/Sub/Mul now widens to a
+        // >8-byte unsigned-magnitude ByteArray in the IR, so the runtime takes
+        // the wide-BigInt path at all optimizer levels (no narrow i64 strict
+        // overflow fault). Literals re-widened to the full u32 domain.
+        any::<u32>().prop_map(DExpr::Lit),
         (0u8..=2).prop_map(DExpr::Var),
     ]
 }
@@ -1018,11 +1014,12 @@ proptest! {
     #[test]
     fn optimizer_four_level_differential_random_expr(
         expr in dexpr_strategy(),
-        // Bounded matching `dexpr_leaf_strategy`'s u16 cap — see its comment
-        // for the bug-#16 rationale. Re-widen once bug #16 is fixed.
-        a in 0u32..=u16::MAX as u32,
-        b in 0u32..=u16::MAX as u32,
-        c in 0u32..=u16::MAX as u32,
+        // Bug #16 (resolved): full u32 domain. The IR now widens unchecked
+        // uint256 Add/Sub/Mul operands to the wide-BigInt path so all four
+        // optimizer levels agree even when narrow-path i64 would have overflowed.
+        a in any::<u32>(),
+        b in any::<u32>(),
+        c in any::<u32>(),
     ) {
         let source = render_diff_contract(&expr);
         let args = [
