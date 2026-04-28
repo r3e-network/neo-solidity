@@ -1686,6 +1686,18 @@ Neo C# port: track per-token lock state in storage, check it in `Transfer`. The 
 contract is even simpler than the Solidity version because the witness model
 naturally enforces who can lock/unlock.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NQfv7FPi2BWZBnc3PGB9PggK72bJtZL9HH` | [`0x1b75ecb9…7f3c3034`](https://dora.coz.io/contract/neo3/testnet/0x1b75ecb9e926203e66283e3f875ba5097f3c3034) |
+| **Neo C#** (`nccs`) | `NPuqRsgHLPkRZsxEJgs3igKKhZE1nqHVL3` | [`0x7081fcf3…3c07da2b`](https://dora.coz.io/contract/neo3/testnet/0x7081fcf36db56a716b416ef553829ed23c07da2b) |
+
+Verified: token issued and locked (`locked(1) == true`). Soulbound check rejects transfer attempts.
+[`docs/standards-mirror/deployments/erc-5192/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5192).
+:::
+
 </template>
 
 <template #solidity>

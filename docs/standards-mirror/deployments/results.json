@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-28T03:47:02.543Z",
+  "generatedAt": "2026-04-28T04:44:59.363Z",
   "rpc": "http://seed1t5.neo.org:20332",
   "networkMagic": 894710606,
   "deployer": "NhMYxG5ATmRjSy6ocnPxrA2DiYba6xhFqu",
@@ -11,8 +11,8 @@
         "status": "deployed",
         "contractHash": "d76434af829dc4c936c12648aa77932fa94c0f96",
         "contractAddress": "NZbQsZAbH3eBdZZYShj6CgG1ZkVEbjZhwF",
-        "deployTx": "0x37897c9d8b04c7d87baf2e256621d9980145fa2ee8891c9b477c9783985be43e",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "symbol == DEMOSOL",
@@ -47,37 +47,39 @@
             "kind": "write",
             "operation": "faucet",
             "status": "pass",
-            "txHash": "0x538ac547448db6f249bdb339332f6cc878f507d2e5db80f41f1e0d40456ce0f5",
+            "txHash": "0x9d0b2deac99235ab7709bd76243981b33d6dedb32a21c9472a68e283a91d189e",
             "vmstate": "HALT",
-            "gasconsumed": "475755"
+            "gasconsumed": "422211"
           },
           {
             "name": "balanceOf(deployer) == 100T",
             "kind": "read",
             "operation": "balanceOf",
-            "status": "pass",
+            "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "100000000000000"
+              "value": "200000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
-            }
+            },
+            "reason": "actual=200000000000000 (raw type=Integer, value=200000000000000), expected 100000000000000"
           },
           {
             "name": "totalSupply == 100T",
             "kind": "read",
             "operation": "totalSupply",
-            "status": "pass",
+            "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "100000000000000"
+              "value": "200000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
-            }
+            },
+            "reason": "actual=200000000000000 (raw type=Integer, value=200000000000000), expected 100000000000000"
           }
         ]
       },
@@ -154,8 +156,8 @@
         "status": "deployed",
         "contractHash": "48b5f8f579810b402fed660844145fed406f77aa",
         "contractAddress": "NbTK8px52xHxJ5zSJvVFqBujZ5eQEV4dYt",
-        "deployTx": "0x2bac122c5803ea38cc90c26115564d82bd8cd54d4c430664a5da7166adf26674",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "symbol == DSOLNFT",
@@ -176,23 +178,24 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xcf23cd1f8dde494c721139a8154aea51fe1ad29c87df8bb01f4266e100ba19f9",
+            "txHash": "0x5700fde1d336c8f16e591207b52242c29021b0861edd696915832e0bada443dc",
             "vmstate": "HALT",
-            "gasconsumed": "659143"
+            "gasconsumed": "611599"
           },
           {
             "name": "balanceOf(deployer) >= 1",
             "kind": "read",
             "operation": "balanceOf",
-            "status": "pass",
+            "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "1"
+              "value": "2"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
-            }
+            },
+            "reason": "actual=2 (raw type=Integer, value=2), expected 1"
           }
         ]
       },
@@ -236,7 +239,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xa19b9fbdf26dc3f1eb792d183db722fa7448252a3f88df20d2719635eab6b82b",
+            "txHash": "0xacba34968d87545f2fec3bde734b751b1acf8d183e723aee39f40fbfe6587817",
             "vmstate": "HALT",
             "gasconsumed": "799062"
           },
@@ -247,13 +250,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "3"
+              "value": "4"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=3 (raw type=Integer, value=3), expected 1"
+            "reason": "actual=4 (raw type=Integer, value=4), expected 1"
           },
           {
             "name": "totalSupply >= 1",
@@ -262,13 +265,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "Aw=="
+              "value": "BA=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=3 (raw type=ByteString, value=Aw==), expected 1"
+            "reason": "actual=4 (raw type=ByteString, value=BA==), expected 1"
           }
         ]
       }
@@ -302,7 +305,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xb4ae32e8ffdfbe787610f635ab5e2d3eb8a517de86ceedbe6d5f1b94fbe8db1e",
+            "txHash": "0xe3711819c1d43e326df929584aa236aedfefcb314b1b28f5124a237b549d28cf",
             "vmstate": "HALT",
             "gasconsumed": "611599"
           },
@@ -311,7 +314,7 @@
             "kind": "write",
             "operation": "setDefaultRoyalty",
             "status": "pass",
-            "txHash": "0x70c703a1cef771c540b6864b49d1bdbffb603f1e21e9247d04af075181ce66c4",
+            "txHash": "0x6e3a5c02c77a2618439a5c52637acb7329e53501e82ee535225d35c5b55494eb",
             "vmstate": "HALT",
             "gasconsumed": "245832"
           }
@@ -343,7 +346,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xf4bcf408ace3734019a2e76870f94e52d825583dcb18536de7281ef5ed77e990",
+            "txHash": "0x5e30157dd8380d1b0f0c04a61a3b6858844c0d1f458474c7834de1b73fca3337",
             "vmstate": "HALT",
             "gasconsumed": "776052"
           },
@@ -354,13 +357,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "Ag=="
+              "value": "Aw=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=2 (raw type=ByteString, value=Ag==), expected 1"
+            "reason": "actual=3 (raw type=ByteString, value=Aw==), expected 1"
           }
         ]
       }
@@ -372,8 +375,8 @@
         "status": "deployed",
         "contractHash": "d0fd56dad510d54ca7877bab2c578d63b82a52c6",
         "contractAddress": "NdzbQnww1HMVDUgZtZzrfN5TvxFTBoBTW6",
-        "deployTx": "0x16953f75ec84751dd7ae3e6ce8804efdb9b09e6510ecd3716ef1534defa22a2e",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "symbol == DSOLBND",
@@ -394,9 +397,9 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x15bec1664e3ff23768d6ea519af1560b6f2989f329d0971bda93c51bfa1d9c1d",
+            "txHash": "0x1786ea625a104c84e6b4896c326d874aad9ba48f6f89aefc7b6c7d1b22cc08ac",
             "vmstate": "HALT",
-            "gasconsumed": "893887"
+            "gasconsumed": "870115"
           },
           {
             "name": "balanceOfToken(1) == 1000",
@@ -468,9 +471,473 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xfaa4a36ca80b7634ea447232d8e845ab8935fae19ecf8956491c58c1941211ab",
+            "txHash": "0x38c28e946314284778c4ab5240c79e4b387d3bb5aac1c70ad53c8def7c72c12f",
             "vmstate": "HALT",
             "gasconsumed": "413869"
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-173",
+      "title": "ERC-173 — Contract Ownership",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "19977aea6f158de3844f3261988b17381156bbe4",
+        "contractAddress": "NgmPfqiGc6weStAM5PYBgC4SYgTGUZzPVh",
+        "deployTx": "0x7024eb1d24745e2a8452a3a26eb74b9012ecd0fba3bbe0632a969dc6ae950b7d",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimOwnership()",
+            "kind": "write",
+            "operation": "claimOwnership",
+            "status": "pass",
+            "txHash": "0x4dedefb6ccc4f1adf98f1f59a8bfea9fd840aea4ce4acd362199bccfed6e4c57",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "getOwner == deployer",
+            "kind": "read",
+            "operation": "getOwner",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "ce89aec2e79b121ec264231be49cd96111824459",
+        "contractAddress": "NU3yPrTayUJRB16Lu8RjFX8ERJ7pMYvxup",
+        "deployTx": "0x531170d4b9409f12b62c8ded79a60adc2f21af87b17acf80a05535ca3de0e81e",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getOwner == deployer",
+            "kind": "read",
+            "operation": "getOwner",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-1820",
+      "title": "ERC-1820 — Interface Registry",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "02704624615747bdcc7994a6be347be42ad52ee4",
+        "contractAddress": "NgiVMV6vo8QHaQEhxMDBMCHdq2Ps5iXQxm",
+        "deployTx": "0xa86088206cdb4a35a76c2fb5998e547d8963b31d26aec2c0a6b0629a43886406",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getManager(deployer) == deployer (default)",
+            "kind": "read",
+            "operation": "getManager",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "8f36ff27ef6564209956c05a4b886c0c99cec59d",
+        "contractAddress": "NaJCEkEXwwsWFHXU791K6Zk3ZpFya5HPk6",
+        "deployTx": "0x2050feec1fe28fbd2037a686fbfa398736cb78918bf6e72ec43efc4b841b2180",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getManager(deployer) == deployer (default)",
+            "kind": "read",
+            "operation": "getManager",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-6372",
+      "title": "ERC-6372 — Contract Clock",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "e3c55758861ba8034c9f3d223ed93cf5df77442b",
+        "contractAddress": "NPrkGGCSZwLTUQxzUQnf4WSKsk2rZPTSKt",
+        "deployTx": "0xd8e2aee563e1eeed5254b40270635cf86ff5ab9c9027c164a20fef7e72d9b168",
+        "reused": false,
+        "tests": [
+          {
+            "name": "CLOCK_MODE",
+            "kind": "read",
+            "operation": "CLOCK_MODE",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "bW9kZT1ibG9ja251bWJlciZmcm9tPWRlZmF1bHQ="
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "eb454a6b6e102b2700fc1d3b18d58b861ed6c335",
+        "contractAddress": "NQpFbsh7JUys9dYhB86gCVr2hxfYkzKJYw",
+        "deployTx": "0x7b2349f9dc918204bfdae55ed79068a8aeba11f4757c51b41c41d9a83ea6d01d",
+        "reused": false,
+        "tests": [
+          {
+            "name": "clockMode",
+            "kind": "read",
+            "operation": "clockMode",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "bW9kZT1ibG9ja251bWJlciZmcm9tPWRlZmF1bHQ="
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-1271",
+      "title": "ERC-1271 — Contract Signature (MultiSig)",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "88eec008aaeb09d10ce68f93f6d98efbe92b9de7",
+        "contractAddress": "Nh2dZYCdvA6KfgeJ78712Twq5tZVRANtdk",
+        "deployTx": "0x206e9b43f8e349f73c806a7b91d23a811631f92f4d07af1411e7ca8dd436bdca",
+        "reused": false,
+        "tests": [
+          {
+            "name": "ownerCount == 0 (pre-setup)",
+            "kind": "read",
+            "operation": "ownerCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "88079ecdd4af98cf932c25c80c0bb218a8cfb682",
+        "contractAddress": "NXq82dqPfYsB4gYxpurbn2sft8tT9v4NL2",
+        "deployTx": "0x8216ae4e4dd9fa16f737c1b1cae883e9d7e6bd1bfa92a1a026fd019fa7ff1dd0",
+        "reused": false,
+        "tests": [
+          {
+            "name": "threshold == 0 (pre-setup)",
+            "kind": "read",
+            "operation": "threshold",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-5192",
+      "title": "ERC-5192 — Soulbound Token",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "1b75ecb9e926203e66283e3f875ba5097f3c3034",
+        "contractAddress": "NQfv7FPi2BWZBnc3PGB9PggK72bJtZL9HH",
+        "deployTx": "0x07f13ad48565cddcc7b892f260e3d8e4d2fa9bbb0caf123dcb6f2a43fa1ce3d5",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimIssuer()",
+            "kind": "write",
+            "operation": "claimIssuer",
+            "status": "pass",
+            "txHash": "0xe5a32b98b203d578e24a6601ca2c826b2ea8882e2639315e0a4e336a87249844",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "issue(deployer, soulbound=true)",
+            "kind": "write",
+            "operation": "issue",
+            "status": "pass",
+            "txHash": "0x3ee16f47b1c25aabb3dbc1e6c9cc0b6d8b7038a28fb11eeb5f9253b92218e88e",
+            "vmstate": "HALT",
+            "gasconsumed": "542588"
+          },
+          {
+            "name": "locked(1) == true",
+            "kind": "read",
+            "operation": "locked",
+            "status": "pass",
+            "actual": {
+              "type": "Boolean",
+              "value": true
+            },
+            "expect": {
+              "type": "Boolean",
+              "value": true
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "7081fcf36db56a716b416ef553829ed23c07da2b",
+        "contractAddress": "NPuqRsgHLPkRZsxEJgs3igKKhZE1nqHVL3",
+        "deployTx": "0xd131b4bf79bf7da3e54e42d02b549b8d4ea77d409216d8499c6b255eec520ab7",
+        "reused": false,
+        "tests": [
+          {
+            "name": "symbol == SBC",
+            "kind": "read",
+            "operation": "symbol",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "U0JD"
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "534243"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-2771",
+      "title": "ERC-2771 — Trusted Forwarder",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "6653a8da9bac7b622987670d97bf740c2c124ed9",
+        "contractAddress": "NfiyLrGXijAAHiwq1LUGu69K92ybMu4ZS4",
+        "deployTx": "0x344f71309ac8b223ae8fa551be918cecb212894481442aba39ddefbc802440c0",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getNonce(deployer) == 0",
+            "kind": "read",
+            "operation": "getNonce",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          },
+          {
+            "name": "bumpNonce(deployer)",
+            "kind": "write",
+            "operation": "bumpNonce",
+            "status": "pass",
+            "txHash": "0x0be2fbd41c911e56925eaae7016f18850875cb4f9796f29d7e56cfea9583f49f",
+            "vmstate": "HALT",
+            "gasconsumed": "711693"
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "1463ad54cf6a8fc7c0ffe3740ad1cf04a6280c0a",
+        "contractAddress": "NLq6WUsRv4FAtxrqhwtTNxTeSgxAWYhG8P",
+        "deployTx": "0x1ba445cf82f766aa1c13e54065b22a17bc86c1b4c3a9fda537125e1d7bc1b8f7",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getNonce(deployer) == 0",
+            "kind": "read",
+            "operation": "getNonce",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-4626",
+      "title": "ERC-4626 — Yield Vault",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "faf678fdb2053a279cf79f14a3623f3f1f9f810f",
+        "contractAddress": "NMKxbu3BoWHMqsehay8ybt4AX2Akbau7JF",
+        "deployTx": "0x52b73351df53fffac8dda3fff00c8bf951360710304fb8ec731fbed8b8cef13a",
+        "reused": false,
+        "tests": [
+          {
+            "name": "symbol == vDEMO",
+            "kind": "read",
+            "operation": "symbol",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "dkRFTU8="
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "7644454d4f"
+            }
+          },
+          {
+            "name": "totalSupply == 0",
+            "kind": "read",
+            "operation": "totalSupply",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "0e515ad2e892180273ab017a4883084e647740c5",
+        "contractAddress": "NdtwXkP4UYHoaEkfFavBat7fhNpMMaknX8",
+        "deployTx": "0x7121964c2f7745a4a7ed9f1c28fc809ea8f87dcab12a238c6ff204cf7a8810c3",
+        "reused": false,
+        "tests": [
+          {
+            "name": "symbol == vDEMOC",
+            "kind": "read",
+            "operation": "symbol",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "dkRFTU9D"
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "7644454d4f43"
+            }
+          },
+          {
+            "name": "decimals == 8",
+            "kind": "read",
+            "operation": "decimals",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "8"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "8"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-3156",
+      "title": "ERC-3156 — Flash Lender",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "b7d5cd146852006f8bc5d8c1621852c9117d37ec",
+        "contractAddress": "NhSy8SUwdRdrYAvK2YadgbXZwRTfJZC6DT",
+        "deployTx": "0x1538d9ab0d2a34936023bce9d9fbb913ddb13ca5e9834752020b64171a1bba5f",
+        "reused": false,
+        "tests": [
+          {
+            "name": "feeBps == 0 (pre-setup)",
+            "kind": "read",
+            "operation": "feeBps",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "a82c8142c02ec0cf748bbaa57819f9c61440984b",
+        "contractAddress": "NSogFgSB3xhbRn81ie21Xb8L5vzxAguyZZ",
+        "deployTx": "0x4cf8a0b649119712f215c4d8f17cbf12e06b80c0574a4ac54dcbff98c90c0eaf",
+        "reused": false,
+        "tests": [
+          {
+            "name": "feeBps == 0 (pre-setup)",
+            "kind": "read",
+            "operation": "feeBps",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
           }
         ]
       }

@@ -59,6 +59,18 @@ uses **NEP-17's `onNEP17Payment`** to auto-deposit when the user sends asset
 directly to the vault — no separate `approve` + `deposit` dance needed. Single
 transaction UX is built in.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NMKxbu3BoWHMqsehay8ybt4AX2Akbau7JF` | [`0xfaf678fd…1f9f810f`](https://dora.coz.io/contract/neo3/testnet/0xfaf678fdb2053a279cf79f14a3623f3f1f9f810f) |
+| **Neo C#** (`nccs`) | `NdtwXkP4UYHoaEkfFavBat7fhNpMMaknX8` | [`0x0e515ad2…647740c5`](https://dora.coz.io/contract/neo3/testnet/0x0e515ad2e892180273ab017a4883084e647740c5) |
+
+Verified: vault metadata (symbol, decimals), empty initial state. The C# port uses NEP-27's `OnNEP17Payment` for auto-deposit when the configured asset transfers in.
+[`docs/standards-mirror/deployments/erc-4626/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-4626).
+:::
+
 </template>
 
 <template #solidity>
@@ -281,6 +293,18 @@ function onFlashLoan(address initiator, address token, uint256 amount,
 Neo flash loans work identically — atomic transactions ensure repay-or-revert. The
 "magic return value" pattern translates one-for-one. The Neo port below uses NEP-17
 transfers and a callback method name `onFlashLoan` that borrowers implement.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NhSy8SUwdRdrYAvK2YadgbXZwRTfJZC6DT` | [`0xb7d5cd14…117d37ec`](https://dora.coz.io/contract/neo3/testnet/0xb7d5cd146852006f8bc5d8c1621852c9117d37ec) |
+| **Neo C#** (`nccs`) | `NSogFgSB3xhbRn81ie21Xb8L5vzxAguyZZ` | [`0xa82c8142…1440984b`](https://dora.coz.io/contract/neo3/testnet/0xa82c8142c02ec0cf748bbaa57819f9c61440984b) |
+
+Verified: pre-setup state (feeBps == 0). Both implementations enforce the ERC-3156 callback magic value (`keccak256("ERC3156FlashBorrower.onFlashLoan")`) on repay.
+[`docs/standards-mirror/deployments/erc-3156/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-3156).
+:::
 
 </template>
 
@@ -1077,6 +1101,18 @@ that use block numbers vs timestamps.
 
 The Neo C# port simply exposes both methods, returning `Ledger.CurrentIndex` (block
 number) or `Runtime.Time` (millisecond timestamp).
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NPrkGGCSZwLTUQxzUQnf4WSKsk2rZPTSKt` | [`0xe3c55758…df77442b`](https://dora.coz.io/contract/neo3/testnet/0xe3c55758861ba8034c9f3d223ed93cf5df77442b) |
+| **Neo C#** (`nccs`) | `NQpFbsh7JUys9dYhB86gCVr2hxfYkzKJYw` | [`0xeb454a6b…1ed6c335`](https://dora.coz.io/contract/neo3/testnet/0xeb454a6b6e102b2700fc1d3b18d58b861ed6c335) |
+
+Verified: `CLOCK_MODE` returns `"mode=blocknumber&from=default"` from both. The Neo C# version uses `Ledger.CurrentIndex` directly.
+[`docs/standards-mirror/deployments/erc-6372/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-6372).
+:::
 
 </template>
 
