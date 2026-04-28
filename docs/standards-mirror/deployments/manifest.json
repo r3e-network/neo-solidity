@@ -645,6 +645,203 @@
           { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
         ]
       }
+    },
+
+    {
+      "id": "erc-165",
+      "title": "ERC-165 — supportsInterface Detector",
+      "docEntry": "/standards-mirror/infrastructure#erc-165",
+      "solidity": {
+        "source": "erc-165/solidity/InterfaceDetector.sol",
+        "contract": "InterfaceDetector",
+        "outName": "InterfaceDetectorSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "supportsInterface(0xdeadbeef) == false", "kind": "read", "operation": "supportsInterface", "args": [3735928559], "expect": { "type": "Boolean", "value": false } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-165/csharp/InterfaceDetector.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "supportsInterface(0x01ffc9a7) == true", "kind": "read", "operation": "supportsInterface", "args": [33540519], "expect": { "type": "Boolean", "value": true } },
+          { "name": "supportsInterface(0xdeadbeef) == false", "kind": "read", "operation": "supportsInterface", "args": [3735928559], "expect": { "type": "Boolean", "value": false } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-7201",
+      "title": "ERC-7201 — Namespaced Storage Layout",
+      "docEntry": "/standards-mirror/infrastructure#erc-7201",
+      "solidity": {
+        "source": "erc-7201/solidity/NamespacedStorage.sol",
+        "contract": "NamespacedStorage",
+        "outName": "NamespacedStorageSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-7201/csharp/NamespacedStorage.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "namespaceTag == r3e.standards-mirror.demo.v1", "kind": "read", "operation": "namespaceTag", "args": [], "expect": { "type": "ByteString", "value": "7233652e7374616e64617264732d6d6972726f722e64656d6f2e7631" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-1153",
+      "title": "EIP-1153 — Transient Storage Reentrancy Guard",
+      "docEntry": "/standards-mirror/protocol-eips#eip-1153",
+      "solidity": {
+        "source": "eip-1153/solidity/TransientGuard.sol",
+        "contract": "TransientGuard",
+        "outName": "TransientGuardSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "guardedCall()", "kind": "write", "operation": "guardedCall", "args": [] },
+          { "name": "isLocked == false (after-call)", "kind": "read", "operation": "isLocked", "args": [], "expect": { "type": "Boolean", "value": false } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-1153/csharp/TransientGuard.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "isLocked == false (initial)", "kind": "read", "operation": "isLocked", "args": [], "expect": { "type": "Boolean", "value": false } },
+          { "name": "callsCompleted == 0 (initial)", "kind": "read", "operation": "callsCompleted", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "guardedCall()", "kind": "write", "operation": "guardedCall", "args": [] }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-3198",
+      "title": "EIP-3198 — BASEFEE Introspection",
+      "docEntry": "/standards-mirror/protocol-eips#eip-3198",
+      "solidity": {
+        "source": "eip-3198/solidity/FeeAware.sol",
+        "contract": "FeeAware",
+        "outName": "FeeAwareSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "getLastSeenFee == 0 (initial)", "kind": "read", "operation": "getLastSeenFee", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-3198/csharp/FeeAware.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getCurrentFeePerByte == 20 (testnet policy)", "kind": "read", "operation": "getCurrentFeePerByte", "args": [], "expect": { "type": "Integer", "value": "20" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-1014",
+      "title": "ERC-1014 — Deterministic Deploy (CREATE2)",
+      "docEntry": "/standards-mirror/infrastructure#erc-1014",
+      "solidity": {
+        "source": "erc-1014/solidity/DeterministicFactory.sol",
+        "contract": "DeterministicFactory",
+        "outName": "DeterministicFactorySol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "deployCount == 0 (initial)", "kind": "read", "operation": "deployCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1014/csharp/DeterministicFactory.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "deployCount == 0 (initial)", "kind": "read", "operation": "deployCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-191",
+      "title": "EIP-191 — personal_sign Verifier",
+      "docEntry": "/standards-mirror/protocol-eips#eip-191",
+      "solidity": {
+        "source": "eip-191/solidity/PersonalSign.sol",
+        "contract": "PersonalSign",
+        "outName": "PersonalSignSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-191/csharp/PersonalSign.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2612",
+      "title": "ERC-2612 — Permit Token (off-chain authorization)",
+      "docEntry": "/standards-mirror/tokens#erc-2612",
+      "solidity": {
+        "source": "erc-2612/solidity/PermitToken.sol",
+        "contract": "PermitToken",
+        "outName": "PermitTokenSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2612/csharp/PermitToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-4494",
+      "title": "ERC-4494 — Permit NFT (off-chain authorization)",
+      "docEntry": "/standards-mirror/tokens#erc-4494",
+      "solidity": {
+        "source": "erc-4494/solidity/PermitNFT.sol",
+        "contract": "PermitNFT",
+        "outName": "PermitNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-4494/csharp/PermitNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
     }
   ]
 }
