@@ -1,6 +1,6 @@
 # Standards Mirror — TestNet Deployments
 
-- Generated: `2026-04-28T12:04:02.018Z`
+- Generated: `2026-04-28T23:28:56.859Z`
 - RPC: `http://seed1t5.neo.org:20332`
 - Network magic: `894710606`
 - Deployer: `NhMYxG5ATmRjSy6ocnPxrA2DiYba6xhFqu`
@@ -75,20 +75,32 @@
 | ERC-2612 — Permit Token (off-chain authorization) | csharp | `NM5DCTG24qSytAMyGtN6yUT1JfFYBkuE9s` | `-` | 2/2 |
 | ERC-4494 — Permit NFT (off-chain authorization) | solidity | `NVFrTDipYBJzWDyprqMwiJ3T25WK82xekQ` | `-` | 1/2 |
 | ERC-4494 — Permit NFT (off-chain authorization) | csharp | `NTu1qFUugBafvCEYVVmJYqcPNV9MuXt6Bq` | `-` | 2/2 |
-| ERC-7540 — Async Vault (request → claim) | solidity | `NRsYTBd1Unk8ngZvHagAxvoaYh8i8SHmQu` | `0xa21f79aaad09d0eef54e1ff21cdf9fb6091697814cc1fd10c8d39edcefd3f880` | 2/2 |
-| ERC-7540 — Async Vault (request → claim) | csharp | `NVydGRKKALityePgCpCoB4ewb5cSy3HBHk` | `0x09e0e80e42d580a23474167e25954dd29019a6245fc3bac2535f730f9c8336bb` | 3/3 |
-| ERC-7575 — Multi-Asset Vault | solidity | `Nc5Kqat2WNDw32fzQwYUuvp6zY24YqCnYU` | `0x0769e1e26cff9c0b5a599b68f5c9e263bd9ee56062501977c7ca835953d15c0a` | 2/2 |
-| ERC-7575 — Multi-Asset Vault | csharp | `Niu4uX7E2ja35uCbr4fK6c6faQZL1zcBEK` | `0xaeec84d1add849a630e3083f4ca6e80d432f33c9fe6a073cd22c1580bedbbde1` | 2/2 |
-| ERC-7579 — Modular Smart Account | solidity | `NPcsxZQVxJS25eybpNmuqFphzgV4z43foe` | `0x2ac25305bc0f2c5dbff5344a51fd078e4666a96580136f4285eec72b2158d52a` | 2/2 |
-| ERC-7579 — Modular Smart Account | csharp | `NYA8rMgt4zd2moXtvH46gtgHAmM6D9PLQ6` | `0x7233de4336ae495bc1df08336d305e055d41ecb3f3449e8f2717d873cb2f73d1` | 2/2 |
-| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | solidity | `NTnZeAos82yvgKbigLxV4DsnE7MLBN44eg` | `0xf8f8cb2aed9fc5b985abeeb24e2046ed2b13908bdff4edf43a6307b6a2c64017` | 2/2 |
-| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | csharp | `NaRMtcPmFFZzv5nAdV23QFmvBQS69apd9o` | `0x44c35c184618ff5355fa5a7f5ef76adc9860bed900454c3dc3350826193cfabb` | 2/2 |
-| ERC-6492 — Pre-Deploy Signature Verifier | solidity | `NfjDMxjpf13EbC197EwBXEfP8K7Q59KYWa` | `0xfd8fc9fd60ab03380025ff2e40edbb12ab3be0276b122c6587a27ef9ffd72eff` | 2/2 |
-| ERC-6492 — Pre-Deploy Signature Verifier | csharp | `NeJi7pXw9fj5SCioDu7ohUEJqygS1iG952` | `0xf4b28eb813e07234c482e6ec5a8d4598a03a36f2e54d663711d3ddfa9fd339be` | 2/2 |
-| EIP-712 — Typed-Data Verifier (domain separator) | solidity | `Ng6UPxMoJ9aUwFep9QCEpQmAKxdzH2bBer` | `0x567ec412ef2c7aa185eff2bdda8cc7b2b15d1c8788884fcbdbcb3f999c351219` | 1/1 |
-| EIP-712 — Typed-Data Verifier (domain separator) | csharp | `NZzpnvngrFuk1oiXJ3Nk9TsbHrrJfDRtDb` | `0xcad18ecedeb8a03cb41c3adf8008aecbad2f9e92291f526f3c9ca98636b176dd` | 2/2 |
-| EIP-2098 — Compact Signature Verifier | solidity | `Nfi3RwVQiesNpc9y5k5vBLFDc7D1TzFqsU` | `0x5092de6dfaca66dac78254f3668052cd7edacc50f1d4445a74eb07e54ad4906f` | 2/2 |
-| EIP-2098 — Compact Signature Verifier | csharp | `Nhe1acA5nndNVtF1pHa3e6rndYyUHTv5Sv` | `0x080ccf619de7e391e6b208889264fe259638f690810ed11763bea6fa20d9121c` | 2/2 |
+| ERC-7540 — Async Vault (request → claim) | solidity | `NRsYTBd1Unk8ngZvHagAxvoaYh8i8SHmQu` | `-` | 1/2 |
+| ERC-7540 — Async Vault (request → claim) | csharp | `NVydGRKKALityePgCpCoB4ewb5cSy3HBHk` | `-` | 3/3 |
+| ERC-7575 — Multi-Asset Vault | solidity | `Nc5Kqat2WNDw32fzQwYUuvp6zY24YqCnYU` | `-` | 1/2 |
+| ERC-7575 — Multi-Asset Vault | csharp | `Niu4uX7E2ja35uCbr4fK6c6faQZL1zcBEK` | `-` | 2/2 |
+| ERC-7579 — Modular Smart Account | solidity | `NPcsxZQVxJS25eybpNmuqFphzgV4z43foe` | `-` | 1/2 |
+| ERC-7579 — Modular Smart Account | csharp | `NYA8rMgt4zd2moXtvH46gtgHAmM6D9PLQ6` | `-` | 2/2 |
+| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | solidity | `NTnZeAos82yvgKbigLxV4DsnE7MLBN44eg` | `-` | 1/2 |
+| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | csharp | `NaRMtcPmFFZzv5nAdV23QFmvBQS69apd9o` | `-` | 2/2 |
+| ERC-6492 — Pre-Deploy Signature Verifier | solidity | `NfjDMxjpf13EbC197EwBXEfP8K7Q59KYWa` | `-` | 1/2 |
+| ERC-6492 — Pre-Deploy Signature Verifier | csharp | `NeJi7pXw9fj5SCioDu7ohUEJqygS1iG952` | `-` | 2/2 |
+| EIP-712 — Typed-Data Verifier (domain separator) | solidity | `Ng6UPxMoJ9aUwFep9QCEpQmAKxdzH2bBer` | `-` | 0/1 |
+| EIP-712 — Typed-Data Verifier (domain separator) | csharp | `NZzpnvngrFuk1oiXJ3Nk9TsbHrrJfDRtDb` | `-` | 2/2 |
+| EIP-2098 — Compact Signature Verifier | solidity | `Nfi3RwVQiesNpc9y5k5vBLFDc7D1TzFqsU` | `-` | 2/2 |
+| EIP-2098 — Compact Signature Verifier | csharp | `Nhe1acA5nndNVtF1pHa3e6rndYyUHTv5Sv` | `-` | 2/2 |
+| EIP-2718 — Typed Transaction Envelope | solidity | `NiMvKeofdrr3mdU4VmFvicKxNszFsXkVyQ` | `0x3f88a613436f0ed9e6674037787d841564e7b14e0acaaca29b0674310663d867` | 3/3 |
+| EIP-2718 — Typed Transaction Envelope | csharp | `Nck6gihPX3gA51XqetNMLpRpMQf4tsqSDH` | `0x989908a192be330bb6e5b642f1080c43b71be17e3528e42ccef320e4a2c2ed1f` | 2/3 |
+| EIP-2930 — Access List (witness scopes) | solidity | `NdkP4jJAVUgXSbSUpRbD8FnHi6TjWULNeW` | `0x17844b4b50ebc920cd449de142170ef8b55886d0acde40b20894baa02bd94112` | 2/2 |
+| EIP-2930 — Access List (witness scopes) | csharp | `Nbk9meWCw4DQhKZeK2vgfGVG6oqDJT1XpP` | `0xb1bfb7d4b46715b6e0848bbbf2b6a2a6b163531011d6998c6dc873025b136169` | 2/2 |
+| EIP-3855 — PUSH0 Opcode | solidity | `NT2N2y4CH1FYG74j3cNV4CcgxXS6qp7Fh5` | `0xba96b7c4398ed9d881c0a789b9222059ae2bba193dc20fc6327f8ead2b1c0a8d` | 2/2 |
+| EIP-3855 — PUSH0 Opcode | csharp | `NiPzZ4HXxwVYptrpwZ8jDnf7KMekHTjnp3` | `0x925724819e4e732f7bc33eb652acb633a2a08ccd98b5646413e832bdc7a6c00c` | 2/2 |
+| EIP-3860 — Initcode Size Limit | solidity | `NPdvGHEVkqeidDf9PMwimXLkXie23r1nEC` | `0xfe360560225f6308357408bacfd276eec88179367131e0c5bfdc81e405230ca8` | 1/1 |
+| EIP-3860 — Initcode Size Limit | csharp | `NQyVqccVtzvbS9uDbTmESyU2arGRxANcNo` | `0xe648287f9c9409e8309209c8910916494a91a6e0eaa85794bf2d3348eecbed74` | 1/1 |
+| EIP-6780 — SELFDESTRUCT Nerf | solidity | `NQLwx47c1P6NZ5mZn8qjzeqgALwyt3RUSZ` | `0x35d83590e411100bb14e15567994ba516f101e8c82eaea055d62cd458b980e4e` | 2/2 |
+| EIP-6780 — SELFDESTRUCT Nerf | csharp | `NhRfE6pGvtbGShTB99eWnkYqVULs3sS1Tr` | `0x5bf67208dbb2e76f5bf9c1e48314d4b6d96f4eb979bc423d16f6be9a606d1473` | 2/2 |
+| EIP-7702 — Set Code for EOAs | solidity | `NTM3xbr9TpZEULn1hks9VAfdKjVa6oczqt` | `0x7a3335dd7819100dcdfc4608f84c51570dbac7c290f8e9d47f370a8ae217e917` | 2/2 |
+| EIP-7702 — Set Code for EOAs | csharp | `NizvxJ3xboUGKi1pbXS7DSkwadJfdLTjh5` | `0x0e74dedca7154d196d40358dec78c4ec0e50623a9d2f0fce15b214f526e84590` | 2/2 |
 
 ## ERC-20 ↔ NEP-17 — Fungible Token
 
@@ -98,9 +110,9 @@
 - Deploy tx: `-`
   - ✅ `read` symbol
   - ✅ `read` decimals
-  - ✅ `write` faucet tx=`0x382addb826831050682723da067aac745a5718dd355b2e0b2dd51352e696887f`
-  - ❌ `read` balanceOf reason=`actual=700000000000000 (raw type=Integer, value=700000000000000), expected 100000000000000`
-  - ❌ `read` totalSupply reason=`actual=700000000000000 (raw type=Integer, value=700000000000000), expected 100000000000000`
+  - ✅ `write` faucet tx=`0x9447329b8f780d49eaaa0de66fbfc70a33ad137684667db0e6686a10f6e71789`
+  - ❌ `read` balanceOf reason=`actual=800000000000000 (raw type=Integer, value=800000000000000), expected 100000000000000`
+  - ❌ `read` totalSupply reason=`actual=800000000000000 (raw type=Integer, value=800000000000000), expected 100000000000000`
 
 ### csharp
 - Contract address: `NRGNZQRrb5TuDo4fA5KPiqZQB29Uybp1zJ`
@@ -118,8 +130,8 @@
 - Contract hash: `48b5f8f579810b402fed660844145fed406f77aa`
 - Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0xf401ca99dbecba069aa1e247b08f4c792a88b13a5ef10a2f70743b5369e21066`
-  - ❌ `read` balanceOf reason=`actual=7 (raw type=Integer, value=7), expected 1`
+  - ✅ `write` mint tx=`0x8b333fc2d5fd9244736fa352120836fbafc3bf0bef01925470e3b2984f393f0a`
+  - ❌ `read` balanceOf reason=`actual=8 (raw type=Integer, value=8), expected 1`
 
 ### csharp
 - Contract address: `NbuB1V5es6YBtPfVrW4R9bDtxDieuZoK38`
@@ -127,9 +139,9 @@
 - Deploy tx: `-`
   - ✅ `read` symbol
   - ✅ `read` decimals
-  - ✅ `write` mint tx=`0xb808f3e13af3170ff10bdb1df87465b1c3f90f1d930ea4f2143737dd4e78608f`
-  - ❌ `read` balanceOf reason=`actual=9 (raw type=Integer, value=9), expected 1`
-  - ❌ `read` totalSupply reason=`actual=9 (raw type=ByteString, value=CQ==), expected 1`
+  - ✅ `write` mint tx=`0x17a46ca38fd745322aad0ca647ee65e3e6bc7602470dc747caf775528fe4ada5`
+  - ❌ `read` balanceOf reason=`actual=10 (raw type=Integer, value=10), expected 1`
+  - ❌ `read` totalSupply reason=`actual=10 (raw type=ByteString, value=Cg==), expected 1`
 
 ## ERC-2981 ↔ NEP-24 — NFT Royalty
 
@@ -138,16 +150,16 @@
 - Contract hash: `ade57dfd9ad85fff8dca3845cf22206346468234`
 - Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0xdc25a69f4b87c9de15b73db77a85686ca855e48d1a43fac1423d4183022f5597`
-  - ✅ `write` setDefaultRoyalty tx=`0x59112a1c8c66828f984e6310316ca851edfbf4ec0e3b7ea5bf3f72409cd0868f`
+  - ✅ `write` mint tx=`0xb88ea21740a37246ed3e85fbaa3806e2eb558a54dce3d8361298414e41fbcff1`
+  - ✅ `write` setDefaultRoyalty tx=`0x37fecb973fd6d6b9b207d40e6d030ab20df9c4da646ec45c2d63ce462c0d4853`
 
 ### csharp
 - Contract address: `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC`
 - Contract hash: `bf3fe7eb875750c81c2915d53123c380685a65e1`
 - Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0xfd7ad0c6d22bef68a6e09e6d6bf4b9647a5e9836a96cdccd3eccb10c964e1cd7`
-  - ❌ `read` totalSupply reason=`actual=8 (raw type=ByteString, value=CA==), expected 1`
+  - ✅ `write` mint tx=`0xbcba439dfcfcba22a9db41e4c4668f720ee596b43f0796a3b33049dd7d1654ea`
+  - ❌ `read` totalSupply reason=`actual=9 (raw type=ByteString, value=CQ==), expected 1`
 
 ## ERC-3525 — Semi-Fungible Bond
 
@@ -156,7 +168,7 @@
 - Contract hash: `d0fd56dad510d54ca7877bab2c578d63b82a52c6`
 - Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0x2eb65b36bed5d7f73ddd9ea856c158d958c75aeeda0ca9879522e18e6c9b5380`
+  - ✅ `write` mint tx=`0x328fd7f5403f388cf9ff6859fd8de20f4c985a4b3eff925713e659ae105bd9d0`
   - ✅ `read` balanceOfToken
   - ✅ `read` slotOf
 
@@ -166,7 +178,7 @@
 - Deploy tx: `-`
   - ✅ `read` symbol
   - ✅ `read` valueDecimals
-  - ✅ `write` mint tx=`0x7d5654290cca7d3366f3b649bfcbc4348013d3e57bc3270a15ee88e32967626d`
+  - ✅ `write` mint tx=`0xd9f20bd9027f124a88f3b923311eee37354c29323cc5d2ba18a2b86ad9d45aca`
 
 ## ERC-173 — Contract Ownership
 
@@ -232,7 +244,7 @@
 - Contract hash: `1b75ecb9e926203e66283e3f875ba5097f3c3034`
 - Deploy tx: `-`
   - ❌ `write` claimIssuer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               SBC: already claimed            `
-  - ✅ `write` issue tx=`0x1797a73f281a1942543e6e97bbcef31fdedd0e7dea57597b71c03390316800c8`
+  - ✅ `write` issue tx=`0x4097042c32be12eec707c20176f5f8ab0700f723199758a0c740fee4afaa6080`
   - ✅ `read` locked
 
 ### csharp
@@ -247,8 +259,8 @@
 - Contract address: `NfiyLrGXijAAHiwq1LUGu69K92ybMu4ZS4`
 - Contract hash: `6653a8da9bac7b622987670d97bf740c2c124ed9`
 - Deploy tx: `-`
-  - ❌ `read` getNonce reason=`actual=5 (raw type=Integer, value=5), expected 0`
-  - ✅ `write` bumpNonce tx=`0x8e039e4d6f3a759163b98df7b47a97bb42906c0eb68ba5eeda527e826cd4d159`
+  - ❌ `read` getNonce reason=`actual=6 (raw type=Integer, value=6), expected 0`
+  - ✅ `write` bumpNonce tx=`0xcc24ff17a41fb2d8b4d6b599612cb7cf066171ff4fea9ccd0679331d4298349e`
 
 ### csharp
 - Contract address: `NLq6WUsRv4FAtxrqhwtTNxTeSgxAWYhG8P`
@@ -382,8 +394,8 @@
 - Contract hash: `d0f1fb49a76b1e6aaf63cf2e2e132607950e5e7d`
 - Deploy tx: `-`
   - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               Hooked: already claimed         `
-  - ✅ `write` mint tx=`0x870b830a1859b156f197ee4fb69aac610005d8fba3d54154960016924203e7ab`
-  - ❌ `read` balanceOf reason=`actual=4000 (raw type=Integer, value=4000), expected 1000`
+  - ✅ `write` mint tx=`0x71d71cbb706e1e7e22cb362f33aef6548ce6fa19fb2f9b94e219040b6f32db41`
+  - ❌ `read` balanceOf reason=`actual=5000 (raw type=Integer, value=5000), expected 1000`
 
 ### csharp
 - Contract address: `NSannXAy5BSKz1cBVQKC7d2DS3DwskPqNw`
@@ -540,7 +552,7 @@
 - Contract hash: `7e4e48124ed93c56eb4715965bb5b91fd0eb1a66`
 - Deploy tx: `-`
   - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               TG: already claimed             `
-  - ✅ `write` guardedCall tx=`0xb4c440b723b4d5afa82ee6e05c3e09b893aae9cf9a9d1148df756f1843e0c7d7`
+  - ✅ `write` guardedCall tx=`0x67c29fbc19fd314b4cb60fb042f887d30f312f28765b3fc1acf3614aa1bcf148`
   - ✅ `read` isLocked
 
 ### csharp
@@ -548,8 +560,8 @@
 - Contract hash: `e67e6815ad4d151bf87667af4e9aa9cbc3eaa7bf`
 - Deploy tx: `-`
   - ✅ `read` isLocked
-  - ❌ `read` callsCompleted reason=`actual=2 (raw type=Integer, value=2), expected 0`
-  - ✅ `write` guardedCall tx=`0x696f06a8b4643bed50fefb343e1b4b3aeaf56fa60cfc2fbd8ffdb8bdc3c14ca2`
+  - ❌ `read` callsCompleted reason=`actual=3 (raw type=Integer, value=3), expected 0`
+  - ✅ `write` guardedCall tx=`0x609a2181f80f23877c0ff7f02bf85f1acb8f500989eb20e1c2a5569b37cd4115`
 
 ## EIP-3198 — BASEFEE Introspection
 
@@ -633,14 +645,14 @@
 ### solidity
 - Contract address: `NRsYTBd1Unk8ngZvHagAxvoaYh8i8SHmQu`
 - Contract hash: `d8838ba126e5a77727c673215782aec59f465b41`
-- Deploy tx: `0xa21f79aaad09d0eef54e1ff21cdf9fb6091697814cc1fd10c8d39edcefd3f880`
-  - ✅ `write` claimDeployer tx=`0x32d005a3a59b85dd9ccb945c6fa82d00480e803c73092e61269cc593f146f528`
+- Deploy tx: `-`
+  - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               AV: already claimed             `
   - ✅ `read` pendingDepositCount
 
 ### csharp
 - Contract address: `NVydGRKKALityePgCpCoB4ewb5cSy3HBHk`
 - Contract hash: `c2137b33423fdda8ce5a240e7feec8db2c4b626e`
-- Deploy tx: `0x09e0e80e42d580a23474167e25954dd29019a6245fc3bac2535f730f9c8336bb`
+- Deploy tx: `-`
   - ✅ `read` getDeployer
   - ✅ `read` pendingDepositCount
   - ✅ `read` pendingRedeemCount
@@ -650,14 +662,14 @@
 ### solidity
 - Contract address: `Nc5Kqat2WNDw32fzQwYUuvp6zY24YqCnYU`
 - Contract hash: `985a293c07f1b024f37a4ffc1d7fdf14edfe46b1`
-- Deploy tx: `0x0769e1e26cff9c0b5a599b68f5c9e263bd9ee56062501977c7ca835953d15c0a`
-  - ✅ `write` claimDeployer tx=`0x8cfdb347e7a8b2562c20880a704100d120fd3d88f0324f2f1236626a52380687`
+- Deploy tx: `-`
+  - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               MAV: already claimed            `
   - ✅ `read` assetCount
 
 ### csharp
 - Contract address: `Niu4uX7E2ja35uCbr4fK6c6faQZL1zcBEK`
 - Contract hash: `d85564c8072776e0c5252797f5ba9dfb7e401ffc`
-- Deploy tx: `0xaeec84d1add849a630e3083f4ca6e80d432f33c9fe6a073cd22c1580bedbbde1`
+- Deploy tx: `-`
   - ✅ `read` getDeployer
   - ✅ `read` assetCount
 
@@ -666,14 +678,14 @@
 ### solidity
 - Contract address: `NPcsxZQVxJS25eybpNmuqFphzgV4z43foe`
 - Contract hash: `5e6edfc08e536f6d8891af968a52f7d56c11a528`
-- Deploy tx: `0x2ac25305bc0f2c5dbff5344a51fd078e4666a96580136f4285eec72b2158d52a`
-  - ✅ `write` claimOwner tx=`0x883db4226fd1f938f618c274df411f81d5b3dde1bc3e3cc85390c8c889853159`
+- Deploy tx: `-`
+  - ❌ `write` claimOwner reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               MA: already claimed             `
   - ✅ `read` moduleCount
 
 ### csharp
 - Contract address: `NYA8rMgt4zd2moXtvH46gtgHAmM6D9PLQ6`
 - Contract hash: `cbd2e64f3ef5d5c9069fadf9c7d72ffcb8664f86`
-- Deploy tx: `0x7233de4336ae495bc1df08336d305e055d41ecb3f3449e8f2717d873cb2f73d1`
+- Deploy tx: `-`
   - ✅ `read` getOwner
   - ✅ `read` moduleCount
 
@@ -682,14 +694,14 @@
 ### solidity
 - Contract address: `NTnZeAos82yvgKbigLxV4DsnE7MLBN44eg`
 - Contract hash: `aa11f9ef784be1ccad7b0f7b23c32508c5705a56`
-- Deploy tx: `0xf8f8cb2aed9fc5b985abeeb24e2046ed2b13908bdff4edf43a6307b6a2c64017`
-  - ✅ `write` claimOwner tx=`0x9ecf23ab06560e4f46d516ad34da71d11ced2a653d6df8fde15e865cd10ca628`
+- Deploy tx: `-`
+  - ❌ `write` claimOwner reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               SA: already claimed             `
   - ✅ `read` getNonce
 
 ### csharp
 - Contract address: `NaRMtcPmFFZzv5nAdV23QFmvBQS69apd9o`
 - Contract hash: `e26da2300e0073c98f2292becda67170cbc6209f`
-- Deploy tx: `0x44c35c184618ff5355fa5a7f5ef76adc9860bed900454c3dc3350826193cfabb`
+- Deploy tx: `-`
   - ✅ `read` getOwner
   - ✅ `read` getNonce
 
@@ -698,14 +710,14 @@
 ### solidity
 - Contract address: `NfjDMxjpf13EbC197EwBXEfP8K7Q59KYWa`
 - Contract hash: `95170df70a3c425fdaad9795f77a68430ac659d9`
-- Deploy tx: `0xfd8fc9fd60ab03380025ff2e40edbb12ab3be0276b122c6587a27ef9ffd72eff`
-  - ✅ `write` claimDeployer tx=`0xdb3611edbf4605fea4703d6824b3070f6affbd99f2b66ceb98a093baccf58901`
+- Deploy tx: `-`
+  - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               PDS: already claimed            `
   - ✅ `read` verificationCount
 
 ### csharp
 - Contract address: `NeJi7pXw9fj5SCioDu7ohUEJqygS1iG952`
 - Contract hash: `7dd2cd08072ab383cf7152bf5ed734d7d240bfc9`
-- Deploy tx: `0xf4b28eb813e07234c482e6ec5a8d4598a03a36f2e54d663711d3ddfa9fd339be`
+- Deploy tx: `-`
   - ✅ `read` getDeployer
   - ✅ `read` verificationCount
 
@@ -714,13 +726,13 @@
 ### solidity
 - Contract address: `Ng6UPxMoJ9aUwFep9QCEpQmAKxdzH2bBer`
 - Contract hash: `8e501310318f17d20674c639fc49b5e6100f5fdd`
-- Deploy tx: `0x567ec412ef2c7aa185eff2bdda8cc7b2b15d1c8788884fcbdbcb3f999c351219`
-  - ✅ `write` claimDeployer tx=`0x5d3cecfb023d87c9caa0b449f8814359023cd0a9557d149d1d9e63919c736254`
+- Deploy tx: `-`
+  - ❌ `write` claimDeployer reason=`Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y�                                                               TD: already claimed             `
 
 ### csharp
 - Contract address: `NZzpnvngrFuk1oiXJ3Nk9TsbHrrJfDRtDb`
 - Contract hash: `38e8f069271cbbbdfd2032629e733a528cd57c9a`
-- Deploy tx: `0xcad18ecedeb8a03cb41c3adf8008aecbad2f9e92291f526f3c9ca98636b176dd`
+- Deploy tx: `-`
   - ✅ `read` getDeployer
   - ✅ `read` getDomainSeparator
 
@@ -729,13 +741,109 @@
 ### solidity
 - Contract address: `Nfi3RwVQiesNpc9y5k5vBLFDc7D1TzFqsU`
 - Contract hash: `d63ea34d63f0628c4cd413f58aa1c2623b1121d9`
-- Deploy tx: `0x5092de6dfaca66dac78254f3668052cd7edacc50f1d4445a74eb07e54ad4906f`
+- Deploy tx: `-`
   - ✅ `read` compactSize
   - ✅ `read` legacySize
 
 ### csharp
 - Contract address: `Nhe1acA5nndNVtF1pHa3e6rndYyUHTv5Sv`
 - Contract hash: `b2701b6d89a734b5a865a1ec6c247466391c4eee`
-- Deploy tx: `0x080ccf619de7e391e6b208889264fe259638f690810ed11763bea6fa20d9121c`
+- Deploy tx: `-`
   - ✅ `read` compactSize
   - ✅ `read` legacySize
+
+## EIP-2718 — Typed Transaction Envelope
+
+### solidity
+- Contract address: `NiMvKeofdrr3mdU4VmFvicKxNszFsXkVyQ`
+- Contract hash: `4e2300b8426b26eb8bbf57398a53ad810e313bf6`
+- Deploy tx: `0x3f88a613436f0ed9e6674037787d841564e7b14e0acaaca29b0674310663d867`
+  - ✅ `read` neoTxVersion
+  - ✅ `read` evmDynamicFeeType
+  - ✅ `read` evmBlobType
+
+### csharp
+- Contract address: `Nck6gihPX3gA51XqetNMLpRpMQf4tsqSDH`
+- Contract hash: `b600afb3c034ff11a3e25a26fa03b58e263d9cb8`
+- Deploy tx: `0x989908a192be330bb6e5b642f1080c43b71be17e3528e42ccef320e4a2c2ed1f`
+  - ❌ `read` neoTxVersion reason=`empty stack`
+  - ✅ `read` evmDynamicFeeType
+  - ✅ `read` evmBlobType
+
+## EIP-2930 — Access List (witness scopes)
+
+### solidity
+- Contract address: `NdkP4jJAVUgXSbSUpRbD8FnHi6TjWULNeW`
+- Contract hash: `02a174b4080c57d8ceb2c66b223799a79d09a2c3`
+- Deploy tx: `0x17844b4b50ebc920cd449de142170ef8b55886d0acde40b20894baa02bd94112`
+  - ✅ `read` scopeCalledByEntry
+  - ✅ `read` scopeGlobal
+
+### csharp
+- Contract address: `Nbk9meWCw4DQhKZeK2vgfGVG6oqDJT1XpP`
+- Contract hash: `3570e80f52a9329b604d5d18fb94de3133b0a6ad`
+- Deploy tx: `0xb1bfb7d4b46715b6e0848bbbf2b6a2a6b163531011d6998c6dc873025b136169`
+  - ✅ `read` scopeCalledByEntry
+  - ✅ `read` scopeGlobal
+
+## EIP-3855 — PUSH0 Opcode
+
+### solidity
+- Contract address: `NT2N2y4CH1FYG74j3cNV4CcgxXS6qp7Fh5`
+- Contract hash: `52b860448a5d1ff537160a0bee8c83cdfe72fe4d`
+- Deploy tx: `0xba96b7c4398ed9d881c0a789b9222059ae2bba193dc20fc6327f8ead2b1c0a8d`
+  - ✅ `read` zero
+  - ✅ `read` falseBool
+
+### csharp
+- Contract address: `NiPzZ4HXxwVYptrpwZ8jDnf7KMekHTjnp3`
+- Contract hash: `6704d604997959ce4e098bd96ecbacef358e9ff6`
+- Deploy tx: `0x925724819e4e732f7bc33eb652acb633a2a08ccd98b5646413e832bdc7a6c00c`
+  - ✅ `read` zero
+  - ✅ `read` falseBool
+
+## EIP-3860 — Initcode Size Limit
+
+### solidity
+- Contract address: `NPdvGHEVkqeidDf9PMwimXLkXie23r1nEC`
+- Contract hash: `5d95f5db9f06ee751778208c36c408a49968d728`
+- Deploy tx: `0xfe360560225f6308357408bacfd276eec88179367131e0c5bfdc81e405230ca8`
+  - ✅ `read` maxInitcodeSize
+
+### csharp
+- Contract address: `NQyVqccVtzvbS9uDbTmESyU2arGRxANcNo`
+- Contract hash: `b58a104cecaaa87e7c44915464f09b60e4768337`
+- Deploy tx: `0xe648287f9c9409e8309209c8910916494a91a6e0eaa85794bf2d3348eecbed74`
+  - ✅ `read` evmMaxInitcodeSize
+
+## EIP-6780 — SELFDESTRUCT Nerf
+
+### solidity
+- Contract address: `NQLwx47c1P6NZ5mZn8qjzeqgALwyt3RUSZ`
+- Contract hash: `67a59c179448a3769d5559a691a4c118c7de9930`
+- Deploy tx: `0x35d83590e411100bb14e15567994ba516f101e8c82eaea055d62cd458b980e4e`
+  - ✅ `write` claimDeployer tx=`0x355ceca32a92d13bf264d32b90ab3dfa3519c13bd911435d4d97cd6f4f99ecec`
+  - ✅ `read` isArmed
+
+### csharp
+- Contract address: `NhRfE6pGvtbGShTB99eWnkYqVULs3sS1Tr`
+- Contract hash: `8acf52e9a1f696965480cd40046c9c3de020f8eb`
+- Deploy tx: `0x5bf67208dbb2e76f5bf9c1e48314d4b6d96f4eb979bc423d16f6be9a606d1473`
+  - ✅ `read` getDeployer
+  - ✅ `read` isArmed
+
+## EIP-7702 — Set Code for EOAs
+
+### solidity
+- Contract address: `NTM3xbr9TpZEULn1hks9VAfdKjVa6oczqt`
+- Contract hash: `b156b370b4ad897caf955e38fffa637195438751`
+- Deploy tx: `0x7a3335dd7819100dcdfc4608f84c51570dbac7c290f8e9d47f370a8ae217e917`
+  - ✅ `write` claimDeployer tx=`0x786412b92ac014ec34c43bc3b5ff73c501c20f06739fd2e1ccd28438c046b08d`
+  - ✅ `read` delegationCount
+
+### csharp
+- Contract address: `NizvxJ3xboUGKi1pbXS7DSkwadJfdLTjh5`
+- Contract hash: `158d0d7fdf17d71b6e733997cd74b68f0d1c3bfd`
+- Deploy tx: `0x0e74dedca7154d196d40358dec78c4ec0e50623a9d2f0fce15b214f526e84590`
+  - ✅ `read` getDeployer
+  - ✅ `read` delegationCount

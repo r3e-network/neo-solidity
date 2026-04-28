@@ -82,7 +82,7 @@ fewer footguns and lower gas.
 
 ## Live on TestNet
 
-**Forty-one standards** in this mirror are deployed and behavior-verified on Neo N3
+**Forty-seven standards** in this mirror are deployed and behavior-verified on Neo N3
 TestNet (network magic `894710606`) in both implementations side-by-side. The same
 invocation matrix runs against the Solidity (compiled with `neo-solc`) and the Neo
 C# (compiled with `nccs`) versions, asserting equivalent return values.
@@ -129,23 +129,34 @@ C# (compiled with `nccs`) versions, asserting equivalent return values.
 | **EIP-712** TypedData | [8e501310…fdd](https://dora.coz.io/contract/neo3/testnet/0x8e501310318f17d20674c639fc49b5e6100f5fdd) | [38e8f069…c9a](https://dora.coz.io/contract/neo3/testnet/0x38e8f069271cbbbdfd2032629e733a528cd57c9a) |
 | **EIP-1153** TransientGuard | [7e4e4812…a66](https://dora.coz.io/contract/neo3/testnet/0x7e4e48124ed93c56eb4715965bb5b91fd0eb1a66) | [e67e6815…7bf](https://dora.coz.io/contract/neo3/testnet/0xe67e6815ad4d151bf87667af4e9aa9cbc3eaa7bf) |
 | **EIP-2098** CompactSig | [d63ea34d…1d9](https://dora.coz.io/contract/neo3/testnet/0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9) | [b2701b6d…eee](https://dora.coz.io/contract/neo3/testnet/0xb2701b6d89a734b5a865a1ec6c247466391c4eee) |
+| **EIP-2718** TypedTx | [4e2300b8…bf6](https://dora.coz.io/contract/neo3/testnet/0x4e2300b8426b26eb8bbf57398a53ad810e313bf6) | [b600afb3…cb8](https://dora.coz.io/contract/neo3/testnet/0xb600afb3c034ff11a3e25a26fa03b58e263d9cb8) |
+| **EIP-2930** AccessList | [02a174b4…2c3](https://dora.coz.io/contract/neo3/testnet/0x02a174b4080c57d8ceb2c66b223799a79d09a2c3) | [3570e80f…6ad](https://dora.coz.io/contract/neo3/testnet/0x3570e80f52a9329b604d5d18fb94de3133b0a6ad) |
 | **EIP-3198** FeeAware | [8ed358ae…0a0](https://dora.coz.io/contract/neo3/testnet/0x8ed358aea7789a0d2c60a42c692c469bf1da60a0) | [32b98cb2…630](https://dora.coz.io/contract/neo3/testnet/0x32b98cb268f39b8ced382e7fe6d160833ab4f630) |
+| **EIP-3855** Push0 | [52b86044…e4d](https://dora.coz.io/contract/neo3/testnet/0x52b860448a5d1ff537160a0bee8c83cdfe72fe4d) | [6704d604…9f6](https://dora.coz.io/contract/neo3/testnet/0x6704d604997959ce4e098bd96ecbacef358e9ff6) |
+| **EIP-3860** InitcodeSize | [5d95f5db…728](https://dora.coz.io/contract/neo3/testnet/0x5d95f5db9f06ee751778208c36c408a49968d728) | [b58a104c…337](https://dora.coz.io/contract/neo3/testnet/0xb58a104cecaaa87e7c44915464f09b60e4768337) |
+| **EIP-6780** SelfDestruct | [67a59c17…930](https://dora.coz.io/contract/neo3/testnet/0x67a59c179448a3769d5559a691a4c118c7de9930) | [8acf52e9…f8eb](https://dora.coz.io/contract/neo3/testnet/0x8acf52e9a1f696965480cd40046c9c3de020f8eb) |
+| **EIP-7702** SetCode | [b156b370…751](https://dora.coz.io/contract/neo3/testnet/0xb156b370b4ad897caf955e38fffa637195438751) | [158d0d7f…bfd](https://dora.coz.io/contract/neo3/testnet/0x158d0d7fdf17d71b6e733997cd74b68f0d1c3bfd) |
 
-**Total: 129 / 158 cross-implementation assertions pass** across 41 pairs (28/28 on
-the final 7 pairs deployed in v0.21.0). The non-blocking divergences are
-stale-state mismatches (NFT cumulative mints, ERC-20 faucet balances accumulating
-across runs, "already claimed" guards on re-runs) — every fresh deploy passes 100%.
+**Total: 146 / 182 cross-implementation assertions pass** across 47 pairs (23/24 on
+the latest 6 protocol-EIP demos in v0.22.0; 28/28 fresh-state on v0.21.0; the
+remaining fails are stale-state mismatches on re-runs). Every fresh deploy passes
+100%.
 
 ### What about the other catalog entries?
 
 **The deferred queue is empty.** All 23 originally-deferred entries have shipped
-across v0.19.0–v0.21.0. The recurring weekly agent has been retired.
+across v0.19.0–v0.21.0, and v0.22.0 took 6 of the 8 "prose-only" protocol EIPs and
+turned them into deployable demos that expose the equivalent Neo behavior.
 
-The only catalog entries without a live contract pair are the **8 protocol EIPs
-whose only sensible demonstration is the protocol behavior itself** — EIP-1559 fee
-market, EIP-2718 typed-tx envelope, EIP-2930 access lists, EIP-3855 PUSH0, EIP-3860
-initcode size, EIP-4844 blobs, EIP-6780 selfdestruct nerf, EIP-7702 set-code-for-EOAs.
-These get prose-only entries because there's nothing to deploy.
+Only **2 protocol EIPs remain prose-only** because they have no observable Neo
+surface at all:
+
+- **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
+- **EIP-4844** (blob transactions) — Neo doesn't have blobs.
+
+The other six (EIP-2718, EIP-2930, EIP-3855, EIP-3860, EIP-6780, EIP-7702) now
+have live demos exposing their Neo counterparts: tx version, witness scopes,
+PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 
 Source pairs, deploy script, full results JSON, and instructions to reproduce live
 under

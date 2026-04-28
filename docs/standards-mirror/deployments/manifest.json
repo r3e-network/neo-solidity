@@ -1017,6 +1017,155 @@
           { "name": "legacySize == 65", "kind": "read", "operation": "legacySize", "args": [], "expect": { "type": "Integer", "value": "65" } }
         ]
       }
+    },
+
+    {
+      "id": "eip-2718",
+      "title": "EIP-2718 — Typed Transaction Envelope",
+      "docEntry": "/standards-mirror/protocol-eips#eip-2718",
+      "solidity": {
+        "source": "eip-2718/solidity/TypedTx.sol",
+        "contract": "TypedTx",
+        "outName": "TypedTxSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "neoTxVersion == 0", "kind": "read", "operation": "neoTxVersion", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "evmDynamicFeeType == 2", "kind": "read", "operation": "evmDynamicFeeType", "args": [], "expect": { "type": "Integer", "value": "2" } },
+          { "name": "evmBlobType == 3", "kind": "read", "operation": "evmBlobType", "args": [], "expect": { "type": "Integer", "value": "3" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-2718/csharp/TypedTx.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "evmDynamicFeeType == 2", "kind": "read", "operation": "evmDynamicFeeType", "args": [], "expect": { "type": "Integer", "value": "2" } },
+          { "name": "evmBlobType == 3", "kind": "read", "operation": "evmBlobType", "args": [], "expect": { "type": "Integer", "value": "3" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-2930",
+      "title": "EIP-2930 — Access List (witness scopes)",
+      "docEntry": "/standards-mirror/protocol-eips#eip-2930",
+      "solidity": {
+        "source": "eip-2930/solidity/AccessList.sol",
+        "contract": "AccessList",
+        "outName": "AccessListSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "scopeCalledByEntry == 1", "kind": "read", "operation": "scopeCalledByEntry", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "scopeGlobal == 128", "kind": "read", "operation": "scopeGlobal", "args": [], "expect": { "type": "Integer", "value": "128" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-2930/csharp/AccessList.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "scopeCalledByEntry == 1", "kind": "read", "operation": "scopeCalledByEntry", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "scopeGlobal == 128", "kind": "read", "operation": "scopeGlobal", "args": [], "expect": { "type": "Integer", "value": "128" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-3855",
+      "title": "EIP-3855 — PUSH0 Opcode",
+      "docEntry": "/standards-mirror/protocol-eips#eip-3855",
+      "solidity": {
+        "source": "eip-3855/solidity/Push0.sol",
+        "contract": "Push0",
+        "outName": "Push0Sol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "zero() == 0", "kind": "read", "operation": "zero", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "falseBool() == false", "kind": "read", "operation": "falseBool", "args": [], "expect": { "type": "Boolean", "value": false } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-3855/csharp/Push0.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "zero() == 0", "kind": "read", "operation": "zero", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "falseBool() == false", "kind": "read", "operation": "falseBool", "args": [], "expect": { "type": "Boolean", "value": false } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-3860",
+      "title": "EIP-3860 — Initcode Size Limit",
+      "docEntry": "/standards-mirror/protocol-eips#eip-3860",
+      "solidity": {
+        "source": "eip-3860/solidity/InitcodeSize.sol",
+        "contract": "InitcodeSize",
+        "outName": "InitcodeSizeSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "maxInitcodeSize == 49152", "kind": "read", "operation": "maxInitcodeSize", "args": [], "expect": { "type": "Integer", "value": "49152" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-3860/csharp/InitcodeSize.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "evmMaxInitcodeSize == 49152", "kind": "read", "operation": "evmMaxInitcodeSize", "args": [], "expect": { "type": "Integer", "value": "49152" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-6780",
+      "title": "EIP-6780 — SELFDESTRUCT Nerf",
+      "docEntry": "/standards-mirror/protocol-eips#eip-6780",
+      "solidity": {
+        "source": "eip-6780/solidity/SelfDestruct.sol",
+        "contract": "SelfDestruct",
+        "outName": "SelfDestructSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "isArmed == false (initial)", "kind": "read", "operation": "isArmed", "args": [], "expect": { "type": "Boolean", "value": false } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-6780/csharp/SelfDestruct.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "isArmed == false (initial)", "kind": "read", "operation": "isArmed", "args": [], "expect": { "type": "Boolean", "value": false } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-7702",
+      "title": "EIP-7702 — Set Code for EOAs",
+      "docEntry": "/standards-mirror/protocol-eips#eip-7702",
+      "solidity": {
+        "source": "eip-7702/solidity/SetCode.sol",
+        "contract": "SetCode",
+        "outName": "SetCodeSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "delegationCount == 0 (initial)", "kind": "read", "operation": "delegationCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-7702/csharp/SetCode.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "delegationCount == 0 (initial)", "kind": "read", "operation": "delegationCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
     }
   ]
 }
