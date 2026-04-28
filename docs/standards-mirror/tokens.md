@@ -68,7 +68,7 @@ Both implementations are deployed and behavior-verified on Neo N3 TestNet (netwo
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
-| **Solidity** (`neo-solc`) | `NaKd35AaXvYiLfKngxfuPuxQrFqtiRG1Ns` | `0xf6f1318d3a215df624202590929ae53686ec0a9e` | [`0x47da2da2…0e949e`](https://dora.coz.io/transaction/neo3/testnet/0x47da2da24d82cc25b7c827cc24e950722242600978c7ffca49a4ce9c5f0e949e) |
+| **Solidity** (`neo-solc`) | `NZbQsZAbH3eBdZZYShj6CgG1ZkVEbjZhwF` | `0xd76434af829dc4c936c12648aa77932fa94c0f96` | [`0x37897c9d…85be43e`](https://dora.coz.io/transaction/neo3/testnet/0x37897c9d8b04c7d87baf2e256621d9980145fa2ee8891c9b477c9783985be43e) |
 | **Neo C#** (`nccs`) | `NRGNZQRrb5TuDo4fA5KPiqZQB29Uybp1zJ` | `0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a` | (re-used from earlier deploy) |
 
 Cross-implementation invocations match: `symbol`, `decimals`, `totalSupply`,
@@ -159,7 +159,7 @@ public class DemoToken : SmartContract
 {
     private const byte Prefix_TotalSupply = 0x00;
     private const byte Prefix_Balance     = 0x01;
-    private static readonly UInt160 Owner = "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static readonly UInt160 Owner = (UInt160)"0x0000000000000000000000000000000000000000";
 
     [DisplayName("Transfer")]
     public static event Action<UInt160, UInt160, BigInteger> OnTransfer;
@@ -168,13 +168,13 @@ public class DemoToken : SmartContract
     public static byte   Decimals() => 8;
 
     public static BigInteger TotalSupply()
-        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply }) ?? new byte[0]);
+        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply }) ?? ByteString.Empty);
 
     public static BigInteger BalanceOf(UInt160 account)
     {
         if (!account.IsValid) throw new Exception("invalid account");
         var key = new byte[] { Prefix_Balance }.Concat(account);
-        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? new byte[0]);
+        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? ByteString.Empty);
     }
 
     public static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data)
@@ -268,7 +268,7 @@ Both implementations deployed and tested on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
-| **Solidity** (`neo-solc`) | `Ndfq3zG5NEe85tBZQBC4NJLjbeVRu9TwFn` | `0xe12679b0246e4a0a7b546f1e994fcf9199a6c5c2` | [`0x28821263…e96fb8`](https://dora.coz.io/transaction/neo3/testnet/0x28821263f9132b576acb4153a81eba8e2878e83200ccc7d53b1b0e1f54e96fb8) |
+| **Solidity** (`neo-solc`) | `NbTK8px52xHxJ5zSJvVFqBujZ5eQEV4dYt` | `0x48b5f8f579810b402fed660844145fed406f77aa` | [`0x2bac122c…6674`](https://dora.coz.io/transaction/neo3/testnet/0x2bac122c5803ea38cc90c26115564d82bd8cd54d4c430664a5da7166adf26674) |
 | **Neo C#** (`nccs`) | `NbuB1V5es6YBtPfVrW4R9bDtxDieuZoK38` | `0x15c664d51340a102490dbf5dec5647f541775baf` | (re-used) |
 
 Verified: `symbol`, `decimals`, `mint`, `balanceOf`. Source pairs and runner under
@@ -372,7 +372,7 @@ public class DemoNFT : SmartContract
     public static byte   Decimals() => 0;
 
     public static BigInteger TotalSupply()
-        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply }) ?? new byte[0]);
+        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply }) ?? ByteString.Empty);
 
     public static UInt160 OwnerOf(ByteString tokenId)
     {
@@ -443,7 +443,7 @@ public class DemoNFT : SmartContract
         OnTransfer(UInt160.Zero, to, 1, tokenId);
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -593,7 +593,7 @@ public class HookedToken : SmartContract
     public static BigInteger BalanceOf(UInt160 account)
     {
         var key = new byte[] { Prefix_Balance }.Concat(account);
-        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? new byte[0]);
+        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? ByteString.Empty);
     }
 
     private static void UpdateBalance(UInt160 account, BigInteger value)
@@ -746,7 +746,7 @@ public class MultiToken : SmartContract
 
     public static BigInteger BalanceOf(UInt160 account, ByteString id)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Balance }.Concat(id).Concat(account)) ?? new byte[0]);
+            new byte[] { Prefix_Balance }.Concat(id).Concat(account)) ?? ByteString.Empty);
 
     public static BigInteger[] BalanceOfBatch(UInt160[] accounts, ByteString[] ids)
     {
@@ -953,7 +953,7 @@ public class RoyaltyNFT : SmartContract
                     StdLib.Serialize(recipients));
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -1008,7 +1008,7 @@ Both implementations deployed and behavior-verified on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
-| **Solidity** (`neo-solc`) | `NeBJFQY6UAqyQdYXqT6sn4A45gJRqSFkdN` | `0xcee12844b9a9555c29184d59a042384a9e6a58c8` | [`0x7a244abb…b0eaf9`](https://dora.coz.io/transaction/neo3/testnet/0x7a244abbc2c77cf26ef907a0a3b7bfbddd11221bb90fbbddef9b71c796b0eaf9) |
+| **Solidity** (`neo-solc`) | `NdzbQnww1HMVDUgZtZzrfN5TvxFTBoBTW6` | `0xd0fd56dad510d54ca7877bab2c578d63b82a52c6` | [`0x16953f75…22a2e`](https://dora.coz.io/transaction/neo3/testnet/0x16953f75ec84751dd7ae3e6ce8804efdb9b09e6510ecd3716ef1534defa22a2e) |
 | **Neo C#** (`nccs`) | `NVpt23PJU2ZbEHXmDkzEqCfoE9NQfEopNZ` | `0xfcfde62a4764cbcd9b35615084e0075c4bddba6c` | [`0x9b8dc510…1cefba`](https://dora.coz.io/transaction/neo3/testnet/0x9b8dc510c18c27aad853f177c54ef85dd040f35aab14e1cde147d05a2b1cefba) |
 
 Verified: `symbol`, `mint(slot=1, value=1000)`, `balanceOfToken`, `slotOf`,
@@ -1131,13 +1131,13 @@ public class Bond : SmartContract
     public static BigInteger SlotOf(ByteString tokenId)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
                                     new byte[] { Prefix_Slot }.Concat(tokenId))
-                        ?? new byte[0]);
+                        ?? ByteString.Empty);
 
     /// <summary>NEP-11 balanceOf for divisible NFTs returns the value of this token.</summary>
     public static BigInteger BalanceOf(ByteString tokenId)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
                                     new byte[] { Prefix_Value }.Concat(tokenId))
-                        ?? new byte[0]);
+                        ?? ByteString.Empty);
 
     public static ByteString Mint(UInt160 to, BigInteger slot, BigInteger value)
     {
@@ -1189,12 +1189,12 @@ public class Bond : SmartContract
 
     private static ByteString NextId()
     {
-        var n = (BigInteger)(Storage.Get(Storage.CurrentContext, NextIdKey) ?? new byte[0]) + 1;
+        var n = (BigInteger)(Storage.Get(Storage.CurrentContext, NextIdKey) ?? ByteString.Empty) + 1;
         Storage.Put(Storage.CurrentContext, NextIdKey, n);
         return (ByteString)n.ToByteArray();
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -1326,7 +1326,7 @@ public class BatchMintNFT : SmartContract
         if (!Runtime.CheckWitness(GetAdmin())) throw new Exception("admin only");
         if (count <= 0) throw new Exception("count <= 0");
 
-        var fromId = (BigInteger)(Storage.Get(Storage.CurrentContext, NextIdKey) ?? new byte[0]);
+        var fromId = (BigInteger)(Storage.Get(Storage.CurrentContext, NextIdKey) ?? ByteString.Empty);
         var toId   = fromId + count - 1;
         Storage.Put(Storage.CurrentContext, NextIdKey, toId + 1);
 
@@ -1337,7 +1337,7 @@ public class BatchMintNFT : SmartContract
 
         var bal = (BigInteger)(Storage.Get(Storage.CurrentContext,
                                            new byte[] { Prefix_Balance }.Concat(to))
-                               ?? new byte[0]) + count;
+                               ?? ByteString.Empty) + count;
         Storage.Put(Storage.CurrentContext,
                     new byte[] { Prefix_Balance }.Concat(to), bal);
 
@@ -1363,7 +1363,7 @@ public class BatchMintNFT : SmartContract
         return best;
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -1487,7 +1487,7 @@ public class DynamicNFT : SmartContract
         OnBatchMetadataUpdate(fromId, toId);
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -1804,7 +1804,7 @@ public class SoulboundCert : SmartContract
         OnUnlocked(tokenId);
     }
 
-    private static UInt160 GetIssuer() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetIssuer() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -2115,7 +2115,7 @@ public class MinimalMultiToken : SmartContract
 
     public static BigInteger BalanceOf(UInt160 owner, ByteString id)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Balance }.Concat(owner).Concat(id)) ?? new byte[0]);
+            new byte[] { Prefix_Balance }.Concat(owner).Concat(id)) ?? ByteString.Empty);
 
     public static bool Transfer(UInt160 from, UInt160 to, ByteString id, BigInteger amount)
     {
@@ -2144,7 +2144,7 @@ public class MinimalMultiToken : SmartContract
         OnTransfer(Runtime.CallingScriptHash, UInt160.Zero, to, id, amount);
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -2306,7 +2306,7 @@ public class Achievement : SmartContract
         => (string)Storage.Get(Storage.CurrentContext,
                                new byte[] { Prefix_Uri }.Concat(badgeId));
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -2432,7 +2432,7 @@ public class GuardedNFT : SmartContract
         var guard = (UInt160)Storage.Get(Storage.CurrentContext,
                                          new byte[] { Prefix_Guard }.Concat(tokenId));
         var exp   = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                    new byte[] { Prefix_GuardExp }.Concat(tokenId)) ?? new byte[0]);
+                    new byte[] { Prefix_GuardExp }.Concat(tokenId)) ?? ByteString.Empty);
         if (Runtime.Time / 1000 >= exp) return (UInt160.Zero, 0);   // expired
         return (guard, exp);
     }

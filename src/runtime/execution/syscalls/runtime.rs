@@ -168,24 +168,59 @@ impl ExecutionContext {
 
                 let event_name_bytes = Self::stack_item_to_bytes(event_name);
                 let state_is_array = matches!(state, StackItem::Array(_));
-                let is_evm_non_anonymous = event_name_bytes.len() == 32 && state_is_array;
+
+                // EVM-shape detection (post-fix): the lowering now emits the
+                // human-readable event name as the eventName arg (UTF-8 safe)
+                // and carries topic[0] (the 32-byte keccak signature) as the
+                // FIRST element of the state array — so the wire format
+                // doesn't require Neo's RPC layer to UTF-8-decode arbitrary
+                // hash bytes (notably 0xDD for `Transfer(...)`).
+                //
+                // Detection rules:
+                //   * Non-anonymous EVM shape: state[0] is a 32-byte
+                //     ByteString (the keccak topic), state.len() >= 2.
+                //   * Anonymous EVM shape: eventName is empty and state is
+                //     an Array. Topic0 is suppressed per EVM ABI; topics
+                //     are the indexed args only.
+                //   * Legacy Neo shape: anything else.
+                let (is_evm_non_anonymous, evm_topic0_in_state) = if state_is_array {
+                    if let StackItem::Array(ref items_rc) = state {
+                        let first_is_32 = items_rc
+                            .borrow()
+                            .first()
+                            .map(|i| Self::stack_item_to_bytes(i.clone()).len() == 32)
+                            .unwrap_or(false);
+                        (first_is_32 && !event_name_bytes.is_empty(), first_is_32)
+                    } else {
+                        (false, false)
+                    }
+                } else {
+                    (false, false)
+                };
                 let is_evm_anonymous = event_name_bytes.is_empty() && state_is_array;
 
                 if is_evm_non_anonymous || is_evm_anonymous {
-                    // Split the stateArray into [topic1, topic2, ..., data].
-                    // The data element is always the LAST element — indexed
-                    // args precede it in declaration order.
                     let StackItem::Array(items_rc) = state else {
-                        // Defensive — we just matched Array above.
                         return Ok(true);
                     };
                     let items = items_rc.borrow().clone();
                     drop(items_rc);
 
-                    let (indexed_topics, data_bytes) = if items.is_empty() {
+                    // Layout for non-anonymous: state = [topic0, topic1, ..., topicN, data].
+                    // Layout for anonymous:     state = [topic1, ..., topicN, data].
+                    // Pull off topic0 from the head if present, then split
+                    // (indexed_tail, data) where data is the last element.
+                    let (head_topic0, body) = if evm_topic0_in_state && !items.is_empty() {
+                        let topic0 = Self::stack_item_to_bytes(items[0].clone());
+                        (Some(topic0), &items[1..])
+                    } else {
+                        (None, &items[..])
+                    };
+
+                    let (indexed_topics, data_bytes) = if body.is_empty() {
                         (Vec::new(), Vec::new())
                     } else {
-                        let (indexed_slice, tail_slice) = items.split_at(items.len() - 1);
+                        let (indexed_slice, tail_slice) = body.split_at(body.len() - 1);
                         let topics: Vec<Vec<u8>> = indexed_slice
                             .iter()
                             .map(|item| Self::stack_item_to_bytes(item.clone()))
@@ -196,11 +231,10 @@ impl ExecutionContext {
                     };
 
                     let mut topics = Vec::with_capacity(1 + indexed_topics.len());
-                    if is_evm_non_anonymous {
-                        // Non-anonymous: topic0 = keccak(signature) prepended.
-                        topics.push(event_name_bytes);
+                    if let Some(topic0) = head_topic0 {
+                        topics.push(topic0);
                     }
-                    // Anonymous: topics = indexed topics only; no topic0.
+                    // Anonymous events: no topic0 prepend.
                     topics.extend(indexed_topics);
                     self.logs.push(LogEntry {
                         address: self.default_account.clone(),

@@ -822,7 +822,7 @@ public class LargeDataAttestation : SmartContract
         return true;
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 

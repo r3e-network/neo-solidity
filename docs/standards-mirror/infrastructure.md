@@ -757,16 +757,16 @@ public class DemoToken : SmartContract
 
     public static BigInteger TotalSupply()
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-                                    new byte[] { Prefix_TotalSupply }) ?? new byte[0]);
+                                    new byte[] { Prefix_TotalSupply }) ?? ByteString.Empty);
 
     public static BigInteger BalanceOf(UInt160 a)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-                                    new byte[] { Prefix_Balance }.Concat(a)) ?? new byte[0]);
+                                    new byte[] { Prefix_Balance }.Concat(a)) ?? ByteString.Empty);
 
     public static BigInteger AllowanceOf(UInt160 owner, UInt160 spender)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
                                     new byte[] { Prefix_Allowance }.Concat(owner).Concat(spender))
-                       ?? new byte[0]);
+                       ?? ByteString.Empty);
 }
 ```
 
@@ -901,7 +901,7 @@ public class DeterministicFactory : SmartContract
         var preimage = ((ByteString)deployer.ToArray())
             .Concat(nefScript)
             .Concat((ByteString)System.Text.Encoding.UTF8.GetBytes(manifestName));
-        return (UInt160)CryptoLib.Hash160(preimage);
+        return (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(preimage));
     }
 }
 ```
@@ -1011,8 +1011,8 @@ namespace R3E.Examples;
 ///   ContractManagement.Deploy(nef, manifest, data);
 ///
 /// To predict the script hash before deploy:
-///   var hash = (UInt160)CryptoLib.Hash160(
-///       deployerHash.ToArray().Concat(nefScript).Concat(manifestName));
+///   var hash = (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(
+///       deployerHash.ToArray().Concat(nefScript).Concat(manifestName)));
 ///
 /// Multi-chain identity is automatic: same deployer + same NEF + same manifest
 /// name => same script hash on testnet and mainnet.
@@ -1193,13 +1193,13 @@ public class DIDRegistry : SmartContract
     {
         var key = new byte[] { Prefix_Delegate }.Concat(identity)
                      .Concat(delegateType).Concat(delegateAddr);
-        var validTo = (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? new byte[0]);
+        var validTo = (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? ByteString.Empty);
         return validTo > Runtime.Time / 1000;
     }
 
     private static BigInteger Changed(UInt160 identity)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Changed }.Concat(identity)) ?? new byte[0]);
+            new byte[] { Prefix_Changed }.Concat(identity)) ?? ByteString.Empty);
 }
 ```
 

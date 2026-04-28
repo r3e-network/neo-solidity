@@ -81,17 +81,31 @@ fn event_emission_places_name_first_in_payload() {
         "expected Runtime.Notify syscall"
     );
 
-    // Assert topic[0] = keccak256("Ping(uint256,uint256)") is emitted as a
-    // 32-byte PUSHDATA1 literal (0x0C 0x20 <32 bytes>).
-    use sha3::{Digest, Keccak256};
-    let topic0 = Keccak256::digest(b"Ping(uint256,uint256)");
-    let mut expected_topic0_push = vec![0x0C, 0x20];
-    expected_topic0_push.extend_from_slice(&topic0);
+    // Post-fix: emit no longer pushes keccak256(signature) as a topic. The
+    // event name "Ping" is pushed as the eventName arg of Runtime.Notify
+    // (UTF-8 string, matching the manifest declaration), and the args are
+    // packed into the state array unchanged. See `lower_emit` in
+    // src/ir/statements/events.rs for the rationale.
+    let mut expected_name_push = vec![0x0C, 0x04];
+    expected_name_push.extend_from_slice(b"Ping");
     assert!(
         bytecode
-            .windows(expected_topic0_push.len())
-            .any(|window| window == expected_topic0_push.as_slice()),
-        "expected keccak256(\"Ping(uint256,uint256)\") to be pushed as topic[0]"
+            .windows(expected_name_push.len())
+            .any(|window| window == expected_name_push.as_slice()),
+        "expected event name 'Ping' to be pushed as eventName arg"
+    );
+
+    // The keccak hash must NOT appear in bytecode — that breaks UTF-8 decode
+    // on real Neo nodes when the hash starts with bytes like 0xDD.
+    use sha3::{Digest, Keccak256};
+    let topic0 = Keccak256::digest(b"Ping(uint256,uint256)");
+    let mut keccak_push = vec![0x0C, 0x20];
+    keccak_push.extend_from_slice(&topic0);
+    assert!(
+        !bytecode
+            .windows(keccak_push.len())
+            .any(|window| window == keccak_push.as_slice()),
+        "keccak256(\"Ping(...)\") must not appear in bytecode"
     );
 }
 
