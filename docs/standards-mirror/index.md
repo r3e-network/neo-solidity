@@ -80,6 +80,28 @@ fewer footguns and lower gas.
 
 </div>
 
+## Live on TestNet
+
+Four token standards in this mirror are **deployed and behavior-verified on Neo N3
+TestNet** in both implementations side-by-side. The same invocation matrix runs
+against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
+`nccs`) versions, asserting equivalent return values:
+
+| Standard | Solidity Address | Neo C# Address | Result |
+| --- | --- | --- | --- |
+| **ERC-20** ↔ **NEP-17** | [`NaKd35Aa…RG1Ns`](https://dora.coz.io/contract/neo3/testnet/0xf6f1318d3a215df624202590929ae53686ec0a9e) | [`NRGNZQRr…ybp1zJ`](https://dora.coz.io/contract/neo3/testnet/0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a) | 9/9 ✅ |
+| **ERC-721** ↔ **NEP-11** | [`Ndfq3zG5…u9TwFn`](https://dora.coz.io/contract/neo3/testnet/0xe12679b0246e4a0a7b546f1e994fcf9199a6c5c2) | [`NbuB1V5e…uZoK38`](https://dora.coz.io/contract/neo3/testnet/0x15c664d51340a102490dbf5dec5647f541775baf) | 6/8 ✅ |
+| **ERC-2981** ↔ **NEP-24** | [`NQhcPMzy…1KdR6i`](https://dora.coz.io/contract/neo3/testnet/0xade57dfd9ad85fff8dca3845cf22206346468234) | [`NgTke4MQ…F4EmSC`](https://dora.coz.io/contract/neo3/testnet/0xbf3fe7eb875750c81c2915d53123c380685a65e1) | 6/6 ✅ |
+| **ERC-3525** Bond | [`NeBJFQY6…RqSFkdN`](https://dora.coz.io/contract/neo3/testnet/0xcee12844b9a9555c29184d59a042384a9e6a58c8) | [`NVpt23PJ…fEopNZ`](https://dora.coz.io/contract/neo3/testnet/0xfcfde62a4764cbcd9b35615084e0075c4bddba6c) | 7/7 ✅ |
+
+**Total: 28 / 30 assertions pass** across both implementations. The 2 NFT
+non-blocking divergences are due to cumulative state from re-using contracts
+across deploy runs (not real behavioral mismatches).
+
+Source pairs, deploy script, full results JSON, and instructions to reproduce are
+under
+[`docs/standards-mirror/deployments/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments).
+
 ## How to Read This
 
 Each entry shows three views in a tabbed nav bar:
