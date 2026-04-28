@@ -82,33 +82,39 @@ fewer footguns and lower gas.
 
 ## Live on TestNet
 
-**Twelve standards** in this mirror are deployed and behavior-verified on Neo N3
+**Eighteen standards** in this mirror are deployed and behavior-verified on Neo N3
 TestNet (network magic `894710606`) in both implementations side-by-side. The same
 invocation matrix runs against the Solidity (compiled with `neo-solc`) and the Neo
 C# (compiled with `nccs`) versions, asserting equivalent return values.
 
-| Standard | Solidity | Neo C# | Tests |
-|---|---|---|---|
-| **ERC-20** ↔ NEP-17 | [`NZbQsZAb…jZhwF`](https://dora.coz.io/contract/neo3/testnet/0xd76434af829dc4c936c12648aa77932fa94c0f96) | [`NRGNZQRr…bp1zJ`](https://dora.coz.io/contract/neo3/testnet/0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a) | 7/9 |
-| **ERC-721** ↔ NEP-11 | [`NbTK8px5…V4dYt`](https://dora.coz.io/contract/neo3/testnet/0x48b5f8f579810b402fed660844145fed406f77aa) | [`NbuB1V5e…ZoK38`](https://dora.coz.io/contract/neo3/testnet/0x15c664d51340a102490dbf5dec5647f541775baf) | 5/8 |
-| **ERC-2981** ↔ NEP-24 | [`NQhcPMzy…KdR6i`](https://dora.coz.io/contract/neo3/testnet/0xade57dfd9ad85fff8dca3845cf22206346468234) | [`NgTke4MQ…4EmSC`](https://dora.coz.io/contract/neo3/testnet/0xbf3fe7eb875750c81c2915d53123c380685a65e1) | 5/6 |
-| **ERC-3525** Bond | [`NdzbQnww…oBTW6`](https://dora.coz.io/contract/neo3/testnet/0xd0fd56dad510d54ca7877bab2c578d63b82a52c6) | [`NVpt23PJ…EopNZ`](https://dora.coz.io/contract/neo3/testnet/0xfcfde62a4764cbcd9b35615084e0075c4bddba6c) | 7/7 |
-| **ERC-173** Ownable | [`NgmPfqiG…ZzPVh`](https://dora.coz.io/contract/neo3/testnet/0x19977aea6f158de3844f3261988b17381156bbe4) | [`NU3yPrTa…Yvxup`](https://dora.coz.io/contract/neo3/testnet/0xce89aec2e79b121ec264231be49cd96111824459) | 3/3 |
-| **ERC-1820** Registry | [`NgiVMV6v…iXQxm`](https://dora.coz.io/contract/neo3/testnet/0x02704624615747bdcc7994a6be347be42ad52ee4) | [`NaJCEkEX…5HPk6`](https://dora.coz.io/contract/neo3/testnet/0x8f36ff27ef6564209956c05a4b886c0c99cec59d) | 2/2 |
-| **ERC-6372** Clock | [`NPrkGGCS…PTSKt`](https://dora.coz.io/contract/neo3/testnet/0xe3c55758861ba8034c9f3d223ed93cf5df77442b) | [`NQpFbsh7…zKJYw`](https://dora.coz.io/contract/neo3/testnet/0xeb454a6b6e102b2700fc1d3b18d58b861ed6c335) | 2/2 |
-| **ERC-1271** MultiSig | [`Nh2dZYCd…ANtdk`](https://dora.coz.io/contract/neo3/testnet/0x88eec008aaeb09d10ce68f93f6d98efbe92b9de7) | [`NXq82dqP…v4NL2`](https://dora.coz.io/contract/neo3/testnet/0x88079ecdd4af98cf932c25c80c0bb218a8cfb682) | 2/2 |
-| **ERC-5192** Soulbound | [`NQfv7FPi…ZL9HH`](https://dora.coz.io/contract/neo3/testnet/0x1b75ecb9e926203e66283e3f875ba5097f3c3034) | [`NPuqRsgH…qHVL3`](https://dora.coz.io/contract/neo3/testnet/0x7081fcf36db56a716b416ef553829ed23c07da2b) | 4/4 |
-| **ERC-2771** Forwarder | [`NfiyLrGX…u4ZS4`](https://dora.coz.io/contract/neo3/testnet/0x6653a8da9bac7b622987670d97bf740c2c124ed9) | [`NLq6WUsR…YhG8P`](https://dora.coz.io/contract/neo3/testnet/0x1463ad54cf6a8fc7c0ffe3740ad1cf04a6280c0a) | 3/3 |
-| **ERC-4626** Vault | [`NMKxbu3B…au7JF`](https://dora.coz.io/contract/neo3/testnet/0xfaf678fdb2053a279cf79f14a3623f3f1f9f810f) | [`NdtwXkP4…aknX8`](https://dora.coz.io/contract/neo3/testnet/0x0e515ad2e892180273ab017a4883084e647740c5) | 4/4 |
-| **ERC-3156** FlashLender | [`NhSy8SUw…ZC6DT`](https://dora.coz.io/contract/neo3/testnet/0xb7d5cd146852006f8bc5d8c1621852c9117d37ec) | [`NSogFgSB…guyZZ`](https://dora.coz.io/contract/neo3/testnet/0xa82c8142c02ec0cf748bbaa57819f9c61440984b) | 2/2 |
+| Standard | Solidity | Neo C# |
+|---|---|---|
+| **ERC-20** ↔ NEP-17 | [d76434af…f96](https://dora.coz.io/contract/neo3/testnet/0xd76434af829dc4c936c12648aa77932fa94c0f96) | [1f3a9b41…b43a](https://dora.coz.io/contract/neo3/testnet/0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a) |
+| **ERC-721** ↔ NEP-11 | [48b5f8f5…7aa](https://dora.coz.io/contract/neo3/testnet/0x48b5f8f579810b402fed660844145fed406f77aa) | [15c664d5…baf](https://dora.coz.io/contract/neo3/testnet/0x15c664d51340a102490dbf5dec5647f541775baf) |
+| **ERC-1155** Multi-Token | [f1d7867c…317](https://dora.coz.io/contract/neo3/testnet/0xf1d7867c140a016333b69d3e1795b0ee224d0317) | [ef019e6f…6bd](https://dora.coz.io/contract/neo3/testnet/0xef019e6feb75fd331149cb7c9c3ddfcaa8ba86bd) |
+| **ERC-2981** ↔ NEP-24 | [ade57dfd…234](https://dora.coz.io/contract/neo3/testnet/0xade57dfd9ad85fff8dca3845cf22206346468234) | [bf3fe7eb…5e1](https://dora.coz.io/contract/neo3/testnet/0xbf3fe7eb875750c81c2915d53123c380685a65e1) |
+| **ERC-3525** Bond | [d0fd56da…2c6](https://dora.coz.io/contract/neo3/testnet/0xd0fd56dad510d54ca7877bab2c578d63b82a52c6) | [fcfde62a…6c](https://dora.coz.io/contract/neo3/testnet/0xfcfde62a4764cbcd9b35615084e0075c4bddba6c) |
+| **ERC-5192** Soulbound | [1b75ecb9…034](https://dora.coz.io/contract/neo3/testnet/0x1b75ecb9e926203e66283e3f875ba5097f3c3034) | [7081fcf3…2b](https://dora.coz.io/contract/neo3/testnet/0x7081fcf36db56a716b416ef553829ed23c07da2b) |
+| **ERC-7818** Expirable | [fcaaf98f…64d](https://dora.coz.io/contract/neo3/testnet/0xfcaaf98f8c4693b326f883d52db9d9e4a8c6564d) | [cb1b0441…6e0](https://dora.coz.io/contract/neo3/testnet/0xcb1b0441c5b02a2f7de348951c6bf8e2a6ae56e0) |
+| **ERC-173** Ownable | [19977aea…be4](https://dora.coz.io/contract/neo3/testnet/0x19977aea6f158de3844f3261988b17381156bbe4) | [ce89aec2…459](https://dora.coz.io/contract/neo3/testnet/0xce89aec2e79b121ec264231be49cd96111824459) |
+| **ERC-1271** MultiSig | [88eec008…de7](https://dora.coz.io/contract/neo3/testnet/0x88eec008aaeb09d10ce68f93f6d98efbe92b9de7) | [88079ecd…682](https://dora.coz.io/contract/neo3/testnet/0x88079ecdd4af98cf932c25c80c0bb218a8cfb682) |
+| **ERC-1820** Registry | [02704624…ee4](https://dora.coz.io/contract/neo3/testnet/0x02704624615747bdcc7994a6be347be42ad52ee4) | [8f36ff27…59d](https://dora.coz.io/contract/neo3/testnet/0x8f36ff27ef6564209956c05a4b886c0c99cec59d) |
+| **ERC-1056** DID | [dd6d4a48…f50](https://dora.coz.io/contract/neo3/testnet/0xdd6d4a4806445d04982afc68866c9dc92ef41f50) | [d13806f6…b30](https://dora.coz.io/contract/neo3/testnet/0xd13806f6c06854ad3d8b731aebee40f8b74c1b30) |
+| **ERC-1967** Upgradeable | [48f6d58a…245](https://dora.coz.io/contract/neo3/testnet/0x48f6d58aa74ad1d507cb2eb07242e033bfdbd245) | [096f01e4…976](https://dora.coz.io/contract/neo3/testnet/0x096f01e40f7cf9cea4304195cc2ab6bb481be976) |
+| **ERC-2535** Diamond | [26b6f333…527](https://dora.coz.io/contract/neo3/testnet/0x26b6f333b18bffd00702348b1cec5b55cf79f527) | [1b3c602c…dcf](https://dora.coz.io/contract/neo3/testnet/0x1b3c602c1a208238f981125e2ad3045734c5bdcf) |
+| **ERC-2771** Forwarder | [6653a8da…ed9](https://dora.coz.io/contract/neo3/testnet/0x6653a8da9bac7b622987670d97bf740c2c124ed9) | [1463ad54…0a](https://dora.coz.io/contract/neo3/testnet/0x1463ad54cf6a8fc7c0ffe3740ad1cf04a6280c0a) |
+| **ERC-3156** FlashLender | [b7d5cd14…7ec](https://dora.coz.io/contract/neo3/testnet/0xb7d5cd146852006f8bc5d8c1621852c9117d37ec) | [a82c8142…84b](https://dora.coz.io/contract/neo3/testnet/0xa82c8142c02ec0cf748bbaa57819f9c61440984b) |
+| **ERC-4626** Vault | [faf678fd…0f](https://dora.coz.io/contract/neo3/testnet/0xfaf678fdb2053a279cf79f14a3623f3f1f9f810f) | [0e515ad2…0c5](https://dora.coz.io/contract/neo3/testnet/0x0e515ad2e892180273ab017a4883084e647740c5) |
+| **ERC-5805** Voting | [b87fa58c…110](https://dora.coz.io/contract/neo3/testnet/0xb87fa58c80deef8dc910a0ca3a2cc186035f3110) | [1d33818b…692](https://dora.coz.io/contract/neo3/testnet/0x1d33818b3d053d291424848ed1ac7ebaa3243692) |
+| **ERC-6372** Clock | [e3c55758…42b](https://dora.coz.io/contract/neo3/testnet/0xe3c55758861ba8034c9f3d223ed93cf5df77442b) | [eb454a6b…335](https://dora.coz.io/contract/neo3/testnet/0xeb454a6b6e102b2700fc1d3b18d58b861ed6c335) |
 
-**Total: 46 / 52 assertions pass** across both implementations. The 6 non-blocking
-divergences are stale-state mismatches (NFT cumulative mints, faucet balances) from
-re-using contracts across deploy runs — every fresh deploy passes 100%.
+**Total: 60 / 69 cross-implementation assertions pass.** The 9 non-blocking
+divergences are stale-state mismatches (NFT cumulative mints, ERC-20 faucet
+balances accumulating across runs) — every fresh deploy passes 100%.
 
-### What about the other 39 entries?
+### What about the other 33 entries?
 
-The mirror catalogs 51 standards total. The remaining 39 fall into categories that
+The mirror catalogs 51 standards total. The remaining 33 fall into categories that
 don't deploy cleanly as standalone contracts:
 
 | Category | Count | Why not deployed |
@@ -116,7 +122,7 @@ don't deploy cleanly as standalone contracts:
 | Extensions of an already-deployed standard | ~6 | E.g. ERC-2309 / ERC-4906 / ERC-4494 are events-and-method extensions of ERC-721 — annotated on the parent rather than redeployed |
 | Patterns / method conventions | ~4 | E.g. ERC-7201 namespaced storage, ERC-165 interface detection — implemented inside other contracts, not on their own |
 | Protocol-level EIPs | ~12 | E.g. EIP-1559, EIP-3855 PUSH0, EIP-1153 transient storage — these change the protocol, not the contract surface. No "deploy a contract for EIP-1559" |
-| Deferred to follow-up | ~17 | Diamond, async vault, modular accounts, etc. — covered by `/schedule`'d follow-up PRs |
+| Deferred to a recurring follow-up | ~11 | ERC-777, ERC-7540 async vault, ERC-7575 multi-asset vault, ERC-7579 modular accounts, ERC-4337 smart account, ERC-6492 sigverifier, ERC-5267, ERC-5114 / 5484 / 6147 / 2470 — covered by a fortnightly `/schedule`d agent that adds 2 more pairs each cycle |
 
 Source pairs, deploy script, full results JSON, and instructions to reproduce live
 under

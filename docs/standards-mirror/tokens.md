@@ -654,6 +654,18 @@ multi-call transaction format lets one signed tx invoke many contracts atomicall
 For a true multi-token use case in a single contract, the C# tab below shows a Neo port
 of ERC-1155 — works, but composition is usually cleaner.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `Nh1cqvGbsjE3FFhuZRWMytSskeYqs1FTPb` | [`0xf1d7867c…224d0317`](https://dora.coz.io/contract/neo3/testnet/0xf1d7867c140a016333b69d3e1795b0ee224d0317) |
+| **Neo C#** (`nccs`) | `Nh4WdHEoVHQiBL3GoCfM98AkWMnwqumFW6` | [`0xef019e6f…a8ba86bd`](https://dora.coz.io/contract/neo3/testnet/0xef019e6feb75fd331149cb7c9c3ddfcaa8ba86bd) |
+
+Verified: deployer claim, ownership semantics. Per-id balance and batch transfer flows validated by the assertion script in `deployments/manifest.json`.
+[`docs/standards-mirror/deployments/erc-1155/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1155).
+:::
+
 </template>
 
 <template #solidity>
