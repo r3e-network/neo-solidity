@@ -842,6 +842,181 @@
           { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
         ]
       }
+    },
+
+    {
+      "id": "erc-7540",
+      "title": "ERC-7540 — Async Vault (request → claim)",
+      "docEntry": "/standards-mirror/defi#erc-7540",
+      "solidity": {
+        "source": "erc-7540/solidity/AsyncVault.sol",
+        "contract": "AsyncVault",
+        "outName": "AsyncVaultSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-7540/csharp/AsyncVault.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-7575",
+      "title": "ERC-7575 — Multi-Asset Vault",
+      "docEntry": "/standards-mirror/defi#erc-7575",
+      "solidity": {
+        "source": "erc-7575/solidity/MultiAssetVault.sol",
+        "contract": "MultiAssetVault",
+        "outName": "MultiAssetVaultSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "assetCount == 0 (initial)", "kind": "read", "operation": "assetCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-7575/csharp/MultiAssetVault.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "assetCount == 0 (initial)", "kind": "read", "operation": "assetCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-7579",
+      "title": "ERC-7579 — Modular Smart Account",
+      "docEntry": "/standards-mirror/account-and-auth#erc-7579",
+      "solidity": {
+        "source": "erc-7579/solidity/ModularAccount.sol",
+        "contract": "ModularAccount",
+        "outName": "ModularAccountSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimOwner()", "kind": "write", "operation": "claimOwner", "args": [] },
+          { "name": "moduleCount == 0 (initial)", "kind": "read", "operation": "moduleCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-7579/csharp/ModularAccount.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "moduleCount == 0 (initial)", "kind": "read", "operation": "moduleCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-4337",
+      "title": "ERC-4337 — Smart Account (UserOp / NEP-30 Verify)",
+      "docEntry": "/standards-mirror/account-and-auth#erc-4337",
+      "solidity": {
+        "source": "erc-4337/solidity/SmartAccount.sol",
+        "contract": "SmartAccount",
+        "outName": "SmartAccountSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimOwner()", "kind": "write", "operation": "claimOwner", "args": [] },
+          { "name": "getNonce == 0 (initial)", "kind": "read", "operation": "getNonce", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-4337/csharp/SmartAccount.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "getNonce == 0 (initial)", "kind": "read", "operation": "getNonce", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-6492",
+      "title": "ERC-6492 — Pre-Deploy Signature Verifier",
+      "docEntry": "/standards-mirror/account-and-auth#erc-6492",
+      "solidity": {
+        "source": "erc-6492/solidity/PreDeploySig.sol",
+        "contract": "PreDeploySig",
+        "outName": "PreDeploySigSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "verificationCount == 0 (initial)", "kind": "read", "operation": "verificationCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-6492/csharp/PreDeploySig.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "verificationCount == 0 (initial)", "kind": "read", "operation": "verificationCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-712",
+      "title": "EIP-712 — Typed-Data Verifier (domain separator)",
+      "docEntry": "/standards-mirror/protocol-eips#eip-712",
+      "solidity": {
+        "source": "eip-712/solidity/TypedData.sol",
+        "contract": "TypedData",
+        "outName": "TypedDataSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-712/csharp/TypedData.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "getDomainSeparator (32 bytes)", "kind": "read", "operation": "getDomainSeparator", "args": [], "expect": { "type": "ByteString", "value": "47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218" } }
+        ]
+      }
+    },
+
+    {
+      "id": "eip-2098",
+      "title": "EIP-2098 — Compact Signature Verifier",
+      "docEntry": "/standards-mirror/protocol-eips#eip-2098",
+      "solidity": {
+        "source": "eip-2098/solidity/CompactSig.sol",
+        "contract": "CompactSig",
+        "outName": "CompactSigSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "compactSize == 64", "kind": "read", "operation": "compactSize", "args": [], "expect": { "type": "Integer", "value": "64" } },
+          { "name": "legacySize == 65", "kind": "read", "operation": "legacySize", "args": [], "expect": { "type": "Integer", "value": "65" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "eip-2098/csharp/CompactSig.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "compactSize == 64", "kind": "read", "operation": "compactSize", "args": [], "expect": { "type": "Integer", "value": "64" } },
+          { "name": "legacySize == 65", "kind": "read", "operation": "legacySize", "args": [], "expect": { "type": "Integer", "value": "65" } }
+        ]
+      }
     }
   ]
 }

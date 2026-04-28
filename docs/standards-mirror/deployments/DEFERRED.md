@@ -1,52 +1,31 @@
 # Standards Mirror — Deferred Deployment Queue
 
-The recurring agent (`/schedule` routine `Standards Mirror — Add 2 Pairs Every Monday`,
-trigger ID `trig_01BJaUX5fVuP9EvGqhtgW7UP`) reads this file each Monday at 09:00 UTC,
-pops the **first 2 lines** of the priority list below, and ships a Solidity + Neo C#
-pair for each — compiled, deployed to Neo testnet, behavior-verified, and documented.
+> **Queue empty.** All 23 originally-deferred entries shipped across v0.19.0 (8) /
+> v0.20.0 (8) / v0.21.0 (7). The recurring weekly agent has been retired.
+>
+> The mirror's TestNet matrix now covers **41 deployable standards**. The only
+> catalog entries without a live contract pair are the 8 protocol EIPs whose only
+> sensible demonstration is the protocol itself (EIP-1559 fee market, EIP-2718
+> typed-tx envelope, EIP-2930 access lists, EIP-3855 PUSH0, EIP-3860 initcode
+> size, EIP-4844 blobs, EIP-6780 selfdestruct nerf, EIP-7702 set-code-for-EOAs).
+> Those stay prose-only because there's nothing to deploy.
 
-When this list is empty, the agent opens one final no-op PR marking the queue
-complete and self-disables.
+## Shipped log
 
-## Priority queue
+- **v0.19.0** (PR #10): ERC-777, ERC-5267, ERC-5114, ERC-5484, ERC-6147,
+  ERC-2470, ERC-2309, ERC-4906
+- **v0.20.0** (PR #11): ERC-165, ERC-7201, EIP-1153, EIP-3198, ERC-1014, EIP-191,
+  ERC-2612, ERC-4494
+- **v0.21.0** (this PR): ERC-7540, ERC-7575, ERC-7579, ERC-4337, ERC-6492,
+  EIP-712, EIP-2098
 
-The first 5 are canonical standards we haven't deployed yet — they are the harder
-async/account-abstraction ones. The remaining 2 are demo wrappers.
+## Compile guardrails (kept for future contract authors)
 
-16 entries have been popped and shipped:
-- v0.19.0: ERC-777, ERC-5267, ERC-5114, ERC-5484, ERC-6147, ERC-2470, ERC-2309, ERC-4906
-- v0.20.0: ERC-165, ERC-7201, EIP-1153, EIP-3198, ERC-1014, EIP-191, ERC-2612, ERC-4494
+These came out of the deploy effort that produced PRs #5–#11. Future Neo-Solidity
+contracts must respect them or they fault on real Neo nodes:
 
-```
-ERC-7540 — Async ERC-4626 vault
-ERC-7575 — Multi-asset vault
-ERC-7579 — Modular smart account
-ERC-4337 — Smart account (NEP-30 verify)
-ERC-6492 — Pre-deploy signature verifier
-EIP-712 — TypedDataVerifier (digest-based off-chain signature verification)
-EIP-2098 — CompactSigVerifier (ECDSA secp256r1 signature compactness demo)
-```
-
-## How to use
-
-The agent's logic:
-
-1. Read this file.
-2. Take the first 2 non-empty lines.
-3. Author + compile + deploy + test + document each.
-4. Open a single PR `docs(standards-mirror): add ERC-XXX + ERC-YYY pairs`.
-5. After merge, open a follow-up PR removing the popped lines from this file.
-
-Manual additions / removals are fine — edit the file directly. The agent does not
-sort or re-prioritize; it just pops the head of the list.
-
-## Compile guardrails (must follow)
-
-These came out of the deploy effort that produced PRs #5–#8. Future deploys must
-respect them or they fault on real Neo nodes:
-
-- **`uint256(uintN var)` casts in constructor faults at deploy** (neo-solc 0.18,
-  unfixed). Use literal pre-computed values.
+- **`uint256(uintN var)` casts in constructor fault at deploy** (neo-solc 0.18,
+  still open). Use literal pre-computed values.
 - **`emit Event(...)` whose `keccak256(signature)` starts with byte `0xDD`** would
   fault before PR #6's compiler fix. The fix shipped, but stick to non-deploy
   paths for emits as a safety margin.

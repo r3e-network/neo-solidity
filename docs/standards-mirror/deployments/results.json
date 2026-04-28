@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-28T11:40:59.168Z",
+  "generatedAt": "2026-04-28T12:04:02.018Z",
   "rpc": "http://seed1t5.neo.org:20332",
   "networkMagic": 894710606,
   "deployer": "NhMYxG5ATmRjSy6ocnPxrA2DiYba6xhFqu",
@@ -47,7 +47,7 @@
             "kind": "write",
             "operation": "faucet",
             "status": "pass",
-            "txHash": "0xebcec5a987c97d27c5fc17fad5886578b94b6a5dc40ae766d91596b8345902ce",
+            "txHash": "0x382addb826831050682723da067aac745a5718dd355b2e0b2dd51352e696887f",
             "vmstate": "HALT",
             "gasconsumed": "420211"
           },
@@ -58,13 +58,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "600000000000000"
+              "value": "700000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
             },
-            "reason": "actual=600000000000000 (raw type=Integer, value=600000000000000), expected 100000000000000"
+            "reason": "actual=700000000000000 (raw type=Integer, value=700000000000000), expected 100000000000000"
           },
           {
             "name": "totalSupply == 100T",
@@ -73,13 +73,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "600000000000000"
+              "value": "700000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
             },
-            "reason": "actual=600000000000000 (raw type=Integer, value=600000000000000), expected 100000000000000"
+            "reason": "actual=700000000000000 (raw type=Integer, value=700000000000000), expected 100000000000000"
           }
         ]
       },
@@ -178,7 +178,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xc9f97a89a58009b4806c6638c710d454bb104eb6a032c603ce9eba5b5fb73aad",
+            "txHash": "0xf401ca99dbecba069aa1e247b08f4c792a88b13a5ef10a2f70743b5369e21066",
             "vmstate": "HALT",
             "gasconsumed": "611599"
           },
@@ -189,13 +189,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "6"
+              "value": "7"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=6 (raw type=Integer, value=6), expected 1"
+            "reason": "actual=7 (raw type=Integer, value=7), expected 1"
           }
         ]
       },
@@ -239,7 +239,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x89e12bc2aa49b5f06e63a541f30aef953f05f7801a2cbedcbbd6aa1fb3066383",
+            "txHash": "0xb808f3e13af3170ff10bdb1df87465b1c3f90f1d930ea4f2143737dd4e78608f",
             "vmstate": "HALT",
             "gasconsumed": "799062"
           },
@@ -250,13 +250,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "8"
+              "value": "9"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=8 (raw type=Integer, value=8), expected 1"
+            "reason": "actual=9 (raw type=Integer, value=9), expected 1"
           },
           {
             "name": "totalSupply >= 1",
@@ -265,13 +265,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "CA=="
+              "value": "CQ=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=8 (raw type=ByteString, value=CA==), expected 1"
+            "reason": "actual=9 (raw type=ByteString, value=CQ==), expected 1"
           }
         ]
       }
@@ -305,7 +305,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xa709dad3553a20d23dda08602d1425f0b935491a8baa3a6f461f1bd50d9c364d",
+            "txHash": "0xdc25a69f4b87c9de15b73db77a85686ca855e48d1a43fac1423d4183022f5597",
             "vmstate": "HALT",
             "gasconsumed": "611599"
           },
@@ -314,7 +314,7 @@
             "kind": "write",
             "operation": "setDefaultRoyalty",
             "status": "pass",
-            "txHash": "0x9c6c4a9d20d4458026ad2903a4552a1e032f0f77c2d51e48fad01e82452ec84b",
+            "txHash": "0x59112a1c8c66828f984e6310316ca851edfbf4ec0e3b7ea5bf3f72409cd0868f",
             "vmstate": "HALT",
             "gasconsumed": "245832"
           }
@@ -346,7 +346,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x100c429f802c3170521fcb32f5e03c70c129fd294dad1a23b226f1d018343c39",
+            "txHash": "0xfd7ad0c6d22bef68a6e09e6d6bf4b9647a5e9836a96cdccd3eccb10c964e1cd7",
             "vmstate": "HALT",
             "gasconsumed": "776052"
           },
@@ -357,13 +357,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "Bw=="
+              "value": "CA=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=7 (raw type=ByteString, value=Bw==), expected 1"
+            "reason": "actual=8 (raw type=ByteString, value=CA==), expected 1"
           }
         ]
       }
@@ -397,7 +397,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xa39bec2d25a68df00c3c6e9b1e84a9d9352fcc53cd9857a0ab24ce263a7f13cb",
+            "txHash": "0x2eb65b36bed5d7f73ddd9ea856c158d958c75aeeda0ca9879522e18e6c9b5380",
             "vmstate": "HALT",
             "gasconsumed": "870115"
           },
@@ -471,7 +471,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xf379688825f829e8c8b8c676935a2b91002ecaa52c7dc7df641700a52f48416e",
+            "txHash": "0x7d5654290cca7d3366f3b649bfcbc4348013d3e57bc3270a15ee88e32967626d",
             "vmstate": "HALT",
             "gasconsumed": "413869"
           }
@@ -707,7 +707,7 @@
             "kind": "write",
             "operation": "issue",
             "status": "pass",
-            "txHash": "0x1a0239736e89e6b35cd672c223b1040e8e8920f61fa78a298e50bad6056b88d1",
+            "txHash": "0x1797a73f281a1942543e6e97bbcef31fdedd0e7dea57597b71c03390316800c8",
             "vmstate": "HALT",
             "gasconsumed": "518816"
           },
@@ -768,20 +768,20 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "4"
+              "value": "5"
             },
             "expect": {
               "type": "Integer",
               "value": "0"
             },
-            "reason": "actual=4 (raw type=Integer, value=4), expected 0"
+            "reason": "actual=5 (raw type=Integer, value=5), expected 0"
           },
           {
             "name": "bumpNonce(deployer)",
             "kind": "write",
             "operation": "bumpNonce",
             "status": "pass",
-            "txHash": "0x732bf881d760d9ef2fc464322b30a4018b21d82b8276d403489364810b12c664",
+            "txHash": "0x8e039e4d6f3a759163b98df7b47a97bb42906c0eb68ba5eeda527e826cd4d159",
             "vmstate": "HALT",
             "gasconsumed": "696149"
           }
@@ -1303,7 +1303,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xa55ddfa8c89a0c5834aefab4933310e60855a912862c91ffa85f1c010be4b0d0",
+            "txHash": "0x870b830a1859b156f197ee4fb69aac610005d8fba3d54154960016924203e7ab",
             "vmstate": "HALT",
             "gasconsumed": "451279"
           },
@@ -1314,13 +1314,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "3000"
+              "value": "4000"
             },
             "expect": {
               "type": "Integer",
               "value": "1000"
             },
-            "reason": "actual=3000 (raw type=Integer, value=3000), expected 1000"
+            "reason": "actual=4000 (raw type=Integer, value=4000), expected 1000"
           }
         ]
       },
@@ -1995,7 +1995,7 @@
             "kind": "write",
             "operation": "guardedCall",
             "status": "pass",
-            "txHash": "0xabac3ac81cee4aca23aa00fa524915a5e8ac2705dbae0f0378e5d15f09b71ca1",
+            "txHash": "0xb4c440b723b4d5afa82ee6e05c3e09b893aae9cf9a9d1148df756f1843e0c7d7",
             "vmstate": "HALT",
             "gasconsumed": "215393"
           },
@@ -2043,20 +2043,20 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "1"
+              "value": "2"
             },
             "expect": {
               "type": "Integer",
               "value": "0"
             },
-            "reason": "actual=1 (raw type=Integer, value=1), expected 0"
+            "reason": "actual=2 (raw type=Integer, value=2), expected 0"
           },
           {
             "name": "guardedCall()",
             "kind": "write",
             "operation": "guardedCall",
             "status": "pass",
-            "txHash": "0x153dfafce49f05adf5a2a3832fa97ff55e4542b774a6a01f5a447038f0c52936",
+            "txHash": "0x696f06a8b4643bed50fefb343e1b4b3aeaf56fa60cfc2fbd8ffdb8bdc3c14ca2",
             "vmstate": "HALT",
             "gasconsumed": "233738"
           }
@@ -2371,6 +2371,522 @@
             "expect": {
               "type": "Integer",
               "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-7540",
+      "title": "ERC-7540 — Async Vault (request → claim)",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "d8838ba126e5a77727c673215782aec59f465b41",
+        "contractAddress": "NRsYTBd1Unk8ngZvHagAxvoaYh8i8SHmQu",
+        "deployTx": "0xa21f79aaad09d0eef54e1ff21cdf9fb6091697814cc1fd10c8d39edcefd3f880",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimDeployer()",
+            "kind": "write",
+            "operation": "claimDeployer",
+            "status": "pass",
+            "txHash": "0x32d005a3a59b85dd9ccb945c6fa82d00480e803c73092e61269cc593f146f528",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "pendingDepositCount == 0 (initial)",
+            "kind": "read",
+            "operation": "pendingDepositCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "c2137b33423fdda8ce5a240e7feec8db2c4b626e",
+        "contractAddress": "NVydGRKKALityePgCpCoB4ewb5cSy3HBHk",
+        "deployTx": "0x09e0e80e42d580a23474167e25954dd29019a6245fc3bac2535f730f9c8336bb",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getDeployer == deployer",
+            "kind": "read",
+            "operation": "getDeployer",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "pendingDepositCount == 0 (initial)",
+            "kind": "read",
+            "operation": "pendingDepositCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          },
+          {
+            "name": "pendingRedeemCount == 0 (initial)",
+            "kind": "read",
+            "operation": "pendingRedeemCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-7575",
+      "title": "ERC-7575 — Multi-Asset Vault",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "985a293c07f1b024f37a4ffc1d7fdf14edfe46b1",
+        "contractAddress": "Nc5Kqat2WNDw32fzQwYUuvp6zY24YqCnYU",
+        "deployTx": "0x0769e1e26cff9c0b5a599b68f5c9e263bd9ee56062501977c7ca835953d15c0a",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimDeployer()",
+            "kind": "write",
+            "operation": "claimDeployer",
+            "status": "pass",
+            "txHash": "0x8cfdb347e7a8b2562c20880a704100d120fd3d88f0324f2f1236626a52380687",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "assetCount == 0 (initial)",
+            "kind": "read",
+            "operation": "assetCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "d85564c8072776e0c5252797f5ba9dfb7e401ffc",
+        "contractAddress": "Niu4uX7E2ja35uCbr4fK6c6faQZL1zcBEK",
+        "deployTx": "0xaeec84d1add849a630e3083f4ca6e80d432f33c9fe6a073cd22c1580bedbbde1",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getDeployer == deployer",
+            "kind": "read",
+            "operation": "getDeployer",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "assetCount == 0 (initial)",
+            "kind": "read",
+            "operation": "assetCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-7579",
+      "title": "ERC-7579 — Modular Smart Account",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "5e6edfc08e536f6d8891af968a52f7d56c11a528",
+        "contractAddress": "NPcsxZQVxJS25eybpNmuqFphzgV4z43foe",
+        "deployTx": "0x2ac25305bc0f2c5dbff5344a51fd078e4666a96580136f4285eec72b2158d52a",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimOwner()",
+            "kind": "write",
+            "operation": "claimOwner",
+            "status": "pass",
+            "txHash": "0x883db4226fd1f938f618c274df411f81d5b3dde1bc3e3cc85390c8c889853159",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "moduleCount == 0 (initial)",
+            "kind": "read",
+            "operation": "moduleCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "cbd2e64f3ef5d5c9069fadf9c7d72ffcb8664f86",
+        "contractAddress": "NYA8rMgt4zd2moXtvH46gtgHAmM6D9PLQ6",
+        "deployTx": "0x7233de4336ae495bc1df08336d305e055d41ecb3f3449e8f2717d873cb2f73d1",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getOwner == deployer",
+            "kind": "read",
+            "operation": "getOwner",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "moduleCount == 0 (initial)",
+            "kind": "read",
+            "operation": "moduleCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-4337",
+      "title": "ERC-4337 — Smart Account (UserOp / NEP-30 Verify)",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "aa11f9ef784be1ccad7b0f7b23c32508c5705a56",
+        "contractAddress": "NTnZeAos82yvgKbigLxV4DsnE7MLBN44eg",
+        "deployTx": "0xf8f8cb2aed9fc5b985abeeb24e2046ed2b13908bdff4edf43a6307b6a2c64017",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimOwner()",
+            "kind": "write",
+            "operation": "claimOwner",
+            "status": "pass",
+            "txHash": "0x9ecf23ab06560e4f46d516ad34da71d11ced2a653d6df8fde15e865cd10ca628",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "getNonce == 0 (initial)",
+            "kind": "read",
+            "operation": "getNonce",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "e26da2300e0073c98f2292becda67170cbc6209f",
+        "contractAddress": "NaRMtcPmFFZzv5nAdV23QFmvBQS69apd9o",
+        "deployTx": "0x44c35c184618ff5355fa5a7f5ef76adc9860bed900454c3dc3350826193cfabb",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getOwner == deployer",
+            "kind": "read",
+            "operation": "getOwner",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "getNonce == 0 (initial)",
+            "kind": "read",
+            "operation": "getNonce",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erc-6492",
+      "title": "ERC-6492 — Pre-Deploy Signature Verifier",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "95170df70a3c425fdaad9795f77a68430ac659d9",
+        "contractAddress": "NfjDMxjpf13EbC197EwBXEfP8K7Q59KYWa",
+        "deployTx": "0xfd8fc9fd60ab03380025ff2e40edbb12ab3be0276b122c6587a27ef9ffd72eff",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimDeployer()",
+            "kind": "write",
+            "operation": "claimDeployer",
+            "status": "pass",
+            "txHash": "0xdb3611edbf4605fea4703d6824b3070f6affbd99f2b66ceb98a093baccf58901",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          },
+          {
+            "name": "verificationCount == 0 (initial)",
+            "kind": "read",
+            "operation": "verificationCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "7dd2cd08072ab383cf7152bf5ed734d7d240bfc9",
+        "contractAddress": "NeJi7pXw9fj5SCioDu7ohUEJqygS1iG952",
+        "deployTx": "0xf4b28eb813e07234c482e6ec5a8d4598a03a36f2e54d663711d3ddfa9fd339be",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getDeployer == deployer",
+            "kind": "read",
+            "operation": "getDeployer",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "verificationCount == 0 (initial)",
+            "kind": "read",
+            "operation": "verificationCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "eip-712",
+      "title": "EIP-712 — Typed-Data Verifier (domain separator)",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "8e501310318f17d20674c639fc49b5e6100f5fdd",
+        "contractAddress": "Ng6UPxMoJ9aUwFep9QCEpQmAKxdzH2bBer",
+        "deployTx": "0x567ec412ef2c7aa185eff2bdda8cc7b2b15d1c8788884fcbdbcb3f999c351219",
+        "reused": false,
+        "tests": [
+          {
+            "name": "claimDeployer()",
+            "kind": "write",
+            "operation": "claimDeployer",
+            "status": "pass",
+            "txHash": "0x5d3cecfb023d87c9caa0b449f8814359023cd0a9557d149d1d9e63919c736254",
+            "vmstate": "HALT",
+            "gasconsumed": "169427"
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "38e8f069271cbbbdfd2032629e733a528cd57c9a",
+        "contractAddress": "NZzpnvngrFuk1oiXJ3Nk9TsbHrrJfDRtDb",
+        "deployTx": "0xcad18ecedeb8a03cb41c3adf8008aecbad2f9e92291f526f3c9ca98636b176dd",
+        "reused": false,
+        "tests": [
+          {
+            "name": "getDeployer == deployer",
+            "kind": "read",
+            "operation": "getDeployer",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "6zE6YTMrwn/52dCWcV3zCXMiqmk="
+            },
+            "expect": {
+              "type": "Hash160",
+              "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
+            }
+          },
+          {
+            "name": "getDomainSeparator (32 bytes)",
+            "kind": "read",
+            "operation": "getDomainSeparator",
+            "status": "pass",
+            "actual": {
+              "type": "ByteString",
+              "value": "R+eVNKJFlS6LFok6M2uFo9nqn6jFc/PYA6+5KnlGkhg="
+            },
+            "expect": {
+              "type": "ByteString",
+              "value": "47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "eip-2098",
+      "title": "EIP-2098 — Compact Signature Verifier",
+      "solidity": {
+        "status": "deployed",
+        "contractHash": "d63ea34d63f0628c4cd413f58aa1c2623b1121d9",
+        "contractAddress": "Nfi3RwVQiesNpc9y5k5vBLFDc7D1TzFqsU",
+        "deployTx": "0x5092de6dfaca66dac78254f3668052cd7edacc50f1d4445a74eb07e54ad4906f",
+        "reused": false,
+        "tests": [
+          {
+            "name": "compactSize == 64",
+            "kind": "read",
+            "operation": "compactSize",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "64"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "64"
+            }
+          },
+          {
+            "name": "legacySize == 65",
+            "kind": "read",
+            "operation": "legacySize",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "65"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "65"
+            }
+          }
+        ]
+      },
+      "csharp": {
+        "status": "deployed",
+        "contractHash": "b2701b6d89a734b5a865a1ec6c247466391c4eee",
+        "contractAddress": "Nhe1acA5nndNVtF1pHa3e6rndYyUHTv5Sv",
+        "deployTx": "0x080ccf619de7e391e6b208889264fe259638f690810ed11763bea6fa20d9121c",
+        "reused": false,
+        "tests": [
+          {
+            "name": "compactSize == 64",
+            "kind": "read",
+            "operation": "compactSize",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "64"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "64"
+            }
+          },
+          {
+            "name": "legacySize == 65",
+            "kind": "read",
+            "operation": "legacySize",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "65"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "65"
             }
           }
         ]
