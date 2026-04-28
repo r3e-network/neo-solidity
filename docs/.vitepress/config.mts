@@ -53,6 +53,7 @@ export default defineConfig({
     nav: [
       { text: 'Blog', link: 'https://medium.com/neo-smart-economy' },
       { text: 'Documentation', link: '/basics/introduction-to-smart-contracts' },
+      { text: 'ERC ↔ Neo', link: '/standards-mirror/' },
       { text: 'Use cases', link: '/use-cases' },
       { text: 'Contribute', link: 'https://github.com/r3e-network/neo-solidity/blob/main/CONTRIBUTING.md' },
       { text: 'About', link: '/internals/architecture' },
@@ -119,6 +120,18 @@ export default defineConfig({
           { text: 'Breaking Changes', link: '/advisory-content/breaking-changes' },
           { text: 'Troubleshooting', link: '/advisory-content/troubleshooting' },
           { text: 'Error Reference', link: '/advisory-content/error-reference' }
+        ]
+      },
+      {
+        text: 'ERC / EIP ↔ Neo Mirror',
+        collapsed: false,
+        items: [
+          { text: 'Overview', link: '/standards-mirror/' },
+          { text: 'Token Standards', link: '/standards-mirror/tokens' },
+          { text: 'Account & Authentication', link: '/standards-mirror/account-and-auth' },
+          { text: 'Infrastructure & Patterns', link: '/standards-mirror/infrastructure' },
+          { text: 'DeFi Building Blocks', link: '/standards-mirror/defi' },
+          { text: 'Protocol-Level EIPs', link: '/standards-mirror/protocol-eips' }
         ]
       },
       {
