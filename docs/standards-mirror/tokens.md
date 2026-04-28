@@ -63,6 +63,20 @@ NEP-17 simplifies and hardens the model: **4-parameter `transfer(from, to, amoun
 data)`** with witness-based authorization, no approve/allowance in the core spec, and
 an `onNEP17Payment` callback that recipients implement to accept tokens.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | TestNet Address | Contract Hash | Deploy Tx |
+| --- | --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NaKd35AaXvYiLfKngxfuPuxQrFqtiRG1Ns` | `0xf6f1318d3a215df624202590929ae53686ec0a9e` | [`0x47da2da2…0e949e`](https://dora.coz.io/transaction/neo3/testnet/0x47da2da24d82cc25b7c827cc24e950722242600978c7ffca49a4ce9c5f0e949e) |
+| **Neo C#** (`nccs`) | `NRGNZQRrb5TuDo4fA5KPiqZQB29Uybp1zJ` | `0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a` | (re-used from earlier deploy) |
+
+Cross-implementation invocations match: `symbol`, `decimals`, `totalSupply`,
+`balanceOf`, plus a write op (`faucet` for Solidity / `_deploy` initial mint for
+C#) — same values on both. Source pairs and assertion runner under
+[`docs/standards-mirror/deployments/erc-20/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-20).
+:::
+
 </template>
 
 <template #solidity>
@@ -248,6 +262,18 @@ famously fragile).
 
 NEP-11 also natively supports **divisible NFTs** — when `decimals() > 0`, the same
 standard handles fractionalised NFTs.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and tested on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash | Deploy Tx |
+| --- | --- | --- | --- |
+| **Solidity** (`neo-solc`) | `Ndfq3zG5NEe85tBZQBC4NJLjbeVRu9TwFn` | `0xe12679b0246e4a0a7b546f1e994fcf9199a6c5c2` | [`0x28821263…e96fb8`](https://dora.coz.io/transaction/neo3/testnet/0x28821263f9132b576acb4153a81eba8e2878e83200ccc7d53b1b0e1f54e96fb8) |
+| **Neo C#** (`nccs`) | `NbuB1V5es6YBtPfVrW4R9bDtxDieuZoK38` | `0x15c664d51340a102490dbf5dec5647f541775baf` | (re-used) |
+
+Verified: `symbol`, `decimals`, `mint`, `balanceOf`. Source pairs and runner under
+[`docs/standards-mirror/deployments/erc-721/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-721).
+:::
 
 </template>
 
@@ -817,6 +843,18 @@ NEP-24's `royaltyInfo` returns an **array** of `[recipient, amount]` pairs — s
 across artist + label + platform are first-class — and adds an explicit
 `royaltyToken` parameter so royalties can be paid in GAS, NEO, or any NEP-17.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash | Deploy Tx |
+| --- | --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NQhcPMzycbfy5h4ZBg7vrbAvioa41KdR6i` | `0xade57dfd9ad85fff8dca3845cf22206346468234` | [`0x36e5acd5…417ee5`](https://dora.coz.io/transaction/neo3/testnet/0x36e5acd55c1ebf99a425fae9f93e52385a0bf871e003f6c591de0c888e417ee5) |
+| **Neo C#** (`nccs`) | `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC` | `0xbf3fe7eb875750c81c2915d53123c380685a65e1` | (re-used) |
+
+Verified: `symbol`, `mint`, `setDefaultRoyalty` (Sol), `totalSupply` (C#).
+[`docs/standards-mirror/deployments/erc-2981/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2981).
+:::
+
 </template>
 
 <template #solidity>
@@ -964,6 +1002,19 @@ No dedicated NEP, but the standard is straightforward to port. The Neo C# versio
 below combines NEP-11 (token identity) with per-token value tracking — wallets that
 read NEP-11 still see the token list, while applications that care about value
 introspect via the SFT-specific methods.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash | Deploy Tx |
+| --- | --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NeBJFQY6UAqyQdYXqT6sn4A45gJRqSFkdN` | `0xcee12844b9a9555c29184d59a042384a9e6a58c8` | [`0x7a244abb…b0eaf9`](https://dora.coz.io/transaction/neo3/testnet/0x7a244abbc2c77cf26ef907a0a3b7bfbddd11221bb90fbbddef9b71c796b0eaf9) |
+| **Neo C#** (`nccs`) | `NVpt23PJU2ZbEHXmDkzEqCfoE9NQfEopNZ` | `0xfcfde62a4764cbcd9b35615084e0075c4bddba6c` | [`0x9b8dc510…1cefba`](https://dora.coz.io/transaction/neo3/testnet/0x9b8dc510c18c27aad853f177c54ef85dd040f35aab14e1cde147d05a2b1cefba) |
+
+Verified: `symbol`, `mint(slot=1, value=1000)`, `balanceOfToken`, `slotOf`,
+`valueDecimals`. Both implementations agree that token #1 has value 1000 in slot 1.
+[`docs/standards-mirror/deployments/erc-3525/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-3525).
+:::
 
 </template>
 

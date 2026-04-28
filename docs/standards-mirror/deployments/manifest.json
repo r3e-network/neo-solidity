@@ -1,0 +1,117 @@
+{
+  "pairs": [
+    {
+      "id": "erc-20",
+      "title": "ERC-20 ↔ NEP-17 — Fungible Token",
+      "docEntry": "/standards-mirror/tokens#erc-20",
+      "solidity": {
+        "source": "erc-20/solidity/DemoToken.sol",
+        "contract": "DemoToken",
+        "outName": "DemoTokenSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "symbol == DEMOSOL", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44454d4f534f4c" } },
+          { "name": "decimals == 8", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "8" } },
+          { "name": "faucet(deployer, 100T)", "kind": "write", "operation": "faucet", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, { "type": "Integer", "value": "100000000000000" }] },
+          { "name": "balanceOf(deployer) == 100T", "kind": "read", "operation": "balanceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "100000000000000" } },
+          { "name": "totalSupply == 100T", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "100000000000000" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-20/csharp/DemoToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DEMOCSH", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44454d4f435348" } },
+          { "name": "decimals == 8", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "8" } },
+          { "name": "totalSupply == 100T", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "100000000000000" } },
+          { "name": "balanceOf(deployer) == 100T", "kind": "read", "operation": "balanceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "100000000000000" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-721",
+      "title": "ERC-721 ↔ NEP-11 — Non-Fungible Token",
+      "docEntry": "/standards-mirror/tokens#erc-721",
+      "solidity": {
+        "source": "erc-721/solidity/DemoNFT.sol",
+        "contract": "DemoNFT",
+        "outName": "DemoNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "symbol == DSOLNFT", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44534f4c4e4654" } },
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "balanceOf(deployer) >= 1", "kind": "read", "operation": "balanceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "1" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-721/csharp/DemoNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DCSHNFT", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "444353484e4654" } },
+          { "name": "decimals == 0", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "mint(deployer, ...)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, "T1", "First mirror token", "ipfs://demo/1.png"] },
+          { "name": "balanceOf(deployer) >= 1", "kind": "read", "operation": "balanceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "totalSupply >= 1", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "1" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2981",
+      "title": "ERC-2981 ↔ NEP-24 — NFT Royalty",
+      "docEntry": "/standards-mirror/tokens#erc-2981",
+      "solidity": {
+        "source": "erc-2981/solidity/RoyaltyNFT.sol",
+        "contract": "RoyaltyNFT",
+        "outName": "RoyaltyNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "symbol == DSOLROY", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44534f4c524f59" } },
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "setDefaultRoyalty(deployer, 500)", "kind": "write", "operation": "setDefaultRoyalty", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 500] }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2981/csharp/RoyaltyNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DCSHROY", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44435348524f59" } },
+          { "name": "mint(deployer, ...)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, "T1", "Royalty mirror"] },
+          { "name": "totalSupply >= 1", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "1" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-3525",
+      "title": "ERC-3525 — Semi-Fungible Bond",
+      "docEntry": "/standards-mirror/tokens#erc-3525",
+      "solidity": {
+        "source": "erc-3525/solidity/Bond.sol",
+        "contract": "Bond",
+        "outName": "BondSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "symbol == DSOLBND", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44534f4c424e44" } },
+          { "name": "mint(deployer, slot=1, value=1000)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1, 1000] },
+          { "name": "balanceOfToken(1) == 1000", "kind": "read", "operation": "balanceOfToken", "args": [1], "expect": { "type": "Integer", "value": "1000" } },
+          { "name": "slotOf(1) == 1", "kind": "read", "operation": "slotOf", "args": [1], "expect": { "type": "Integer", "value": "1" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-3525/csharp/Bond.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DCSHBND", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44435348424e44" } },
+          { "name": "valueDecimals == 8", "kind": "read", "operation": "valueDecimals", "args": [], "expect": { "type": "Integer", "value": "8" } },
+          { "name": "mint(deployer, slot=1, value=1000)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1, 1000] }
+        ]
+      }
+    }
+  ]
+}
