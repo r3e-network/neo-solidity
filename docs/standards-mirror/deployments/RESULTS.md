@@ -1,30 +1,30 @@
 # Standards Mirror — TestNet Deployments
 
-- Generated: `2026-04-28T01:26:19.159Z`
+- Generated: `2026-04-28T03:47:02.543Z`
 - RPC: `http://seed1t5.neo.org:20332`
 - Network magic: `894710606`
 - Deployer: `NhMYxG5ATmRjSy6ocnPxrA2DiYba6xhFqu`
 
 | Pair | Implementation | Address | Deploy Tx | Tests |
 |---|---|---|---|---|
-| ERC-20 ↔ NEP-17 — Fungible Token | solidity | `NaKd35AaXvYiLfKngxfuPuxQrFqtiRG1Ns` | `0x47da2da24d82cc25b7c827cc24e950722242600978c7ffca49a4ce9c5f0e949e` | 5/5 |
+| ERC-20 ↔ NEP-17 — Fungible Token | solidity | `NZbQsZAbH3eBdZZYShj6CgG1ZkVEbjZhwF` | `0x37897c9d8b04c7d87baf2e256621d9980145fa2ee8891c9b477c9783985be43e` | 5/5 |
 | ERC-20 ↔ NEP-17 — Fungible Token | csharp | `NRGNZQRrb5TuDo4fA5KPiqZQB29Uybp1zJ` | `-` | 4/4 |
-| ERC-721 ↔ NEP-11 — Non-Fungible Token | solidity | `Ndfq3zG5NEe85tBZQBC4NJLjbeVRu9TwFn` | `0x28821263f9132b576acb4153a81eba8e2878e83200ccc7d53b1b0e1f54e96fb8` | 3/3 |
+| ERC-721 ↔ NEP-11 — Non-Fungible Token | solidity | `NbTK8px52xHxJ5zSJvVFqBujZ5eQEV4dYt` | `0x2bac122c5803ea38cc90c26115564d82bd8cd54d4c430664a5da7166adf26674` | 3/3 |
 | ERC-721 ↔ NEP-11 — Non-Fungible Token | csharp | `NbuB1V5es6YBtPfVrW4R9bDtxDieuZoK38` | `-` | 3/5 |
-| ERC-2981 ↔ NEP-24 — NFT Royalty | solidity | `NQhcPMzycbfy5h4ZBg7vrbAvioa41KdR6i` | `0x36e5acd55c1ebf99a425fae9f93e52385a0bf871e003f6c591de0c888e417ee5` | 3/3 |
-| ERC-2981 ↔ NEP-24 — NFT Royalty | csharp | `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC` | `-` | 3/3 |
-| ERC-3525 — Semi-Fungible Bond | solidity | `NeBJFQY6UAqyQdYXqT6sn4A45gJRqSFkdN` | `0x7a244abbc2c77cf26ef907a0a3b7bfbddd11221bb90fbbddef9b71c796b0eaf9` | 4/4 |
-| ERC-3525 — Semi-Fungible Bond | csharp | `NVpt23PJU2ZbEHXmDkzEqCfoE9NQfEopNZ` | `0x9b8dc510c18c27aad853f177c54ef85dd040f35aab14e1cde147d05a2b1cefba` | 3/3 |
+| ERC-2981 ↔ NEP-24 — NFT Royalty | solidity | `NQhcPMzycbfy5h4ZBg7vrbAvioa41KdR6i` | `-` | 3/3 |
+| ERC-2981 ↔ NEP-24 — NFT Royalty | csharp | `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC` | `-` | 2/3 |
+| ERC-3525 — Semi-Fungible Bond | solidity | `NdzbQnww1HMVDUgZtZzrfN5TvxFTBoBTW6` | `0x16953f75ec84751dd7ae3e6ce8804efdb9b09e6510ecd3716ef1534defa22a2e` | 4/4 |
+| ERC-3525 — Semi-Fungible Bond | csharp | `NVpt23PJU2ZbEHXmDkzEqCfoE9NQfEopNZ` | `-` | 3/3 |
 
 ## ERC-20 ↔ NEP-17 — Fungible Token
 
 ### solidity
-- Contract address: `NaKd35AaXvYiLfKngxfuPuxQrFqtiRG1Ns`
-- Contract hash: `f6f1318d3a215df624202590929ae53686ec0a9e`
-- Deploy tx: `0x47da2da24d82cc25b7c827cc24e950722242600978c7ffca49a4ce9c5f0e949e`
+- Contract address: `NZbQsZAbH3eBdZZYShj6CgG1ZkVEbjZhwF`
+- Contract hash: `d76434af829dc4c936c12648aa77932fa94c0f96`
+- Deploy tx: `0x37897c9d8b04c7d87baf2e256621d9980145fa2ee8891c9b477c9783985be43e`
   - ✅ `read` symbol
   - ✅ `read` decimals
-  - ✅ `write` faucet tx=`0x91b9eb5e3ac8c4d84db51bde2ceb7e9d8bb3c6091347413ed01bd8f410c60d43`
+  - ✅ `write` faucet tx=`0x538ac547448db6f249bdb339332f6cc878f507d2e5db80f41f1e0d40456ce0f5`
   - ✅ `read` balanceOf
   - ✅ `read` totalSupply
 
@@ -40,11 +40,11 @@
 ## ERC-721 ↔ NEP-11 — Non-Fungible Token
 
 ### solidity
-- Contract address: `Ndfq3zG5NEe85tBZQBC4NJLjbeVRu9TwFn`
-- Contract hash: `e12679b0246e4a0a7b546f1e994fcf9199a6c5c2`
-- Deploy tx: `0x28821263f9132b576acb4153a81eba8e2878e83200ccc7d53b1b0e1f54e96fb8`
+- Contract address: `NbTK8px52xHxJ5zSJvVFqBujZ5eQEV4dYt`
+- Contract hash: `48b5f8f579810b402fed660844145fed406f77aa`
+- Deploy tx: `0x2bac122c5803ea38cc90c26115564d82bd8cd54d4c430664a5da7166adf26674`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0x66f1f611154d0cd203a5e539c752a469ae29b62d7c4df57417d76a227f77e055`
+  - ✅ `write` mint tx=`0xcf23cd1f8dde494c721139a8154aea51fe1ad29c87df8bb01f4266e100ba19f9`
   - ✅ `read` balanceOf
 
 ### csharp
@@ -53,43 +53,43 @@
 - Deploy tx: `-`
   - ✅ `read` symbol
   - ✅ `read` decimals
-  - ✅ `write` mint tx=`0x013fc7873dfb7d3d2afdf2a538763b8c10b2dee902c6bb510368937788f21c9e`
-  - ❌ `read` balanceOf reason=`actual=2 (raw type=Integer, value=2), expected 1`
-  - ❌ `read` totalSupply reason=`actual=2 (raw type=ByteString, value=Ag==), expected 1`
+  - ✅ `write` mint tx=`0xa19b9fbdf26dc3f1eb792d183db722fa7448252a3f88df20d2719635eab6b82b`
+  - ❌ `read` balanceOf reason=`actual=3 (raw type=Integer, value=3), expected 1`
+  - ❌ `read` totalSupply reason=`actual=3 (raw type=ByteString, value=Aw==), expected 1`
 
 ## ERC-2981 ↔ NEP-24 — NFT Royalty
 
 ### solidity
 - Contract address: `NQhcPMzycbfy5h4ZBg7vrbAvioa41KdR6i`
 - Contract hash: `ade57dfd9ad85fff8dca3845cf22206346468234`
-- Deploy tx: `0x36e5acd55c1ebf99a425fae9f93e52385a0bf871e003f6c591de0c888e417ee5`
+- Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0xe93230aa3dc33254f41893c13f20e8b4cf1c32cc5832d676c61e888e4adbe0a2`
-  - ✅ `write` setDefaultRoyalty tx=`0x6e1971653ca91a8ffacde2b907eb62fe6ccffdec3165aa6559647b46f25755a0`
+  - ✅ `write` mint tx=`0xb4ae32e8ffdfbe787610f635ab5e2d3eb8a517de86ceedbe6d5f1b94fbe8db1e`
+  - ✅ `write` setDefaultRoyalty tx=`0x70c703a1cef771c540b6864b49d1bdbffb603f1e21e9247d04af075181ce66c4`
 
 ### csharp
 - Contract address: `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC`
 - Contract hash: `bf3fe7eb875750c81c2915d53123c380685a65e1`
 - Deploy tx: `-`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0x50930d0824161ee5283a362162c6fb290d4e2a8e666d8a5a93b9ce91a7df956b`
-  - ✅ `read` totalSupply
+  - ✅ `write` mint tx=`0xf4bcf408ace3734019a2e76870f94e52d825583dcb18536de7281ef5ed77e990`
+  - ❌ `read` totalSupply reason=`actual=2 (raw type=ByteString, value=Ag==), expected 1`
 
 ## ERC-3525 — Semi-Fungible Bond
 
 ### solidity
-- Contract address: `NeBJFQY6UAqyQdYXqT6sn4A45gJRqSFkdN`
-- Contract hash: `cee12844b9a9555c29184d59a042384a9e6a58c8`
-- Deploy tx: `0x7a244abbc2c77cf26ef907a0a3b7bfbddd11221bb90fbbddef9b71c796b0eaf9`
+- Contract address: `NdzbQnww1HMVDUgZtZzrfN5TvxFTBoBTW6`
+- Contract hash: `d0fd56dad510d54ca7877bab2c578d63b82a52c6`
+- Deploy tx: `0x16953f75ec84751dd7ae3e6ce8804efdb9b09e6510ecd3716ef1534defa22a2e`
   - ✅ `read` symbol
-  - ✅ `write` mint tx=`0xec86aa0594916823c0836955c56f73f816b3fe522aa8358abb94b853b4552d1a`
+  - ✅ `write` mint tx=`0x15bec1664e3ff23768d6ea519af1560b6f2989f329d0971bda93c51bfa1d9c1d`
   - ✅ `read` balanceOfToken
   - ✅ `read` slotOf
 
 ### csharp
 - Contract address: `NVpt23PJU2ZbEHXmDkzEqCfoE9NQfEopNZ`
 - Contract hash: `fcfde62a4764cbcd9b35615084e0075c4bddba6c`
-- Deploy tx: `0x9b8dc510c18c27aad853f177c54ef85dd040f35aab14e1cde147d05a2b1cefba`
+- Deploy tx: `-`
   - ✅ `read` symbol
   - ✅ `read` valueDecimals
-  - ✅ `write` mint tx=`0x7f59cd51819bf2aae5a258b72bbba2d4ecf9e1aa3caee7d2d3a13d091d8f8eaa`
+  - ✅ `write` mint tx=`0xfaa4a36ca80b7634ea447232d8e845ab8935fae19ecf8956491c58c1941211ab`

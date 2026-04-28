@@ -309,23 +309,22 @@ public static class ListingVerifier
         UInt160 expectedAccount, ByteString message,
         ByteString signature, ECPoint pubKey)
     {
-        var script = (UInt160)CryptoLib.Hash160(Helper.CreateSignatureCheckScript(pubKey));
+        var script = Contract.CreateStandardAccount(pubKey);
         if (!script.Equals(expectedAccount)) return false;
-        return CryptoLib.VerifyWithECDsa(message, pubKey, signature, NamedCurve.secp256r1);
+        return CryptoLib.VerifyWithECDsa(message, pubKey, signature, NamedCurveHash.secp256r1SHA256);
     }
 
     public static bool VerifyMultiSig(
         UInt160 expectedAccount, ByteString message,
         ECPoint[] pubKeys, ByteString[] signatures, int threshold)
     {
-        var script = (UInt160)CryptoLib.Hash160(
-            Helper.CreateMultiSigScript(threshold, pubKeys));
+        var script = Contract.CreateMultisigAccount(threshold, pubKeys);
         if (!script.Equals(expectedAccount)) return false;
 
         int valid = 0;
         foreach (var sig in signatures)
             foreach (var pk in pubKeys)
-                if (CryptoLib.VerifyWithECDsa(message, pk, sig, NamedCurve.secp256r1)) {
+                if (CryptoLib.VerifyWithECDsa(message, pk, sig, NamedCurveHash.secp256r1SHA256)) {
                     valid++; break;
                 }
         return valid >= threshold;
@@ -658,20 +657,20 @@ public class ProgrammableAccount : SmartContract
 
     private static bool CheckSignerIs(UInt160 expected)
     {
-        foreach (var s in Runtime.CurrentSigners)
+        foreach (var s in Runtime.CurrentSigners())
             if (s.Account.Equals(expected)) return true;
         return false;
     }
 
     private static void EnforceDailyLimit(BigInteger spend)
     {
-        var limit = (BigInteger)(Storage.Get(Storage.CurrentContext, DailyLimit) ?? new byte[0]);
+        var limit = (BigInteger)(Storage.Get(Storage.CurrentContext, DailyLimit) ?? ByteString.Empty);
         if (limit == 0) return;
 
         var nowEpoch  = Runtime.Time / 86_400_000;
-        var lastEpoch = (BigInteger)(Storage.Get(Storage.CurrentContext, SpentEpoch) ?? new byte[0]);
+        var lastEpoch = (BigInteger)(Storage.Get(Storage.CurrentContext, SpentEpoch) ?? ByteString.Empty);
         var spent     = nowEpoch == lastEpoch
-            ? (BigInteger)(Storage.Get(Storage.CurrentContext, SpentToday) ?? new byte[0])
+            ? (BigInteger)(Storage.Get(Storage.CurrentContext, SpentToday) ?? ByteString.Empty)
             : 0;
         if (spent + spend > limit) throw new Exception("daily spend limit exceeded");
 
@@ -864,11 +863,11 @@ public class OrderBook : SmartContract
 
         // Verify signature
         var digest = HashOrder(o);
-        if (!CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurve.secp256r1))
+        if (!CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurveHash.secp256r1SHA256))
             throw new Exception("bad signature");
 
         // Confirm pubKey corresponds to maker
-        var script = (UInt160)CryptoLib.Hash160(Helper.CreateSignatureCheckScript(pubKey));
+        var script = Contract.CreateStandardAccount(pubKey);
         if (!script.Equals(o.Maker)) throw new Exception("pubKey doesn't match maker");
 
         // Replay protection — track seen nonces
@@ -1003,11 +1002,11 @@ public class LoginVerifier : SmartContract
         var messageBytes = (ByteString)System.Text.Encoding.UTF8.GetBytes(message);
         var digest = CryptoLib.Sha256(messageBytes);
 
-        if (!CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurve.secp256r1))
+        if (!CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurveHash.secp256r1SHA256))
             throw new Exception("invalid signature");
 
         // Derive the Neo address (script hash) from the public key.
-        return (UInt160)CryptoLib.Hash160(Helper.CreateSignatureCheckScript(pubKey));
+        return Contract.CreateStandardAccount(pubKey);
     }
 }
 ```
@@ -1278,10 +1277,10 @@ public class SigVerifier : SmartContract
                                ECPoint pubKey, ByteString signature)
     {
         // Case (a): EOA-style — pubKey-derived script matches signer hash.
-        var derived = (UInt160)CryptoLib.Hash160(
-            Helper.CreateSignatureCheckScript(pubKey));
+        var derived = (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(
+            Helper.CreateSignatureCheckScript(pubKey)));
         if (derived.Equals(signer))
-            return CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurve.secp256r1);
+            return CryptoLib.VerifyWithECDsa(digest, pubKey, signature, NamedCurveHash.secp256r1SHA256);
 
         // Case (b): deployed contract — call its verify method.
         var contract = ContractManagement.GetContract(signer);

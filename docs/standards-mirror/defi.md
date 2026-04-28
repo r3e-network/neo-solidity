@@ -156,11 +156,11 @@ public class YieldVault : SmartContract
     public static UInt160 Asset()     => (UInt160)Storage.Get(Storage.CurrentContext, AssetKey);
 
     public static BigInteger TotalShares()
-        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalShares }) ?? new byte[0]);
+        => (BigInteger)(Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalShares }) ?? ByteString.Empty);
 
     public static BigInteger BalanceOf(UInt160 acct)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Balance }.Concat(acct)) ?? new byte[0]);
+            new byte[] { Prefix_Balance }.Concat(acct)) ?? ByteString.Empty);
 
     public static BigInteger TotalAssets()
         => (BigInteger)Contract.Call(Asset(), "balanceOf", CallFlags.ReadOnly,
@@ -607,18 +607,18 @@ public class AsyncVault : SmartContract
         // data is the controller (or null = use sender)
         var controller = data is UInt160 ctrl ? ctrl : from;
         var key = new byte[] { Prefix_Pending }.Concat(controller);
-        var pending = (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? new byte[0]);
+        var pending = (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? ByteString.Empty);
         Storage.Put(Storage.CurrentContext, key, pending + amount);
         OnDepositRequest(from, controller, amount);
     }
 
     public static BigInteger PendingDepositRequest(UInt160 controller)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Pending }.Concat(controller)) ?? new byte[0]);
+            new byte[] { Prefix_Pending }.Concat(controller)) ?? ByteString.Empty);
 
     public static BigInteger ClaimableDepositRequest(UInt160 controller)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Claimable }.Concat(controller)) ?? new byte[0]);
+            new byte[] { Prefix_Claimable }.Concat(controller)) ?? ByteString.Empty);
 
     public static void ProcessBatch(UInt160[] controllers, BigInteger sharePerAsset)
     {
@@ -640,7 +640,7 @@ public class AsyncVault : SmartContract
 
             var prevShares = (BigInteger)(Storage.Get(Storage.CurrentContext,
                                           new byte[] { Prefix_Shares }.Concat(c))
-                                          ?? new byte[0]);
+                                          ?? ByteString.Empty);
             Storage.Put(Storage.CurrentContext,
                         new byte[] { Prefix_Shares }.Concat(c),
                         prevShares + pending * sharePerAsset);
@@ -655,7 +655,7 @@ public class AsyncVault : SmartContract
         if (claimable < assets) throw new Exception("insufficient claimable");
 
         var shareBal = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                       new byte[] { Prefix_Shares }.Concat(controller)) ?? new byte[0]);
+                       new byte[] { Prefix_Shares }.Concat(controller)) ?? ByteString.Empty);
         var shares   = shareBal * assets / claimable;
 
         Storage.Put(Storage.CurrentContext,
@@ -666,7 +666,7 @@ public class AsyncVault : SmartContract
                     shareBal - shares);
 
         var recvBal = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                      new byte[] { Prefix_ShareBal }.Concat(receiver)) ?? new byte[0]);
+                      new byte[] { Prefix_ShareBal }.Concat(receiver)) ?? ByteString.Empty);
         Storage.Put(Storage.CurrentContext,
                     new byte[] { Prefix_ShareBal }.Concat(receiver),
                     recvBal + shares);
@@ -795,7 +795,7 @@ public class MultiAssetVault : SmartContract
     public static BigInteger ConvertToShares(UInt160 asset, BigInteger amount)
     {
         var rate = (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_RatePerAsset }.Concat(asset)) ?? new byte[0]);
+            new byte[] { Prefix_RatePerAsset }.Concat(asset)) ?? ByteString.Empty);
         if (rate == 0) throw new Exception("asset not accepted");
         return amount * rate / 100_000_000;
     }
@@ -824,7 +824,7 @@ public class MultiAssetVault : SmartContract
                     ratePerAsset_1e8);
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 
@@ -963,7 +963,7 @@ public class VotingToken : SmartContract
     public static BigInteger GetVotes(UInt160 account)
     {
         var n = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                new byte[] { Prefix_NumCheckpts }.Concat(account)) ?? new byte[0]);
+                new byte[] { Prefix_NumCheckpts }.Concat(account)) ?? ByteString.Empty);
         if (n == 0) return 0;
         return ReadCheckpointVotes(account, n - 1);
     }
@@ -972,7 +972,7 @@ public class VotingToken : SmartContract
     {
         if (blockIndex >= Ledger.CurrentIndex) throw new Exception("future block");
         var n = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                new byte[] { Prefix_NumCheckpts }.Concat(account)) ?? new byte[0]);
+                new byte[] { Prefix_NumCheckpts }.Concat(account)) ?? ByteString.Empty);
         if (n == 0) return 0;
 
         // Binary search for the last checkpoint with fromBlock <= blockIndex
@@ -1007,7 +1007,7 @@ public class VotingToken : SmartContract
 
     public static BigInteger BalanceOf(UInt160 a)
         => (BigInteger)(Storage.Get(Storage.CurrentContext,
-            new byte[] { Prefix_Balance }.Concat(a)) ?? new byte[0]);
+            new byte[] { Prefix_Balance }.Concat(a)) ?? ByteString.Empty);
 
     private static void MoveVotes(UInt160 delegate_, BigInteger delta)
     {
@@ -1020,7 +1020,7 @@ public class VotingToken : SmartContract
     private static void WriteCheckpoint(UInt160 acct, BigInteger votes)
     {
         var n = (BigInteger)(Storage.Get(Storage.CurrentContext,
-                new byte[] { Prefix_NumCheckpts }.Concat(acct)) ?? new byte[0]);
+                new byte[] { Prefix_NumCheckpts }.Concat(acct)) ?? ByteString.Empty);
         var cpKey = new byte[] { Prefix_Checkpoint }.Concat(acct).Concat((ByteString)n.ToByteArray());
         var blob  = StdLib.Serialize(new object[] { (BigInteger)Ledger.CurrentIndex, votes });
         Storage.Put(Storage.CurrentContext, cpKey, blob);
@@ -1284,7 +1284,7 @@ public class ExpirableToken : SmartContract
     {
         var key = new byte[] { Prefix_BalanceAtEpoch }
             .Concat(owner).Concat((ByteString)epoch.ToByteArray());
-        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? new byte[0]);
+        return (BigInteger)(Storage.Get(Storage.CurrentContext, key) ?? ByteString.Empty);
     }
 
     public static void Mint(UInt160 to, BigInteger amount)
@@ -1334,7 +1334,7 @@ public class ExpirableToken : SmartContract
         Storage.Put(Storage.CurrentContext, RetentionKey, (BigInteger)args[1]);
     }
 
-    private static UInt160 GetAdmin() => "NXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".ToScriptHash();
+    private static UInt160 GetAdmin() => (UInt160)"0x0000000000000000000000000000000000000000";
 }
 ```
 

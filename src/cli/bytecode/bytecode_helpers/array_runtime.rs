@@ -21,15 +21,49 @@ fn emit_load_runtime_value(
             // Solidity `msg.sender` is the immediate caller:
             // - entry contract: Transaction.Sender (first signer)
             // - internal contract call: CallingScriptHash (caller contract)
+            // - constructor (called from ContractManagement during deploy):
+            //   ContractManagement.Hash would be a useless answer; the user
+            //   actually wants the deploying signer, so we route to
+            //   Transaction.Sender for that case too.
             //
-            // In Neo N3, contracts are typically invoked from an entry script (transaction
-            // script) that then calls into the contract. Detect entry calls by checking
-            // whether CallingScriptHash == EntryScriptHash.
-            emit_syscall(bytecode, "System.Runtime.GetEntryScriptHash");
+            // Detection: check if CallingScriptHash matches EntryScriptHash
+            // (top-level user invocation) OR ContractManagement.Hash (running
+            // inside _deploy during a contract deploy). Either way, the
+            // semantically correct `msg.sender` is the transaction's first
+            // signer (Transaction.Sender). Otherwise we're in an internal
+            // contract-to-contract call and CallingScriptHash is correct.
+            //
+            // ContractManagement native hash on Neo N3:
+            //   0xfffdc93764dbaddd97c48f252a53ea4643faa3fd  (big-endian)
+            // Stored on-chain in little-endian byte order, which is how
+            // CallingScriptHash compares it.
+
+            // Push CallingScriptHash, then test against EntryScriptHash and
+            // ContractManagement.Hash. The result is whether either match.
             emit_syscall(bytecode, "System.Runtime.GetCallingScriptHash");
+            bytecode.push(0x4A); // DUP — keep one copy for the actual return path
+
+            // First test: == EntryScriptHash
+            emit_syscall(bytecode, "System.Runtime.GetEntryScriptHash");
             bytecode.push(0x97); // EQUAL
 
-            // if !(calling == entry) jump to else (calling script hash)
+            // Second test: == ContractManagement.Hash (LE bytes)
+            // Stack: [calling_dup, calling_eq_entry?]
+            bytecode.push(0x50); // SWAP — bring calling_dup back to top
+            // PUSHDATA1 0x14 (20-byte hash, LE):
+            bytecode.push(0x0C); // PUSHDATA1
+            bytecode.push(0x14); // length 20
+            bytecode.extend_from_slice(&[
+                0xFD, 0xA3, 0xFA, 0x43, 0x46, 0xEA, 0x53, 0x2A,
+                0x25, 0x8F, 0xC4, 0x97, 0xDD, 0xAD, 0xDB, 0x64,
+                0x37, 0xC9, 0xFD, 0xFF,
+            ]);
+            bytecode.push(0x97); // EQUAL — calling == ContractManagement?
+
+            // OR the two boolean results.
+            bytecode.push(0xAC); // BOOLOR
+
+            // if !(use_tx_sender) jump to "else" (return CallingScriptHash directly).
             let jmp_if_not_pos = bytecode.len();
             bytecode.push(0x27); // JMPIFNOT_L
             let jmp_if_not_operand = bytecode.len();
@@ -38,7 +72,7 @@ fn emit_load_runtime_value(
             // then: Transaction.Sender
             emit_syscall(bytecode, "System.Runtime.GetScriptContainer");
             // Neo N3 Transaction stack item layout (devpack order):
-            // [Hash, Version, Nonce, Sender, ...]
+            //   [Hash, Version, Nonce, Sender, ...]
             push_integer_bigint(bytecode, &BigInt::from(3u8));
             bytecode.push(0xCE); // PICKITEM (Transaction.Sender field)
 
@@ -48,7 +82,7 @@ fn emit_load_runtime_value(
             let jmp_end_operand = bytecode.len();
             bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
-            // else:
+            // else: re-fetch CallingScriptHash (we DUP'd and consumed it via the OR).
             let else_pos = bytecode.len();
             emit_syscall(bytecode, "System.Runtime.GetCallingScriptHash");
 

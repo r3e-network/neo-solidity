@@ -50,17 +50,31 @@ fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut V
         return;
     };
 
-    // Fast path: event is known. Produce the EVM-canonical shape.
-    if let Some(signature) = ctx.event_evm_signature(&identifier.name).cloned() {
-        lower_emit_evm_shape(&identifier.name, &signature, args, ctx, instructions);
-        return;
-    }
-
-    // Fallback: unknown event name (e.g., inherited event stripped by the
-    // frontend). Emit the legacy Neo-native shape so the log still lands.
+    // Always use the Neo-native shape:
+    //
+    //   eventName  = the human-readable event name (UTF-8 string, matches manifest)
+    //   stateArray = [arg1, arg2, ..., argN]   (raw arg values in declaration order)
+    //
+    // We previously produced an EVM-canonical wire format here (eventName =
+    // 32-byte keccak of signature, stateArray reshaped into
+    // [topic1, ..., topicN, data]) but it broke on real Neo nodes in two
+    // ways:
+    //   1. Neo's RPC/log layer treats the eventName as a UTF-8 string, and
+    //      keccak hashes contain arbitrary bytes (e.g. 0xDD as the first
+    //      byte for `Transfer(...)`) that fault the UTF-8 decoder.
+    //   2. Neo's manifest validation enforces `state.Count` matches the
+    //      declared event's parameter count exactly. EVM reshaping
+    //      (4-element stateArray for a 3-parameter event) gets rejected.
+    //
+    // Indexers that need EVM-canonical topics can derive topic0 from the
+    // manifest's event declaration; the indexed/non-indexed split is
+    // recoverable from the event-parameter metadata the frontend records.
     lower_emit_legacy(&identifier.name, args, ctx, instructions);
 }
 
+/// Retained for reference; no longer the active emit lowering. See `lower_emit`
+/// for the rationale (testnet incompatibility of the EVM-canonical shape).
+#[allow(dead_code)]
 fn lower_emit_evm_shape(
     event_name: &str,
     signature: &EventSignature,
@@ -91,23 +105,34 @@ fn lower_emit_evm_shape(
 
     // Step 1: push the `eventName` argument for System.Runtime.Notify.
     //
-    // Non-anonymous: push topic[0] = keccak256(canonical signature) as a
-    // 32-byte ByteArray. The runtime detects `event_name.len() == 32` and
-    // routes through the EVM-shape branch, prepending topic[0] to the
-    // topics vector.
+    // The eventName must be a UTF-8-decodable string because Neo's RPC and
+    // log-emit layers treat it as a printable identifier (it's the same
+    // string declared in the manifest's `events` array). Stuffing the
+    // 32-byte keccak hash in here — as an earlier revision of this code
+    // did — breaks on real Neo nodes whenever the keccak's first byte
+    // isn't valid UTF-8. The classic case is
+    // `Transfer(address,address,uint256)` whose keccak begins with 0xDD;
+    // the testnet runtime faults with "Unable to translate bytes [DD]
+    // from specified code page to Unicode."
     //
-    // Anonymous: per the EVM ABI (and Solidity handbook §Events), the
-    // signature-hash topic0 is suppressed so the event can carry up to 4
-    // indexed topics (vs. 3 for non-anonymous). We push an empty ByteArray
-    // as the event_name sentinel — the runtime recognises the zero-length
-    // form and emits `topics = [indexed_topics...]` with NO topic0 prepend.
-    // The zero-length sentinel is unambiguous: the legacy Neo-native path
-    // always uses the declared event name (non-empty by construction) and
-    // the EVM non-anonymous path uses a 32-byte keccak, so `len == 0`
-    // uniquely identifies the anonymous-EVM case.
+    // We push the human-readable event name here and carry topic[0] (the
+    // signature keccak) as the FIRST element of the state array below.
+    // For anonymous events we push an empty string sentinel — the runtime
+    // recognises the zero-length form and skips topic-0 prepend.
     if signature.is_anonymous {
-        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::String(Vec::new())));
     } else {
+        instructions.push(Instruction::PushLiteral(LiteralValue::String(
+            event_name.as_bytes().to_vec(),
+        )));
+    }
+
+    // Step 1b: for non-anonymous events, push topic[0] = keccak(signature)
+    // as the first element of the state array. The runtime peels this back
+    // off when reconstructing the EVM-canonical LogEntry. Its 32-byte length
+    // is the structural marker the runtime uses to distinguish EVM-shape
+    // from legacy.
+    if !signature.is_anonymous {
         instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
             signature.topic0.to_vec(),
         )));
@@ -230,10 +255,17 @@ fn lower_emit_evm_shape(
     }
 
     // Step 4: emit the `EmitEvent` / `EmitEventByName` IR node. The
-    // bytecode emitter PACKs the (indexed_topics + data) elements into a
-    // stateArray and calls Runtime.Notify; the runtime splits them back
-    // out by recognising the 32-byte topic[0] in the event_name slot.
-    let state_item_count = indexed.len() + 1; // +1 for the data slot.
+    // bytecode emitter PACKs the state-array elements and calls
+    // Runtime.Notify; the runtime peels them apart again to build a
+    // proper EVM-canonical LogEntry.
+    //
+    // For non-anonymous events the layout is:
+    //   stateArray = [topic0, topic1, ..., topicN, data]
+    // For anonymous events the layout is:
+    //   stateArray = [topic1, ..., topicN, data]
+    // (topic0 is suppressed per EVM ABI for anonymous events.)
+    let topic0_slot = if signature.is_anonymous { 0 } else { 1 };
+    let state_item_count = topic0_slot + indexed.len() + 1; // +1 for the data slot.
     if let Some(index) = ctx.event_index_map.get(event_name) {
         instructions.push(Instruction::EmitEvent {
             event_index: *index,
