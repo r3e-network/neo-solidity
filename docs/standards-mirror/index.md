@@ -114,15 +114,24 @@ balances accumulating across runs) — every fresh deploy passes 100%.
 
 ### What about the other 33 entries?
 
-The mirror catalogs 51 standards total. The remaining 33 fall into categories that
-don't deploy cleanly as standalone contracts:
+All 33 are queued for a recurring agent (the `Standards Mirror — Add 2 Pairs Every
+Monday` routine) which pops 2 entries each Monday from
+[`deployments/DEFERRED.md`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/DEFERRED.md).
+The queue currently holds **23 entries**:
 
-| Category | Count | Why not deployed |
+| Category | Count | What the agent will deploy |
 |---|---|---|
-| Extensions of an already-deployed standard | ~6 | E.g. ERC-2309 / ERC-4906 / ERC-4494 are events-and-method extensions of ERC-721 — annotated on the parent rather than redeployed |
-| Patterns / method conventions | ~4 | E.g. ERC-7201 namespaced storage, ERC-165 interface detection — implemented inside other contracts, not on their own |
-| Protocol-level EIPs | ~12 | E.g. EIP-1559, EIP-3855 PUSH0, EIP-1153 transient storage — these change the protocol, not the contract surface. No "deploy a contract for EIP-1559" |
-| Deferred to a recurring follow-up | ~11 | ERC-777, ERC-7540 async vault, ERC-7575 multi-asset vault, ERC-7579 modular accounts, ERC-4337 smart account, ERC-6492 sigverifier, ERC-5267, ERC-5114 / 5484 / 6147 / 2470 — covered by a fortnightly `/schedule`d agent that adds 2 more pairs each cycle |
+| Standalone-deployable | 11 | ERC-777 (token w/ hooks), 7540 (async vault), 7575 (multi-asset vault), 7579 (modular account), 4337 (smart account), 6492 (sig pre-deploy), 5267 (EIP-712 domain), 5114 / 5484 / 6147 (SBT variants), 2470 (singleton factory) |
+| Extension-as-demo | 5 | Small standalone demos for ERC-2309 (batch mint), 4906 (mutable metadata), 4494 (NFT permit), 2612 (token permit), 1014 (CREATE2-style factory) |
+| Pattern-as-demo | 2 | ERC-165 supportsInterface wrapper, ERC-7201 namespaced storage demo |
+| Protocol-EIP-as-demo | 5 | EIP-712 verifier, EIP-191 verifier, EIP-3198 fee-introspection, EIP-1153 reentrancy-guard pattern, EIP-2098 compact-sig verifier |
+
+At 2 pairs/week, the queue empties in ~12 weeks (~mid-July 2026). After that, every
+catalog entry will have a live testnet contract pair, except for the **8 protocol
+EIPs whose only sensible demonstration is the protocol behavior itself** —
+EIP-1559 fee market, EIP-2718 typed-tx envelope, EIP-2930 access lists, EIP-3855
+PUSH0, EIP-3860 initcode size, EIP-4844 blobs, EIP-6780 selfdestruct nerf, EIP-7702
+set-code-for-EOAs. These get prose-only entries because there's nothing to deploy.
 
 Source pairs, deploy script, full results JSON, and instructions to reproduce live
 under
