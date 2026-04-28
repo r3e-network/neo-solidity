@@ -489,6 +489,19 @@ recipient callback `onNEP17Payment(from, amount, data)` fires **after** the send
 balance is debited and the recipient balance is credited. Re-entry into the token
 contract during the callback cannot double-spend because state is already final.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xd0f1fb49a76b1e6aaf63cf2e2e132607950e5e7d` | [`0x3b71ed0a…fb3fe`](https://dora.coz.io/transaction/neo3/testnet/0x3b71ed0afdc0084930599c606562a3563b8d7905cd1724a3c59cd249508fb3fe) |
+| **Neo C#** (`nccs`) | `0x0d64d453a705033c2698de7a4de9e5fd934b2849` | [`0x2072ca9f…25da73`](https://dora.coz.io/transaction/neo3/testnet/0x2072ca9f3bdd11a2eaeb594c6332e9a53bbccfa97c247da66b8be6af1325da73) |
+
+Cross-implementation invocations match on `symbol`, `decimals`, `balanceOf` /
+`getOwner`. Source pairs under
+[`docs/standards-mirror/deployments/erc-777/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-777).
+:::
+
 </template>
 
 <template #solidity>
@@ -1263,6 +1276,19 @@ Neo's event system supports identical semantics — emit one event covering a ra
 instead of N events. Below is the Neo C# port. The event signature is named
 `ConsecutiveTransfer` and indexers can subscribe to it just as they would on Ethereum.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x20262b3b96d92a0db7bfdc4782903fb3d997f900` | [`0x014b746a…f4fd44`](https://dora.coz.io/transaction/neo3/testnet/0x014b746ab2d46e1e7dcc33de436cc4fd7ac1bfba023693205b5cfd12daf4fd44) |
+| **Neo C#** (`nccs`) | `0x2e157ce2532dee6084f53c1a848975bd960be918` | [`0x60d5dcf1…7d1bd2`](https://dora.coz.io/transaction/neo3/testnet/0x60d5dcf15270cba4449c0518ca1768deca886f980469d01b44232dc3827d1bd2) |
+
+Cross-implementation invocations match on `claimDeployer`, `totalMinted`,
+`getDeployer`. Source pairs under
+[`docs/standards-mirror/deployments/erc-2309/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2309).
+:::
+
 </template>
 
 <template #solidity>
@@ -1419,6 +1445,19 @@ Neo NEP-11 stores metadata **on-chain** via `properties(tokenId)`, so cache
 invalidation is a non-problem in the steady state — but indexers still benefit from
 explicit notification when properties mutate. The Neo port emits the same events
 under the same names.
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x86f4d37e2471fdddf6738bb977de99646102b793` | [`0xd1d42b50…2e3c61`](https://dora.coz.io/transaction/neo3/testnet/0xd1d42b502a1396e7d4b9f55d8ee41891207c41e1c50c81a9ef1c07ef492e3c61) |
+| **Neo C#** (`nccs`) | `0x3429da478e520ac009dc64520c8c3ccd00158061` | [`0x83d84d1b…f09ea0`](https://dora.coz.io/transaction/neo3/testnet/0x83d84d1b0384d16f2cc9f023f462c1821245f8460ded4413fb633c6147f09ea0) |
+
+Cross-implementation invocations match on `claimDeployer`, `nextId`,
+`getDeployer`. Source pairs under
+[`docs/standards-mirror/deployments/erc-4906/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-4906).
+:::
 
 </template>
 
@@ -1881,6 +1920,19 @@ event Issued(address indexed from, address indexed to, uint256 indexed tokenId, 
 
 Standard Neo C# port — store per-token `burnAuth` and check it in the burn function.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x8a9e1835270c95ddf5250ee84a1d4714552cb951` | [`0xa440db2d…f4246a`](https://dora.coz.io/transaction/neo3/testnet/0xa440db2d432184bbbc13275bf3cce3490153bee170b82384237e67558af4246a) |
+| **Neo C#** (`nccs`) | `0x02317b7192e3d91ba1739ae2a9f5fdcd44bf2dac` | [`0xebc7d7f7…d9432c`](https://dora.coz.io/transaction/neo3/testnet/0xebc7d7f71b74b20808a6bad75dcb8fa78d9f34fc0a02f72697f86578a1d9432c) |
+
+Cross-implementation invocations match on `claimIssuer`, `tokenCount`,
+`getIssuer`. Source pairs under
+[`docs/standards-mirror/deployments/erc-5484/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5484).
+:::
+
 </template>
 
 <template #solidity>
@@ -2222,6 +2274,19 @@ Neo C# port: each badge stores a reference to its parent (parent contract hash +
 tokenId). The badge's effective owner is whoever owns the parent NFT; resolved on
 each query.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x91e34b16c373f845024013c3bd585ac9739b741f` | [`0x8cca8503…3a8c3a19`](https://dora.coz.io/transaction/neo3/testnet/0x8cca85038cf296fa6adce4faaa5c987dcc8c845584f00f31022a1e713a8c3a19) |
+| **Neo C#** (`nccs`) | `0xd9d32f5f8d2d0cd5196cd94b49e3d11ac46d7039` | [`0x7dd08b98…170ee73`](https://dora.coz.io/transaction/neo3/testnet/0x7dd08b982cef569ff9e9758e308f762a44c2d1939086ff0ff108cc692170ee73) |
+
+Cross-implementation invocations match on `claimDeployer`, `badgeCount`,
+`getOwner`. Source pairs under
+[`docs/standards-mirror/deployments/erc-5114/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5114).
+:::
+
 </template>
 
 <template #solidity>
@@ -2378,6 +2443,19 @@ authorization AND the guard's authorization (until `expires`).
 Neo's witness scopes already let one transaction carry signatures from multiple
 accounts — the C# port simply checks both the owner and the guard via two
 `Runtime.CheckWitness` calls.
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xdf1474aed4764a1433892bb1ec2a8a143000e4c3` | [`0x5f17cdab…5666c60`](https://dora.coz.io/transaction/neo3/testnet/0x5f17cdab2309cbb2af6a66f917cbeb2fab409dd6b9a0dee702028469b5666c60) |
+| **Neo C#** (`nccs`) | `0x9223d7237b8babbecb38dfc4cbb5e82f11019cd8` | [`0xe53c0607…559df5`](https://dora.coz.io/transaction/neo3/testnet/0xe53c06073fa5af3a8346d9f3f2938f185c2ecdfcc25502bd2bfce12d8b559df5) |
+
+Cross-implementation invocations match on `claimDeployer`, `tokenCount`,
+`getDeployer`. Source pairs under
+[`docs/standards-mirror/deployments/erc-6147/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-6147).
+:::
 
 </template>
 
