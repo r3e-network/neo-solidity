@@ -445,6 +445,206 @@
           { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
         ]
       }
+    },
+
+    {
+      "id": "erc-777",
+      "title": "ERC-777 — Hooked Token",
+      "docEntry": "/standards-mirror/tokens#erc-777",
+      "solidity": {
+        "source": "erc-777/solidity/HookedToken.sol",
+        "contract": "HookedToken",
+        "outName": "HookedTokenSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "mint(deployer, 1000)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1000] },
+          { "name": "balanceOf(deployer) == 1000", "kind": "read", "operation": "balanceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "1000" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-777/csharp/HookedToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DHOOK", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44484f4f4b" } },
+          { "name": "decimals == 8", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "8" } },
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-5267",
+      "title": "ERC-5267 — EIP-712 Domain Exposer",
+      "docEntry": "/standards-mirror/account-and-auth#erc-5267",
+      "solidity": {
+        "source": "erc-5267/solidity/DomainExposer.sol",
+        "contract": "DomainExposer",
+        "outName": "DomainExposerSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "getName == MyDApp", "kind": "read", "operation": "getName", "args": [], "expect": { "type": "ByteString", "value": "4d7944417070" } },
+          { "name": "getVersion == 1", "kind": "read", "operation": "getVersion", "args": [], "expect": { "type": "ByteString", "value": "31" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-5267/csharp/DomainExposer.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getName == MyDApp", "kind": "read", "operation": "getName", "args": [], "expect": { "type": "ByteString", "value": "4d7944417070" } },
+          { "name": "getVersion == 1", "kind": "read", "operation": "getVersion", "args": [], "expect": { "type": "ByteString", "value": "31" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-5114",
+      "title": "ERC-5114 — Soulbound Badge (parent-bound)",
+      "docEntry": "/standards-mirror/tokens#erc-5114",
+      "solidity": {
+        "source": "erc-5114/solidity/Achievement.sol",
+        "contract": "Achievement",
+        "outName": "AchievementSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "badgeCount == 0 (pre-attach)", "kind": "read", "operation": "badgeCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-5114/csharp/Achievement.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "badgeCount == 0 (pre-attach)", "kind": "read", "operation": "badgeCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-5484",
+      "title": "ERC-5484 — Consensual Soulbound (BurnAuth)",
+      "docEntry": "/standards-mirror/tokens#erc-5484",
+      "solidity": {
+        "source": "erc-5484/solidity/ConsensualSBT.sol",
+        "contract": "ConsensualSBT",
+        "outName": "ConsensualSBTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimIssuer()", "kind": "write", "operation": "claimIssuer", "args": [] },
+          { "name": "tokenCount == 0 (pre-issue)", "kind": "read", "operation": "tokenCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-5484/csharp/ConsensualSBT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getIssuer == deployer", "kind": "read", "operation": "getIssuer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-6147",
+      "title": "ERC-6147 — Guarded NFT (co-signer)",
+      "docEntry": "/standards-mirror/tokens#erc-6147",
+      "solidity": {
+        "source": "erc-6147/solidity/GuardedNFT.sol",
+        "contract": "GuardedNFT",
+        "outName": "GuardedNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "tokenCount == 0 (pre-mint)", "kind": "read", "operation": "tokenCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-6147/csharp/GuardedNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2470",
+      "title": "ERC-2470 — Singleton Factory",
+      "docEntry": "/standards-mirror/infrastructure#erc-2470",
+      "solidity": {
+        "source": "erc-2470/solidity/SingletonFactory.sol",
+        "contract": "SingletonFactory",
+        "outName": "SingletonFactorySol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "deployCount == 0 (initial)", "kind": "read", "operation": "deployCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2470/csharp/SingletonFactory.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "deployCount == 0 (initial)", "kind": "read", "operation": "deployCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2309",
+      "title": "ERC-2309 — Consecutive Batch-Mint NFT",
+      "docEntry": "/standards-mirror/tokens#erc-2309",
+      "solidity": {
+        "source": "erc-2309/solidity/BatchMintNFT.sol",
+        "contract": "BatchMintNFT",
+        "outName": "BatchMintNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "totalMinted == 0 (pre-batch)", "kind": "read", "operation": "totalMinted", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2309/csharp/BatchMintNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "totalMinted == 0 (pre-batch)", "kind": "read", "operation": "totalMinted", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-4906",
+      "title": "ERC-4906 — Dynamic Metadata NFT",
+      "docEntry": "/standards-mirror/tokens#erc-4906",
+      "solidity": {
+        "source": "erc-4906/solidity/DynamicMetadataNFT.sol",
+        "contract": "DynamicMetadataNFT",
+        "outName": "DynamicMetadataNFTSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-4906/csharp/DynamicMetadataNFT.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
     }
   ]
 }

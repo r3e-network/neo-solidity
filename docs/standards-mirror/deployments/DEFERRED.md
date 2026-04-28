@@ -10,25 +10,20 @@ complete and self-disables.
 
 ## Priority queue
 
-The first 11 are canonical standards we haven't deployed yet. The remaining 12 are
+The first 4 are canonical standards we haven't deployed yet. The remaining 11 are
 "demo wrapper" entries: their Ethereum forms are extensions / method conventions /
 protocol EIPs that don't normally have standalone contracts, but a small Neo
 demonstration contract is useful for the mirror's educational purpose.
 
+8 entries previously here were popped and shipped in the v0.19.0 docs round
+(ERC-777, ERC-5267, ERC-5114, ERC-5484, ERC-6147, ERC-2470, ERC-2309, ERC-4906).
+
 ```
-ERC-777 — Token w/ hooks
 ERC-7540 — Async ERC-4626 vault
 ERC-7575 — Multi-asset vault
 ERC-7579 — Modular smart account
 ERC-4337 — Smart account (NEP-30 verify)
 ERC-6492 — Pre-deploy signature verifier
-ERC-5267 — EIP-712 domain retrieval
-ERC-5114 — Soulbound badge (parent-bound)
-ERC-5484 — Consensual SBT
-ERC-6147 — NFT guard
-ERC-2470 — Singleton factory
-ERC-2309 — BatchMintNFT (consecutive transfer event)
-ERC-4906 — DynamicMetadataNFT (mutable metadata + MetadataUpdate event)
 ERC-4494 — PermitNFT (NFT with witness-scope permit demo)
 ERC-2612 — PermitToken (ERC-20 with witness-scope permit demo)
 ERC-1014 — DeterministicFactory (CREATE2-style deploy demo via ContractManagement.Deploy)

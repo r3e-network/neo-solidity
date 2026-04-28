@@ -1093,6 +1093,19 @@ wallets and clients fetch it via `ContractManagement.GetContract(...)` and the
 network ID via `Runtime.GetNetwork()`. The C# port just exposes a convenience
 method that returns the same metadata, but it's optional.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x1dd8a39225d515a4621c5214f336c78f4b19bb6c` | [`0x5994e152…d7add3a8`](https://dora.coz.io/transaction/neo3/testnet/0x5994e152d86ca8753118ba7f27159fa7cd5bc66079d08a28f796baabd7add3a8) |
+| **Neo C#** (`nccs`) | `0xdcfa06612bfa8614e4d197bc8206b68320cd9877` | [`0x028edfdf…3d17508`](https://dora.coz.io/transaction/neo3/testnet/0x028edfdf025d5388fec1255f3e6e9aa34f6bb2f6b3e495fc68d8932663d17508) |
+
+Cross-implementation `getName` and `getVersion` calls return identical
+`MyDApp` / `1`. Source pairs under
+[`docs/standards-mirror/deployments/erc-5267/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5267).
+:::
+
 </template>
 
 <template #solidity>

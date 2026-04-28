@@ -995,6 +995,19 @@ singleton factory required.
 For multi-chain projects (e.g. a deploy bot deploying the same contract to multiple
 Neo networks), the script hash is the same on each.
 
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x625c19cbd8d0b5cf03bd9996b67a824c14448012` | [`0xbb6e02b4…51651a`](https://dora.coz.io/transaction/neo3/testnet/0xbb6e02b4d2fcf44211712673b8e90c4082c75985df55b5eea05fda168151651a) |
+| **Neo C#** (`nccs`) | `0x602d11eca4ebba2799b076fdbba251d1d9eaedf5` | [`0x10eda9be…7f8832`](https://dora.coz.io/transaction/neo3/testnet/0x10eda9bee425d78ff23fae16841304f750aea43d818b04a5f324d4afef7f8832) |
+
+Cross-implementation invocations match on `claimDeployer` / `_deploy`,
+`deployCount`, `getDeployer`. Source pairs under
+[`docs/standards-mirror/deployments/erc-2470/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2470).
+:::
+
 </template>
 
 <template #solidity>
