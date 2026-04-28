@@ -112,6 +112,196 @@
           { "name": "mint(deployer, slot=1, value=1000)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1, 1000] }
         ]
       }
+    },
+
+    {
+      "id": "erc-173",
+      "title": "ERC-173 — Contract Ownership",
+      "docEntry": "/standards-mirror/account-and-auth#erc-173",
+      "solidity": {
+        "source": "erc-173/solidity/Ownable.sol",
+        "contract": "Ownable",
+        "outName": "OwnableSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimOwnership()", "kind": "write", "operation": "claimOwnership", "args": [] },
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-173/csharp/Ownable.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-1820",
+      "title": "ERC-1820 — Interface Registry",
+      "docEntry": "/standards-mirror/infrastructure#erc-1820",
+      "solidity": {
+        "source": "erc-1820/solidity/InterfaceRegistry.sol",
+        "contract": "InterfaceRegistry",
+        "outName": "InterfaceRegistrySol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "getManager(deployer) == deployer (default)", "kind": "read", "operation": "getManager", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1820/csharp/InterfaceRegistry.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getManager(deployer) == deployer (default)", "kind": "read", "operation": "getManager", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-6372",
+      "title": "ERC-6372 — Contract Clock",
+      "docEntry": "/standards-mirror/defi#erc-6372",
+      "solidity": {
+        "source": "erc-6372/solidity/ClockGov.sol",
+        "contract": "ClockGov",
+        "outName": "ClockGovSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "CLOCK_MODE", "kind": "read", "operation": "CLOCK_MODE", "args": [], "expect": { "type": "ByteString", "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-6372/csharp/ClockGov.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "clockMode", "kind": "read", "operation": "clockMode", "args": [], "expect": { "type": "ByteString", "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-1271",
+      "title": "ERC-1271 — Contract Signature (MultiSig)",
+      "docEntry": "/standards-mirror/account-and-auth#erc-1271",
+      "solidity": {
+        "source": "erc-1271/solidity/MultiSig.sol",
+        "contract": "MultiSig",
+        "outName": "MultiSigSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "ownerCount == 0 (pre-setup)", "kind": "read", "operation": "ownerCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1271/csharp/MultiSig.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "threshold == 0 (pre-setup)", "kind": "read", "operation": "threshold", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-5192",
+      "title": "ERC-5192 — Soulbound Token",
+      "docEntry": "/standards-mirror/tokens#erc-5192",
+      "solidity": {
+        "source": "erc-5192/solidity/SoulboundCert.sol",
+        "contract": "SoulboundCert",
+        "outName": "SoulboundCertSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimIssuer()", "kind": "write", "operation": "claimIssuer", "args": [] },
+          { "name": "issue(deployer, soulbound=true)", "kind": "write", "operation": "issue", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, true] },
+          { "name": "locked(1) == true", "kind": "read", "operation": "locked", "args": [1], "expect": { "type": "Boolean", "value": true } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-5192/csharp/SoulboundCert.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == SBC", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "534243" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2771",
+      "title": "ERC-2771 — Trusted Forwarder",
+      "docEntry": "/standards-mirror/infrastructure#erc-2771",
+      "solidity": {
+        "source": "erc-2771/solidity/TrustedForwarder.sol",
+        "contract": "TrustedForwarder",
+        "outName": "TrustedForwarderSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "getNonce(deployer) == 0", "kind": "read", "operation": "getNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "bumpNonce(deployer)", "kind": "write", "operation": "bumpNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2771/csharp/TrustedForwarder.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getNonce(deployer) == 0", "kind": "read", "operation": "getNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-4626",
+      "title": "ERC-4626 — Yield Vault",
+      "docEntry": "/standards-mirror/defi#erc-4626",
+      "solidity": {
+        "source": "erc-4626/solidity/YieldVault.sol",
+        "contract": "YieldVault",
+        "outName": "YieldVaultSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "symbol == vDEMO", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "7644454d4f" } },
+          { "name": "totalSupply == 0", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-4626/csharp/YieldVault.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == vDEMOC", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "7644454d4f43" } },
+          { "name": "decimals == 8", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "8" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-3156",
+      "title": "ERC-3156 — Flash Lender",
+      "docEntry": "/standards-mirror/defi#erc-3156",
+      "solidity": {
+        "source": "erc-3156/solidity/FlashLender.sol",
+        "contract": "FlashLender",
+        "outName": "FlashLenderSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "feeBps == 0 (pre-setup)", "kind": "read", "operation": "feeBps", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-3156/csharp/FlashLender.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "feeBps == 0 (pre-setup)", "kind": "read", "operation": "feeBps", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      }
     }
   ]
 }

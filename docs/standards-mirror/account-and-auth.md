@@ -57,6 +57,18 @@ Neo doesn't standardise `owner()` because it would be redundant. Every Neo contr
 Most production contracts expose a `getOwner` view as a convention but it's not
 required by any standard.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NgmPfqiGc6weStAM5PYBgC4SYgTGUZzPVh` | [`0x19977aea…1156bbe4`](https://dora.coz.io/contract/neo3/testnet/0x19977aea6f158de3844f3261988b17381156bbe4) |
+| **Neo C#** (`nccs`) | `NU3yPrTayUJRB16Lu8RjFX8ERJ7pMYvxup` | [`0xce89aec2…11824459`](https://dora.coz.io/contract/neo3/testnet/0xce89aec2e79b121ec264231be49cd96111824459) |
+
+Verified: `getOwner == deployer`, `claimOwnership` (Solidity), `_deploy`-time owner init (C#).
+[`docs/standards-mirror/deployments/erc-173/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-173).
+:::
+
 </template>
 
 <template #solidity>
@@ -207,6 +219,18 @@ Neo doesn't differentiate "EOA signs" vs "contract signs". Every Neo address is 
 script hash of a verification script — single-sig CHECKSIG, multi-sig CHECKMULTISIG,
 or arbitrary contract via NEP-30 `verify`. The protocol invokes the right verifier
 automatically. Off-chain signature verification uses `CryptoLib.VerifyWithECDsa`.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `Nh2dZYCdvA6KfgeJ78712Twq5tZVRANtdk` | [`0x88eec008…e92b9de7`](https://dora.coz.io/contract/neo3/testnet/0x88eec008aaeb09d10ce68f93f6d98efbe92b9de7) |
+| **Neo C#** (`nccs`) | `NXq82dqPfYsB4gYxpurbn2sft8tT9v4NL2` | [`0x88079ecd…a8cfb682`](https://dora.coz.io/contract/neo3/testnet/0x88079ecdd4af98cf932c25c80c0bb218a8cfb682) |
+
+Verified: `ownerCount`/`threshold` start at 0 pre-setup; multi-sig setup pattern. The C# version exposes `Verify()` for native NEP-30 multi-sig witnessing.
+[`docs/standards-mirror/deployments/erc-1271/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1271).
+:::
 
 </template>
 

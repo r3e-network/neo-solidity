@@ -176,6 +176,18 @@ If you genuinely need a key-value style attribute registry, the Neo C# port belo
 shows a minimal version — typically deployed once by an ecosystem and called by
 participating contracts.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NgiVMV6vo8QHaQEhxMDBMCHdq2Ps5iXQxm` | [`0x02704624…2ad52ee4`](https://dora.coz.io/contract/neo3/testnet/0x02704624615747bdcc7994a6be347be42ad52ee4) |
+| **Neo C#** (`nccs`) | `NaJCEkEXwwsWFHXU791K6Zk3ZpFya5HPk6` | [`0x8f36ff27…99cec59d`](https://dora.coz.io/contract/neo3/testnet/0x8f36ff27ef6564209956c05a4b886c0c99cec59d) |
+
+Verified: `getManager(account) == account` (default behavior matches the EIP).
+[`docs/standards-mirror/deployments/erc-1820/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1820).
+:::
+
 </template>
 
 <template #solidity>
@@ -1442,6 +1454,18 @@ relayer as `Sender` (paying the fee) and the user as a `Signer` with appropriate
 scopes. The target contract's `Runtime.CheckWitness(user)` succeeds because the
 user genuinely signed the transaction; the relayer is a separate witness paying
 gas. No forwarder, no `_msgSender()` wrapper, no calldata munging.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NfiyLrGXijAAHiwq1LUGu69K92ybMu4ZS4` | [`0x6653a8da…2c124ed9`](https://dora.coz.io/contract/neo3/testnet/0x6653a8da9bac7b622987670d97bf740c2c124ed9) |
+| **Neo C#** (`nccs`) | `NLq6WUsRv4FAtxrqhwtTNxTeSgxAWYhG8P` | [`0x1463ad54…a6280c0a`](https://dora.coz.io/contract/neo3/testnet/0x1463ad54cf6a8fc7c0ffe3740ad1cf04a6280c0a) |
+
+Verified: `getNonce(deployer) == 0` initially, `bumpNonce` increments it. The C# port uses the witness model — no separate signature verification needed.
+[`docs/standards-mirror/deployments/erc-2771/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2771).
+:::
 
 </template>
 
