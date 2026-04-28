@@ -112,14 +112,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
     - name: Install Solidity security tools
-      run: 'npm install -g @crytic/slither
-
-        pip3 install slither-analyzer
+      run: 'pip3 install slither-analyzer
 
         '
     - name: Run Slither on example contracts
