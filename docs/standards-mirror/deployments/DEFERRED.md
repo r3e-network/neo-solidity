@@ -10,13 +10,12 @@ complete and self-disables.
 
 ## Priority queue
 
-The first 4 are canonical standards we haven't deployed yet. The remaining 11 are
-"demo wrapper" entries: their Ethereum forms are extensions / method conventions /
-protocol EIPs that don't normally have standalone contracts, but a small Neo
-demonstration contract is useful for the mirror's educational purpose.
+The first 5 are canonical standards we haven't deployed yet — they are the harder
+async/account-abstraction ones. The remaining 2 are demo wrappers.
 
-8 entries previously here were popped and shipped in the v0.19.0 docs round
-(ERC-777, ERC-5267, ERC-5114, ERC-5484, ERC-6147, ERC-2470, ERC-2309, ERC-4906).
+16 entries have been popped and shipped:
+- v0.19.0: ERC-777, ERC-5267, ERC-5114, ERC-5484, ERC-6147, ERC-2470, ERC-2309, ERC-4906
+- v0.20.0: ERC-165, ERC-7201, EIP-1153, EIP-3198, ERC-1014, EIP-191, ERC-2612, ERC-4494
 
 ```
 ERC-7540 — Async ERC-4626 vault
@@ -24,15 +23,7 @@ ERC-7575 — Multi-asset vault
 ERC-7579 — Modular smart account
 ERC-4337 — Smart account (NEP-30 verify)
 ERC-6492 — Pre-deploy signature verifier
-ERC-4494 — PermitNFT (NFT with witness-scope permit demo)
-ERC-2612 — PermitToken (ERC-20 with witness-scope permit demo)
-ERC-1014 — DeterministicFactory (CREATE2-style deploy demo via ContractManagement.Deploy)
-ERC-165 — InterfaceDetectorWrapper (supportsInterface compatibility shim)
-ERC-7201 — NamespacedStorageDemo (prefix-storage idiom contract)
 EIP-712 — TypedDataVerifier (digest-based off-chain signature verification)
-EIP-191 — PersonalSignVerifier (CryptoLib.VerifyWithECDsa demo)
-EIP-3198 — FeeAwareContract (Policy.GetFeePerByte introspection)
-EIP-1153 — TransientReentrancyGuard (Storage put+delete pattern)
 EIP-2098 — CompactSigVerifier (ECDSA secp256r1 signature compactness demo)
 ```
 
