@@ -353,6 +353,18 @@ update: true)` for migrations, requires owner witness. The contract hash never
 changes — every reference, every NEP-17 holder, every NFT, every approval continues
 to work.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NRiL2gKGW5L8YgRcudr8mFNjrDUkkWZHR3` | [`0x48f6d58a…bfdbd245`](https://dora.coz.io/contract/neo3/testnet/0x48f6d58aa74ad1d507cb2eb07242e033bfdbd245) |
+| **Neo C#** (`nccs`) | `NTgmiKbdcnknygAtt2ssWEjfPsJUM9hWGV` | [`0x096f01e4…481be976`](https://dora.coz.io/contract/neo3/testnet/0x096f01e40f7cf9cea4304195cc2ab6bb481be976) |
+
+Verified: initial version is 1, owner is the deployer. The Neo C# contract uses NEP-22's `Update` method for in-place upgrades — calling it bumps the version counter via `_deploy(data, update: true)`, the standard Neo lifecycle hook.
+[`docs/standards-mirror/deployments/erc-1967/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1967).
+:::
+
 </template>
 
 <template #solidity>
@@ -519,6 +531,18 @@ Neo contracts have no 24 KB size limit (NEF max is 1 MB) so diamonds aren't need
 purely for size. But the modular-upgrade-per-function pattern is still useful and
 implementable on Neo via a small dispatcher contract that routes by method name to
 the correct facet contract.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NMtzwNXhZGetcyPmotYvf4ALMEJD1xjGSb` | [`0x26b6f333…cf79f527`](https://dora.coz.io/contract/neo3/testnet/0x26b6f333b18bffd00702348b1cec5b55cf79f527) |
+| **Neo C#** (`nccs`) | `NXNKvkkpyx9Z5KYCAS6JrH6GDPEPhwvZsE` | [`0x1b3c602c…34c5bdcf`](https://dora.coz.io/contract/neo3/testnet/0x1b3c602c1a208238f981125e2ad3045734c5bdcf) |
+
+Verified: ownership claim and method-router state. The Neo port avoids `delegatecall` (which doesn't exist in NeoVM) — instead, `Dispatch(method, args)` looks up the facet contract and invokes it via `Contract.Call(facet, method, ...)`. Cleaner audit surface than the EVM diamond pattern.
+[`docs/standards-mirror/deployments/erc-2535/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2535).
+:::
 
 </template>
 
@@ -1085,6 +1109,18 @@ function setAttribute(address identity, bytes32 name, bytes value, uint validity
 The Neo port is a single registry contract that any account can use. Like the
 Solidity version, it's pay-per-use: the registry charges no fee beyond the storage
 cost of the identity records, and the witness model handles authorisation.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NViDh6CD7QV2Q6V31qAcNkyDeC3UmLAi8z` | [`0xdd6d4a48…2ef41f50`](https://dora.coz.io/contract/neo3/testnet/0xdd6d4a4806445d04982afc68866c9dc92ef41f50) |
+| **Neo C#** (`nccs`) | `Nb2QQRhWzy7fgipLUyAZkivapVWa8YWA1F` | [`0xd13806f6…b74c1b30`](https://dora.coz.io/contract/neo3/testnet/0xd13806f6c06854ad3d8b731aebee40f8b74c1b30) |
+
+Verified: default `identityOwner(account) == account` matches the EIP. `addDelegate` / `validDelegate` flows are implemented; tested locally with the `Runtime.Time`-based expiry check.
+[`docs/standards-mirror/deployments/erc-1056/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1056).
+:::
 
 </template>
 

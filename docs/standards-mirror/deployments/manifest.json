@@ -302,6 +302,149 @@
           { "name": "feeBps == 0 (pre-setup)", "kind": "read", "operation": "feeBps", "args": [], "expect": { "type": "Integer", "value": "0" } }
         ]
       }
+    },
+
+    {
+      "id": "erc-1155",
+      "title": "ERC-1155 — Multi-Token",
+      "docEntry": "/standards-mirror/tokens#erc-1155",
+      "solidity": {
+        "source": "erc-1155/solidity/MultiToken.sol",
+        "contract": "MultiToken",
+        "outName": "MultiTokenSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1155/csharp/MultiToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-1967",
+      "title": "ERC-1967 — Upgradeable Contract (NEP-22 update)",
+      "docEntry": "/standards-mirror/infrastructure#erc-1967",
+      "solidity": {
+        "source": "erc-1967/solidity/UpgradeableContract.sol",
+        "contract": "UpgradeableContract",
+        "outName": "UpgradeableSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimOwner()", "kind": "write", "operation": "claimOwner", "args": [] },
+          { "name": "getVersion == 1", "kind": "read", "operation": "getVersion", "args": [], "expect": { "type": "Integer", "value": "1" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1967/csharp/UpgradeableContract.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getVersion == 1", "kind": "read", "operation": "getVersion", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-1056",
+      "title": "ERC-1056 — Lightweight DID Registry",
+      "docEntry": "/standards-mirror/infrastructure#erc-1056",
+      "solidity": {
+        "source": "erc-1056/solidity/DIDRegistry.sol",
+        "contract": "DIDRegistry",
+        "outName": "DIDRegistrySol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "identityOwner(deployer) == deployer (default)", "kind": "read", "operation": "identityOwner", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-1056/csharp/DIDRegistry.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "identityOwner(deployer) == deployer (default)", "kind": "read", "operation": "identityOwner", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-5805",
+      "title": "ERC-5805 — Voting Token w/ Delegation",
+      "docEntry": "/standards-mirror/defi#erc-5805",
+      "solidity": {
+        "source": "erc-5805/solidity/VotingToken.sol",
+        "contract": "VotingToken",
+        "outName": "VotingTokenSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "CLOCK_MODE", "kind": "read", "operation": "CLOCK_MODE", "args": [], "expect": { "type": "ByteString", "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-5805/csharp/VotingToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DVOTE", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44564f5445" } },
+          { "name": "clockMode", "kind": "read", "operation": "clockMode", "args": [], "expect": { "type": "ByteString", "value": "6d6f64653d626c6f636b6e756d6265722666726f6d3d64656661756c74" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-7818",
+      "title": "ERC-7818 — Expirable Token",
+      "docEntry": "/standards-mirror/defi#erc-7818",
+      "solidity": {
+        "source": "erc-7818/solidity/ExpirableToken.sol",
+        "contract": "ExpirableToken",
+        "outName": "ExpirableSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "decimals == 0", "kind": "read", "operation": "decimals", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-7818/csharp/ExpirableToken.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "symbol == DEXP", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44455850" } }
+        ]
+      }
+    },
+
+    {
+      "id": "erc-2535",
+      "title": "ERC-2535 — Diamond (method-name router)",
+      "docEntry": "/standards-mirror/infrastructure#erc-2535",
+      "solidity": {
+        "source": "erc-2535/solidity/Diamond.sol",
+        "contract": "Diamond",
+        "outName": "DiamondSol",
+        "deployData": [],
+        "clearSupportedStandards": true,
+        "tests": [
+          { "name": "claimOwner()", "kind": "write", "operation": "claimOwner", "args": [] },
+          { "name": "methodCount == 0 (no facets yet)", "kind": "read", "operation": "methodCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+        ]
+      },
+      "csharp": {
+        "csproj": "erc-2535/csharp/Diamond.csproj",
+        "deployData": null,
+        "tests": [
+          { "name": "getOwner == deployer", "kind": "read", "operation": "getOwner", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+        ]
+      }
     }
   ]
 }

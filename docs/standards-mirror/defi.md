@@ -898,6 +898,18 @@ The Neo C# port stores per-account checkpoints `(block, votes)` in storage and r
 them at vote time using binary search. Same flash-loan-resistance property,
 implemented identically.
 
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NUKHCo2gUfGE3vAyKDCYfWvkHcCjkN4MmL` | [`0xb87fa58c…035f3110`](https://dora.coz.io/contract/neo3/testnet/0xb87fa58c80deef8dc910a0ca3a2cc186035f3110) |
+| **Neo C#** (`nccs`) | `NSXG6PtP19h74j4xZyPTV6myWdMcWSsRwz` | [`0x1d33818b…3243692`](https://dora.coz.io/contract/neo3/testnet/0x1d33818b3d053d291424848ed1ac7ebaa3243692) |
+
+Verified: ERC-6372 clock interface (`CLOCK_MODE = "mode=blocknumber&from=default"`), token symbol, delegation API. Both implementations use `block.number` / `Ledger.CurrentIndex` as the timestamp source — flash-loan-resistant by construction.
+[`docs/standards-mirror/deployments/erc-5805/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5805).
+:::
+
 </template>
 
 <template #solidity>
@@ -1211,6 +1223,18 @@ function expirationDuration() external view returns (uint256);
 The Neo C# port tracks balances per-epoch in storage. On each transfer, expired
 lots are skipped; expired balance is effectively burned. Epochs are derived from
 `Runtime.Time / duration`.
+
+::: tip Live on Neo TestNet
+Both implementations deployed and behavior-verified on Neo N3 TestNet.
+
+| Implementation | TestNet Address | Contract Hash |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `NfRgrtEfpNb3KCfM33snwzcEBJpAPbFy3F` | [`0xfcaaf98f…a8c6564d`](https://dora.coz.io/contract/neo3/testnet/0xfcaaf98f8c4693b326f883d52db9d9e4a8c6564d) |
+| **Neo C#** (`nccs`) | `NMvFiMjyPN3SVQDhPxGcmDM1F1axhMZP3D` | [`0xcb1b0441…a6ae56e0`](https://dora.coz.io/contract/neo3/testnet/0xcb1b0441c5b02a2f7de348951c6bf8e2a6ae56e0) |
+
+Verified: token symbol and decimals. Both contracts track per-epoch balances (epoch derived from `block.timestamp / duration` or `Runtime.Time / duration`); balance reads sum the non-expired epoch range.
+[`docs/standards-mirror/deployments/erc-7818/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7818).
+:::
 
 </template>
 
