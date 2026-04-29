@@ -10,6 +10,10 @@ The concept of "undefined" or "null" values does not exist in Solidity, but newl
 While Solidity types carry specific constraints (e.g., `uint8` vs `uint256`), NeoVM relies heavily on its own fundamental types (`BigInteger`, `ByteArray`, `Boolean`, `Array`, `Map`). The Neo Solidity compiler enforces Solidity's type rules during compilation and automatically lowers them to the appropriate NeoVM representations.
 :::
 
+For a shorter reader guide to the same mapping rules, see
+[Types and Values](/mapping/types-and-values) and
+[Storage and Mappings](/mapping/storage-and-mappings).
+
 ---
 
 ## Value Types

@@ -1,6 +1,61 @@
-import { defineConfig } from 'vitepress';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type DefaultTheme } from 'vitepress';
 
 const isCI = process.env.GITHUB_ACTIONS === 'true';
+const docsRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+type SidebarItem = DefaultTheme.SidebarItem;
+
+function markdownPathForLink(link: string): string {
+  const cleanLink = link.replace(/^\/+/, '').replace(/#.*$/, '');
+  const pagePath = cleanLink.endsWith('/') ? `${cleanLink}index.md` : `${cleanLink}.md`;
+  return resolve(docsRoot, pagePath);
+}
+
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .trim();
+}
+
+function slugifyHeading(text: string): string {
+  return stripInlineMarkdown(text)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .replace(/[\u0000-\u001f]/g, '')
+    .replace(/[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^(\d)/, '_$1')
+    .toLowerCase();
+}
+
+function pageSections(link: string): SidebarItem[] {
+  const markdownPath = markdownPathForLink(link);
+  if (!existsSync(markdownPath)) {
+    return [];
+  }
+
+  const content = readFileSync(markdownPath, 'utf8');
+  const sections = [...content.matchAll(/^## (.+)$/gm)]
+    .map((match) => stripInlineMarkdown(match[1]))
+    .filter((heading) => heading.length > 0);
+
+  return sections.map((heading) => ({
+    text: heading,
+    link: `${link}#${slugifyHeading(heading)}`
+  }));
+}
+
+function page(text: string, link: string): SidebarItem {
+  const sections = pageSections(link);
+  return sections.length > 0 ? { text, link, items: sections } : { text, link };
+}
 
 export default defineConfig({
   title: 'Neo Solidity',
@@ -53,6 +108,7 @@ export default defineConfig({
     nav: [
       { text: 'Blog', link: 'https://medium.com/neo-smart-economy' },
       { text: 'Documentation', link: '/basics/introduction-to-smart-contracts' },
+      { text: 'Mapping', link: '/mapping/' },
       { text: 'ERC ↔ Neo', link: '/standards-mirror/' },
       { text: 'Use cases', link: '/use-cases' },
       { text: 'Contribute', link: 'https://github.com/r3e-network/neo-solidity/blob/main/CONTRIBUTING.md' },
@@ -64,102 +120,125 @@ export default defineConfig({
         text: 'Basics',
         collapsed: false,
         items: [
-          { text: 'Introduction to Smart Contracts', link: '/basics/introduction-to-smart-contracts' },
-          { text: 'Solidity by Example', link: '/basics/solidity-by-example' },
-          { text: 'Installing the Compiler', link: '/basics/installing-the-compiler' }
+          page('Introduction to Smart Contracts', '/basics/introduction-to-smart-contracts'),
+          page('Solidity by Example', '/basics/solidity-by-example'),
+          page('Installing the Compiler', '/basics/installing-the-compiler'),
+          page('Quickstart', '/basics/quickstart'),
+          page('Deploying Contracts', '/basics/deploying-contracts'),
+          page('Testing Contracts', '/basics/testing-contracts'),
+          page('Use Cases', '/use-cases')
         ]
       },
       {
         text: 'Language Description',
         collapsed: false,
         items: [
-          { text: 'EVM Feature Support', link: '/solidity/feature-support' },
-          { text: 'Layout of a Solidity Source File', link: '/language-description/layout-of-source-file' },
-          { text: 'Structure of a Contract', link: '/language-description/structure-of-a-contract' },
-          { text: 'Types', link: '/language-description/types' },
-          { text: 'Units and Globally Available Variables', link: '/language-description/units-and-global-variables' },
-          { text: 'Expressions and Control Structures', link: '/language-description/expressions-and-control-structures' },
-          { text: 'Contracts', link: '/language-description/contracts' },
-          { text: 'Inline Assembly', link: '/language-description/inline-assembly' },
-          { text: 'Cheatsheet', link: '/language-description/cheatsheet' },
-          { text: 'Language Grammar', link: '/language-description/grammar' }
+          page('EVM Feature Support', '/solidity/feature-support'),
+          page('Layout of a Solidity Source File', '/language-description/layout-of-source-file'),
+          page('Structure of a Contract', '/language-description/structure-of-a-contract'),
+          page('Types', '/language-description/types'),
+          page('Units and Globally Available Variables', '/language-description/units-and-global-variables'),
+          page('Expressions and Control Structures', '/language-description/expressions-and-control-structures'),
+          page('Contracts', '/language-description/contracts'),
+          page('Inline Assembly', '/language-description/inline-assembly'),
+          page('Cheatsheet', '/language-description/cheatsheet'),
+          page('Language Grammar', '/language-description/grammar')
+        ]
+      },
+      {
+        text: 'Semantic Mapping',
+        collapsed: false,
+        items: [
+          page('Overview', '/mapping/'),
+          page('Execution Context', '/mapping/execution-context'),
+          page('Types and Values', '/mapping/types-and-values'),
+          page('Storage and Mappings', '/mapping/storage-and-mappings'),
+          page('Calls and Assets', '/mapping/calls-and-assets'),
+          page('Syscalls and Devpack', '/mapping/syscalls-and-devpack'),
+          page('Parity and Limitations', '/mapping/parity-and-limitations'),
+          page('Standards Mapping', '/mapping/standards'),
+          page('Indexed Storage Lowering', '/mapping/indexed-storage-lowering')
         ]
       },
       {
         text: 'Compiler',
         collapsed: false,
         items: [
-          { text: 'Using the Compiler', link: '/compiler/using-the-compiler' },
-          { text: 'Analysing the Compiler Output', link: '/compiler/analysing-the-compiler-output' },
-          { text: 'IR-based Codegen Changes', link: '/compiler/ir-codegen-changes' }
+          page('Using the Compiler', '/compiler/using-the-compiler'),
+          page('Analysing the Compiler Output', '/compiler/analysing-the-compiler-output'),
+          page('IR-based Codegen Changes', '/compiler/ir-codegen-changes'),
+          page('Fuzz Testing', '/compiler/fuzz-testing')
         ]
       },
       {
         text: 'Internals',
         collapsed: false,
         items: [
-          { text: 'Layout of State Variables in Storage and Transient Storage', link: '/internals/layout-in-storage' },
-          { text: 'Layout in Memory', link: '/internals/layout-in-memory' },
-          { text: 'Layout of Call Data', link: '/internals/layout-of-call-data' },
-          { text: 'Cleaning Up Variables', link: '/internals/cleaning-up-variables' },
-          { text: 'Source Mappings', link: '/internals/source-mappings' },
-          { text: 'The Optimizer', link: '/internals/the-optimizer' },
-          { text: 'Contract Metadata', link: '/internals/contract-metadata' },
-          { text: 'Contract ABI Specification', link: '/internals/contract-abi-specification' },
-          { text: 'Architecture', link: '/internals/architecture' },
-          { text: 'Runtime Specification', link: '/internals/runtime-specification' },
-          { text: 'Parity & Limitations', link: '/internals/parity-and-limitations' }
+          page('Layout of State Variables in Storage and Transient Storage', '/internals/layout-in-storage'),
+          page('Layout in Memory', '/internals/layout-in-memory'),
+          page('Layout of Call Data', '/internals/layout-of-call-data'),
+          page('Cleaning Up Variables', '/internals/cleaning-up-variables'),
+          page('Source Mappings', '/internals/source-mappings'),
+          page('The Optimizer', '/internals/the-optimizer'),
+          page('Contract Metadata', '/internals/contract-metadata'),
+          page('Contract ABI Specification', '/internals/contract-abi-specification'),
+          page('Architecture', '/internals/architecture'),
+          page('Runtime Specification', '/internals/runtime-specification'),
+          page('Native Contracts', '/internals/native-contracts'),
+          page('Syscalls', '/internals/syscalls'),
+          page('Parity & Limitations', '/internals/parity-and-limitations')
         ]
       },
       {
         text: 'Advisory Content',
         collapsed: false,
         items: [
-          { text: 'Security Considerations', link: '/advisory-content/security-considerations' },
-          { text: 'List of Known Bugs', link: '/advisory-content/known-bugs' },
-          { text: 'Breaking Changes', link: '/advisory-content/breaking-changes' },
-          { text: 'Troubleshooting', link: '/advisory-content/troubleshooting' },
-          { text: 'Error Reference', link: '/advisory-content/error-reference' }
+          page('Security Considerations', '/advisory-content/security-considerations'),
+          page('List of Known Bugs', '/advisory-content/known-bugs'),
+          page('Breaking Changes', '/advisory-content/breaking-changes'),
+          page('Troubleshooting', '/advisory-content/troubleshooting'),
+          page('Error Reference', '/advisory-content/error-reference'),
+          page('Production Readiness', '/advisory-content/production-readiness')
         ]
       },
       {
         text: 'ERC / EIP ↔ Neo Mirror',
         collapsed: false,
         items: [
-          { text: 'Overview', link: '/standards-mirror/' },
-          { text: 'Token Standards', link: '/standards-mirror/tokens' },
-          { text: 'Account & Authentication', link: '/standards-mirror/account-and-auth' },
-          { text: 'Infrastructure & Patterns', link: '/standards-mirror/infrastructure' },
-          { text: 'DeFi Building Blocks', link: '/standards-mirror/defi' },
-          { text: 'Protocol-Level EIPs', link: '/standards-mirror/protocol-eips' }
+          page('Overview', '/standards-mirror/'),
+          page('Token Standards', '/standards-mirror/tokens'),
+          page('Account & Authentication', '/standards-mirror/account-and-auth'),
+          page('Infrastructure & Patterns', '/standards-mirror/infrastructure'),
+          page('DeFi Building Blocks', '/standards-mirror/defi'),
+          page('Protocol-Level EIPs', '/standards-mirror/protocol-eips')
         ]
       },
       {
         text: 'Additional Material',
         collapsed: false,
         items: [
-          { text: 'Famous Contracts Audit', link: '/solidity/famous-contracts-neo-audit' },
-          { text: 'Type-3 Runtime Execution', link: '/solidity/famous-contracts-neoxp-runtime' },
-          { text: 'Original Source Code', link: '/solidity/original-contracts/' },
-          { text: 'NatSpec Format', link: '/additional-material/natspec-format' },
-          { text: 'SMTChecker and Formal Verification', link: '/additional-material/smtchecker' },
-          { text: 'Yul', link: '/additional-material/yul' },
-          { text: 'Import Path Resolution', link: '/additional-material/import-path-resolution' },
-          { text: 'Devpack Overview', link: '/additional-material/neo-devpack' },
-          { text: 'Standards and Contracts', link: '/additional-material/neo-standards' }
+          page('Famous Contracts Audit', '/solidity/famous-contracts-neo-audit'),
+          page('Type-3 Runtime Execution', '/solidity/famous-contracts-neoxp-runtime'),
+          page('Original Source Code', '/solidity/original-contracts/'),
+          page('NatSpec Format', '/additional-material/natspec-format'),
+          page('SMTChecker and Formal Verification', '/additional-material/smtchecker'),
+          page('Yul', '/additional-material/yul'),
+          page('Import Path Resolution', '/additional-material/import-path-resolution'),
+          page('Devpack Overview', '/additional-material/neo-devpack'),
+          page('Standards and Contracts', '/additional-material/neo-standards')
         ]
       },
       {
         text: 'Resources',
         collapsed: false,
         items: [
-          { text: 'Style Guide', link: '/resources/style-guide' },
-          { text: 'Common Patterns', link: '/resources/common-patterns' },
-          { text: 'Resources', link: '/resources/resources' },
-          { text: 'Contributing', link: '/resources/contributing' },
-          { text: 'Language Influences', link: '/resources/language-influences' },
-          { text: 'Solidity Brand Guide', link: '/resources/brand-guide' },
-          { text: 'Keyword Index', link: '/resources/keyword-index' }
+          page('Style Guide', '/resources/style-guide'),
+          page('Common Patterns', '/resources/common-patterns'),
+          page('Resources', '/resources/resources'),
+          page('Contributing', '/resources/contributing'),
+          page('Language Influences', '/resources/language-influences'),
+          page('Solidity Brand Guide', '/resources/brand-guide'),
+          page('Keyword Index', '/resources/keyword-index')
         ]
       }
     ],

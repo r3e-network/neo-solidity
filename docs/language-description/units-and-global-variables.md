@@ -2,6 +2,9 @@
 
 This section explains how Solidity's standard Ether/Time units and global execution variables (`block`, `tx`, `msg`) map to NeoVM semantics.
 
+For a split reader guide focused on execution globals, see
+[Execution Context](/mapping/execution-context).
+
 ## Ether Units
 
 A literal number can take a suffix of `wei`, `gwei` or `ether` to specify a subdenomination of Ether, where Ether numbers without a postfix are assumed to be Wei.
@@ -45,10 +48,10 @@ The `neo-solidity` compiler auto-maps EVM globals to approximate Neo equivalents
 ## Message Properties
 
 | Solidity / EVM | NeoVM / Neo N3                        | Notes                                                                                                        |
-| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --- | ------------------------------------------------- |
+| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `msg.sender`   | `System.Runtime.GetCallingScriptHash` | Returns the script hash of the calling contract or transaction signer.                                       |
 | `msg.value`    | `onNEP17Payment` amount parameter     | Only valid inside NEP-17/NEP-11 payment callbacks. No equivalent outside that context.                       |
-| `msg.data`     | —                                     | Approximated as `selector                                                                                    |     | abi.encode(current args)` outside onNEP17Payment. |
+| `msg.data`     | —                                     | Approximated as `selector \|\| abi.encode(current args)` outside onNEP17Payment.                            |
 | `msg.sig`      | —                                     | Approximated as the current function selector (with warning). Internal-call semantics still differ from EVM. |
 
 ## Contract Context

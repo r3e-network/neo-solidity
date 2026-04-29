@@ -2,6 +2,9 @@
 
 This page documents the current state of parity between the Neo Solidity compiler's embedded runtime and the production Neo N3 virtual machine, known limitations, and planned improvements.
 
+For a reader-focused summary of exact, approximate, replacement, and unsupported
+semantic mappings, see [Parity and Limitations](/mapping/parity-and-limitations).
+
 ## What "Parity" Means
 
 Parity refers to how closely the embedded NeoVM runtime in `neo-solc` matches the behavior of the official Neo N3 reference implementation. Full parity means identical behavior for all opcodes, syscalls, gas accounting, and edge cases.

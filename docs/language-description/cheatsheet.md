@@ -8,6 +8,9 @@ Neo Solidity exactly mimics the Solidity operator precedence rules.
 
 A quick reference for mapping EVM global context to NeoVM intrinsics:
 
+For a guided, topic-by-topic version of these mappings, see
+[Semantic Mapping](/mapping/).
+
 | EVM Global           | NeoVM Equivalent                   | Notes                                                                              |
 | :------------------- | :--------------------------------- | :--------------------------------------------------------------------------------- |
 | `msg.sender`         | `Runtime.getCallingScriptHash()`   | Accurate mapping.                                                                  |

@@ -2,6 +2,9 @@
 
 The devpack provides complete implementations of Neo N3 token standards — NEP-17 (fungible tokens), NEP-11 (non-fungible tokens), and NEP-24 (royalty metadata) — plus reusable lifecycle/callback interfaces for NEP-22/26/27/29/30/31. The compiler auto-detects standard compliance and populates the manifest's `supportedstandards` array.
 
+For a compact ERC/EIP to Neo reader guide, see
+[Standards Mapping](/mapping/standards).
+
 ## Supported Standards
 
 | Standard | Type               | Ethereum Equivalent | Devpack File          |

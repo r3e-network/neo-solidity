@@ -374,6 +374,9 @@ The neo-solidity embedded runtime tracks syscall gas costs at approximately 85% 
 
 The compiler automatically translates standard Solidity constructs to the corresponding NeoVM syscalls. No manual syscall invocation is needed for these patterns.
 
+For a shorter reader guide that separates runtime calls from devpack usage, see
+[Syscalls and Devpack](/mapping/syscalls-and-devpack).
+
 | Solidity Construct                    | Syscall / Neo Call                       | Notes                                       |
 | ------------------------------------- | ---------------------------------------- | ------------------------------------------- |
 | `msg.sender`                          | `System.Runtime.GetCallingScriptHash`    | Returns caller's script hash (UInt160)      |

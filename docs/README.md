@@ -21,14 +21,15 @@ Output directory:
 
 ## Documentation structure
 
-- `docs/getting-started/` - installation and first-compile flow
-- `docs/workflows/` - compile/deploy/test/production procedures
-- `docs/solidity/` - support and behavior notes
-- `docs/mapping/` - EVM to NeoVM semantic mapping
-- `docs/neovm/` - native contracts and syscall model
-- `docs/manifests/` - manifest fields and policy controls
-- `docs/devpack/` - devpack capabilities and standards
-- `docs/reference/` - CLI, architecture, runtime, errors, parity notes
+- `docs/basics/` - introduction, installation, quickstart, examples, deployment, and testing
+- `docs/language-description/` - Solidity syntax and behavior accepted by Neo Solidity
+- `docs/mapping/` - split EVM to NeoVM semantic mapping guides
+- `docs/compiler/` - compiler usage, output analysis, fuzzing, and codegen notes
+- `docs/internals/` - NeoVM storage, ABI, metadata, syscalls, runtime, and architecture references
+- `docs/advisory-content/` - security, production readiness, troubleshooting, known bugs, and breaking changes
+- `docs/standards-mirror/` - deployable ERC/EIP to Neo standards mirror
+- `docs/additional-material/` - devpack, standards, import resolution, NatSpec, SMTChecker, and Yul references
+- `docs/resources/` - style guide, contributing, patterns, resources, and keyword index
 
 ## Canonical technical references
 

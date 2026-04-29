@@ -6,6 +6,9 @@ Statically-sized variables (everything except mapping and dynamically-sized arra
 EVM uses a linear, sequential 256-bit slot model for storage where variables occupy contiguous 32-byte slots. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
 :::
 
+For a split reader guide to mappings, arrays, structs, and key derivation, see
+[Storage and Mappings](/mapping/storage-and-mappings).
+
 ## Transient Storage
 
 ::: tip 💡 NeoVM Difference: Transient Keyword
