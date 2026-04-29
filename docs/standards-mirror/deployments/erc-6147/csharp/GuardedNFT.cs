@@ -10,7 +10,7 @@ namespace R3E.StandardsMirror;
 
 [DisplayName("GuardedNFT")]
 [ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
-[ContractDescription("ERC-6147 NFT guard — multi-sig co-signer, in Neo C#.")]
+[ContractDescription("ERC-6147 NFT guard — guard-takes-over delegate model, in Neo C#.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]
 public class GuardedNFT : SmartContract
@@ -21,6 +21,13 @@ public class GuardedNFT : SmartContract
     private static readonly byte[] NextIdKey = { 0xfe };
 
     [Safe] public static UInt160 GetDeployer() => (UInt160)Storage.Get(DeployerKey);
+
+    [Safe]
+    public static BigInteger TokenCount()
+    {
+        var raw = Storage.Get(NextIdKey);
+        return raw is null ? 0 : (BigInteger)raw;
+    }
 
     [Safe]
     public static UInt160 OwnerOf(ByteString tokenId)
@@ -54,13 +61,15 @@ public class GuardedNFT : SmartContract
         Storage.Put(Helper.Concat(new byte[] { Prefix_Guard }, tokenId), guard);
     }
 
+    /// Transfer is gated by whichever account is currently in control:
+    /// the guard if set, otherwise the owner.
     public static bool Transfer(UInt160 to, ByteString tokenId)
     {
         var owner = OwnerOf(tokenId);
-        if (!Runtime.CheckWitness(owner)) throw new System.Exception("owner must sign");
+        ExecutionEngine.Assert(!owner.Equals(UInt160.Zero), "nonexistent");
         var guard = GuardOf(tokenId);
-        if (!guard.Equals(UInt160.Zero) && !Runtime.CheckWitness(guard))
-            throw new System.Exception("guard must also sign");
+        var required = guard.Equals(UInt160.Zero) ? owner : guard;
+        if (!Runtime.CheckWitness(required)) throw new System.Exception("not authorized");
         Storage.Put(Helper.Concat(new byte[] { Prefix_Owner }, tokenId), to);
         return true;
     }

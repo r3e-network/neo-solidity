@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-28T23:28:56.859Z",
+  "generatedAt": "2026-04-29T02:47:17.306Z",
   "rpc": "http://seed1t5.neo.org:20332",
   "networkMagic": 894710606,
   "deployer": "NhMYxG5ATmRjSy6ocnPxrA2DiYba6xhFqu",
@@ -47,7 +47,7 @@
             "kind": "write",
             "operation": "faucet",
             "status": "pass",
-            "txHash": "0x9447329b8f780d49eaaa0de66fbfc70a33ad137684667db0e6686a10f6e71789",
+            "txHash": "0xf1dfb8604e45e76d72b07c3f53077431ea3e3027778521c99acf290db359322b",
             "vmstate": "HALT",
             "gasconsumed": "420211"
           },
@@ -58,13 +58,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "800000000000000"
+              "value": "1100000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
             },
-            "reason": "actual=800000000000000 (raw type=Integer, value=800000000000000), expected 100000000000000"
+            "reason": "actual=1100000000000000 (raw type=Integer, value=1100000000000000), expected 100000000000000"
           },
           {
             "name": "totalSupply == 100T",
@@ -73,13 +73,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "800000000000000"
+              "value": "1100000000000000"
             },
             "expect": {
               "type": "Integer",
               "value": "100000000000000"
             },
-            "reason": "actual=800000000000000 (raw type=Integer, value=800000000000000), expected 100000000000000"
+            "reason": "actual=1100000000000000 (raw type=Integer, value=1100000000000000), expected 100000000000000"
           }
         ]
       },
@@ -178,7 +178,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x8b333fc2d5fd9244736fa352120836fbafc3bf0bef01925470e3b2984f393f0a",
+            "txHash": "0x4e2b7fdaa8035bae056a19e6bce050225f53d4871ede2fdd532e4350d0de8925",
             "vmstate": "HALT",
             "gasconsumed": "611599"
           },
@@ -189,13 +189,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "8"
+              "value": "11"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=8 (raw type=Integer, value=8), expected 1"
+            "reason": "actual=11 (raw type=Integer, value=11), expected 1"
           }
         ]
       },
@@ -239,7 +239,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x17a46ca38fd745322aad0ca647ee65e3e6bc7602470dc747caf775528fe4ada5",
+            "txHash": "0x16f67a2e40d4b8d78cb1bbe29664853af43f9a5d49b3d5c73c15e100a4764d8a",
             "vmstate": "HALT",
             "gasconsumed": "799062"
           },
@@ -250,13 +250,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "10"
+              "value": "13"
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=10 (raw type=Integer, value=10), expected 1"
+            "reason": "actual=13 (raw type=Integer, value=13), expected 1"
           },
           {
             "name": "totalSupply >= 1",
@@ -265,13 +265,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "Cg=="
+              "value": "DQ=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=10 (raw type=ByteString, value=Cg==), expected 1"
+            "reason": "actual=13 (raw type=ByteString, value=DQ==), expected 1"
           }
         ]
       }
@@ -305,7 +305,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xb88ea21740a37246ed3e85fbaa3806e2eb558a54dce3d8361298414e41fbcff1",
+            "txHash": "0xf865208311c02864bf2d5e0774a7d59313209de534ef5bebdfd50809b99038bb",
             "vmstate": "HALT",
             "gasconsumed": "611599"
           },
@@ -314,7 +314,7 @@
             "kind": "write",
             "operation": "setDefaultRoyalty",
             "status": "pass",
-            "txHash": "0x37fecb973fd6d6b9b207d40e6d030ab20df9c4da646ec45c2d63ce462c0d4853",
+            "txHash": "0xf634563b793a0eeee68c8adf887ef4e7fb9cecfef8a3d17aff72bcd9f1e60c89",
             "vmstate": "HALT",
             "gasconsumed": "245832"
           }
@@ -346,7 +346,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xbcba439dfcfcba22a9db41e4c4668f720ee596b43f0796a3b33049dd7d1654ea",
+            "txHash": "0x03faeb262256e10a1e5125e91d3b2e8f10fb89b94281f7631682dd89daa0fe19",
             "vmstate": "HALT",
             "gasconsumed": "776052"
           },
@@ -357,13 +357,13 @@
             "status": "fail",
             "actual": {
               "type": "ByteString",
-              "value": "CQ=="
+              "value": "DA=="
             },
             "expect": {
               "type": "Integer",
               "value": "1"
             },
-            "reason": "actual=9 (raw type=ByteString, value=CQ==), expected 1"
+            "reason": "actual=12 (raw type=ByteString, value=DA==), expected 1"
           }
         ]
       }
@@ -397,7 +397,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x328fd7f5403f388cf9ff6859fd8de20f4c985a4b3eff925713e659ae105bd9d0",
+            "txHash": "0xc1543708470723f17ddb4f711aa4533053196f2afc2ad8a0f35ba5e2e459a255",
             "vmstate": "HALT",
             "gasconsumed": "870115"
           },
@@ -471,7 +471,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0xd9f20bd9027f124a88f3b923311eee37354c29323cc5d2ba18a2b86ad9d45aca",
+            "txHash": "0x6f8eba8ef505600e3a0db1317086e25dd3d70a8a09cbae0c83960b696c36c497",
             "vmstate": "HALT",
             "gasconsumed": "413869"
           }
@@ -707,7 +707,7 @@
             "kind": "write",
             "operation": "issue",
             "status": "pass",
-            "txHash": "0x4097042c32be12eec707c20176f5f8ab0700f723199758a0c740fee4afaa6080",
+            "txHash": "0x0d4033acc4b9778ae69c69a89e7a30753845535f05e55597825056262e386b33",
             "vmstate": "HALT",
             "gasconsumed": "518816"
           },
@@ -768,20 +768,20 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "6"
+              "value": "9"
             },
             "expect": {
               "type": "Integer",
               "value": "0"
             },
-            "reason": "actual=6 (raw type=Integer, value=6), expected 0"
+            "reason": "actual=9 (raw type=Integer, value=9), expected 0"
           },
           {
             "name": "bumpNonce(deployer)",
             "kind": "write",
             "operation": "bumpNonce",
             "status": "pass",
-            "txHash": "0xcc24ff17a41fb2d8b4d6b599612cb7cf066171ff4fea9ccd0679331d4298349e",
+            "txHash": "0x5e4b1c23a07b8da3b2443e077c3f3c10bda575f547d8fc4e42526cae8c4a26e2",
             "vmstate": "HALT",
             "gasconsumed": "696149"
           }
@@ -1303,7 +1303,7 @@
             "kind": "write",
             "operation": "mint",
             "status": "pass",
-            "txHash": "0x71d71cbb706e1e7e22cb362f33aef6548ce6fa19fb2f9b94e219040b6f32db41",
+            "txHash": "0xa790a57c606015c5024de7c672ea837864ff15512382a57c9fd8508f69c57233",
             "vmstate": "HALT",
             "gasconsumed": "451279"
           },
@@ -1314,13 +1314,13 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "5000"
+              "value": "8000"
             },
             "expect": {
               "type": "Integer",
               "value": "1000"
             },
-            "reason": "actual=5000 (raw type=Integer, value=5000), expected 1000"
+            "reason": "actual=8000 (raw type=Integer, value=8000), expected 1000"
           }
         ]
       },
@@ -1584,41 +1584,38 @@
     },
     {
       "id": "erc-6147",
-      "title": "ERC-6147 — Guarded NFT (co-signer)",
+      "title": "ERC-6147 — Guarded NFT (guard delegate)",
       "solidity": {
         "status": "deployed",
-        "contractHash": "df1474aed4764a1433892bb1ec2a8a143000e4c3",
-        "contractAddress": "Ndmk5vz6EYr3Sg7kFdRxcyfnpC56jG4E5C",
+        "contractHash": "af32605e284ccf3e5e281af082f72605c506064f",
+        "contractAddress": "NT7ondo6UmgEVNtAwRXUjN3secCYgoemZ2",
         "deployTx": null,
         "reused": true,
         "tests": [
           {
-            "name": "claimDeployer()",
+            "name": "mint(deployer)",
             "kind": "write",
-            "operation": "claimDeployer",
-            "status": "fail",
-            "reason": "Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. \b�y�\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000 \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0015GNFT: already claimed\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+            "operation": "mint",
+            "status": "pass",
+            "txHash": "0x1e6a3fdca8a37275cb3dfcaae1c122c74bc51f9ea0aeb4138cc6ab535a712985",
+            "vmstate": "HALT",
+            "gasconsumed": "344426"
           },
           {
-            "name": "tokenCount == 0 (pre-mint)",
-            "kind": "read",
-            "operation": "tokenCount",
+            "name": "transfer(deployer, 1) — owner-as-required",
+            "kind": "write",
+            "operation": "transfer",
             "status": "pass",
-            "actual": {
-              "type": "Integer",
-              "value": "0"
-            },
-            "expect": {
-              "type": "Integer",
-              "value": "0"
-            }
+            "txHash": "0x97d25d5ca0f176ce0991b30212b7e959272046ac36e4b89de3e6c678cb8c75cb",
+            "vmstate": "HALT",
+            "gasconsumed": "501904"
           }
         ]
       },
       "csharp": {
         "status": "deployed",
-        "contractHash": "9223d7237b8babbecb38dfc4cbb5e82f11019cd8",
-        "contractAddress": "NffJ2Yuja2meWmTvhXNgdmNqhQFrnwFg8R",
+        "contractHash": "274c031d361e30a518d30035d527eb95efac19df",
+        "contractAddress": "NgFcdW2axGQELJu6LQWsTPwoke2LSsW3CM",
         "deployTx": null,
         "reused": true,
         "tests": [
@@ -1635,6 +1632,15 @@
               "type": "Hash160",
               "value": "69aa227309f35d7196d0d9f97fc22b33613a31eb"
             }
+          },
+          {
+            "name": "mint(deployer)",
+            "kind": "write",
+            "operation": "mint",
+            "status": "pass",
+            "txHash": "0xaac3acab7464edf72e28f975b07f53f8e4779637be42f4e7ab8ec92091602524",
+            "vmstate": "HALT",
+            "gasconsumed": "241861"
           }
         ]
       }
@@ -1995,7 +2001,7 @@
             "kind": "write",
             "operation": "guardedCall",
             "status": "pass",
-            "txHash": "0x67c29fbc19fd314b4cb60fb042f887d30f312f28765b3fc1acf3614aa1bcf148",
+            "txHash": "0xde4806ee192ad2fb371754fb83c294392ae97b7c59ee9983c5538be799e9358f",
             "vmstate": "HALT",
             "gasconsumed": "215393"
           },
@@ -2043,20 +2049,20 @@
             "status": "fail",
             "actual": {
               "type": "Integer",
-              "value": "3"
+              "value": "6"
             },
             "expect": {
               "type": "Integer",
               "value": "0"
             },
-            "reason": "actual=3 (raw type=Integer, value=3), expected 0"
+            "reason": "actual=6 (raw type=Integer, value=6), expected 0"
           },
           {
             "name": "guardedCall()",
             "kind": "write",
             "operation": "guardedCall",
             "status": "pass",
-            "txHash": "0x609a2181f80f23877c0ff7f02bf85f1acb8f500989eb20e1c2a5569b37cd4115",
+            "txHash": "0x29f5b5b89622617aeee7bdfae9f3de990c6189c876cc8af0bbe44372d1dec155",
             "vmstate": "HALT",
             "gasconsumed": "233738"
           }
@@ -2397,6 +2403,20 @@
             "name": "pendingDepositCount == 0 (initial)",
             "kind": "read",
             "operation": "pendingDepositCount",
+            "status": "pass",
+            "actual": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "expect": {
+              "type": "Integer",
+              "value": "0"
+            }
+          },
+          {
+            "name": "pendingRedeemCount == 0 (initial)",
+            "kind": "read",
+            "operation": "pendingRedeemCount",
             "status": "pass",
             "actual": {
               "type": "Integer",
@@ -2887,8 +2907,8 @@
         "status": "deployed",
         "contractHash": "4e2300b8426b26eb8bbf57398a53ad810e313bf6",
         "contractAddress": "NiMvKeofdrr3mdU4VmFvicKxNszFsXkVyQ",
-        "deployTx": "0x3f88a613436f0ed9e6674037787d841564e7b14e0acaaca29b0674310663d867",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "neoTxVersion == 0",
@@ -2938,21 +2958,9 @@
         "status": "deployed",
         "contractHash": "b600afb3c034ff11a3e25a26fa03b58e263d9cb8",
         "contractAddress": "Nck6gihPX3gA51XqetNMLpRpMQf4tsqSDH",
-        "deployTx": "0x989908a192be330bb6e5b642f1080c43b71be17e3528e42ccef320e4a2c2ed1f",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
-          {
-            "name": "neoTxVersion == 0",
-            "kind": "read",
-            "operation": "neoTxVersion",
-            "status": "fail",
-            "actual": null,
-            "expect": {
-              "type": "Integer",
-              "value": "0"
-            },
-            "reason": "empty stack"
-          },
           {
             "name": "evmDynamicFeeType == 2",
             "kind": "read",
@@ -2991,8 +2999,8 @@
         "status": "deployed",
         "contractHash": "02a174b4080c57d8ceb2c66b223799a79d09a2c3",
         "contractAddress": "NdkP4jJAVUgXSbSUpRbD8FnHi6TjWULNeW",
-        "deployTx": "0x17844b4b50ebc920cd449de142170ef8b55886d0acde40b20894baa02bd94112",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "scopeCalledByEntry == 1",
@@ -3028,8 +3036,8 @@
         "status": "deployed",
         "contractHash": "3570e80f52a9329b604d5d18fb94de3133b0a6ad",
         "contractAddress": "Nbk9meWCw4DQhKZeK2vgfGVG6oqDJT1XpP",
-        "deployTx": "0xb1bfb7d4b46715b6e0848bbbf2b6a2a6b163531011d6998c6dc873025b136169",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "scopeCalledByEntry == 1",
@@ -3069,8 +3077,8 @@
         "status": "deployed",
         "contractHash": "52b860448a5d1ff537160a0bee8c83cdfe72fe4d",
         "contractAddress": "NT2N2y4CH1FYG74j3cNV4CcgxXS6qp7Fh5",
-        "deployTx": "0xba96b7c4398ed9d881c0a789b9222059ae2bba193dc20fc6327f8ead2b1c0a8d",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "zero() == 0",
@@ -3106,8 +3114,8 @@
         "status": "deployed",
         "contractHash": "6704d604997959ce4e098bd96ecbacef358e9ff6",
         "contractAddress": "NiPzZ4HXxwVYptrpwZ8jDnf7KMekHTjnp3",
-        "deployTx": "0x925724819e4e732f7bc33eb652acb633a2a08ccd98b5646413e832bdc7a6c00c",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "zero() == 0",
@@ -3147,8 +3155,8 @@
         "status": "deployed",
         "contractHash": "5d95f5db9f06ee751778208c36c408a49968d728",
         "contractAddress": "NPdvGHEVkqeidDf9PMwimXLkXie23r1nEC",
-        "deployTx": "0xfe360560225f6308357408bacfd276eec88179367131e0c5bfdc81e405230ca8",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "maxInitcodeSize == 49152",
@@ -3170,8 +3178,8 @@
         "status": "deployed",
         "contractHash": "b58a104cecaaa87e7c44915464f09b60e4768337",
         "contractAddress": "NQyVqccVtzvbS9uDbTmESyU2arGRxANcNo",
-        "deployTx": "0xe648287f9c9409e8309209c8910916494a91a6e0eaa85794bf2d3348eecbed74",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "evmMaxInitcodeSize == 49152",
@@ -3197,17 +3205,15 @@
         "status": "deployed",
         "contractHash": "67a59c179448a3769d5559a691a4c118c7de9930",
         "contractAddress": "NQLwx47c1P6NZ5mZn8qjzeqgALwyt3RUSZ",
-        "deployTx": "0x35d83590e411100bb14e15567994ba516f101e8c82eaea055d62cd458b980e4e",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "claimDeployer()",
             "kind": "write",
             "operation": "claimDeployer",
-            "status": "pass",
-            "txHash": "0x355ceca32a92d13bf264d32b90ab3dfa3519c13bd911435d4d97cd6f4f99ecec",
-            "vmstate": "HALT",
-            "gasconsumed": "169427"
+            "status": "fail",
+            "reason": "Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. \b�y�\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000 \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0013SD: already claimed\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
           },
           {
             "name": "isArmed == false (initial)",
@@ -3229,8 +3235,8 @@
         "status": "deployed",
         "contractHash": "8acf52e9a1f696965480cd40046c9c3de020f8eb",
         "contractAddress": "NhRfE6pGvtbGShTB99eWnkYqVULs3sS1Tr",
-        "deployTx": "0x5bf67208dbb2e76f5bf9c1e48314d4b6d96f4eb979bc423d16f6be9a606d1473",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "getDeployer == deployer",
@@ -3270,17 +3276,15 @@
         "status": "deployed",
         "contractHash": "b156b370b4ad897caf955e38fffa637195438751",
         "contractAddress": "NTM3xbr9TpZEULn1hks9VAfdKjVa6oczqt",
-        "deployTx": "0x7a3335dd7819100dcdfc4608f84c51570dbac7c290f8e9d47f370a8ae217e917",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "claimDeployer()",
             "kind": "write",
             "operation": "claimDeployer",
-            "status": "pass",
-            "txHash": "0x786412b92ac014ec34c43bc3b5ff73c501c20f06739fd2e1ccd28438c046b08d",
-            "vmstate": "HALT",
-            "gasconsumed": "169427"
+            "status": "fail",
+            "reason": "Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. \b�y�\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000 \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0013SC: already claimed\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
           },
           {
             "name": "delegationCount == 0 (initial)",
@@ -3302,8 +3306,8 @@
         "status": "deployed",
         "contractHash": "158d0d7fdf17d71b6e733997cd74b68f0d1c3bfd",
         "contractAddress": "NizvxJ3xboUGKi1pbXS7DSkwadJfdLTjh5",
-        "deployTx": "0x0e74dedca7154d196d40358dec78c4ec0e50623a9d2f0fce15b214f526e84590",
-        "reused": false,
+        "deployTx": null,
+        "reused": true,
         "tests": [
           {
             "name": "getDeployer == deployer",

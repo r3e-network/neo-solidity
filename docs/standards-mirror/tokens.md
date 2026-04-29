@@ -2453,20 +2453,23 @@ authorization AND the guard's authorization (until `expires`).
 
 ### Neo Equivalent: Direct Port
 
-Neo's witness scopes already let one transaction carry signatures from multiple
-accounts — the C# port simply checks both the owner and the guard via two
-`Runtime.CheckWitness` calls.
+The mirror's contract pair adopts a **guard-takes-over delegate** model on both
+sides: while a guard is set, only the guard can transfer the token; once cleared,
+control returns to the owner. This single-required-signer shape is what's
+consistently expressible in both Solidity (one `msg.sender` per call) and Neo C#
+(one `Runtime.CheckWitness` call), keeping the two implementations behaviorally
+aligned.
 
 ::: tip Live on Neo TestNet
 Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
-| **Solidity** (`neo-solc`) | `0xdf1474aed4764a1433892bb1ec2a8a143000e4c3` | [`0x5f17cdab…5666c60`](https://dora.coz.io/transaction/neo3/testnet/0x5f17cdab2309cbb2af6a66f917cbeb2fab409dd6b9a0dee702028469b5666c60) |
-| **Neo C#** (`nccs`) | `0x9223d7237b8babbecb38dfc4cbb5e82f11019cd8` | [`0xe53c0607…559df5`](https://dora.coz.io/transaction/neo3/testnet/0xe53c06073fa5af3a8346d9f3f2938f185c2ecdfcc25502bd2bfce12d8b559df5) |
+| **Solidity** (`neo-solc`) | `0xaf32605e284ccf3e5e281af082f72605c506064f` | (v2 redeploy — see [explorer](https://dora.coz.io/contract/neo3/testnet/0xaf32605e284ccf3e5e281af082f72605c506064f)) |
+| **Neo C#** (`nccs`) | `0x274c031d361e30a518d30035d527eb95efac19df` | (v2 redeploy — see [explorer](https://dora.coz.io/contract/neo3/testnet/0x274c031d361e30a518d30035d527eb95efac19df)) |
 
-Cross-implementation invocations match on `claimDeployer`, `tokenCount`,
-`getDeployer`. Source pairs under
+Cross-implementation invocations match on `mint` and `transfer` (with the
+guard-or-owner authorization gate). Source pairs under
 [`docs/standards-mirror/deployments/erc-6147/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-6147).
 :::
 
