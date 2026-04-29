@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `third_party/famous-contracts/sources/@openzeppelin/contracts/utils/Multicall.sol`
+- Source path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/utils/Multicall.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -20,27 +20,24 @@ Recommended hardening before production deployment:
 
 ## Diagnostics
 
-| Severity | Code | Message |
-| --- | --- | --- |
-| warning | W200 | function 'sendValue' in 'Multicall' overrides 'Context::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'Multicall' overrides 'Context::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'Multicall' overrides 'Context::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'Multicall' overrides 'Context::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'Multicall' overrides 'Context::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'Multicall' overrides 'Context::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'Multicall' overrides 'Context::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'Multicall' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'Multicall' overrides 'Context::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'Multicall' overrides a base function but is not marked 'override' |
+Total diagnostics captured: `16`
+
+### By Severity
+
+| Severity | Count |
+| --- | ---: |
+| warning | 16 |
+
+### Most Common Codes
+
+| Code | Count | Example |
+| --- | ---: | --- |
+| W200 | 16 | function 'sendValue' in 'Multicall' overrides 'Context::sendValue' which is not marked 'virtual' |
+
+Full diagnostic payloads are kept in `docs/data/famous-contracts-audit-results.json`; this page summarizes them so the docs remain navigable.
 
 ## References
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `third_party/famous-contracts/sources/@openzeppelin/contracts/utils/Multicall.sol`
+- Upstream contract path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/utils/Multicall.sol`

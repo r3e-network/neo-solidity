@@ -10,7 +10,7 @@ Each contract has a dedicated page with:
 
 1. Compilation status on NeoVM
 1. Primary blocker and required Neo-side capability/refactor
-1. Full diagnostics captured by the audit run
+1. Diagnostics summarized from the audit run
 
 ## Project Summary
 

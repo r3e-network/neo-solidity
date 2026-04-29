@@ -470,6 +470,14 @@ function collectFailures(out) {
 }
 
 async function main() {
+  if (process.argv.includes('--render-only')) {
+    if (!fs.existsSync(RESULTS_JSON)) throw new Error(`missing ${RESULTS_JSON}`);
+    const out = JSON.parse(fs.readFileSync(RESULTS_JSON, 'utf8'));
+    fs.writeFileSync(RESULTS_MD, renderMarkdown(out));
+    process.stdout.write(`Wrote ${RESULTS_MD}\n`);
+    return;
+  }
+
   if (!WIF) throw new Error('NEO_TESTNET_WIF required');
   if (!fs.existsSync(NEO_SOLC)) {
     process.stdout.write('Building neo-solc...\n');
@@ -561,6 +569,8 @@ function renderMarkdown(out) {
   lines.push(`- Network magic: \`${out.networkMagic}\``);
   lines.push(`- Deployer: \`${out.deployer}\``);
   lines.push('');
+  lines.push('## Summary');
+  lines.push('');
   lines.push('| Pair | Implementation | Address | Deploy Tx | Tests |');
   lines.push('|---|---|---|---|---|');
   for (const p of out.pairs) {
@@ -575,27 +585,49 @@ function renderMarkdown(out) {
     }
   }
   lines.push('');
+  lines.push('## Failed Assertions');
+  lines.push('');
+  const failures = [];
   for (const p of out.pairs) {
-    lines.push(`## ${p.title}`);
-    lines.push('');
     for (const which of ['solidity', 'csharp']) {
-      const r = p[which];
-      lines.push(`### ${which}`);
-      lines.push(`- Contract address: \`${r.contractAddress || '-'}\``);
-      lines.push(`- Contract hash: \`${r.contractHash || '-'}\``);
-      lines.push(`- Deploy tx: \`${r.deployTx || '-'}\``);
-      lines.push(`- Status: \`${r.status || '-'}\``);
-      if (r.reason) lines.push(`- Failure: \`${r.reason}\``);
-      for (const t of r.tests || []) {
-        const mark = t.status === 'pass' ? '✅' : '❌';
-        const tx = t.txHash ? ` tx=\`${t.txHash}\`` : '';
-        const reason = t.reason ? ` reason=\`${t.reason}\`` : '';
-        lines.push(`  - ${mark} \`${t.kind}\` ${t.operation}${tx}${reason}`);
+      const r = p[which] || {};
+      if (r.status && r.status !== 'deployed' && (!r.tests || r.tests.length === 0)) {
+        failures.push([p.title, which, r.status, '-', r.reason || 'deployment failed']);
       }
-      lines.push('');
+      for (const t of r.tests || []) {
+        if (t.status !== 'pass') {
+          failures.push([p.title, which, t.name || '-', t.operation || '-', t.reason || t.vmstate || 'failed']);
+        }
+      }
     }
   }
+
+  if (failures.length === 0) {
+    lines.push('No deployment or assertion failures were recorded.');
+  } else {
+    lines.push('| Pair | Implementation | Test | Operation | Reason |');
+    lines.push('|---|---|---|---|---|');
+    for (const row of failures) {
+      lines.push(`| ${row.map(mdCell).join(' | ')} |`);
+    }
+  }
+  lines.push('');
+  lines.push('## Full Result Data');
+  lines.push('');
+  lines.push(
+    'The full per-test payload is stored in [`results.json`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/results.json).'
+  );
   return lines.join('\n');
+}
+
+function mdCell(value) {
+  const text = String(value || '-')
+    .replace(/\r?\n/g, ' ')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const clipped = text.length > 240 ? `${text.slice(0, 237)}...` : text;
+  return clipped.replace(/\|/g, '\\|');
 }
 
 main().catch((e) => {

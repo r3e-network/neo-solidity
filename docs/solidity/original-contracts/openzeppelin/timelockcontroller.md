@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `third_party/famous-contracts/sources/@openzeppelin/contracts/governance/TimelockController.sol`
+- Source path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/governance/TimelockController.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -20,148 +20,27 @@ Recommended hardening before production deployment:
 
 ## Diagnostics
 
-| Severity | Code | Message |
-| --- | --- | --- |
-| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
-| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
-| warning | W200 | function 'sendValue' in 'ERC165' overrides 'Context::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'ERC165' overrides 'Context::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC165' overrides 'Context::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'ERC165' overrides 'Context::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC165' overrides 'Context::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC165' overrides 'Context::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'ERC165' overrides 'Context::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'ERC165' overrides 'Context::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'sendValue' in 'AccessControl' overrides 'ERC165::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'AccessControl' overrides 'ERC165::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'AccessControl' overrides 'ERC165::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'AccessControl' overrides 'ERC165::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'AccessControl' overrides 'ERC165::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'AccessControl' overrides 'ERC165::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'AccessControl' overrides 'ERC165::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'AccessControl' overrides 'ERC165::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
-| warning | W200 | function 'sendValue' in 'ERC1155Holder' overrides 'ERC165::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'ERC1155Holder' overrides 'ERC165::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC1155Holder' overrides 'ERC165::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'ERC1155Holder' overrides 'ERC165::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC1155Holder' overrides 'ERC165::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC1155Holder' overrides 'ERC165::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'ERC1155Holder' overrides 'ERC165::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'ERC1155Holder' overrides 'ERC165::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W111 | function 'onNEP17Payment' is marked `payable`, but Neo N3 has no native coin transfer; the modifier is accepted for compatibility but has no effect. Use onNEP17Payment(address, uint256, bytes) to handle incoming NEP-17 token payments. |
-| warning | W111 | function 'execute' is marked `payable`, but Neo N3 has no native coin transfer; the modifier is accepted for compatibility but has no effect. Use onNEP17Payment(address, uint256, bytes) to handle incoming NEP-17 token payments. |
-| warning | W111 | function 'executeBatch' is marked `payable`, but Neo N3 has no native coin transfer; the modifier is accepted for compatibility but has no effect. Use onNEP17Payment(address, uint256, bytes) to handle incoming NEP-17 token payments. |
-| warning | W106 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
-| warning | W116 | function 'execute' has payable modifier which has no effect on Neo N3. Use onNEP17Payment callback to receive token payments. |
-| warning | W116 | function 'executeBatch' has payable modifier which has no effect on Neo N3. Use onNEP17Payment callback to receive token payments. |
-| warning | W200 | function 'sendValue' in 'ERC165' overrides 'Context::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'ERC165' overrides 'Context::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC165' overrides 'Context::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'ERC165' overrides 'Context::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC165' overrides 'Context::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC165' overrides 'Context::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'ERC165' overrides 'Context::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'ERC165' overrides 'Context::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'ERC165' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'sendValue' in 'AccessControl' overrides 'ERC165::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'AccessControl' overrides 'ERC165::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'AccessControl' overrides 'ERC165::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'AccessControl' overrides 'ERC165::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'AccessControl' overrides 'ERC165::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'AccessControl' overrides 'ERC165::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'AccessControl' overrides 'ERC165::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'AccessControl' overrides 'ERC165::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'AccessControl' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'sendValue' in 'ERC721Holder' overrides 'AccessControl::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'ERC721Holder' overrides 'AccessControl::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC721Holder' overrides 'AccessControl::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'ERC721Holder' overrides 'AccessControl::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC721Holder' overrides 'AccessControl::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC721Holder' overrides 'AccessControl::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'ERC721Holder' overrides 'AccessControl::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'ERC721Holder' overrides 'AccessControl::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'ERC721Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'sendValue' in 'ERC1155Holder' overrides 'ERC721Holder::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'ERC1155Holder' overrides 'ERC721Holder::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC1155Holder' overrides 'ERC721Holder::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'ERC1155Holder' overrides 'ERC721Holder::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC1155Holder' overrides 'ERC721Holder::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC1155Holder' overrides 'ERC721Holder::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'ERC1155Holder' overrides 'ERC721Holder::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'ERC1155Holder' overrides 'ERC721Holder::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'ERC1155Holder' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'sendValue' in 'TimelockController' overrides 'ERC1155Holder::sendValue' which is not marked 'virtual' |
-| warning | W200 | function 'sendValue' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCall' in 'TimelockController' overrides 'ERC1155Holder::functionCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionCall' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionCallWithValue' in 'TimelockController' overrides 'ERC1155Holder::functionCallWithValue' which is not marked 'virtual' |
-| warning | W200 | function 'functionCallWithValue' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionStaticCall' in 'TimelockController' overrides 'ERC1155Holder::functionStaticCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionStaticCall' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'functionDelegateCall' in 'TimelockController' overrides 'ERC1155Holder::functionDelegateCall' which is not marked 'virtual' |
-| warning | W200 | function 'functionDelegateCall' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'TimelockController' overrides 'ERC1155Holder::verifyCallResultFromTarget' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResultFromTarget' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function 'verifyCallResult' in 'TimelockController' overrides 'ERC1155Holder::verifyCallResult' which is not marked 'virtual' |
-| warning | W200 | function 'verifyCallResult' in 'TimelockController' overrides a base function but is not marked 'override' |
-| warning | W200 | function '_revert' in 'TimelockController' overrides 'ERC1155Holder::_revert' which is not marked 'virtual' |
-| warning | W200 | function '_revert' in 'TimelockController' overrides a base function but is not marked 'override' |
+Total diagnostics captured: `137`
+
+### By Severity
+
+| Severity | Count |
+| --- | ---: |
+| warning | 137 |
+
+### Most Common Codes
+
+| Code | Count | Example |
+| --- | ---: | --- |
+| W200 | 128 | function 'sendValue' in 'ERC165' overrides 'Context::sendValue' which is not marked 'virtual' |
+| W106 | 4 | function 'supportsInterface' (EIP-165) is unnecessary on Neo N3. Neo uses the manifest 'supportedstandards' array for interface detection, which the compiler populates automatically. |
+| W111 | 3 | function 'onNEP17Payment' is marked `payable`, but Neo N3 has no native coin transfer; the modifier is accepted for compatibility but has no effect. Use onNEP17Payment(address, uint256, bytes) to handle incoming NEP-17 token payments. |
+| W116 | 2 | function 'execute' has payable modifier which has no effect on Neo N3. Use onNEP17Payment callback to receive token payments. |
+
+Full diagnostic payloads are kept in `docs/data/famous-contracts-audit-results.json`; this page summarizes them so the docs remain navigable.
 
 ## References
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `third_party/famous-contracts/sources/@openzeppelin/contracts/governance/TimelockController.sol`
+- Upstream contract path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/governance/TimelockController.sol`

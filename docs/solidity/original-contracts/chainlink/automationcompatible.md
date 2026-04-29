@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol`
+- Source path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -20,15 +20,24 @@ Recommended hardening before production deployment:
 
 ## Diagnostics
 
-| Severity | Code | Message |
-| --- | --- | --- |
-| warning | RAW | warning: tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin. Consider using msg.sender or Runtime.CheckWitness() instead. |
-| warning | RAW | warning: tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin. Consider using msg.sender or Runtime.CheckWitness() instead. |
-| warning | RAW | warning: tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin. Consider using msg.sender or Runtime.CheckWitness() instead. |
-| warning | RAW | warning: tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin. Consider using msg.sender or Runtime.CheckWitness() instead. |
+Total diagnostics captured: `4`
+
+### By Severity
+
+| Severity | Count |
+| --- | ---: |
+| warning | 4 |
+
+### Most Common Codes
+
+| Code | Count | Example |
+| --- | ---: | --- |
+| RAW | 4 | warning: tx.origin has different semantics on Neo N3. Neo uses multi-signature witnesses instead of a single origin. Consider using msg.sender or Runtime.CheckWitness() instead. |
+
+Full diagnostic payloads are kept in `docs/data/famous-contracts-audit-results.json`; this page summarizes them so the docs remain navigable.
 
 ## References
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol`
+- Upstream contract path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol`

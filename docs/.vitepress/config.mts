@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type DefaultTheme } from 'vitepress';
@@ -35,6 +35,16 @@ function slugifyHeading(text: string): string {
     .toLowerCase();
 }
 
+function pageTitle(markdownPath: string): string {
+  const content = readFileSync(markdownPath, 'utf8');
+  const frontmatterTitle = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+  if (frontmatterTitle) {
+    return frontmatterTitle[1];
+  }
+
+  return content.match(/^# (.+)$/m)?.[1] ?? markdownPath;
+}
+
 function pageSections(link: string): SidebarItem[] {
   const markdownPath = markdownPathForLink(link);
   if (!existsSync(markdownPath)) {
@@ -42,19 +52,121 @@ function pageSections(link: string): SidebarItem[] {
   }
 
   const content = readFileSync(markdownPath, 'utf8');
-  const sections = [...content.matchAll(/^## (.+)$/gm)]
-    .map((match) => stripInlineMarkdown(match[1]))
-    .filter((heading) => heading.length > 0);
+  const sections: SidebarItem[] = [];
 
-  return sections.map((heading) => ({
-    text: heading,
-    link: `${link}#${slugifyHeading(heading)}`
-  }));
+  for (const match of content.matchAll(/^(#{2,3}) (.+)$/gm)) {
+    const heading = stripInlineMarkdown(match[2]);
+    if (heading.length === 0) {
+      continue;
+    }
+
+    const item = {
+      text: heading,
+      link: `${link}#${slugifyHeading(heading)}`
+    };
+
+    if (match[1] === '##' || sections.length === 0) {
+      sections.push(item);
+      continue;
+    }
+
+    const parent = sections[sections.length - 1];
+    parent.items = [...(parent.items ?? []), item];
+  }
+
+  return sections;
 }
 
 function page(text: string, link: string): SidebarItem {
   const sections = pageSections(link);
   return sections.length > 0 ? { text, link, items: sections } : { text, link };
+}
+
+function pageWithChildren(text: string, link: string, children: SidebarItem[]): SidebarItem {
+  const items = [...pageSections(link), ...children];
+  return items.length > 0 ? { text, link, items } : { text, link };
+}
+
+function standardsPages(category: string): SidebarItem[] {
+  const categoryPath = resolve(docsRoot, `standards-mirror/${category}.md`);
+  const categoryDir = resolve(docsRoot, `standards-mirror/${category}`);
+  if (!existsSync(categoryPath) || !existsSync(categoryDir)) {
+    return [];
+  }
+
+  const categoryContent = readFileSync(categoryPath, 'utf8');
+  const ordered = [...categoryContent.matchAll(new RegExp(`/standards-mirror/${category}/([^\\)]+)`, 'g'))]
+    .map((match) => match[1])
+    .filter((slug, index, all) => all.indexOf(slug) === index);
+
+  const slugs =
+    ordered.length > 0
+      ? ordered
+      : readdirSync(categoryDir)
+          .filter((file) => file.endsWith('.md'))
+          .map((file) => file.replace(/\.md$/, ''))
+          .sort();
+
+  return slugs.map((slug) => {
+    const link = `/standards-mirror/${category}/${slug}`;
+    return page(pageTitle(markdownPathForLink(link)), link);
+  });
+}
+
+function splitDocPages(base: string): SidebarItem[] {
+  const indexPath = resolve(docsRoot, `${base}.md`);
+  const sectionDir = resolve(docsRoot, base);
+  if (!existsSync(indexPath) || !existsSync(sectionDir)) {
+    return [];
+  }
+
+  const indexContent = readFileSync(indexPath, 'utf8');
+  const ordered = [...indexContent.matchAll(new RegExp(`/${base}/([^\\)]+)`, 'g'))]
+    .map((match) => match[1])
+    .filter((slug, index, all) => all.indexOf(slug) === index);
+
+  const slugs =
+    ordered.length > 0
+      ? ordered
+      : readdirSync(sectionDir)
+          .filter((file) => file.endsWith('.md'))
+          .map((file) => file.replace(/\.md$/, ''))
+          .sort();
+
+  return slugs.map((slug) => {
+    const link = `/${base}/${slug}`;
+    return page(pageTitle(markdownPathForLink(link)), link);
+  });
+}
+
+function originalContractPages(): SidebarItem[] {
+  const indexPath = markdownPathForLink('/solidity/original-contracts/');
+  if (!existsSync(indexPath)) {
+    return [];
+  }
+
+  const groups: SidebarItem[] = [];
+  let currentGroup: SidebarItem | undefined;
+
+  for (const line of readFileSync(indexPath, 'utf8').split(/\r?\n/)) {
+    const heading = line.match(/^## (.+)$/);
+    if (heading) {
+      currentGroup = heading[1] === 'Project Summary' ? undefined : { text: heading[1], collapsed: true, items: [] };
+      if (currentGroup) {
+        groups.push(currentGroup);
+      }
+      continue;
+    }
+
+    const row = line.match(/^\| \[([^\]]+)\]\((\/solidity\/original-contracts\/[^/)]+\/[^)]+)\)/);
+    if (!row || !currentGroup) {
+      continue;
+    }
+
+    currentGroup.items = [...(currentGroup.items ?? []), page(stripInlineMarkdown(row[1]), row[2])];
+  }
+
+  return groups.filter((group) => (group.items ?? []).length > 0);
 }
 
 export default defineConfig({
@@ -67,10 +179,12 @@ export default defineConfig({
   lastUpdated: true,
   srcExclude: [
     'archive/**',
+    'plans/**',
     'ARCHITECTURE.md',
     'RUNTIME_SPEC.md',
     'ERROR_REFERENCE.md',
     'EXCELLENCE_ASSESSMENT.md',
+    'FUZZ.md',
     'mapping_lowering_design.md',
     'NEO_VM_PARITY_TODO.md',
     'README.md',
@@ -123,9 +237,9 @@ export default defineConfig({
           page('Introduction to Smart Contracts', '/basics/introduction-to-smart-contracts'),
           page('Solidity by Example', '/basics/solidity-by-example'),
           page('Installing the Compiler', '/basics/installing-the-compiler'),
-          page('Quickstart', '/basics/quickstart'),
-          page('Deploying Contracts', '/basics/deploying-contracts'),
-          page('Testing Contracts', '/basics/testing-contracts'),
+          pageWithChildren('Quickstart', '/basics/quickstart', splitDocPages('basics/quickstart')),
+          pageWithChildren('Deploying Contracts', '/basics/deploying-contracts', splitDocPages('basics/deploying-contracts')),
+          pageWithChildren('Testing Contracts', '/basics/testing-contracts', splitDocPages('basics/testing-contracts')),
           page('Use Cases', '/use-cases')
         ]
       },
@@ -133,7 +247,7 @@ export default defineConfig({
         text: 'Language Description',
         collapsed: false,
         items: [
-          page('EVM Feature Support', '/solidity/feature-support'),
+          pageWithChildren('EVM Feature Support', '/solidity/feature-support', splitDocPages('solidity/feature-support')),
           page('Layout of a Solidity Source File', '/language-description/layout-of-source-file'),
           page('Structure of a Contract', '/language-description/structure-of-a-contract'),
           page('Types', '/language-description/types'),
@@ -180,12 +294,16 @@ export default defineConfig({
           page('Cleaning Up Variables', '/internals/cleaning-up-variables'),
           page('Source Mappings', '/internals/source-mappings'),
           page('The Optimizer', '/internals/the-optimizer'),
-          page('Contract Metadata', '/internals/contract-metadata'),
+          pageWithChildren('Contract Metadata', '/internals/contract-metadata', splitDocPages('internals/contract-metadata')),
           page('Contract ABI Specification', '/internals/contract-abi-specification'),
-          page('Architecture', '/internals/architecture'),
-          page('Runtime Specification', '/internals/runtime-specification'),
-          page('Native Contracts', '/internals/native-contracts'),
-          page('Syscalls', '/internals/syscalls'),
+          pageWithChildren('Architecture', '/internals/architecture', splitDocPages('internals/architecture')),
+          pageWithChildren(
+            'Runtime Specification',
+            '/internals/runtime-specification',
+            splitDocPages('internals/runtime-specification')
+          ),
+          pageWithChildren('Native Contracts', '/internals/native-contracts', splitDocPages('internals/native-contracts')),
+          pageWithChildren('Syscalls', '/internals/syscalls', splitDocPages('internals/syscalls')),
           page('Parity & Limitations', '/internals/parity-and-limitations')
         ]
       },
@@ -196,9 +314,21 @@ export default defineConfig({
           page('Security Considerations', '/advisory-content/security-considerations'),
           page('List of Known Bugs', '/advisory-content/known-bugs'),
           page('Breaking Changes', '/advisory-content/breaking-changes'),
-          page('Troubleshooting', '/advisory-content/troubleshooting'),
-          page('Error Reference', '/advisory-content/error-reference'),
-          page('Production Readiness', '/advisory-content/production-readiness')
+          pageWithChildren(
+            'Troubleshooting',
+            '/advisory-content/troubleshooting',
+            splitDocPages('advisory-content/troubleshooting')
+          ),
+          pageWithChildren(
+            'Error Reference',
+            '/advisory-content/error-reference',
+            splitDocPages('advisory-content/error-reference')
+          ),
+          pageWithChildren(
+            'Production Readiness',
+            '/advisory-content/production-readiness',
+            splitDocPages('advisory-content/production-readiness')
+          )
         ]
       },
       {
@@ -206,11 +336,31 @@ export default defineConfig({
         collapsed: false,
         items: [
           page('Overview', '/standards-mirror/'),
-          page('Token Standards', '/standards-mirror/tokens'),
-          page('Account & Authentication', '/standards-mirror/account-and-auth'),
-          page('Infrastructure & Patterns', '/standards-mirror/infrastructure'),
-          page('DeFi Building Blocks', '/standards-mirror/defi'),
-          page('Protocol-Level EIPs', '/standards-mirror/protocol-eips')
+          pageWithChildren('Token Standards', '/standards-mirror/tokens', standardsPages('tokens')),
+          pageWithChildren(
+            'Account & Authentication',
+            '/standards-mirror/account-and-auth',
+            standardsPages('account-and-auth')
+          ),
+          pageWithChildren(
+            'Infrastructure & Patterns',
+            '/standards-mirror/infrastructure',
+            standardsPages('infrastructure')
+          ),
+          pageWithChildren('DeFi Building Blocks', '/standards-mirror/defi', standardsPages('defi')),
+          pageWithChildren(
+            'Protocol-Level EIPs',
+            '/standards-mirror/protocol-eips',
+            standardsPages('protocol-eips')
+          ),
+          pageWithChildren(
+            'Deployment Reports',
+            '/standards-mirror/deployments/README',
+            [
+              page('Last TestNet Results', '/standards-mirror/deployments/RESULTS'),
+              page('Deferred Guardrails', '/standards-mirror/deployments/DEFERRED')
+            ]
+          )
         ]
       },
       {
@@ -218,14 +368,20 @@ export default defineConfig({
         collapsed: false,
         items: [
           page('Famous Contracts Audit', '/solidity/famous-contracts-neo-audit'),
+          page('Neo-Express Deployment Matrix', '/solidity/famous-contracts-neoxp-deploy'),
           page('Type-3 Runtime Execution', '/solidity/famous-contracts-neoxp-runtime'),
-          page('Original Source Code', '/solidity/original-contracts/'),
+          page('TestNet Runtime Verification', '/solidity/famous-contracts-testnet-runtime'),
+          pageWithChildren('Original Source Code', '/solidity/original-contracts/', originalContractPages()),
           page('NatSpec Format', '/additional-material/natspec-format'),
           page('SMTChecker and Formal Verification', '/additional-material/smtchecker'),
           page('Yul', '/additional-material/yul'),
           page('Import Path Resolution', '/additional-material/import-path-resolution'),
-          page('Devpack Overview', '/additional-material/neo-devpack'),
-          page('Standards and Contracts', '/additional-material/neo-standards')
+          pageWithChildren('Devpack Overview', '/additional-material/neo-devpack', splitDocPages('additional-material/neo-devpack')),
+          pageWithChildren(
+            'Standards and Contracts',
+            '/additional-material/neo-standards',
+            splitDocPages('additional-material/neo-standards')
+          )
         ]
       },
       {

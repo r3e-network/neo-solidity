@@ -175,24 +175,56 @@ function statusLabel(result) {
   return result.status === 'pass' ? '✅ pass' : '❌ fail';
 }
 
-function diagnosticsTable(diagnostics) {
+function countBy(diagnostics, key) {
+  const counts = new Map();
+  for (const diag of diagnostics) {
+    const value = String(diag[key] || 'unknown');
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+
+  return [...counts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) {
+      return b[1] - a[1];
+    }
+    return a[0].localeCompare(b[0]);
+  });
+}
+
+function diagnosticsSummary(diagnostics) {
   if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
     return 'No diagnostics were captured for this contract in the audit run.';
   }
 
-  const header = [
-    '| Severity | Code | Message |',
-    '| --- | --- | --- |'
+  const lines = [
+    `Total diagnostics captured: ${asCode(String(diagnostics.length))}`,
+    '',
+    '### By Severity',
+    '',
+    '| Severity | Count |',
+    '| --- | ---: |'
   ];
 
-  const rows = diagnostics.map((diag) => {
-    const sev = mdEscape(diag.severity || '');
-    const code = mdEscape(diag.code || '');
-    const msg = mdEscape(cleanPathText(diag.message || ''));
-    return `| ${sev} | ${code} | ${msg} |`;
-  });
+  for (const [severity, count] of countBy(diagnostics, 'severity')) {
+    lines.push(`| ${mdEscape(severity)} | ${count} |`);
+  }
 
-  return [...header, ...rows].join('\n');
+  lines.push('');
+  lines.push('### Most Common Codes');
+  lines.push('');
+  lines.push('| Code | Count | Example |');
+  lines.push('| --- | ---: | --- |');
+
+  for (const [code, count] of countBy(diagnostics, 'code').slice(0, 12)) {
+    const example = diagnostics.find((diag) => String(diag.code || 'unknown') === code);
+    lines.push(`| ${mdEscape(code)} | ${count} | ${mdEscape(cleanPathText(example?.message || ''))} |`);
+  }
+
+  lines.push('');
+  lines.push(
+    'Full diagnostic payloads are kept in `docs/data/famous-contracts-audit-results.json`; this page summarizes them so the docs remain navigable.'
+  );
+
+  return lines.join('\n');
 }
 
 function failGuidance(result) {
@@ -249,7 +281,7 @@ function renderContractPage(result, projectSlug, contractSlug, totals) {
     '',
     '## Diagnostics',
     '',
-    diagnosticsTable(result.diagnostics),
+    diagnosticsSummary(result.diagnostics),
     '',
     '## References',
     '',
@@ -290,7 +322,7 @@ function renderIndex(data, npmResults, grouped) {
     '',
     '1. Compilation status on NeoVM',
     '1. Primary blocker and required Neo-side capability/refactor',
-    '1. Full diagnostics captured by the audit run',
+    '1. Diagnostics summarized from the audit run',
     '',
     '## Project Summary',
     '',

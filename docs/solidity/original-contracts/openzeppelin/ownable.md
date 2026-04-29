@@ -4,7 +4,7 @@
 
 - Status: ✅ pass
 - Source type: `npm`
-- Source path: `third_party/famous-contracts/sources/@openzeppelin/contracts/access/Ownable.sol`
+- Source path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/access/Ownable.sol`
 - Primary issue: No primary issue recorded.
 - Audit corpus size: 98 contracts
 
@@ -26,4 +26,4 @@ No diagnostics were captured for this contract in the audit run.
 
 - Global audit report: [Famous Contracts on NeoVM](/solidity/famous-contracts-neo-audit)
 - Per-contract index: [Original Famous Contracts](/solidity/original-contracts/)
-- Upstream contract path: `third_party/famous-contracts/sources/@openzeppelin/contracts/access/Ownable.sol`
+- Upstream contract path: `/Users/jinghuiliao/git/neo-solidity/third_party/famous-contracts/sources/@openzeppelin/contracts/access/Ownable.sol`
