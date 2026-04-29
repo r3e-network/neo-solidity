@@ -550,7 +550,7 @@
 
     {
       "id": "erc-6147",
-      "title": "ERC-6147 — Guarded NFT (co-signer)",
+      "title": "ERC-6147 — Guarded NFT (guard delegate)",
       "docEntry": "/standards-mirror/tokens#erc-6147",
       "solidity": {
         "source": "erc-6147/solidity/GuardedNFT.sol",
@@ -559,15 +559,16 @@
         "deployData": [],
         "clearSupportedStandards": true,
         "tests": [
-          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
-          { "name": "tokenCount == 0 (pre-mint)", "kind": "read", "operation": "tokenCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "transfer(deployer, 1) — owner-as-required", "kind": "write", "operation": "transfer", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1] }
         ]
       },
       "csharp": {
         "csproj": "erc-6147/csharp/GuardedNFT.csproj",
         "deployData": null,
         "tests": [
-          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] }
         ]
       }
     },
@@ -856,7 +857,8 @@
         "clearSupportedStandards": true,
         "tests": [
           { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
-          { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
         ]
       },
       "csharp": {
