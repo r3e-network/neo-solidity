@@ -48,6 +48,19 @@ NEF bytecode. The manifest includes a `supportedstandards` array that wallets an
 explorers read directly. No runtime call. No gas. The compiler populates it
 automatically based on method signature analysis.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x2b5db552d1c23a43f51a0ea50765e4a1a7a051e6` | (reused — see [`0x2b5db552d1c23a43f51a0ea50765e4a1a7a051e6`](https://dora.coz.io/contract/neo3/testnet/0x2b5db552d1c23a43f51a0ea50765e4a1a7a051e6)) |
+| **Neo C#** (`nccs`) | `0xa400b6cb20159fb3140798401c41edcb06e00f49` | (reused — see [`0xa400b6cb20159fb3140798401c41edcb06e00f49`](https://dora.coz.io/contract/neo3/testnet/0xa400b6cb20159fb3140798401c41edcb06e00f49)) |
+
+Cross-implementation invocations match on `supportsInterface`. Source pairs under
+[`docs/standards-mirror/deployments/erc-165/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-165).
+:::
+
 </template>
 
 <template #solidity>
@@ -721,6 +734,19 @@ single-byte prefix per logical map. Collision is structurally avoided because
 prefix bytes are short, hand-picked, and visible in the source. The "port" below
 just demonstrates the canonical Neo idiom.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xbb2553c79f3a740113bf22fbadb6828a9bdbdf32` | (reused — see [`0xbb2553c79f3a740113bf22fbadb6828a9bdbdf32`](https://dora.coz.io/contract/neo3/testnet/0xbb2553c79f3a740113bf22fbadb6828a9bdbdf32)) |
+| **Neo C#** (`nccs`) | `0x0932ad78b3d71c7af06468604f1d00ef89c3205d` | (reused — see [`0x0932ad78b3d71c7af06468604f1d00ef89c3205d`](https://dora.coz.io/contract/neo3/testnet/0x0932ad78b3d71c7af06468604f1d00ef89c3205d)) |
+
+Cross-implementation invocations match on all read methods. Source pairs under
+[`docs/standards-mirror/deployments/erc-7201/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7201).
+:::
+
 </template>
 
 <template #solidity>
@@ -862,6 +888,19 @@ scriptHash = Hash160(deployer || nef.script || manifest.name)
 
 The deployer can pre-compute the script hash before deploy and use it in
 counterfactual flows. The Neo C# tab shows a factory pattern.
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xc267a2eaa32edae5ac95d484a69e77653fe10b0e` | (reused — see [`0xc267a2eaa32edae5ac95d484a69e77653fe10b0e`](https://dora.coz.io/contract/neo3/testnet/0xc267a2eaa32edae5ac95d484a69e77653fe10b0e)) |
+| **Neo C#** (`nccs`) | `0x462113ca40c8a41597165ccbeada2e70e57764f8` | (reused — see [`0x462113ca40c8a41597165ccbeada2e70e57764f8`](https://dora.coz.io/contract/neo3/testnet/0x462113ca40c8a41597165ccbeada2e70e57764f8)) |
+
+Cross-implementation invocations match on `deployCount`. Source pairs under
+[`docs/standards-mirror/deployments/erc-1014/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1014).
+:::
 
 </template>
 
@@ -1308,6 +1347,19 @@ Neo C# port: a programmable account contract whose `Verify` method delegates to 
 list of "validator" contracts, and whose `Execute` method optionally runs through
 "hook" contracts. Modules are themselves Neo contracts; the account stores their
 script hashes and dispatches.
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x5e6edfc08e536f6d8891af968a52f7d56c11a528` | (reused — see [`0x5e6edfc08e536f6d8891af968a52f7d56c11a528`](https://dora.coz.io/contract/neo3/testnet/0x5e6edfc08e536f6d8891af968a52f7d56c11a528)) |
+| **Neo C#** (`nccs`) | `0xcbd2e64f3ef5d5c9069fadf9c7d72ffcb8664f86` | (reused — see [`0xcbd2e64f3ef5d5c9069fadf9c7d72ffcb8664f86`](https://dora.coz.io/contract/neo3/testnet/0xcbd2e64f3ef5d5c9069fadf9c7d72ffcb8664f86)) |
+
+Cross-implementation invocations match on `moduleCount`. Source pairs under
+[`docs/standards-mirror/deployments/erc-7579/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7579).
+:::
 
 </template>
 

@@ -445,6 +445,14 @@ async function main() {
   const version = await client.getVersion();
   const networkMagic = version?.protocol?.network;
   if (!networkMagic) throw new Error('failed to read network magic');
+  const NEO_TESTNET_MAGIC = 894710606;
+  if (networkMagic !== NEO_TESTNET_MAGIC) {
+    throw new Error(
+      `refusing to deploy: RPC ${RPC_URL} reports network magic ${networkMagic} ` +
+      `but this script is hard-pinned to TestNet (${NEO_TESTNET_MAGIC}). ` +
+      `Override only after auditing scripts/standards_mirror_testnet.js for any mainnet-unsafe assumptions.`
+    );
+  }
 
   const networkConfig = {
     networkMagic,

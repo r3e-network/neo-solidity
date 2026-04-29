@@ -196,6 +196,19 @@ transaction structure**. Backward compatibility is handled at the network protoc
 level rather than by introducing parallel formats. The serialisation is binary,
 versioned by the network message version.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x4e2300b8426b26eb8bbf57398a53ad810e313bf6` | [`0x3f88a613…63d867`](https://dora.coz.io/transaction/neo3/testnet/0x3f88a613436f0ed9e6674037787d841564e7b14e0acaaca29b0674310663d867) |
+| **Neo C#** (`nccs`) | `0xb600afb3c034ff11a3e25a26fa03b58e263d9cb8` | [`0x989908a1…c2ed1f`](https://dora.coz.io/transaction/neo3/testnet/0x989908a192be330bb6e5b642f1080c43b71be17e3528e42ccef320e4a2c2ed1f) |
+
+Cross-implementation invocations match on `neoTxVersion`, `evmDynamicFeeType`, `evmBlobType`. Source pairs under
+[`docs/standards-mirror/deployments/eip-2718/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-2718).
+:::
+
 </template>
 
 <template #solidity>
@@ -321,6 +334,19 @@ For the parallel-execution use case (knowing storage keys ahead of time), Neo's
 storage prefix model makes static analysis tractable — the contract bytecode
 declares its storage prefixes via `Storage.Get/Put/Delete` call sites.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x02a174b4080c57d8ceb2c66b223799a79d09a2c3` | [`0x17844b4b…d94112`](https://dora.coz.io/transaction/neo3/testnet/0x17844b4b50ebc920cd449de142170ef8b55886d0acde40b20894baa02bd94112) |
+| **Neo C#** (`nccs`) | `0x3570e80f52a9329b604d5d18fb94de3133b0a6ad` | [`0xb1bfb7d4…136169`](https://dora.coz.io/transaction/neo3/testnet/0xb1bfb7d4b46715b6e0848bbbf2b6a2a6b163531011d6998c6dc873025b136169) |
+
+Cross-implementation invocations match on `scopeCalledByEntry`, `scopeGlobal`. Source pairs under
+[`docs/standards-mirror/deployments/eip-2930/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-2930).
+:::
+
 </template>
 
 <template #solidity>
@@ -434,6 +460,19 @@ The PolicyContract native is the equivalent: contracts read fee parameters via
 deterministic per-block but doesn't auto-adjust; values change only when committee
 nodes vote a change.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x8ed358aea7789a0d2c60a42c692c469bf1da60a0` | (reused — see [`0x8ed358aea7789a0d2c60a42c692c469bf1da60a0`](https://dora.coz.io/contract/neo3/testnet/0x8ed358aea7789a0d2c60a42c692c469bf1da60a0)) |
+| **Neo C#** (`nccs`) | `0x32b98cb268f39b8ced382e7fe6d160833ab4f630` | (reused — see [`0x32b98cb268f39b8ced382e7fe6d160833ab4f630`](https://dora.coz.io/contract/neo3/testnet/0x32b98cb268f39b8ced382e7fe6d160833ab4f630)) |
+
+Cross-implementation invocations match on `getLastSeenFee`. Source pairs under
+[`docs/standards-mirror/deployments/eip-3198/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-3198).
+:::
+
 </template>
 
 <template #solidity>
@@ -523,6 +562,19 @@ default for chains that support it.
 NeoVM has had `PUSH0` (opcode `0x10`) since launch, plus `PUSH1` through `PUSH16` as
 direct integer constants. There was no need for a retrofit because the design
 included it from day one.
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x52b860448a5d1ff537160a0bee8c83cdfe72fe4d` | [`0xba96b7c4…1c0a8d`](https://dora.coz.io/transaction/neo3/testnet/0xba96b7c4398ed9d881c0a789b9222059ae2bba193dc20fc6327f8ead2b1c0a8d) |
+| **Neo C#** (`nccs`) | `0x6704d604997959ce4e098bd96ecbacef358e9ff6` | [`0x92572481…a6c00c`](https://dora.coz.io/transaction/neo3/testnet/0x925724819e4e732f7bc33eb652acb633a2a08ccd98b5646413e832bdc7a6c00c) |
+
+Cross-implementation invocations match on `zero`, `falseBool`. Source pairs under
+[`docs/standards-mirror/deployments/eip-3855/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-3855).
+:::
 
 </template>
 
@@ -616,6 +668,19 @@ The Neo NEF (Neo Executable Format) has explicit limits baked in:
 
 Contract deployment cost on Neo scales linearly with NEF size via the network fee
 (byte-cost) plus a flat deployment cost from `ContractManagement.GetMinimumDeploymentFee()`.
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x5d95f5db9f06ee751778208c36c408a49968d728` | [`0xfe360560…230ca8`](https://dora.coz.io/transaction/neo3/testnet/0xfe360560225f6308357408bacfd276eec88179367131e0c5bfdc81e405230ca8) |
+| **Neo C#** (`nccs`) | `0xb58a104cecaaa87e7c44915464f09b60e4768337` | [`0xe648287f…cbed74`](https://dora.coz.io/transaction/neo3/testnet/0xe648287f9c9409e8309209c8910916494a91a6e0eaa85794bf2d3348eecbed74) |
+
+Cross-implementation invocations match on `maxInitcodeSize`. Source pairs under
+[`docs/standards-mirror/deployments/eip-3860/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-3860).
+:::
 
 </template>
 
@@ -892,6 +957,19 @@ Runtime.CallingScriptHash` to detect external entry. Neo VM's call semantics
 prevent a re-entrancy hazard pattern much more strongly than EVM's, so guards
 are needed less often.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x7e4e48124ed93c56eb4715965bb5b91fd0eb1a66` | (reused — see [`0x7e4e48124ed93c56eb4715965bb5b91fd0eb1a66`](https://dora.coz.io/contract/neo3/testnet/0x7e4e48124ed93c56eb4715965bb5b91fd0eb1a66)) |
+| **Neo C#** (`nccs`) | `0xe67e6815ad4d151bf87667af4e9aa9cbc3eaa7bf` | (reused — see [`0xe67e6815ad4d151bf87667af4e9aa9cbc3eaa7bf`](https://dora.coz.io/contract/neo3/testnet/0xe67e6815ad4d151bf87667af4e9aa9cbc3eaa7bf)) |
+
+Cross-implementation invocations match on `isLocked`. Source pairs under
+[`docs/standards-mirror/deployments/eip-1153/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-1153).
+:::
+
 </template>
 
 <template #solidity>
@@ -1045,6 +1123,19 @@ implementing a callable destroy method, witnesses must check, and any token
 balances held at the contract address must be transferred out beforehand by
 contract logic — there's no implicit sweep.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x67a59c179448a3769d5559a691a4c118c7de9930` | [`0x35d83590…980e4e`](https://dora.coz.io/transaction/neo3/testnet/0x35d83590e411100bb14e15567994ba516f101e8c82eaea055d62cd458b980e4e) |
+| **Neo C#** (`nccs`) | `0x8acf52e9a1f696965480cd40046c9c3de020f8eb` | [`0x5bf67208…6d1473`](https://dora.coz.io/transaction/neo3/testnet/0x5bf67208dbb2e76f5bf9c1e48314d4b6d96f4eb979bc423d16f6be9a606d1473) |
+
+Cross-implementation invocations match on `isArmed`. Source pairs under
+[`docs/standards-mirror/deployments/eip-6780/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-6780).
+:::
+
 </template>
 
 <template #solidity>
@@ -1172,6 +1263,19 @@ Neo signatures are 64 bytes natively. The verification curve is **secp256r1**
 (NIST P-256, ECDSA), and the signature format is `(r, s)` directly — no recovery
 byte because Neo verification doesn't need to recover the public key from the
 signature (the public key is in the witness script).
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9` | (reused — see [`0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9`](https://dora.coz.io/contract/neo3/testnet/0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9)) |
+| **Neo C#** (`nccs`) | `0xb2701b6d89a734b5a865a1ec6c247466391c4eee` | (reused — see [`0xb2701b6d89a734b5a865a1ec6c247466391c4eee`](https://dora.coz.io/contract/neo3/testnet/0xb2701b6d89a734b5a865a1ec6c247466391c4eee)) |
+
+Cross-implementation invocations match on `compactSize`, `legacySize`. Source pairs under
+[`docs/standards-mirror/deployments/eip-2098/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-2098).
+:::
 
 </template>
 

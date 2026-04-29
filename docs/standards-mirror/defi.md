@@ -518,6 +518,19 @@ manages requests on behalf of the depositor.
 The Neo port stores pending requests in a per-user mapping, lets a designated
 operator process batches, and tracks fulfilled requests for claim-time math.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xd8838ba126e5a77727c673215782aec59f465b41` | (reused — see [`0xd8838ba126e5a77727c673215782aec59f465b41`](https://dora.coz.io/contract/neo3/testnet/0xd8838ba126e5a77727c673215782aec59f465b41)) |
+| **Neo C#** (`nccs`) | `0xc2137b33423fdda8ce5a240e7feec8db2c4b626e` | (reused — see [`0xc2137b33423fdda8ce5a240e7feec8db2c4b626e`](https://dora.coz.io/contract/neo3/testnet/0xc2137b33423fdda8ce5a240e7feec8db2c4b626e)) |
+
+Cross-implementation invocations match on `pendingDepositCount`. Source pairs under
+[`docs/standards-mirror/deployments/erc-7540/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7540).
+:::
+
 </template>
 
 <template #solidity>
@@ -742,6 +755,19 @@ function deposit(address asset, uint256 assets, address receiver)
 The Neo C# port keeps the share NEP-17 contract and a separate vault contract that
 accepts multiple asset types via `OnNEP17Payment`. Each asset has its own
 exchange-rate oracle (or constant ratio for basket vaults).
+
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0x985a293c07f1b024f37a4ffc1d7fdf14edfe46b1` | (reused — see [`0x985a293c07f1b024f37a4ffc1d7fdf14edfe46b1`](https://dora.coz.io/contract/neo3/testnet/0x985a293c07f1b024f37a4ffc1d7fdf14edfe46b1)) |
+| **Neo C#** (`nccs`) | `0xd85564c8072776e0c5252797f5ba9dfb7e401ffc` | (reused — see [`0xd85564c8072776e0c5252797f5ba9dfb7e401ffc`](https://dora.coz.io/contract/neo3/testnet/0xd85564c8072776e0c5252797f5ba9dfb7e401ffc)) |
+
+Cross-implementation invocations match on `assetCount`. Source pairs under
+[`docs/standards-mirror/deployments/erc-7575/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7575).
+:::
 
 </template>
 

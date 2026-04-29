@@ -774,7 +774,7 @@
     {
       "id": "eip-191",
       "title": "EIP-191 — personal_sign Verifier",
-      "docEntry": "/standards-mirror/protocol-eips#eip-191",
+      "docEntry": "/standards-mirror/account-and-auth#eip-191",
       "solidity": {
         "source": "eip-191/solidity/PersonalSign.sol",
         "contract": "PersonalSign",
@@ -797,7 +797,7 @@
     {
       "id": "erc-2612",
       "title": "ERC-2612 — Permit Token (off-chain authorization)",
-      "docEntry": "/standards-mirror/tokens#erc-2612",
+      "docEntry": "/standards-mirror/account-and-auth#erc-2612",
       "solidity": {
         "source": "erc-2612/solidity/PermitToken.sol",
         "contract": "PermitToken",
@@ -898,7 +898,7 @@
     {
       "id": "erc-7579",
       "title": "ERC-7579 — Modular Smart Account",
-      "docEntry": "/standards-mirror/account-and-auth#erc-7579",
+      "docEntry": "/standards-mirror/infrastructure#erc-7579",
       "solidity": {
         "source": "erc-7579/solidity/ModularAccount.sol",
         "contract": "ModularAccount",
@@ -973,7 +973,7 @@
     {
       "id": "eip-712",
       "title": "EIP-712 — Typed-Data Verifier (domain separator)",
-      "docEntry": "/standards-mirror/protocol-eips#eip-712",
+      "docEntry": "/standards-mirror/account-and-auth#eip-712",
       "solidity": {
         "source": "eip-712/solidity/TypedData.sol",
         "contract": "TypedData",
@@ -1146,7 +1146,7 @@
     {
       "id": "eip-7702",
       "title": "EIP-7702 — Set Code for EOAs",
-      "docEntry": "/standards-mirror/protocol-eips#eip-7702",
+      "docEntry": "/standards-mirror/account-and-auth#eip-7702",
       "solidity": {
         "source": "eip-7702/solidity/SetCode.sol",
         "contract": "SetCode",

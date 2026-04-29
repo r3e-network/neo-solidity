@@ -1589,6 +1589,19 @@ contract to call `Transfer` on the NFT. No permit method to write, no nonces, no
 domain separator, no signature parsing. The C# tab shows what the application code
 looks like — typically nothing at the contract level beyond standard NEP-11.
 
+
+::: tip Live on Neo TestNet
+Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+
+| Implementation | Contract Hash | Deploy Tx |
+| --- | --- | --- |
+| **Solidity** (`neo-solc`) | `0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66` | (reused — see [`0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66`](https://dora.coz.io/contract/neo3/testnet/0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66)) |
+| **Neo C#** (`nccs`) | `0xc705641088ed11e564c946bf8a9a1569a9cc9257` | (reused — see [`0xc705641088ed11e564c946bf8a9a1569a9cc9257`](https://dora.coz.io/contract/neo3/testnet/0xc705641088ed11e564c946bf8a9a1569a9cc9257)) |
+
+Cross-implementation invocations match on `nextId`. Source pairs under
+[`docs/standards-mirror/deployments/erc-4494/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-4494).
+:::
+
 </template>
 
 <template #solidity>
