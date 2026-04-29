@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Testing Philosophy"
-description: "Testing Philosophy from Test Contracts."
+title: "Testing Contracts: Testing Philosophy"
+description: "Testing Philosophy from Testing Contracts."
 ---
 
 # Testing Philosophy
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 The test suite is organized in layers of increasing scope:
 

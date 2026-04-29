@@ -9,6 +9,8 @@ description: "Complete Example from Manifest Specification."
 
 Below is the full `manifest.json` output for the `GoldToken` contract above:
 
+## Manifest JSON
+
 ```json
 {
     "name": "GoldToken",
@@ -91,7 +93,7 @@ Below is the full `manifest.json` output for the `GoldToken` contract above:
 }
 ```
 
-Key observations:
+## Key Observations
 
 - `supportedstandards` is `["NEP-17"]` — the compiler detected all five required methods and the `Transfer` event.
 - `permissions` includes `StdLib.serialize` and `CryptoLib.keccak256` — these are required by the `mapping` storage access pattern, not by any explicit cross-contract call in the source.

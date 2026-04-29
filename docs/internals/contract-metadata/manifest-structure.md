@@ -62,7 +62,7 @@ Do not attempt to set features to a non-empty object. Neo N3 reserves this field
 
 ### supportedstandards
 
-Array of standard identifier strings (e.g. `["NEP-17"]`). The compiler auto-detects supported standards from your contract's method signatures and events. See [Standards Auto-Detection](#standards-auto-detection) for the full detection logic.
+Array of standard identifier strings (e.g. `["NEP-17"]`). The compiler auto-detects supported standards from your contract's method signatures and events. See [Standards Auto-Detection](/internals/contract-metadata/standards-auto-detection) for the full detection logic.
 
 Override with NatSpec:
 
@@ -167,7 +167,7 @@ Wildcard permissions (use with caution):
 { "contract": "*", "methods": ["ping"] }
 ```
 
-See [Permission Inference](#permission-inference) and [Permission Hardening](#permission-hardening) for details on how the compiler generates and restricts these entries.
+See [Permission Inference](/internals/contract-metadata/permission-inference) and [Permission Hardening](/internals/contract-metadata/permission-hardening) for details on how the compiler generates and restricts these entries.
 
 ### trusts
 

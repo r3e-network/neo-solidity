@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Code Coverage"
-description: "Code Coverage from Test Contracts."
+title: "Testing Contracts: Code Coverage"
+description: "Code Coverage from Testing Contracts."
 ---
 
 # Code Coverage
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 Generate coverage reports using `cargo-tarpaulin`:
 

@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Next Steps"
-description: "Next Steps from Quick Start."
+title: "Quickstart: Next Steps"
+description: "Next Steps from Quickstart."
 ---
 
 # Next Steps
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 Now that you have compiled and deployed your first contract:
 

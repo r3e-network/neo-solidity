@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Test Summary"
-description: "Test Summary from Test Contracts."
+title: "Testing Contracts: Test Summary"
+description: "Test Summary from Testing Contracts."
 ---
 
 # Test Summary
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 | Command                                   | Scope               | Duration | Requires                |
 | ----------------------------------------- | ------------------- | -------- | ----------------------- |

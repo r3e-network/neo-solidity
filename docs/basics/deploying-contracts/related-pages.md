@@ -1,14 +1,14 @@
 ---
-title: "Deploy Contracts: Related Pages"
-description: "Related Pages from Deploy Contracts."
+title: "Deploying Contracts: Related Pages"
+description: "Related Pages from Deploying Contracts."
 ---
 
 # Related Pages
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 - [Compile Workflow](/compiler/analysing-the-compiler-output) -- CLI reference and compilation patterns.
 - [Test Workflow](/basics/testing-contracts) -- Full test suite documentation.
 - [Production Readiness](/advisory-content/production-readiness) -- Pre-deployment checklist.
 - [NeoVM Native Contracts](/internals/native-contracts) -- Native contract interfaces.
-- [Quick Start](/basics/quickstart) -- First deployment walkthrough.
+- [Quickstart](/basics/quickstart) -- First deployment walkthrough.

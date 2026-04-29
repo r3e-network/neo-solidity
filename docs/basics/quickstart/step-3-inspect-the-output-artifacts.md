@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 3: Inspect the Output Artifacts"
-description: "Step 3: Inspect the Output Artifacts from Quick Start."
+title: "Quickstart: Step 3: Inspect the Output Artifacts"
+description: "Step 3: Inspect the Output Artifacts from Quickstart."
 ---
 
 # Step 3: Inspect the Output Artifacts
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 ### NEF File
 

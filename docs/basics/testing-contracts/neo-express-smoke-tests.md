@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Neo-Express Smoke Tests"
-description: "Neo-Express Smoke Tests from Test Contracts."
+title: "Testing Contracts: Neo-Express Smoke Tests"
+description: "Neo-Express Smoke Tests from Testing Contracts."
 ---
 
 # Neo-Express Smoke Tests
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 Smoke tests deploy contracts to a real local Neo-Express chain and invoke methods to validate on-chain behavior. Each script is self-contained: it creates a fresh chain, deploys, invokes, and cleans up.
 

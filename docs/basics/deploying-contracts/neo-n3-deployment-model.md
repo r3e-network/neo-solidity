@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Neo N3 Deployment Model"
-description: "Neo N3 Deployment Model from Deploy Contracts."
+title: "Deploying Contracts: Neo N3 Deployment Model"
+description: "Neo N3 Deployment Model from Deploying Contracts."
 ---
 
 # Neo N3 Deployment Model
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 On Neo N3, contract deployment is a transaction that calls the native `ContractManagement.deploy` method. The transaction payload includes:
 

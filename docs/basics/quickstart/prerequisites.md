@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Prerequisites"
-description: "Prerequisites from Quick Start."
+title: "Quickstart: Prerequisites"
+description: "Prerequisites from Quickstart."
 ---
 
 # Prerequisites
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 Before starting, ensure you have:
 

@@ -1,9 +1,9 @@
 ---
-title: "Quick Start"
-description: "Quick Start section index."
+title: "Quickstart"
+description: "Quickstart section index."
 ---
 
-# Quick Start
+# Quickstart
 
 This guide walks you through writing, compiling, inspecting, and deploying a Solidity smart contract on Neo N3. By the end, you will have a working contract running on a local Neo-Express chain.
 

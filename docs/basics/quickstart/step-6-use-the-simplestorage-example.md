@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 6: Use the SimpleStorage Example"
-description: "Step 6: Use the SimpleStorage Example from Quick Start."
+title: "Quickstart: Step 6: Use the SimpleStorage Example"
+description: "Step 6: Use the SimpleStorage Example from Quickstart."
 ---
 
 # Step 6: Use the SimpleStorage Example
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 The repository ships a more complete example at `examples/SimpleStorage.sol` with key-value storage, ownership, reentrancy guards, and balance tracking.
 

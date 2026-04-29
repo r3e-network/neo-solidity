@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: TestNet Deployment"
-description: "TestNet Deployment from Deploy Contracts."
+title: "Deploying Contracts: TestNet Deployment"
+description: "TestNet Deployment from Deploying Contracts."
 ---
 
 # TestNet Deployment
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 ### Prerequisites
 

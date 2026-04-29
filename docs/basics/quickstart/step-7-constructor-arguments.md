@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 7: Constructor Arguments"
-description: "Step 7: Constructor Arguments from Quick Start."
+title: "Quickstart: Step 7: Constructor Arguments"
+description: "Step 7: Constructor Arguments from Quickstart."
 ---
 
 # Step 7: Constructor Arguments
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 If your contract has a parameterized constructor, Neo handles it through the `_deploy(data, update)` entry point. The compiler automatically generates this entry point.
 

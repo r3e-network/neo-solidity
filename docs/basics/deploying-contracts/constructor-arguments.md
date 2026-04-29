@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Constructor Arguments"
-description: "Constructor Arguments from Deploy Contracts."
+title: "Deploying Contracts: Constructor Arguments"
+description: "Constructor Arguments from Deploying Contracts."
 ---
 
 # Constructor Arguments
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 Solidity constructors map to Neo's `_deploy(data, update)` entry point. The compiler automatically generates this entry point for contracts with constructors.
 

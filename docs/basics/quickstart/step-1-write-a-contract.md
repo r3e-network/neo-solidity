@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 1: Write a Contract"
-description: "Step 1: Write a Contract from Quick Start."
+title: "Quickstart: Step 1: Write a Contract"
+description: "Step 1: Write a Contract from Quickstart."
 ---
 
 # Step 1: Write a Contract
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 Create a file called `MyStorage.sol`:
 

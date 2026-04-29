@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Quick Validation"
-description: "Quick Validation from Test Contracts."
+title: "Testing Contracts: Quick Validation"
+description: "Quick Validation from Testing Contracts."
 ---
 
 # Quick Validation
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 For fast feedback during development:
 

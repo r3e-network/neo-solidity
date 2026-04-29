@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Manifest Verification Before Deploy"
-description: "Manifest Verification Before Deploy from Deploy Contracts."
+title: "Deploying Contracts: Manifest Verification Before Deploy"
+description: "Manifest Verification Before Deploy from Deploying Contracts."
 ---
 
 # Manifest Verification Before Deploy
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 Before deploying to TestNet or MainNet, verify the manifest:
 

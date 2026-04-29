@@ -1,9 +1,9 @@
 ---
-title: "Deploy Contracts"
-description: "Deploy Contracts section index."
+title: "Deploying Contracts"
+description: "Deploying Contracts section index."
 ---
 
-# Deploy Contracts
+# Deploying Contracts
 
 Deploying a Neo N3 smart contract requires two artifacts produced by `neo-solc`:
 

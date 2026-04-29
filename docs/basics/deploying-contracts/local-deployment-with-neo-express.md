@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Local Deployment with Neo-Express"
-description: "Local Deployment with Neo-Express from Deploy Contracts."
+title: "Deploying Contracts: Local Deployment with Neo-Express"
+description: "Local Deployment with Neo-Express from Deploying Contracts."
 ---
 
 # Local Deployment with Neo-Express
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 [Neo-Express](https://github.com/neo-project/neo-express) provides a local Neo N3 blockchain for development. It supports single-node chains, account management, contract deployment, and method invocation.
 

@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Writing Your Own Tests"
-description: "Writing Your Own Tests from Test Contracts."
+title: "Testing Contracts: Writing Your Own Tests"
+description: "Writing Your Own Tests from Testing Contracts."
 ---
 
 # Writing Your Own Tests
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 ### Adding a Compilation Test
 

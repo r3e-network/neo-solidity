@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Workspace-Wide Test Suites"
-description: "Workspace-Wide Test Suites from Test Contracts."
+title: "Testing Contracts: Workspace-Wide Test Suites"
+description: "Workspace-Wide Test Suites from Testing Contracts."
 ---
 
 # Workspace-Wide Test Suites
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 ### Core Tests
 

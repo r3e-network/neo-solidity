@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Contract Upgrade Lifecycle"
-description: "Contract Upgrade Lifecycle from Deploy Contracts."
+title: "Deploying Contracts: Contract Upgrade Lifecycle"
+description: "Contract Upgrade Lifecycle from Deploying Contracts."
 ---
 
 # Contract Upgrade Lifecycle
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 Neo N3 supports upgrading deployed contracts through the native `ContractManagement` system. The lifecycle is:
 

@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Common Deployment Errors"
-description: "Common Deployment Errors from Deploy Contracts."
+title: "Deploying Contracts: Common Deployment Errors"
+description: "Common Deployment Errors from Deploying Contracts."
 ---
 
 # Common Deployment Errors
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 | Error                        | Cause                                                   | Solution                                                       |
 | ---------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |

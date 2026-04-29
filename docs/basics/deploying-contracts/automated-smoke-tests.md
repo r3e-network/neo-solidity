@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: Automated Smoke Tests"
-description: "Automated Smoke Tests from Deploy Contracts."
+title: "Deploying Contracts: Automated Smoke Tests"
+description: "Automated Smoke Tests from Deploying Contracts."
 ---
 
 # Automated Smoke Tests
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 The repository ships 16+ deployment smoke tests that validate end-to-end behavior:
 

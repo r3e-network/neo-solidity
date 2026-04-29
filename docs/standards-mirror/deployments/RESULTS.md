@@ -114,36 +114,36 @@
 | ERC-721 ↔ NEP-11 — Non-Fungible Token | csharp | balanceOf(deployer) >= 1 | balanceOf | actual=13 (raw type=Integer, value=13), expected 1 |
 | ERC-721 ↔ NEP-11 — Non-Fungible Token | csharp | totalSupply >= 1 | totalSupply | actual=13 (raw type=ByteString, value=DQ==), expected 1 |
 | ERC-2981 ↔ NEP-24 — NFT Royalty | csharp | totalSupply >= 1 | totalSupply | actual=12 (raw type=ByteString, value=DA==), expected 1 |
-| ERC-173 — Contract Ownership | solidity | claimOwnership() | claimOwnership | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Ownable: already claimed |
-| ERC-5192 — Soulbound Token | solidity | claimIssuer() | claimIssuer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� SBC: already claimed |
+| ERC-173 — Contract Ownership | solidity | claimOwnership() | claimOwnership | Ownable: already claimed |
+| ERC-5192 — Soulbound Token | solidity | claimIssuer() | claimIssuer | SBC: already claimed |
 | ERC-2771 — Trusted Forwarder | solidity | getNonce(deployer) == 0 | getNonce | actual=9 (raw type=Integer, value=9), expected 0 |
-| ERC-1155 — Multi-Token | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� MultiToken: already claimed |
-| ERC-1967 — Upgradeable Contract (NEP-22 update) | solidity | claimOwner() | claimOwner | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Upgradeable: already claimed |
-| ERC-5805 — Voting Token w/ Delegation | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Vote: already claimed |
-| ERC-2535 — Diamond (method-name router) | solidity | claimOwner() | claimOwner | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Diamond: already claimed |
-| ERC-777 — Hooked Token | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Hooked: already claimed |
+| ERC-1155 — Multi-Token | solidity | claimDeployer() | claimDeployer | MultiToken: already claimed |
+| ERC-1967 — Upgradeable Contract (NEP-22 update) | solidity | claimOwner() | claimOwner | Upgradeable: already claimed |
+| ERC-5805 — Voting Token w/ Delegation | solidity | claimDeployer() | claimDeployer | Vote: already claimed |
+| ERC-2535 — Diamond (method-name router) | solidity | claimOwner() | claimOwner | Diamond: already claimed |
+| ERC-777 — Hooked Token | solidity | claimDeployer() | claimDeployer | Hooked: already claimed |
 | ERC-777 — Hooked Token | solidity | balanceOf(deployer) == 1000 | balanceOf | actual=8000 (raw type=Integer, value=8000), expected 1000 |
-| ERC-5114 — Soulbound Badge (parent-bound) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� ACHV: already claimed |
-| ERC-5484 — Consensual Soulbound (BurnAuth) | solidity | claimIssuer() | claimIssuer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� CSBT: already claimed |
-| ERC-2470 — Singleton Factory | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� Factory: already claimed |
-| ERC-2309 — Consecutive Batch-Mint NFT | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� BMNFT: already claimed |
-| ERC-4906 — Dynamic Metadata NFT | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� DMETA: already claimed |
-| ERC-7201 — Namespaced Storage Layout | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� NS: already claimed |
-| EIP-1153 — Transient Storage Reentrancy Guard | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� TG: already claimed |
+| ERC-5114 — Soulbound Badge (parent-bound) | solidity | claimDeployer() | claimDeployer | ACHV: already claimed |
+| ERC-5484 — Consensual Soulbound (BurnAuth) | solidity | claimIssuer() | claimIssuer | CSBT: already claimed |
+| ERC-2470 — Singleton Factory | solidity | claimDeployer() | claimDeployer | Factory: already claimed |
+| ERC-2309 — Consecutive Batch-Mint NFT | solidity | claimDeployer() | claimDeployer | BMNFT: already claimed |
+| ERC-4906 — Dynamic Metadata NFT | solidity | claimDeployer() | claimDeployer | DMETA: already claimed |
+| ERC-7201 — Namespaced Storage Layout | solidity | claimDeployer() | claimDeployer | NS: already claimed |
+| EIP-1153 — Transient Storage Reentrancy Guard | solidity | claimDeployer() | claimDeployer | TG: already claimed |
 | EIP-1153 — Transient Storage Reentrancy Guard | csharp | callsCompleted == 0 (initial) | callsCompleted | actual=6 (raw type=Integer, value=6), expected 0 |
-| EIP-3198 — BASEFEE Introspection | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� FeeAware: already claimed |
-| ERC-1014 — Deterministic Deploy (CREATE2) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� DF: already claimed |
-| EIP-191 — personal_sign Verifier | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� PS: already claimed |
-| ERC-2612 — Permit Token (off-chain authorization) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� PMT: already claimed |
-| ERC-4494 — Permit NFT (off-chain authorization) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� PNFT: already claimed |
-| ERC-7540 — Async Vault (request → claim) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� AV: already claimed |
-| ERC-7575 — Multi-Asset Vault | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� MAV: already claimed |
-| ERC-7579 — Modular Smart Account | solidity | claimOwner() | claimOwner | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� MA: already claimed |
-| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | solidity | claimOwner() | claimOwner | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� SA: already claimed |
-| ERC-6492 — Pre-Deploy Signature Verifier | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� PDS: already claimed |
-| EIP-712 — Typed-Data Verifier (domain separator) | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� TD: already claimed |
-| EIP-6780 — SELFDESTRUCT Nerf | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� SD: already claimed |
-| EIP-7702 — Set Code for EOAs | solidity | claimDeployer() | claimDeployer | Failed to get system fee. Error: Script execution failed. ExecutionEngine state = FAULT. An unhandled exception was thrown. �y� SC: already claimed |
+| EIP-3198 — BASEFEE Introspection | solidity | claimDeployer() | claimDeployer | FeeAware: already claimed |
+| ERC-1014 — Deterministic Deploy (CREATE2) | solidity | claimDeployer() | claimDeployer | DF: already claimed |
+| EIP-191 — personal_sign Verifier | solidity | claimDeployer() | claimDeployer | PS: already claimed |
+| ERC-2612 — Permit Token (off-chain authorization) | solidity | claimDeployer() | claimDeployer | PMT: already claimed |
+| ERC-4494 — Permit NFT (off-chain authorization) | solidity | claimDeployer() | claimDeployer | PNFT: already claimed |
+| ERC-7540 — Async Vault (request → claim) | solidity | claimDeployer() | claimDeployer | AV: already claimed |
+| ERC-7575 — Multi-Asset Vault | solidity | claimDeployer() | claimDeployer | MAV: already claimed |
+| ERC-7579 — Modular Smart Account | solidity | claimOwner() | claimOwner | MA: already claimed |
+| ERC-4337 — Smart Account (UserOp / NEP-30 Verify) | solidity | claimOwner() | claimOwner | SA: already claimed |
+| ERC-6492 — Pre-Deploy Signature Verifier | solidity | claimDeployer() | claimDeployer | PDS: already claimed |
+| EIP-712 — Typed-Data Verifier (domain separator) | solidity | claimDeployer() | claimDeployer | TD: already claimed |
+| EIP-6780 — SELFDESTRUCT Nerf | solidity | claimDeployer() | claimDeployer | SD: already claimed |
+| EIP-7702 — Set Code for EOAs | solidity | claimDeployer() | claimDeployer | SC: already claimed |
 
 ## Full Result Data
 

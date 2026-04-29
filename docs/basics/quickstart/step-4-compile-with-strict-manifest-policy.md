@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 4: Compile with Strict Manifest Policy"
-description: "Step 4: Compile with Strict Manifest Policy from Quick Start."
+title: "Quickstart: Step 4: Compile with Strict Manifest Policy"
+description: "Step 4: Compile with Strict Manifest Policy from Quickstart."
 ---
 
 # Step 4: Compile with Strict Manifest Policy
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 For production contracts, you should deny wildcard permissions. This ensures the manifest explicitly lists every contract and method your code calls:
 

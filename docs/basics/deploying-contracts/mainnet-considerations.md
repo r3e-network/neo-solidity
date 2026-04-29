@@ -1,11 +1,11 @@
 ---
-title: "Deploy Contracts: MainNet Considerations"
-description: "MainNet Considerations from Deploy Contracts."
+title: "Deploying Contracts: MainNet Considerations"
+description: "MainNet Considerations from Deploying Contracts."
 ---
 
 # MainNet Considerations
 
-[Back to Deploy Contracts](/basics/deploying-contracts)
+[Back to Deploying Contracts](/basics/deploying-contracts)
 
 Before deploying to MainNet:
 

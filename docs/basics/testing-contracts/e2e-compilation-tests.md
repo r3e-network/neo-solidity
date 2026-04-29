@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: E2E Compilation Tests"
-description: "E2E Compilation Tests from Test Contracts."
+title: "Testing Contracts: E2E Compilation Tests"
+description: "E2E Compilation Tests from Testing Contracts."
 ---
 
 # E2E Compilation Tests
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 The E2E test suite compiles every example contract through the full pipeline and validates the output:
 

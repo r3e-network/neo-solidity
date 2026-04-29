@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 2: Compile the Contract"
-description: "Step 2: Compile the Contract from Quick Start."
+title: "Quickstart: Step 2: Compile the Contract"
+description: "Step 2: Compile the Contract from Quickstart."
 ---
 
 # Step 2: Compile the Contract
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 ```bash
 ./target/release/neo-solc MyStorage.sol -I devpack -O2 -o build/MyStorage

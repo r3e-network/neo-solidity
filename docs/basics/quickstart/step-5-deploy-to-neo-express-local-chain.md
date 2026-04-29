@@ -1,11 +1,11 @@
 ---
-title: "Quick Start: Step 5: Deploy to Neo-Express (Local Chain)"
-description: "Step 5: Deploy to Neo-Express (Local Chain) from Quick Start."
+title: "Quickstart: Step 5: Deploy to Neo-Express (Local Chain)"
+description: "Step 5: Deploy to Neo-Express (Local Chain) from Quickstart."
 ---
 
 # Step 5: Deploy to Neo-Express (Local Chain)
 
-[Back to Quick Start](/basics/quickstart)
+[Back to Quickstart](/basics/quickstart)
 
 Neo-Express provides a local Neo N3 blockchain for testing. This section walks through a manual deployment.
 

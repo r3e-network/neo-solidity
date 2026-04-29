@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Unit Tests"
-description: "Unit Tests from Test Contracts."
+title: "Testing Contracts: Unit Tests"
+description: "Unit Tests from Testing Contracts."
 ---
 
 # Unit Tests
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 Unit tests cover individual compiler components in isolation. They live in `tests/` and inline `#[cfg(test)]` modules.
 

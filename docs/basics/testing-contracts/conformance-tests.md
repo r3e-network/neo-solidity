@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Conformance Tests"
-description: "Conformance Tests from Test Contracts."
+title: "Testing Contracts: Conformance Tests"
+description: "Conformance Tests from Testing Contracts."
 ---
 
 # Conformance Tests
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 Conformance tests compare compiler output against reference Neo N3 implementations:
 

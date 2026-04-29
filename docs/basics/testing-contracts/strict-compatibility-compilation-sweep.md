@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: Strict Compatibility Compilation Sweep"
-description: "Strict Compatibility Compilation Sweep from Test Contracts."
+title: "Testing Contracts: Strict Compatibility Compilation Sweep"
+description: "Strict Compatibility Compilation Sweep from Testing Contracts."
 ---
 
 # Strict Compatibility Compilation Sweep
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 This sweep compiles all devpack libraries and example contracts with strict settings to catch regressions:
 

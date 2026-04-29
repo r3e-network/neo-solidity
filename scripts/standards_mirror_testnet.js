@@ -624,8 +624,13 @@ function mdCell(value) {
   const text = String(value || '-')
     .replace(/\r?\n/g, ' ')
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\uFFFD/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  const alreadyClaimed = text.match(/([A-Za-z][A-Za-z0-9]*: already claimed)/);
+  if (alreadyClaimed) {
+    return alreadyClaimed[1].replace(/\|/g, '\\|');
+  }
   const clipped = text.length > 240 ? `${text.slice(0, 237)}...` : text;
   return clipped.replace(/\|/g, '\\|');
 }

@@ -1,11 +1,11 @@
 ---
-title: "Test Contracts: CI/CD Pipeline Setup"
-description: "CI/CD Pipeline Setup from Test Contracts."
+title: "Testing Contracts: CI/CD Pipeline Setup"
+description: "CI/CD Pipeline Setup from Testing Contracts."
 ---
 
 # CI/CD Pipeline Setup
 
-[Back to Test Contracts](/basics/testing-contracts)
+[Back to Testing Contracts](/basics/testing-contracts)
 
 ### Recommended CI Sequence
 
