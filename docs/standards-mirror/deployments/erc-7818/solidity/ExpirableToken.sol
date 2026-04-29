@@ -14,9 +14,14 @@ contract ExpirableToken {
     address public deployer;
     mapping(address => mapping(uint256 => uint256)) public balanceAtEpoch;
 
-    function setup(uint256 dur, uint256 retention) public {
-        require(deployer == address(0), "Expirable: already setup");
+    function claimDeployer() public {
+        require(deployer == address(0), "Expirable: already claimed");
         deployer = msg.sender;
+    }
+
+    function setup(uint256 dur, uint256 retention) public {
+        require(deployer != address(0), "Expirable: unclaimed");
+        require(msg.sender == deployer, "Expirable: deployer only");
         epochDuration = dur;
         retentionEpochs = retention;
     }

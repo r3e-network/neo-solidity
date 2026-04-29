@@ -64,7 +64,7 @@ data)`** with witness-based authorization, no approve/allowance in the core spec
 an `onNEP17Payment` callback that recipients implement to accept tokens.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
@@ -490,7 +490,7 @@ balance is debited and the recipient balance is credited. Re-entry into the toke
 contract during the callback cannot double-spend because state is already final.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -668,7 +668,7 @@ For a true multi-token use case in a single contract, the C# tab below shows a N
 of ERC-1155 — works, but composition is usually cleaner.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -869,14 +869,14 @@ across artist + label + platform are first-class — and adds an explicit
 `royaltyToken` parameter so royalties can be paid in GAS, NEO, or any NEP-17.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `NQhcPMzycbfy5h4ZBg7vrbAvioa41KdR6i` | `0xade57dfd9ad85fff8dca3845cf22206346468234` | [`0x36e5acd5…417ee5`](https://dora.coz.io/transaction/neo3/testnet/0x36e5acd55c1ebf99a425fae9f93e52385a0bf871e003f6c591de0c888e417ee5) |
 | **Neo C#** (`nccs`) | `NgTke4MQShakWQpPvskjqX1XEmpMF4EmSC` | `0xbf3fe7eb875750c81c2915d53123c380685a65e1` | (re-used) |
 
-Verified: `symbol`, `mint`, `setDefaultRoyalty` (Sol), `totalSupply` (C#).
+Checked-in snapshot verifies `symbol`, `mint`, royalty configuration, and `totalSupply`; the manifest now also asserts royalty amount calculation.
 [`docs/standards-mirror/deployments/erc-2981/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2981).
 :::
 
@@ -1029,7 +1029,7 @@ read NEP-11 still see the token list, while applications that care about value
 introspect via the SFT-specific methods.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash | Deploy Tx |
 | --- | --- | --- | --- |
@@ -1277,7 +1277,7 @@ instead of N events. Below is the Neo C# port. The event signature is named
 `ConsecutiveTransfer` and indexers can subscribe to it just as they would on Ethereum.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1447,7 +1447,7 @@ explicit notification when properties mutate. The Neo port emits the same events
 under the same names.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1583,22 +1583,22 @@ function DOMAIN_SEPARATOR()       external view returns (bytes32);
 
 ### Neo Equivalent: Witness Scopes
 
-Just like ERC-2612, the entire mechanism is unnecessary on Neo. The user signs a
+Just like ERC-2612, the Ethereum signature-parsing mechanism is unnecessary on Neo. The user signs a
 single transaction with `WitnessScope.CustomContracts` allowing the marketplace
-contract to call `Transfer` on the NFT. No permit method to write, no nonces, no
-domain separator, no signature parsing. The C# tab shows what the application code
-looks like — typically nothing at the contract level beyond standard NEP-11.
+contract to call `Transfer` on the NFT. No EIP-712 domain separator or signature
+recovery is needed. The mirror keeps a small `permit`/nonce method only to
+demonstrate replay protection side-by-side.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66` | (reused — see [`0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66`](https://dora.coz.io/contract/neo3/testnet/0xe683fa29d01521d99abfe15cb7e4b1f69ed47b66)) |
 | **Neo C#** (`nccs`) | `0xc705641088ed11e564c946bf8a9a1569a9cc9257` | (reused — see [`0xc705641088ed11e564c946bf8a9a1569a9cc9257`](https://dora.coz.io/contract/neo3/testnet/0xc705641088ed11e564c946bf8a9a1569a9cc9257)) |
 
-Cross-implementation invocations match on `nextId`. Source pairs under
+Checked-in snapshot matches on initial `nextId`; the manifest now also exercises mint plus per-token permit nonce. Source pairs under
 [`docs/standards-mirror/deployments/erc-4494/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-4494).
 :::
 
@@ -1751,14 +1751,14 @@ contract is even simpler than the Solidity version because the witness model
 naturally enforces who can lock/unlock.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `NQfv7FPi2BWZBnc3PGB9PggK72bJtZL9HH` | [`0x1b75ecb9…7f3c3034`](https://dora.coz.io/contract/neo3/testnet/0x1b75ecb9e926203e66283e3f875ba5097f3c3034) |
 | **Neo C#** (`nccs`) | `NPuqRsgHLPkRZsxEJgs3igKKhZE1nqHVL3` | [`0x7081fcf3…3c07da2b`](https://dora.coz.io/contract/neo3/testnet/0x7081fcf36db56a716b416ef553829ed23c07da2b) |
 
-Verified: token issued and locked (`locked(1) == true`). Soulbound check rejects transfer attempts.
+Checked-in snapshot verifies Solidity issue/locked behavior and the C# symbol; the manifest now also exercises C# issue/locked behavior.
 [`docs/standards-mirror/deployments/erc-5192/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-5192).
 :::
 
@@ -1934,7 +1934,7 @@ event Issued(address indexed from, address indexed to, uint256 indexed tokenId, 
 Standard Neo C# port — store per-token `burnAuth` and check it in the burn function.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -2288,7 +2288,7 @@ tokenId). The badge's effective owner is whoever owns the parent NFT; resolved o
 each query.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -2461,7 +2461,7 @@ consistently expressible in both Solidity (one `msg.sender` per call) and Neo C#
 aligned.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |

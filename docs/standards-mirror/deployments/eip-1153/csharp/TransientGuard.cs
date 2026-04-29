@@ -36,6 +36,7 @@ public class TransientGuard : SmartContract
 
     public static void GuardedCall()
     {
+        if (!Runtime.CheckWitness(GetDeployer())) throw new System.Exception("deployer only");
         ExecutionEngine.Assert(!IsLocked(), "re-entry blocked");
         Storage.Put(LockKey, 1);
         Storage.Put(CallsKey, CallsCompleted() + 1);

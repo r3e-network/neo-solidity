@@ -18,6 +18,7 @@ public class AsyncVault : SmartContract
     private static readonly byte[] DeployerKey = { 0xff };
     private static readonly byte[] DepositCountKey = { 0xfe };
     private static readonly byte[] RedeemCountKey = { 0xfd };
+    private static readonly byte[] ClaimedDepositCountKey = { 0xfc };
     private const byte Prefix_DepositOwner = 0x01;
     private const byte Prefix_DepositAssets = 0x02;
 
@@ -34,6 +35,13 @@ public class AsyncVault : SmartContract
     public static BigInteger PendingRedeemCount()
     {
         var raw = Storage.Get(RedeemCountKey);
+        return raw is null ? 0 : (BigInteger)raw;
+    }
+
+    [Safe]
+    public static BigInteger ClaimedDepositCount()
+    {
+        var raw = Storage.Get(ClaimedDepositCountKey);
         return raw is null ? 0 : (BigInteger)raw;
     }
 
@@ -61,6 +69,21 @@ public class AsyncVault : SmartContract
     {
         var raw = Storage.Get(Helper.Concat(new byte[] { Prefix_DepositAssets }, (ByteString)requestId.ToByteArray()));
         return raw is null ? 0 : (BigInteger)raw;
+    }
+
+    public static void ClaimDeposit(BigInteger requestId)
+    {
+        ByteString idKey = (ByteString)requestId.ToByteArray();
+        var ownerRaw = Storage.Get(Helper.Concat(new byte[] { Prefix_DepositOwner }, idKey));
+        if (ownerRaw is null) throw new System.Exception("no pending deposit");
+        var owner = (UInt160)ownerRaw;
+        if (!Runtime.CheckWitness(owner)) throw new System.Exception("owner must sign");
+
+        var assetsKey = Helper.Concat(new byte[] { Prefix_DepositAssets }, idKey);
+        var assetsRaw = Storage.Get(assetsKey);
+        if (assetsRaw is null || (BigInteger)assetsRaw == 0) throw new System.Exception("no pending deposit");
+        Storage.Delete(assetsKey);
+        Storage.Put(ClaimedDepositCountKey, ClaimedDepositCount() + 1);
     }
 
     public static void _deploy(object data, bool update)

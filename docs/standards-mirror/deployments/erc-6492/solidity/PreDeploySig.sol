@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title PreDeploySig — ERC-6492 pre-deploy signature verification, compiled to Neo N3.
+/// @title PreDeploySig — ERC-6492 pre-deploy signature marker, compiled to Neo N3.
 /// @notice ERC-6492 wraps signatures with magic bytes so verifiers can deploy the
 /// account on-the-fly before checking the signature, supporting counterfactual
 /// smart accounts. On Neo, contracts deployed via ContractManagement get their

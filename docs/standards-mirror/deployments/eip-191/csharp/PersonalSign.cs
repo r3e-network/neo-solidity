@@ -20,6 +20,8 @@ public class PersonalSign : SmartContract
 
     [Safe] public static UInt160 GetDeployer() => (UInt160)Storage.Get(DeployerKey);
 
+    [Safe] public static BigInteger PrefixLength() => 19;
+
     [Safe]
     public static ECPoint GetRegisteredPubKey()
     {

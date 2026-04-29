@@ -21,9 +21,14 @@ contract FlashLender {
     uint96  public feeBps;   // basis points, e.g. 9 = 0.09%
     address public owner;
 
-    function setup(address token_, uint96 fee_) public {
-        require(owner == address(0), "Lender: already set");
+    function claimOwner() public {
+        require(owner == address(0), "Lender: already claimed");
         owner = msg.sender;
+    }
+
+    function setup(address token_, uint96 fee_) public {
+        require(owner != address(0), "Lender: unclaimed");
+        require(msg.sender == owner, "Lender: owner only");
         token = token_;
         feeBps = fee_;
     }

@@ -97,6 +97,15 @@ public class RoyaltyNFT : Nep11Token<RoyaltyNFTState>
         return output;
     }
 
+    [Safe]
+    public static BigInteger RoyaltyAmount(ByteString tokenId, UInt160 royaltyToken, BigInteger salePrice)
+    {
+        var info = RoyaltyInfo(tokenId, royaltyToken, salePrice);
+        if (info.Length == 0) return 0;
+        var first = (object[])info[0];
+        return (BigInteger)first[1];
+    }
+
     public static void Update(ByteString nefFile, string manifest, object? data = null)
     {
         if (!IsOwner()) throw new System.Exception("owner only");

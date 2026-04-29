@@ -198,14 +198,14 @@ versioned by the network message version.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0x4e2300b8426b26eb8bbf57398a53ad810e313bf6` | [`0x3f88a613…63d867`](https://dora.coz.io/transaction/neo3/testnet/0x3f88a613436f0ed9e6674037787d841564e7b14e0acaaca29b0674310663d867) |
 | **Neo C#** (`nccs`) | `0xb600afb3c034ff11a3e25a26fa03b58e263d9cb8` | [`0x989908a1…c2ed1f`](https://dora.coz.io/transaction/neo3/testnet/0x989908a192be330bb6e5b642f1080c43b71be17e3528e42ccef320e4a2c2ed1f) |
 
-Cross-implementation invocations match on `neoTxVersion`, `evmDynamicFeeType`, `evmBlobType`. Source pairs under
+Checked-in snapshot matches on the EVM reference type constants; the manifest now also asserts Neo's `neoTxVersion` on both implementations. Source pairs under
 [`docs/standards-mirror/deployments/eip-2718/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-2718).
 :::
 
@@ -336,7 +336,7 @@ declares its storage prefixes via `Storage.Get/Put/Delete` call sites.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -462,7 +462,7 @@ nodes vote a change.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -565,7 +565,7 @@ included it from day one.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -671,7 +671,7 @@ Contract deployment cost on Neo scales linearly with NEF size via the network fe
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -959,7 +959,7 @@ are needed less often.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1125,7 +1125,7 @@ contract logic — there's no implicit sweep.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1266,14 +1266,14 @@ signature (the public key is in the witness script).
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9` | (reused — see [`0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9`](https://dora.coz.io/contract/neo3/testnet/0xd63ea34d63f0628c4cd413f58aa1c2623b1121d9)) |
 | **Neo C#** (`nccs`) | `0xb2701b6d89a734b5a865a1ec6c247466391c4eee` | (reused — see [`0xb2701b6d89a734b5a865a1ec6c247466391c4eee`](https://dora.coz.io/contract/neo3/testnet/0xb2701b6d89a734b5a865a1ec6c247466391c4eee)) |
 
-Cross-implementation invocations match on `compactSize`, `legacySize`. Source pairs under
+Cross-implementation invocations match on `compactSize` and `legacySize`; the C# port also exposes Neo's native 64-byte signature verifier. Source pairs under
 [`docs/standards-mirror/deployments/eip-2098/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-2098).
 :::
 

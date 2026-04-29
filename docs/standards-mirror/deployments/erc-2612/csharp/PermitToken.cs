@@ -30,7 +30,7 @@ public class PermitToken : SmartContract
     /// On Neo, the holder authorizes by signing the transaction (witness scope),
     /// not by signing an off-chain message. We just bump the nonce so a stale
     /// permit cannot be replayed.
-    public static void Permit(UInt160 holder)
+    public static void Permit(UInt160 holder, BigInteger amount)
     {
         if (!Runtime.CheckWitness(holder)) throw new System.Exception("holder must sign");
         Storage.Put(Helper.Concat(new byte[] { Prefix_Nonce }, holder), NonceOf(holder) + 1);

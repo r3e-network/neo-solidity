@@ -72,7 +72,8 @@
         "tests": [
           { "name": "symbol == DSOLROY", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44534f4c524f59" } },
           { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
-          { "name": "setDefaultRoyalty(deployer, 500)", "kind": "write", "operation": "setDefaultRoyalty", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 500] }
+          { "name": "setDefaultRoyalty(deployer, 500)", "kind": "write", "operation": "setDefaultRoyalty", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 500] },
+          { "name": "royaltyAmount(1, 10000) == 500", "kind": "read", "operation": "royaltyAmount", "args": [1, 10000], "expect": { "type": "Integer", "value": "500" } }
         ]
       },
       "csharp": {
@@ -81,7 +82,8 @@
         "tests": [
           { "name": "symbol == DCSHROY", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "44435348524f59" } },
           { "name": "mint(deployer, ...)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, "T1", "Royalty mirror"] },
-          { "name": "totalSupply >= 1", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "1" } }
+          { "name": "totalSupply >= 1", "kind": "read", "operation": "totalSupply", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "royaltyAmount(0x01, GAS, 10000) == 500", "kind": "read", "operation": "royaltyAmount", "args": [{ "type": "ByteArray", "value": "0x01" }, { "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 10000], "expect": { "type": "Integer", "value": "500" } }
         ]
       }
     },
@@ -195,14 +197,22 @@
         "deployData": [],
         "clearSupportedStandards": true,
         "tests": [
-          { "name": "ownerCount == 0 (pre-setup)", "kind": "read", "operation": "ownerCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "ownerCount == 0 (pre-setup)", "kind": "read", "operation": "ownerCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "setup([deployer], 1)", "kind": "write", "operation": "setup", "args": [[{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], 1] },
+          { "name": "ownerCount == 1", "kind": "read", "operation": "ownerCount", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "threshold == 1", "kind": "read", "operation": "threshold", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "isOwner(deployer) == true", "kind": "read", "operation": "isOwner", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Boolean", "value": true } }
         ]
       },
       "csharp": {
         "csproj": "erc-1271/csharp/MultiSig.csproj",
         "deployData": null,
         "tests": [
-          { "name": "threshold == 0 (pre-setup)", "kind": "read", "operation": "threshold", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "threshold == 0 (pre-setup)", "kind": "read", "operation": "threshold", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "setup([deployer], 1)", "kind": "write", "operation": "setup", "args": [[{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], 1] },
+          { "name": "threshold == 1", "kind": "read", "operation": "threshold", "args": [], "expect": { "type": "Integer", "value": "1" } },
+          { "name": "isOwner(deployer) == true", "kind": "read", "operation": "isOwner", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Boolean", "value": true } }
         ]
       }
     },
@@ -227,7 +237,9 @@
         "csproj": "erc-5192/csharp/SoulboundCert.csproj",
         "deployData": null,
         "tests": [
-          { "name": "symbol == SBC", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "534243" } }
+          { "name": "symbol == SBC", "kind": "read", "operation": "symbol", "args": [], "expect": { "type": "ByteString", "value": "534243" } },
+          { "name": "issue(deployer, soulbound=true)", "kind": "write", "operation": "issue", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, true] },
+          { "name": "locked(0x01) == true", "kind": "read", "operation": "locked", "args": [{ "type": "ByteArray", "value": "0x01" }], "expect": { "type": "Boolean", "value": true } }
         ]
       }
     },
@@ -251,7 +263,8 @@
         "csproj": "erc-2771/csharp/TrustedForwarder.csproj",
         "deployData": null,
         "tests": [
-          { "name": "getNonce(deployer) == 0", "kind": "read", "operation": "getNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "getNonce(deployer) == 0", "kind": "read", "operation": "getNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "bumpNonce(deployer)", "kind": "write", "operation": "bumpNonce", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] }
         ]
       }
     },
@@ -568,7 +581,8 @@
         "deployData": null,
         "tests": [
           { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
-          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] }
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "transfer(deployer, 0x01) — owner-as-required", "kind": "write", "operation": "transfer", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, { "type": "ByteArray", "value": "0x01" }] }
         ]
       }
     },
@@ -774,7 +788,7 @@
 
     {
       "id": "eip-191",
-      "title": "EIP-191 — personal_sign Verifier",
+      "title": "EIP-191 — personal_sign Prefix",
       "docEntry": "/standards-mirror/account-and-auth#eip-191",
       "solidity": {
         "source": "eip-191/solidity/PersonalSign.sol",
@@ -783,14 +797,16 @@
         "deployData": [],
         "clearSupportedStandards": true,
         "tests": [
-          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "prefixLength == 19", "kind": "read", "operation": "prefixLength", "args": [], "expect": { "type": "Integer", "value": "19" } }
         ]
       },
       "csharp": {
         "csproj": "eip-191/csharp/PersonalSign.csproj",
         "deployData": null,
         "tests": [
-          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } }
+          { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
+          { "name": "prefixLength == 19", "kind": "read", "operation": "prefixLength", "args": [], "expect": { "type": "Integer", "value": "19" } }
         ]
       }
     },
@@ -807,7 +823,9 @@
         "clearSupportedStandards": true,
         "tests": [
           { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
-          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "permit(deployer, 1)", "kind": "write", "operation": "permit", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1] },
+          { "name": "nonceOf(deployer) == 1", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "1" } }
         ]
       },
       "csharp": {
@@ -815,7 +833,9 @@
         "deployData": null,
         "tests": [
           { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
-          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "nonceOf(deployer) == 0", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "permit(deployer, 1)", "kind": "write", "operation": "permit", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }, 1] },
+          { "name": "nonceOf(deployer) == 1", "kind": "read", "operation": "nonceOf", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }], "expect": { "type": "Integer", "value": "1" } }
         ]
       }
     },
@@ -832,7 +852,10 @@
         "clearSupportedStandards": true,
         "tests": [
           { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
-          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "permit(1)", "kind": "write", "operation": "permit", "args": [1] },
+          { "name": "nonceOf(1) == 1", "kind": "read", "operation": "nonceOf", "args": [1], "expect": { "type": "Integer", "value": "1" } }
         ]
       },
       "csharp": {
@@ -840,7 +863,10 @@
         "deployData": null,
         "tests": [
           { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
-          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "nextId == 0 (pre-mint)", "kind": "read", "operation": "nextId", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "mint(deployer)", "kind": "write", "operation": "mint", "args": [{ "type": "Hash160", "value": "$DEPLOYER_ADDRESS" }] },
+          { "name": "permit(1)", "kind": "write", "operation": "permit", "args": [1] },
+          { "name": "nonceOf(1) == 1", "kind": "read", "operation": "nonceOf", "args": [1], "expect": { "type": "Integer", "value": "1" } }
         ]
       }
     },
@@ -858,7 +884,11 @@
         "tests": [
           { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
           { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
-          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "requestDeposit(100)", "kind": "write", "operation": "requestDeposit", "args": [100] },
+          { "name": "pendingDepositRequest(1) == 100", "kind": "read", "operation": "pendingDepositRequest", "args": [1], "expect": { "type": "Integer", "value": "100" } },
+          { "name": "claimDeposit(1)", "kind": "write", "operation": "claimDeposit", "args": [1] },
+          { "name": "claimedDepositCount == 1", "kind": "read", "operation": "claimedDepositCount", "args": [], "expect": { "type": "Integer", "value": "1" } }
         ]
       },
       "csharp": {
@@ -867,7 +897,11 @@
         "tests": [
           { "name": "getDeployer == deployer", "kind": "read", "operation": "getDeployer", "args": [], "expect": { "type": "Hash160", "value": "$DEPLOYER_ADDRESS_HEX" } },
           { "name": "pendingDepositCount == 0 (initial)", "kind": "read", "operation": "pendingDepositCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
-          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } }
+          { "name": "pendingRedeemCount == 0 (initial)", "kind": "read", "operation": "pendingRedeemCount", "args": [], "expect": { "type": "Integer", "value": "0" } },
+          { "name": "requestDeposit(100)", "kind": "write", "operation": "requestDeposit", "args": [100] },
+          { "name": "pendingDepositRequest(1) == 100", "kind": "read", "operation": "pendingDepositRequest", "args": [1], "expect": { "type": "Integer", "value": "100" } },
+          { "name": "claimDeposit(1)", "kind": "write", "operation": "claimDeposit", "args": [1] },
+          { "name": "claimedDepositCount == 1", "kind": "read", "operation": "claimedDepositCount", "args": [], "expect": { "type": "Integer", "value": "1" } }
         ]
       }
     },
@@ -949,7 +983,7 @@
 
     {
       "id": "erc-6492",
-      "title": "ERC-6492 — Pre-Deploy Signature Verifier",
+      "title": "ERC-6492 — Pre-Deploy Signature Marker",
       "docEntry": "/standards-mirror/account-and-auth#erc-6492",
       "solidity": {
         "source": "erc-6492/solidity/PreDeploySig.sol",
@@ -974,7 +1008,7 @@
 
     {
       "id": "eip-712",
-      "title": "EIP-712 — Typed-Data Verifier (domain separator)",
+      "title": "EIP-712 — Typed-Data Domain Separator",
       "docEntry": "/standards-mirror/account-and-auth#eip-712",
       "solidity": {
         "source": "eip-712/solidity/TypedData.sol",
@@ -983,7 +1017,8 @@
         "deployData": [],
         "clearSupportedStandards": true,
         "tests": [
-          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] }
+          { "name": "claimDeployer()", "kind": "write", "operation": "claimDeployer", "args": [] },
+          { "name": "getDomainSeparator (32 bytes)", "kind": "read", "operation": "getDomainSeparator", "args": [], "expect": { "type": "ByteString", "value": "47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218" } }
         ]
       },
       "csharp": {
@@ -998,7 +1033,7 @@
 
     {
       "id": "eip-2098",
-      "title": "EIP-2098 — Compact Signature Verifier",
+      "title": "EIP-2098 — Compact Signature Format",
       "docEntry": "/standards-mirror/protocol-eips#eip-2098",
       "solidity": {
         "source": "eip-2098/solidity/CompactSig.sol",
@@ -1041,6 +1076,7 @@
         "csproj": "eip-2718/csharp/TypedTx.csproj",
         "deployData": null,
         "tests": [
+          { "name": "neoTxVersion == 0", "kind": "read", "operation": "neoTxVersion", "args": [], "expect": { "type": "Integer", "value": "0" } },
           { "name": "evmDynamicFeeType == 2", "kind": "read", "operation": "evmDynamicFeeType", "args": [], "expect": { "type": "Integer", "value": "2" } },
           { "name": "evmBlobType == 3", "kind": "read", "operation": "evmBlobType", "args": [], "expect": { "type": "Integer", "value": "3" } }
         ]

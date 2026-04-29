@@ -12,7 +12,8 @@ contract Ownable {
     }
 
     function transferOwnership(address newOwner) public {
-        require(msg.sender == ownerAddress || ownerAddress == address(0), "Ownable: not owner");
+        require(ownerAddress != address(0), "Ownable: unclaimed");
+        require(msg.sender == ownerAddress, "Ownable: not owner");
         require(newOwner != address(0), "Ownable: zero owner");
         pendingOwner = newOwner;
     }
@@ -24,6 +25,7 @@ contract Ownable {
     }
 
     /// First call sets the owner (since constructor msg.sender is ManagementContract on Neo).
+    /// The deployment runner claims immediately; manual deploys must do the same.
     function claimOwnership() public {
         require(ownerAddress == address(0), "Ownable: already claimed");
         ownerAddress = msg.sender;

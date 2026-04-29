@@ -50,7 +50,7 @@ automatically based on method signature analysis.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -190,7 +190,7 @@ shows a minimal version — typically deployed once by an ecosystem and called b
 participating contracts.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -367,7 +367,7 @@ changes — every reference, every NEP-17 holder, every NFT, every approval cont
 to work.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -546,7 +546,7 @@ implementable on Neo via a small dispatcher contract that routes by method name 
 the correct facet contract.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -736,7 +736,7 @@ just demonstrates the canonical Neo idiom.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -891,7 +891,7 @@ counterfactual flows. The Neo C# tab shows a factory pattern.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1035,7 +1035,7 @@ For multi-chain projects (e.g. a deploy bot deploying the same contract to multi
 Neo networks), the script hash is the same on each.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1163,7 +1163,7 @@ Solidity version, it's pay-per-use: the registry charges no fee beyond the stora
 cost of the identity records, and the witness model handles authorisation.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -1350,7 +1350,7 @@ script hashes and dispatches.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1557,14 +1557,14 @@ user genuinely signed the transaction; the relayer is a separate witness paying
 gas. No forwarder, no `_msgSender()` wrapper, no calldata munging.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `NfiyLrGXijAAHiwq1LUGu69K92ybMu4ZS4` | [`0x6653a8da…2c124ed9`](https://dora.coz.io/contract/neo3/testnet/0x6653a8da9bac7b622987670d97bf740c2c124ed9) |
 | **Neo C#** (`nccs`) | `NLq6WUsRv4FAtxrqhwtTNxTeSgxAWYhG8P` | [`0x1463ad54…a6280c0a`](https://dora.coz.io/contract/neo3/testnet/0x1463ad54cf6a8fc7c0ffe3740ad1cf04a6280c0a) |
 
-Verified: `getNonce(deployer) == 0` initially, `bumpNonce` increments it. The C# port uses the witness model — no separate signature verification needed.
+Checked-in snapshot verifies `getNonce(deployer) == 0`; the manifest now also exercises `bumpNonce` on both implementations. The C# port exposes named-method forwarding through Neo's witness model.
 [`docs/standards-mirror/deployments/erc-2771/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2771).
 :::
 

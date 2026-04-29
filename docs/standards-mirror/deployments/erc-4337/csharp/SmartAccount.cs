@@ -41,11 +41,11 @@ public class SmartAccount : SmartContract
         Storage.Put(PubKeyKey, pubKey);
     }
 
-    /// Equivalent to validateUserOp + execute. Caller proves ownership of the
-    /// account by supplying a signature over the userOpHash that verifies against
-    /// the registered pubKey.
+    /// Equivalent to validateUserOp + execute. The owner witness authorizes the
+    /// nonce mutation; the registered pubKey verifies the supplied userOp hash.
     public static bool ValidateAndBumpNonce(ByteString userOpHash, ByteString signature)
     {
+        if (!Runtime.CheckWitness(GetOwner())) throw new System.Exception("owner only");
         var pubKey = GetPubKey();
         if (pubKey is null) return false;
         if (!CryptoLib.VerifyWithECDsa(userOpHash, pubKey, signature, NamedCurveHash.secp256r1SHA256))

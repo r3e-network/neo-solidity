@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title CompactSig — EIP-2098 compact signature verifier, compiled to Neo N3.
+/// @title CompactSig — EIP-2098 compact signature format mirror, compiled to Neo N3.
 /// @notice EIP-2098 packs (r, s, v) into a 64-byte form by encoding the y-parity
 /// bit into the top bit of s. On Neo, secp256r1 signatures are already 64 bytes
-/// (r || s) — no v / parity overhead. This contract just exposes the size constant
-/// and a verification helper.
+/// (r || s) — no v / parity overhead. This contract exposes the comparable size
+/// constants; the C# port contains the native 64-byte verification helper.
 contract CompactSig {
     string public buildTag = "compact-sig-v1";
     uint256 public constant COMPACT_SIG_SIZE = 64;

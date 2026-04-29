@@ -10,10 +10,15 @@ contract MultiSig {
     uint256 public threshold;
     address public deployer;
 
-    function setup(address[] memory owners_, uint256 threshold_) public {
-        require(deployer == address(0), "MultiSig: already setup");
-        require(owners_.length > 0 && threshold_ > 0 && threshold_ <= owners_.length, "MultiSig: bad params");
+    function claimDeployer() public {
+        require(deployer == address(0), "MultiSig: already claimed");
         deployer = msg.sender;
+    }
+
+    function setup(address[] memory owners_, uint256 threshold_) public {
+        require(deployer != address(0), "MultiSig: unclaimed");
+        require(msg.sender == deployer, "MultiSig: admin only");
+        require(owners_.length > 0 && threshold_ > 0 && threshold_ <= owners_.length, "MultiSig: bad params");
         owners = owners_;
         threshold = threshold_;
     }
@@ -25,12 +30,24 @@ contract MultiSig {
 
     function ownerCount() public view returns (uint256) { return owners.length; }
 
-    /// Stub isValidSignature — returns MAGIC iff the (address) recovered (off-chain
-    /// in a real impl) matches an owner. Demo: returns MAGIC iff caller is an owner.
-    function isValidSignature(bytes32 /*hash*/, bytes memory /*sig*/)
+    /// ERC-1271 isValidSignature — returns MAGIC iff the ECDSA signer is one of
+    /// the configured owners.
+    function isValidSignature(bytes32 hash, bytes memory sig)
         public view returns (bytes4)
     {
-        if (isOwner(msg.sender)) return MAGIC;
+        if (sig.length != 65) return 0xffffffff;
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(sig, 32))
+            s := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
+        if (v < 27) v += 27;
+        address signer = ecrecover(hash, v, r, s);
+        if (signer != address(0) && isOwner(signer)) return MAGIC;
         return 0xffffffff;
     }
 }

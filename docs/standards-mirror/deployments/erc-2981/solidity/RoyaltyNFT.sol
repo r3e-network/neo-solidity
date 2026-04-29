@@ -56,4 +56,9 @@ contract RoyaltyNFT {
             : defaultRoyalty;
         return (r.receiver, (salePrice * r.basisPoints) / 10_000);
     }
+
+    function royaltyAmount(uint256 tokenId, uint256 salePrice) public view returns (uint256) {
+        (, uint256 amount) = royaltyInfo(tokenId, salePrice);
+        return amount;
+    }
 }

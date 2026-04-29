@@ -24,6 +24,12 @@ public class TrustedForwarder : SmartContract
         return raw is null ? 0 : (BigInteger)raw;
     }
 
+    public static void BumpNonce(UInt160 signer)
+    {
+        if (!Runtime.CheckWitness(signer)) throw new System.Exception("signer must sign");
+        Storage.Put(Helper.Concat(new byte[] { Prefix_Nonce }, signer), GetNonce(signer) + 1);
+    }
+
     /// Forwards a call from `signer` to `target.method(args...)`. The signer
     /// must have signed the transaction (Runtime.CheckWitness gates this);
     /// Neo's witness model gives us native meta-tx without a separate

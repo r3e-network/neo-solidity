@@ -71,7 +71,7 @@ public class VotingToken : SmartContract
 
     public static void Delegate(UInt160 delegatee)
     {
-        var caller = Runtime.CallingScriptHash;
+        var caller = Runtime.Transaction.Sender;
         if (!Runtime.CheckWitness(caller)) throw new System.Exception("must sign");
 
         var current = DelegateOf(caller);

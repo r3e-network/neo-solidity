@@ -82,10 +82,10 @@ fewer footguns and lower gas.
 
 ## Live on TestNet
 
-**Forty-seven standards** in this mirror are deployed and behavior-verified on Neo N3
-TestNet (network magic `894710606`) in both implementations side-by-side. The same
-invocation matrix runs against the Solidity (compiled with `neo-solc`) and the Neo
-C# (compiled with `nccs`) versions, asserting equivalent return values.
+**Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
+deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
+runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
+`nccs`) versions, recording pass/fail assertion results for both implementations.
 
 | Standard | Solidity | Neo C# |
 |---|---|---|
@@ -137,10 +137,13 @@ C# (compiled with `nccs`) versions, asserting equivalent return values.
 | **EIP-6780** SelfDestruct | [67a59c17…930](https://dora.coz.io/contract/neo3/testnet/0x67a59c179448a3769d5559a691a4c118c7de9930) | [8acf52e9…f8eb](https://dora.coz.io/contract/neo3/testnet/0x8acf52e9a1f696965480cd40046c9c3de020f8eb) |
 | **EIP-7702** SetCode | [b156b370…751](https://dora.coz.io/contract/neo3/testnet/0xb156b370b4ad897caf955e38fffa637195438751) | [158d0d7f…bfd](https://dora.coz.io/contract/neo3/testnet/0x158d0d7fdf17d71b6e733997cd74b68f0d1c3bfd) |
 
-**Total: 146 / 182 cross-implementation assertions pass** across 47 pairs (23/24 on
-the latest 6 protocol-EIP demos in v0.22.0; 28/28 fresh-state on v0.21.0; the
-remaining fails are stale-state mismatches on re-runs). Every fresh deploy passes
-100%.
+**Checked-in TestNet snapshot: 147 / 183 assertions pass** across 47 deployed
+pairs. The full pass/fail matrix is in
+[`results.json`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/results.json)
+and
+[`RESULTS.md`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/RESULTS.md).
+The deploy runner now exits non-zero when any compile, deploy, liveness, or
+assertion check fails.
 
 ### What about the other catalog entries?
 

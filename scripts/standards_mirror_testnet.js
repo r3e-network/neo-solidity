@@ -220,10 +220,16 @@ function toContractParam(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const t = String(value.type || '').toLowerCase();
     if (t === 'hash160') return sc.ContractParam.hash160(String(value.value));
+    if (t === 'publickey') return sc.ContractParam.publicKey(String(value.value));
     if (t === 'integer') return sc.ContractParam.integer(String(value.value));
     if (t === 'boolean') return sc.ContractParam.boolean(Boolean(value.value));
     if (t === 'string') return sc.ContractParam.string(String(value.value));
-    if (t === 'bytearray') return sc.ContractParam.byteArray(String(value.value));
+    if (t === 'bytearray') {
+      const raw = String(value.value);
+      return raw.startsWith('0x')
+        ? sc.ContractParam.byteArray(u.HexString.fromHex(strip0x(raw)))
+        : sc.ContractParam.byteArray(raw);
+    }
   }
   if (Array.isArray(value)) return sc.ContractParam.array(...value.map(toContractParam));
   if (typeof value === 'number') return sc.ContractParam.integer(value);
@@ -371,10 +377,23 @@ async function deployAndTest({ tag, compile, deployData, tests, pair, ctx, clien
   }
 
   const contractAddress = wallet.getAddressFromScriptHash(contractHashHex);
-  await waitForContract(client, contractHashHex);
+  try {
+    await waitForContract(client, contractHashHex);
+  } catch (e) {
+    return {
+      status: 'liveness-fail',
+      reason: String(e.message || e),
+      contractHash: contractHashHex,
+      contractAddress,
+      deployTx,
+      reused,
+      tests: []
+    };
+  }
   const testResults = await runTests(pair.id, tag, ctx, client, account, networkConfig, contractHashHex, tests || []);
+  const failedTests = testResults.filter((t) => t.status !== 'pass').length;
   return {
-    status: 'deployed',
+    status: failedTests === 0 ? 'deployed' : 'test-fail',
     contractHash: contractHashHex,
     contractAddress,
     deployTx,
@@ -432,6 +451,24 @@ async function runTests(pairId, kind, ctx, client, account, networkConfig, contr
   return results;
 }
 
+function collectFailures(out) {
+  const failures = [];
+  for (const pair of out.pairs) {
+    for (const which of ['solidity', 'csharp']) {
+      const result = pair[which] || {};
+      if (result.status && result.status !== 'deployed') {
+        failures.push(`${pair.id}/${which}: ${result.status}${result.reason ? ` (${result.reason})` : ''}`);
+      }
+      for (const test of result.tests || []) {
+        if (test.status !== 'pass') {
+          failures.push(`${pair.id}/${which}/${test.name || test.operation}: ${test.reason || test.vmstate || 'failed'}`);
+        }
+      }
+    }
+  }
+  return failures;
+}
+
 async function main() {
   if (!WIF) throw new Error('NEO_TESTNET_WIF required');
   if (!fs.existsSync(NEO_SOLC)) {
@@ -463,7 +500,8 @@ async function main() {
 
   const ctx = {
     DEPLOYER_ADDRESS: account.address,
-    DEPLOYER_ADDRESS_HEX: account.scriptHash // little-endian hex
+    DEPLOYER_ADDRESS_HEX: account.scriptHash, // little-endian hex
+    DEPLOYER_PUBLIC_KEY: account.publicKey
   };
 
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
@@ -505,6 +543,13 @@ async function main() {
   const md = renderMarkdown(out);
   fs.writeFileSync(RESULTS_MD, md);
   process.stdout.write(`\nWrote ${RESULTS_JSON}\nWrote ${RESULTS_MD}\n`);
+
+  const failures = collectFailures(out);
+  if (failures.length > 0) {
+    process.stderr.write(`\n${failures.length} deployment/assertion failure(s):\n`);
+    for (const f of failures) process.stderr.write(`- ${f}\n`);
+    process.exitCode = 1;
+  }
 }
 
 function renderMarkdown(out) {
@@ -523,8 +568,9 @@ function renderMarkdown(out) {
       const r = p[which];
       const passed = (r.tests || []).filter((t) => t.status === 'pass').length;
       const total = (r.tests || []).length;
+      const status = r.status || '-';
       lines.push(
-        `| ${p.title} | ${which} | \`${r.contractAddress || '-'}\` | \`${r.deployTx || '-'}\` | ${passed}/${total} |`
+        `| ${p.title} | ${which} | \`${r.contractAddress || '-'}\` | \`${r.deployTx || '-'}\` | ${passed}/${total} (${status}) |`
       );
     }
   }
@@ -538,6 +584,7 @@ function renderMarkdown(out) {
       lines.push(`- Contract address: \`${r.contractAddress || '-'}\``);
       lines.push(`- Contract hash: \`${r.contractHash || '-'}\``);
       lines.push(`- Deploy tx: \`${r.deployTx || '-'}\``);
+      lines.push(`- Status: \`${r.status || '-'}\``);
       if (r.reason) lines.push(`- Failure: \`${r.reason}\``);
       for (const t of r.tests || []) {
         const mark = t.status === 'pass' ? '✅' : '❌';

@@ -3,12 +3,11 @@
 > **Queue empty.** All 23 originally-deferred entries shipped across v0.19.0 (8) /
 > v0.20.0 (8) / v0.21.0 (7). The recurring weekly agent has been retired.
 >
-> The mirror's TestNet matrix now covers **41 deployable standards**. The only
-> catalog entries without a live contract pair are the 8 protocol EIPs whose only
-> sensible demonstration is the protocol itself (EIP-1559 fee market, EIP-2718
-> typed-tx envelope, EIP-2930 access lists, EIP-3855 PUSH0, EIP-3860 initcode
-> size, EIP-4844 blobs, EIP-6780 selfdestruct nerf, EIP-7702 set-code-for-EOAs).
-> Those stay prose-only because there's nothing to deploy.
+> The mirror's TestNet matrix now covers **47 deployable standards**. The only
+> catalog entries without a live contract pair are the 2 protocol EIPs whose only
+> sensible demonstration is the protocol itself: EIP-1559 (fee-market base-fee
+> auction) and EIP-4844 (blob transactions). Those stay prose-only because Neo has
+> no matching observable contract surface.
 
 ## Shipped log
 
@@ -16,8 +15,9 @@
   ERC-2470, ERC-2309, ERC-4906
 - **v0.20.0** (PR #11): ERC-165, ERC-7201, EIP-1153, EIP-3198, ERC-1014, EIP-191,
   ERC-2612, ERC-4494
-- **v0.21.0** (this PR): ERC-7540, ERC-7575, ERC-7579, ERC-4337, ERC-6492,
+- **v0.21.0**: ERC-7540, ERC-7575, ERC-7579, ERC-4337, ERC-6492,
   EIP-712, EIP-2098
+- **v0.22.0**: EIP-2718, EIP-2930, EIP-3855, EIP-3860, EIP-6780, EIP-7702
 
 ## Compile guardrails (kept for future contract authors)
 
@@ -33,8 +33,11 @@ contracts must respect them or they fault on real Neo nodes:
   statically-known method names. Use named-method invocation patterns instead.
 - **`msg.sender` at constructor time on Neo is the ManagementContract**, not the
   deploying user. Use a `claimOwner()` / `claimIssuer()` post-deploy pattern in
-  Solidity. PR #6's `msg.sender` fix routes to `Transaction.Sender` for the
-  ContractManagement caller, but constructor-time identity is still risky.
+  Solidity. The deploy runner must invoke the claim in the same deployment flow;
+  manual deploys that leave a claimable owner unset allow the first post-deploy
+  caller to seize that role. PR #6's `msg.sender` fix routes to
+  `Transaction.Sender` for the ContractManagement caller, but constructor-time
+  identity is still risky.
 - **Neo C# `(ByteString)str` for string→ByteString**, never
   `Encoding.UTF8.GetBytes` (nccs rejects).
 - **Use `Runtime.Transaction.Sender` at deploy time** in C#, not

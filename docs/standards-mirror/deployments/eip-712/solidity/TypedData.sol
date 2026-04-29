@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title TypedData — EIP-712 typed-data verifier, compiled to Neo N3.
+/// @title TypedData — EIP-712 domain-separator mirror, compiled to Neo N3.
 /// @notice EIP-712 hashes a domain separator + struct hash, then verifies a
 /// secp256k1 signature over the digest. On Neo, the canonical form is
-/// CryptoLib.VerifyWithECDsa over an arbitrary digest. This contract stores a
-/// fixed domain hash and exposes the digest construction.
+/// CryptoLib.VerifyWithECDsa over an arbitrary digest. This Solidity-side demo
+/// exposes the fixed domain hash; the C# port contains the native signature
+/// verification helper.
 contract TypedData {
     string public buildTag = "typed-data-v1";
     bytes32 public constant DOMAIN_SEPARATOR =

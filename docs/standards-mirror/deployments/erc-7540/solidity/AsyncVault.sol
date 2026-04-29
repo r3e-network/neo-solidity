@@ -14,6 +14,7 @@ contract AsyncVault {
     address public deployer;
     uint256 public pendingDepositCount;
     uint256 public pendingRedeemCount;
+    uint256 public claimedDepositCount;
     mapping(uint256 => address) public depositOwner;
     mapping(uint256 => uint256) public depositAssets;
 
@@ -34,5 +35,12 @@ contract AsyncVault {
 
     function pendingDepositRequest(uint256 requestId) public view returns (uint256) {
         return depositAssets[requestId];
+    }
+
+    function claimDeposit(uint256 requestId) public {
+        require(depositOwner[requestId] == msg.sender, "AV: not request owner");
+        require(depositAssets[requestId] != 0, "AV: no pending deposit");
+        delete depositAssets[requestId];
+        claimedDepositCount += 1;
     }
 }

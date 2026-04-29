@@ -60,7 +60,7 @@ directly to the vault — no separate `approve` + `deposit` dance needed. Single
 transaction UX is built in.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -295,7 +295,7 @@ Neo flash loans work identically — atomic transactions ensure repay-or-revert.
 transfers and a callback method name `onFlashLoan` that borrowers implement.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -515,19 +515,20 @@ manages requests on behalf of the depositor.
 
 ### Neo Equivalent
 
-The Neo port stores pending requests in a per-user mapping, lets a designated
-operator process batches, and tracks fulfilled requests for claim-time math.
+The Neo port stores pending requests in a per-user mapping and exposes the same
+request-then-claim flow as the Solidity demo. Production vaults can add operator
+batching on top of this request ledger.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0xd8838ba126e5a77727c673215782aec59f465b41` | (reused — see [`0xd8838ba126e5a77727c673215782aec59f465b41`](https://dora.coz.io/contract/neo3/testnet/0xd8838ba126e5a77727c673215782aec59f465b41)) |
 | **Neo C#** (`nccs`) | `0xc2137b33423fdda8ce5a240e7feec8db2c4b626e` | (reused — see [`0xc2137b33423fdda8ce5a240e7feec8db2c4b626e`](https://dora.coz.io/contract/neo3/testnet/0xc2137b33423fdda8ce5a240e7feec8db2c4b626e)) |
 
-Cross-implementation invocations match on `pendingDepositCount`. Source pairs under
+Checked-in snapshot matches on initial counts; the manifest now also exercises request recording, pending deposit amount, and claim count. Source pairs under
 [`docs/standards-mirror/deployments/erc-7540/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-7540).
 :::
 
@@ -758,7 +759,7 @@ exchange-rate oracle (or constant ratio for basket vaults).
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -925,7 +926,7 @@ them at vote time using binary search. Same flash-loan-resistance property,
 implemented identically.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -1141,7 +1142,7 @@ The Neo C# port simply exposes both methods, returning `Ledger.CurrentIndex` (bl
 number) or `Runtime.Time` (millisecond timestamp).
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -1251,7 +1252,7 @@ lots are skipped; expired balance is effectively burned. Epochs are derived from
 `Runtime.Time / duration`.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |

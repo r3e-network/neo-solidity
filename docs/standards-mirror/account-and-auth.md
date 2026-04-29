@@ -58,7 +58,7 @@ Most production contracts expose a `getOwner` view as a convention but it's not
 required by any standard.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
@@ -221,14 +221,14 @@ or arbitrary contract via NEP-30 `verify`. The protocol invokes the right verifi
 automatically. Off-chain signature verification uses `CryptoLib.VerifyWithECDsa`.
 
 ::: tip Live on Neo TestNet
-Both implementations deployed and behavior-verified on Neo N3 TestNet.
+Both implementations deployed on Neo N3 TestNet.
 
 | Implementation | TestNet Address | Contract Hash |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `Nh2dZYCdvA6KfgeJ78712Twq5tZVRANtdk` | [`0x88eec008…e92b9de7`](https://dora.coz.io/contract/neo3/testnet/0x88eec008aaeb09d10ce68f93f6d98efbe92b9de7) |
 | **Neo C#** (`nccs`) | `NXq82dqPfYsB4gYxpurbn2sft8tT9v4NL2` | [`0x88079ecd…a8cfb682`](https://dora.coz.io/contract/neo3/testnet/0x88079ecdd4af98cf932c25c80c0bb218a8cfb682) |
 
-Verified: `ownerCount`/`threshold` start at 0 pre-setup; multi-sig setup pattern. The C# version exposes `Verify()` for native NEP-30 multi-sig witnessing.
+Checked-in snapshot covers pre-setup state. The manifest now also exercises one-owner setup, threshold update, and owner membership; the C# version exposes `Verify()` for native NEP-30 multi-sig witnessing.
 [`docs/standards-mirror/deployments/erc-1271/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-1271).
 :::
 
@@ -415,18 +415,19 @@ Neo solves the same problem at the protocol level. Every Neo transaction include
 authorisation. The dApp builds a transaction with `WitnessScope.CustomContracts`
 authorising the swap router and the token contract — the user signs the whole tx,
 and `Runtime.CheckWitness(from)` succeeds inside the token's `Transfer`. No
-permit method to write.
+Ethereum-style permit signature parsing is needed. The mirror keeps a small
+`permit`/nonce method only to demonstrate the replay-protection shape side-by-side.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0xedd521fdaa7422b7465673fa5df6551590c16aa0` | (reused — see [`0xedd521fdaa7422b7465673fa5df6551590c16aa0`](https://dora.coz.io/contract/neo3/testnet/0xedd521fdaa7422b7465673fa5df6551590c16aa0)) |
 | **Neo C#** (`nccs`) | `0xb451279fd8ab0e735e50edd6c6ca7e60eb90b70c` | (reused — see [`0xb451279fd8ab0e735e50edd6c6ca7e60eb90b70c`](https://dora.coz.io/contract/neo3/testnet/0xb451279fd8ab0e735e50edd6c6ca7e60eb90b70c)) |
 
-Cross-implementation invocations match on `nonceOf`. Source pairs under
+Checked-in snapshot matches on initial `nonceOf`; the manifest now also exercises the witness-scoped permit nonce bump. Source pairs under
 [`docs/standards-mirror/deployments/erc-2612/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2612).
 :::
 
@@ -576,7 +577,7 @@ ceremony. No parallel mempool.**
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -811,14 +812,14 @@ message format is application-specific and already documented in the dApp.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0x8e501310318f17d20674c639fc49b5e6100f5fdd` | (reused — see [`0x8e501310318f17d20674c639fc49b5e6100f5fdd`](https://dora.coz.io/contract/neo3/testnet/0x8e501310318f17d20674c639fc49b5e6100f5fdd)) |
 | **Neo C#** (`nccs`) | `0x38e8f069271cbbbdfd2032629e733a528cd57c9a` | (reused — see [`0x38e8f069271cbbbdfd2032629e733a528cd57c9a`](https://dora.coz.io/contract/neo3/testnet/0x38e8f069271cbbbdfd2032629e733a528cd57c9a)) |
 
-Cross-implementation invocations match on all read methods. Source pairs under
+The source pair exposes the same domain separator, and the manifest now asserts it on both implementations. Source pairs under
 [`docs/standards-mirror/deployments/eip-712/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-712).
 :::
 
@@ -964,7 +965,7 @@ public class OrderBook : SmartContract
 
 <StandardEntry
   id="eip-191"
-  title="EIP-191 — Signed Data Standard"
+  title="EIP-191 — Signed Data Prefix"
   eip="191"
   status="Final"
   neoMapping="Native witness model"
@@ -994,18 +995,20 @@ a "message".
 Neo wallets distinguish between signing transactions and signing arbitrary messages
 at the wallet level — there's no need for an in-band byte prefix because the
 signing API exposes them as separate calls (`signTransaction` vs `signMessage`).
-The Neo C# tab shows on-chain verification of a `signMessage`-produced signature.
+The Neo C# tab shows the native signature-verification helper used for a
+`signMessage`-produced signature; the deployed parity test covers the shared
+EIP-191 prefix surface.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0x64d3b4d2e0ce6b26cf0dedad9a5c2d0bf96ddeb1` | (reused — see [`0x64d3b4d2e0ce6b26cf0dedad9a5c2d0bf96ddeb1`](https://dora.coz.io/contract/neo3/testnet/0x64d3b4d2e0ce6b26cf0dedad9a5c2d0bf96ddeb1)) |
 | **Neo C#** (`nccs`) | `0xd06071f84b917cde1d16c23110f501b9dc3e914e` | (reused — see [`0xd06071f84b917cde1d16c23110f501b9dc3e914e`](https://dora.coz.io/contract/neo3/testnet/0xd06071f84b917cde1d16c23110f501b9dc3e914e)) |
 
-Cross-implementation invocations match on all read methods. Source pairs under
+Checked-in snapshot records the deployed admin identity; the manifest now also asserts the shared EIP-191 prefix length. Source pairs under
 [`docs/standards-mirror/deployments/eip-191/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/eip-191).
 :::
 
@@ -1146,7 +1149,7 @@ network ID via `Runtime.GetNetwork()`. The C# port just exposes a convenience
 method that returns the same metadata, but it's optional.
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
@@ -1279,14 +1282,14 @@ how a verifier handles both cases without the wrapping ceremony.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |
 | **Solidity** (`neo-solc`) | `0x95170df70a3c425fdaad9795f77a68430ac659d9` | (reused — see [`0x95170df70a3c425fdaad9795f77a68430ac659d9`](https://dora.coz.io/contract/neo3/testnet/0x95170df70a3c425fdaad9795f77a68430ac659d9)) |
 | **Neo C#** (`nccs`) | `0x7dd2cd08072ab383cf7152bf5ed734d7d240bfc9` | (reused — see [`0x7dd2cd08072ab383cf7152bf5ed734d7d240bfc9`](https://dora.coz.io/contract/neo3/testnet/0x7dd2cd08072ab383cf7152bf5ed734d7d240bfc9)) |
 
-Cross-implementation invocations match on `verificationCount`. Source pairs under
+Cross-implementation invocations match on the marker-verification counter. Source pairs under
 [`docs/standards-mirror/deployments/erc-6492/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-6492).
 :::
 
@@ -1467,7 +1470,7 @@ Neo terms: a programmable account contract.
 
 
 ::: tip Live on Neo TestNet
-Both implementations are deployed and behavior-verified on Neo N3 TestNet (network magic `894710606`).
+Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 
 | Implementation | Contract Hash | Deploy Tx |
 | --- | --- | --- |

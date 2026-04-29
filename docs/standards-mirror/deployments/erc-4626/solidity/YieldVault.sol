@@ -16,10 +16,18 @@ contract YieldVault {
     uint8  public decimals = 8;
     uint256 public totalSupply;
     address public asset;
+    address public deployer;
 
     mapping(address => uint256) public balanceOf;
 
+    function claimDeployer() public {
+        require(deployer == address(0), "Vault: already claimed");
+        deployer = msg.sender;
+    }
+
     function setAsset(address newAsset) public {
+        require(deployer != address(0), "Vault: unclaimed");
+        require(msg.sender == deployer, "Vault: deployer only");
         require(asset == address(0), "Vault: already set");
         asset = newAsset;
     }
