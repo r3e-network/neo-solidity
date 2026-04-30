@@ -46,7 +46,7 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: /language:${{matrix.language}}
-    timeout-minutes: 15
+    timeout-minutes: 45
   rust-security:
     name: Rust Security Analysis
     runs-on: ubuntu-latest
