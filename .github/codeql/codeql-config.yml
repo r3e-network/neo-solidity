@@ -18,11 +18,12 @@ paths:
   - devpack/
 
 paths-ignore:
-  - target/
-  - node_modules/
-  - dist/
-  - build/
-  - .git/
+  - target/**
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/lib/**"
+  - "**/build/**"
+  - .git/**
 
 # Security-focused configuration
 security-severity: "high"
