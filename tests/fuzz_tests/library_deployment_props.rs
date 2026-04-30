@@ -4,7 +4,7 @@
 //! Existing coverage (wave-#19/#30/#40):
 //!   * Inlined library + `using L for T` in a SINGLE source string
 //!     (`batches_31_45::batch40_p4_library_using_for_runtime`,
-//!      `batches_31_45::batch45_u1_safemath_add_library_inlining`).
+//!     `batches_31_45::batch45_u1_safemath_add_library_inlining`).
 //!   * 2-source standard-JSON wiring at the COMPILE level (no execution)
 //!     via `multi_source_compile_props::multi_source_imported_library_used`.
 //!
@@ -393,7 +393,9 @@ contract Main {
             let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
             let r = rt
                 .call_method_with_deploy_args(
-                    &main.bytecode, &main.tokens, &main.manifest,
+                    &main.bytecode,
+                    &main.tokens,
+                    &main.manifest,
                     "f",
                     &[StackItem::Integer(7), StackItem::Integer(5)],
                     None,

@@ -44,9 +44,9 @@ If you want the absolute latest features or are contributing to the compiler, bu
 
 | Requirement        | Minimum Version | Purpose                                              |
 | ------------------ | --------------- | ---------------------------------------------------- |
-| **Rust toolchain** | 1.82+ (stable)  | The core compiler is written in Rust                 |
+| **Rust toolchain** | 1.88+ (stable)  | The core compiler is written in Rust                 |
 | **Git**            | 2.x             | To clone the repository                              |
-| **Node.js**        | 18.0+           | (Optional) For TypeScript tooling and VitePress docs |
+| **Node.js**        | 20.0+           | (Optional) For TypeScript tooling and VitePress docs |
 
 If Rust is not installed, install it via [rustup](https://rustup.rs/):
 

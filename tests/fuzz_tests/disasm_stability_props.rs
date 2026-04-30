@@ -152,7 +152,11 @@ fn disasm_idempotent_on_pushdata1() {
     let a = disassemble_neovm_bytecode(&bc);
     let b = disassemble_neovm_bytecode(&bc);
     assert_eq!(a, b, "disasm of PUSHDATA1 sequence not idempotent");
-    assert!(a.contains("PUSHDATA1"), "PUSHDATA1 mnemonic missing: {:?}", a);
+    assert!(
+        a.contains("PUSHDATA1"),
+        "PUSHDATA1 mnemonic missing: {:?}",
+        a
+    );
     assert!(a.contains("deadbeef"), "PUSHDATA1 payload missing: {:?}", a);
     assert!(a.contains("RET"), "trailing RET missing: {:?}", a);
 }

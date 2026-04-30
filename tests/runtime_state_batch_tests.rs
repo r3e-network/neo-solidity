@@ -95,8 +95,7 @@ fn observe(state: &StateManager, addresses: &[String]) -> Vec<(String, u64, u64)
 /// Strategy for a single valid balance change. Reuses one of N seed addresses
 /// so multiple changes can target overlapping accounts.
 fn valid_change_strategy() -> impl Strategy<Value = StateChange> {
-    (0u8..8u8, 0u64..1_000_000u64)
-        .prop_map(|(seed, bal)| valid_balance_change(addr(seed), bal))
+    (0u8..8u8, 0u64..1_000_000u64).prop_map(|(seed, bal)| valid_balance_change(addr(seed), bal))
 }
 
 // ---------- proptest 1: atomic rollback ----------

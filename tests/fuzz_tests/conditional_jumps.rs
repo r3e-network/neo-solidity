@@ -254,12 +254,7 @@ struct CompareJumpScript {
     not_taken_pad_pos: usize,
 }
 
-fn build_default_script(
-    opcode: u8,
-    is_long: bool,
-    a: &Operand,
-    b: &Operand,
-) -> CompareJumpScript {
+fn build_default_script(opcode: u8, is_long: bool, a: &Operand, b: &Operand) -> CompareJumpScript {
     let mut out = Vec::new();
     a.emit(&mut out);
     b.emit(&mut out);
@@ -334,12 +329,10 @@ fn op_strategy_eq_biased() -> impl Strategy<Value = (Operand, Operand)> {
 /// arithmetic, not coercion.
 fn op_strategy_ordered_same_kind() -> impl Strategy<Value = (Operand, Operand)> {
     prop_oneof![
-        (-100i8..=100i8, -100i8..=100i8)
-            .prop_map(|(x, y)| (Operand::I8(x), Operand::I8(y))),
+        (-100i8..=100i8, -100i8..=100i8).prop_map(|(x, y)| (Operand::I8(x), Operand::I8(y))),
         (-10_000i64..=10_000i64, -10_000i64..=10_000i64)
             .prop_map(|(x, y)| (Operand::I64(x), Operand::I64(y))),
-        (any::<bool>(), any::<bool>())
-            .prop_map(|(x, y)| (Operand::Bool(x), Operand::Bool(y))),
+        (any::<bool>(), any::<bool>()).prop_map(|(x, y)| (Operand::Bool(x), Operand::Bool(y))),
         // Bytes — short, 1..4-byte arrays. Runtime LE-decodes the first
         // ≤8 bytes as `i64`, so values stay distinguishable.
         (
@@ -710,21 +703,47 @@ proptest! {
 fn smoke_jmpeq_short_taken() {
     // PUSH5 (0x15 → Integer(5)) ; PUSH5 ; JMPEQ +4 ; PUSH3 ; RET ; PUSH7 ; RET
     // opcode_pos=2, target = opcode_pos + 4 = 6 → TAKEN pad (0x17, 0x40).
-    let script = vec![0x15, 0x15, 0x28, 0x04, NOT_TAKEN_MARKER_OP, RET, TAKEN_MARKER_OP, RET];
+    let script = vec![
+        0x15,
+        0x15,
+        0x28,
+        0x04,
+        NOT_TAKEN_MARKER_OP,
+        RET,
+        TAKEN_MARKER_OP,
+        RET,
+    ];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let res = rt.execute(&script, &[]).expect("execute");
     assert!(res.success, "execute failed: {:?}", res.exception);
-    assert_eq!(res.return_data, taken_return(), "JMPEQ with equal operands must take");
+    assert_eq!(
+        res.return_data,
+        taken_return(),
+        "JMPEQ with equal operands must take"
+    );
 }
 
 #[test]
 fn smoke_jmpeq_short_not_taken() {
     // PUSH5 ; PUSH7 ; JMPEQ +4 ; PUSH3 ; RET ; PUSH7 ; RET
-    let script = vec![0x15, 0x17, 0x28, 0x04, NOT_TAKEN_MARKER_OP, RET, TAKEN_MARKER_OP, RET];
+    let script = vec![
+        0x15,
+        0x17,
+        0x28,
+        0x04,
+        NOT_TAKEN_MARKER_OP,
+        RET,
+        TAKEN_MARKER_OP,
+        RET,
+    ];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let res = rt.execute(&script, &[]).expect("execute");
     assert!(res.success, "execute failed: {:?}", res.exception);
-    assert_eq!(res.return_data, not_taken_return(), "JMPEQ with unequal operands must fall through");
+    assert_eq!(
+        res.return_data,
+        not_taken_return(),
+        "JMPEQ with unequal operands must fall through"
+    );
 }
 
 #[test]

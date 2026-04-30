@@ -52,8 +52,7 @@ use proptest::prelude::*;
 /// `src/runtime/spec/native_contracts.rs:46`. The same bytes used by every
 /// other StdLib CALLT harness in this crate.
 const STDLIB_HASH: [u8; 20] = [
-    0xc0, 0xef, 0x39, 0xce, 0xe0, 0xe4, 0xe9, 0x25,
-    0xc6, 0xc2, 0xa0, 0x6a, 0x79, 0xe1, 0x44, 0x0d,
+    0xc0, 0xef, 0x39, 0xce, 0xe0, 0xe4, 0xe9, 0x25, 0xc6, 0xc2, 0xa0, 0x6a, 0x79, 0xe1, 0x44, 0x0d,
     0xd8, 0x6f, 0xce, 0xac,
 ];
 
@@ -370,7 +369,7 @@ proptest! {
         bytes in prop::collection::vec(any::<u8>(), 0..=180),
     ) {
         // Encode.
-        let (ok_e, rd_e, exc_e) = call_stdlib("base64encode", &[bytes.clone()]);
+        let (ok_e, rd_e, exc_e) = call_stdlib("base64encode", std::slice::from_ref(&bytes));
         prop_assert!(ok_e, "base64Encode(len={}) must succeed; exc={:?}",
             bytes.len(), exc_e);
 
@@ -380,7 +379,7 @@ proptest! {
             "base64 encoded length {} exceeds PUSHDATA1 max", rd_e.len());
 
         // Decode.
-        let (ok_d, rd_d, exc_d) = call_stdlib("base64decode", &[rd_e.clone()]);
+        let (ok_d, rd_d, exc_d) = call_stdlib("base64decode", std::slice::from_ref(&rd_e));
         prop_assert!(ok_d, "base64Decode(...) must succeed; exc={:?}", exc_d);
         prop_assert_eq!(&rd_d, &bytes,
             "base64Decode(base64Encode(b)) != b; encoded={:?}, got={:?}, want={:?}",
@@ -399,7 +398,7 @@ proptest! {
     ) {
         use base64::Engine;
 
-        let (ok, rd, exc) = call_stdlib("base64encode", &[bytes.clone()]);
+        let (ok, rd, exc) = call_stdlib("base64encode", std::slice::from_ref(&bytes));
         prop_assert!(ok, "base64Encode must succeed; exc={:?}", exc);
         let got = std::str::from_utf8(&rd).map(|s| s.to_string()).unwrap_or_default();
         let expected = base64::engine::general_purpose::STANDARD.encode(&bytes);
@@ -523,7 +522,7 @@ proptest! {
     fn stdlib_base58_encode_currently_returns_empty_no_panic(
         bytes in prop::collection::vec(any::<u8>(), 0..=64),
     ) {
-        let (ok, rd, exc) = call_stdlib("base58encode", &[bytes.clone()]);
+        let (ok, rd, exc) = call_stdlib("base58encode", std::slice::from_ref(&bytes));
         prop_assert!(ok,
             "base58Encode(len={}) must NOT fault even when unimplemented; exc={:?}",
             bytes.len(), exc);
@@ -640,7 +639,7 @@ proptest! {
     fn stdlib_serialize_deserialize_bytearray_roundtrip(
         bytes in prop::collection::vec(any::<u8>(), 0..=128),
     ) {
-        let (ok_s, rd_s, exc_s) = call_stdlib("serialize", &[bytes.clone()]);
+        let (ok_s, rd_s, exc_s) = call_stdlib("serialize", std::slice::from_ref(&bytes));
         prop_assert!(ok_s, "serialize must succeed; exc={:?}", exc_s);
         prop_assert!(!rd_s.is_empty(),
             "serialize of ByteArray must produce non-empty JSON; bytes.len={}",
@@ -661,7 +660,7 @@ proptest! {
         prop_assume!(rd_s.len() <= 255);
 
         // Deserialise back — passes the JSON bytes as the input arg.
-        let (ok_d, rd_d, exc_d) = call_stdlib("deserialize", &[rd_s.clone()]);
+        let (ok_d, rd_d, exc_d) = call_stdlib("deserialize", std::slice::from_ref(&rd_s));
         prop_assert!(ok_d, "deserialize must succeed; exc={:?}", exc_d);
 
         // The round-tripped StackItem renders to the same byte payload at
@@ -681,14 +680,14 @@ proptest! {
     fn stdlib_jsonserialize_jsondeserialize_bytearray_roundtrip(
         bytes in prop::collection::vec(any::<u8>(), 0..=96),
     ) {
-        let (ok_s, rd_s, exc_s) = call_stdlib("jsonserialize", &[bytes.clone()]);
+        let (ok_s, rd_s, exc_s) = call_stdlib("jsonserialize", std::slice::from_ref(&bytes));
         prop_assert!(ok_s, "jsonSerialize must succeed; exc={:?}", exc_s);
         prop_assert!(!rd_s.is_empty(),
             "jsonSerialize of ByteArray must produce non-empty JSON");
 
         prop_assume!(rd_s.len() <= 255);
 
-        let (ok_d, rd_d, exc_d) = call_stdlib("jsondeserialize", &[rd_s.clone()]);
+        let (ok_d, rd_d, exc_d) = call_stdlib("jsondeserialize", std::slice::from_ref(&rd_s));
         prop_assert!(ok_d, "jsonDeserialize must succeed; exc={:?}", exc_d);
         prop_assert_eq!(&rd_d, &bytes,
             "jsonDeserialize(jsonSerialize(b)) must equal b; got={:?}, want={:?}, json={:?}",
@@ -711,7 +710,7 @@ proptest! {
         let looks_like_json = garbage.first().copied() == Some(b'{');
         prop_assume!(!looks_like_json);
 
-        let (ok, rd, exc) = call_stdlib("deserialize", &[garbage.clone()]);
+        let (ok, rd, exc) = call_stdlib("deserialize", std::slice::from_ref(&garbage));
         prop_assert!(ok,
             "deserialize of malformed bytes must NOT fault at host level; \
              input={:?}, exc={:?}", garbage, exc);
@@ -734,7 +733,7 @@ proptest! {
             prop::collection::vec(any::<u8>().prop_filter("not a JSON object byte", |b| *b != b'{'), 1..=64),
         ],
     ) {
-        let (ok, rd, exc) = call_stdlib("jsondeserialize", &[garbage.clone()]);
+        let (ok, rd, exc) = call_stdlib("jsondeserialize", std::slice::from_ref(&garbage));
         prop_assert!(ok,
             "jsonDeserialize of malformed bytes must NOT fault; \
              input.len={}, exc={:?}", garbage.len(), exc);

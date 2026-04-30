@@ -23,8 +23,8 @@
 //!
 //!   - `erc1155_mint_burn_lifecycle`: if bob.id1 is not 70 after mint(100)
 //!     + burn(30), either the nested-mapping write did not commit (Task
-//!     #176 / nested-mapping-key derivation regression) or the read+write
-//!     paths used different key derivations.
+//!       #176 / nested-mapping-key derivation regression) or the read+write
+//!       paths used different key derivations.
 //!   - `erc1155_batch_balance_query`: if the batch return cannot be parsed
 //!     into a length-prefixed `uint256[]`, the dynamic-array return wire
 //!     format regressed (Task #121 / #137 — every contract that returns

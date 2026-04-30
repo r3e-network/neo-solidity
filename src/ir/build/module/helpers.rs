@@ -3,41 +3,21 @@
 /// Canonicalization is the minimum set of rewrites Solidity itself applies
 /// when computing `keccak256(signature)` for `event` topic-0 and `function`
 /// selectors:
-///   * `uint`  → `uint256`
-///   * `int`   → `int256`
-///   * `byte`  → `bytes1`
-///   * enum types (`enum Foo` or a bare name matching a declared enum) →
-///     `uint8` per the Solidity ABI spec (all enums have ≤256 variants, so
-///     they are canonically encoded as `uint8`).
-///   * unknown user-defined types (structs, contracts) pass through by name
-///     — proper tuple expansion (`(uint256,uint256)` for a struct
-///     `{uint256 x; uint256 y;}`) is a follow-up; today's harnesses pin the
-///     struct-name form (see fuzz `event_with_struct_arg_payload_shape`).
-///
-/// Array suffixes (`[]`, `[N]`) and whitespace are preserved verbatim after
-/// trimming — Solidity's canonical form omits all whitespace around commas.
-///
-/// `enum_names` is the set of declared enum type names in the current
-/// contract scope. Bare references like `State` (without the `enum` prefix
-/// that `solang-parser`'s Display impl may or may not produce) are matched
-/// against this set so they canonicalize to `uint8`. Task #204.
+///   * `uint`  -> `uint256`
+///   * `int`   -> `int256`
+///   * `byte`  -> `bytes1`
+///   * enum types (`enum Foo` or a bare name matching a declared enum) ->
+///     `uint8` per the Solidity ABI spec.
+///   * unknown user-defined types (structs, contracts) pass through by name.
 fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String {
     let trimmed = raw.trim();
-
-    // Strip Solidity data-location keywords (memory/calldata/storage) that may
-    // appear in parameter declarations — they never participate in the
-    // canonical signature.
     let without_location = trimmed
         .replace(" memory", "")
         .replace(" calldata", "")
         .replace(" storage", "");
 
-    // Handle the `enum Name` prefix form before we strip whitespace — the
-    // leading `enum` keyword is only meaningful when separated by a space.
     let tokens: Vec<&str> = without_location.split_whitespace().collect();
     if tokens.first().copied() == Some("enum") {
-        // `enum Name` or `enum Name[]` → canonicalize base to `uint8`, keep
-        // any array suffix attached to the `Name` token.
         if let Some(name_with_suffix) = tokens.get(1) {
             let suffix = match name_with_suffix.find('[') {
                 Some(idx) => &name_with_suffix[idx..],
@@ -52,9 +32,6 @@ fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String
         .chars()
         .filter(|c| !c.is_ascii_whitespace())
         .collect();
-
-    // Separate any array/brackets suffix from the base type so we can
-    // canonicalize the base alone.
     let (base, suffix) = match compact.find('[') {
         Some(idx) => (&compact[..idx], &compact[idx..]),
         None => (compact.as_str(), ""),
@@ -65,12 +42,6 @@ fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String
         "int" => "int256",
         "byte" => "bytes1",
         other => {
-            // Task #204 — bare-name enum reference (e.g. `State` when the
-            // source declared `enum State { ... }`). `solang-parser`'s
-            // Display impl emits the bare name in this path, so without
-            // consulting `enum_names` we would pass `State` through
-            // verbatim and produce `Transition(State,State)` — which
-            // disagrees with Solidity's canonical form.
             if enum_names.contains(other) {
                 "uint8"
             } else {
@@ -82,31 +53,18 @@ fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String
     format!("{canonical_base}{suffix}")
 }
 
-/// Returns whether a canonical Solidity type is a "dynamic" type for the
-/// purposes of indexed-event-argument topic hashing.
-///
-/// Per the EVM ABI spec (https://docs.soliditylang.org/en/latest/abi-spec.html
-/// section "Encoding of Indexed Event Parameters"):
-///   * `string`, `bytes`, and any array type (`T[]`, `T[N]`, struct/tuple)
-///     are hashed: `topic = keccak256(value)`.
-///   * All other value types (integer, bool, address, bytesN, enum) are
-///     left-padded to 32 bytes and emitted verbatim.
+/// Returns whether a canonical Solidity type is dynamic for indexed-event
+/// topic hashing.
 fn event_canonical_type_is_dynamic(canonical: &str) -> bool {
     if canonical == "string" || canonical == "bytes" {
         return true;
     }
-    // Any array (dynamic `T[]` or fixed `T[N]`) and user-defined struct are
-    // considered dynamic for indexed-topic hashing.
     if canonical.contains('[') {
         return true;
     }
-    // Heuristic: a canonical name that is neither a built-in scalar type nor
-    // a fixed `bytesN` / `uintN` / `intN` is a user-defined type (struct,
-    // enum, contract). Structs require keccak-hash for indexed topics.
     matches!(canonical, "tuple") || is_user_defined_canonical_type(canonical)
 }
 
-/// Heuristic check: does `canonical` name a user-defined (non-built-in) type?
 fn is_user_defined_canonical_type(canonical: &str) -> bool {
     if canonical == "bool" || canonical == "string" || canonical == "bytes" {
         return false;
@@ -114,7 +72,6 @@ fn is_user_defined_canonical_type(canonical: &str) -> bool {
     if canonical == "address" || canonical == "function" {
         return false;
     }
-    // uintN / intN / bytesN.
     for prefix in ["uint", "int", "bytes"] {
         if let Some(rest) = canonical.strip_prefix(prefix) {
             if rest.is_empty() || rest.chars().all(|c| c.is_ascii_digit()) {
@@ -122,18 +79,12 @@ fn is_user_defined_canonical_type(canonical: &str) -> bool {
             }
         }
     }
-    // Capitalized names are almost always user-defined types (structs, enums,
-    // contracts). Lowercase unknowns we treat as non-dynamic to stay safe.
     canonical
         .chars()
         .next()
         .is_some_and(|c| c.is_ascii_uppercase())
 }
 
-/// Build the EVM-canonical event signature string:
-/// `Name(type1,type2,...)` with the types canonicalized per
-/// `event_canonical_param_type`. This is the exact input to
-/// `keccak256(...)` for `topic[0]`.
 fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>) -> String {
     let joined_types: Vec<String> = event
         .parameters

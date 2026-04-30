@@ -125,7 +125,8 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
     assert_eq!(
-        r.return_data, b"foobar",
+        r.return_data,
+        b"foobar",
         "NNN2_3 string.concat(\"foo\", \"bar\") must be \"foobar\"; got \
          rd_hex={} ({:?}).",
         hex::encode(&r.return_data),
@@ -320,8 +321,7 @@ contract C {
     if r.success {
         let v = decode_uint_le(&r.return_data);
         assert!(
-            v == num_bigint::BigUint::from(256u64)
-                || v == num_bigint::BigUint::from(0u64),
+            v == num_bigint::BigUint::from(256u64) || v == num_bigint::BigUint::from(0u64),
             "OOO2_3 checked uint8 overflow succeeded with value {} \
              (expected 256 pass-through or 0 wraparound); rd_hex={}.",
             v,
@@ -369,7 +369,8 @@ contract C {
     );
     let obs = observe(&r);
     assert!(
-        matches!(obs, ObservedBehavior::Panicked(0x12)) || matches!(obs, ObservedBehavior::FaultOther(_)),
+        matches!(obs, ObservedBehavior::Panicked(0x12))
+            || matches!(obs, ObservedBehavior::FaultOther(_)),
         "OOO2_4 unchecked div-by-zero must be Panic(0x12) or an \
          equivalent fault; got {:?}. `unchecked` must not suppress /0 \
          checks.",
@@ -502,10 +503,7 @@ contract C {
             &art.tokens,
             &art.manifest,
             "f",
-            &[
-                StackItem::Boolean(false),
-                StackItem::Integer(0i64),
-            ],
+            &[StackItem::Boolean(false), StackItem::Integer(0i64)],
         )
         .expect("PPP2_3 f()");
     assert!(
@@ -545,10 +543,7 @@ contract C {
             &art.tokens,
             &art.manifest,
             "f",
-            &[
-                StackItem::Boolean(true),
-                StackItem::Integer(0i64),
-            ],
+            &[StackItem::Boolean(true), StackItem::Integer(0i64)],
         )
         .expect("PPP2_4 f()");
     assert!(
@@ -699,7 +694,8 @@ contract C {
     assert!(!r.success, "QQQ2_3 assert(false) must revert");
     let obs = observe(&r);
     assert!(
-        matches!(obs, ObservedBehavior::Panicked(0x01)) || matches!(obs, ObservedBehavior::FaultOther(_)),
+        matches!(obs, ObservedBehavior::Panicked(0x01))
+            || matches!(obs, ObservedBehavior::FaultOther(_)),
         "QQQ2_3 assert(false) must be Panic(0x01) or equivalent fault; \
          got {:?}.",
         obs
@@ -923,8 +919,8 @@ contract P is IPair {
         return a + b;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR2_7 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("RRR2_7 compile: {:?}", e));
     let art = arts
         .iter()
         .find(|a| a.metadata.name == "P")
@@ -974,8 +970,8 @@ contract C {
         return a + b;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("RRR2_6 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("RRR2_6 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("RRR2_6 rt");
@@ -1100,9 +1096,7 @@ contract C {\n\
         .name("xxx2_1_deep_paren_chain".into())
         .stack_size(8 * 1024 * 1024);
     let handle = builder
-        .spawn(move || {
-            std::panic::catch_unwind(|| compile_contracts(&src, false, 2))
-        })
+        .spawn(move || std::panic::catch_unwind(|| compile_contracts(&src, false, 2)))
         .expect("XXX2_1 thread spawn");
     let outcome = handle.join().expect("XXX2_1 thread join");
     assert!(
@@ -1231,8 +1225,8 @@ contract C {
         return 1e30;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("VVV2_2 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("VVV2_2 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("VVV2_2 rt");
@@ -1266,8 +1260,8 @@ contract C {
         return Syscalls.neoKeccak256(d);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("UUU2_1 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("UUU2_1 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("UUU2_1 rt");
@@ -1288,7 +1282,8 @@ contract C {
     let canonical =
         hex::decode("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45").unwrap();
     assert_eq!(
-        r.return_data, canonical,
+        r.return_data,
+        canonical,
         "UUU2_1 neoKeccak256(b'abc') must match canonical digest; got \
          rd_hex={}.",
         hex::encode(&r.return_data)
@@ -1371,8 +1366,8 @@ contract C {
         return keccak256(abi.encodePacked(a, b, c));
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT2_1 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("TTT2_1 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT2_1 rt");
@@ -1420,8 +1415,8 @@ contract C {
         return balances[a][k].amt;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT2_2 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("TTT2_2 compile: {:?}", e));
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT2_2 rt");
     let addr = vec![0x33u8; 20];
@@ -1483,8 +1478,8 @@ contract C {
         return pts[i].x;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT2_3 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("TTT2_3 compile: {:?}", e));
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT2_3 rt");
     let _ = rt
@@ -1540,8 +1535,8 @@ contract C {
         return (a2, b2);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("TTT2_4 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("TTT2_4 compile: {:?}", e));
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("TTT2_4 rt");
     let r = rt
@@ -1571,13 +1566,15 @@ contract C {
     let slot1 = &r.return_data[0..32];
     let slot2 = &r.return_data[32..64];
     assert_eq!(
-        slot1[31], 100,
+        slot1[31],
+        100,
         "TTT2_4 slot1 low byte must be 100; got {}. Full slot: {}.",
         slot1[31],
         hex::encode(slot1)
     );
     assert_eq!(
-        slot2[31], 200,
+        slot2[31],
+        200,
         "TTT2_4 slot2 low byte must be 200; got {}. Full slot: {}.",
         slot2[31],
         hex::encode(slot2)
@@ -1640,7 +1637,8 @@ contract C {
     let canonical =
         hex::decode("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad").unwrap();
     assert_eq!(
-        r.return_data, canonical,
+        r.return_data,
+        canonical,
         "SSS2_1 bare sha256(b'abc') must match canonical digest; got \
          rd_hex={}. If this is eight zero bytes, the bare-identifier \
          sha256 resolver in resolve.rs regressed (→ PUSH0 fallback).",
@@ -1679,7 +1677,8 @@ contract C {
     );
     let canonical = hex::decode("8eb208f7e05d987a9b044a8e98c6b087f15a0bfc").unwrap();
     assert_eq!(
-        r.return_data, canonical,
+        r.return_data,
+        canonical,
         "SSS2_2 bare ripemd160(b'abc') must match canonical digest; got \
          rd_hex={}.",
         hex::encode(&r.return_data)
@@ -1718,7 +1717,8 @@ contract C {
     let canonical =
         hex::decode("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45").unwrap();
     assert_eq!(
-        r.return_data, canonical,
+        r.return_data,
+        canonical,
         "SSS2_3 bare keccak256(b'abc') must match canonical digest; got \
          rd_hex={}.",
         hex::encode(&r.return_data)
@@ -1751,7 +1751,8 @@ contract C {
     let canonical =
         hex::decode("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855").unwrap();
     assert_eq!(
-        r.return_data, canonical,
+        r.return_data,
+        canonical,
         "SSS2_4 bare sha256(\"\") must match canonical empty-input \
          digest; got rd_hex={}.",
         hex::encode(&r.return_data)
@@ -1934,7 +1935,10 @@ contract Token {
             e
         )
     });
-    assert!(!arts.is_empty(), "batch124 step 0 compile produced no artifacts");
+    assert!(
+        !arts.is_empty(),
+        "batch124 step 0 compile produced no artifacts"
+    );
     let art = arts
         .iter()
         .find(|a| a.metadata.name == "Token")
@@ -2694,7 +2698,10 @@ contract NFT {
             &art.tokens,
             &art.manifest,
             "setApprovalForAll",
-            &[StackItem::byte_array(bob.to_vec()), StackItem::Boolean(true)],
+            &[
+                StackItem::byte_array(bob.to_vec()),
+                StackItem::Boolean(true),
+            ],
         )
         .expect("batch127 step 12: setApprovalForAll host-level");
     assert!(
@@ -3089,8 +3096,8 @@ contract NEP17Token {
     // NEP-17 transfer must return `true`. A truthy return decodes as
     // a non-empty byte slice with at least one non-zero byte (same
     // bool-decode pattern as PPP2_3).
-    let returned_true = !r_xfer.return_data.is_empty()
-        && r_xfer.return_data.iter().any(|b| *b != 0);
+    let returned_true =
+        !r_xfer.return_data.is_empty() && r_xfer.return_data.iter().any(|b| *b != 0);
     assert!(
         returned_true,
         "batch129 step 5: NEP-17 transfer must return true on \
@@ -3133,7 +3140,8 @@ contract NEP17Token {
     let got6a = decode_uint_le(&r_bal_dep2.return_data);
     let expect_dep = BigUint::from(total_supply) - BigUint::from(500u64);
     assert_eq!(
-        got6a, expect_dep,
+        got6a,
+        expect_dep,
         "batch129 step 6a: balanceOf(deployer) after \
          transfer(deployer, alice, 500, \"\") must equal {} \
          (totalSupply - 500); got {} (rd_hex={}). If unchanged from \
@@ -3421,10 +3429,7 @@ contract C {
         .iter()
         .filter(|t| t.hash == cm_hash_le && t.method == "update")
         .collect();
-    let bytecode_inlined = art
-        .bytecode
-        .windows(20)
-        .any(|w| w == cm_hash_le.as_slice());
+    let bytecode_inlined = art.bytecode.windows(20).any(|w| w == cm_hash_le.as_slice());
     assert!(
         !token_hits.is_empty() || bytecode_inlined,
         "batch130 step 0: compiled artifact must reference \
@@ -3557,13 +3562,7 @@ contract C {
     // ran, which proves control flow returned cleanly from the native
     // call (rather than aborting silently inside it).
     let r_v2 = rt
-        .call_method(
-            &art.bytecode,
-            &art.tokens,
-            &art.manifest,
-            "getVersion",
-            &[],
-        )
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "getVersion", &[])
         .expect("batch130 step 4: getVersion() host-level");
     assert!(
         r_v2.success,
@@ -3791,10 +3790,7 @@ contract AMM {
             &art.tokens,
             &art.manifest,
             "addLiquidity",
-            &[
-                StackItem::Integer(1000),
-                StackItem::Integer(1000),
-            ],
+            &[StackItem::Integer(1000), StackItem::Integer(1000)],
         )
         .expect("batch131 step 2: addLiquidity host-level");
     assert!(
@@ -3828,37 +3824,37 @@ contract AMM {
     );
 
     // --- Step 3a: reserveA() == 1000.
-    let r_rA = rt
+    let r_r_a = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveA", &[])
         .expect("batch131 step 3a: reserveA() host-level");
     assert!(
-        r_rA.success,
+        r_r_a.success,
         "batch131 step 3a: reserveA() must succeed; exc={:?}",
-        r_rA.exception.as_ref().map(|e| &e.message)
+        r_r_a.exception.as_ref().map(|e| &e.message)
     );
-    let got_rA = decode_uint_le(&r_rA.return_data);
+    let got_r_a = decode_uint_le(&r_r_a.return_data);
     assert_eq!(
-        got_rA,
+        got_r_a,
         BigUint::from(1000u64),
         "batch131 step 3a: reserveA() after addLiquidity(1000, 1000) \
          must equal 1000; got {} (rd_hex={}). If 0, the `reserveA += \
          amountA` write didn't persist. COMPILER BUG.",
-        got_rA,
-        hex::encode(&r_rA.return_data)
+        got_r_a,
+        hex::encode(&r_r_a.return_data)
     );
 
     // --- Step 3b: reserveB() == 1000.
-    let r_rB = rt
+    let r_r_b = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveB", &[])
         .expect("batch131 step 3b: reserveB() host-level");
-    let got_rB = decode_uint_le(&r_rB.return_data);
+    let got_r_b = decode_uint_le(&r_r_b.return_data);
     assert_eq!(
-        got_rB,
+        got_r_b,
         BigUint::from(1000u64),
         "batch131 step 3b: reserveB() after addLiquidity must equal \
          1000; got {} (rd_hex={}). COMPILER BUG.",
-        got_rB,
-        hex::encode(&r_rB.return_data)
+        got_r_b,
+        hex::encode(&r_r_b.return_data)
     );
 
     // --- Step 3c: totalLiquidity() == 1000.
@@ -3956,31 +3952,31 @@ contract AMM {
 
     // --- Step 4b: reserveA() == 1100, reserveB() == 910 — verify the
     // reserve shift.
-    let r_rA2 = rt
+    let r_r_a2 = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveA", &[])
         .expect("batch131 step 4b: reserveA() post-swap host-level");
-    let got_rA2 = decode_uint_le(&r_rA2.return_data);
+    let got_r_a2 = decode_uint_le(&r_r_a2.return_data);
     assert_eq!(
-        got_rA2,
+        got_r_a2,
         BigUint::from(1100u64),
         "batch131 step 4b: reserveA() after swap(aToB=true, 100) must \
          equal 1100 (1000 + 100); got {} (rd_hex={}). If 1000, the \
          `reserveA += amountIn` debit didn't fire. COMPILER BUG.",
-        got_rA2,
-        hex::encode(&r_rA2.return_data)
+        got_r_a2,
+        hex::encode(&r_r_a2.return_data)
     );
-    let r_rB2 = rt
+    let r_r_b2 = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveB", &[])
         .expect("batch131 step 4b: reserveB() post-swap host-level");
-    let got_rB2 = decode_uint_le(&r_rB2.return_data);
+    let got_r_b2 = decode_uint_le(&r_r_b2.return_data);
     assert_eq!(
-        got_rB2,
+        got_r_b2,
         BigUint::from(910u64),
         "batch131 step 4b: reserveB() after swap(aToB=true, 100) must \
          equal 910 (1000 - 90); got {} (rd_hex={}). If 1000, the \
          `reserveB -= amountOut` credit didn't fire. COMPILER BUG.",
-        got_rB2,
-        hex::encode(&r_rB2.return_data)
+        got_r_b2,
+        hex::encode(&r_r_b2.return_data)
     );
 
     // --- Step 5: bob swap(aToB=true, 0) — MUST revert via the `in`
@@ -4112,12 +4108,12 @@ contract AMM {
     );
 
     // --- Step 8c: reserveA() == 550 (1100 - 550 proportional out).
-    let r_rA3 = rt
+    let r_r_a3 = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveA", &[])
         .expect("batch131 step 8c: reserveA() post-burn host-level");
-    let got_rA3 = decode_uint_le(&r_rA3.return_data);
+    let got_r_a3 = decode_uint_le(&r_r_a3.return_data);
     assert_eq!(
-        got_rA3,
+        got_r_a3,
         BigUint::from(550u64),
         "batch131 step 8c: reserveA() after removeLiquidity(500) on \
          reserves=(1100, 910), total=1000 must equal 550 \
@@ -4125,25 +4121,25 @@ contract AMM {
          DIVERGENCE: integer-division order in `(shares * reserveA) / \
          totalLiquidity` regressed if off by more than rounding. \
          COMPILER BUG.",
-        got_rA3,
-        hex::encode(&r_rA3.return_data)
+        got_r_a3,
+        hex::encode(&r_r_a3.return_data)
     );
 
     // --- Step 8d: reserveB() == 455 (910 - 455).
-    let r_rB3 = rt
+    let r_r_b3 = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "reserveB", &[])
         .expect("batch131 step 8d: reserveB() post-burn host-level");
-    let got_rB3 = decode_uint_le(&r_rB3.return_data);
+    let got_r_b3 = decode_uint_le(&r_r_b3.return_data);
     assert_eq!(
-        got_rB3,
+        got_r_b3,
         BigUint::from(455u64),
         "batch131 step 8d: reserveB() after removeLiquidity(500) on \
          reserves=(1100, 910), total=1000 must equal 455 \
          (= 910 - 500*910/1000 = 910 - 455); got {} (rd_hex={}). \
          DIVERGENCE: integer-division order in `(shares * reserveB) / \
          totalLiquidity` regressed. COMPILER BUG.",
-        got_rB3,
-        hex::encode(&r_rB3.return_data)
+        got_r_b3,
+        hex::encode(&r_r_b3.return_data)
     );
 }
 
@@ -4170,8 +4166,7 @@ fn batch132_newstruct_huge_count_is_rejected_gracefully() {
     // 02 FF 00 0C 17 — PUSHINT32 little-endian 0x170c00ff = 387,973,375
     // C6          — NEWSTRUCT
     let script = [0x02u8, 0xff, 0x00, 0x0c, 0x17, 0xc6];
-    let mut rt =
-        NeoRuntime::new(RuntimeConfig::default()).expect("batch132: runtime construction");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("batch132: runtime construction");
     let res = rt.execute(&script, &[]);
     // Must not panic / OOM-abort — either an error return or a halted
     // ExecutionResult with success=false is acceptable. Either path
@@ -4279,8 +4274,8 @@ contract C {
     bytes public payload;
     function store(bytes memory v) external { payload = v; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("batch133a compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("batch133a compile: {:?}", e));
     assert!(!arts.is_empty(), "batch133a: compile produced no artifacts");
     let art = &arts[0];
 
@@ -4328,7 +4323,9 @@ contract C {
          (Wave-#14 Finding #2 surcharge). Got delta={}, small={}, \
          large={}. If fired: STORAGE_PUT_PER_BYTE_GAS surcharge in \
          instruction/syscall.rs was removed/lowered — DoS regression.",
-        delta, r_small.gas_used, r_large.gas_used
+        delta,
+        r_small.gas_used,
+        r_large.gas_used
     );
 }
 
@@ -4347,8 +4344,8 @@ contract C {
     bytes public payload;
     function store(bytes memory v) external { payload = v; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("batch133b compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("batch133b compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
 
@@ -4392,8 +4389,8 @@ contract C {
         return sha256(data);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("batch133c compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("batch133c compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
 
@@ -4438,7 +4435,9 @@ contract C {
          (Wave-#14 Finding #5 surcharge). Got delta={}, small={}, \
          large={}. If fired: HASH_PER_BYTE_GAS surcharge in \
          instruction/flow/calls.rs was removed/lowered.",
-        delta, r_small.gas_used, r_large.gas_used
+        delta,
+        r_small.gas_used,
+        r_large.gas_used
     );
 }
 
@@ -4454,8 +4453,8 @@ contract C {
         return keccak256(data);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("batch133d compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("batch133d compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
 
@@ -4488,6 +4487,8 @@ contract C {
         delta > 25_000,
         "batch133d: keccak256(1KB) must cost ≥25K gas more than \
          keccak256(16B). Got delta={}, small={}, large={}.",
-        delta, r_small.gas_used, r_large.gas_used
+        delta,
+        r_small.gas_used,
+        r_large.gas_used
     );
 }

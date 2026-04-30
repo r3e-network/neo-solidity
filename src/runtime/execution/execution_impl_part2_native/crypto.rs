@@ -240,7 +240,7 @@ impl ExecutionContext {
     /// the differential pairing test asserts (lhs_bytes == rhs_bytes for
     /// `e(a*G1, b*G2) == e(G1, ab*G2)`).
     fn bls_serialize_gt(gt: &bls12_381::Gt) -> Vec<u8> {
-        format!("{:?}", gt).into_bytes()
+        format!("{gt:?}").into_bytes()
     }
 
     /// Helper to fetch arg N as bytes, defaulting to empty.

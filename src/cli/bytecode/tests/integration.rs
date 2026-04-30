@@ -49,11 +49,9 @@ fn mapping_code_generation_emits_storage_ops() {
 
 #[test]
 fn event_emission_places_name_first_in_payload() {
-    // Post-Task #39: `emit Ping(1, 2)` lowers to the EVM-canonical shape.
-    // The event "name" delivered to `Runtime.Notify` is no longer the raw
-    // 4-byte `"Ping"` string — it is `keccak256("Ping(uint256,uint256)")`
-    // (a 32-byte BE digest). Indexed args become topics and non-indexed
-    // args are routed through `abi.encode` into the data slot.
+    // `emit Ping(1, 2)` lowers to an EVM-canonical state shape while keeping
+    // the `Runtime.Notify` eventName as the raw UTF-8 `"Ping"` string. The
+    // signature keccak is carried as state[0], followed by ABI data.
     let source = r#"
         pragma solidity ^0.8.19;
 
@@ -81,11 +79,8 @@ fn event_emission_places_name_first_in_payload() {
         "expected Runtime.Notify syscall"
     );
 
-    // Post-fix: emit no longer pushes keccak256(signature) as a topic. The
-    // event name "Ping" is pushed as the eventName arg of Runtime.Notify
-    // (UTF-8 string, matching the manifest declaration), and the args are
-    // packed into the state array unchanged. See `lower_emit` in
-    // src/ir/statements/events.rs for the rationale.
+    // The event name "Ping" is pushed as the eventName arg of Runtime.Notify
+    // (UTF-8 string, matching the manifest declaration).
     let mut expected_name_push = vec![0x0C, 0x04];
     expected_name_push.extend_from_slice(b"Ping");
     assert!(
@@ -95,17 +90,17 @@ fn event_emission_places_name_first_in_payload() {
         "expected event name 'Ping' to be pushed as eventName arg"
     );
 
-    // The keccak hash must NOT appear in bytecode — that breaks UTF-8 decode
-    // on real Neo nodes when the hash starts with bytes like 0xDD.
+    // The keccak hash appears in bytecode as the first state-array item, not
+    // as the Runtime.Notify eventName.
     use sha3::{Digest, Keccak256};
     let topic0 = Keccak256::digest(b"Ping(uint256,uint256)");
     let mut keccak_push = vec![0x0C, 0x20];
     keccak_push.extend_from_slice(&topic0);
     assert!(
-        !bytecode
+        bytecode
             .windows(keccak_push.len())
             .any(|window| window == keccak_push.as_slice()),
-        "keccak256(\"Ping(...)\") must not appear in bytecode"
+        "keccak256(\"Ping(...)\") must appear as the state-array topic0"
     );
 }
 

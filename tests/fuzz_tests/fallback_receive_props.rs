@@ -4,10 +4,10 @@
 //! and "Fallback Function"):
 //!
 //! 1. **Empty calldata**           → `receive()` if defined, else
-//!                                    `fallback()` if defined, else revert.
+//!    `fallback()` if defined, else revert.
 //! 2. **Calldata < 4 bytes**       → `fallback()` if defined, else revert.
-//!                                    (NOT `receive`: Solidity requires the
-//!                                    *empty* calldata distinction.)
+//!    (NOT `receive`: Solidity requires the
+//!    *empty* calldata distinction.)
 //! 3. **Calldata ≥ 4, selector ✓** → the matching public method.
 //! 4. **Calldata ≥ 4, selector ✗** → `fallback()` if defined, else revert.
 //!
@@ -67,9 +67,8 @@ fn manifest_has_method(manifest: &serde_json::Value, name: &str) -> bool {
         .and_then(|a| a.get("methods"))
         .and_then(|m| m.as_array())
         .map(|arr| {
-            arr.iter().any(|m| {
-                m.get("name").and_then(serde_json::Value::as_str) == Some(name)
-            })
+            arr.iter()
+                .any(|m| m.get("name").and_then(serde_json::Value::as_str) == Some(name))
         })
         .unwrap_or(false)
 }
@@ -182,8 +181,8 @@ contract C {
     receive() external payable { lastCall = 1; }
     fallback() external { lastCall = 2; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("compile failed: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("compile failed: {:?}", e));
     assert_eq!(arts.len(), 1);
     let art = &arts[0];
 
@@ -230,8 +229,11 @@ contract C {
         let r2 = rt
             .call_method(&art.bytecode, &art.tokens, &art.manifest, "lastCall", &[])
             .expect("call lastCall after receive");
-        assert!(r2.success, "lastCall getter must succeed; exc={:?}",
-            r2.exception.as_ref().map(|e| &e.message));
+        assert!(
+            r2.success,
+            "lastCall getter must succeed; exc={:?}",
+            r2.exception.as_ref().map(|e| &e.message)
+        );
         let v = decode_uint_le(&r2.return_data);
         assert_eq!(
             v,
@@ -325,8 +327,8 @@ contract C {
     fallback() external { lastCall = 2; }
     function setIt(uint256 v) external { lastCall = v; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("compile failed: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("compile failed: {:?}", e));
     let art = &arts[0];
 
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
@@ -387,8 +389,8 @@ pragma solidity ^0.8.19;
 contract C {
     function only() external pure returns (uint256) { return 7; }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("compile failed: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("compile failed: {:?}", e));
     let art = &arts[0];
 
     // Manifest must NOT contain fallback / receive / onNEP17Payment hooks.
@@ -428,13 +430,7 @@ contract C {
 
     // 2. Empty-calldata equivalent: a "receive" method name with no hook.
     //    Must surface a graceful host-level error (Err(_)), not a panic.
-    let r_recv = rt.call_method(
-        &art.bytecode,
-        &art.tokens,
-        &art.manifest,
-        "receive",
-        &[],
-    );
+    let r_recv = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "receive", &[]);
     assert!(
         r_recv.is_err(),
         "calling `receive` on a no-hook contract must surface Err(_); \

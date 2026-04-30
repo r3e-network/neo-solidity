@@ -82,7 +82,7 @@ impl NeoType {
                 let bits = rest.parse::<u16>().map_err(|_| {
                     TypeParseError::Unsupported(format!("invalid uint bit-width: '{ty}'"))
                 })?;
-                if bits == 0 || bits > 256 || bits % 8 != 0 {
+                if bits == 0 || bits > 256 || !bits.is_multiple_of(8) {
                     return Err(TypeParseError::Unsupported(format!(
                         "uint bit-width must be a multiple of 8 in 8..=256, got {bits}"
                     )));
@@ -106,7 +106,7 @@ impl NeoType {
                 let bits = rest.parse::<u16>().map_err(|_| {
                     TypeParseError::Unsupported(format!("invalid int bit-width: '{ty}'"))
                 })?;
-                if bits == 0 || bits > 256 || bits % 8 != 0 {
+                if bits == 0 || bits > 256 || !bits.is_multiple_of(8) {
                     return Err(TypeParseError::Unsupported(format!(
                         "int bit-width must be a multiple of 8 in 8..=256, got {bits}"
                     )));

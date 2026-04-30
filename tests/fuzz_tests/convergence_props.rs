@@ -213,8 +213,7 @@ proptest! {
 #[test]
 fn repeated_storage_writes_stable_gas() {
     let art = compile_one(SOURCE_BUMP_N, "bumpN");
-    let mut rt =
-        NeoRuntime::new(RuntimeConfig::default()).expect("bumpN runtime");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("bumpN runtime");
 
     let mut gas_per_call: [u64; 3] = [0; 3];
     for (idx, slot) in gas_per_call.iter_mut().enumerate() {
@@ -241,13 +240,7 @@ fn repeated_storage_writes_stable_gas() {
 
     // (a) Counter must be 150.
     let r_get = rt
-        .call_method(
-            &art.bytecode,
-            &art.tokens,
-            &art.manifest,
-            "getCounter",
-            &[],
-        )
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "getCounter", &[])
         .expect("getCounter host-level");
     assert!(
         r_get.success,
@@ -304,8 +297,7 @@ fn repeated_storage_writes_stable_gas() {
 #[test]
 fn memory_overlay_drains_on_call_end() {
     let art = compile_one(SOURCE_PER_CALL_KEY, "writeKey");
-    let mut rt = NeoRuntime::new(RuntimeConfig::default())
-        .expect("writeKey runtime");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("writeKey runtime");
 
     const N: usize = 50;
     let mut gas_per_call: Vec<u64> = Vec::with_capacity(N);

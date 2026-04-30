@@ -1031,7 +1031,7 @@ contract C {
         let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("PPP4 rt");
 
         // Alternate between (3, 7) → 7 and (5, 2) → 5 via seed parity.
-        let (a, b, expected) = if seed % 2 == 0 {
+        let (a, b, expected) = if seed.is_multiple_of(2) {
             (3u64, 7u64, 7u64)
         } else {
             (5u64, 2u64, 5u64)
@@ -1626,7 +1626,7 @@ contract C {
         // the bool.
         let addr_byte = seed.wrapping_add(0x11);
         let addr = [addr_byte; 20];
-        let b = (seed as usize) % 2 == 0;
+        let b = (seed as usize).is_multiple_of(2);
         let u: u64 = ((seed as u64) % 200) + 1; // 1..=200
 
         let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
@@ -2292,7 +2292,7 @@ contract C {
         // a > b (returns a), plus the canonical (3, 7) on seed == 0.
         let (a, b) = if seed == 0 {
             (3u64, 7u64)  // canonical example from the task spec
-        } else if (seed as usize) % 2 == 0 {
+        } else if (seed as usize).is_multiple_of(2) {
             // a < b → max = b
             ((seed as u64) % 50 + 1, (seed as u64) % 50 + 100)
         } else {
@@ -3065,7 +3065,7 @@ contract C {
             (5u64, false)  // canonical non-revert from task spec
         } else if seed == 1 {
             (20u64, true)  // canonical revert from task spec
-        } else if (seed as usize) % 2 == 0 {
+        } else if (seed as usize).is_multiple_of(2) {
             // Non-revert branch: n in 1..=10.
             (((seed as u64) % 10) + 1, false)
         } else {
@@ -4664,7 +4664,7 @@ contract C {
 
         // Alternate between the two named inputs by seed parity: even seed
         // → [1,2,3] → expect false; odd seed → [1,2,3,4,5] → expect true.
-        let (arr_items, expected): (Vec<StackItem>, bool) = if seed % 2 == 0 {
+        let (arr_items, expected): (Vec<StackItem>, bool) = if seed.is_multiple_of(2) {
             (
                 vec![StackItem::Integer(1), StackItem::Integer(2), StackItem::Integer(3)],
                 false,

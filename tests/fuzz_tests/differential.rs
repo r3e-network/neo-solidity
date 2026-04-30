@@ -641,7 +641,7 @@ contract C {
         let data: Vec<u8> = match idx / 13 {
             0 => vec![0x00u8; len],
             1 => vec![0xFFu8; len],
-            _ => (0..len).map(|i| if i % 2 == 0 { 0xAA } else { 0x55 }).collect(),
+            _ => (0..len).map(|i| if i.is_multiple_of(2) { 0xAA } else { 0x55 }).collect(),
         };
         let expected = Sha256::digest(&data).to_vec();
         let src = r#"// SPDX-License-Identifier: MIT
@@ -674,7 +674,7 @@ contract C {
         let data: Vec<u8> = match idx / 13 {
             0 => vec![0x00u8; len],
             1 => vec![0xFFu8; len],
-            _ => (0..len).map(|i| if i % 2 == 0 { 0xAA } else { 0x55 }).collect(),
+            _ => (0..len).map(|i| if i.is_multiple_of(2) { 0xAA } else { 0x55 }).collect(),
         };
         let expected = Keccak256::digest(&data).to_vec();
         let src = r#"// SPDX-License-Identifier: MIT
@@ -707,7 +707,7 @@ contract C {
         let data: Vec<u8> = match idx / 13 {
             0 => vec![0x00u8; len],
             1 => vec![0xFFu8; len],
-            _ => (0..len).map(|i| if i % 2 == 0 { 0xAA } else { 0x55 }).collect(),
+            _ => (0..len).map(|i| if i.is_multiple_of(2) { 0xAA } else { 0x55 }).collect(),
         };
         let expected = Ripemd160::digest(&data).to_vec();
         let src = r#"// SPDX-License-Identifier: MIT

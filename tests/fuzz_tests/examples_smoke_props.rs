@@ -49,11 +49,7 @@ use std::path::{Path, PathBuf};
 /// Roots scanned for `.sol` files. Paths are relative to the workspace root
 /// (cargo sets cwd to the workspace root when running tests). Each root is
 /// walked recursively.
-const SCAN_ROOTS: &[&str] = &[
-    "examples",
-    "devpack/contracts",
-    "devpack/examples",
-];
+const SCAN_ROOTS: &[&str] = &["examples", "devpack/contracts", "devpack/examples"];
 
 /// Recursively walk `root`, returning every `.sol` file in deterministic
 /// (sorted) order. Sort key is the full path so the per-test log output
@@ -73,9 +69,7 @@ fn collect_sol_files_recursive(root: &Path) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);
-            } else if path.is_file()
-                && path.extension().and_then(|e| e.to_str()) == Some("sol")
-            {
+            } else if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("sol") {
                 out.push(path);
             }
         }
@@ -391,13 +385,7 @@ fn examples_call_smoke() {
                 }
             };
 
-            let r = match rt.call_method(
-                &art.bytecode,
-                &art.tokens,
-                &art.manifest,
-                &method,
-                &[],
-            ) {
+            let r = match rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &method, &[]) {
                 Ok(r) => r,
                 Err(e) => {
                     // Host-level Err means the VM panicked / ran into an

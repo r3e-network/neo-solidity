@@ -41,24 +41,12 @@ impl Module {
             })
             .collect();
 
-        // Task #204 — set of declared enum type names in this contract
-        // scope. Passed into event canonicalization so bare `State`-style
-        // references in event parameters canonicalize to `uint8` per the
-        // Solidity ABI spec (enums are always encoded as `uint8` since they
-        // have ≤256 variants).
         let enum_name_set: HashSet<String> = metadata
             .enums
             .iter()
             .map(|e| e.name.clone())
             .collect();
 
-        // Build the EVM-canonical event-signature map — one `EventSignature`
-        // per declared event, with the keccak-256 of the canonical signature
-        // string precomputed as `topic[0]`. The `lower_emit` statement reads
-        // this map to emit the EVM-spec log shape:
-        //   topic[0] = keccak256("Name(type1,type2,...)")
-        //   topic[1..N] = each indexed arg (32-byte BE or keccak256(value))
-        //   data = abi.encode(non_indexed_args)
         let event_params_map: HashMap<String, EventSignature> = metadata
             .events
             .iter()

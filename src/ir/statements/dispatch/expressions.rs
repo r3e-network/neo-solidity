@@ -129,11 +129,9 @@ fn lower_variable_definition_statement(
                             } else {
                                 false
                             };
-                            if !decoded {
-                                if lower_expression(initializer, ctx, instructions) {
-                                    instructions.push(Instruction::StoreLocal(slot));
-                                    ctx.clear_call_data_local(slot);
-                                }
+                            if !decoded && lower_expression(initializer, ctx, instructions) {
+                                instructions.push(Instruction::StoreLocal(slot));
+                                ctx.clear_call_data_local(slot);
                             }
                         }
                         Err(message) => {

@@ -476,7 +476,7 @@ impl ExecutionContext {
                         .cloned()
                         .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
                     let bytes = Self::stack_item_to_bytes(input);
-                    if bytes.is_empty() || bytes.len() % 32 != 0 {
+                    if bytes.is_empty() || !bytes.len().is_multiple_of(32) {
                         // Not a canonical payload — return as-is so callers
                         // that passed through a non-32-aligned buffer still
                         // get something sensible.
@@ -708,7 +708,7 @@ impl ExecutionContext {
             .bytes()
             .filter(|b| !matches!(*b, b' ' | b'\t' | b'\r' | b'\n'))
             .collect();
-        if cleaned.len() % 4 != 0 {
+        if !cleaned.len().is_multiple_of(4) {
             return None;
         }
         let mut out = Vec::with_capacity(cleaned.len() / 4 * 3);

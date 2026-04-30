@@ -1606,7 +1606,7 @@ fn is_static_32_byte_leaf_type(ty: &str) -> bool {
                 .or_else(|| compact.strip_prefix("int"))
             {
                 if let Ok(bits) = width.parse::<u32>() {
-                    return bits > 0 && bits <= 256 && bits % 8 == 0;
+                    return bits > 0 && bits <= 256 && bits.is_multiple_of(8);
                 }
             }
             if let Some(width) = compact.strip_prefix("bytes") {

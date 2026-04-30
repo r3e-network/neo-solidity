@@ -101,17 +101,18 @@ fn event_emission_places_name_first_in_payload() {
         "expected event name 'Ping' to be pushed as eventName arg of Runtime.Notify"
     );
 
-    // Post-fix: emit lowering NEVER pushes the keccak hash. Wallets/explorers
-    // that need topic0 derive it from the manifest's event signature.
+    // The topic0 keccak is carried as state[0], not as the Notify eventName.
+    // This preserves UTF-8-safe Neo event names while still giving the runtime
+    // enough structure to reconstruct Ethereum-style logs.
     use sha3::{Digest, Keccak256};
     let topic0 = Keccak256::digest(b"Ping(uint256,uint256)");
     let mut keccak_push = vec![0x0C, 0x20];
     keccak_push.extend_from_slice(&topic0);
     assert!(
-        !bytecode
+        bytecode
             .windows(keccak_push.len())
             .any(|window| window == keccak_push.as_slice()),
-        "keccak256(\"Ping(...)\") must not appear in bytecode (Neo can't UTF-8-decode arbitrary bytes)"
+        "keccak256(\"Ping(...)\") must appear as the first state-array topic"
     );
 }
 
@@ -148,4 +149,3 @@ fn modifiers_are_expanded_into_function_body() {
         "expected expanded modifier require() to emit a Throw"
     );
 }
-

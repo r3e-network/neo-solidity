@@ -34,8 +34,6 @@
 //! `ProptestConfig::with_cases(20)` keeps the wall-clock cost bounded
 //! (compile + deploy + call per case, ~0.5-1s each on a debug build).
 
-#![allow(dead_code)]
-
 use super::common::*;
 use neo_solidity::cli::compile_contracts;
 use neo_solidity::neo::{build_nef_with_tokens, parse_nef};

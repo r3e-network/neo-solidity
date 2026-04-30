@@ -157,7 +157,8 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
     assert_eq!(
-        r.return_data, payload,
+        r.return_data,
+        payload,
         "III2_3 base64 round-trip must return input unchanged; got \
          rd_hex={} (expected {}).",
         hex::encode(&r.return_data),
@@ -185,9 +186,8 @@ contract C {
         return decoded.length;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("III2_4 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("III2_4 compile: {:?}", e));
     assert!(!arts.is_empty(), "III2_4 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("III2_4 rt");
@@ -226,9 +226,8 @@ contract C {
         return StdLib.jsonSerialize(42);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("III2_5 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("III2_5 compile: {:?}", e));
     assert!(!arts.is_empty(), "III2_5 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("III2_5 rt");
@@ -280,9 +279,8 @@ contract C {
         return CryptoLib.sha256("");
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("JJJ2_1 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("JJJ2_1 compile: {:?}", e));
     assert!(!arts.is_empty(), "JJJ2_1 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_1 rt");
@@ -325,9 +323,8 @@ contract C {
         return CryptoLib.ripemd160("");
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("JJJ2_2 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("JJJ2_2 compile: {:?}", e));
     assert!(!arts.is_empty(), "JJJ2_2 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_2 rt");
@@ -371,9 +368,8 @@ contract C {
         return CryptoLib.sha256(data);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("JJJ2_3 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("JJJ2_3 compile: {:?}", e));
     assert!(!arts.is_empty(), "JJJ2_3 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_3 rt");
@@ -423,9 +419,8 @@ contract C {
         return CryptoLib.murmur32(data, seed);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("JJJ2_4 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("JJJ2_4 compile: {:?}", e));
     assert!(!arts.is_empty(), "JJJ2_4 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_4 rt");
@@ -469,9 +464,8 @@ contract C {
         return CryptoLib.sha256(data);
     }
 }"#;
-    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
-        panic!("JJJ2_5 compile: {:?}", e)
-    });
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("JJJ2_5 compile: {:?}", e));
     assert!(!arts.is_empty(), "JJJ2_5 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_5 rt");
@@ -498,7 +492,8 @@ contract C {
         .expect("JJJ2_5 second call");
     assert!(second.success, "JJJ2_5 second sha256 call must succeed");
     assert_eq!(
-        first.return_data, second.return_data,
+        first.return_data,
+        second.return_data,
         "JJJ2_5 sha256 must be deterministic; call1={} call2={}.",
         hex::encode(&first.return_data),
         hex::encode(&second.return_data)
@@ -542,7 +537,8 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
     assert_eq!(
-        r.return_data, b"NEO",
+        r.return_data,
+        b"NEO",
         "KKK2_1 NEO.symbol() must be \"NEO\"; got {:?} (rd_hex={}).",
         std::str::from_utf8(&r.return_data).ok(),
         hex::encode(&r.return_data)
@@ -572,7 +568,8 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
     assert_eq!(
-        r.return_data, b"GAS",
+        r.return_data,
+        b"GAS",
         "KKK2_2 GAS.symbol() must be \"GAS\"; got {:?} (rd_hex={}).",
         std::str::from_utf8(&r.return_data).ok(),
         hex::encode(&r.return_data)
@@ -848,10 +845,7 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
     // `true` is expected; encoded as non-empty non-zero byte(s).
-    let is_true = r
-        .return_data
-        .iter()
-        .any(|b| *b != 0);
+    let is_true = r.return_data.iter().any(|b| *b != 0);
     assert!(
         is_true,
         "LLL2_5 two sequential currentIndex() reads must be equal (same \

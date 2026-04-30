@@ -29,14 +29,14 @@ jobs:
         config-file: ./.github/codeql/codeql-config.yml
     - name: Setup build environment
       if: matrix.language == 'csharp'
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
     - name: Setup Node.js
       if: matrix.language == 'javascript'
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
     - name: Build project
       run: "if [ \"${{ matrix.language }}\" = \"csharp\" ]; then\n  cd src/Neo.Sol.Runtime\n\
         \  dotnet build --configuration Release\nelif [ \"${{ matrix.language }}\"\

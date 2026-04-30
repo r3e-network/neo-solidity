@@ -57,7 +57,7 @@
 //!   * `Next` returning end  -> `0xF2 0x00`
 //!   * `Value` (post-Next)   -> `0xF3 KLEN_LE_U16 K... VLEN_LE_U16 V...`
 //!   * `Value` before any Next on a fresh iterator (or post-end) ->
-//!                              `0xF3 0x00 0x00 0x00 0x00`
+//!     `0xF3 0x00 0x00 0x00 0x00`
 //!   * No iterator yet (Next/Value before any Find) -> SKIP (the test
 //!     generator only emits Next/Value after a Find).
 
@@ -114,16 +114,16 @@ fn storage_strategy() -> impl Strategy<Value = BTreeMap<Vec<u8>, Vec<u8>>> {
         }
         m
     })
-    .prop_filter("must produce >= 3 unique keys after dedup", |m| m.len() >= 3)
+    .prop_filter("must produce >= 3 unique keys after dedup", |m| {
+        m.len() >= 3
+    })
 }
 
 /// Generate an op tape of 5..=30 ops over the given storage map. The
 /// op generator is biased so that a `Find` precedes any `Next`/`Value`
 /// (otherwise the trace shape on a "no-iterator" path is not what the
 /// test is exercising — that case is unit-tested elsewhere).
-fn ops_strategy(
-    storage: BTreeMap<Vec<u8>, Vec<u8>>,
-) -> impl Strategy<Value = Vec<Op>> {
+fn ops_strategy(storage: BTreeMap<Vec<u8>, Vec<u8>>) -> impl Strategy<Value = Vec<Op>> {
     let keys: Vec<Vec<u8>> = storage.keys().cloned().collect();
 
     // Build a strategy for prefix bytes biased to:
@@ -135,13 +135,11 @@ fn ops_strategy(
         // Empty prefix.
         Just(Vec::<u8>::new()),
         // Existing-key prefix (truncated to 1..len).
-        (0usize..keys_for_strategy.len(), 1usize..=8usize).prop_map(
-            move |(idx, take)| {
-                let k = &keys_for_strategy[idx];
-                let n = take.min(k.len());
-                k[..n].to_vec()
-            }
-        ),
+        (0usize..keys_for_strategy.len(), 1usize..=8usize).prop_map(move |(idx, take)| {
+            let k = &keys_for_strategy[idx];
+            let n = take.min(k.len());
+            k[..n].to_vec()
+        }),
         // Random bytes, length 1..=4.
         prop::collection::vec(any::<u8>(), 1..=4),
     ];
@@ -214,14 +212,14 @@ fn encode_ops(ops: &[Op]) -> Vec<u8> {
 /// Mirrors the contract's state machine exactly:
 ///   * `live`     — set to true on first Find.
 ///   * `entries`  — the sorted prefix-matching subset of `map` for the
-///                  current iterator (replaced on every Find).
+///     current iterator (replaced on every Find).
 ///   * `cursor`   — 1-based position into `entries`; 0 means pre-Next.
 ///   * `past_end` — set to true once Next returned false; subsequent
-///                  Next ops emit 0 and do NOT re-advance (the contract
-///                  is asserted to do the same — no double-read past
-///                  end).
+///     Next ops emit 0 and do NOT re-advance (the contract
+///     is asserted to do the same — no double-read past
+///     end).
 ///   * `last_ok`  — true iff the most recent Next returned true (and
-///                  no intervening Find reset it).
+///     no intervening Find reset it).
 fn model_trace(map: &BTreeMap<Vec<u8>, Vec<u8>>, ops: &[Op]) -> Vec<u8> {
     let mut trace = Vec::new();
     let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();

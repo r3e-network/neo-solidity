@@ -108,7 +108,10 @@ fn contains_position_reference(msg: &str) -> bool {
             }
             // Need at least one digit before the colon, then a colon, then
             // at least one digit after it.
-            if i < bytes.len() && bytes[i] == b':' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit()
+            if i < bytes.len()
+                && bytes[i] == b':'
+                && i + 1 < bytes.len()
+                && bytes[i + 1].is_ascii_digit()
             {
                 // Confirm we consumed at least one digit at `start..i`.
                 if i > start {

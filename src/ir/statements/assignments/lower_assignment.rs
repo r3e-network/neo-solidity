@@ -466,11 +466,9 @@ fn lower_assignment(
                         ),
                         None => false,
                     };
-                    if !decoded {
-                        if lower_expression(rhs, ctx, instructions) {
-                            instructions.push(Instruction::StoreLocal(index));
-                            ctx.clear_call_data_local(index);
-                        }
+                    if !decoded && lower_expression(rhs, ctx, instructions) {
+                        instructions.push(Instruction::StoreLocal(index));
+                        ctx.clear_call_data_local(index);
                     }
                 }
                 Err(message) => {
@@ -884,4 +882,3 @@ fn try_lower_this_external_dynamic_assign(
     ctx.clear_call_data_local(slot);
     true
 }
-

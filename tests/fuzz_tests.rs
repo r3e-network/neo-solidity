@@ -50,6 +50,12 @@ mod batches_81_90;
 mod batches_91_100;
 #[path = "fuzz_tests/common.rs"]
 mod common;
+#[path = "fuzz_tests/compile_runtime_roundtrip.rs"]
+mod compile_runtime_roundtrip;
+#[path = "fuzz_tests/compiler_props.rs"]
+mod compiler_props;
+#[path = "fuzz_tests/conditional_jumps.rs"]
+mod conditional_jumps;
 #[path = "fuzz_tests/constant_immutable_gap_props.rs"]
 mod constant_immutable_gap_props;
 #[path = "fuzz_tests/constructor_lifecycle_props.rs"]
@@ -66,6 +72,8 @@ mod determinism_props;
 mod devpack_props;
 #[path = "fuzz_tests/diagnostic_stability_props.rs"]
 mod diagnostic_stability_props;
+#[path = "fuzz_tests/differential.rs"]
+mod differential;
 #[path = "fuzz_tests/disasm_stability_props.rs"]
 mod disasm_stability_props;
 #[path = "fuzz_tests/erc1155_proxy_props.rs"]
@@ -88,28 +96,20 @@ mod native_contract_props;
 mod native_resolver_props;
 #[path = "fuzz_tests/openzeppelin_patterns_props.rs"]
 mod openzeppelin_patterns_props;
+#[path = "fuzz_tests/optimizer_props.rs"]
+mod optimizer_props;
 #[path = "fuzz_tests/pathological_corpus_smoke.rs"]
 mod pathological_corpus_smoke;
 #[path = "fuzz_tests/performance_regression.rs"]
 mod performance_regression;
-#[path = "fuzz_tests/differential.rs"]
-mod differential;
-#[path = "fuzz_tests/compile_runtime_roundtrip.rs"]
-mod compile_runtime_roundtrip;
-#[path = "fuzz_tests/compiler_props.rs"]
-mod compiler_props;
-#[path = "fuzz_tests/conditional_jumps.rs"]
-mod conditional_jumps;
-#[path = "fuzz_tests/optimizer_props.rs"]
-mod optimizer_props;
 #[path = "fuzz_tests/reentrancy_props.rs"]
 mod reentrancy_props;
-#[path = "fuzz_tests/storage_props.rs"]
-mod storage_props;
 #[path = "fuzz_tests/stdlib_native_props.rs"]
 mod stdlib_native_props;
 #[path = "fuzz_tests/storage_iterator_stress.rs"]
 mod storage_iterator_stress;
+#[path = "fuzz_tests/storage_props.rs"]
+mod storage_props;
 #[path = "fuzz_tests/storage_state_machine.rs"]
 mod storage_state_machine;
 #[path = "fuzz_tests/task107_catch_panic_tests.rs"]

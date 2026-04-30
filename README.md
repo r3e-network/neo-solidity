@@ -7,7 +7,7 @@
 [![Build Status](https://github.com/r3e-network/neo-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-solidity/actions)
 [![Neo-Express Showcases Workflow](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust Version](https://img.shields.io/badge/rust-1.82+-blue.svg)](https://rustup.rs)
+[![Rust Version](https://img.shields.io/badge/rust-1.88+-blue.svg)](https://rustup.rs)
 [![Neo Version](https://img.shields.io/badge/neo-N3%203.0+-green.svg)](https://neo.org)
 
 **Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
@@ -409,8 +409,8 @@ graph TB
 
 #### **System Requirements**
 
-- **Rust**: 1.82 or higher
-- **Node.js**: 18.0 or higher (for tooling)
+- **Rust**: 1.88 or higher
+- **Node.js**: 20.0 or higher (for tooling)
 - **.NET SDK**: 8.0 or higher (for optional C# runtime)
 - **Neo CLI**: 3.0+ (for deployment)
 - **Memory**: 4GB RAM minimum, 8GB recommended

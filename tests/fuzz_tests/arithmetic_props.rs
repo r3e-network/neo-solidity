@@ -443,7 +443,7 @@ contract TestContract {{
     ) {
         let mut expr = "y".to_string();
         for i in 0..depth {
-            if i % 2 == 0 {
+            if i.is_multiple_of(2) {
                 expr = format!("x > {} ? ++y : {}", i, expr);
             } else {
                 expr = format!("x > {} ? --y : {}", i, expr);

@@ -104,7 +104,7 @@ jobs:
         RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\n\
         ENV PATH=\"/root/.cargo/bin:$PATH\"\n\n# Install .NET\nRUN curl -sSL https://dot.net/v1/dotnet-install.sh\
         \ | bash /dev/stdin --channel 6.0\nENV PATH=\"/root/.dotnet:$PATH\"\n\n# Install\
-        \ Node.js\nRUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \\\
+        \ Node.js\nRUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \\\
         \n    && apt-get install -y nodejs\n\n# Install Go\nRUN curl -L https://go.dev/dl/go1.21.0.linux-amd64.tar.gz\
         \ | tar -C /usr/local -xz\nENV PATH=\"/usr/local/go/bin:$PATH\"\n\n# Set working\
         \ directory\nWORKDIR /workspace\n\n# Create development script\nRUN echo '#!/bin/bash'\

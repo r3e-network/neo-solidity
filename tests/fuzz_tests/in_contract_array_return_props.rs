@@ -44,8 +44,8 @@ contract C {
         return got.length == 5 && got[2] == 3;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("wave28 compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("wave28 compile: {:?}", e));
     assert!(!arts.is_empty(), "wave28: no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("wave28 runtime");
@@ -89,8 +89,8 @@ contract C {
         return got.length;
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("wave28 len compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("wave28 len compile: {:?}", e));
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("wave28 len rt");
     let r = rt
@@ -113,7 +113,8 @@ contract C {
         acc
     };
     assert_eq!(
-        value, 5,
+        value,
+        5,
         "wave28: got.length must be 5; got {} (rd_hex={}). \
          If this returns 224, it's reading the wire byte-length (32 head + \
          32 length-prefix + 5*32 elements) instead of the abi-decoded \
@@ -141,8 +142,8 @@ contract C {
         return got[2];
     }
 }"#;
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("wave28 elem compile: {:?}", e));
+    let arts =
+        compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("wave28 elem compile: {:?}", e));
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("wave28 elem rt");
     let r = rt
@@ -163,7 +164,8 @@ contract C {
         acc
     };
     assert_eq!(
-        value, 30,
+        value,
+        30,
         "wave28: got[2] must be 30 (the third encoded element); got {} \
          (rd_hex={}). A 0 here means element reads are decoding the raw \
          ABI bytes per index instead of the abi-decoded element values.",

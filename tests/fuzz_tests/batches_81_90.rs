@@ -5487,7 +5487,11 @@ contract C {
         let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("MMM2 rt");
 
         // Alternate between (100 → 50) and (7 → 3) via seed parity.
-        let (n, expected) = if seed % 2 == 0 { (100u64, 50u64) } else { (7u64, 3u64) };
+        let (n, expected) = if seed.is_multiple_of(2) {
+            (100u64, 50u64)
+        } else {
+            (7u64, 3u64)
+        };
         let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
             "f", &[StackItem::Integer(n as i64)])
             .expect("MMM2 f host-level");

@@ -13,7 +13,7 @@
 //!
 //!   1. compile_us  — wall time of `compile_contracts(src, false, 2)` (opt=2)
 //!   2. runtime_us  — sum of 5 `NeoRuntime::call_method` invocations on a
-//!                    representative entry point
+//!      representative entry point
 //!
 //! Each timing is asserted below a generous absolute threshold (~10x slower
 //! than typical observed values on a modern dev box, sized for cargo's
@@ -389,8 +389,12 @@ const THRESHOLD_LARGE_RUNTIME_US: u128 = 1_000_000; // 1 s total
 /// frontend regression, not a perf regression.
 fn time_compile(label: &str, src: &str) -> (u128, Vec<neo_solidity::cli::CompilationArtifacts>) {
     let t0 = Instant::now();
-    let arts = compile_contracts(src, false, 2)
-        .unwrap_or_else(|e| panic!("performance_regression: '{}' compile failed: {:?}", label, e));
+    let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
+        panic!(
+            "performance_regression: '{}' compile failed: {:?}",
+            label, e
+        )
+    });
     let elapsed = t0.elapsed().as_micros();
     assert!(
         !arts.is_empty(),
@@ -509,37 +513,43 @@ fn compile_runtime_performance_regression() {
         "performance_regression: tiny compile {} us exceeded threshold {} us \
          (~10x slowdown). Either the threshold is too tight for this hardware, \
          or the compiler genuinely got slower for trivial inputs.",
-        tiny_compile_us, THRESHOLD_TINY_COMPILE_US
+        tiny_compile_us,
+        THRESHOLD_TINY_COMPILE_US
     );
     assert!(
         tiny_runtime_us < THRESHOLD_TINY_RUNTIME_US,
         "performance_regression: tiny runtime (5 calls) {} us exceeded threshold {} us. \
          Runtime dispatch path got measurably slower.",
-        tiny_runtime_us, THRESHOLD_TINY_RUNTIME_US
+        tiny_runtime_us,
+        THRESHOLD_TINY_RUNTIME_US
     );
     assert!(
         medium_compile_us < THRESHOLD_MEDIUM_COMPILE_US,
         "performance_regression: medium compile {} us exceeded threshold {} us. \
          An ERC-20-shaped contract should compile in well under 2 s in dev mode.",
-        medium_compile_us, THRESHOLD_MEDIUM_COMPILE_US
+        medium_compile_us,
+        THRESHOLD_MEDIUM_COMPILE_US
     );
     assert!(
         medium_runtime_us < THRESHOLD_MEDIUM_RUNTIME_US,
         "performance_regression: medium runtime (5 calls) {} us exceeded threshold {} us. \
          Mapping-load dispatch got measurably slower.",
-        medium_runtime_us, THRESHOLD_MEDIUM_RUNTIME_US
+        medium_runtime_us,
+        THRESHOLD_MEDIUM_RUNTIME_US
     );
     assert!(
         large_compile_us < THRESHOLD_LARGE_COMPILE_US,
         "performance_regression: large compile {} us exceeded threshold {} us. \
          A 200-line multi-modifier multi-mapping contract should compile in \
          under 5 s in dev mode.",
-        large_compile_us, THRESHOLD_LARGE_COMPILE_US
+        large_compile_us,
+        THRESHOLD_LARGE_COMPILE_US
     );
     assert!(
         large_runtime_us < THRESHOLD_LARGE_RUNTIME_US,
         "performance_regression: large runtime (5 calls) {} us exceeded threshold {} us. \
          Pure-function dispatch on a large manifest got measurably slower.",
-        large_runtime_us, THRESHOLD_LARGE_RUNTIME_US
+        large_runtime_us,
+        THRESHOLD_LARGE_RUNTIME_US
     );
 }

@@ -643,7 +643,7 @@ fn lower_abi_decode_direct(
 
     let any_dynamic = types
         .iter()
-        .any(|value_type| abi_dynamic_decode_value_type_is_supported(value_type));
+        .any(abi_dynamic_decode_value_type_is_supported);
 
     if !any_dynamic {
         // All declared types are static-1-slot; total payload size is

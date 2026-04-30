@@ -77,12 +77,6 @@ struct LoweringContext<'a> {
     defined_struct_types: &'a [ValueType],
     event_index_map: &'a HashMap<String, usize>,
     event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
-    /// Precomputed EVM-canonical event signatures keyed by event name.
-    ///
-    /// Used by `lower_emit` to produce the EVM-spec log shape:
-    ///   topic[0] = `keccak256("Name(t1,t2,...)")` — a 32-byte literal
-    ///   topic[1..N] = indexed args (BE-padded or keccak-hashed)
-    ///   data = abi.encode(non_indexed_args)
     event_params_map: &'a HashMap<String, EventSignature>,
     enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
     contract_types: &'a HashSet<String>,
@@ -787,11 +781,6 @@ impl<'a> LoweringContext<'a> {
             .map(|sig| sig.as_slice())
     }
 
-    /// Returns the precomputed EVM-canonical signature for an event, if the
-    /// event was declared in this module. `None` means the caller referenced
-    /// an unknown event name (likely an inherited event pulled in by name
-    /// alone) — the caller should fall back to the legacy `EmitEventByName`
-    /// path rather than emit EVM-spec topics with a missing hash.
     fn event_evm_signature(&self, event_name: &str) -> Option<&EventSignature> {
         self.event_params_map.get(event_name)
     }

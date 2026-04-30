@@ -135,15 +135,15 @@ impl ExecutionContext {
                 // EVM-canonical `LogEntry { topics, data }`. The three shapes
                 // are distinguished by the `eventName` length:
                 //
-                //   * **EVM non-anonymous shape** — `eventName.len() == 32`
-                //     AND `stateArray` is an `Array`. The 32-byte event_name
-                //     is `keccak256("Name(type1,type2,...)")` i.e. `topic[0]`.
-                //     The stateArray is `[topic1, topic2, ..., data]` —
-                //     indexed-arg topics first (already 32 bytes each), then
-                //     the abi-encoded non-indexed `data` payload as the final
-                //     element. This matches Ethereum's log model: Etherscan,
-                //     TheGraph, and Ethers consumers subscribe by the
-                //     signature keccak and filter by indexed-topic values.
+                //   * **EVM non-anonymous shape** — `eventName` is the
+                //     human-readable UTF-8 event name and `stateArray` is an
+                //     Array whose first item is the 32-byte
+                //     `keccak256("Name(type1,type2,...)")` topic[0]. The
+                //     remaining state items are `[topic1, topic2, ..., data]`
+                //     — indexed-arg topics first (already 32 bytes each),
+                //     then the abi-encoded non-indexed `data` payload as the
+                //     final element. This matches Ethereum's log model while
+                //     keeping Neo's eventName printable.
                 //
                 //   * **EVM anonymous shape** — `eventName.is_empty()` AND
                 //     `stateArray` is an `Array`. Per the EVM ABI (and the

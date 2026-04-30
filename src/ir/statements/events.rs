@@ -25,23 +25,22 @@
 /// The runtime expects `Notify(eventName, stateArray)`. We co-opt that
 /// signature to carry the EVM shape:
 ///
-///   eventName  = the 32-byte `topic[0]` (keccak signature hash)
-///   stateArray = [topic[1], topic[2], ..., data]
+///   eventName  = human-readable event name (UTF-8, manifest-compatible)
+///   stateArray = [topic[0], topic[1], ..., data]
 ///
 /// The runtime's `System.Runtime.Notify` handler detects the EVM shape by
-/// `event_name.len() == 32 && stateArray.is_array` and rebuilds a proper
-/// EVM `LogEntry { topics: vec![topic0, ...indexed], data }`. Legacy
-/// `Syscalls.notify(short_name, payload)` paths with non-32-byte names
+/// checking for a 32-byte first state item and rebuilds a proper EVM
+/// `LogEntry { topics: vec![topic0, ...indexed], data }`. Legacy
+/// `Syscalls.notify(short_name, payload)` paths without the 32-byte marker
 /// remain on the original Neo-native path.
 ///
 /// # Fallback
 ///
 /// If the event name isn't registered in the module's `event_params_map`
 /// (e.g., inherited-event resolution lost the definition), we fall back to
-/// the legacy `EmitEventByName` path — the runtime preserves the old
-/// single-topic Neo-native shape for those. The compiler also falls back
-/// when any `lower_expression` subcall fails, to avoid emitting a
-/// half-built log record.
+/// the legacy `EmitEventByName` path. The compiler also falls back when any
+/// `lower_expression` subcall fails, to avoid emitting a half-built log
+/// record.
 fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     let Expression::FunctionCall(_, func, args) = expr else {
         return;
@@ -50,31 +49,14 @@ fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut V
         return;
     };
 
-    // Always use the Neo-native shape:
-    //
-    //   eventName  = the human-readable event name (UTF-8 string, matches manifest)
-    //   stateArray = [arg1, arg2, ..., argN]   (raw arg values in declaration order)
-    //
-    // We previously produced an EVM-canonical wire format here (eventName =
-    // 32-byte keccak of signature, stateArray reshaped into
-    // [topic1, ..., topicN, data]) but it broke on real Neo nodes in two
-    // ways:
-    //   1. Neo's RPC/log layer treats the eventName as a UTF-8 string, and
-    //      keccak hashes contain arbitrary bytes (e.g. 0xDD as the first
-    //      byte for `Transfer(...)`) that fault the UTF-8 decoder.
-    //   2. Neo's manifest validation enforces `state.Count` matches the
-    //      declared event's parameter count exactly. EVM reshaping
-    //      (4-element stateArray for a 3-parameter event) gets rejected.
-    //
-    // Indexers that need EVM-canonical topics can derive topic0 from the
-    // manifest's event declaration; the indexed/non-indexed split is
-    // recoverable from the event-parameter metadata the frontend records.
-    lower_emit_legacy(&identifier.name, args, ctx, instructions);
+    let Some(signature) = ctx.event_evm_signature(&identifier.name).cloned() else {
+        lower_emit_legacy(&identifier.name, args, ctx, instructions);
+        return;
+    };
+
+    lower_emit_evm_shape(&identifier.name, &signature, args, ctx, instructions);
 }
 
-/// Retained for reference; no longer the active emit lowering. See `lower_emit`
-/// for the rationale (testnet incompatibility of the EVM-canonical shape).
-#[allow(dead_code)]
 fn lower_emit_evm_shape(
     event_name: &str,
     signature: &EventSignature,

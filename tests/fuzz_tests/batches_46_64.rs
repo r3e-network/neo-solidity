@@ -146,7 +146,7 @@ contract C {
         prop_assert!(r.success,
             "V2 f({}) must succeed; exc={:?}",
             n, r.exception.as_ref().map(|e| &e.message));
-        let expected: u64 = (0..n as u64).filter(|i| i % 3 != 0).sum();
+        let expected: u64 = (0..n as u64).filter(|i| !i.is_multiple_of(3)).sum();
         let got = decode_uint_le(&r.return_data);
         prop_assert_eq!(got.clone(), num_bigint::BigUint::from(expected),
             "V2 f({}) must equal sum(i in 0..{} if i%3 != 0) = {}; got {} \
@@ -1021,7 +1021,7 @@ contract C {
         let art = &arts[0];
         let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("X1 rt");
 
-        if mode_flag % 2 == 0 {
+        if mode_flag.is_multiple_of(2) {
             // Overflow mode: a = MAX (32-byte all-0xff BE buffer), b = 1.
             // The unchecked line wraps (unch = 0 OR 2^256 per batch10 H9);
             // the checked line MUST revert with Panic(0x11). Whole call
@@ -1607,7 +1607,7 @@ contract C {
 
         // Alternate c ∈ {true, false} based on seed parity so proptest spreads
         // coverage across both arms.
-        let c = seed % 2 == 0;
+        let c = seed.is_multiple_of(2);
         let expected: &[u8] = if c { b"yes" } else { b"no" };
         let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
             "f", &[StackItem::Boolean(c)])

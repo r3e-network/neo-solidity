@@ -2,7 +2,7 @@
 name = "neo-solidity"
 version = "0.18.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.88"
 description = "Production-ready Solidity-to-NeoVM compilation system"
 license = "MIT"
 repository = "https://github.com/r3e-network/neo-solidity"

@@ -74,7 +74,7 @@ impl ExecutionContext {
     fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
         let without_prefix = Self::strip_hex_prefix(trimmed);
-        if without_prefix.len() % 2 != 0 {
+        if !without_prefix.len().is_multiple_of(2) {
             return Err(RuntimeError::ConfigurationError {
                 message: "contract account hex string has odd length".to_string(),
             });

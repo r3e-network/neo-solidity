@@ -590,10 +590,7 @@ fn build_closure(
         }
     }
 
-    Ok(sources
-        .into_iter()
-        .map(|(k, (_, c))| (k, c))
-        .collect())
+    Ok(sources.into_iter().map(|(k, (_, c))| (k, c)).collect())
 }
 
 /// Iterate the wave-#30-skipped example contracts (those with non-comment
@@ -656,7 +653,10 @@ fn multi_source_run_skipped_examples() {
     eprintln!(
         "multi_source_run_skipped_examples: surveyed {} files, compiled {}, \
          compile-failed {}, closure-failed {}",
-        total, compiled, compile_failed.len(), closure_failed.len()
+        total,
+        compiled,
+        compile_failed.len(),
+        closure_failed.len()
     );
     if !compile_failed.is_empty() {
         eprintln!("compile failures:");
@@ -680,7 +680,10 @@ fn multi_source_run_skipped_examples() {
         "multi_source_run_skipped_examples: only {}/{} ({}%) compiled cleanly via \
          standard-JSON multi-source — wanted at least {} ({}%). \
          This is a regression in the import resolver or in one of the example contracts.",
-        compiled, total, (compiled * 100) / total.max(1),
-        threshold, 80
+        compiled,
+        total,
+        (compiled * 100) / total.max(1),
+        threshold,
+        80
     );
 }

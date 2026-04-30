@@ -565,13 +565,34 @@ struct ParamType {
 
 fn param_type_strategy() -> impl Strategy<Value = ParamType> {
     prop_oneof![
-        Just(ParamType { solidity: "uint256", expected_manifest: "Integer" }),
-        Just(ParamType { solidity: "int256",  expected_manifest: "Integer" }),
-        Just(ParamType { solidity: "address", expected_manifest: "Hash160" }),
-        Just(ParamType { solidity: "bool",    expected_manifest: "Boolean" }),
-        Just(ParamType { solidity: "bytes32", expected_manifest: "Hash256" }),
-        Just(ParamType { solidity: "string",  expected_manifest: "String"  }),
-        Just(ParamType { solidity: "bytes",   expected_manifest: "ByteArray" }),
+        Just(ParamType {
+            solidity: "uint256",
+            expected_manifest: "Integer"
+        }),
+        Just(ParamType {
+            solidity: "int256",
+            expected_manifest: "Integer"
+        }),
+        Just(ParamType {
+            solidity: "address",
+            expected_manifest: "Hash160"
+        }),
+        Just(ParamType {
+            solidity: "bool",
+            expected_manifest: "Boolean"
+        }),
+        Just(ParamType {
+            solidity: "bytes32",
+            expected_manifest: "Hash256"
+        }),
+        Just(ParamType {
+            solidity: "string",
+            expected_manifest: "String"
+        }),
+        Just(ParamType {
+            solidity: "bytes",
+            expected_manifest: "ByteArray"
+        }),
     ]
 }
 
@@ -933,14 +954,26 @@ fn dexpr_strategy() -> impl Strategy<Value = DExpr> {
             ];
             let shift = prop_oneof![Just(DShift::Shl), Just(DShift::Shr)];
             prop_oneof![
-                (op, inner.clone(), inner.clone())
-                    .prop_map(|(o, l, r)| DExpr::Bin(o, Box::new(l), Box::new(r))),
-                (shift, inner.clone(), 0u8..32u8)
-                    .prop_map(|(s, l, amt)| DExpr::Shift(s, Box::new(l), amt)),
-                (cmp, inner.clone(), inner.clone())
-                    .prop_map(|(c, l, r)| DExpr::Cmp(c, Box::new(l), Box::new(r))),
-                (inner.clone(), inner.clone(), inner.clone())
-                    .prop_map(|(c, t, e)| DExpr::Tern(Box::new(c), Box::new(t), Box::new(e))),
+                (op, inner.clone(), inner.clone()).prop_map(|(o, l, r)| DExpr::Bin(
+                    o,
+                    Box::new(l),
+                    Box::new(r)
+                )),
+                (shift, inner.clone(), 0u8..32u8).prop_map(|(s, l, amt)| DExpr::Shift(
+                    s,
+                    Box::new(l),
+                    amt
+                )),
+                (cmp, inner.clone(), inner.clone()).prop_map(|(c, l, r)| DExpr::Cmp(
+                    c,
+                    Box::new(l),
+                    Box::new(r)
+                )),
+                (inner.clone(), inner.clone(), inner.clone()).prop_map(|(c, t, e)| DExpr::Tern(
+                    Box::new(c),
+                    Box::new(t),
+                    Box::new(e)
+                )),
             ]
         },
     )

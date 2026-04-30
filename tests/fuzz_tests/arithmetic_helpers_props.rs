@@ -475,27 +475,41 @@ proptest! {
 #[test]
 fn inc_i64_max_must_error_strict() {
     let r = step_unary(OP_INC, StackItem::Integer(i64::MAX));
-    assert!(r.is_err(), "INC(i64::MAX) under strict mode must error, got {:?}", r);
+    assert!(
+        r.is_err(),
+        "INC(i64::MAX) under strict mode must error, got {:?}",
+        r
+    );
 }
 
 #[test]
 fn dec_i64_min_must_error_strict() {
     let r = step_unary(OP_DEC, StackItem::Integer(i64::MIN));
-    assert!(r.is_err(), "DEC(i64::MIN) under strict mode must error, got {:?}", r);
+    assert!(
+        r.is_err(),
+        "DEC(i64::MIN) under strict mode must error, got {:?}",
+        r
+    );
 }
 
 #[test]
 fn inc_unsigned_max_must_error_strict() {
     let r = step_unary(OP_INC, StackItem::UnsignedInteger(u64::MAX));
-    assert!(r.is_err(),
-        "INC(u64::MAX) under strict mode must error, got {:?}", r);
+    assert!(
+        r.is_err(),
+        "INC(u64::MAX) under strict mode must error, got {:?}",
+        r
+    );
 }
 
 #[test]
 fn dec_unsigned_zero_must_error_strict() {
     let r = step_unary(OP_DEC, StackItem::UnsignedInteger(0));
-    assert!(r.is_err(),
-        "DEC(0u64) under strict mode must error, got {:?}", r);
+    assert!(
+        r.is_err(),
+        "DEC(0u64) under strict mode must error, got {:?}",
+        r
+    );
 }
 
 #[test]
