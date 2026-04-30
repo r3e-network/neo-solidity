@@ -6,7 +6,7 @@ outline: false
 
 # Token Standards
 
-Twelve Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Fourteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.

@@ -20,12 +20,12 @@ fewer footguns and lower gas.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, Multi-token</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, soulbound</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309
+      ERC-20, 721, 777, 1155, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309, 5114, 6147
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">12 standards</span>
+      <span class="cat-pill cat-pill-direct">14 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
@@ -82,7 +82,8 @@ fewer footguns and lower gas.
 
 ## Live on TestNet
 
-**Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
+The frontend catalog currently exposes **51 ERC/EIP mapping pages** across the five
+categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
 `nccs`) versions, recording pass/fail assertion results for both implementations.
@@ -151,11 +152,12 @@ assertion check fails.
 across v0.19.0–v0.21.0, and v0.22.0 took 6 of the 8 "prose-only" protocol EIPs and
 turned them into deployable demos that expose the equivalent Neo behavior.
 
-Only **2 protocol EIPs remain prose-only** because they have no observable Neo
-surface at all:
+Four catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
+- **EIP-3074** (AUTH/AUTHCALL) — superseded by EIP-7702 and covered by Neo witness scopes.
+- **ERC-6909** (minimal multi-token) — documented as a direct Neo C# port but not part of the checked-in deployment snapshot.
 
 The other six (EIP-2718, EIP-2930, EIP-3855, EIP-3860, EIP-6780, EIP-7702) now
 have live demos exposing their Neo counterparts: tx version, witness scopes,

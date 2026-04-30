@@ -3,11 +3,12 @@
 > **Queue empty.** All 23 originally-deferred entries shipped across v0.19.0 (8) /
 > v0.20.0 (8) / v0.21.0 (7). The recurring weekly agent has been retired.
 >
-> The mirror's TestNet matrix now covers **47 deployable standards**. The only
-> catalog entries without a live contract pair are the 2 protocol EIPs whose only
-> sensible demonstration is the protocol itself: EIP-1559 (fee-market base-fee
-> auction) and EIP-4844 (blob transactions). Those stay prose-only because Neo has
-> no matching observable contract surface.
+> The mirror catalog now exposes **51 ERC/EIP mapping pages**. The TestNet matrix
+> covers **47 deployable standards**. The four catalog entries without a live
+> contract pair are EIP-1559 (fee-market auction), EIP-4844 (blob transactions),
+> EIP-3074 (superseded by EIP-7702 and covered by witness scopes), and ERC-6909
+> (documented as a direct Neo C# port but not part of the checked-in deployment
+> snapshot).
 
 ## Shipped log
 
