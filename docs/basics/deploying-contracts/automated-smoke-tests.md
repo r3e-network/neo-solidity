@@ -7,6 +7,8 @@ description: "Automated Smoke Tests from Deploying Contracts."
 
 [Back to Deploying Contracts](/basics/deploying-contracts)
 
+## Smoke Test Commands
+
 The repository ships 16+ deployment smoke tests that validate end-to-end behavior:
 
 ```bash
@@ -40,5 +42,7 @@ make test-deploy-view-readonly-call-smoke
 # All smoke tests
 make test-deploy-smoke-full
 ```
+
+## Execution Model
 
 Each script creates a fresh Neo-Express chain, deploys a purpose-built contract, invokes methods, and validates results. They are safe to run repeatedly and clean up after themselves.

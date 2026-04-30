@@ -7,7 +7,11 @@ description: "Step 7: Constructor Arguments from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
+## Constructor Model
+
 If your contract has a parameterized constructor, Neo handles it through the `_deploy(data, update)` entry point. The compiler automatically generates this entry point.
+
+## Example Contract
 
 Example contract with a constructor:
 
@@ -28,11 +32,15 @@ contract Counter {
 }
 ```
 
+## Compile
+
 Compile:
 
 ```bash
 ./target/release/neo-solc Counter.sol -I devpack -O2 -o build/Counter
 ```
+
+## Deploy with Arguments
 
 Deploy with constructor arguments via Neo-Express:
 

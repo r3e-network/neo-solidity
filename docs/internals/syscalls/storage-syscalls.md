@@ -7,6 +7,8 @@ description: "Storage Syscalls from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
+## Storage API
+
 Storage syscalls provide persistent key-value state for contracts. Each contract has its own isolated storage context.
 
 | Syscall Name                        | Gas Cost | Description                       | Devpack Wrapper                        |
@@ -23,7 +25,11 @@ Storage syscalls provide persistent key-value state for contracts. Each contract
 | `System.Storage.Local.Delete`       |      100 | Delete from local context         | `Syscalls.storageDeleteLocal(key)`     |
 | `System.Storage.Local.Find`         |      100 | Find in local context             | `Syscalls.storageFindLocal(prefix)`    |
 
+## Local Storage
+
 Local storage (`System.Storage.Local.*`) is contract-private and cannot be read by other contracts even through `System.Storage.GetReadOnlyContext`. Use it for internal bookkeeping that should never be externally visible.
+
+## Example Usage
 
 ```solidity
 import "devpack/contracts/Syscalls.sol";
@@ -47,6 +53,8 @@ contract TokenVault {
     }
 }
 ```
+
+## Cost Guidance
 
 ::: tip Storage Cost Awareness
 `System.Storage.Put` costs 1,000 GAS units — 10x more expensive than `Get` or `Delete` (100 each). Minimize writes by batching updates and avoiding redundant puts. The `Storage.sol` library provides `batchPut()` for multi-key writes, but each individual put still incurs the full syscall cost.

@@ -7,13 +7,19 @@ description: "Step 6: Use the SimpleStorage Example from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
+## Example Contract
+
 The repository ships a more complete example at `examples/SimpleStorage.sol` with key-value storage, ownership, reentrancy guards, and balance tracking.
+
+## Compile
 
 Compile it:
 
 ```bash
 ./target/release/neo-solc examples/SimpleStorage.sol -I devpack -O2 -o build/SimpleStorage
 ```
+
+## Inspect the Manifest
 
 Inspect the manifest:
 

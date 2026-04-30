@@ -35,6 +35,11 @@ function slugifyHeading(text: string): string {
     .toLowerCase();
 }
 
+function hasHomeLayout(content: string): boolean {
+  const frontmatter = content.match(/^---\n([\s\S]*?)\n---/);
+  return Boolean(frontmatter?.[1].match(/^layout:\s*home\s*$/m));
+}
+
 function pageTitle(markdownPath: string): string {
   const content = readFileSync(markdownPath, 'utf8');
   const frontmatterTitle = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
@@ -72,6 +77,13 @@ function pageSections(link: string): SidebarItem[] {
 
     const parent = sections[sections.length - 1];
     parent.items = [...(parent.items ?? []), item];
+  }
+
+  if (sections.length === 0 && /^#\s+.+$/m.test(content) && !hasHomeLayout(content)) {
+    sections.push({
+      text: 'Overview',
+      link: `${link}#overview`
+    });
   }
 
   return sections;
@@ -191,6 +203,62 @@ export default defineConfig({
     'SOLIDITY_SUPPORT_MATRIX.md',
     'public/**/*.md'
   ],
+  markdown: {
+    config(md) {
+      md.core.ruler.after('block', 'neo_docs_overview_heading', (state) => {
+        const tokens = state.tokens;
+
+        if (
+          hasHomeLayout(state.src) ||
+          tokens.some((token) => token.type === 'heading_open' && /^h[2-3]$/.test(token.tag))
+        ) {
+          return;
+        }
+
+        const h1Index = tokens.findIndex((token) => token.type === 'heading_open' && token.tag === 'h1');
+        if (h1Index === -1) {
+          return;
+        }
+
+        const h1CloseIndex = tokens.findIndex(
+          (token, index) => index > h1Index && token.type === 'heading_close' && token.tag === 'h1'
+        );
+        if (h1CloseIndex === -1) {
+          return;
+        }
+
+        const openToken = new state.Token('heading_open', 'h2', 1);
+        openToken.markup = '##';
+        openToken.block = true;
+        openToken.level = 0;
+        const inlineToken = new state.Token('inline', '', 0);
+        inlineToken.content = 'Overview';
+        inlineToken.children = [];
+        inlineToken.level = 1;
+        const closeToken = new state.Token('heading_close', 'h2', -1);
+        closeToken.markup = '##';
+        closeToken.block = true;
+        closeToken.level = 0;
+
+        tokens.splice(h1CloseIndex + 1, 0, openToken, inlineToken, closeToken);
+      });
+    }
+  },
+  transformPageData(pageData) {
+    if (
+      pageData.headers.length === 0 &&
+      pageData.frontmatter.layout !== 'home' &&
+      pageData.relativePath.endsWith('.md')
+    ) {
+      pageData.headers.push({
+        level: 2,
+        title: 'Overview',
+        slug: 'overview',
+        link: '#overview',
+        children: []
+      });
+    }
+  },
   head: [
     ['meta', { name: 'theme-color', content: '#00E599' }],
     ['meta', { property: 'og:type', content: 'website' }],

@@ -7,6 +7,8 @@ description: "Iterator Syscalls from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
+## Iterator API
+
 Iterator syscalls traverse results returned by `System.Storage.Find`.
 
 | Syscall Name            | Gas Cost | Description                | Devpack Wrapper                |
@@ -15,6 +17,8 @@ Iterator syscalls traverse results returned by `System.Storage.Find`.
 | `System.Iterator.Value` |        1 | Get current iterator value | `Syscalls.iteratorValue(iter)` |
 
 Iterators are the only way to enumerate storage keys by prefix on Neo N3. They are returned by `System.Storage.Find` and consumed with the `Next`/`Value` pair.
+
+## Example Usage
 
 ```solidity
 import "devpack/contracts/Syscalls.sol";
@@ -45,6 +49,8 @@ contract Registry {
     }
 }
 ```
+
+## Execution Limits
 
 ::: warning
 Iterators cannot be passed across contract boundaries or stored persistently. They are valid only within the execution context that created them. Attempting to use an iterator from a different invocation will fail.

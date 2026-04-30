@@ -7,6 +7,8 @@ description: "Runtime Syscalls from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
+## Runtime API
+
 Runtime syscalls provide access to execution context, authorization, notifications, and platform metadata.
 
 | Syscall Name                            | Gas Cost | Description                              | Devpack Wrapper                            |
@@ -30,6 +32,8 @@ Runtime syscalls provide access to execution context, authorization, notificatio
 | `System.Runtime.GasLeft`                |        1 | Get remaining GAS                        | `Syscalls.gasLeft()`                       |
 | `System.Runtime.BurnGas`                |        1 | Burn specified GAS amount                | `Syscalls.burnGas(amount)`                 |
 | `System.Runtime.CurrentSigners`         |        1 | Get transaction signers                  | `Syscalls.getCurrentSigners()`             |
+
+## Example Usage
 
 ```solidity
 import "devpack/contracts/Syscalls.sol";
@@ -62,6 +66,8 @@ contract Guarded {
     }
 }
 ```
+
+## Gas Cost Guidance
 
 ::: warning CheckWitness Gas Cost
 `System.Runtime.CheckWitness` costs 200 GAS units — the most expensive runtime syscall. It performs cryptographic signature verification against the transaction's witness list. Avoid calling it in tight loops. Cache the result in a local variable when you need to check the same witness multiple times within a single execution.

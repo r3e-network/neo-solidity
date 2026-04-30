@@ -1,7 +1,6 @@
 ---
 title: ERC / EIP ↔ Neo Standards Mirror
 description: Every meaningful Ethereum standard, mirrored to its Neo N3 equivalent — with side-by-side Solidity and Neo C# implementations.
-outline: false
 ---
 
 # ERC / EIP ↔ Neo Standards Mirror

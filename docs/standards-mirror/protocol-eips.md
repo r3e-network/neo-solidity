@@ -1,7 +1,6 @@
 ---
 title: Protocol-Level EIPs — ERC ↔ Neo Mirror
 description: Ethereum protocol EIPs (fee market, opcodes, transaction format) and how Neo handles the equivalent concern natively.
-outline: false
 ---
 
 # Protocol-Level EIPs

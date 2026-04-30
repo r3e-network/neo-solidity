@@ -1,7 +1,6 @@
 ---
 title: DeFi Building Blocks — ERC ↔ Neo Mirror
 description: Vaults, flash loans, governance — Ethereum DeFi standards mirrored to Neo C# implementations.
-outline: false
 ---
 
 # DeFi Building Blocks

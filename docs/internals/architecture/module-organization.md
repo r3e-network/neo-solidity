@@ -7,6 +7,8 @@ description: "Module Organization from Architecture."
 
 [Back to Architecture](/internals/architecture)
 
+## Source Tree
+
 ```
 src/
 ├── main.rs                     # CLI entry point

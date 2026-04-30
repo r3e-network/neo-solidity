@@ -1,7 +1,6 @@
 ---
 title: "ERC-20 — Fungible Token"
 description: "ERC-20 — Fungible Token mapped to Neo N3."
-outline: false
 ---
 
 # ERC-20 — Fungible Token

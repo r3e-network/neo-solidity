@@ -7,10 +7,14 @@ description: "Solidity to Syscall Mapping from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
+## Automatic Lowering
+
 The compiler automatically translates standard Solidity constructs to the corresponding NeoVM syscalls. No manual syscall invocation is needed for these patterns.
 
 For a shorter reader guide that separates runtime calls from devpack usage, see
 [Syscalls and Devpack](/mapping/syscalls-and-devpack).
+
+## Mapping Table
 
 | Solidity Construct                    | Syscall / Neo Call                       | Notes                                       |
 | ------------------------------------- | ---------------------------------------- | ------------------------------------------- |
@@ -29,6 +33,8 @@ For a shorter reader guide that separates runtime calls from devpack usage, see
 | `address(target).staticcall(...)`     | `System.Contract.Call` (read-only flags) | Read-only cross-contract call               |
 | `keccak256(...)`                      | `CryptoLib.keccak256` (native call)      | Via `System.Contract.Call`, not a syscall   |
 | `sha256(...)`                         | `CryptoLib.sha256` (native call)         | Via `System.Contract.Call`, not a syscall   |
+
+## Example Lowering
 
 ```solidity
 // What you write:

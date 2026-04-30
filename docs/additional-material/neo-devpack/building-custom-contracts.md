@@ -7,6 +7,8 @@ description: "Building Custom Contracts from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
+## Contract Source
+
 Minimal contract using devpack features:
 
 ```solidity
@@ -45,6 +47,8 @@ contract Vault is FrameworkBase {
     }
 }
 ```
+
+## Compile and Deploy
 
 Compile and deploy:
 

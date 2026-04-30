@@ -1,7 +1,6 @@
 ---
 title: Infrastructure & Patterns — ERC ↔ Neo Mirror
 description: Proxies, registries, modular contracts, deterministic deployment — Ethereum infrastructure standards mirrored to Neo C#.
-outline: false
 ---
 
 # Infrastructure & Patterns

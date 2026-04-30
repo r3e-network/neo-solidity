@@ -1,7 +1,6 @@
 ---
 title: Token Standards — ERC ↔ Neo Mirror
 description: Every Ethereum token standard mirrored to its Neo N3 implementation — fungibles, NFTs, multi-token, semi-fungible, soulbound, royalty.
-outline: false
 ---
 
 # Token Standards

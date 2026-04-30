@@ -7,6 +7,8 @@ description: "Step 1: Write a Contract from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
+## Contract Source
+
 Create a file called `MyStorage.sol`:
 
 ```solidity
@@ -42,6 +44,8 @@ contract MyStorage {
     }
 }
 ```
+
+## What It Demonstrates
 
 This contract demonstrates the core patterns you will use in Neo Solidity:
 

@@ -1,7 +1,6 @@
 ---
 title: Account & Authentication — ERC ↔ Neo Mirror
 description: Ethereum signature, ownership, and account-abstraction standards mirrored to Neo's native witness model and idiomatic C# patterns.
-outline: false
 ---
 
 # Account & Authentication
