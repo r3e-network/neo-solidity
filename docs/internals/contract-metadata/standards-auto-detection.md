@@ -1,15 +1,15 @@
 ---
-title: "Manifest Specification: Standards Auto-Detection"
+title: "Manifest Standards Auto-Detection"
 description: "Standards Auto-Detection from Manifest Specification."
 ---
 
-# Standards Auto-Detection
+# Manifest Standards Auto-Detection
 
 [Back to Manifest Specification](/internals/contract-metadata)
 
 The compiler analyzes your contract's public method signatures and events to automatically populate the `supportedstandards` array. Detection is case-insensitive.
 
-### NEP-17 Detection (Fungible Token)
+## NEP-17 Detection (Fungible Token)
 
 | Requirement      | Detail                                                              |
 | ---------------- | ------------------------------------------------------------------- |
@@ -19,7 +19,7 @@ The compiler analyzes your contract's public method signatures and events to aut
 | Hint             | `transfer` should have 4 parameters: `from`, `to`, `amount`, `data` |
 | Near-miss        | Warning emitted if 3+ of 5 required methods are present             |
 
-### NEP-11 Detection (Non-Fungible Token)
+## NEP-11 Detection (Non-Fungible Token)
 
 | Requirement        | Detail                                                       |
 | ------------------ | ------------------------------------------------------------ |
@@ -29,13 +29,13 @@ The compiler analyzes your contract's public method signatures and events to aut
 | Hint               | `transfer` should have 3 parameters: `to`, `tokenId`, `data` |
 | Near-miss          | Warning if `ownerOf` present but no transfer mechanism       |
 
-### NEP-24 Detection (Token Discovery / Royalty)
+## NEP-24 Detection (Token Discovery / Royalty)
 
 | Requirement | Detail                                     |
 | ----------- | ------------------------------------------ |
 | Trigger     | `tokenUri` OR `royaltyInfo` method present |
 
-### NEP-26 Detection (Contract Upgrade)
+## NEP-26 Detection (Contract Upgrade)
 
 | Requirement      | Detail                                            |
 | ---------------- | ------------------------------------------------- |

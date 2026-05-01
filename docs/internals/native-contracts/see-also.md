@@ -1,11 +1,13 @@
 ---
-title: "Native Contracts: See Also"
+title: "Native Contracts See Also"
 description: "See Also from Native Contracts."
 ---
 
-# See Also
+# Native Contracts See Also
 
 [Back to Native Contracts](/internals/native-contracts)
+
+## Overview
 
 - [Syscalls](/internals/syscalls) — NeoVM syscall surface reference
 - [Manifest Spec](/internals/contract-metadata) — manifest structure and permission model

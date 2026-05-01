@@ -1,6 +1,7 @@
 # Famous EVM Contracts Runtime-Verified on Neo N3 TestNet
 
 - Generated at (UTC): `2026-02-15T11:02:38.153Z`
+- Snapshot scope: historical TestNet runtime output; rerun the TestNet runtime script before treating these results as current release evidence.
 - RPC endpoint: `http://seed1t5.neo.org:20332`
 - Network magic: `894710606`
 - Deployer address: `NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX`

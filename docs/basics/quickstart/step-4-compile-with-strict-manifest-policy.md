@@ -7,6 +7,8 @@ description: "Step 4: Compile with Strict Manifest Policy from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
+## Overview
+
 For production contracts, you should deny wildcard permissions. This ensures the manifest explicitly lists every contract and method your code calls:
 
 ```bash

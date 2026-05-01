@@ -1,9 +1,9 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.16.0
-> **Parser**: solang-parser 0.3.5
+> **Compiler**: neo-solidity v0.18.0
+> **Parser**: foundry-solang-parser 0.3.9
 > **Target**: NeoVM (Neo N3)
-> **Audit date**: 2026-04-19
+> **Audit date**: 2026-04-30
 
 Legend:
 
@@ -27,7 +27,7 @@ For migration guidance and production validation gaps, see
 | `int8`..`int256`                         | ✅     | All widths parsed; NeoVM uses arbitrary-precision BigInteger          |
 | `uint8`..`uint256`                       | ✅     | All widths parsed; NeoVM uses arbitrary-precision BigInteger          |
 | `address`                                | ✅     | Maps to Neo UInt160 (Hash160, 20 bytes)                               |
-| `address payable`                        | ✅     | Parsed and canonicalized to `address`; payable has no separate Neo type |
+| `address payable`                        | ⚠️     | Parsed and canonicalized to `address`; `.transfer()` / `.send()` map to Neo GAS transfer semantics, not EVM attached value |
 | `bytes1`..`bytes32`                      | ✅     | Fixed-length byte arrays via `NeoType::ByteArray { fixed_len }`       |
 | `bytes` (dynamic)                        | ✅     | Dynamic byte array                                                    |
 | `string`                                 | ✅     | UTF-8 string type                                                     |
@@ -68,8 +68,8 @@ For migration guidance and production validation gaps, see
 | `abi.encodePacked(...)`                       | ⚠️     | Same as `abi.encode` — used for Neo contract call encoding                                                      |
 | `abi.encodeWithSignature(...)`                | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as selector plus encoded args |
 | `abi.encodeWithSelector(...)`                 | ⚠️     | In low-level call contexts it rewrites to Neo contract calls; standalone use approximates calldata as selector plus encoded args |
-| `abi.encodeCall(...)`                         | ⚠️     | Maps through the same limited serialization path as `abi.encode`; validate dynamic production behavior on Neo-Express |
-| `abi.decode(...)`                             | ⚠️     | Maps to `StdLib.deserialize`; dynamic and production Neo N3 behavior should be verified on Neo-Express          |
+| `abi.encodeCall(...)`                         | ✅     | Maps to `StdLib.serialize`                                                                                     |
+| `abi.decode(...)`                             | ✅     | Maps to `StdLib.deserialize`; type tuple parsed from second argument                                            |
 | Named function call args `f({x: 1})`          | ✅     | Named args reordered to positional order at IR level                                                            |
 
 ---
@@ -90,8 +90,8 @@ For migration guidance and production validation gaps, see
 | `revert CustomError(...)` | ✅     | Named revert with args; `RevertNamedArgs` also handled                                                      |
 | Variable declaration      | ✅     | Local variable definitions with optional initializer                                                        |
 | Block `{ ... }`           | ✅     | Scoped statement blocks                                                                                     |
-| `unchecked { ... }`       | ✅     | NeoVM uses BigInteger (no overflow); unchecked blocks compile as normal blocks                              |
-| `assembly { ... }`        | ⚠️     | Compiled as a no-op (with a warning); use `NativeCalls` for low-level ops                                   |
+| `unchecked { ... }`       | ✅     | Suppresses Solidity 0.8 checked-arithmetic guards inside the block; supported fixed-width arithmetic wraps |
+| `assembly { ... }`        | ⚠️     | Limited Yul subset lowering; unsupported EVM-only operations warn and emit no assembly logic for that block |
 | `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                                                     |
 | `catch Error(string)`     | ✅     | Named catch with parameter binding                                                                          |
 | `catch Panic(uint256)`    | ✅     | Matches the canonical `keccak256("Panic(uint256)")[..4] = 0x4e487b71` selector on the revert envelope and decodes the 32-byte BE code (Task #103) |
@@ -152,7 +152,7 @@ For migration guidance and production validation gaps, see
 | Array `.length`                  | ✅     | Both memory and storage arrays                                        |
 | `new bytes(n)` / `new string(n)` | ✅     | Buffer allocation via `NEWBUFFER`                                     |
 | `new T[](n)`                     | ✅     | Dynamic array allocation via `NEWARRAY`                               |
-| `new Contract(...)`              | 🚫     | Blocked: "use ContractManagement for contract deployment"             |
+| `new Contract(...)`              | ⚠️     | Does not deploy a child contract; constructor-like logic is inlined/simulated and a zero-address placeholder is produced. Use `ContractManagement.deploy(...)` for real deployment |
 
 ---
 
@@ -170,7 +170,7 @@ For migration guidance and production validation gaps, see
 | Custom error definitions (`error X(...)`) | ✅     | Parsed and used in revert statements                                                                               |
 | `try` / `catch`                           | ✅     | NeoVM TRY/ENDTRY structured exception handling                                                                     |
 | `try` with return binding                 | ✅     | `try f() returns (uint r) { ... }` supported                                                                       |
-| Multiple catch clauses                    | ⚠️     | Lowered with runtime stack-item type guards (`ISTYPE`); selector-level `Error`/`Panic` distinction remains limited |
+| Multiple catch clauses                    | ✅     | Lowered with EVM-canonical selector guards for `Error(string)` and `Panic(uint256)`; user-defined named catches retain legacy guards |
 
 ---
 
@@ -178,7 +178,7 @@ For migration guidance and production validation gaps, see
 
 | Feature                                 | Status | Neo Alternative                                                                                                                     |
 | --------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`                                                                                            |
+| `msg.sender`                            | ✅     | Maps to `Runtime.GetCallingScriptHash()`; internal/self-offset runtime paths may inject a direct-caller override                    |
 | `msg.value`                             | ⚠️     | Only mapped inside `onNEP17Payment` callback                                                                                        |
 | `msg.data`                              | ⚠️     | Approximated as selector plus encoded current args outside onNEP17Payment                                                            |
 | `msg.sig`                               | ⚠️     | Approximated as the current function selector; internal-call propagation still differs from EVM                                     |
@@ -200,7 +200,7 @@ For migration guidance and production validation gaps, see
 | `selfdestruct(addr)`                    | ✅     | Auto-mapped to `ContractManagement.destroy()` with warning                                                                          |
 | `address.call(...)`                     | ⚠️     | Maps to `System.Contract.Call`; return wrapping and ABI payload parity differ from EVM and need Neo-Express validation              |
 | `address.staticcall(...)`               | ⚠️     | Maps to `System.Contract.Call` (read-only flag); return wrapping and ABI payload parity differ from EVM                             |
-| `address.delegatecall(...)`             | 🚫     | Blocked at compile time; Neo N3 has no equivalent caller-storage execution semantics                                                |
+| `address.delegatecall(...)` / `callcode(...)` | 🚫     | Blocked at compile time; Neo N3 has no equivalent caller-storage execution semantics                                                |
 | `address.transfer(amount)`              | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer fail                                                         |
 | `address.send(amount)`                  | ✅     | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool                                                                    |
 | `address.balance`                       | ✅     | Auto-mapped to `GAS.balanceOf(address)`                                                                                             |
@@ -209,8 +209,8 @@ For migration guidance and production validation gaps, see
 | Ether units (`wei`, `gwei`, `ether`)    | ⚠️     | Parsed; warning that Neo uses GAS token (10^8 decimals)                                                                             |
 | Time units (`seconds`, `minutes`, etc.) | ✅     | Compile-time constants (normalized to seconds)                                                                                      |
 | `this` keyword                          | ✅     | Maps to `Runtime.GetExecutingScriptHash()`; correct Neo equivalent                                                                  |
-| `type(X).creationCode`                  | 🚫     | Blocked: no bytecode access on Neo                                                                                                  |
-| `type(X).runtimeCode`                   | 🚫     | Blocked: no bytecode access on Neo                                                                                                  |
+| `type(X).creationCode`                  | ⚠️     | Compiler-emitted deterministic NEF3-shaped payload for hashing compatibility; not EVM bytecode and requires an in-graph type        |
+| `type(X).runtimeCode`                   | ⚠️     | Same deterministic Neo-shaped payload model as `creationCode`; not production bytecode introspection                                |
 
 ---
 
@@ -242,20 +242,20 @@ Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callb
 
 | Category            | ✅      | ⚠️     | ❌    | 🚫    |
 | ------------------- | ------- | ------ | ----- | ----- |
-| A. Types            | 17      | 1      | 2     | 0     |
+| A. Types            | 16      | 2      | 2     | 0     |
 | B. Expressions      | 16      | 5      | 0     | 0     |
-| C. Statements       | 15      | 2      | 0     | 0     |
+| C. Statements       | 17      | 1      | 0     | 0     |
 | D. Functions        | 9       | 4      | 0     | 0     |
 | E. OOP Features     | 9       | 1      | 0     | 0     |
-| F. Storage & Memory | 12      | 0      | 0     | 1     |
-| G. Error Handling   | 9       | 1      | 0     | 0     |
-| H. EVM-Specific     | 21      | 7      | 0     | 4     |
+| F. Storage & Memory | 12      | 1      | 0     | 0     |
+| G. Error Handling   | 11      | 0      | 0     | 0     |
+| H. EVM-Specific     | 21      | 11     | 0     | 1     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **111** | **25** | **2** | **5** |
+| **Total**           | **114** | **29** | **2** | **1** |
 
-**Total features audited: 143**
+**Total features audited: 146**
 
-- ✅ Fully supported: 111 (78%)
-- ⚠️ Partial support: 25 (17%)
+- ✅ Fully supported: 114 (78%)
+- ⚠️ Partial support: 29 (20%)
 - ❌ Not supported: 2 (1%)
-- 🚫 Intentionally blocked: 5 (3%)
+- 🚫 Intentionally blocked: 1 (1%)

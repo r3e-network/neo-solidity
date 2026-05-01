@@ -7,7 +7,7 @@ constructs. The devpack exposes the same runtime surface for explicit contracts.
 
 | Solidity Construct | Neo Runtime Call | Notes |
 | --- | --- | --- |
-| `msg.sender` | `System.Runtime.GetCallingScriptHash` | Immediate caller script hash or transaction signer. |
+| `msg.sender` | `System.Runtime.GetCallingScriptHash` | Immediate caller script hash or transaction signer; some internal/self-offset runtime paths inject a direct-caller override. |
 | `address(this)` | `System.Runtime.GetExecutingScriptHash` | Current contract script hash. |
 | `block.timestamp` | `System.Runtime.GetTime` | Neo milliseconds normalized to seconds. |
 | `block.number` | `Ledger.currentIndex` | Native contract call through `System.Contract.Call`. |

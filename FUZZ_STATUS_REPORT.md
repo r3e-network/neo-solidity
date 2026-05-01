@@ -1,13 +1,20 @@
 # Neo-Solidity Fuzz System — Status Report
 
+> **Snapshot note**: this report captures the post-v0.18.0 fuzz-system
+> maturation cycle. Specific test counts (e.g. proptest cases) drift as new
+> tests land — for a fresh count run `cargo test --release --test fuzz_tests`
+> and `cargo +nightly fuzz list`. Treat the figures below as the
+> point-in-time snapshot at v0.18.0 release time, not as a continuously
+> updated dashboard.
+
 ## Executive Summary
 
 The fuzz system has been **reviewed, refactored, and expanded** into a
-professional-grade suite. **951 proptest cases pass, 0 ignored, 11
-cargo-fuzz targets** (all crash-free), each with libfuzzer dictionaries
-(`fuzz/dict/<target>.dict`, 970 total domain-specific tokens). Plus 3
-runtime state-batch tests (canonical "skip-and-continue" semantics
-locked in). End-to-end smoke tests cover **54 single-source +
+professional-grade suite. The v0.18.0 snapshot recorded **951 proptest cases
+passing, 0 ignored, 11 cargo-fuzz targets** (all crash-free), each with
+libfuzzer dictionaries (`fuzz/dict/<target>.dict`, 970 total domain-specific
+tokens). Plus 3 runtime state-batch tests (canonical "skip-and-continue"
+semantics locked in). End-to-end smoke tests cover **54 single-source +
 13 multi-source example/devpack contracts** (all compile cleanly + 42
 runtime-invoked). Multi-source standard JSON resolver verified across
 simple/transitive/circular/library import shapes. Constructor lifecycle
@@ -17,9 +24,9 @@ deploy-runs-once, modifier-on-constructor, and payable-constructor
 (compiler vs reference crates), **seed corpora** (bootstrapped from
 `examples/*.sol` and repo `.nef` / `.manifest.json` artifacts), and a
 **contributor guide** (`docs/FUZZ.md`). Coverage measured at **68.42%
-region / 67.42% line** via `cargo-llvm-cov` (excluding ~6,200 LOC of
-orphaned modules that are 0%-covered AND have zero importers — see
-[Dead Code](#dead-code-deletion-candidates) below).
+region / 67.42% line** via `cargo-llvm-cov` at the v0.18.0 snapshot time
+(excluding ~6,200 LOC of orphaned modules that are 0%-covered AND have zero
+importers — see [Dead Code](#dead-code-deletion-candidates) below).
 
 **Twenty-eight** compiler/runtime bugs were surfaced and fixed during the
 review — see [Fixed Bugs](#fixed-bugs) below. **All deferred bugs from the

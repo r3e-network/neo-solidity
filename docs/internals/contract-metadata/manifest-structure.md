@@ -24,13 +24,13 @@ The manifest is a JSON file containing all metadata the Neo N3 runtime needs to 
     "extra": {
         "Author": "Jimmy <jimmy@r3e.network>",
         "Description": "Solidity contract 'ContractName' compiled to NeoVM",
-        "Version": "0.1.0.0",
-        "Compiler": "neo-solidity-0.1.0"
+        "Version": "0.18.0.0",
+        "Compiler": "neo-solidity-0.18.0"
     }
 }
 ```
 
-### name
+## name
 
 The contract name used for on-chain identification. Defaults to the Solidity contract name.
 
@@ -41,7 +41,7 @@ Override with NatSpec:
 contract Token { }
 ```
 
-### groups
+## groups
 
 Array of group objects for contract grouping and multi-signature verification. Defaults to an empty array.
 
@@ -52,7 +52,7 @@ Override with NatSpec:
 contract Token { }
 ```
 
-### features
+## features
 
 Must be an empty object `{}` for Neo N3. The Neo runtime rejects any contract with populated feature keys. The compiler enforces this constraint — non-empty custom values are ignored with a warning.
 
@@ -60,7 +60,7 @@ Must be an empty object `{}` for Neo N3. The Neo runtime rejects any contract wi
 Do not attempt to set features to a non-empty object. Neo N3 reserves this field for future use and will reject deployment of contracts with populated features.
 :::
 
-### supportedstandards
+## supportedstandards
 
 Array of standard identifier strings (e.g. `["NEP-17"]`). The compiler auto-detects supported standards from your contract's method signatures and events. See [Standards Auto-Detection](/internals/contract-metadata/standards-auto-detection) for the full detection logic.
 
@@ -71,11 +71,11 @@ Override with NatSpec:
 contract Token { }
 ```
 
-### abi
+## abi
 
 The contract's Application Binary Interface, containing method and event declarations.
 
-#### Methods
+### Methods
 
 Each public or external function in your Solidity contract becomes a method entry in the manifest ABI:
 
@@ -123,7 +123,7 @@ When a function returns multiple values, the manifest return type is `Array`. Fu
 
 **Overloaded functions:** Neo N3 dispatches methods by name and does not support Solidity-style overload resolution. The compiler emits the canonical name for the "primary" overload (highest arity) and uses a mangled `neo_name` for secondary overloads, guaranteeing unique ABI names.
 
-#### Events
+### Events
 
 Each Solidity `event` becomes an event entry with a name and typed parameter array:
 
@@ -140,7 +140,7 @@ Each Solidity `event` becomes an event entry with a name and typed parameter arr
 
 Event parameters use the same type mapping table as method parameters.
 
-### permissions
+## permissions
 
 Array of permission entries declaring which contracts and methods this contract may call. Neo N3 enforces these at runtime — any call not covered by a permission entry will fault.
 
@@ -169,7 +169,7 @@ Wildcard permissions (use with caution):
 
 See [Permission Inference](/internals/contract-metadata/permission-inference) and [Permission Hardening](/internals/contract-metadata/permission-hardening) for details on how the compiler generates and restricts these entries.
 
-### trusts
+## trusts
 
 Declares which contracts are trusted to call this contract. Defaults to an empty array `[]` (no external callers trusted).
 
@@ -184,7 +184,7 @@ contract OpenContract { }
 Setting `trusts` to `"*"` means any contract on the network can call yours. Use this only when your contract is designed as a public utility. For most contracts, leave the default empty array or specify explicit contract hashes.
 :::
 
-### extra
+## extra
 
 Arbitrary metadata attached to the contract. The compiler populates baseline fields automatically:
 
@@ -193,6 +193,6 @@ Arbitrary metadata attached to the contract. The compiler populates baseline fie
 | `Author`      | Compiler author identifier                       |
 | `Description` | `"Solidity contract '<Name>' compiled to NeoVM"` |
 | `Version`     | Compiler version in `major.minor.patch.0` format |
-| `Compiler`    | Compiler ID string (e.g. `neo-solidity-0.1.0`)   |
+| `Compiler`    | Compiler ID string (e.g. `neo-solidity-0.18.0`)  |
 
 Add custom fields via NatSpec `@custom:neo.manifest.extra.*` tags. Values are parsed as JSON when valid, otherwise stored as plain strings.

@@ -1,4 +1,14 @@
-# Neo-Solidity 编译器审计报告
+# Neo-Solidity 编译器审计报告 (历史快照)
+
+> **历史快照说明**: 本文件保留 v0.12.0 (2025-07-14) 的中文审计报告，仅作为历史
+> 参考。当前编译器版本为 v0.18.0，最新的功能矩阵、运行时状态、以及限制说明请参考：
+>
+> - `docs/SOLIDITY_SUPPORT_MATRIX.md`
+> - `docs/internals/parity-and-limitations.md`
+> - `CHANGELOG.md`
+> - `README.md`
+>
+> 本报告中的版本号、行数、缺陷状态已不反映当前代码库；仅用于追溯当时的设计判断。
 
 **版本**: v0.12.0  
 **审计日期**: 2025-07-14  

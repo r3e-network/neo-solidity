@@ -11,7 +11,7 @@ impl ExecutionContext {
     /// Heuristic (content-based — the Solidity type is lost by the time the
     /// runtime handler runs):
     /// * `Integer` / `UnsignedInteger`: write via `to_be_bytes`, right-aligned.
-    /// * `Boolean`: single byte 0/1 at slot[31].
+    /// * `Boolean`: single byte 0/1 at `slot[31]`.
     /// * `ByteArray` of length >= 32 with trailing zeros (bytes 20..32 all
     ///   zero) — this is an `address` / small-int that was NewBuffer'd to
     ///   32 bytes. Reverse the leading 20 bytes (LE→BE) and right-align.
@@ -21,7 +21,7 @@ impl ExecutionContext {
     ///   reverse (LE→BE) and right-align into slot[12..32].
     /// * `ByteArray` of other lengths (< 32): treat as a LE-stored integer
     ///   (PUSHINT128, PUSHINT64-encoded-as-BA, etc.) — reverse and
-    ///   right-align so the MSB lands at slot[31].
+    ///   right-align so the MSB lands at `slot[31]`.
     /// * Nested `Array` / `Map` / `Null`: zero slot (callers flatten).
     fn abi_pad32_be(item: &StackItem) -> [u8; 32] {
         let mut slot = [0u8; 32];

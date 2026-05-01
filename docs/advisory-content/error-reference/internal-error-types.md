@@ -7,6 +7,8 @@ description: "Internal Error Types from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
+## Overview
+
 The compiler uses several internal error categories that appear in JSON diagnostic output:
 
 | Type                 | Source                           | Description                              |

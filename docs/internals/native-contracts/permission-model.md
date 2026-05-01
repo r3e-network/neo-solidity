@@ -9,7 +9,7 @@ description: "Permission Model from Native Contracts."
 
 Every native contract call generates a permission entry in the compiled manifest's `permissions` array. The compiler infers these permissions from the IR and emits explicit `contract + methods` entries.
 
-### Fixed vs Wildcard Permissions
+## Fixed vs Wildcard Permissions
 
 | Call Pattern                     | Manifest Permission                                     |
 | -------------------------------- | ------------------------------------------------------- |
@@ -20,7 +20,7 @@ Every native contract call generates a permission entry in the compiled manifest
 
 Using the devpack's fixed wrappers (`NativeCalls.*`, `Syscalls.*`) produces precise permission entries. Dynamic calls through `Syscalls.contractCall()` with runtime-computed targets or method names may force wildcard permissions.
 
-### Hardening
+## Hardening
 
 Reject wildcard permissions in production builds:
 

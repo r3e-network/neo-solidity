@@ -7,7 +7,7 @@ description: "Embedded Runtime vs Production Neo N3 from Runtime Specification."
 
 [Back to Runtime Specification](/internals/runtime-specification)
 
-### What the Embedded Runtime Provides
+## What the Embedded Runtime Provides
 
 - Full NeoVM opcode execution with correct stack semantics
 - Storage read/write/find with iterator support
@@ -17,12 +17,12 @@ description: "Embedded Runtime vs Production Neo N3 from Runtime Specification."
 - Native contract call routing
 - Crypto operations (SHA256, RIPEMD160, Keccak256, CheckSig)
 
-### Differences from Production
+## Differences from Production
 
 | Aspect                 | Embedded Runtime                | Production Neo N3           |
 | ---------------------- | ------------------------------- | --------------------------- |
 | Storage                | In-memory, ephemeral            | Persistent on-chain         |
-| Gas costs              | ~85% accurate                   | Exact per specification     |
+| Gas costs              | Approximate static tables       | Exact per specification     |
 | Blockchain data        | Stub/placeholder values         | Real chain state            |
 | Signature verification | Best-effort secp256k1           | Full Neo crypto stack       |
 | Iterator behavior      | Materialized (eager)            | Streaming (lazy)            |
@@ -30,7 +30,7 @@ description: "Embedded Runtime vs Production Neo N3 from Runtime Specification."
 | Oracle                 | Returns deterministic pseudo ID | Real oracle network         |
 | Network state          | Fixed test values               | Live network data           |
 
-### When to Use Neo-Express
+## When to Use Neo-Express
 
 Use the embedded runtime for:
 

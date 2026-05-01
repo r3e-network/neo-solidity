@@ -7,7 +7,7 @@ description: "Manifest and Permission Issues from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### Wildcard Permission Rejection
+## Wildcard Permission Rejection
 
 ```
 error: wildcard contract permission detected
@@ -45,7 +45,7 @@ error: wildcard contract permission detected
    # Without --deny-wildcard-contracts, wildcards are allowed with a warning
    ```
 
-### Standards Not Detected
+## Standards Not Detected
 
 ```
 info: contract does not implement any recognized NEP standard

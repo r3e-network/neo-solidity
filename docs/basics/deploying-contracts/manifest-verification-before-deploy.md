@@ -7,6 +7,8 @@ description: "Manifest Verification Before Deploy from Deploying Contracts."
 
 [Back to Deploying Contracts](/basics/deploying-contracts)
 
+## Overview
+
 Before deploying to TestNet or MainNet, verify the manifest:
 
 ```bash

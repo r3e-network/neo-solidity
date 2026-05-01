@@ -249,8 +249,8 @@ fn emit_store_array_value_deep_copy(
 }
 
 /// Task #82: derive the storage slot for a mapping-in-struct-field access such as
-/// `slots[k].balances[a]`. Stack before: [trailing_keyN, ..., trailing_key0, outer_keyN, ..., outer_key0]
-/// Stack after: [slot_bytes].
+/// `slots[k].balances[a]`. Stack before: `[trailing_keyN, ..., trailing_key0, outer_keyN, ..., outer_key0]`.
+/// Stack after: `[slot_bytes]`.
 struct StructFieldMappingSlot<'a> {
     module: &'a ir::Module,
     state_index: usize,

@@ -7,7 +7,7 @@ description: "Pre-Deployment Checklist from Production Readiness."
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
-### 1. Compile with Production Settings
+## 1. Compile with Production Settings
 
 Use the strictest compilation flags:
 
@@ -34,7 +34,7 @@ Flags explained:
 | `--json-errors`             | Structured error output for CI parsing                               |
 | `--json-warnings`           | Structured warning output for CI parsing                             |
 
-### 2. Audit the Manifest
+## 2. Audit the Manifest
 
 Inspect every field of the generated manifest:
 
@@ -63,7 +63,7 @@ jq '.abi.events[] | {name, parameters: [.parameters[].type]}' \
 jq '.trusts' build/contract.manifest.json
 ```
 
-### Permission Audit Guide
+## Permission Audit Guide
 
 Review each permission entry:
 
@@ -90,7 +90,7 @@ neo-solc contract.sol \
   -o build/contract
 ```
 
-### 3. Verify the NEF
+## 3. Verify the NEF
 
 Check the NEF file size and structure:
 
@@ -109,7 +109,7 @@ neo-solc contract.sol -I devpack -O3 -f assembly -o build/contract.asm
 cat build/contract.asm
 ```
 
-### 4. Predict the Contract Hash
+## 4. Predict the Contract Hash
 
 If you need to know the contract hash before deployment (e.g., for cross-contract references):
 

@@ -7,9 +7,9 @@ description: "Gas Cost Reference from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
-All 38 syscalls sorted by gas cost, grouped into cost tiers.
+All registered embedded-runtime syscalls sorted by gas cost, grouped into cost tiers.
 
-### Tier 1 — 1 GAS unit
+## Tier 1 — 1 GAS unit
 
 Metadata reads, logging, and iterator traversal. Cheap and safe to call frequently.
 
@@ -35,10 +35,11 @@ Metadata reads, logging, and iterator traversal. Cheap and safe to call frequent
 | `System.Runtime.GasLeft`                | Runtime  |
 | `System.Runtime.BurnGas`                | Runtime  |
 | `System.Runtime.CurrentSigners`         | Runtime  |
+| `System.Runtime.GetMsgValue`            | Runtime  |
 | `System.Iterator.Next`                  | Iterator |
 | `System.Iterator.Value`                 | Iterator |
 
-### Tier 2 — 10 GAS units
+## Tier 2 — 10 GAS units
 
 Contract interaction syscalls.
 
@@ -49,13 +50,13 @@ Contract interaction syscalls.
 | `System.Contract.CreateStandardAccount` | Contract |
 | `System.Contract.CreateMultisigAccount` | Contract |
 
-### Tier 3 — 50 GAS units
+## Tier 3 — 50 GAS units
 
 | Syscall Name               | Category |
 | -------------------------- | -------- |
 | `System.Runtime.GetRandom` | Runtime  |
 
-### Tier 4 — 100 GAS units
+## Tier 4 — 100 GAS units
 
 Storage read, delete, and search operations.
 
@@ -68,13 +69,13 @@ Storage read, delete, and search operations.
 | `System.Storage.Local.Delete` | Storage  |
 | `System.Storage.Local.Find`   | Storage  |
 
-### Tier 5 — 200 GAS units
+## Tier 5 — 200 GAS units
 
 | Syscall Name                  | Category |
 | ----------------------------- | -------- |
 | `System.Runtime.CheckWitness` | Runtime  |
 
-### Tier 6 — 1,000 GAS units
+## Tier 6 — 1,000 GAS units
 
 Storage writes and cryptographic verification. The most expensive operations.
 
@@ -86,5 +87,9 @@ Storage writes and cryptographic verification. The most expensive operations.
 | `System.Crypto.CheckMultisig` | Crypto   |
 
 ::: info Gas Accuracy
-The neo-solidity embedded runtime tracks syscall gas costs at approximately 85% accuracy compared to Neo N3 mainnet. The primary gaps are in storage pricing (which depends on the dynamic `Policy.getStoragePrice()` value on mainnet) and opcode-level metering. Always perform final gas estimation against a Neo N3 testnet node before mainnet deployment.
+The neo-solidity embedded runtime tracks syscall gas costs with static approximation tables. The primary gaps are in storage pricing (which depends on the dynamic `Policy.getStoragePrice()` value on mainnet) and opcode-level metering. Always perform final gas estimation against a Neo N3 testnet node before mainnet deployment.
+:::
+
+::: warning LoadScript
+`System.Runtime.LoadScript` is present in the syscall registry for Neo N3 surface parity, but the embedded runtime rejects it at execution time. Use `System.Contract.Call` for inter-contract calls.
 :::

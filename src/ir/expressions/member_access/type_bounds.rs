@@ -222,7 +222,7 @@ fn try_lower_type_code(
 ///   - reserved 0x00
 ///   - token count = 0 (varint)
 ///   - reserved 0x00 0x00
-///   - varbytes script = keccak256(<member>:<name>) (32 bytes)
+///   - varbytes script = `keccak256(<member>:<name>)` (32 bytes)
 ///   - checksum = first 4 bytes of sha256(sha256(prefix))
 ///
 /// We inline the construction here rather than calling `crate::neo::build_nef`

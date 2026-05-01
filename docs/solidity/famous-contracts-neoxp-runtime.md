@@ -1,7 +1,7 @@
 # Famous EVM Contracts Runtime-Verified on Neo N3 (Type-3)
 
 - Generated at (UTC): `2026-02-15T09:34:32.300Z`
-- neo-solc: `neo-solc 0.12.0`
+- Snapshot scope: historical Neo Express runtime output; rerun `npm run verify:famous-contracts:neoxp-runtime` before treating these results as current release evidence.
 - neoxp: `3.9.1.3+e36e7bad7e`
 - Total contracts: `6`
 - Pass: `6`

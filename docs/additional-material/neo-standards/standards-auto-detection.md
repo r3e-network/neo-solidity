@@ -1,15 +1,15 @@
 ---
-title: "Standards and Contracts: Standards Auto-Detection"
+title: "Neo Standards Auto-Detection"
 description: "Standards Auto-Detection from Standards and Contracts."
 ---
 
-# Standards Auto-Detection
+# Neo Standards Auto-Detection
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
 The `neo-solc` compiler analyzes your contract's public methods and events to automatically detect which NEP standards it implements. Detection results populate the manifest's `supportedstandards` array.
 
-### NEP-17 Detection
+## NEP-17 Detection
 
 All 5 methods must be present as public/external functions:
 
@@ -24,7 +24,7 @@ Additional rules:
 - The `transfer` method should have 4 parameters `(from, to, amount, data)`
 - **Near-miss warning**: if 3+ of 5 methods are present but not all, the compiler emits a warning listing the missing methods
 
-### NEP-11 Detection
+## NEP-11 Detection
 
 Core requirement:
 
@@ -42,14 +42,14 @@ Additional checks:
 - The `transfer` method should have 3 parameters `(to, tokenId, data)`
 - **Near-miss warnings**: `ownerOf` without a transfer mechanism, or `ownerOf` + transfer without `balanceOf`
 
-### NEP-24 Detection
+## NEP-24 Detection
 
 Either of these methods triggers detection:
 
 - `tokenUri`
 - `royaltyInfo`
 
-### Additional NEP Detection
+## Additional NEP Detection
 
 The compiler also auto-detects these contract-lifecycle and callback standards:
 

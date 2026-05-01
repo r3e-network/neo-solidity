@@ -157,7 +157,7 @@ impl NeoRuntime {
 
     /// Invoke a named method on a compiled Neo-Solidity contract.
     ///
-    /// Unlike [`call_function`], which cannot reach anything past the first
+    /// Unlike `call_function`, which cannot reach anything past the first
     /// public method of a multi-method contract, this helper (Task #19):
     ///
     /// 1. Runs `_deploy(null, false)` once per `NeoRuntime` instance so that
@@ -179,7 +179,7 @@ impl NeoRuntime {
     /// observe deploy-time writes.
     ///
     /// `tokens` is the NEF method-token table carried alongside the
-    /// bytecode (see [`CompilationArtifacts::tokens`]); pass an empty slice
+    /// bytecode (see `CompilationArtifacts::tokens`); pass an empty slice
     /// for scripts that do not use `CALLT`.
     pub fn call_method(
         &mut self,
@@ -196,7 +196,7 @@ impl NeoRuntime {
         self.call_method_with_deploy_args(bytecode, tokens, manifest, method_name, args, None)
     }
 
-    /// Task #81: Invoke a named method like [`call_method`], but pass
+    /// Task #81: Invoke a named method like `call_method`, but pass
     /// `deploy_args` through the auto-fired `_deploy(data, update)` trigger
     /// as the `data` parameter.
     ///
@@ -210,7 +210,7 @@ impl NeoRuntime {
     /// `src/ir/ir_deploy.rs:112`).
     ///
     /// When `deploy_args = None`, behavior matches pre-Task #81
-    /// [`call_method`]: `data = Null`, suitable for no-arg constructors.
+    /// `call_method`: `data = Null`, suitable for no-arg constructors.
     ///
     /// `update` is always `Boolean(false)` here (this is a first-deployment
     /// trigger, not a contract update).
@@ -382,7 +382,7 @@ impl NeoRuntime {
     /// The `_deploy` prologue runs with an empty `input_data` — it never
     /// observes `msg.data` and the Solidity spec leaves constructor `msg.data`
     /// unspecified anyway. User-method invocations call
-    /// [`invoke_at_offset_with_input`] to inject a synthesised
+    /// `invoke_at_offset_with_input` to inject a synthesised
     /// `selector || abi.encode(args)` payload (Task #112).
     fn invoke_at_offset(
         &mut self,
@@ -402,7 +402,7 @@ impl NeoRuntime {
         )
     }
 
-    /// Like [`invoke_at_offset`] but with caller-supplied `input_data` (the
+    /// Like `invoke_at_offset` but with caller-supplied `input_data` (the
     /// bytes observed by Solidity as `msg.data` for the duration of the
     /// invocation). Callers targeting a user method should pass
     /// `selector(method_name) || abi.encode(args)`; the `_deploy` prologue

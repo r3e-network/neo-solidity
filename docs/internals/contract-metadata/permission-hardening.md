@@ -7,7 +7,7 @@ description: "Permission Hardening from Manifest Specification."
 
 [Back to Manifest Specification](/internals/contract-metadata)
 
-### CLI Flags
+## CLI Flags
 
 Use these flags to reject manifests containing wildcard permissions at compile time:
 
@@ -30,7 +30,7 @@ neo-solc contract.sol \
 When a deny flag is triggered, compilation fails with a `Manifest` error. The error message identifies which wildcard type was detected. Use permission override files to replace wildcards with explicit entries.
 :::
 
-### Permission Override Files
+## Permission Override Files
 
 Override files let you replace compiler-inferred wildcard permissions with explicit entries:
 

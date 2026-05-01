@@ -10,7 +10,7 @@ One of the build targets of the Neo Solidity repository is `neo-solc`, the comma
 neo-solc <source...> [options]
 ```
 
-The compiler accepts one or more Solidity source files and produces Neo N3 deployment artifacts (`.nef` + `.manifest.json`).
+The compiler accepts one or more Solidity source files and produces Neo N3 deployment artifacts (`.nef` + `.manifest.json`). Standard JSON mode uses the Solidity-compatible JSON interface and can read from stdin or from `--input`.
 
 ```bash
 # Single file
@@ -21,26 +21,37 @@ neo-solc contracts/*.sol -o build/
 
 # With devpack imports
 neo-solc MyToken.sol -I devpack -o build/
+
+# Standard JSON from a file
+neo-solc --standard-json --input input.json --output output.json
 ```
 
 ### Complete Flag Summary
 
-| Flag                          | Short | Argument   | Default    | Description                                       |
-| ----------------------------- | ----- | ---------- | ---------- | ------------------------------------------------- |
-| `<source...>`                 |       | positional | required   | Input Solidity file(s)                            |
-| `--output`                    | `-o`  | `FILE`     | `.`        | Output prefix/directory or JSON output file       |
-| `--optimize`                  | `-O`  | `LEVEL`    | `2`        | Optimization level (0-3)                          |
-| `--format`                    | `-f`  | `FORMAT`   | `complete` | Output format                                     |
-| `--include-path`              | `-I`  | `DIR`      |            | Import search path (repeatable)                   |
-| `--contract`                  |       | `NAME`     |            | Emit only named contract (repeatable)             |
-| `--verbose`                   | `-v`  |            |            | Enable verbose output                             |
-| `--callt`                     |       |            |            | Emit CALLT + method tokens for native calls       |
-| `--deny-wildcard-permissions` |       |            |            | Fail if manifest needs full wildcard              |
-| `--deny-wildcard-contracts`   |       |            |            | Fail if manifest needs wildcard contract          |
-| `--deny-wildcard-methods`     |       |            |            | Fail if manifest needs wildcard methods           |
-| `--manifest-permissions`      |       | `FILE`     |            | JSON file with manifest permissions               |
-| `--manifest-permissions-mode` |       | `MODE`     | `merge`    | How to apply permission overrides                 |
-| `--standard-json`             |       |            |            | Enable standard JSON input/output mode            |
+| Flag                          | Short | Argument   | Default    | Description                                                                          |
+| ----------------------------- | ----- | ---------- | ---------- | ------------------------------------------------------------------------------------ |
+| `<source...>`                 |       | positional | required   | Input Solidity file(s); omitted when `--standard-json` is used                       |
+| `--standard-json`             |       |            |            | Enable Solidity Standard JSON input/output mode                                      |
+| `--input`                     |       | `FILE`     | stdin      | Standard JSON input file; requires `--standard-json`                                 |
+| `--output`                    | `-o`  | `FILE`     | source stem | Output prefix for single-file mode; directory/prefix handling for multi-file mode; JSON output file for Standard JSON |
+| `--optimize`                  | `-O`  | `LEVEL`    | `2`        | Optimization level (0-3)                                                             |
+| `--format`                    | `-f`  | `FORMAT`   | `complete` | Output format: `nef`, `manifest`, `complete`, `assembly`, or `json`                  |
+| `--include-path`              | `-I`  | `DIR`      |            | Import search path (repeatable)                                                      |
+| `--contract`                  |       | `NAME`     |            | Emit only named contract (repeatable)                                                |
+| `--verbose`                   | `-v`  |            |            | Enable verbose output                                                                |
+| `--callt`                     |       |            |            | Emit CALLT + method tokens for native calls                                          |
+| `--analyze`                   |       |            |            | Print a JSON upgrade/readiness analysis instead of compiling artifacts               |
+| `--nef-source`                |       | `STRING`   |            | Override the source string embedded in generated NEF metadata                        |
+| `--deployer`                  |       | `HASH160`  |            | Deployer account hash used for deterministic contract hash calculation               |
+| `--json-errors`               |       |            |            | Emit diagnostics as JSON errors                                                      |
+| `--json-warnings`             |       |            |            | Emit diagnostics as JSON warnings                                                    |
+| `--Wno`                       |       | `CODE`     |            | Disable a warning code (repeatable)                                                  |
+| `--Werror`                    |       | `CODE`     |            | Treat a warning code as an error (repeatable)                                        |
+| `--deny-wildcard-permissions` |       |            |            | Fail if manifest needs full wildcard permission                                      |
+| `--deny-wildcard-contracts`   |       |            |            | Fail if manifest needs wildcard contract permission                                  |
+| `--deny-wildcard-methods`     |       |            |            | Fail if manifest needs wildcard method permission                                    |
+| `--manifest-permissions`      |       | `FILE`     |            | JSON file with manifest permissions                                                  |
+| `--manifest-permissions-mode` |       | `MODE`     | `merge`    | How to apply permission overrides: `merge` or `replace-wildcards`                    |
 
 ### Base Path and Include Paths
 

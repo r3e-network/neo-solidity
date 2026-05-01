@@ -154,4 +154,5 @@ extendEnvironment((hre: HardhatRuntimeEnvironment) => {
 export * from "./deployer";
 export * from "./rpc-client"; 
 export * from "./account-manager";
+export type { NeoSignerAccount } from "./account-primitives";
 export * from "./types";

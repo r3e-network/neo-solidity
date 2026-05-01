@@ -7,6 +7,8 @@ description: "Manifest Warnings from Manifest Specification."
 
 [Back to Manifest Specification](/internals/contract-metadata)
 
+## Overview
+
 The compiler emits structured warnings for manifest-related issues. In standard JSON mode, these appear in the `errors` array with `severity: "warning"`.
 
 | Code                         | Type                 | Trigger                                                 |

@@ -9,11 +9,11 @@ description: "Gas Accounting from Runtime Specification."
 
 The embedded runtime tracks gas consumption to approximate production Neo N3 behavior.
 
-### How Gas Works
+## How Gas Works
 
 Every opcode and syscall has an associated gas cost. The runtime deducts gas before executing each instruction. If gas reaches zero, execution halts with an out-of-gas error.
 
-### Opcode Gas Costs
+## Opcode Gas Costs
 
 Gas costs by opcode category:
 
@@ -31,7 +31,7 @@ Gas costs by opcode category:
 | Type operations      | 2           | ISNULL, ISTYPE, CONVERT  |
 | RET                  | 0           | Free                     |
 
-### Syscall Gas Costs
+## Syscall Gas Costs
 
 | Syscall Category                           | Gas Cost | Notes                           |
 | ------------------------------------------ | -------- | ------------------------------- |
@@ -48,14 +48,14 @@ Gas costs by opcode category:
 | Contract.Call                              | 10       |                                 |
 | Contract.Create\*Account                   | 10       |                                 |
 
-### Current Accuracy
+## Current Accuracy
 
-Gas accounting is approximately 85% accurate compared to the production Neo N3 reference implementation. Known gaps:
+Gas accounting is an embedded-runtime approximation of production Neo N3 costs. Known gaps:
 
 - Dynamic costs for large integer operations are approximated
 - Some complex operations use fixed costs instead of size-dependent costs
 - Edge cases in exception handling gas effects need spec verification
 
 ::: tip
-For precise gas estimation, deploy to Neo-Express and measure actual consumption. The embedded runtime provides a good approximation for development but should not be used as the sole source of gas budgeting for mainnet.
+For precise gas estimation, deploy to Neo-Express or TestNet and measure actual consumption. The embedded runtime is useful for development feedback but should not be used as the sole source of gas budgeting for mainnet.
 :::

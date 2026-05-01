@@ -13,7 +13,7 @@ By default, native contract calls are emitted as `System.Contract.Call` syscalls
 neo-solc contract.sol --callt -O3 -o build/contract
 ```
 
-### How It Works
+## How It Works
 
 Without `--callt`:
 
@@ -32,7 +32,7 @@ CALLT <2-byte token index>
 
 The NEF header contains a method token table that maps each token index to a `(contractHash, method, parametersCount, hasReturnValue, callFlags)` tuple. The Neo VM resolves the token at load time.
 
-### Benefits
+## Benefits
 
 - Smaller bytecode — eliminates inline contract hash and method name strings per call site
 - Lower GAS cost — fewer opcodes executed per native call

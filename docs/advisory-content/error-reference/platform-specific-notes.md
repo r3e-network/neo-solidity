@@ -7,7 +7,7 @@ description: "Platform-Specific Notes from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
-### Linux
+## Linux
 
 Ensure `libclang` is installed for the `solang-parser` dependency:
 
@@ -15,7 +15,7 @@ Ensure `libclang` is installed for the `solang-parser` dependency:
 apt-get install libclang-dev
 ```
 
-### macOS
+## macOS
 
 Xcode command-line tools are required:
 
@@ -23,6 +23,6 @@ Xcode command-line tools are required:
 xcode-select --install
 ```
 
-### Windows
+## Windows
 
 Visual Studio Build Tools and the Rust MSVC target are required.

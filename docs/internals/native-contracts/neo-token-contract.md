@@ -9,7 +9,7 @@ description: "NEO Token Contract from Native Contracts."
 
 The NEO token is the governance token of the Neo N3 network. It is indivisible (0 decimals), has a fixed supply of 100,000,000, and is used for voting, validator election, and GAS generation.
 
-### Methods
+## Methods
 
 | Method                   | Signature                                 | Return           | Safe | Description                                                   |
 | ------------------------ | ----------------------------------------- | ---------------- | :--: | ------------------------------------------------------------- |
@@ -34,7 +34,7 @@ The NEO token is the governance token of the Neo N3 network. It is indivisible (
 | `getAccountState`        | `getAccountState(address)`                | `AccountState`   |  ✅  | Balance, vote target, and last GAS claim height.              |
 | `unclaimedGas`           | `unclaimedGas(address,uint256)`           | `uint256`        |  ✅  | Unclaimed GAS for account at block height.                    |
 
-### Code Example
+## Code Example
 
 ```solidity
 import "devpack/contracts/NativeCalls.sol";

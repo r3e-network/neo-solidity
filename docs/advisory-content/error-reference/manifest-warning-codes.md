@@ -17,7 +17,7 @@ These are string-based warning codes emitted during manifest generation (Stage 8
 | `MANIFEST_WILDCARD_CONTRACT` | Wildcard contract permission | Manifest requires `{"contract":"*",...}`           |
 | `MANIFEST_WILDCARD_METHODS`  | Wildcard method permission   | Manifest requires `{...,"methods":"*"}`            |
 
-### Constructor Deploy Warning
+## Constructor Deploy Warning
 
 When a contract has a parameterised constructor, the compiler emits a warning if the manifest does not include `StdLib.jsonDeserialize` and `StdLib.deserialize` permissions. The injected deploy prologue uses these methods to parse constructor arguments.
 

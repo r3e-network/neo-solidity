@@ -7,7 +7,7 @@ description: "Unsupported EVM Features from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### E3001: UnsupportedFeature
+## E3001: UnsupportedFeature
 
 ```
 error[E3001]: unsupported feature: delegatecall
@@ -19,18 +19,22 @@ error[E3001]: unsupported feature: delegatecall
    = help: use ContractManagement.update() for upgradeable contracts
 ```
 
-**Blocked constructs and their Neo alternatives:**
+**Blocked or limited constructs and their Neo alternatives:**
 
-| Blocked Feature        | Error | Neo Alternative                                 |
-| ---------------------- | ----- | ----------------------------------------------- |
-| `delegatecall`         | E3001 | `ContractManagement.update()` for upgrades      |
-| `assembly { ... }`     | E3001 | Use devpack libraries instead                   |
-| `new Contract(...)`    | E3001 | `ContractManagement.deploy(...)`                |
-| `type(X).creationCode` | E3001 | Deploy via `ContractManagement.deploy(...)`     |
-| `type(X).runtimeCode`  | E3001 | No Neo equivalent                               |
+| Feature / construct                  | Diagnostic | Neo Alternative                            |
+| ------------------------------------ | ---------- | ------------------------------------------ |
+| `delegatecall`                       | E3001      | `ContractManagement.update()` for upgrades |
+| Unsupported Yul inside `assembly`    | Warning    | Use Solidity or devpack libraries instead  |
+| EVM `CREATE` / `CREATE2` opcodes     | E3001      | `ContractManagement.deploy(...)`           |
 
 ::: warning
-These constructs have no safe 1:1 NeoVM equivalent. Refactor to the listed Neo-native patterns.
+`delegatecall` and EVM create opcodes have no safe 1:1 NeoVM equivalent.
+Inline assembly has limited Yul lowering, but EVM-only operations inside it
+still need Neo-native replacements. Solidity `new Contract(...)` is not real
+deployment on Neo: the compiler currently inlines/simulates constructor-like
+logic and returns a zero-address placeholder. `type(X).creationCode` and
+`type(X).runtimeCode` are not blocked; they compile to deterministic Neo-shaped
+compatibility payloads for hashing, not deployable EVM bytecode.
 :::
 
 ---

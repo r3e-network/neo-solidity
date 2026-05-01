@@ -7,9 +7,9 @@ description: "Opcode Support from Runtime Specification."
 
 [Back to Runtime Specification](/internals/runtime-specification)
 
-The embedded runtime implements the full Neo N3 opcode set. Opcodes are organized by category below with their hex codes and gas costs.
+The embedded runtime implements the opcode subset documented below. Opcodes not handled by the runtime are rejected with an `Unsupported opcode` execution error.
 
-### Constants
+## Constants
 
 | Opcode           | Hex           | Gas | Description                      |
 | ---------------- | ------------- | --- | -------------------------------- |
@@ -29,7 +29,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `PUSHM1`         | `0x0F`        | 1   | Push -1                          |
 | `PUSH0`-`PUSH16` | `0x10`-`0x20` | 1   | Push small integers 0 through 16 |
 
-### Flow Control
+## Flow Control
 
 | Opcode                    | Hex             | Gas | Description                                      |
 | ------------------------- | --------------- | --- | ------------------------------------------------ |
@@ -55,7 +55,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `RET`                     | `0x40`          | 0   | Return from current context                      |
 | `SYSCALL`                 | `0x41`          | 10  | Invoke system interop (4-byte hash follows)      |
 
-### Stack Operations
+## Stack Operations
 
 | Opcode     | Hex    | Gas | Description                  |
 | ---------- | ------ | --- | ---------------------------- |
@@ -75,7 +75,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `REVERSE4` | `0x54` | 2   | Reverse top 4 items          |
 | `REVERSEN` | `0x55` | 2   | Reverse top N items          |
 
-### Splice and Buffer
+## Splice and Buffer
 
 | Opcode      | Hex    | Gas | Description                     |
 | ----------- | ------ | --- | ------------------------------- |
@@ -86,7 +86,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `LEFT`      | `0x8D` | 4   | Take left N bytes               |
 | `RIGHT`     | `0x8E` | 4   | Take right N bytes              |
 
-### Bitwise and Logic
+## Bitwise and Logic
 
 | Opcode     | Hex    | Gas | Description           |
 | ---------- | ------ | --- | --------------------- |
@@ -97,7 +97,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `EQUAL`    | `0x97` | 3   | Equality comparison   |
 | `NOTEQUAL` | `0x98` | 3   | Inequality comparison |
 
-### Numeric
+## Numeric
 
 | Opcode                     | Hex                      | Gas | Description                        |
 | -------------------------- | ------------------------ | --- | ---------------------------------- |
@@ -119,7 +119,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `MIN` / `MAX`              | `0xB9` / `0xBA`          | 3   | Minimum / maximum                  |
 | `WITHIN`                   | `0xBB`                   | 3   | Range check (a <= x < b)           |
 
-### Compound and Collections
+## Compound and Collections
 
 | Opcode                                  | Hex                      | Gas | Description                   |
 | --------------------------------------- | ------------------------ | --- | ----------------------------- |
@@ -140,7 +140,7 @@ The embedded runtime implements the full Neo N3 opcode set. Opcodes are organize
 | `CLEARITEMS`                            | `0xD3`                   | 4   | Clear all items               |
 | `POPITEM`                               | `0xD4`                   | 4   | Pop last item from array      |
 
-### Type Operations
+## Type Operations
 
 | Opcode    | Hex    | Gas | Description                    |
 | --------- | ------ | --- | ------------------------------ |
@@ -161,7 +161,7 @@ Supported type codes:
 | `0x48` | Map              |
 | `0x60` | InteropInterface |
 
-### Extensions
+## Extensions
 
 | Opcode      | Hex    | Gas | Description         |
 | ----------- | ------ | --- | ------------------- |

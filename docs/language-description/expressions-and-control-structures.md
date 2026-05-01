@@ -60,9 +60,9 @@ D newD = new D(arg);
 ```
 
 ::: tip 💡 NeoVM Difference: Dynamic Deployment
-Creating contracts dynamically via `new Contract()` is intentionally **blocked** by the Neo Solidity compiler. 
+Creating contracts dynamically via `new Contract()` does not deploy a Neo contract. The current compiler keeps this construct source-compatible by inlining/simulating constructor-like logic when the target contract is available and returning a zero-address placeholder.
 
-NeoVM handles deployment differently than EVM. To deploy a child contract, you must use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly, passing the compiled NEF bytecode and manifest.
+NeoVM handles deployment differently than EVM. To deploy a child contract, use Neo's `ContractManagement.deploy(nef, manifest, data)` intrinsic directly, passing the compiled NEF bytecode and manifest.
 :::
 
 ## Order of Evaluation of Expressions

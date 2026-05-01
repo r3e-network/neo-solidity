@@ -8,7 +8,7 @@ description: "B. Expressions from Solidity Feature Support."
 [Back to Solidity Feature Support](/solidity/feature-support)
 
 | Feature                                       | Status | Notes                                                                                                    |
-| --------------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------- | --- | ------------------ |
+| --------------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------- |
 | Arithmetic (`+`, `-`, `*`, `/`, `%`)          |   ✅   | Binary ops via `try_lower_expression_binary_ops`.                                                        |
 | Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) |   ✅   | Via `try_lower_expression_comparisons`.                                                                  |
 | Logical (`&&`, `\|\|`, `!`)                   |   ✅   | Short-circuit evaluation.                                                                                |
@@ -25,13 +25,13 @@ description: "B. Expressions from Solidity Feature Support."
 | `type(I).interfaceId`                         |   ✅   | Computed from selector XOR of interface methods.                                                         |
 | `abi.encode(...)`                             |   ⚠️   | Supported in context of `address.call`/`staticcall`. Standalone use is limited.                          |
 | `abi.encodePacked(...)`                       |   ⚠️   | Same as `abi.encode` — used for Neo contract call encoding.                                              |
-| `abi.encodeWithSignature(...)`                |   ⚠️   | Low-level call payloads rewrite to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)`. |
-| `abi.encodeWithSelector(...)`                 |   ⚠️   | Low-level call payloads rewrite to Neo contract calls; standalone use approximates calldata as `selector |     | abi.encode(args)`. |
+| `abi.encodeWithSignature(...)`                |   ⚠️   | Low-level call payloads rewrite to Neo contract calls; standalone use approximates calldata as `selector \|\| abi.encode(args)`. |
+| `abi.encodeWithSelector(...)`                 |   ⚠️   | Low-level call payloads rewrite to Neo contract calls; standalone use approximates calldata as `selector \|\| abi.encode(args)`. |
 | `abi.encodeCall(...)`                         |   ✅   | Maps to `StdLib.serialize`.                                                                              |
 | `abi.decode(...)`                             |   ✅   | Maps to `StdLib.deserialize`. Type tuple parsed from second argument.                                    |
 | Named function call args `f({x: 1})`          |   ✅   | Named args reordered to positional order at IR level.                                                    |
 
-### Partial expression details
+## Partial expression details
 
 **Tuple destructuring** — Standard patterns like `(uint a, uint b) = getValues()` work. Deeply nested destructuring targets (e.g., destructuring into struct members or nested tuples in a single statement) may require the compiler to introduce intermediate locals.
 

@@ -7,6 +7,8 @@ description: "Monitoring and Verification from Production Readiness."
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
+## Overview
+
 After deployment:
 
 - **Block explorer**: Monitor contract transactions and events on a Neo N3 block explorer.

@@ -7,6 +7,8 @@ description: "Testing Standards Compliance from Standards and Contracts."
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
+## Overview
+
 After compiling, verify your contract meets the target standard:
 
 1. **Check manifest** — confirm `supportedstandards` contains the expected entries:

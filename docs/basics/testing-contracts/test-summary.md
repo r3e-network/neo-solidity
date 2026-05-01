@@ -7,6 +7,8 @@ description: "Test Summary from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
+## Overview
+
 | Command                                   | Scope               | Duration | Requires                |
 | ----------------------------------------- | ------------------- | -------- | ----------------------- |
 | `cargo test --workspace`                  | All Rust tests      | ~30s     | Rust                    |

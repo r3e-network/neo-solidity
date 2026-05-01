@@ -1,14 +1,12 @@
 # Hardhat 3 Migration Spike Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Determine whether the Neo Hardhat tooling packages can be migrated from Hardhat 2.28.6 to Hardhat 3.x without breaking the verified production gate, and reduce the remaining audit surface rooted in the legacy Hardhat 2 dependency stack.
 
 **Architecture:** Treat this as a migration spike with strict verification. First move the manifests and peer ranges to a Hardhat 3-compatible shape, then install and let TypeScript/tests reveal the concrete API breaks. Fix only the specific compatibility issues required to restore the tooling gates, and only then re-run the full repository gate.
 
 **Tech Stack:** npm workspaces, TypeScript, Hardhat plugin APIs, Vitest, ESLint, Makefile production gate.
 
-### Task 1: Update the manifest contract for Hardhat 3
+## Task 1: Update the manifest contract for Hardhat 3
 
 **Files:**
 - Modify: `tooling/package.json`
@@ -29,7 +27,7 @@ Move the root and workspace Hardhat dependencies to `^3.1.11`, and widen peer de
 Run: `cd tooling && npm install`
 Expected: install succeeds and the dependency graph drops the legacy Hardhat 2 transitive stack.
 
-### Task 2: Let the compiler surface actual Hardhat 3 compatibility breaks
+## Task 2: Let the compiler surface actual Hardhat 3 compatibility breaks
 
 **Files:**
 - Verify: `tooling/packages/hardhat-solc-neo/src/**/*.ts`
@@ -47,7 +45,7 @@ Expected: FAIL or PASS with concrete evidence about Hardhat 3 compatibility.
 
 If failures appear, patch only the specific Hardhat API changes revealed by TypeScript/tests. Do not mix unrelated refactors into the migration.
 
-### Task 3: Re-verify the security posture and full repo gate
+## Task 3: Re-verify the security posture and full repo gate
 
 **Files:**
 - Verify: `tooling/package-lock.json`

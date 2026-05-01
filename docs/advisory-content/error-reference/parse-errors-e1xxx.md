@@ -24,7 +24,7 @@ These errors occur during Stage 1 (Frontend) when the `solang-parser` processes 
 Parse errors must be fixed first. The compiler cannot proceed to semantic analysis or code generation until all parse errors are resolved.
 :::
 
-### Example: E1005 MissingBrace
+## Example: E1005 MissingBrace
 
 ```
 error[E1005]: missing closing brace

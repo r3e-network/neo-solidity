@@ -23,13 +23,13 @@ cargo test runtime_tests
 cargo test -- --nocapture
 
 # Run a specific test by name
-cargo test test_simple_storage_compilation
+cargo test test_compile_simple_storage
 
 # Run tests in parallel (default) or single-threaded
 cargo test -- --test-threads=1
 ```
 
-### Runtime Tests
+## Runtime Tests
 
 The embedded NeoVM runtime has extensive unit tests covering opcodes, syscalls, storage, iterators, and gas accounting:
 
@@ -38,7 +38,6 @@ The embedded NeoVM runtime has extensive unit tests covering opcodes, syscalls, 
 cargo test runtime_
 
 # Specific runtime areas
-cargo test runtime_arithmetic
-cargo test runtime_storage
-cargo test runtime_crypto
+cargo test runtime_captures_return_payload
+cargo test runtime_handles_empty_script
 ```

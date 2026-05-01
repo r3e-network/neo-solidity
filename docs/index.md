@@ -30,8 +30,8 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo Solidity v0.16.0</h3>
-    <p>Version 0.16.0 is a major stability release driven by 357 fuzz-harness findings (Tasks #94-#183). It lands checked uint256/int256 arithmetic via BigInt, EVM-canonical <code>abi.encode*</code> and <code>Panic(uint256)</code>/<code>Error(string)</code> envelopes, narrow Yul support with EIP-1153 transient storage, correct event <code>topic0 = keccak(signature)</code> semantics, proper <code>msg.value</code>/<code>msg.data</code> host injection, parameter-write support, and many MEMCPY/cast fixes. <strong>409 fuzz tests</strong> now pass covering the full Solidity feature matrix.</p>
+    <h3>Neo Solidity v0.18.0</h3>
+    <p>Version 0.18.0 is the current compiler line reflected by the checked-in Rust package metadata. It continues the stability work with expanded runtime/property coverage, stricter manifest and permission handling, Standard JSON support, and clearer diagnostics for Neo-specific behavior such as blocked <code>delegatecall</code>/<code>callcode</code> and source-compatible <code>new Contract(...)</code> lowering. See the support matrix and fuzz guide for the current validation surface.</p>
     <a href="https://github.com/r3e-network/neo-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
@@ -126,7 +126,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.16.0<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.18.0<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

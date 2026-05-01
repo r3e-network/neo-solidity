@@ -1,4 +1,11 @@
-# neo-solidity v0.16.0 + devpack v1.1.0 — Fuzz-Driven Stability Release
+# neo-solidity v0.16.0 + devpack v1.1.0 — Fuzz-Driven Stability Release (Archived)
+
+> **Archived release notes**: this file documents the v0.16.0 release.
+> The current compiler version is v0.18.0; for the latest state see
+> [`CHANGELOG.md`](./CHANGELOG.md) and the
+> [GitHub releases page](https://github.com/r3e-network/neo-solidity/releases).
+> The numbers, status claims, and TL;DR below reflect v0.16.0 specifically and
+> are kept for archaeology rather than current accuracy.
 
 **Release date:** 2026-04-19
 **Compiler / CLI / workspace:** **v0.16.0**

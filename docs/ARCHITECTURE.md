@@ -176,7 +176,7 @@ Translates IR to NeoVM bytecode:
 
 Embedded Neo N3 runtime for testing:
 
-- Full opcode support
+- Broad documented opcode support with explicit rejection for unsupported opcodes
 - Syscall implementations
 - Storage emulation
 - Event logging

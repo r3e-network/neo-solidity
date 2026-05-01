@@ -7,7 +7,7 @@ description: "Diagnostic Output Formats from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
-### Human-Readable (default)
+## Human-Readable (default)
 
 ```
 error[E2002]: type mismatch: expected uint256, found address
@@ -19,7 +19,7 @@ error[E2002]: type mismatch: expected uint256, found address
    = help: use explicit cast: uint256(uint160(msg.sender))
 ```
 
-### JSON Lines (`--json-errors`, `--json-warnings`)
+## JSON Lines (`--json-errors`, `--json-warnings`)
 
 Each diagnostic is a single JSON object on one line of stderr:
 

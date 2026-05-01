@@ -1,5 +1,7 @@
 # Documentation Archive
 
+## Scope
+
 This directory intentionally keeps only this index file.
 
 Legacy planning, audit, and exploratory documents were removed to keep the repository

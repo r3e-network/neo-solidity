@@ -7,6 +7,8 @@ description: "Production Checklist Summary from Production Readiness."
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
+## Overview
+
 Use this checklist before every mainnet deployment:
 
 - [ ] `make production-gate` passes

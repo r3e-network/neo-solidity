@@ -4,18 +4,18 @@ The Neo Solidity compiler uses a multi-layered fuzzing strategy to catch crashes
 
 ## Overview
 
-| Layer | Framework | Target | Cases |
+| Layer | Framework | Target | Scope |
 |-------|-----------|--------|-------|
-| **Proptest** (Rust) | `proptest` | Compiler properties, runtime verification, storage | 655 |
-| **Cargo-fuzz T1** | `libfuzzer` | Parser / compiler crash finding | Continuous |
-| **Cargo-fuzz T2** | `libfuzzer` | NEF deserializer crash finding | Continuous |
+| **Proptest** (Rust) | `proptest` | Compiler properties, runtime verification, storage, differential checks | Case count is controlled by `PROPTEST_CASES` and cargo defaults |
+| **Cargo-fuzz** | `libFuzzer` | Registered targets in `fuzz/Cargo.toml` | Coverage-guided crash finding across compiler, NEF, manifest, runtime, and Yul surfaces |
+| **Differential checks** | `proptest` | Reference crates and expected Neo behavior | Runs as part of `cargo test --test fuzz_tests` |
 
 ## Running the Fuzz Suite
 
 ### One-Shot Proptest Run
 
 ```bash
-# Full suite (default: 50 cases per property)
+# Full suite (case counts come from each proptest config unless PROPTEST_CASES overrides them)
 cargo test --test fuzz_tests
 
 # Full suite with more cases (slower, deeper)
@@ -39,22 +39,24 @@ make test-fuzz-stop
 ```
 
 The continuous runner executes in rounds:
-1. Proptest suite (default 50 cases per property)
-2. Cargo-fuzz T1 — compiler/parser target (5 min)
-3. Cargo-fuzz T2 — NEF parser target (5 min)
-4. Periodic gate/smoke checks (every N rounds)
+1. Proptest suite (`PROPTEST_CASES=50` by default in the continuous runner)
+2. Every target reported by `cargo +nightly fuzz list`
+3. A per-target `CARGO_FUZZ_TIME` burst, defaulting to 300 seconds
+4. A short sleep before the next round
 
 ### CI / Scheduled Deep Runs
 
 ```bash
-# Deep run: 100 proptest cases + extended cargo-fuzz
+# Deep proptest run: PROPTEST_CASES=100
 make test-fuzz-continuous
 
 # Or run the suite script directly
 bash scripts/run_fuzz_suite.sh deep
 ```
 
-A GitHub Actions workflow (`.github/workflows/fuzz.yml`) runs the deep suite nightly at 02:00 UTC.
+Use `make test-fuzz-start` or `./scripts/run_continuous_fuzz.sh` for the background loop that cycles through cargo-fuzz targets.
+
+A GitHub Actions workflow (`.github/workflows/fuzz.yml`) runs the deep proptest suite nightly at 02:00 UTC, then runs 60-second cargo-fuzz smoke bursts for the workflow's configured target subset.
 
 ## What the Fuzz Suite Covers
 
@@ -168,9 +170,11 @@ ft: 7356                   ← features (same as cov for libfuzzer)
 corp: 127                  ← corpus size (seed inputs)
 ```
 
-For the **compiler/parser target (T1)**, coverage grows as the fuzzer discovers new Solidity syntax constructs. Saturation (single-digit gains per round) is expected after several hours.
+For **`fuzz_target_1`**, coverage grows as the fuzzer discovers new Solidity syntax constructs. Saturation (single-digit gains per round) is expected after several hours.
 
-For the **NEF parser target (T2)**, coverage plateaus early (~83 edges) because the NEF parser is extremely strict — most random bytes are rejected at the magic header check.
+For **`fuzz_target_2`**, coverage plateaus early because the NEF parser is strict and most random bytes are rejected at the magic header check.
+
+Other registered targets cover bytecode disassembly, NEF roundtrips, manifest JSON, Standard JSON, structured Solidity input generation, runtime execution, method tokens, NEF/manifest mutation, and Yul assembly handling.
 
 ## Crash Triage
 
@@ -178,19 +182,17 @@ If the fuzzer finds a crash:
 
 1. **Locate the crash artifact**:
    ```bash
-   ls fuzz/corpus/fuzz_target_1/crash-*
-   ls fuzz/corpus/fuzz_target_2/crash-*
+   ls fuzz/artifacts/<target>/crash-*
    ```
 
 2. **Reproduce with the artifact**:
    ```bash
-   cargo +nightly fuzz run fuzz_target_1 fuzz/corpus/fuzz_target_1/crash-<hash>
+   cargo +nightly fuzz run <target> fuzz/artifacts/<target>/crash-<hash>
    ```
 
 3. **Minimize the crash input**:
    ```bash
-   cargo +nightly fuzz run fuzz_target_1 -minimize-crash=1 -runs=10000 \
-     fuzz/corpus/fuzz_target_1/crash-<hash>
+   cargo +nightly fuzz tmin <target> fuzz/artifacts/<target>/crash-<hash>
    ```
 
 4. **Convert to a regression test** in the appropriate `tests/` module.

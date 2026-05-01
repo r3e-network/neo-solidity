@@ -5,7 +5,7 @@ description: "Runtime Specification section index."
 
 # Runtime Specification
 
-Complete reference for the embedded NeoVM runtime used by the Neo Solidity compiler for testing and execution. This documents the execution model, opcode support, syscall implementation, gas accounting, and storage emulation.
+Reference for the embedded NeoVM runtime used by the Neo Solidity compiler for testing and execution. This documents the execution model, opcode support, syscall implementation, gas accounting, and storage emulation.
 
 ## Sections
 

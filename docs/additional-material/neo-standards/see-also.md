@@ -1,11 +1,13 @@
 ---
-title: "Standards and Contracts: See Also"
+title: "Neo Standards See Also"
 description: "See Also from Standards and Contracts."
 ---
 
-# See Also
+# Neo Standards See Also
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
+
+## Overview
 
 - [Devpack Overview](/additional-material/neo-devpack) — Full devpack directory layout, libraries, and compiler intrinsics
 - [Language Description](/language-description/types) — Solidity/EVM patterns mapped to Neo equivalents

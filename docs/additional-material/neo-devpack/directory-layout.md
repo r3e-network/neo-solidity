@@ -7,19 +7,21 @@ description: "Directory Layout from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
+## Overview
+
 ```
 devpack/
 ├── contracts/               # Syscall/native-call wrappers and framework contracts
 │   ├── FrameworkBase.sol    # Base framework with ownership, storage, gas management
 │   ├── Framework.sol        # Extended framework (strict-manifest mode)
-│   ├── Syscalls.sol         # Complete Neo N3 syscall surface (1,323 lines)
-│   ├── NativeCalls.sol      # Native contract wrappers (1,068 lines)
+│   ├── Syscalls.sol         # Supported Neo N3 syscall/native-call wrappers (1,325 lines)
+│   ├── NativeCalls.sol      # Native contract wrappers (1,071 lines)
 │   ├── OracleService.sol    # Oracle convenience wrapper
 │   └── NEP17Rescue.sol      # Emergency native-token recovery for NEP-17 contracts
 ├── libraries/               # High-level helper libraries
 │   ├── Neo.sol              # Blockchain integration (542 lines)
-│   ├── Storage.sol          # Advanced storage operations (827 lines)
-│   └── Runtime.sol          # Runtime services and utilities (688 lines)
+│   ├── Storage.sol          # Advanced storage operations (852 lines)
+│   └── Runtime.sol          # Runtime services and utilities (695 lines)
 ├── standards/               # NEP token standard implementations
 │   ├── NEP17.sol            # Fungible token (NEP-17)
 │   ├── NEP11.sol            # Non-fungible token (NEP-11, divisible + indivisible)

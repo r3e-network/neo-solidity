@@ -12,7 +12,7 @@
 
 **Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
 
-> **Status:** 🟢 Production-Ready · 95% Complete · 700+ Tests
+> **Status:** 🟢 Production-Ready · Actively Fuzzed · Neo N3 Focused
 
 ## 🎯 At a Glance
 
@@ -177,9 +177,8 @@ bash examples/test_neoxp_encoding_smoke.sh
   block height, timestamp, and calling script hash for a single invocation.
   Use `NeoRuntime::execute_with_overrides` and inspect `ExecutionMetadata` on
   `ExecutionResult`.
-- **Iterator handles**: `Storage.Find` returns real iterator tokens; `Iterator.Next`,
-  `Iterator.Value`, and `Iterator.Dispose` operate on handles and respect overlay
-  storage changes.
+- **Iterator handles**: `Storage.Find` returns real iterator tokens; `Iterator.Next`
+  and `Iterator.Value` operate on handles and respect overlay storage changes.
 - **Syscall gas hints**: The embedded runtime uses per-syscall gas hints
   (storage/crypto/runtime/oracle/contract) to better mirror Neo N3 pricing.
 - **Contract registry**: A lightweight in-memory ContractManagement surface
@@ -241,132 +240,23 @@ neo-cli contract invoke <contract-hash> totalSupply
 
 ## 🧩 **Solidity Feature Support on NeoVM**
 
-> **142 Solidity features audited** — ✅ 114 fully supported (80%) · ⚠️ 21 partial (15%) · ❌ 2 unsupported (1%) · 🚫 5 intentionally blocked (4%)
->
-> For the full per-feature audit, see [`docs/SOLIDITY_SUPPORT_MATRIX.md`](./docs/SOLIDITY_SUPPORT_MATRIX.md) and [`FEATURE_MATRIX.md`](./FEATURE_MATRIX.md).
+> **146 Solidity features audited** — ✅ 114 fully supported (78%) · ⚠️ 29 partial (20%) · ❌ 2 unsupported (1%) · 🚫 1 intentionally blocked (1%)
 
-### ✅ Fully Supported (114+ features)
+The maintained per-feature source of truth is
+[`docs/SOLIDITY_SUPPORT_MATRIX.md`](./docs/SOLIDITY_SUPPORT_MATRIX.md), with
+rendered category pages under
+[`docs/solidity/feature-support/`](./docs/solidity/feature-support/). The root
+[`FEATURE_MATRIX.md`](./FEATURE_MATRIX.md) is only a stable redirect for older
+links.
 
-<details>
-<summary><strong>Types</strong> — <code>bool</code>, <code>int/uint</code> (all widths), <code>address</code>, <code>bytes1-32</code>, <code>bytes</code>, <code>string</code>, <code>enum</code>, <code>struct</code>, <code>mapping</code>, <code>T[]</code>, user-defined value types, <code>bytes.concat</code>, <code>string.concat</code>, contract types, tuples</summary>
+Important NeoVM differences:
 
-All Solidity value types map naturally to NeoVM's arbitrary-precision BigInteger and ByteString primitives. `type X is Y` aliases compile to no-ops. `mapping(K => V)` uses Neo Storage prefix model.
-
-</details>
-
-<details>
-<summary><strong>Expressions</strong> — Arithmetic, comparison, logical, bitwise, unary, ternary, assignment, <code>delete</code>, <code>type(X).min/max/name/interfaceId</code>, <code>abi.encodeWithSignature/Selector/Call</code>, <code>abi.decode</code>, named args</summary>
-
-Full operator support including short-circuit evaluation. `abi.encodeWithSignature(...)`, `abi.encodeWithSelector(...)`, and `abi.encodeCall(...)` can feed low-level Neo `System.Contract.Call` lowering. Standalone `encodeWithSignature` / `encodeWithSelector` approximate EVM calldata as `selector || abi.encode(args)`. `abi.decode` maps to `StdLib.deserialize`.
-
-</details>
-
-<details>
-<summary><strong>Statements</strong> — <code>if/else</code>, <code>for</code>, <code>while</code>, <code>do-while</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>emit</code>, <code>revert</code>, <code>revert CustomError(...)</code>, variable declarations, blocks, <code>unchecked {}</code>, <code>try/catch</code></summary>
-
-`unchecked {}` blocks compile as normal blocks (NeoVM uses BigInteger — no overflow). `try/catch` maps to NeoVM `TRY/ENDTRY`. `emit` maps to `Runtime.Notify`.
-
-</details>
-
-<details>
-<summary><strong>Functions</strong> — <code>public</code>, <code>external</code>, <code>internal</code>, <code>private</code>, <code>view</code>, <code>pure</code>, <code>constructor</code>, <code>modifier</code>, <code>virtual/override</code>, <code>.selector</code>, NatSpec</summary>
-
-Constructor maps to `_deploy(data, update)`. Modifiers expand with `_` placeholder substitution. `view` annotates manifest `safe` flag.
-
-</details>
-
-<details>
-<summary><strong>OOP</strong> — Single/multiple inheritance, <code>interface</code>, <code>abstract contract</code>, <code>using X for Y</code>, <code>super</code>, <code>is</code>, constructor chaining, event inheritance</summary>
-
-C3 linearization with `__super_` method preservation. `using X for Y` inlines library functions at call site. Diamond inheritance detected with diagnostic.
-
-</details>
-
-<details>
-<summary><strong>Storage</strong> — State variables, <code>constant</code>, <code>memory/storage/calldata</code>, nested mappings, struct in storage, <code>.push()/.pop()/.length</code>, <code>new bytes(n)</code>, <code>new T[](n)</code></summary>
-
-State variables persist via Neo Storage syscalls with prefix-based keys. `calldata` treated as `memory` (correct for NeoVM). `new T[](n)` uses `NEWARRAY`.
-
-</details>
-
-<details>
-<summary><strong>Error Handling</strong> — <code>require</code> (all 3 forms), <code>assert</code>, <code>revert</code>, custom errors, <code>try/catch</code> with return binding</summary>
-
-`require(cond, CustomError(...))` preserves error name and arg count in NeoVM THROW message. `assert` maps to NeoVM ASSERT.
-
-</details>
-
-<details>
-<summary><strong>EVM Globals</strong> — <code>msg.sender</code>, <code>block.timestamp</code>, <code>block.number</code>, <code>block.chainid</code>, <code>keccak256</code>, <code>sha256</code>, <code>ecrecover</code>, <code>address.call</code>, <code>address.staticcall</code>, <code>this</code>, time units, plus 9 auto-mapped EVM features</summary>
-
-`msg.sender` → `Runtime.GetCallingScriptHash()`. `block.timestamp` → `Runtime.GetTime()`. `keccak256` → `CryptoLib.keccak256`, `sha256` → `CryptoLib.sha256`. `this` → `Runtime.GetExecutingScriptHash()`.
-
-**Transparent EVM auto-mappings** (compile with warning, no code changes needed):
-
-| Solidity Feature                  | Neo N3 Equivalent                |
-| --------------------------------- | -------------------------------- |
-| `block.coinbase`                  | `address(0)` (dBFT has no miner) |
-| `block.difficulty` / `prevrandao` | `Runtime.getRandom()`            |
-| `block.gaslimit`                  | `Policy.getExecFeeFactor()`      |
-| `block.basefee`                   | `Policy.getFeePerByte()`         |
-| `tx.gasprice`                     | `Policy.getFeePerByte()`         |
-| `gasleft()`                       | `System.Runtime.GasLeft` syscall |
-| `blockhash(n)`                    | `Ledger.getBlockHash(n)`         |
-| `selfdestruct(addr)`              | `ContractManagement.destroy()`   |
-| `address.codehash`                | Contract script hash             |
-
-</details>
-
----
-
-### ⚠️ Partially Supported (22 features) — with Neo Solutions
-
-| Feature                              | Limitation                                       | Neo Solution / Workaround                                                                                                                            |
-| ------------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `address payable`                    | Value-transfer semantics differ from EVM         | `.transfer()` / `.send()` auto-map to GAS NEP-17 transfer; prefer explicit `NativeCalls.*Transfer()`                                                 |
-| `T[N]` (fixed-size array)            | Length must be compile-time constant             | `new T[N]` is supported for fixed memory arrays; use dynamic arrays `T[]` when runtime sizing is required                                            |
-| `abi.encode` (standalone)            | Maps to `StdLib.serialize`, not EVM ABI format   | Works correctly for Neo cross-contract calls; not byte-compatible with EVM                                                                           |
-| `abi.encodePacked`                   | Same as `abi.encode` on Neo                      | Concatenation-based; sufficient for Neo use cases                                                                                                    |
-| Tuple destructuring                  | Nested assignment forms are supported            | Deeply mixed declaration/storage targets may still need intermediate local variables                                                                 |
-| `catch Panic(uint256)`               | Matches canonical EVM envelope on `THROW` payload | Task #103 — compiler emits `keccak256("Panic(uint256)")[..4] \|\| abi.encode(code)` for assert/div-by-zero/enum-cast/pop/short-decode panics; `catch Panic(uint code)` matches the 4-byte selector prefix and decodes the BE uint256 via `StdLib.abiDecode` |
-| Multiple catch clauses               | Routes by EVM-canonical selector prefix          | Task #103 — `catch Panic(uint256)` matches `0x4e487b71`, `catch Error(string)` matches `0x08c379a0`, `catch (bytes)` binds the raw envelope. User-defined named errors retain ISTYPE dispatch |
-| `payable` modifier                   | Neo has no native gas payment on functions       | Use `onNEP17Payment()` callback to receive NEP-17 tokens                                                                                             |
-| Function overloading                 | Neo callers must use generated overload names    | Overloads compile with `neo_name` mangling; non-primary variants are exported under generated Neo method names                                       |
-| `receive()`                          | **Silently remapped** to `onNEP17Payment` on Neo | When no explicit `onNEP17Payment` is declared, `receive() external payable` is rewritten in the manifest to `onNEP17Payment(address,uint256,bytes)` (NEP-17 convention). The body is preserved; only the ABI entrypoint name/signature change. See `docs/SOLIDITY_SUPPORT_MATRIX.md` §D (receive()/fallback() remapping). |
-| `fallback()`                         | No equivalent dispatch on Neo                    | Kept as `fallback` in the manifest. Implement `onNEP17Payment()` for value receipt; Neo has no unknown-method fallback                               |
-| `library` (user-defined)             | Libraries are inlined, not deployed separately   | Internal calls are fully inlined; `public` / `external` library functions are accepted but normalized to internal helpers with warnings              |
-| `immutable`                          | Partial constructor-style semantics              | Writes outside constructor/deploy initialization are rejected; initialize in declaration or constructor                                              |
-| `msg.value`                          | Only available inside `onNEP17Payment`           | Access the `amount` parameter of `onNEP17Payment(from, amount, data)` directly                                                                       |
-| `msg.data`                           | Approximated as `selector \|\| abi.encode(args)` | In `onNEP17Payment` maps to `data` param; outside callbacks produces selector + encoded args. Use explicit params for exact semantics                |
-| `msg.sig`                            | Internal-call semantics differ from EVM          | Approximated as the current function selector with warning; prefer explicit method-name logic or interface IDs when exact propagation matters        |
-| `address.code`                       | Returns Neo script bytes, not EVM bytecode       | Uses `ContractManagement.getContract()` under the hood; non-contracts return empty bytes, and `address.code.length` still acts as an existence check |
-| `tx.origin`                          | Compiles with warning                            | Neo uses multi-sig witnesses; use `Runtime.checkWitness(addr)` for authorization                                                                     |
-| Ether units (`wei`, `gwei`, `ether`) | Parsed with warning                              | Neo uses GAS token with 10⁸ decimals (1 GAS = 100,000,000 fractions)                                                                                 |
-| ERC-20 `approve`/`allowance`         | Not part of NEP-17 spec                          | Use `Runtime.checkWitness(owner)` for authorization; Neo's witness model replaces approvals                                                          |
-| ERC-165 `supportsInterface`          | Unnecessary on Neo                               | Neo uses manifest `supportedstandards` field for interface discovery                                                                                 |
-| ERC-4626 (Vault)                     | ERC-20 interactions must use NEP-17              | Vault logic compiles; replace ERC-20 calls with NEP-17 equivalents via devpack                                                                       |
-
----
-
-### ❌ Not Supported (1 feature)
-
-| Feature            | Reason                                                             | Alternative                                                         |
-| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `fixed` / `ufixed` | Also unsupported in mainline Solidity (reserved but unimplemented) | Use `uint256` with manual fixed-point math (e.g., multiply by 10¹⁸) |
-
----
-
-### 🚫 Intentionally Blocked EVM Features (5 features) — with Neo Alternatives
-
-These features are **detected at compile time** with actionable error or warning messages pointing to the Neo equivalent:
-
-| Blocked Feature        | Diagnostic                                   | Neo Alternative                                                   |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
-| `assembly { }`         | Warning: inline assembly not supported       | Use `NativeCalls.sol` devpack for low-level Neo syscalls          |
-| `address.delegatecall` | Warning: compiled with different semantics   | Neo contracts have isolated storage; use `address.call()` instead |
-| `new Contract(...)`    | Error: use ContractManagement for deployment | `ContractManagement.deploy(nef, manifest, data)`                  |
-| `type(X).creationCode` | Error: no bytecode access on Neo             | Deploy via `ContractManagement.deploy()` with NEF bytes           |
-| `type(X).runtimeCode`  | Error: no bytecode access on Neo             | No equivalent; Neo contracts are opaque after deployment          |
+| Area | Current behavior |
+| --- | --- |
+| Contract deployment | `new Contract(...)` is source-compatible but does not deploy a child contract; it inlines/simulates constructor-like logic and returns a zero-address placeholder. Use `ContractManagement.deploy(nef, manifest, data)` for real deployment. |
+| Delegate execution | `address.delegatecall(...)` and `callcode(...)` are blocked at compile time because Neo N3 has no caller-storage execution context. |
+| Value transfer | Ether-style attached value is not available; use NEP-17 callbacks and explicit GAS/NEP transfers. |
+| ABI payloads | Neo contract calls use method names and `StdLib.serialize`-style payloads, not byte-identical EVM calldata. |
 
 ---
 
@@ -410,7 +300,7 @@ graph TB
 #### **System Requirements**
 
 - **Rust**: 1.88 or higher
-- **Node.js**: 20.0 or higher (for tooling)
+- **Node.js**: 20.19+ or 22.12+ (for tooling and documentation builds)
 - **.NET SDK**: 8.0 or higher (for optional C# runtime)
 - **Neo CLI**: 3.0+ (for deployment)
 - **Memory**: 4GB RAM minimum, 8GB recommended
@@ -647,8 +537,8 @@ cargo test lexer_tests
 # Run with output
 cargo test -- --nocapture
 
-# Run performance benchmarks
-cargo test --release benchmark_tests
+# Run release-mode tests when investigating performance-sensitive behavior
+cargo test --release
 ```
 
 #### Integration Testing
@@ -657,25 +547,25 @@ cargo test --release benchmark_tests
 # Full compilation pipeline tests
 cargo test integration_tests
 
-# Real contract examples
-cargo test --test erc20_integration
-cargo test --test defi_integration
+# Real contract examples in the integration module
+cargo test test_erc20_like_contract
+cargo test test_complex_control_flow
 
-# Cross-platform tests
-make test-platforms
+# Aggregate project test lane
+make test-all
 ```
 
 #### Property-Based Testing
 
 ```bash
-# Fuzzing tests for robustness
-cargo test fuzzing_tests
+# Fuzzing/property tests for robustness
+cargo test --test fuzz_tests
 
-# Property-based tests
-cargo test property_tests
+# Deep property run
+PROPTEST_CASES=200 cargo test --test fuzz_tests
 
 # Differential testing (EVM vs NeoVM)
-cargo test differential_tests
+cargo test --test fuzz_tests differential
 ```
 
 ### **🎯 API Reference**
@@ -683,45 +573,43 @@ cargo test differential_tests
 #### **Compiler API**
 
 ```rust
-use neo_solidity::compiler::{Compiler, CompilerConfig};
+use neo_solidity::cli::compile_contracts;
 
-let config = CompilerConfig {
-    optimization_level: 3,
-    target_version: "3.0".to_string(),
-    output_format: OutputFormat::Json,
-    include_debug_info: true,
-    ..Default::default()
-};
+let source = std::fs::read_to_string("contract.sol").expect("read source");
+let artifacts = compile_contracts(&source, false, 3).expect("compile");
 
-let compiler = Compiler::new(config);
-let result = compiler.compile_file("contract.yul")?;
-
-println!("Bytecode size: {}", result.bytecode.len());
-println!("Estimated gas: {}", result.estimated_gas);
+for artifact in artifacts {
+    println!("Contract: {}", artifact.metadata.name);
+    println!("Bytecode size: {}", artifact.bytecode.len());
+    println!(
+        "Manifest methods: {}",
+        artifact.manifest["abi"]["methods"]
+            .as_array()
+            .map_or(0, |methods| methods.len())
+    );
+}
 ```
 
 #### **Runtime API**
 
 ```csharp
+using System.Numerics;
 using Neo.Sol.Runtime;
 
-var runtime = new EvmRuntime();
+var runtime = Evm.CreateRuntime();
 
 // Memory operations
-runtime.MStore(0x40, new byte[32]);
-var data = runtime.MLoad(0x40);
+runtime.Memory.Store(0x40, new BigInteger(123));
+var data = runtime.Memory.Load(0x40);
+var value = runtime.Memory.LoadBigInteger(0x40);
 
 // Storage operations
-runtime.SStore(storageKey, value);
-var retrieved = runtime.SLoad(storageKey);
-
-// Arithmetic operations
-var result = runtime.Add(10, 20);
-var product = runtime.Mul(6, 7);
+runtime.Storage.Store(BigInteger.Zero, value);
+var retrieved = runtime.Storage.LoadBigInteger(BigInteger.Zero);
 
 // Cryptographic operations
 var hash = runtime.Keccak256(data);
-var address = runtime.EcRecover(hash, v, r, s);
+var publicKey = runtime.EcRecover(hash, signature, recoveryId);
 ```
 
 #### **ABI Encoder API**
@@ -729,21 +617,15 @@ var address = runtime.EcRecover(hash, v, r, s);
 ```csharp
 using Neo.Sol.Runtime.ABI;
 
-var encoder = new AbiEncoder();
-
 // Encode function call
-var selector = encoder.CalculateFunctionSelector("transfer(address,uint256)");
-var encoded = encoder.EncodeFunction("transfer", recipient, amount);
+var selector = AbiEncoder.CalculateFunctionSelector("transfer(address,uint256)");
+var encoded = AbiEncoder.EncodeCall("transfer(address,uint256)", recipient, amount);
 
 // Decode function result
-var success = encoder.DecodeBool(returnData);
+var success = AbiEncoder.DecodeBool(returnData);
 
 // Encode events
-var transferEvent = encoder.EncodeEvent(
-    "Transfer",
-    new[] { from, to }, // indexed parameters
-    amount // data parameter
-);
+runtime.Events.EmitEvent("Transfer(address,address,uint256)", new object[] { from, to }, amount);
 ```
 
 ### **🚀 Optimization Guide**
@@ -760,7 +642,7 @@ var transferEvent = encoder.EncodeEvent(
 #### **Performance Tips**
 
 ```solidity
-// ✅ Good: Use unchecked for overflow-safe operations
+// ✅ Good: Use unchecked only when wraparound is intentional or overflow is proven impossible
 unchecked {
     for (uint256 i = 0; i < length; ++i) {
         total += values[i];
@@ -800,9 +682,11 @@ neo-solc contract.sol -f assembly -o contract.asm
 #### **Automated Security Analysis**
 
 ```bash
-# neo-solc currently focuses on compilation and does not ship a built-in
-# `--analyze` security mode. Use external Solidity analysis tooling + review,
-# then compile with neo-solc.
+# Analysis mode emits an EVM-to-Neo upgrade/readiness JSON report instead of artifacts.
+# It is supported for single-file input; Standard JSON mode rejects it.
+neo-solc contract.sol --analyze -o analysis.json
+
+# Compile production artifacts with strict manifest permissions after review.
 neo-solc contract.sol --deny-wildcard-permissions -O3 -o contract
 
 # Stricter builds (recommended for production):
@@ -864,8 +748,7 @@ cat contract.asm
 
 #### **Interactive Debugging**
 
-neo-solc does not currently generate source maps or ship an interactive debugger.
-Use Neo N3 tooling (neo-cli / neo-express / RPC tracing) for on-chain debugging.
+neo-solc does not currently emit source-map/debug-info artifacts as standalone CLI output formats (`nef`, `manifest`, `json`, `assembly`, `complete` only). Source-map/debug internals exist in the compiler pipeline for downstream debugger-oriented tooling; interactive on-chain debugger support remains planned. Use Neo N3 tooling (neo-cli / neo-express / RPC tracing) for on-chain debugging.
 
 ### **📊 Performance Benchmarks**
 
@@ -957,7 +840,7 @@ git push origin vX.Y.Z
 
 ### **Current Progress**
 
-#### **Core Compiler (~95% Complete)**
+#### **Core Compiler**
 
 - ✅ Yul lexer with all tokens and built-ins
 - ✅ AST parser supporting Yul constructs
@@ -966,15 +849,14 @@ git push origin vX.Y.Z
 - ✅ NeoVM code generator
 - ✅ Solidity-style public state variable getters
 - ✅ Error handling and reporting
-- ✅ CLI interface with 25+ options
+- ✅ CLI interface with file, Standard JSON, manifest-policy, diagnostics, and analysis modes
 - ✅ Neo N3 native formats (.nef and .manifest.json)
-- ✅ Full Solidity 0.8.x support (114 features supported)
+- ✅ Broad Solidity 0.8.x support; see `docs/SOLIDITY_SUPPORT_MATRIX.md` for current feature status
 - ✅ Variable handling with proper index-based storage
 - ✅ Loop control (break/continue) with context tracking
-- ✅ Function overloading support (different arg counts)
-- ✅ Public state variable getters
+- ✅ Function overloading support with Neo ABI name mangling for same-arity overloads
 
-#### **Runtime Library (~95% Complete)**
+#### **Runtime Library**
 
 - ✅ EVM-compatible memory manager
 - ✅ Storage manager with Solidity layout compatibility
@@ -982,26 +864,27 @@ git push origin vX.Y.Z
 - ✅ Cryptographic library (keccak256, ecrecover, sha256)
 - ✅ Event system with Runtime.Notify integration
 - ✅ Context objects (msg, tx, block) with Neo mapping
-- ✅ External call manager (CALL/DELEGATECALL/STATICCALL)
+- ✅ External call manager (`call`/`staticcall` mappings; `delegatecall` is rejected)
 - ✅ Exception handling (try/catch with runtime guards)
-- ✅ Iterator handles with proper disposal
-- ✅ Per-syscall gas accounting (~85% accurate)
-- ✅ Full opcode suite (Neo N3 compatible)
-- 🔄 Oracle integration (stub only - requires external oracle service)
+- ✅ Iterator handles for `Iterator.Next` and `Iterator.Value`
+- ✅ Per-syscall gas accounting with approximate Neo N3 costs
+- ✅ Broad documented opcode subset; unsupported opcodes are rejected explicitly
+- ✅ Oracle native-contract routing with deterministic request IDs and local price state; live callbacks require Neo-Express/TestNet validation
 
-#### **Testing (~95% Complete)**
+#### **Testing**
 
-- ✅ Unit tests for runtime primitives (tests/runtime\_\*.rs) - 400+ tests
-- ✅ Integration tests for compiler pipeline (100+ tests)
-- ✅ E2E compilation tests for all examples (74 tests)
-- ✅ Conformance test vectors (32 vectors, 93.8% pass rate)
+- ✅ Unit tests for runtime primitives and compiler helpers
+- ✅ Integration tests for compiler pipeline behavior
+- ✅ E2E compilation tests for all examples (80 tests)
+- ✅ Conformance test vectors (40 vectors, minimum 95.0% pass gate)
 - ✅ Neo-Express deployment smoke tests
 - ✅ Cross-platform CI/CD (Linux, macOS, Windows)
 - ✅ End-to-end contract execution tests
 - ✅ Fuzzing framework (property-based testing)
-- 🔄 Differential testing (EVM vs NeoVM) (planned)
+- ✅ Reference-crate differential tests for supported crypto, arithmetic, and disassembly paths
+- 🔄 Broader EVM-vs-NeoVM differential testing (planned)
 
-#### **Developer Tools (~95% Complete)**
+#### **Developer Tools**
 
 - ✅ CLI tools (neo-solc) - fully functional
 - ✅ Hardhat integration (@neo-solidity/hardhat-solc-neo)
@@ -1010,12 +893,12 @@ git push origin vX.Y.Z
 - ✅ ABI router (@neo-solidity/abi-router)
 - ✅ Shared types (@neo-solidity/types)
 - ✅ CLI tools package (@neo-solidity/cli-tools)
-- ✅ Debug tooling (@neo-solidity/types/debugger)
+- ✅ Debug/source-map type support for downstream tooling
 - ✅ Network configurations for Neo TestNet/MainNet
 - ✅ Artifact management
-- ✅ Source map support
+- 🔄 Standalone CLI source-map/debug artifact emission and interactive debugger integration (planned)
 
-#### **Documentation (~95% Complete)**
+#### **Documentation**
 
 - ✅ Comprehensive README with examples
 - ✅ Architecture documentation (docs/ARCHITECTURE.md)
@@ -1029,21 +912,21 @@ git push origin vX.Y.Z
 ### **📈 Metrics & Statistics**
 
 - **📊 Total Lines of Code**: ~50,000 (Rust implementation)
-- **🧪 Test Coverage**: 700+ tests (unit, integration, E2E)
+- **🧪 Test Coverage**: Layered Rust, fuzz, E2E, conformance, and Neo-Express validation
 - **⚡ Performance**: Optimized code generation with multi-level optimization
 - **🔒 Security**: Basic security analysis; external audit recommended for production
 - **📚 Documentation**: Comprehensive guides and reference documentation
-- **🛠️ Compatibility**: Solidity 0.8.x (114 features supported), NeoVM 3.0+
+- **🛠️ Compatibility**: Solidity 0.8.x on NeoVM 3.0+; see `docs/SOLIDITY_SUPPORT_MATRIX.md` for the current feature audit
 
 ### **🎯 Production Readiness**
 
 | Component           | Status              | Test Coverage                 | Documentation | Notes                       |
 | ------------------- | ------------------- | ----------------------------- | ------------- | --------------------------- |
-| **Compiler Core**   | 🟢 Production-Ready | Unit + Integration (620+)     | Complete      | Ready for production use    |
-| **Runtime Library** | 🟢 Production-Ready | Unit Tests (400+)             | Complete      | 95% Neo N3 parity achieved  |
+| **Compiler Core**   | 🟢 Production-Ready | Unit + integration suites     | Complete      | Ready for production use    |
+| **Runtime Library** | 🟢 Production-Ready | Runtime and property suites   | Complete      | Deterministic embedded runtime; validate final behavior on Neo-Express/TestNet |
 | **Developer Tools** | 🟢 Stable           | Smoke Tests                   | Good          | CLI fully functional        |
-| **Testing Suite**   | 🟢 Comprehensive    | 74 e2e + 100+ integ + 32 conf | Good          | 93.8% conformance pass rate |
-| **Documentation**   | 🟢 Good             | N/A                           | 95%           | Comprehensive guides        |
+| **Testing Suite**   | 🟢 Comprehensive    | Rust + fuzz + E2E + conformance | Good        | 40-vector conformance gate requires at least 95.0% |
+| **Documentation**   | 🟢 Good             | Docs structure check          | Good          | Comprehensive guides        |
 
 ### **⚠️ Known Limitations**
 
@@ -1051,9 +934,9 @@ While the compiler is production-ready for most use cases, please note:
 
 | Area                     | Status  | Notes                                                                           |
 | ------------------------ | ------- | ------------------------------------------------------------------------------- |
-| **Oracle Integration**   | Stub    | Oracle syscalls not connected to real oracle service (requires external oracle) |
-| **Fuzzing Framework**    | ✅ Done | Property-based testing with 23 fuzz tests                                       |
-| **Differential Testing** | Planned | EVM vs NeoVM differential testing not yet implemented                           |
+| **Oracle Integration**   | Partial | Embedded runtime records requests and price state, but does not contact oracle nodes or deliver live callbacks |
+| **Fuzzing Framework**    | ✅ Done | Property-based tests plus 11 cargo-fuzz targets                                 |
+| **Differential Testing** | Partial | Reference-crate differential tests exist; broader EVM-vs-NeoVM differential testing remains planned |
 | **IDE Debugging**        | Planned | Interactive debugging tools not yet implemented                                 |
 
 Note on intrinsic devpack libraries (`Runtime`, `Storage`, `Syscalls`, `NativeCalls`, `Neo`, `abi`):
@@ -1074,7 +957,7 @@ for tooling ergonomics; the compiler lowers supported members directly to Neo sy
 #### **Phase 2: Developer Experience (Q2 2024)** ✅
 
 - ✅ Hardhat and Foundry integration
-- ✅ Debug tooling and source maps
+- ✅ Source-map/debug internals for downstream tooling
 - ✅ Performance optimization
 - ✅ Security analysis features
 
@@ -1209,8 +1092,8 @@ neo-cli contract deploy build/ERC20Token.nef build/ERC20Token.manifest.json
 # Verify deployment
 neo-cli contract invoke <hash> balanceOf [<address>]
 
-# Run comprehensive tests
-cargo test erc20_integration_test
+# Run the ERC20-style integration coverage
+cargo test test_erc20_like_contract
 ```
 
 ## 🆘 **Support & Community**

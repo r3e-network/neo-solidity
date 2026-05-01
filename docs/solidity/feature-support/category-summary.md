@@ -7,17 +7,19 @@ description: "Category Summary from Solidity Feature Support."
 
 [Back to Solidity Feature Support](/solidity/feature-support)
 
+## Overview
+
 | Category            |      ✅ |     ⚠️ |    ❌ |    🚫 |
 | ------------------- | ------: | -----: | ----: | ----: |
-| A. Types            |      16 |      2 |     1 |     0 |
-| B. Expressions      |      18 |      3 |     0 |     0 |
-| C. Statements       |      15 |      2 |     0 |     0 |
+| A. Types            |      16 |      2 |     2 |     0 |
+| B. Expressions      |      16 |      5 |     0 |     0 |
+| C. Statements       |      17 |      1 |     0 |     0 |
 | D. Functions        |       9 |      4 |     0 |     0 |
 | E. OOP Features     |       9 |      1 |     0 |     0 |
-| F. Storage & Memory |      12 |      0 |     0 |     1 |
-| G. Error Handling   |       9 |      1 |     0 |     0 |
-| H. EVM-Specific     |      23 |      6 |     0 |     3 |
+| F. Storage & Memory |      12 |      1 |     0 |     0 |
+| G. Error Handling   |      11 |      0 |     0 |     0 |
+| H. EVM-Specific     |      21 |     11 |     0 |     1 |
 | I. ERC-NEP Mapping  |       3 |      4 |     0 |     0 |
-| **Total**           | **114** | **23** | **1** | **4** |
+| **Total**           | **114** | **29** | **2** | **1** |
 
 ---

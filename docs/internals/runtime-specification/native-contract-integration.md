@@ -23,7 +23,7 @@ The embedded runtime includes a registry of Neo N3 native contracts:
 | CryptoLib          | Cryptographic functions             |
 | StdLib             | Standard library utilities          |
 
-### ContractManagement
+## ContractManagement
 
 The embedded runtime maintains a stateful in-memory contract registry that supports:
 

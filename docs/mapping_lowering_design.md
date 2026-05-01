@@ -1,4 +1,4 @@
-## Mapping & Indexed Storage Lowering Plan
+# Mapping & Indexed Storage Lowering Plan
 
 This internal plan is excluded from the VitePress build. For the public,
 reader-friendly version, see
@@ -10,7 +10,7 @@ what is required to compile the NEP‑11/17/24 sample contracts; follow-up work
 will extend support to dynamic arrays (struct fields are now wired through the
 same lowering path).
 
-### 1. Frontend Metadata
+## 1. Frontend Metadata
 - Teach `convert_state_variable` to recognise `mapping(<K> => <V>)`. Record a new
   `StateVariableKind::Mapping { key: SolidityType, value: SolidityType }`.
 - Extend `ParameterMetadata`/`StateVariableMetadata` so mapping value types are
@@ -18,7 +18,7 @@ same lowering path).
 - Update `NeoType::from_solidity` to return a dedicated `NeoType::Mapping`
   variant (wrapper around `Box<NeoType>` for key/value) instead of `Err`.
 
-### 2. IR Representation
+## 2. IR Representation
 - Add `ValueType::Mapping { key: Box<ValueType>, value: Box<ValueType> }`.
 - Introduce new IR instructions:
   - `Instruction::LoadMapping { state_index: usize, keys: Vec<ValueType> }`
@@ -30,17 +30,17 @@ same lowering path).
 - When lowering `Expression::ArraySubscript`, build the key vector by walking up
   the nested subscripts.
 
-### 3. Storage Key Encoding
-- Use the same key derivation the C# devpack uses:
-  `SHA256( key_bytes || slot_hash )`, where `slot_hash` is the 32‑byte SHA256 of
+## 3. Storage Key Encoding
+- Use the same key derivation the current bytecode helper uses:
+  `keccak256(key_bytes || slot_hash)`, where `slot_hash` is the 32-byte hash of
   the state variable name.
 - Create helpers in `codegen` to:
   1. Evaluate each key expression and normalise it (padded integers, byte arrays,
      UTF‑8 strings).
-  2. Pack keys into a single byte array (`System.Runtime.Serialize`) followed by
-     `System.Crypto.SHA256`.
+  2. Pack keys into a single byte array with the `StdLib.serialize` native
+     contract call followed by `CryptoLib.keccak256`.
 
-### 4. Code Generation Hooks
+## 4. Code Generation Hooks
 - Extend `emit_ir_function` to translate the new mapping and struct-field
   instructions to the runtime sequence.
 - Define helper entry points inside codegen:
@@ -76,7 +76,7 @@ same lowering path).
     1. Serialize key (leaves `key_bytes` on stack).
     2. Swap to get `[... slot key_bytes]`.
     3. Concatenate `key_bytes || slot` (use `CAT` after pushing both).
-    4. Call `System.Crypto.SHA256` (returns new slot).
+    4. Call `CryptoLib.keccak256` (returns new slot).
   - Result is the final mapping slot key.
 - Storage syscalls:
   - `Load`: push storage context (`System.Storage.GetContext`), reorder stack to
@@ -84,12 +84,12 @@ same lowering path).
   - `Store`: after computing slot, push context and value, reorder to
     `[context, slot, value]`, call `System.Storage.Put`.
 
-### 5. Validation & Diagnostics
+## 5. Validation & Diagnostics
 - Update `validate_contract` to accept mapping variables and parameters.
 - For now, warn when the value type is itself a dynamic array (struct values are
   handled via `LoadStructField`/`StoreStructField`).
 
-### 6. Testing Strategy
+## 6. Testing Strategy
 - Unit tests:
   - Parsing `mapping(address => uint256)` and nested mappings.
   - Lowering `balances[msg.sender]` into `Instruction::LoadMapping`.
@@ -98,7 +98,7 @@ same lowering path).
     storage key pattern.
   - VM smoke test: transfer tokens, verify balances.
 
-### 7. Follow-up Items
+## 7. Follow-up Items
 - Dynamic array indexing (reuses much of the machinery).
 - Inline caching of storage contexts to avoid repeated syscalls.
 - Gas accounting for hashing and serialisation helpers.
@@ -106,9 +106,9 @@ same lowering path).
 This document is a living plan; subsequent work will tick items off and expand
 edge-case coverage.
 
-### 4a. Codegen helper sketch
+## 4a. Codegen Helper Sketch
 
-- Runtime prerequisites: System.Runtime.Serialize, System.Crypto.SHA256, concatenation via CAT, storage syscalls.
-- emit_serialize_key: use System.Runtime.Serialize for now; document the assumption that devpack encoding matches.
-- emit_mapping_slot: push base slot, iterate keys (outermost -> innermost), CAT and SHA256 each step.
+- Runtime prerequisites: `StdLib.serialize`, `CryptoLib.keccak256`, concatenation via CAT, storage syscalls.
+- emit_serialize_key: call `StdLib.serialize` for the key value.
+- emit_mapping_slot: push base slot, iterate keys (outermost -> innermost), CAT and `CryptoLib.keccak256` each step.
 - load/store stack shapes spelled out, preserving value for stores.

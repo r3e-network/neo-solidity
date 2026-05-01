@@ -21,9 +21,13 @@ description: "F. Storage and Memory from Solidity Feature Support."
 | Array `.length`                  |   ✅   | Both memory and storage arrays.                                        |
 | `new bytes(n)` / `new string(n)` |   ✅   | Buffer allocation via `NEWBUFFER`.                                     |
 | `new T[](n)`                     |   ✅   | Dynamic array allocation via `NEWARRAY`.                               |
-| `new Contract(...)`              |   🚫   | Blocked: "use ContractManagement for contract deployment".             |
+| `new Contract(...)`              |   ⚠️   | Does not deploy on Neo; constructor-like logic is inlined/simulated and a zero-address placeholder is produced. Use `ContractManagement.deploy(...)` for real deployment. |
 
-### Storage key derivation
+## Contract creation via `new`
+
+`new Contract(...)` is accepted for source compatibility, but it does not perform Neo contract deployment. The current lowering inlines/simulates constructor-like logic when the contract is available in the compilation graph and returns a zero-address placeholder. For real child-contract deployment, compile the target contract separately and call `ContractManagement.deploy(nef, manifest, data)`.
+
+## Storage key derivation
 
 State variables are stored in Neo Storage using deterministic key derivation. For simple state variables, the key is derived from the variable name. For mappings, the key is computed as:
 

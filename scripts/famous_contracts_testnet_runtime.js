@@ -506,6 +506,7 @@ function renderMarkdown(report) {
   lines.push('# Famous EVM Contracts Runtime-Verified on Neo N3 TestNet');
   lines.push('');
   lines.push(`- Generated at (UTC): \`${report.generatedAt}\``);
+  lines.push('- Snapshot scope: historical TestNet runtime output; rerun the TestNet runtime script before treating these results as current release evidence.');
   lines.push(`- RPC endpoint: \`${report.rpcAddress}\``);
   lines.push(`- Network magic: \`${report.networkMagic}\``);
   lines.push(`- Deployer address: \`${report.deployerAddress}\``);

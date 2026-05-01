@@ -7,6 +7,8 @@ description: "Ethereum to Neo Standard Mapping from Standards and Contracts."
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
+## Overview
+
 | Ethereum          | Neo                                  | Key Differences                                                                       |
 | ----------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
 | ERC-20            | NEP-17                               | 4-parameter transfer, witness auth, no approve/allowance                              |

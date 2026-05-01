@@ -1,9 +1,9 @@
 ---
-title: Token Standards — ERC ↔ Neo Mirror
+title: "Standards Mirror Token Standards"
 description: Every Ethereum token standard mirrored to its Neo N3 implementation — fungibles, NFTs, multi-token, semi-fungible, soulbound, royalty.
 ---
 
-# Token Standards
+# Standards Mirror Token Standards
 
 Fourteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses

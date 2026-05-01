@@ -9,7 +9,7 @@ description: "Step 5: Deploy to Neo-Express (Local Chain) from Quickstart."
 
 Neo-Express provides a local Neo N3 blockchain for testing. This section walks through a manual deployment.
 
-### 5a. Create a Local Chain
+## 5a. Create a Local Chain
 
 ```bash
 NEOXP=./build/dotnet-tools/neoxp
@@ -21,7 +21,7 @@ $NEOXP create -f -o chain.neo-express
 $NEOXP transfer -i chain.neo-express 100 GAS genesis node1
 ```
 
-### 5b. Deploy the Contract
+## 5b. Deploy the Contract
 
 ```bash
 $NEOXP contract deploy -i chain.neo-express build/MyStorage.nef node1
@@ -29,7 +29,7 @@ $NEOXP contract deploy -i chain.neo-express build/MyStorage.nef node1
 
 The output includes the contract hash and transaction hash. Note the contract hash -- you will need it to invoke methods.
 
-### 5c. Invoke a Method (Write)
+## 5c. Invoke a Method (Write)
 
 Create an invocation file `invoke-set.neo-invoke.json`:
 
@@ -47,7 +47,7 @@ Invoke it:
 $NEOXP contract invoke -i chain.neo-express invoke-set.neo-invoke.json node1
 ```
 
-### 5d. Invoke a Method (Read)
+## 5d. Invoke a Method (Read)
 
 Create `invoke-get.neo-invoke.json`:
 
@@ -79,7 +79,7 @@ Expected output:
 }
 ```
 
-### 5e. Run the Automated Smoke Test
+## 5e. Run the Automated Smoke Test
 
 Instead of manual steps, you can run the repository's built-in smoke test:
 

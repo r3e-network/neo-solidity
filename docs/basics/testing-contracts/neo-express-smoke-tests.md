@@ -9,13 +9,13 @@ description: "Neo-Express Smoke Tests from Testing Contracts."
 
 Smoke tests deploy contracts to a real local Neo-Express chain and invoke methods to validate on-chain behavior. Each script is self-contained: it creates a fresh chain, deploys, invokes, and cleans up.
 
-### Prerequisites
+## Prerequisites
 
 - Neo-Express installed (see [Installation](/basics/installing-the-compiler))
 - `jq` and `hexdump` available
 - `neo-solc` built (scripts auto-build if needed)
 
-### Individual Smoke Tests
+## Individual Smoke Tests
 
 ```bash
 # Basic deploy + invoke (storage, events, native calls)
@@ -64,7 +64,7 @@ make test-deploy-delete-smoke
 make test-deploy-new-showcases-smoke
 ```
 
-### Run All Smoke Tests
+## Run All Smoke Tests
 
 ```bash
 make test-deploy-smoke-full
@@ -72,7 +72,7 @@ make test-deploy-smoke-full
 
 This runs all 16+ individual smoke tests sequentially. Each test is independent and creates its own temporary chain.
 
-### Famous DeFi Contract Smoke Tests
+## Famous DeFi Contract Smoke Tests
 
 The repository also includes smoke tests for ports of iconic DeFi protocols:
 
@@ -99,7 +99,7 @@ make test-deploy-dao-smoke
 make test-deploy-famous-all
 ```
 
-### What Each Smoke Test Validates
+## What Each Smoke Test Validates
 
 The basic deploy smoke test (`test_neoxp_deploy.sh`) is representative of the pattern:
 

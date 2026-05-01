@@ -7,6 +7,8 @@ description: "Test Organization from Architecture."
 
 [Back to Architecture](/internals/architecture)
 
+## Overview
+
 ```
 tests/
 ├── runtime_*.rs              # Runtime unit tests (opcode/syscall behavior)

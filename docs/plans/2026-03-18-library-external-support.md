@@ -1,14 +1,12 @@
 # Library External Support Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Allow user-defined Solidity library functions declared `external` to compile on Neo by lowering them as inlined internal helpers.
 
 **Architecture:** The compiler already merges non-builtin libraries into consuming contracts and normalizes merged library functions to internal visibility during analysis. The remaining blocker is an early validation error in the library validator. The change should replace that hard error with a warning and prove the merged lowering path works through focused library tests and one end-to-end showcase expectation.
 
 **Tech Stack:** Rust compiler/frontend/IR pipeline, Rust unit/e2e tests, markdown support-matrix docs.
 
-### Task 1: Capture the failing behavior
+## Task 1: Capture the failing behavior
 
 **Files:**
 - Modify: `src/cli/tests/libraries.rs`
@@ -39,7 +37,7 @@ git add src/cli/tests/libraries.rs tests/e2e_compilation_tests.rs src/solidity/v
 git commit -m "feat: support external library helpers on Neo"
 ```
 
-### Task 2: Align docs with actual behavior
+## Task 2: Align docs with actual behavior
 
 **Files:**
 - Modify: `README.md`
@@ -72,7 +70,7 @@ git add README.md FEATURE_MATRIX.md docs/SOLIDITY_SUPPORT_MATRIX.md docs/solidit
 git commit -m "docs: update library support notes"
 ```
 
-### Task 3: Re-verify affected compiler surfaces
+## Task 3: Re-verify affected compiler surfaces
 
 **Files:**
 - Test: `src/cli/tests/libraries.rs`

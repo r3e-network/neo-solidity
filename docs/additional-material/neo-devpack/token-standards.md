@@ -1,13 +1,13 @@
 ---
-title: "Devpack Overview: Token Standards"
+title: "Devpack Token Standards"
 description: "Token Standards from Devpack Overview."
 ---
 
-# Token Standards
+# Devpack Token Standards
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
-### NEP17.sol — Fungible Tokens
+## NEP17.sol — Fungible Tokens
 
 Complete NEP-17 implementation with ERC-20 compatibility:
 
@@ -28,7 +28,7 @@ Key features:
 - Mint, burn, pause, and allowance management
 - Inherits `FrameworkBase` for ownership and witness control
 
-### NEP11.sol — Non-Fungible Tokens
+## NEP11.sol — Non-Fungible Tokens
 
 Complete NEP-11 implementation supporting both indivisible and divisible NFTs:
 
@@ -51,7 +51,7 @@ interface INEP11Divisible is INEP11 {
 }
 ```
 
-### NEP24.sol — Royalty Standard
+## NEP24.sol — Royalty Standard
 
 Minimal NEP-24 royalty mixin for NEP-11 NFTs:
 

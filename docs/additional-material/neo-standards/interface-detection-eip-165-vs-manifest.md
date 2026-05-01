@@ -7,6 +7,8 @@ description: "Interface Detection: EIP-165 vs Manifest from Standards and Contra
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
+## Overview
+
 Ethereum and Neo take fundamentally different approaches to interface detection:
 
 |                  | EVM (EIP-165)                                 | Neo (Manifest)                     |

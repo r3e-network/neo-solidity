@@ -6,8 +6,9 @@ The Neo Solidity Compiler is currently in active development. We recommend using
 
 | Version | Supported        |
 | ------- | ---------------- |
-| 0.9.x   | ✅ Supported     |
-| < 0.9   | ❌ Not supported |
+| 0.18.x  | ✅ Supported     |
+| 0.17.x  | ⚠️ Best-effort   |
+| < 0.17  | ❌ Not supported |
 
 ## Reporting a Vulnerability
 

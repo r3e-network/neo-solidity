@@ -110,7 +110,7 @@ pub struct ExecutionContext {
     /// the second `call_method` saw `caller_account = None` after
     /// `initialize`'s `take()` drain, which fell back to
     /// `default_account_bytes` in the `GetCallingScriptHash` syscall handler
-    /// — breaking mapping-by-sender invariants (balances[alice] keyed under
+    /// — breaking mapping-by-sender invariants (`balances[alice]` keyed under
     /// `alice` on deposit, re-keyed under `default` on withdraw).
     pub(crate) sticky_caller_account: Option<Vec<u8>>,
     /// Task #113: value set by `NeoRuntime::override_value` /

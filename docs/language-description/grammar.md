@@ -1,5 +1,7 @@
 # Language Grammar
 
+## Overview
+
 The grammar of Neo Solidity is strictly identical to the upstream Solidity 0.8.x language parser. Because Neo Solidity uses the `solang-parser` internally, it accepts the exact same AST and grammar rules as Ethereum Solidity.
 
 If you are building an editor integration or parser for Neo Solidity, you can use any existing Solidity syntax highlighter or grammar tool.

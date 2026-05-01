@@ -9,7 +9,7 @@ description: "Permission Inference from Manifest Specification."
 
 The compiler performs static analysis on the compiled IR to infer the minimal set of permissions your contract needs. The goal is to emit the narrowest possible permissions — wildcards are used only when the compiler cannot determine the call target or method at compile time.
 
-### How it works
+## How it works
 
 1. **Native contract calls** — When your code calls a native contract (GAS, NEO, StdLib, CryptoLib, etc.), the compiler emits an explicit permission with the native contract's deterministic hash and the specific method name.
 
@@ -21,7 +21,7 @@ The compiler performs static analysis on the compiled IR to infer the minimal se
 
 5. **Self-calls** — Calls to `address(this)` are recognized and do not generate wildcard permissions, since Neo N3 always allows contracts to call themselves.
 
-### Example: native contract call
+## Example: native contract call
 
 A Solidity call to `NativeCalls.gasTransfer(from, to, amount, data)` generates:
 
@@ -32,7 +32,7 @@ A Solidity call to `NativeCalls.gasTransfer(from, to, amount, data)` generates:
 }
 ```
 
-### Example: dynamic target, static method
+## Example: dynamic target, static method
 
 ```solidity
 interface IFace {
@@ -52,7 +52,7 @@ Generates a wildcard contract restricted to the known method:
 { "contract": "*", "methods": ["ping"] }
 ```
 
-### Example: static target, dynamic method
+## Example: static target, dynamic method
 
 ```solidity
 contract Caller {
@@ -71,7 +71,7 @@ Generates a specific contract with wildcard methods:
 }
 ```
 
-### Implicit native permissions
+## Implicit native permissions
 
 Certain Solidity constructs require native contract calls that are not visible in your source code:
 

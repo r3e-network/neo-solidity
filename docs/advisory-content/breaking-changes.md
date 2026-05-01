@@ -12,7 +12,7 @@ When compiling Ethereum contracts for Neo N3, you must ensure your contracts alr
 
 ### SafeMath by Default (v0.8.0)
 
-Arithmetic operations revert on underflow and overflow. Note that on NeoVM, variables are evaluated using arbitrary-precision `BigInteger`, meaning 256-bit overflows are physically impossible at runtime. However, the compiler still enforces strict type boundary checking during execution. `unchecked` blocks are syntactically parsed but have no behavioral effect on Neo.
+Arithmetic operations revert on underflow and overflow outside `unchecked` blocks. NeoVM evaluates integer operations with `BigInteger` internally, then Neo Solidity enforces Solidity 0.8 fixed-width boundaries. Inside `unchecked`, supported fixed-width arithmetic suppresses those overflow guards and wraps. Division by zero and modulo by zero still revert.
 
 ### Explicit Conversions (v0.8.0)
 
@@ -32,6 +32,6 @@ Explicit data location for all variables of struct, array or mapping types is no
 
 ## Neo Solidity Versioning
 
-While `neo-solidity` tracks the upstream `0.8.x` Solidity syntax, the compiler itself has its own versioning (e.g., `0.16.0`).
+While `neo-solidity` tracks the upstream `0.8.x` Solidity syntax, the compiler itself has its own versioning (e.g., `0.18.0`).
 
 Breaking changes introduced directly to the EVM-to-NeoVM semantic mapping layer (such as changing how `msg.sender` behaves or modifying implicit `address.transfer` warnings) will be documented in the [Releases](https://github.com/r3e-network/neo-solidity/releases) page of the GitHub repository.

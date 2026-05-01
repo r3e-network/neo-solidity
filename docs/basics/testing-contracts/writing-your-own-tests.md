@@ -7,13 +7,13 @@ description: "Writing Your Own Tests from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
-### Adding a Compilation Test
+## Adding a Compilation Test
 
 1. Create a new Solidity file in `examples/` or `examples/new/`.
 2. The E2E test suite automatically picks up files in these directories.
 3. Run `cargo test --test e2e_compilation_tests` to verify.
 
-### Adding a Smoke Test
+## Adding a Smoke Test
 
 1. Create a new script in `examples/` following the pattern of existing scripts.
 2. The script should:
@@ -24,7 +24,7 @@ description: "Writing Your Own Tests from Testing Contracts."
 3. Add a Make target in the `Makefile`.
 4. Add the target to `test-deploy-smoke-full` dependencies.
 
-### Adding a Unit Test
+## Adding a Unit Test
 
 Add `#[test]` functions in the relevant module or create a new test file in `tests/`:
 

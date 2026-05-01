@@ -481,7 +481,7 @@ function renderMarkdown(report) {
   lines.push('# Famous EVM Contracts Deployed on Neo N3 (Neo Express)');
   lines.push('');
   lines.push(`- Generated at (UTC): \`${report.generatedAt}\``);
-  lines.push(`- neo-solc: \`${report.neoSolcVersion}\``);
+  lines.push('- Snapshot scope: historical Neo Express deployment output; rerun `npm run deploy:famous-contracts:neoxp` before treating these results as current release evidence.');
   lines.push(`- neoxp: \`${report.neoxpVersion}\``);
   lines.push(`- Total cases: \`${report.totals.total}\``);
   lines.push(`- Pass: \`${report.totals.pass}\``);

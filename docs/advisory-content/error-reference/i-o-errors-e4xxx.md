@@ -14,7 +14,7 @@ description: "I/O Errors (E4xxx) from Error Reference."
 | `E4003` | ImportNotFound   | Import not found         | Imported file not found in any include path |
 | `E4004` | CircularImport   | Circular import detected | File A imports B which imports A            |
 
-### Example: E4003 ImportNotFound
+## Example: E4003 ImportNotFound
 
 ```
 error[E4003]: import not found: '@neo/devpack/NeoToken.sol'
@@ -37,7 +37,7 @@ neo-solc contract.sol -I devpack -I ./node_modules -o build/
 - Ensure no typos in the import statement
 - For devpack imports, ensure the `devpack/` directory is present in the project
 
-### Example: E4004 CircularImport
+## Example: E4004 CircularImport
 
 ```
 error[E4004]: circular import detected: A.sol -> B.sol -> A.sol

@@ -1132,7 +1132,7 @@ fn lower_yul_tstore(
 /// raising `PICKITEM: key not found`.
 ///
 /// Generated shape (pseudocode):
-///     if HAS_KEY(map, slot) { push(map[slot]); } else { push(0); }
+///     if HAS_KEY(map, slot) { push(map_slot); } else { push(0); }
 fn lower_yul_tload(
     slot_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,

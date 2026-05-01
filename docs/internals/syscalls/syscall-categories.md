@@ -7,12 +7,14 @@ description: "Syscall Categories from Syscalls."
 
 [Back to Syscalls](/internals/syscalls)
 
-Neo N3 defines 38 syscalls across 5 categories. The compiler and devpack cover all of them.
+## Overview
+
+The embedded runtime registry contains 39 syscall names across 5 categories: the 38 Neo N3 syscall names plus the neo-solidity `System.Runtime.GetMsgValue` extension used for host-injected Solidity `msg.value`. Some host-state queries are intentionally approximated in the embedded runtime; see the category pages for method-level behavior.
 
 | Category | Count | Prefix              | Purpose                             |
 | -------- | ----: | ------------------- | ----------------------------------- |
 | Storage  |    11 | `System.Storage.*`  | Persistent key-value state          |
-| Runtime  |    19 | `System.Runtime.*`  | Execution context and notifications |
+| Runtime  |    20 | `System.Runtime.*`  | Execution context, notifications, and the `GetMsgValue` extension |
 | Contract |     4 | `System.Contract.*` | Cross-contract calls and accounts   |
 | Crypto   |     2 | `System.Crypto.*`   | Signature verification              |
 | Iterator |     2 | `System.Iterator.*` | Traversal of storage search results |

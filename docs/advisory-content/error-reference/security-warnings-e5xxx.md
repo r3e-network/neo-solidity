@@ -19,7 +19,7 @@ description: "Security Warnings (E5xxx) from Error Reference."
 Security warnings (E5xxx) should be treated as errors in production builds. Use `--Werror E5` to enforce this in your CI pipeline.
 :::
 
-### Example: E5001 ReentrancyRisk
+## Example: E5001 ReentrancyRisk
 
 ```
 warning[E5001]: potential reentrancy vulnerability in function 'withdraw'

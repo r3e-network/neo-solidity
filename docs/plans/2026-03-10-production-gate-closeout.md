@@ -1,14 +1,12 @@
 # Production Gate Closeout Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Re-verify the full production gate on the current tree, reduce the remaining tooling advisory surface with the lowest-risk dependency changes available, and leave an explicit record of any residual risk that still blocks a fully clean dependency posture.
 
 **Architecture:** Treat the remaining work as two mostly independent tracks. First, run the full repository quality gate exactly as documented so the current compiler/runtime/tooling tree has a fresh, captured pass/fail result. In parallel, refresh `npm audit` evidence for the tooling workspace, map the remaining advisories to direct or transitive sources, and only apply dependency changes that are demonstrably low-risk and can be verified with the existing tooling test/lint gates.
 
 **Tech Stack:** Rust/cargo workspace, Makefile quality gates, Node/npm workspace under `tooling/`, TypeScript packages, npm audit, Markdown documentation.
 
-### Task 1: Reproduce the current production gate result
+## Task 1: Reproduce the current production gate result
 
 **Files:**
 - Verify: `Makefile`
@@ -29,7 +27,7 @@ If the gate fails, record the first failing command and stop broad changes until
 Run: `rg -n "production-gate|tooling-test|tooling-lint|runtime-test" Makefile docs/workflows/production.md docs/workflows/test.md`
 Expected: documentation matches the real gate steps.
 
-### Task 2: Refresh dependency-risk evidence before changing manifests
+## Task 2: Refresh dependency-risk evidence before changing manifests
 
 **Files:**
 - Verify: `tooling/package.json`
@@ -53,7 +51,7 @@ Prefer, in order:
 - `overrides` for clearly safe transitive fixes,
 - documentation of residual advisories when the only path is a major-version migration with ecosystem risk.
 
-### Task 3: Apply only targeted tooling dependency fixes
+## Task 3: Apply only targeted tooling dependency fixes
 
 **Files:**
 - Modify: `tooling/package.json`
@@ -77,7 +75,7 @@ Run:
 
 Expected: PASS after each dependency remediation round.
 
-### Task 4: Re-verify the end state and record residual risk honestly
+## Task 4: Re-verify the end state and record residual risk honestly
 
 **Files:**
 - Verify: `tooling/package.json`

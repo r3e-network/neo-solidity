@@ -7,25 +7,24 @@ description: "ContractManagement from Native Contracts."
 
 [Back to Native Contracts](/internals/native-contracts)
 
-Manages the lifecycle of all deployed contracts on Neo N3 — deployment, upgrades, destruction, and introspection.
+Manages contract deployment, upgrades, and introspection. The embedded runtime implements the subset needed by compiler/runtime tests; production Neo N3 exposes additional management methods.
 
-### Methods
+## Methods
 
-| Method                    | Signature                          | Return          | Safe | Description                                               |
-| ------------------------- | ---------------------------------- | --------------- | :--: | --------------------------------------------------------- |
-| `deploy`                  | `deploy(bytes,bytes)`              | `ContractState` |  ❌  | Deploy a new contract from NEF + manifest.                |
-| `deploy`                  | `deploy(bytes,bytes,bytes)`        | `ContractState` |  ❌  | Deploy with initialization data passed to `_deploy`.      |
-| `update`                  | `update(bytes,bytes)`              | `void`          |  ❌  | Update calling contract's NEF and/or manifest.            |
-| `update`                  | `update(bytes,bytes,bytes)`        | `void`          |  ❌  | Update with migration data passed to `_deploy`.           |
-| `destroy`                 | `destroy()`                        | `void`          |  ❌  | Permanently destroy the calling contract and its storage. |
-| `getContract`             | `getContract(address)`             | `ContractState` |  ✅  | Get contract state by script hash.                        |
-| `getContractById`         | `getContractById(int256)`          | `ContractState` |  ✅  | Get contract state by numeric ID.                         |
-| `getMinimumDeploymentFee` | `getMinimumDeploymentFee()`        | `uint256`       |  ✅  | Minimum GAS required to deploy a contract.                |
-| `setMinimumDeploymentFee` | `setMinimumDeploymentFee(uint256)` | `void`          |  ❌  | Set minimum deployment fee (committee only).              |
-| `hasMethod`               | `hasMethod(address,string,uint8)`  | `bool`          |  ✅  | Check if a contract exposes a specific method.            |
-| `listContracts`           | `listContracts()`                  | `Iterator`      |  ✅  | Iterator over all deployed contracts.                     |
+| Method                    | Signature                         | Return          | Safe | Embedded runtime status                                  |
+| ------------------------- | --------------------------------- | --------------- | :--: | -------------------------------------------------------- |
+| `deploy`                  | `deploy(bytes,bytes)`             | `ContractState` |  ❌  | Implemented with an in-memory registry.                  |
+| `deploy`                  | `deploy(bytes,bytes,bytes)`       | `ContractState` |  ❌  | Implemented; initialization data is accepted by the call. |
+| `update`                  | `update(bytes,bytes)`             | `ContractState` |  ❌  | Implemented against the in-memory registry.              |
+| `update`                  | `update(bytes,bytes,bytes)`       | `ContractState` |  ❌  | Implemented; migration data is accepted by the call.     |
+| `getContract`             | `getContract(address)`            | `ContractState` |  ✅  | Implemented, including a self-contract fallback.         |
+| `isContract`              | `isContract(address)`             | `bool`          |  ✅  | Implemented for the self contract and registry entries.  |
+| `hasMethod`               | `hasMethod(address,string,uint8)` | `bool`          |  ✅  | Implemented using self method offsets or manifest data.  |
+| `getMinimumDeploymentFee` | `getMinimumDeploymentFee()`       | `uint256`       |  ✅  | Implemented as Neo N3's canonical default fee value.     |
 
-### Code Example
+Production methods such as `destroy`, `getContractById`, `setMinimumDeploymentFee`, and `listContracts` are not implemented by the embedded runtime handler today.
+
+## Code Example
 
 ```solidity
 import "devpack/contracts/NativeCalls.sol";
@@ -44,12 +43,6 @@ contract Upgradeable {
         // After update, the new code executes immediately
     }
 
-    /// @dev Permanently destroy this contract
-    function kill() public {
-        require(Runtime.checkWitness(_owner), "not owner");
-        NativeCalls.destroyContract();
-    }
-
     /// @dev Check if another contract exists
     function contractExists(address target) public view returns (bool) {
         return NativeCalls.hasMethod(target, "name", 0);
@@ -57,8 +50,8 @@ contract Upgradeable {
 }
 ```
 
-::: warning
-`destroy()` is permanent and irreversible. All contract storage is deleted. There is no refund mechanism like EVM's deprecated `selfdestruct`. Always gate destruction behind strict authorization.
+::: info
+The devpack still exposes `NativeCalls.destroyContract()` and the compiler maps `selfdestruct(addr)` to production Neo N3 `ContractManagement.destroy()` with a warning. The embedded runtime used by compiler tests does not model the destructive state deletion; it focuses on deploy, update, and introspection behavior.
 :::
 
 ---

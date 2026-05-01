@@ -1,7 +1,7 @@
 # Famous Solidity Contracts on NeoVM: Compatibility Audit
 
 - Generated at (UTC): `2026-02-15T08:56:34.043Z`
-- Compiler: `neo-solc 0.12.0`
+- Snapshot scope: historical compatibility output; rerun `npm run audit:famous-contracts` before treating these results as current release evidence.
 - Contracts shown in this report (upstream, vendored in repo): `92`
 - Compile success: `92`
 - Compile failed: `0`

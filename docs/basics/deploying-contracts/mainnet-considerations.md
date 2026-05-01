@@ -7,6 +7,8 @@ description: "MainNet Considerations from Deploying Contracts."
 
 [Back to Deploying Contracts](/basics/deploying-contracts)
 
+## Overview
+
 Before deploying to MainNet:
 
 1. **Test thoroughly on TestNet.** Deploy the exact same artifacts and run all your test scenarios.

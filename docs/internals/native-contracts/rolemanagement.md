@@ -9,14 +9,14 @@ description: "RoleManagement from Native Contracts."
 
 Manages designated node roles in the Neo N3 network. Used by committee members to assign oracle nodes, state validators, and other infrastructure roles.
 
-### Methods
+## Methods
 
 | Method                | Signature                             | Return    | Safe | Description                                             |
 | --------------------- | ------------------------------------- | --------- | :--: | ------------------------------------------------------- |
 | `designateAsRole`     | `designateAsRole(bytes1,bytes[])`     | `void`    |  ❌  | Assign public keys to a role (committee only).          |
 | `getDesignatedByRole` | `getDesignatedByRole(bytes1,uint256)` | `bytes[]` |  ✅  | Get public keys designated for a role at a block index. |
 
-### Role Types
+## Role Types
 
 | Value  | Role              | Description                  |
 | :----: | ----------------- | ---------------------------- |

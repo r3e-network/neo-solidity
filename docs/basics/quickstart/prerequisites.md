@@ -7,6 +7,8 @@ description: "Prerequisites from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
+## Overview
+
 Before starting, ensure you have:
 
 - `neo-solc` built and available (see [Installation](/basics/installing-the-compiler))

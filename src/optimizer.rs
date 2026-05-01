@@ -12,9 +12,9 @@
 //!
 //! # Optimization Passes
 //!
-//! - [`Optimizer::constant_folding`] - Evaluates constant expressions at compile time
-//! - [`Optimizer::dead_code_elimination`] - Removes unreachable code after returns
-//! - [`Optimizer::function_inlining`] - Inlines small functions to reduce call overhead
+//! - `Optimizer::constant_folding` - Evaluates constant expressions at compile time
+//! - `Optimizer::dead_code_elimination` - Removes unreachable code after returns
+//! - `Optimizer::function_inlining` - Inlines small functions to reduce call overhead
 
 mod constant_folding;
 mod cse;

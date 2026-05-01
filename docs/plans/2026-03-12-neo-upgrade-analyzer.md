@@ -1,14 +1,12 @@
 # Neo Upgrade Analyzer Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Add a minimal Neo upgrade analyzer that reports EVM-to-Neo migration issues without changing the existing NEF/manifest compilation pipeline.
 
 **Architecture:** Keep compilation centered on the current `compile_contracts` / `compile_metadata` flow. Add a small source-pattern analyzer for common EVM compatibility constructs, combine it with existing compiler diagnostics, and expose it through a CLI `--analyze` mode. Preserve artifact generation behavior when `--analyze` is not used.
 
 **Tech Stack:** Rust, Clap, Serde JSON, existing neo-solidity CLI and Solidity diagnostic pipeline
 
-### Task 1: Lock The Expected Behavior With Tests
+## Task 1: Lock The Expected Behavior With Tests
 
 **Files:**
 - Create: `tests/analyzer_cli_tests.rs`
@@ -26,7 +24,7 @@ Add a test that:
 **Step 2: Run test to verify it fails**
 
 Run: `cargo test --test analyzer_cli_tests analyze_mode_reports_upgrade_findings -- --exact`
-Expected: FAIL because `--analyze` does not exist yet.
+Historical expected result: FAIL at the start of this plan because `--analyze` did not exist yet. In the current compiler, `--analyze` is implemented and this targeted test should pass.
 
 **Step 3: Write the failing diagnostic propagation test**
 
@@ -38,9 +36,9 @@ Add a test that:
 **Step 4: Run test to verify it fails**
 
 Run: `cargo test --test analyzer_cli_tests json_errors_preserve_validation_suggestions -- --exact`
-Expected: FAIL because failing-path suggestions are not preserved yet.
+Historical expected result: FAIL at the start of this plan because failing-path suggestions were not preserved yet.
 
-### Task 2: Implement The Analyzer And Wire The CLI
+## Task 2: Implement The Analyzer And Wire The CLI
 
 **Files:**
 - Modify: `src/cli/mod.rs`
@@ -81,7 +79,7 @@ Update the CLI diagnostic helpers so validation / semantic / IR failures keep th
 
 Branch in `run_single_file()` so analyze mode resolves imports, builds the report, prints JSON, and skips artifact emission.
 
-### Task 3: Verify The Compiler Still Produces Correct Artifacts
+## Task 3: Verify The Compiler Still Produces Correct Artifacts
 
 **Files:**
 - No new files unless a small assertion helper is needed

@@ -7,7 +7,7 @@ description: "Event and Notification System from Runtime Specification."
 
 [Back to Runtime Specification](/internals/runtime-specification)
 
-### Runtime.Notify Semantics
+## Runtime.Notify Semantics
 
 The `System.Runtime.Notify` syscall emits a notification event consisting of:
 
@@ -26,6 +26,6 @@ emit Transfer(from, to, amount);
 // SYSCALL System.Runtime.Notify
 ```
 
-### Runtime.Log
+## Runtime.Log
 
 `System.Runtime.Log` emits a simple string log message. This is used for debugging and does not appear in on-chain event logs.

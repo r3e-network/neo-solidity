@@ -7,7 +7,7 @@ description: "Usage from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
-### Compiling with the devpack
+## Compiling with the devpack
 
 Pass the devpack root as an include path:
 
@@ -15,7 +15,7 @@ Pass the devpack root as an include path:
 neo-solc MyContract.sol -I devpack -O2 -o build/MyContract
 ```
 
-### Importing in Solidity
+## Importing in Solidity
 
 ```solidity
 import "contracts/NativeCalls.sol";

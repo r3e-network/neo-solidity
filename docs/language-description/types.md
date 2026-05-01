@@ -45,11 +45,12 @@ The operators `||` and `&&` apply the common short-circuiting rules. This means 
 * Shift operators: `<<` (left shift), `>>` (right shift)
 * Arithmetic operators: `+`, `-`, unary `-` (only for signed integers), `*`, `/`, `%` (modulo), `**` (exponentiation)
 
-::: tip 💡 NeoVM Difference: Arbitrary Precision
-NeoVM represents all integers as arbitrary-precision `BigInteger` values. This means:
-1. **No Overflow/Underflow at runtime:** An operation like `uint8(255) + 1` produces `256` on NeoVM, instead of reverting or wrapping to `0`. 
-2. **`unchecked` blocks are no-ops:** Because there are no fixed-width boundaries at runtime, `unchecked { }` has no behavioral effect.
-3. If your contract requires overflow wrapping (e.g., a counter that must reset to 0), you must use explicit modulo arithmetic: `count = (count + 1) % 256`.
+::: tip 💡 NeoVM Difference: Checked Fixed-Width Semantics
+NeoVM represents integers as arbitrary-precision `BigInteger` values internally, but Neo Solidity enforces Solidity 0.8 fixed-width arithmetic semantics at the compiler/runtime boundary:
+
+1. **Checked arithmetic:** Outside `unchecked`, operations such as `uint8(255) + 1` revert with `Panic(0x11)`.
+2. **Unchecked arithmetic:** Inside `unchecked`, supported fixed-width arithmetic suppresses overflow guards and wraps, so `uint8(255) + 1` becomes `0`.
+3. **Other panics still apply:** `unchecked` does not suppress division-by-zero or modulo-by-zero checks.
 :::
 
 ### Fixed Point Numbers
@@ -81,9 +82,10 @@ While `address payable` is parsed by the compiler, **direct value transfers via 
   On Ethereum, you can query the balance of an address using the property `balance` and send Ether to a payable address using the `transfer` function.
   On NeoVM, `address.balance` is auto-mapped to `GAS.balanceOf(address)`. `address.transfer` is auto-mapped to `GAS.transfer(this, address, amount, data)`. Both emit warnings because they are approximations.
 
-* `call`, `delegatecall` and `staticcall`:
+* `call`, `staticcall`, `delegatecall`, and `callcode`:
   `address.call` maps directly to `System.Contract.Call` and is the standard way to do cross-contract invocations.
-  **`address.delegatecall` is blocked.** EVM uses `delegatecall` to execute code in the caller's storage context. NeoVM does not support this. Use `ContractManagement.update` for contract upgrades.
+  `address.staticcall` maps to `System.Contract.Call` with read-only flags.
+  **`address.delegatecall` and `callcode` are blocked.** EVM uses these operations to execute code in the caller's storage context. NeoVM does not support that storage model. Use `ContractManagement.update` for contract upgrades.
 
 ### Contract Types
 

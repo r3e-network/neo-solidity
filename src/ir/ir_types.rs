@@ -272,7 +272,7 @@ pub enum Instruction {
     MemCpy,
     /// NeoVM SUBSTR opcode: pop `count` and `index`, then a ByteString,
     /// push the substring `bytes[index .. index + count]` as a ByteString.
-    /// Stack order (bottom -> top): [bytes, index, count] → [bytes_substr].
+    /// Stack order (bottom -> top): `[bytes, index, count]` -> `[bytes_substr]`.
     /// Used to implement contiguous `bytes memory`/`bytes calldata` slicing
     /// so `b[a:b]` returns a raw ByteString rather than an Array of bytes.
     Substr,

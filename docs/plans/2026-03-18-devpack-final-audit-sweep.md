@@ -1,14 +1,12 @@
 # Devpack Final Audit Sweep Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Finish the remaining `devpack` review surface by characterizing the full audit output, removing any low-risk unused or misleading package metadata, and re-running the `devpack` verification commands until only justified legacy dev-toolchain risk remains.
 
 **Architecture:** Treat `npm --prefix devpack audit --json` as the characterization gate. If it reports issues, trace them back to concrete `devpack` dependencies, remove only dependencies or metadata that are clearly unnecessary, and keep the local Hardhat 2 workflow intact. Re-run the targeted `devpack` tests, integration flow, packing check, and audit commands after each cleanup.
 
 **Tech Stack:** npm, Hardhat 2, Ethers 5, local linked packages, Markdown docs
 
-### Task 1: Capture The Remaining Devpack Audit Surface
+## Task 1: Capture The Remaining Devpack Audit Surface
 
 **Files:**
 - Modify: `none`
@@ -26,7 +24,7 @@ Expected: Either PASS with `0` vulnerabilities or FAIL with legacy dev-only find
 Run: `npm --prefix devpack ls --depth=2`
 Expected: Enough dependency context to determine whether any finding comes from a removable direct dependency.
 
-### Task 2: Remove Any Safe, Low-Risk Devpack Bloat
+## Task 2: Remove Any Safe, Low-Risk Devpack Bloat
 
 **Files:**
 - Modify: `devpack/package.json`
@@ -42,7 +40,7 @@ Only change metadata or dependencies that are clearly unused or incorrect for th
 
 Preserve the current `NODE_PRESERVE_SYMLINKS=1` Hardhat scripts, peer dependency expectations, and linked local plugin resolution.
 
-### Task 3: Re-Verify The Devpack Surface
+## Task 3: Re-Verify The Devpack Surface
 
 **Files:**
 - Test: `npm --prefix devpack test`

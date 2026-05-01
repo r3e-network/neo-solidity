@@ -16,10 +16,13 @@ The Hardhat plugin will automatically manage the underlying compiler binary for 
 
 ## Docker
 
-If you prefer to run the compiler inside a containerized environment to avoid installing Rust and other dependencies locally, you can use the official Docker image (once published) or build the container from the source repository.
+If you prefer to run the compiler inside a containerized environment to avoid installing Rust and other dependencies locally, build the checked-in Dockerfile from the source repository.
 
 ```bash
-docker run -v $(pwd):/sources r3e-network/neo-solc:latest -o /sources/build /sources/MyContract.sol
+git clone https://github.com/r3e-network/neo-solidity.git
+cd neo-solidity
+docker build -t neo-solc:local .
+docker run --rm -v "$(pwd)":/sources neo-solc:local -o /sources/build /sources/MyContract.sol
 ```
 
 ## Static Binaries (Linux, macOS, Windows)
@@ -46,7 +49,7 @@ If you want the absolute latest features or are contributing to the compiler, bu
 | ------------------ | --------------- | ---------------------------------------------------- |
 | **Rust toolchain** | 1.88+ (stable)  | The core compiler is written in Rust                 |
 | **Git**            | 2.x             | To clone the repository                              |
-| **Node.js**        | 20.0+           | (Optional) For TypeScript tooling and VitePress docs |
+| **Node.js**        | 20.19+ or 22.12+ | (Optional) For TypeScript tooling and VitePress docs |
 
 If Rust is not installed, install it via [rustup](https://rustup.rs/):
 
@@ -86,7 +89,7 @@ neo-solc --version
 ```
 
 Output format:
-`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.16.0`).
+`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.18.0`).
 
 When debugging or reporting issues on GitHub, please always include the exact version string produced by this command.
 

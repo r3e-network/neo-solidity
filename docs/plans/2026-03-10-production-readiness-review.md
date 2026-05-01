@@ -1,14 +1,12 @@
 # Neo Solidity Production Readiness Review Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Restore an honest and reproducible production-readiness baseline for the Neo Solidity compiler by fixing the failing lint gate, adding regression coverage around the touched runtime normalization paths, and correcting any high-signal stale readiness claims uncovered during review.
 
 **Architecture:** Start from evidence, not assumptions: capture current `fmt`, `clippy`, and `test` status; make the smallest runtime refactor needed to satisfy the enforced Clippy profile without weakening compatibility; then update only the highest-value documentation claims that materially misstate readiness or verification commands.
 
 **Tech Stack:** Rust (`cargo test`, `cargo clippy`, `cargo fmt`), markdown docs, Neo Solidity runtime/compiler modules.
 
-### Task 1: Baseline Quality Gate Review
+## Task 1: Baseline Quality Gate Review
 
 **Files:**
 - Review: `Cargo.toml`
@@ -41,7 +39,7 @@ Inspect the two failing call sites and recent history to confirm that `% 2 != 0`
 
 Check whether top-level docs still claim stale readiness/test counts or point to commands/files that no longer match the repo reality.
 
-### Task 2: Runtime Hex Normalization Refactor
+## Task 2: Runtime Hex Normalization Refactor
 
 **Files:**
 - Modify: `src/runtime/execution/helpers/interop.rs`
@@ -76,7 +74,7 @@ Run:
 
 Expected: all PASS
 
-### Task 3: Documentation Accuracy Cleanup
+## Task 3: Documentation Accuracy Cleanup
 
 **Files:**
 - Modify: `README.md`
@@ -99,7 +97,7 @@ Run targeted searches for the updated claims and referenced files/commands.
 
 Expected: no obviously stale top-level readiness claim remains in the touched docs.
 
-### Task 4: Final Verification
+## Task 4: Final Verification
 
 **Files:**
 - Review: `Makefile`

@@ -1,4 +1,4 @@
-# Security Considerations
+# General Security Considerations
 
 While Solidity itself provides various security guarantees, writing smart contracts requires a deep understanding of the underlying execution environment. Contracts are completely public, meaning their source code and compiled bytecode can be inspected by anyone, and anyone can interact with them.
 
@@ -40,11 +40,11 @@ Neo N3 enforces contract call permissions at the VM level via the contract's man
 
 By default, dynamic calls in Solidity (like `address(target).call(...)`) force the compiler to emit wildcard permissions (`"contract": "*", "methods": "*"`). **This is a severe security risk**, as it allows your contract to be hijacked to interact with malicious contracts, effectively bypassing the platform's permission sandbox.
 
-### No Overflows / Underflows
+### Checked Arithmetic and Wraparound
 
-Because NeoVM uses arbitrary-precision `BigInteger` representation, mathematical operations do not overflow or underflow at the 256-bit boundary. 
+NeoVM uses arbitrary-precision `BigInteger` representation internally, but Neo Solidity emits Solidity 0.8 fixed-width overflow and underflow guards outside `unchecked` blocks. Checked overflows revert with `Panic(0x11)`.
 
-If your contract's security model relies on expected overflow wrapping (such as circular counters), it will fail on NeoVM. You must implement explicit modulo arithmetic (`% 256`).
+If your contract's security model relies on wraparound, put the operation in an `unchecked` block and cover that behavior with tests. `unchecked` does not suppress division-by-zero or modulo-by-zero panics.
 
 ### Upgradeability
 

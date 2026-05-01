@@ -7,6 +7,8 @@ description: "Code Coverage from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
+## Overview
+
 Generate coverage reports using `cargo-tarpaulin`:
 
 ```bash

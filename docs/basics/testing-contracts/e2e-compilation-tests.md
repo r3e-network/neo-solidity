@@ -7,13 +7,21 @@ description: "E2E Compilation Tests from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
+## Overview
+
 The E2E test suite compiles every example contract through the full pipeline and validates the output:
 
 ```bash
 cargo test --test e2e_compilation_tests
 ```
 
-This runs 74 tests that:
+This workspace currently has 80 E2E test functions. The exact count should be treated as source-controlled test inventory rather than an API promise; check it with:
+
+```bash
+rg -n "^\s*#\[test\]" tests/e2e_compilation_tests.rs | wc -l
+```
+
+The suite:
 
 1. Parse each Solidity source file
 2. Run it through the full compilation pipeline

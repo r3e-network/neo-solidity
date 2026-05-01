@@ -7,6 +7,8 @@ description: "Release Build Profile from Production Readiness."
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
+## Overview
+
 The Cargo release profile is configured for maximum optimization:
 
 ```toml

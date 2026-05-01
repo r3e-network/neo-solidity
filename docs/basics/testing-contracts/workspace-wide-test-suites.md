@@ -7,7 +7,7 @@ description: "Workspace-Wide Test Suites from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
-### Core Tests
+## Core Tests
 
 ```bash
 # Rust tests only
@@ -20,7 +20,7 @@ make test-all
 make test-all-full
 ```
 
-### Tooling Tests
+## Tooling Tests
 
 ```bash
 # TypeScript package tests (Hardhat, Foundry, ABI router, CLI tools)
@@ -30,7 +30,7 @@ make tooling-test
 make tooling-lint
 ```
 
-### C# Runtime Tests
+## C# Runtime Tests
 
 ```bash
 # Requires .NET 8 SDK

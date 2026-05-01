@@ -40,6 +40,6 @@ The following keywords are reserved and cannot be used as identifiers (e.g., var
 *   `typeof`
 *   `unchecked`
 
-::: tip 💡 NeoVM Difference: Ignored Keywords
-While keywords like `unchecked` and `assembly` are fully parsed by the frontend, the Neo Solidity compiler explicitly ignores or no-ops them during code generation because their concepts (like integer boundary overflows or low-level EVM stack access) do not apply to the Neo N3 architecture.
+::: tip 💡 NeoVM Difference: Parsed Keywords
+Keywords like `unchecked` and `assembly` are fully parsed by the frontend, but they do not have the same implementation status. `unchecked` is honored for Solidity 0.8 arithmetic overflow semantics, while `assembly` lowers a limited Yul subset and warns when unsupported EVM-only operations cannot be emitted.
 :::

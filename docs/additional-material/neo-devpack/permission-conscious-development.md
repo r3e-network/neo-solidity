@@ -7,6 +7,8 @@ description: "Permission-Conscious Development from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
+## Overview
+
 Neo N3 manifests declare which contracts and methods your contract is allowed to call. The compiler infers these permissions from your code. Using fixed-target wrappers produces minimal permissions:
 
 ```

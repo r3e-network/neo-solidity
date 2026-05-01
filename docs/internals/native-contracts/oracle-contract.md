@@ -9,7 +9,7 @@ description: "Oracle Contract from Native Contracts."
 
 Provides off-chain data access through a request/callback pattern. Oracle nodes fetch external data and deliver results back to the requesting contract.
 
-### Methods
+## Methods
 
 | Method     | Signature                                     | Return    | Safe | Description                                      |
 | ---------- | --------------------------------------------- | --------- | :--: | ------------------------------------------------ |
@@ -19,7 +19,21 @@ Provides off-chain data access through a request/callback pattern. Oracle nodes 
 | `finish`   | `finish()`                                    | `void`    |  ❌  | Complete an oracle response (oracle nodes only). |
 | `verify`   | `verify()`                                    | `bool`    |  ✅  | Verify an oracle response transaction.           |
 
-### Callback Pattern
+## Embedded Runtime Behavior
+
+The embedded runtime is deterministic and offline. It records `request`
+arguments, assigns incrementing request IDs for direct native calls, and keeps
+local oracle price state for tests. It does not fetch external URLs, run JSONPath
+filters, contact oracle nodes, or deliver live callbacks.
+
+`getPrice()` starts at `50_000_000` GAS fractions, `setPrice(uint256)` updates
+that local value without committee authorization checks, `finish()` is a no-op,
+and `verify()` returns `true`.
+
+Use Neo-Express or TestNet when the behavior under test depends on real oracle
+network delivery.
+
+## Callback Pattern
 
 The Oracle native contract uses an asynchronous request/callback model:
 

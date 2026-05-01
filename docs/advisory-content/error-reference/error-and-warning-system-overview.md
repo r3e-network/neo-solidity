@@ -7,6 +7,8 @@ description: "Error and Warning System Overview from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
+## Overview
+
 The compiler uses a structured diagnostic system with four severity levels:
 
 | Severity    | Behavior                                                                                          |

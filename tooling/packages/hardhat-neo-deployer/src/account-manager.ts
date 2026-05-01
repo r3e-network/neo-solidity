@@ -9,7 +9,7 @@ function strip0x(value: string): string {
   return value.startsWith("0x") ? value.slice(2) : value;
 }
 
-type ManagedAccount = NeoAccount & Partial<NeoSignerAccount>;
+export type ManagedAccount = NeoAccount & Partial<NeoSignerAccount>;
 
 /**
  * Account manager for Neo deployments

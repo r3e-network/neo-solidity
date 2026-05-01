@@ -1,14 +1,12 @@
 # Neon Utility Extraction Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Reduce the remaining `@cityofzion/neon-js` coupling by replacing the simple address and encoding helper usage with repo-owned utilities in `@neo-solidity/types`, without touching the deployer's transaction/signing stack yet.
 
 **Architecture:** Keep this slice intentionally narrow. Extract only the helper functions that are already used in read-only and formatting paths: Neo base58 address validation/conversion, Hash160 endianness conversion, and hex/base64 helpers. Move them into the shared types package with focused tests, then switch `abi-router`, `cli-tools`, and the Hardhat verify path to use the shared implementation.
 
 **Tech Stack:** npm workspaces, TypeScript, Vitest, Node `crypto`, existing tooling packages.
 
-### Task 1: Capture the current helper surface
+## Task 1: Capture the current helper surface
 
 **Files:**
 - Review: `tooling/packages/abi-router/src/neo-utils.ts`
@@ -28,7 +26,7 @@ Confirm the first slice only needs:
 
 Do not include transaction building, signing, `wallet.Account`, or `sc`/`tx` abstractions in this pass.
 
-### Task 2: Write failing tests first in the shared package
+## Task 2: Write failing tests first in the shared package
 
 **Files:**
 - Create: `tooling/packages/types/test/neo.test.ts`
@@ -45,9 +43,9 @@ Cover:
 **Step 2: Run the new tests to watch red**
 
 Run: `cd tooling/packages/types && npm test -- --run test/neo.test.ts`
-Expected: FAIL because the shared helper module does not exist yet.
+Historical expected result: FAIL at the start of this plan because the shared helper module did not exist yet.
 
-### Task 3: Implement shared helpers in `@neo-solidity/types`
+## Task 3: Implement shared helpers in `@neo-solidity/types`
 
 **Files:**
 - Create: `tooling/packages/types/src/neo.ts`
@@ -69,7 +67,7 @@ Keep the module focused on stateless helpers. Do not add account or RPC classes 
 Run: `cd tooling/packages/types && npm test -- --run test/neo.test.ts`
 Expected: PASS.
 
-### Task 4: Migrate non-deployer packages to the shared helpers
+## Task 4: Migrate non-deployer packages to the shared helpers
 
 **Files:**
 - Modify: `tooling/packages/abi-router/src/neo-utils.ts`
@@ -99,7 +97,7 @@ Run:
 
 Expected: PASS.
 
-### Task 5: Reassess the remaining Neon dependency surface
+## Task 5: Reassess the remaining Neon dependency surface
 
 **Files:**
 - Verify: `tooling/package.json`

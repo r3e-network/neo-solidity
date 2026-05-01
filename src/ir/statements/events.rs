@@ -6,9 +6,9 @@
 /// Per the EVM ABI spec (Solidity handbook §"Events"), an `emit` must
 /// produce a log entry with:
 ///
-///   topic[0]   = `keccak256("Name(type1,type2,...)")` — the canonical
+///   `topic[0]` = `keccak256("Name(type1,type2,...)")` — the canonical
 ///                signature hash, always 32 bytes, always present.
-///   topic[1..] = one 32-byte slot per `indexed` parameter:
+///   `topic[1..]` = one 32-byte slot per `indexed` parameter:
 ///                - static types (uint, int, bool, address, bytesN, enum):
 ///                  left-padded big-endian value
 ///                - dynamic types (string, bytes, arrays, structs):
@@ -26,7 +26,7 @@
 /// signature to carry the EVM shape:
 ///
 ///   eventName  = human-readable event name (UTF-8, manifest-compatible)
-///   stateArray = [topic[0], topic[1], ..., data]
+///   `stateArray = [topic[0], topic[1], ..., data]`
 ///
 /// The runtime's `System.Runtime.Notify` handler detects the EVM shape by
 /// checking for a 32-byte first state item and rebuilds a proper EVM

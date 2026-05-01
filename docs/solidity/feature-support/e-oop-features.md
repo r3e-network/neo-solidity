@@ -20,7 +20,7 @@ description: "E. OOP Features from Solidity Feature Support."
 | Constructor chaining |   ✅   | Base constructor arguments resolved from inheritance specifiers.                                                       |
 | Event inheritance    |   ✅   | Interface events collected recursively via `collect_interface_events_recursive`.                                       |
 
-### Partial OOP details
+## Partial OOP details
 
 **`library`** — The devpack ships built-in libraries (`Runtime`, `Storage`, `Syscalls`, etc.) that are compiler intrinsics — they lower directly to syscalls and native contract calls. User-defined libraries are merged into the consuming contract. `internal` calls work directly, and `public` / `external` library functions are accepted but normalized to internal helpers with warnings. Libraries still cannot maintain mutable state or behave like separately deployed/linkable EVM libraries.
 

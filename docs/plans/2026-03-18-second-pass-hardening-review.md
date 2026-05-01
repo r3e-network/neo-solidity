@@ -1,14 +1,12 @@
 # Second Pass Hardening Review Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Expand the review beyond the Rust default workspace checks by exercising the remaining repo verification surfaces and inspecting high-risk production code paths for additional defects.
 
 **Architecture:** Treat this as repeated review cycles. First run the broader automated checks that were not part of the previous pass, then inspect non-test panic paths and large compiler/runtime hotspots for manual findings. If a concrete defect appears, add a failing test first, implement the minimal fix, and re-run the affected verification commands plus the broader suite.
 
 **Tech Stack:** Rust, Cargo, npm workspaces, TypeScript, .NET 8, existing test suites
 
-### Task 1: Run The Broader Verification Surfaces
+## Task 1: Run The Broader Verification Surfaces
 
 **Files:**
 - Modify: `none`
@@ -39,7 +37,7 @@ Expected: PASS.
 Run: `dotnet test tests/Neo.Sol.Runtime.Tests/Neo.Sol.Runtime.Tests.csproj --configuration Release`
 Expected: PASS.
 
-### Task 2: Review High-Risk Production Paths
+## Task 2: Review High-Risk Production Paths
 
 **Files:**
 - Modify: `none`
@@ -56,7 +54,7 @@ Expected: manageable list of candidates for manual review.
 
 Focus on compiler lowering, runtime interop, and tooling entrypoints where a panic or unchecked assumption can escape to users.
 
-### Task 3: TDD Any New Defect
+## Task 3: TDD Any New Defect
 
 **Files:**
 - Modify: exact production file discovered in Task 2

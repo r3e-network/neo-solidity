@@ -7,6 +7,8 @@ description: "Supported Standards from Standards and Contracts."
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
+## Overview
+
 | Standard | Type               | Ethereum Equivalent | Devpack File          |
 | -------- | ------------------ | ------------------- | --------------------- |
 | NEP-17   | Fungible Token     | ERC-20              | `standards/NEP17.sol` |

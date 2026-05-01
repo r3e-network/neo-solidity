@@ -7,7 +7,7 @@ description: "Build and Toolchain Issues from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### VitePress Build Failures (Documentation)
+## VitePress Build Failures (Documentation)
 
 ```bash
 # Build the documentation site
@@ -18,7 +18,7 @@ npm run docs:build
 # Ensure all internal links use absolute VitePress paths: /section/page
 ```
 
-### Cargo Build Failures (Compiler)
+## Cargo Build Failures (Compiler)
 
 ```bash
 # Clean and rebuild
@@ -31,7 +31,7 @@ rustc --version  # Requires 1.88+
 cargo test --workspace
 ```
 
-### Neo-Express Issues
+## Neo-Express Issues
 
 ```bash
 # Reset if state is corrupted

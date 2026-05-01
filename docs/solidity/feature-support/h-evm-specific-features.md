@@ -10,10 +10,10 @@ description: "H. EVM-Specific Features from Solidity Feature Support."
 These features reference EVM runtime concepts. The compiler maps them to Neo equivalents where possible, blocks them where no safe equivalent exists, and emits warnings for approximate mappings.
 
 | Feature                                 | Status | Neo Mapping                                                                                                          |
-| --------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------- |
+| --------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------------------- |
 | `msg.sender`                            |   ✅   | `Runtime.GetCallingScriptHash()`                                                                                     |
 | `msg.value`                             |   ⚠️   | Only mapped inside `onNEP17Payment` callback.                                                                        |
-| `msg.data`                              |   ⚠️   | Approximated as `selector                                                                                            |     | abi.encode(current args)` outside onNEP17Payment. |
+| `msg.data`                              |   ⚠️   | Approximated as `selector \| abi.encode(current args)` outside onNEP17Payment.                                      |
 | `msg.sig`                               |   ⚠️   | Approximated as the current function selector with warning; internal-call propagation still differs from EVM.        |
 | `block.timestamp`                       |   ✅   | `Runtime.GetTime()` (normalized to seconds).                                                                         |
 | `block.number`                          |   ✅   | `Ledger.CurrentIndex()`.                                                                                             |
@@ -29,11 +29,11 @@ These features reference EVM runtime concepts. The compiler maps them to Neo equ
 | `block.sha3`                            |   ⚠️   | Auto-mapped to `Ledger.currentHash`. Deprecated in Solidity 0.8+.                                                    |
 | `keccak256(...)`                        |   ✅   | `CryptoLib.keccak256`.                                                                                               |
 | `sha256(...)`                           |   ✅   | `CryptoLib.sha256`.                                                                                                  |
-| `ecrecover(...)`                        |   ✅   | `CryptoLib.verifyWithECDsa`.                                                                                         |
+| `ecrecover(...)`                        |   ✅   | `CryptoLib.recoverSecp256K1`, followed by `keccak256` and rightmost-20-byte address derivation.                      |
 | `selfdestruct(addr)`                    |   ✅   | Auto-mapped to `ContractManagement.destroy()` with warning.                                                          |
-| `address.call(...)`                     |   ✅   | `System.Contract.Call`.                                                                                              |
-| `address.staticcall(...)`               |   ✅   | `System.Contract.Call` with read-only flag.                                                                          |
-| `address.delegatecall(...)`             |   ⚠️   | Emits warning; compiled as `System.Contract.Call` with different storage semantics.                                  |
+| `address.call(...)`                     |   ⚠️   | `System.Contract.Call`; return wrapping and ABI payload parity differ from EVM and need Neo-Express validation.      |
+| `address.staticcall(...)`               |   ⚠️   | `System.Contract.Call` with read-only flag; return wrapping and ABI payload parity differ from EVM.                  |
+| `address.delegatecall(...)` / `callcode(...)` |   🚫   | Blocked at compile time; NeoVM has no equivalent caller-storage execution semantics.                                 |
 | `address.transfer(amount)`              |   ✅   | Auto-mapped to `GAS.transfer(from,to,amount,data)`; aborts on transfer failure.                                      |
 | `address.send(amount)`                  |   ✅   | Auto-mapped to `GAS.transfer(from,to,amount,data)`; returns bool.                                                    |
 | `address.balance`                       |   ✅   | Auto-mapped to `GAS.balanceOf(address)`.                                                                             |
@@ -42,10 +42,10 @@ These features reference EVM runtime concepts. The compiler maps them to Neo equ
 | Ether units (`wei`, `gwei`, `ether`)    |   ⚠️   | Parsed. Warning that Neo uses GAS token (10^8 decimals).                                                             |
 | Time units (`seconds`, `minutes`, etc.) |   ✅   | Compile-time constants normalized to seconds.                                                                        |
 | `this` keyword                          |   ✅   | `Runtime.GetExecutingScriptHash()`.                                                                                  |
-| `type(X).creationCode`                  |   🚫   | Blocked: no bytecode access on Neo.                                                                                  |
-| `type(X).runtimeCode`                   |   🚫   | Blocked: no bytecode access on Neo.                                                                                  |
+| `type(X).creationCode`                  |   ⚠️   | Emits deterministic NEF3-shaped bytes for hashing compatibility; not EVM bytecode.                                    |
+| `type(X).runtimeCode`                   |   ⚠️   | Same deterministic Neo-shaped payload model as `creationCode`; not production bytecode introspection.                 |
 
-### Partial EVM feature details
+## Partial EVM feature details
 
 **`msg.value`** — Neo does not attach native value to contract calls. The `msg.value` expression is only meaningful inside `onNEP17Payment()` callbacks, where it maps to the `amount` parameter. Outside that context, the compiler emits a warning (W111) and returns `0` at runtime.
 
@@ -68,15 +68,21 @@ function deposit() public payable {
 
 **`address.code`** — On Neo this now lowers to the contract script bytes fetched through `ContractManagement.getContract()`. This is closer to EVM runtime bytecode access than the old empty-byte placeholder, but it is still Neo contract script rather than EVM bytecode. Non-contract addresses return empty bytes. `address.code.length` remains the fast contract-existence approximation (0 for non-contract, 1 for contract).
 
-**`address.delegatecall(...)`** — On NeoVM, each contract has isolated storage. `delegatecall` on EVM executes callee code in the caller's storage context, which has no Neo equivalent. The compiler emits a warning and compiles the call as a regular `System.Contract.Call`, which uses the callee's own storage context instead of the caller's. This is a semantic difference that can cause security issues in contracts relying on delegatecall for upgrade patterns or library calls. Use `address.call()` or `address.staticcall()` instead, or redesign to use explicit library calls or `ContractManagement.update()`.
+**`address.delegatecall(...)` / `callcode(...)`** — On NeoVM, each contract has isolated storage. These EVM operations execute callee code in the caller's storage context, which has no Neo equivalent. The compiler rejects them instead of compiling them with unsafe changed semantics. Redesign proxy and library patterns around explicit calls, inlined libraries, or `ContractManagement.update()`.
 
 ```solidity
-// ⚠️ Works but with different semantics than EVM
+// 🚫 Rejected by neo-solc
 (bool success, bytes memory data) = target.delegatecall(abi.encodeWithSignature("foo()"));
-// Compiles as System.Contract.Call with warning; storage context differs from EVM
+// Use explicit calls or ContractManagement.update() depending on the upgrade pattern.
 ```
 
-### Auto-mapping warnings
+**`type(X).creationCode` / `type(X).runtimeCode`** — Neo does not expose EVM bytecode. For compatibility with CREATE2-style hashing patterns, the compiler emits deterministic NEF3-shaped byte payloads that are stable per referenced contract/type when the target is available in the compilation graph. Treat these bytes as hashing artifacts, not deployable EVM bytecode.
+
+```solidity
+bytes32 childCodeHash = keccak256(type(Child).creationCode);
+```
+
+## Auto-mapping warnings
 
 Several EVM globals are auto-mapped to approximate Neo equivalents. The compiler emits warnings for each to ensure developers understand the semantic differences:
 

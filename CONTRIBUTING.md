@@ -6,9 +6,9 @@ We welcome contributions to the Neo Solidity Compiler project! This guide will h
 
 ### Prerequisites
 
-- **Rust**: 1.82 or higher
-- **Node.js**: 18.0 or higher (for tooling)
-- **.NET**: 8.0 or higher (for runtime)
+- **Rust**: 1.88 or higher (MSRV; matches `rust-version` in `Cargo.toml`)
+- **Node.js**: 20.19+ or 22.12+ (for tooling and documentation builds)
+- **.NET**: 8.0 or higher (for the optional C# runtime)
 - **Git**: Latest version
 
 ### Development Setup

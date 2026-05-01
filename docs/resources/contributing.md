@@ -23,7 +23,7 @@ We use the standard GitHub Pull Request workflow:
 
 ## Running the Compiler Tests
 
-Before submitting a PR, you must ensure all tests pass. The repository contains over 700 tests verifying compilation, execution, and tooling integration.
+Before submitting a PR, ensure the layered Rust, runtime, conformance, E2E, fuzz, and tooling suites that cover your change still pass.
 
 To run the Rust compiler workspace tests:
 ```bash

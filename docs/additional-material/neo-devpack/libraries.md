@@ -7,7 +7,7 @@ description: "Libraries from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
-### Neo.sol (542 lines)
+## Neo.sol (542 lines)
 
 High-level blockchain integration library. Wraps `Syscalls` and `NativeCalls` into a convenient API:
 
@@ -28,7 +28,7 @@ using Neo for *;
 uint256 height = Neo.getBlockHeight();
 ```
 
-### Storage.sol (827 lines)
+## Storage.sol (852 lines)
 
 Advanced storage operations built on top of `Syscalls` storage syscalls:
 
@@ -65,7 +65,7 @@ Storage.putLocal("internal_state", abi.encode(42));
 `put()`/`get()` use the contract's global storage context. `putLocal()`/`getLocal()` use a local context that is private to the contract and cannot be read by other contracts via `System.Storage.GetReadOnlyContext`.
 :::
 
-### Runtime.sol (688 lines)
+## Runtime.sol (695 lines)
 
 Runtime services and utilities (currently supported as compiler intrinsics):
 

@@ -1,11 +1,13 @@
 ---
-title: "Native Contracts: Overview"
+title: "Native Contracts Overview"
 description: "Overview from Native Contracts."
 ---
 
-# Overview
+# Native Contracts Overview
 
 [Back to Native Contracts](/internals/native-contracts)
+
+## Overview
 
 | Name               | Script Hash                                  | Purpose                                     | Devpack Wrapper                                                     |
 | ------------------ | -------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |

@@ -1,14 +1,12 @@
 # Production Readiness Pass Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Align the verified quality gates and public production-readiness claims for the Neo Solidity compiler, then close the concrete failures uncovered by baseline validation.
 
 **Architecture:** Keep this pass narrow and evidence-driven. Fix the CI-breaking Rust/Clippy policy mismatch first, then update stale quality metrics/docs so the repository’s “production-ready” claims match what the verified gates actually prove.
 
 **Tech Stack:** Rust, Cargo, Clippy, Markdown docs, GitHub Actions CI
 
-### Task 1: Align Rust/Clippy Policy With Documented Support
+## Task 1: Align Rust/Clippy Policy With Documented Support
 
 **Files:**
 - Modify: `Cargo.toml`
@@ -28,7 +26,7 @@ Update `Cargo.toml` so the package’s Rust-version/MSRV contract is explicit an
 Run: `cargo clippy --all-targets --all-features -- -D warnings`
 Expected: PASS
 
-### Task 2: Make Production Claims Match Verified Evidence
+## Task 2: Make Production Claims Match Verified Evidence
 
 **Files:**
 - Modify: `README.md`
@@ -40,18 +38,18 @@ Expected: PASS
 Run: `cargo test --workspace`
 Run: `cargo test --workspace -- --list`
 Run: `bash examples/test_strict_compatibility_sweep.sh`
-Expected: tests pass, test inventory is currently above 700, strict sweep passes with zero failures and zero unexpected-warning contracts
+Expected: tests pass, the source-controlled test inventory is reported by the commands above, and the strict sweep passes with zero failures and zero unexpected-warning contracts
 
 **Step 2: Replace stale, fragile counts**
 
-Update the public-facing docs to use current, resilient language such as `700+ tests` instead of stale exact numbers, and ensure the production-gate description reflects the commands actually verified in this pass.
+Update the public-facing docs to use current, resilient language such as “layered Rust, fuzz, E2E, conformance, and Neo-Express validation” instead of stale exact test totals, and ensure the production-gate description reflects the commands actually verified in this pass.
 
 **Step 3: Sanity check docs consistency**
 
-Run: `rg -n "666 Tests|660\\+ tests|620\\+ tests" README.md docs`
+Run: `rg -n "666 Tests|660\\+ tests|620\\+ tests|700\\+ tests" README.md docs`
 Expected: no remaining stale production-count claims in maintained docs
 
-### Task 3: Re-Verify the Production Readiness Slice
+## Task 3: Re-Verify the Production Readiness Slice
 
 **Files:**
 - No source edits expected

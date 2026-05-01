@@ -1,11 +1,13 @@
 ---
-title: "Manifest Specification: See Also"
+title: "Contract Metadata See Also"
 description: "See Also from Manifest Specification."
 ---
 
-# See Also
+# Contract Metadata See Also
 
 [Back to Manifest Specification](/internals/contract-metadata)
+
+## Overview
 
 - [Native Contracts](/internals/native-contracts) — Deterministic hashes and devpack wrappers for NEO, GAS, StdLib, CryptoLib, and other native contracts.
 - [Syscalls](/internals/syscalls) — NeoVM syscall reference and how the compiler maps Solidity constructs to syscall sequences.

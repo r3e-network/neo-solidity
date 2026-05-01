@@ -14,8 +14,8 @@
 //!
 //! # Submodules
 //!
-//! - [`bytecode`] - NeoVM bytecode generation from IR
-//! - [`standard_json`] - Standard JSON compilation interface
+//! - `bytecode` - NeoVM bytecode generation from IR
+//! - `standard_json` - Standard JSON compilation interface
 //!
 //! # Usage
 //!

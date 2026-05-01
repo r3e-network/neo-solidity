@@ -7,6 +7,8 @@ description: "Getting Help from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
+## Overview
+
 If you encounter an issue not covered here:
 
 1. Check the [Error Reference](/advisory-content/error-reference) for specific error codes

@@ -5,13 +5,15 @@ description: Every meaningful Ethereum standard, mirrored to its Neo N3 equivale
 
 # ERC / EIP ↔ Neo Standards Mirror
 
-Every Ethereum standard that matters has a Neo N3 counterpart — sometimes a one-to-one
-NEP, sometimes a stronger native primitive that makes the EIP unnecessary. This module
-catalogs them all: pick a category below, then flip between the **ERC/EIP detail**, the
-**Solidity implementation**, and the equivalent **Neo C# implementation**.
+Most application-level Ethereum standards have a Neo N3 counterpart — sometimes a
+one-to-one NEP, sometimes a stronger native primitive that makes the EIP
+unnecessary, and sometimes a migration pattern with known semantic differences.
+This module catalogs the checked-in mirror set: pick a category below, then flip
+between the **ERC/EIP detail**, the **Solidity implementation**, and the
+equivalent **Neo C# implementation**.
 
-The takeaway: anything you can build on Ethereum, you can build on Neo N3 — often with
-fewer footguns and lower gas.
+Use the mirror as a migration map, then validate production behavior against the
+deployment results and the Solidity support matrix.
 
 ## Categories
 
@@ -87,6 +89,10 @@ deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matr
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
 `nccs`) versions, recording pass/fail assertion results for both implementations.
 
+::: warning Snapshot status
+The checked-in TestNet snapshot is a validation matrix, not an all-green parity certification. The latest checked-in result records 147 / 183 assertions passing; failures and repro details are listed in `deployments/RESULTS.md`.
+:::
+
 | Standard | Solidity | Neo C# |
 |---|---|---|
 | **ERC-20** ↔ NEP-17 | [d76434af…f96](https://dora.coz.io/contract/neo3/testnet/0xd76434af829dc4c936c12648aa77932fa94c0f96) | [1f3a9b41…b43a](https://dora.coz.io/contract/neo3/testnet/0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a) |
@@ -147,9 +153,7 @@ assertion check fails.
 
 ### What about the other catalog entries?
 
-**The deferred queue is empty.** All 23 originally-deferred entries have shipped
-across v0.19.0–v0.21.0, and v0.22.0 took 6 of the 8 "prose-only" protocol EIPs and
-turned them into deployable demos that expose the equivalent Neo behavior.
+The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
 Four catalog entries are not in the live TestNet pair matrix:
 
@@ -158,9 +162,7 @@ Four catalog entries are not in the live TestNet pair matrix:
 - **EIP-3074** (AUTH/AUTHCALL) — superseded by EIP-7702 and covered by Neo witness scopes.
 - **ERC-6909** (minimal multi-token) — documented as a direct Neo C# port but not part of the checked-in deployment snapshot.
 
-The other six (EIP-2718, EIP-2930, EIP-3855, EIP-3860, EIP-6780, EIP-7702) now
-have live demos exposing their Neo counterparts: tx version, witness scopes,
-PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
+The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 
 Source pairs, deploy script, full results JSON, and instructions to reproduce live
 under

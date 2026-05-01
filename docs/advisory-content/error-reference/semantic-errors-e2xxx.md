@@ -27,7 +27,7 @@ These errors occur during Stage 3 (Semantic Analysis) when the compiler validate
 | `E2014` | ShadowedVariable      | Variable shadows outer scope  | Local variable hides a state variable                        |
 | `E2015` | InvalidModifier       | Invalid modifier              | Modifier used incorrectly or on wrong function type          |
 
-### Example: E2002 TypeMismatch
+## Example: E2002 TypeMismatch
 
 ```
 error[E2002]: type mismatch: expected uint256, found address
@@ -41,7 +41,7 @@ error[E2002]: type mismatch: expected uint256, found address
 
 **Fix:** Correct the type usage. In Neo Solidity, addresses and integers are distinct types just as in standard Solidity. Use explicit casts when conversion is intentional.
 
-### Example: E2003 DuplicateDefinition
+## Example: E2003 DuplicateDefinition
 
 ```
 error[E2003]: duplicate definition: function 'transfer' already defined

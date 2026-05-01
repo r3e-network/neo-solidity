@@ -9,7 +9,7 @@ description: "StdLib from Native Contracts."
 
 Provides serialization, encoding, and string manipulation utilities. StdLib methods are exposed through `Syscalls.sol`.
 
-### Methods
+## Methods
 
 | Method            | Signature                               | Return     | Safe | Description                                         |
 | ----------------- | --------------------------------------- | ---------- | :--: | --------------------------------------------------- |
@@ -28,7 +28,7 @@ Provides serialization, encoding, and string manipulation utilities. StdLib meth
 | `stringSplit`     | `stringSplit(string,string,bool)`       | `string[]` |  ✅  | Split string by separator.                          |
 | `strLen`          | `strLen(string)`                        | `uint256`  |  ✅  | String length in text elements (not bytes).         |
 
-### Code Example
+## Code Example
 
 ```solidity
 import "devpack/contracts/Syscalls.sol";

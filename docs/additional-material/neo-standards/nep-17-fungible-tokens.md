@@ -11,7 +11,7 @@ NEP-17 is Neo's fungible token standard. It replaces the ERC-20 approve/allowanc
 
 **Spec:** [NEP-17 Proposal](https://github.com/neo-project/proposals/blob/master/nep-17.mediawiki)
 
-### Required Interface
+## Required Interface
 
 | Method        | Parameters                                           | Return    | Safe | Description             |
 | ------------- | ---------------------------------------------------- | --------- | ---- | ----------------------- |
@@ -31,7 +31,7 @@ Transfer(Hash160 from, Hash160 to, Integer amount)
 The `data` parameter uses the Neo-Solidity `Any` type, which maps to NeoVM's unconstrained `StackItem`. This allows callers to pass any serializable value to the recipient's `onNEP17Payment` callback. In the devpack, `Any` is defined as `type Any is bytes;`.
 :::
 
-### Authorization Model
+## Authorization Model
 
 The most significant difference between ERC-20 and NEP-17 is the authorization model:
 
@@ -65,7 +65,7 @@ function transfer(address from, address to, uint256 amount, Any calldata data)
 NEP-17 does not define `approve()`, `transferFrom()`, or `allowance()`. The devpack's `NEP17.sol` includes them as optional ERC-20 compatibility extensions, but they are **not** part of the NEP-17 spec and do not contribute to standard detection.
 :::
 
-### Payment Callbacks
+## Payment Callbacks
 
 When tokens are transferred to a contract, the receiving contract's `onNEP17Payment` callback is invoked automatically:
 
@@ -86,7 +86,7 @@ interface INEP17Receiver {
 Any contract that receives NEP-17 tokens **must** implement `onNEP17Payment`. If the recipient is a contract and does not implement this callback, the transfer reverts with `NEP17InvalidReceiver`.
 :::
 
-### Implementation Example
+## Implementation Example
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -142,7 +142,7 @@ contract MyToken is NEP17 {
 Compiling this contract produces `supportedstandards: ["NEP-17"]` in the manifest. The compiler detects all 5 required methods (`symbol`, `decimals`, `totalSupply`, `balanceOf`, `transfer`) and confirms `ownerOf` is absent (distinguishing it from NEP-11).
 :::
 
-### ERC-20 Migration Checklist
+## ERC-20 Migration Checklist
 
 1. Replace 2-param `transfer(to, amount)` with 4-param `transfer(from, to, amount, data)`
 2. Replace `require(msg.sender == ...)` with `require(Runtime.checkWitness(...))`

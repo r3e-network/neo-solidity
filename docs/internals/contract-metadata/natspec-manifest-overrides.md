@@ -9,7 +9,7 @@ description: "NatSpec Manifest Overrides from Manifest Specification."
 
 The compiler supports NatSpec custom tags to override manifest fields directly from Solidity source. Both `@custom:neo.manifest.*` and `@custom:manifest.*` prefixes are recognized.
 
-### Supported Tags
+## Supported Tags
 
 | Tag                                       | Expected Value             | Description                           |
 | ----------------------------------------- | -------------------------- | ------------------------------------- |
@@ -20,7 +20,7 @@ The compiler supports NatSpec custom tags to override manifest fields directly f
 | `@custom:neo.manifest.trusts`             | JSON array or `"*"`        | Override trust list                   |
 | `@custom:neo.manifest.extra.<Key>`        | JSON value or plain string | Add custom extra metadata field       |
 
-### Full Example
+## Full Example
 
 ```solidity
 // SPDX-License-Identifier: MIT

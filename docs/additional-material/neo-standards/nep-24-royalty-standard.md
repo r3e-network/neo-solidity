@@ -11,7 +11,7 @@ NEP-24 specifies a `royaltyInfo` method for NEP-11 NFTs so marketplaces can fetc
 
 **Spec:** [NEP-24 Proposal](https://github.com/neo-project/proposals/blob/master/nep-24.mediawiki)
 
-### Interface
+## Interface
 
 | Method        | Parameters                                                   | Return                      | Description                    |
 | ------------- | ------------------------------------------------------------ | --------------------------- | ------------------------------ |
@@ -29,7 +29,7 @@ interface INEP24Royalty {
 }
 ```
 
-### Key Differences from ERC-2981
+## Key Differences from ERC-2981
 
 |                         | ERC-2981 (Ethereum)             | NEP-24 (Neo)                              |
 | ----------------------- | ------------------------------- | ----------------------------------------- |
@@ -43,7 +43,7 @@ interface INEP24Royalty {
 The `royaltyToken` parameter specifies which token royalties should be paid in (e.g., GAS, a specific NEP-17 token). This is reserved for future use in the devpack's minimal implementation but enables token-specific royalty rules.
 :::
 
-### Implementation Example
+## Implementation Example
 
 ```solidity
 // SPDX-License-Identifier: MIT

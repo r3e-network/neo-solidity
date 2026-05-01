@@ -7,9 +7,9 @@ description: "Core Contracts from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
-### Syscalls.sol
+## Syscalls.sol
 
-Complete mapping of all Neo N3 syscalls to Solidity functions. This is the lowest-level devpack surface — every other contract and library ultimately delegates to `Syscalls`.
+Low-level Solidity wrappers for the supported Neo N3 syscall surface. This is the lowest-level devpack surface — every other contract and library ultimately delegates to `Syscalls`.
 
 | Category  | Syscalls                                                                    | Examples                                             |
 | --------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -40,7 +40,7 @@ Syscalls.sol also defines the core data structures used throughout the devpack:
 Prefer `NativeCalls` wrappers over raw `Syscalls.contractCall()` — they generate specific manifest permissions instead of wildcards.
 :::
 
-### NativeCalls.sol
+## NativeCalls.sol
 
 Direct wrappers for all Neo N3 native contracts. Each function calls through `Syscalls.contractCall()` with a deterministic contract hash constant, enabling the compiler to infer exact manifest permissions.
 
@@ -67,7 +67,7 @@ NativeCalls.NeoCandidate[] memory candidates = NativeCalls.getCandidates();
 uint256 unclaimed = NativeCalls.unclaimedGas(account, NativeCalls.currentIndex());
 ```
 
-### FrameworkBase.sol
+## FrameworkBase.sol
 
 Base contract providing common infrastructure for Neo N3 Solidity contracts:
 
@@ -86,7 +86,7 @@ contract MyToken is FrameworkBase {
 }
 ```
 
-### Framework.sol
+## Framework.sol
 
 Extended framework that inherits `FrameworkBase`. Previously exposed a fully dynamic `callContract(address, string, bytes)` surface, but this forced wildcard permissions in the manifest (`{"contract":"*","methods":"*"}`).
 
@@ -94,7 +94,7 @@ Extended framework that inherits `FrameworkBase`. Previously exposed a fully dyn
 `Framework.callContract()` is intentionally disabled — it reverts at runtime. Use explicit `NativeCalls.*` or `Syscalls.contractCall(KNOWN_HASH, ...)` wrappers instead. If truly dynamic dispatch is unavoidable, compile with `--manifest-permissions` to supply explicit overrides.
 :::
 
-### OracleService.sol
+## OracleService.sol
 
 Convenience wrapper around the Neo N3 Oracle native contract:
 
@@ -120,7 +120,7 @@ contract MyOracle is IOracleServiceReceiver {
 }
 ```
 
-### NEP17Rescue.sol
+## NEP17Rescue.sol
 
 Optional extension for NEP-17 tokens that enables emergency recovery of accidentally sent native tokens (NEO and GAS only). In strict-manifest mode, rescuing arbitrary NEP-17 tokens is not supported because it would require wildcard contract permissions.
 

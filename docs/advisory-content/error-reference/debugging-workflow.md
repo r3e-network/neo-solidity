@@ -7,6 +7,8 @@ description: "Debugging Workflow from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
+## Overview
+
 A step-by-step approach to resolving compilation failures:
 
 1. **Compile with full diagnostics:**

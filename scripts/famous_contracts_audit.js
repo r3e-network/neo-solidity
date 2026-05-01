@@ -458,7 +458,7 @@ function generateMarkdown(neoSolcVersion, results, generatedAt = new Date().toIS
   lines.push('# Famous Solidity Contracts on NeoVM: Compatibility Audit');
   lines.push('');
   lines.push(`- Generated at (UTC): \`${generatedAt}\``);
-  lines.push(`- Compiler: \`${neoSolcVersion.trim()}\``);
+  lines.push('- Snapshot scope: historical compatibility output; rerun `npm run audit:famous-contracts` before treating these results as current release evidence.');
   lines.push(`- Contracts shown in this report (upstream, vendored in repo): \`${upstreamResults.length}\``);
   lines.push(`- Compile success: \`${upstreamPass}\``);
   lines.push(`- Compile failed: \`${upstreamFail}\``);

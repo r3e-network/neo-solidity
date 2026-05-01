@@ -9,7 +9,7 @@ description: "Contract Upgrade Lifecycle from Deploying Contracts."
 
 Neo N3 supports upgrading deployed contracts through the native `ContractManagement` system. The lifecycle is:
 
-### Deploy
+## Deploy
 
 Initial deployment creates the contract on-chain:
 
@@ -17,7 +17,7 @@ Initial deployment creates the contract on-chain:
 $NEOXP contract deploy -i chain.neo-express build/MyContract.nef node1
 ```
 
-### Update
+## Update
 
 Update replaces the contract's NEF and manifest while preserving its storage and hash:
 
@@ -32,7 +32,7 @@ When updating:
 - Storage is preserved -- existing state variables retain their values.
 - The contract hash remains the same.
 
-### Destroy
+## Destroy
 
 Remove a contract from the chain (irreversible):
 
@@ -45,7 +45,7 @@ Remove a contract from the chain (irreversible):
 `destroy` permanently removes the contract and its storage. This cannot be undone. Only include destroy functionality if your contract genuinely needs it, and protect it with proper access control.
 :::
 
-### Update Smoke Test
+## Update Smoke Test
 
 The repository includes an automated update smoke test:
 

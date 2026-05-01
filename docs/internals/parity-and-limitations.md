@@ -1,4 +1,4 @@
-# Parity and Limitations
+# Runtime Parity and Limitations
 
 This page documents the current state of parity between the Neo Solidity compiler's embedded runtime and the production Neo N3 virtual machine, known limitations, and planned improvements.
 
@@ -7,17 +7,17 @@ semantic mappings, see [Parity and Limitations](/mapping/parity-and-limitations)
 
 ## What "Parity" Means
 
-Parity refers to how closely the embedded NeoVM runtime in `neo-solc` matches the behavior of the official Neo N3 reference implementation. Full parity means identical behavior for all opcodes, syscalls, gas accounting, and edge cases.
+Parity refers to how closely the embedded NeoVM runtime in `neo-solc` matches the behavior of the official Neo N3 reference implementation. In a reference VM, full parity would mean identical behavior for all opcodes, syscalls, gas accounting, and edge cases; this embedded runtime is intentionally scoped and documents unsupported opcodes separately.
 
 The embedded runtime is designed for local testing and development. It prioritizes correctness of core functionality over exhaustive edge-case coverage. For production validation, always test on Neo-Express or testnet.
 
 ## Current Status Summary
 
-As of January 2026, the embedded runtime passes 320+ tests and is considered production-ready for core functionality.
+The embedded runtime is covered by runtime unit tests, conformance vectors, and fuzz/property suites. It is suitable for fast local validation of compiler output and core runtime behavior; production gas, oracle, and live-chain behavior still require Neo-Express or TestNet validation.
 
 | Category             | Status        | Accuracy                                         |
 | -------------------- | ------------- | ------------------------------------------------ |
-| Opcode execution     | Complete      | Full Neo N3 opcode suite                         |
+| Opcode execution     | Broad subset  | Documented opcode subset; unsupported opcodes are rejected |
 | Stack operations     | Complete      | All stack/slot operations                        |
 | Arithmetic and logic | Complete      | Including MODMUL, MODPOW, SQRT                   |
 | Control flow         | Complete      | All jump variants, CALL/CALLA/CALLT              |
@@ -25,7 +25,7 @@ As of January 2026, the embedded runtime passes 320+ tests and is considered pro
 | Storage syscalls     | Complete      | Get/Put/Delete/Find with iterators               |
 | Runtime syscalls     | Complete      | Platform, network, time, gas, notifications      |
 | Crypto syscalls      | Complete      | SHA256, RIPEMD160, Keccak256, Murmur32, CheckSig |
-| Gas accounting       | ~85% accurate | Per-opcode and per-syscall tables                |
+| Gas accounting       | Approximate   | Per-opcode and per-syscall tables                |
 | Iterator handling    | Functional    | Materialized (not streaming)                     |
 | Native contracts     | Partial       | Core methods implemented, stubs for others       |
 | Blockchain accessors | Partial       | Placeholder/stub data                            |
@@ -44,15 +44,15 @@ Stack unwinding during exception propagation and the associated gas effects need
 
 #### Gas Precision for Complex Operations
 
-Gas accounting is approximately 85% accurate. The main gaps are:
+Gas accounting is approximate. The main gaps are:
 
 - Dynamic costs for large integer operations (the runtime uses fixed costs instead of size-dependent costs)
 - Complex compound operations where gas depends on collection size
 - Some syscall costs are approximations of the Neo N3 fee schedule
 
-**Impact:** Gas estimates from the embedded runtime may undercount or overcount by up to 15% for complex operations.
+**Impact:** Gas estimates from the embedded runtime may undercount or overcount for complex operations.
 
-**Workaround:** Use Neo-Express for accurate gas measurement before mainnet deployment. Budget a safety margin of 20% above embedded runtime estimates.
+**Workaround:** Use Neo-Express or TestNet for accurate gas measurement before mainnet deployment. Keep a deployment-specific safety margin above embedded runtime estimates.
 
 ### P2 -- Medium Priority (Performance and Spec Compliance)
 
@@ -79,7 +79,7 @@ The embedded runtime treats both `ByteString` and `Buffer` as generic byte array
 
 #### Blockchain Accessors
 
-`GetTransaction`, `GetBlock`, and `GetContract` return placeholder/stub data rather than real blockchain state. The embedded runtime does not maintain a simulated blockchain.
+Ledger and contract-management accessors return deterministic embedded data, registry entries, or null/default values rather than live blockchain state. The embedded runtime does not maintain a full simulated chain.
 
 **Impact:** Contracts that read blockchain metadata (block height, transaction data, other contract state) will receive fixed test values.
 
@@ -104,11 +104,11 @@ The full method surface of Policy, ContractManagement, and Ledger native contrac
 The following items were previously tracked as gaps and have been resolved:
 
 - **CheckSig / CheckMultisig** -- Real secp256k1 verification with DER and compact signature support
-- **Storage syscalls** -- Complete Get/Put/Delete/Find with iterator token disposal
+- **Storage syscalls** -- Complete Get/Put/Delete/Find with iterator Next/Value token handling
 - **Runtime syscalls** -- Platform, network, time, gas, notifications, checkWitness
 - **Crypto syscalls** -- SHA256, RIPEMD160, Keccak256, Murmur32, Hash160, Hash256
-- **All opcodes** -- Full Neo N3 opcode suite with proper stack effects
-- **Gas accounting** -- Per-opcode and per-syscall tables with ~85% spec accuracy
+- **Core opcode coverage** -- The documented opcode subset has runtime handlers with stack-effect coverage; unsupported opcodes are rejected rather than silently emulated
+- **Gas accounting** -- Per-opcode and per-syscall approximation tables
 
 ## Compiler-Level Limitations
 
@@ -116,13 +116,13 @@ These are not runtime parity issues but fundamental limitations of the Solidity-
 
 ### Blocked EVM Features
 
-The following Solidity/EVM features are not supported and will produce diagnostic errors:
+The following Solidity/EVM constructs are blocked or restricted because they do not have a safe 1:1 NeoVM equivalent:
 
-| Feature                              | Diagnostic                     | Reason                                                       |
+| Feature / Construct                  | Diagnostic                     | Reason                                                       |
 | ------------------------------------ | ------------------------------ | ------------------------------------------------------------ |
-| Inline assembly (`assembly { ... }`) | Warning: no-op with suggestion | EVM-specific opcodes; special handlers for extsload/exttload |
-| `extcodesize` / `extcodecopy`        | Blocked                        | No bytecode introspection in NeoVM                           |
-| `CREATE2`                            | Blocked                        | Neo uses deterministic contract hashing                      |
+| Inline assembly (`assembly { ... }`) | Warning / limited lowering     | Only selected Yul operations are lowered; EVM opcode parity is not available |
+| EVM assembly `extcodesize` / `extcodecopy` | Blocked in unsupported assembly paths | Use `address.code.length` or `ContractManagement.getContract()` for Neo contract-script checks |
+| `CREATE2` / EVM create opcodes       | Blocked                        | Neo deployment uses `ContractManagement.deploy()` and Neo contract hashes |
 
 ### Auto-Mapped Features (with Warnings)
 
@@ -130,7 +130,7 @@ These EVM features compile successfully but emit warnings because their Neo mapp
 
 | Feature                                 | Neo Mapping                        | Warning Reason                                                  |
 | --------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
-| `delegatecall`                          | `System.Contract.Call`             | NeoVM has isolated storage; callee uses its own storage context |
+| `delegatecall` / `callcode`             | Blocked at compile time            | NeoVM has no equivalent caller-storage execution context |
 | `staticcall`                            | `System.Contract.Call` (read-only) | Uses call flags instead of EVM's storage read restriction       |
 | `selfdestruct(addr)`                    | `ContractManagement.destroy()`     | No refund mechanism; permanent on Neo                           |
 | `block.difficulty` / `block.prevrandao` | `Runtime.getRandom()`              | dBFT consensus has no PoW difficulty                            |
@@ -188,7 +188,7 @@ The following improvements are planned but not yet scheduled:
 - **Streaming iterators** -- Replace materialized iterator implementation with lazy streaming
 - **ByteString/Buffer distinction** -- Implement proper mutation semantics
 - **Differential testing framework** -- Automated comparison of embedded runtime output against Neo-Express
-- ✅ **Fuzzing framework** -- Property-based testing implemented with 23 fuzz tests covering storage, compiler, and edge cases
+- ✅ **Fuzzing framework** -- Property-based tests plus the registered cargo-fuzz target suite cover storage, compiler, runtime, manifest, NEF, and edge-case paths
 
 ## Reporting Issues
 

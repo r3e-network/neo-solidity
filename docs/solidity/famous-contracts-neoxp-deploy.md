@@ -1,7 +1,7 @@
 # Famous EVM Contracts Deployed on Neo N3 (Neo Express)
 
 - Generated at (UTC): `2026-02-15T09:14:27.438Z`
-- neo-solc: `neo-solc 0.12.0`
+- Snapshot scope: historical Neo Express deployment output; rerun `npm run deploy:famous-contracts:neoxp` before treating these results as current release evidence.
 - neoxp: `3.9.1.3+e36e7bad7e`
 - Total cases: `13`
 - Pass: `13`

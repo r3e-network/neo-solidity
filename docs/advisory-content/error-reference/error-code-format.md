@@ -7,6 +7,8 @@ description: "Error Code Format from Error Reference."
 
 [Back to Error Reference](/advisory-content/error-reference)
 
+## Overview
+
 Error codes follow the pattern `E<NNNN>` where the first digit indicates the category:
 
 | Range   | Category                                            |

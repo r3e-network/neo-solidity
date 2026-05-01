@@ -59,7 +59,7 @@ struct LoweringContext<'a> {
     return_slots: Vec<Option<usize>>,
     return_types: Vec<ValueType>,
     /// Task #185 — original Solidity type string for each declared return
-    /// parameter (e.g. "uint[3][2]"). Used by `lower_return_statement` to
+    /// parameter (e.g. `uint[3][2]`). Used by `lower_return_statement` to
     /// detect nested fixed-size arrays (`T[N1][N2]...[Nk]`) so the return
     /// path can emit flat EVM-canonical static encoding instead of the
     /// dynamic-array offset+length wrapper. ValueType alone cannot carry
@@ -347,7 +347,7 @@ impl<'a> LoweringContext<'a> {
     /// Task #185 — record the original Solidity type strings for each
     /// declared return parameter. Called once per function during
     /// `Function::from_metadata_with_warnings`. The strings retain static
-    /// fixed-size-array dimensions (e.g. "uint[3][2]") that `ValueType`
+    /// fixed-size-array dimensions (e.g. `uint[3][2]`) that `ValueType`
     /// doesn't preserve, enabling `lower_return_statement` to pick the
     /// flat EVM-canonical encoding for nested fixed-size array returns.
     fn set_return_type_strings(&mut self, type_strings: Vec<String>) {

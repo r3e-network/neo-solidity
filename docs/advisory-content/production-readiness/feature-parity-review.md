@@ -7,6 +7,8 @@ description: "Feature Parity Review from Production Readiness."
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
+## Overview
+
 Before production deployment, review these pages for known behavioral differences:
 
 - [Solidity Feature Support](/solidity/feature-support) -- Which Solidity features are supported, partial, or blocked.

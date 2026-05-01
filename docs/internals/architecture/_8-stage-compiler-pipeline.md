@@ -38,7 +38,7 @@ Solidity source (*.sol)
 Output (.nef, .manifest.json)
 ```
 
-### Stage 1: Frontend (solang-parser)
+## Stage 1: Frontend (solang-parser)
 
 **Module:** `src/frontend.rs`
 
@@ -59,7 +59,7 @@ Key types from `solang-parser`:
 
 Errors at this stage produce `E1xxx` parse error codes.
 
-### Stage 2: Metadata Extraction
+## Stage 2: Metadata Extraction
 
 **Module:** `src/solidity.rs`
 
@@ -74,7 +74,7 @@ Extracted metadata includes:
 
 This metadata drives manifest generation (ABI, supported standards) and informs the semantic analysis stage.
 
-### Stage 3: Semantic Analysis
+## Stage 3: Semantic Analysis
 
 **Module:** `src/semantic.rs`
 
@@ -90,7 +90,7 @@ Responsibilities:
 
 Errors at this stage produce `E2xxx` semantic error codes. Security warnings (`E5xxx`) are also emitted here.
 
-### Stage 4: Semantic Model
+## Stage 4: Semantic Model
 
 **Module:** `src/semantic_model.rs`, `src/type_system/`
 
@@ -103,7 +103,7 @@ The semantic model resolves:
 - Inheritance linearization
 - Storage slot assignments
 
-### Stage 5: IR Generation
+## Stage 5: IR Generation
 
 **Module:** `src/ir/`
 
@@ -132,13 +132,13 @@ IR nodes carry stack effect annotations and storage access metadata that the opt
 
 Errors at this stage produce `E3xxx` codegen error codes (specifically `E3001 UnsupportedFeature` for EVM-only constructs).
 
-### Stage 6: Optimizer
+## Stage 6: Optimizer
 
 **Module:** `src/optimizer.rs`, `src/optimizer/`
 
 A multi-level optimization pipeline that transforms the IR to reduce bytecode size and improve execution efficiency.
 
-#### Optimization Levels
+### Optimization Levels
 
 | Level | Passes                                                                                       | Description                                                  |
 | ----- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -147,7 +147,7 @@ A multi-level optimization pipeline that transforms the IR to reduce bytecode si
 | `-O2` | Constant folding, dead code elimination                                                      | Also remove unreachable code after returns. Default level.   |
 | `-O3` | Constant folding, dead code elimination, function inlining, common subexpression elimination | Maximum optimization. Smallest bytecode.                     |
 
-#### Optimization Passes
+### Optimization Passes
 
 **Constant Folding** (`src/optimizer/constant_folding.rs`)
 
@@ -173,7 +173,7 @@ Identifies repeated computations and replaces them with a single computation sto
 Additional passes exist in the optimizer directory (`strength.rs`, `loops.rs`, `gas.rs`) for strength reduction, loop optimizations, and gas-aware transformations. These are wired into the dispatch logic at appropriate optimization levels.
 :::
 
-#### Optimization Statistics
+### Optimization Statistics
 
 The optimizer tracks metrics for each compilation:
 
@@ -185,7 +185,7 @@ The optimizer tracks metrics for each compilation:
 
 Use `-v` (verbose) to see these statistics in the compiler output.
 
-### Stage 7: Code Generation
+## Stage 7: Code Generation
 
 **Module:** `src/cli/bytecode/`
 
@@ -202,7 +202,7 @@ Responsibilities:
 
 The code generator also handles the `--callt` flag, emitting `CALLT` instructions with method tokens for native contract calls instead of `SYSCALL`-based dispatch.
 
-### Stage 8: Artifact Builder
+## Stage 8: Artifact Builder
 
 **Module:** `src/neo.rs`, `src/cli/cli_parts/cli_manifest/`
 

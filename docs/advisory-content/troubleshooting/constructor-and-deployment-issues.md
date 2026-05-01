@@ -7,7 +7,7 @@ description: "Constructor and Deployment Issues from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### Constructor Parameter Mismatch
+## Constructor Parameter Mismatch
 
 ```
 error[E2015]: constructor parameter type mismatch
@@ -43,7 +43,7 @@ constructor(
 )
 ```
 
-### Deployment Fails on Neo-Express
+## Deployment Fails on Neo-Express
 
 ```
 error: deployment failed: insufficient GAS for deployment

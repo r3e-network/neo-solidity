@@ -7,7 +7,7 @@ description: "Dependencies from Architecture."
 
 [Back to Architecture](/internals/architecture)
 
-### Core
+## Core
 
 | Crate                      | Purpose                                            |
 | -------------------------- | -------------------------------------------------- |
@@ -19,7 +19,7 @@ description: "Dependencies from Architecture."
 | `once_cell`                | Lazy static initialization (opcode/syscall tables) |
 | `hex`                      | Hex encoding/decoding                              |
 
-### Dev / Test
+## Dev / Test
 
 | Crate       | Purpose                            |
 | ----------- | ---------------------------------- |

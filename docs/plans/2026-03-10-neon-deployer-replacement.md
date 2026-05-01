@@ -1,14 +1,12 @@
 # Neon Deployer Replacement Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Remove the final `@cityofzion/neon-js` dependency by replacing the remaining Hardhat deployer usage with repo-owned account, transaction, and contract-parameter primitives.
 
 **Architecture:** The remaining Neon surface is now isolated to `tooling/packages/hardhat-neo-deployer`. Split the work into three layers: address/account primitives, transaction/signing primitives, and contract-parameter encoding. Replace one layer at a time with tests and keep the RPC/client/build behavior unchanged.
 
 **Tech Stack:** npm workspaces, TypeScript, Node `crypto`, Vitest, Neo N3 serialization/signing rules, Makefile production gate.
 
-### Task 1: Lock down the remaining Neon surface with tests
+## Task 1: Lock down the remaining Neon surface with tests
 
 **Files:**
 - Modify: `tooling/packages/hardhat-neo-deployer/test/neo-primitives.test.ts`
@@ -33,7 +31,7 @@ Cover:
 Cover:
 - string, bytes, Hash160, arrays, and constructor args currently encoded through `u.HexString` / `sc.ContractParam`
 
-### Task 2: Replace account primitives
+## Task 2: Replace account primitives
 
 **Files:**
 - Create: `tooling/packages/hardhat-neo-deployer/src/account-primitives.ts`
@@ -53,7 +51,7 @@ Implement:
 
 Keep the externally visible account config and CLI behavior unchanged.
 
-### Task 3: Replace transaction/signing primitives
+## Task 3: Replace transaction/signing primitives
 
 **Files:**
 - Create: `tooling/packages/hardhat-neo-deployer/src/transaction-primitives.ts`
@@ -72,7 +70,7 @@ Support only what the deployer currently needs:
 
 No feature expansion. Preserve the same RPC calls, receipt polling, and artifact output.
 
-### Task 4: Replace remaining contract-parameter encoding helpers
+## Task 4: Replace remaining contract-parameter encoding helpers
 
 **Files:**
 - Create: `tooling/packages/hardhat-neo-deployer/src/contract-params.ts`
@@ -86,7 +84,7 @@ Only implement the parameter kinds already used by deployment and invocation pat
 
 Use repo-owned hex/base64/endian helpers instead.
 
-### Task 5: Verify and delete the dependency
+## Task 5: Verify and delete the dependency
 
 **Files:**
 - Modify: `tooling/packages/hardhat-neo-deployer/package.json`

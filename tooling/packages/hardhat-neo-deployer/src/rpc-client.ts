@@ -6,19 +6,10 @@ import Debug from "debug";
 
 const debug = Debug("hardhat:neo-deployer:rpc");
 
-type NeoRpcProvider = rpcTypes.NeoRpcProvider;
-type NeoBlock = rpcTypes.NeoBlock;
-type NeoTransaction = rpcTypes.NeoTransaction;
-type ContractState = rpcTypes.ContractState;
-type InvokeResult = rpcTypes.InvokeResult;
-type SendResult = rpcTypes.SendResult;
-type Balance = rpcTypes.Balance;
-type ApplicationLog = rpcTypes.ApplicationLog;
-
 /**
  * Neo RPC client implementation
  */
-export class NeoRpcClient implements NeoRpcProvider {
+export class NeoRpcClient implements rpcTypes.NeoRpcProvider {
   public url: string;
   public readonly magic: number;
   private client: AxiosInstance;
@@ -120,21 +111,21 @@ export class NeoRpcClient implements NeoRpcProvider {
   /**
    * Get block by hash or index
    */
-  async getBlock(hashOrIndex: string | number): Promise<NeoBlock> {
+  async getBlock(hashOrIndex: string | number): Promise<rpcTypes.NeoBlock> {
     return this.call('getblock', [hashOrIndex, 1]); // verbose = 1
   }
 
   /**
    * Get transaction by hash
    */
-  async getTransaction(hash: string): Promise<NeoTransaction> {
+  async getTransaction(hash: string): Promise<rpcTypes.NeoTransaction> {
     return this.call('getrawtransaction', [hash, 1]); // verbose = 1
   }
 
   /**
    * Get contract state
    */
-  async getContractState(scriptHash: string): Promise<ContractState> {
+  async getContractState(scriptHash: string): Promise<rpcTypes.ContractState> {
     return this.call('getcontractstate', [scriptHash]);
   }
 
@@ -145,7 +136,7 @@ export class NeoRpcClient implements NeoRpcProvider {
     scriptHash: string,
     method: string,
     params: any[] = []
-  ): Promise<InvokeResult> {
+  ): Promise<rpcTypes.InvokeResult> {
     return this.call('invokefunction', [scriptHash, method, params]);
   }
 
@@ -176,11 +167,11 @@ export class NeoRpcClient implements NeoRpcProvider {
   /**
    * Send raw transaction
    */
-  async sendRawTransaction(signedTransaction: string): Promise<SendResult> {
-    const normalize = (result: any): SendResult => {
+  async sendRawTransaction(signedTransaction: string): Promise<rpcTypes.SendResult> {
+    const normalize = (result: any): rpcTypes.SendResult => {
       if (typeof result === "string") return { hash: result };
       if (result && typeof result === "object" && typeof result.hash === "string") return { hash: result.hash };
-      return result as SendResult;
+      return result as rpcTypes.SendResult;
     };
 
     // neo-cli expects hex; neo-go expects base64. Try hex first when we have hex.
@@ -215,7 +206,7 @@ export class NeoRpcClient implements NeoRpcProvider {
    * Send a transaction object. Prefer serializing and calling `sendrawtransaction`
    * since `sendtransaction` is not universally supported by Neo nodes.
    */
-  async sendTransaction(transaction: any): Promise<SendResult> {
+  async sendTransaction(transaction: any): Promise<rpcTypes.SendResult> {
     if (typeof transaction === "string") {
       return this.sendRawTransaction(transaction);
     }
@@ -230,7 +221,7 @@ export class NeoRpcClient implements NeoRpcProvider {
   /**
    * Get balance for address
    */
-  async getBalance(address: string): Promise<Balance[]> {
+  async getBalance(address: string): Promise<rpcTypes.Balance[]> {
     const nep17Balances = await this.call('getnep17balances', [address]);
     
     return nep17Balances.balance.map((balance: any) => ({
@@ -277,7 +268,7 @@ export class NeoRpcClient implements NeoRpcProvider {
   /**
    * Get application log
    */
-  async getApplicationLog(hash: string): Promise<ApplicationLog> {
+  async getApplicationLog(hash: string): Promise<rpcTypes.ApplicationLog> {
     return this.call('getapplicationlog', [hash]);
   }
 

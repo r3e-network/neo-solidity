@@ -26,6 +26,11 @@ generate_docs() {
   local pkg_path="$1"
   local pkg_name
   pkg_name="$(basename "$pkg_path")"
+  if node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); process.exit(pkg.private === true ? 0 : 1)" "$pkg_path/package.json"; then
+    echo "Skipping $pkg_name (private package)."
+    return 0
+  fi
+
   local src_dir="$pkg_path/src"
   local tsconfig="$pkg_path/tsconfig.json"
   local out_dir="$DOCS_DIR/$pkg_name"

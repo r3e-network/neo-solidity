@@ -679,7 +679,7 @@ function renderMarkdown(report) {
   lines.push('# Famous EVM Contracts Runtime-Verified on Neo N3 (Type-3)');
   lines.push('');
   lines.push(`- Generated at (UTC): \`${report.generatedAt}\``);
-  lines.push(`- neo-solc: \`${report.neoSolcVersion}\``);
+  lines.push('- Snapshot scope: historical Neo Express runtime output; rerun `npm run verify:famous-contracts:neoxp-runtime` before treating these results as current release evidence.');
   lines.push(`- neoxp: \`${report.neoxpVersion}\``);
   lines.push(`- Total contracts: \`${report.totals.total}\``);
   lines.push(`- Pass: \`${report.totals.pass}\``);

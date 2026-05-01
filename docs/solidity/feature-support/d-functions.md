@@ -23,7 +23,7 @@ description: "D. Functions from Solidity Feature Support."
 | Function selectors (`.selector`) |   ✅   | Computed from canonical parameter types.                                                                                |
 | NatSpec comments                 |   ✅   | `@notice`, `@dev`, `@param`, `@return` preserved in metadata.                                                           |
 
-### Partial function details
+## Partial function details
 
 **`payable`** — Neo does not attach native value to function calls the way EVM does with `msg.value`. The `payable` modifier is accepted for source compatibility, but a warning is emitted on non-receive functions. Token payments on Neo are handled through NEP-17/NEP-11 callbacks.
 

@@ -131,6 +131,7 @@ function cleanPathText(value) {
   }
 
   let text = String(value).split(path.sep).join('/');
+  text = text.replace(/\/(?:Users|home|private\/tmp|tmp)\/[^\s"'<>]+\/neo-solidity\//g, '');
   text = text.replaceAll('/private/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
   text = text.replaceAll('/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
 
@@ -221,7 +222,7 @@ function diagnosticsSummary(diagnostics) {
 
   lines.push('');
   lines.push(
-    'Full diagnostic payloads are kept in `docs/data/famous-contracts-audit-results.json`; this page summarizes them so the docs remain navigable.'
+    'Source diagnostic payload: `docs/data/famous-contracts-audit-results.json`.'
   );
 
   return lines.join('\n');
@@ -244,20 +245,6 @@ function failGuidance(result) {
   ].join('\n');
 }
 
-function passGuidance() {
-  return [
-    '## NeoVM Adaptation Status',
-    '',
-    'This upstream contract compiled successfully in the audit run with current `neo-solc`.',
-    '',
-    'Recommended hardening before production deployment:',
-    '',
-    '1. Review generated manifest permissions and remove wildcard entries when possible.',
-    '1. Run Neo-Express state-changing tests for your target workflows, not only read-only calls.',
-    '1. Validate semantic differences (for example `tx.origin`, payable semantics, callback models) for your integration context.'
-  ].join('\n');
-}
-
 function renderContractPage(result, projectSlug, contractSlug, totals) {
   const title = `${result.contract} (${result.project})`;
   const sourcePath = normalizeSourcePath(result);
@@ -277,8 +264,7 @@ function renderContractPage(result, projectSlug, contractSlug, totals) {
     `- Primary issue: ${mdEscape(mainIssue)}`,
     `- Audit corpus size: ${totals.total} contracts`,
     '',
-    result.status === 'pass' ? passGuidance() : failGuidance(result),
-    '',
+    ...(result.status === 'pass' ? [] : [failGuidance(result), '']),
     '## Diagnostics',
     '',
     diagnosticsSummary(result.diagnostics),
@@ -307,15 +293,13 @@ function buildProjectTableRows(results, projectSlug) {
 
 function renderIndex(data, npmResults, grouped) {
   const generatedAt = data.generatedAt || 'unknown';
-  const compiler = data.compiler || 'unknown';
-
   const lines = [
     '# Original Famous Solidity Contracts (Per Contract)',
     '',
     'This section documents **upstream famous Solidity contracts** (vendored in-repo sources), not simplified demo ports.',
     '',
     `- Generated at (UTC): ${asCode(generatedAt)}`,
-    `- Compiler: ${asCode(compiler)}`,
+    '- Snapshot scope: historical compatibility output; rerun `npm run audit:famous-contracts` and `npm run docs:generate:original-contracts` before treating these per-contract results as current release evidence.',
     `- Contracts in this section: ${asCode(String(npmResults.length))}`,
     '',
     'Each contract has a dedicated page with:',
@@ -323,6 +307,14 @@ function renderIndex(data, npmResults, grouped) {
     '1. Compilation status on NeoVM',
     '1. Primary blocker and required Neo-side capability/refactor',
     '1. Diagnostics summarized from the audit run',
+    '',
+    '## Common Production Hardening',
+    '',
+    'For contracts that compiled in this historical snapshot:',
+    '',
+    '1. Review generated manifest permissions and remove wildcard entries when possible.',
+    '1. Run Neo-Express state-changing tests for target workflows, not only read-only calls.',
+    '1. Validate semantic differences such as `tx.origin`, payable semantics, callback models, and manifest permissions for the integration context.',
     '',
     '## Project Summary',
     '',

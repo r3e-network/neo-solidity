@@ -22,16 +22,17 @@ Runtime syscalls provide access to execution context, authorization, notificatio
 | `System.Runtime.GetExecutingScriptHash` |        1 | Get current contract hash                | `Syscalls.getExecutingScriptHash()`        |
 | `System.Runtime.GetCallingScriptHash`   |        1 | Get caller contract hash                 | `Syscalls.getCallingScriptHash()`          |
 | `System.Runtime.GetEntryScriptHash`     |        1 | Get entry point hash                     | `Syscalls.getEntryScriptHash()`            |
-| `System.Runtime.LoadScript`             |        1 | Load and execute script                  | `Syscalls.loadScript(script, flags, args)` |
+| `System.Runtime.LoadScript`             |        1 | Registered but intentionally unsupported in the embedded runtime; use `System.Contract.Call` | `Syscalls.loadScript(script, flags, args)` |
 | `System.Runtime.CheckWitness`           |      200 | Verify witness authorization             | `Syscalls.checkWitness(hash)`              |
 | `System.Runtime.GetInvocationCounter`   |        1 | Get call count for current contract      | `Syscalls.getInvocationCounter()`          |
 | `System.Runtime.GetRandom`              |       50 | Get deterministic random number          | `Syscalls.getCurrentRandom()`              |
 | `System.Runtime.Log`                    |        1 | Emit log message                         | `Syscalls.log(message)`                    |
 | `System.Runtime.Notify`                 |        1 | Emit notification (event)                | `Syscalls.notify(data)`                    |
-| `System.Runtime.GetNotifications`       |        1 | Get notifications from current execution | `Syscalls.getNotifications()`              |
+| `System.Runtime.GetNotifications`       |        1 | Embedded runtime returns `[]`; notification lookup state is not exposed | `Syscalls.getNotifications()`              |
 | `System.Runtime.GasLeft`                |        1 | Get remaining GAS                        | `Syscalls.gasLeft()`                       |
 | `System.Runtime.BurnGas`                |        1 | Burn specified GAS amount                | `Syscalls.burnGas(amount)`                 |
-| `System.Runtime.CurrentSigners`         |        1 | Get transaction signers                  | `Syscalls.getCurrentSigners()`             |
+| `System.Runtime.CurrentSigners`         |        1 | Embedded runtime returns `[]`; transaction signers are not modeled | `Syscalls.getCurrentSigners()`             |
+| `System.Runtime.GetMsgValue`            |        1 | Get host-injected Solidity `msg.value`   | Compiler runtime intrinsic                 |
 
 ## Example Usage
 

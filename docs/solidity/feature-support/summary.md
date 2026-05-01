@@ -7,13 +7,15 @@ description: "Summary from Solidity Feature Support."
 
 [Back to Solidity Feature Support](/solidity/feature-support)
 
+## Overview
+
 | Metric                 | Count | Percentage |
 | ---------------------- | ----: | ---------: |
-| Total audited features |   143 |       100% |
-| Fully supported        |   114 |        80% |
-| Partial support        |    23 |        16% |
+| Total audited features |   146 |       100% |
+| Fully supported        |   114 |        78% |
+| Partial support        |    29 |        20% |
 | Not supported          |     2 |         1% |
-| Intentionally blocked  |     4 |         3% |
+| Intentionally blocked  |     1 |         1% |
 
 Status icons used throughout this page:
 

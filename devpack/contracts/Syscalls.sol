@@ -2,12 +2,12 @@
 pragma solidity ^0.8.19;
 
 /**
- * @title Neo N3 System Calls
- * @dev Complete mapping of Neo N3 syscalls to Solidity functions
+ * @title Neo N3 Syscall and Native-call Helpers
+ * @dev Provides access to N3 syscalls and native contract wrappers supported by the embedded runtime.
  * @author Jimmy <jimmy@r3e.network>
  * 
- * This library provides direct access to all Neo N3 system calls,
- * enabling Solidity contracts to fully utilize Neo blockchain features.
+ * This library provides Solidity helpers for the syscall and native contract surfaces that
+ * neo-solidity lowers today. The embedded runtime does not implement every Neo N3 host syscall.
  *
  * NOTE: Neo N3 exposes many features via *native contracts* (Ledger, Policy,
  * Oracle, ContractManagement, etc.) rather than syscalls. The neo-solidity

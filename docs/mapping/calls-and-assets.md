@@ -10,7 +10,7 @@ contract behavior.
 | --- | --- | --- |
 | `address(target).call(data)` | `System.Contract.Call` | Standard cross-contract invocation path. |
 | `address(target).staticcall(data)` | `System.Contract.Call` with read-only flags | Use for read-only calls when possible. |
-| `address(target).delegatecall(data)` | Blocked | NeoVM cannot execute in the caller's storage context. |
+| `address(target).delegatecall(data)` / `callcode(data)` | Blocked | NeoVM cannot execute in the caller's storage context. |
 | Typed contract interface calls | `System.Contract.Call` | ABI selector and arguments are lowered by the compiler. |
 
 ## Value Transfers

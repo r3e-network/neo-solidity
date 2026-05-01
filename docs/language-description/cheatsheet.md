@@ -33,11 +33,11 @@ For a guided, topic-by-topic version of these mappings, see
 | :------------------------- | :---------------------------------------------------------- |
 | `keccak256(data)`          | `CryptoLib.keccak256(data)`                                 |
 | `sha256(data)`             | `CryptoLib.sha256(data)`                                    |
-| `ecrecover(hash, v, r, s)` | `CryptoLib.verifyWithECDsa(hash, pubkey, signature, curve)` |
+| `ecrecover(hash, v, r, s)` | `CryptoLib.recoverSecp256K1(...)`, then `keccak256` + rightmost 20-byte address derivation |
 
 ## Security Best Practices
 
 1. **Authorization:** Prefer `Runtime.checkWitness(address)` over `msg.sender == address`.
 2. **Wildcards:** Always compile with `--deny-wildcard-contracts` and `--deny-wildcard-methods` for production to restrict the manifest.
-3. **Values:** Remember that NeoVM integers (`BigInteger`) do not overflow or underflow. Do not rely on `unchecked` wrapping behavior.
+3. **Values:** NeoVM stores integers as `BigInteger`, but Neo Solidity emits Solidity 0.8 fixed-width overflow guards outside `unchecked` blocks. Use `unchecked` only when wraparound is intentional and tested.
 4. **Upgrades:** Use `ContractManagement.update()` instead of Ethereum-style proxy contracts. Proxy storage delegates are not supported.

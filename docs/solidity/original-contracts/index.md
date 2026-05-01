@@ -3,7 +3,7 @@
 This section documents **upstream famous Solidity contracts** (vendored in-repo sources), not simplified demo ports.
 
 - Generated at (UTC): `2026-02-15T08:56:34.043Z`
-- Compiler: `neo-solc 0.12.0`
+- Snapshot scope: historical compatibility output; rerun `npm run audit:famous-contracts` and `npm run docs:generate:original-contracts` before treating these per-contract results as current release evidence.
 - Contracts in this section: `92`
 
 Each contract has a dedicated page with:
@@ -11,6 +11,14 @@ Each contract has a dedicated page with:
 1. Compilation status on NeoVM
 1. Primary blocker and required Neo-side capability/refactor
 1. Diagnostics summarized from the audit run
+
+## Common Production Hardening
+
+For contracts that compiled in this historical snapshot:
+
+1. Review generated manifest permissions and remove wildcard entries when possible.
+1. Run Neo-Express state-changing tests for target workflows, not only read-only calls.
+1. Validate semantic differences such as `tx.origin`, payable semantics, callback models, and manifest permissions for the integration context.
 
 ## Project Summary
 

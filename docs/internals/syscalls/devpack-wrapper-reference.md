@@ -9,18 +9,18 @@ description: "Devpack Wrapper Reference from Syscalls."
 
 The devpack provides syscall access at two abstraction levels.
 
-### Low-Level: `Syscalls.sol`
+## Low-Level: `Syscalls.sol`
 
-Located at `devpack/contracts/Syscalls.sol`. Provides 1:1 typed wrappers for every Neo N3 syscall, plus convenience functions for native contract calls (CryptoLib, StdLib, Ledger, Policy, Oracle, RoleManagement).
+Located at `devpack/contracts/Syscalls.sol`. Provides typed wrappers for the Neo N3 syscall surface, plus convenience functions for native contract calls.
 
 Key features:
 
-- All 38 syscalls exposed as `internal` Solidity functions
+- Typed wrappers for the registered syscall surface exposed as `internal` Solidity functions
 - Data structures: `Block`, `Transaction`, `Signer`, `StorageContext`, `Iterator`, `Notification`
 - Constants: trigger types, witness scopes, witness conditions, named curve hashes
-- Native contract script hash constants for all 7 core native contracts
+- Native contract script hash constants for the runtime-supported native contracts: NEO, GAS, ContractManagement, Policy, Oracle, RoleManagement, Notary, Treasury, Ledger, CryptoLib, and StdLib
 
-### High-Level: Ergonomic Libraries
+## High-Level: Ergonomic Libraries
 
 | Library   | File                            | Built On                                   |
 | --------- | ------------------------------- | ------------------------------------------ |

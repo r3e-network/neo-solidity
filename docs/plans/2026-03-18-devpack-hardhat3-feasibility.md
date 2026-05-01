@@ -1,14 +1,12 @@
 # Devpack Hardhat 3 Feasibility Notes
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Record the current, evidence-backed blockers to migrating `devpack` from Hardhat `2.28.6` to Hardhat `3.x`, which is the only remaining path to remove the final `devpack` dev-only audit residue.
 
 **Architecture:** Treat this as a migration feasibility snapshot, not a completed implementation. The active repository remains on the verified Hardhat 2-based `devpack` flow. These notes capture what happened in an isolated probe after upgrading only `devpack` to `hardhat@3.1.12` and applying the smallest possible ESM packaging changes.
 
 **Tech Stack:** npm, Hardhat 3, TypeScript plugin APIs, Neo-specific Hardhat plugins, ESM config/runtime loading
 
-### Probe Setup
+## Probe Setup
 
 **Files:**
 - Review: `devpack/package.json`
@@ -28,7 +26,7 @@ Observed result:
 - `npm audit --json` in the probe dropped to `0` vulnerabilities.
 - This confirms the final `devpack` audit residue is indeed rooted in Hardhat 2.
 
-### Confirmed Hardhat 3 Blockers
+## Confirmed Hardhat 3 Blockers
 
 **Files:**
 - Review: `devpack/package.json`
@@ -87,7 +85,7 @@ Do not merge speculative Hardhat 3 edits into the verified repository until the 
 - config schema adaptation
 - end-to-end re-verification of `devpack` compile/deploy/verify flows
 
-### Recommended Next Steps
+## Recommended Next Steps
 
 **Files:**
 - Modify: `devpack/package.json`

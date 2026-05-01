@@ -7,7 +7,7 @@ description: "Step 3: Inspect the Output Artifacts from Quickstart."
 
 [Back to Quickstart](/basics/quickstart)
 
-### NEF File
+## NEF File
 
 The `.nef` file is a binary format. You can verify it was created and check its size:
 
@@ -23,7 +23,7 @@ The NEF (Neo Executable Format) contains:
 - **Script** -- the NeoVM bytecode
 - **Checksum** -- SHA-256 hash for integrity verification
 
-### Manifest File
+## Manifest File
 
 The `.manifest.json` file is human-readable. Inspect it with `jq`:
 
@@ -117,7 +117,7 @@ jq '.permissions' build/MyStorage.manifest.json
 
 :::
 
-### NeoVM Assembly (Optional)
+## NeoVM Assembly (Optional)
 
 To see the generated NeoVM opcodes:
 

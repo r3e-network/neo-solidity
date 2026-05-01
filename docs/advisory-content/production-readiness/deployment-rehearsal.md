@@ -9,7 +9,7 @@ description: "Deployment Rehearsal from Production Readiness."
 
 Follow this progression to catch issues at each stage:
 
-### Stage 1: Local Neo-Express
+## Stage 1: Local Neo-Express
 
 ```bash
 # Create a fresh chain
@@ -27,7 +27,7 @@ $NEOXP contract deploy -i chain.neo-express build/contract.nef node1
 # Test contract update if applicable
 ```
 
-### Stage 2: Neo N3 TestNet
+## Stage 2: Neo N3 TestNet
 
 1. Obtain test GAS from the Neo TestNet faucet.
 2. Deploy the exact same `.nef` and `.manifest.json` files.
@@ -35,7 +35,7 @@ $NEOXP contract deploy -i chain.neo-express build/contract.nef node1
 4. Verify transaction results on a Neo block explorer.
 5. Test with multiple accounts and concurrent transactions.
 
-### Stage 3: Neo N3 MainNet
+## Stage 3: Neo N3 MainNet
 
 1. Verify the contract hash matches your prediction.
 2. Deploy with a funded MainNet account.

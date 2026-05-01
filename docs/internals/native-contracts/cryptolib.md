@@ -9,7 +9,7 @@ description: "CryptoLib from Native Contracts."
 
 Provides cryptographic hash functions, signature verification, and BLS12-381 curve operations. CryptoLib methods are exposed through `Syscalls.sol` rather than `NativeCalls.sol`.
 
-### Methods
+## Methods
 
 | Method                | Signature                                    | Return    | Safe | Description                                     |
 | --------------------- | -------------------------------------------- | --------- | :--: | ----------------------------------------------- |
@@ -25,7 +25,7 @@ Provides cryptographic hash functions, signature verification, and BLS12-381 cur
 | `bls12381Mul`         | `bls12381Mul(bytes,bytes,bool)`              | `bytes`   |  ✅  | Multiply BLS12-381 point by scalar.             |
 | `bls12381Pairing`     | `bls12381Pairing(bytes,bytes)`               | `bytes`   |  ✅  | BLS12-381 pairing check.                        |
 
-### Curve Support
+## Curve Support
 
 The `verifyWithECDsa` method accepts a `curve` parameter that selects both the elliptic curve and the hash algorithm:
 
@@ -36,7 +36,7 @@ The `verifyWithECDsa` method accepts a `curve` parameter that selects both the e
 | `122` | `SECP256K1_KECCAK256` | secp256k1 | Keccak-256 | Ethereum-compatible signatures |
 | `123` | `SECP256R1_KECCAK256` | secp256r1 | Keccak-256 | Neo + Keccak signatures        |
 
-### Code Example
+## Code Example
 
 ```solidity
 import "devpack/contracts/Syscalls.sol";

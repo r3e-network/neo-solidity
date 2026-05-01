@@ -21,7 +21,7 @@ description: "G. Error Handling from Solidity Feature Support."
 | `try` with return binding              |   ✅   | `try f() returns (uint r) { ... }` supported.                                                                       |
 | Multiple catch clauses                 |   ✅   | Lowered with EVM-canonical 4-byte selector guards (Task #103). `catch Panic(uint256)` matches `0x4e487b71`, `catch Error(string)` matches `0x08c379a0`, `catch (bytes)` binds the raw envelope. User-defined named error clauses retain the legacy permissive `ISTYPE` guard. |
 
-### Partial error handling details
+## Partial error handling details
 
 **Multiple catch clauses** — Task #103 switched the dispatcher to EVM-canonical selector matching. `catch Panic(uint256)` and `catch Error(string)` now guard on the 4-byte keccak selector (`0x4e487b71`, `0x08c379a0`) at the head of the revert envelope, decoding `code` / `msg` via `StdLib.abiDecode` and `SUBSTR`. User-defined named catches (e.g. `catch CustomErr(uint c)`) retain the pre-#103 ISTYPE guard until a follow-up extends selector-based routing to custom errors.
 

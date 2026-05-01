@@ -146,8 +146,8 @@ Furthermore, NeoVM exposes **Syscalls** (System Calls) which allow contracts to 
 
 There exists a special variant of a message call on Ethereum, named `delegatecall` which is identical to a message call apart from the fact that the code at the target address is executed in the context (i.e. at the address) of the calling contract.
 
-::: danger 🚫 Unsupported Feature: Delegatecall
-**NeoVM does not support `delegatecall`.** Every contract has entirely isolated storage. You cannot execute another contract's code in your contract's storage context. Therefore, Ethereum-style proxy upgrade patterns and dynamically linked external libraries are not supported.
+::: danger 🚫 Unsupported Feature: Delegatecall and Callcode
+**NeoVM does not support `delegatecall` or `callcode`.** Every contract has entirely isolated storage. You cannot execute another contract's code in your contract's storage context. Therefore, Ethereum-style proxy upgrade patterns and separately deployed or linkable external libraries are not available. User-defined Solidity libraries compile by inlining calls into the consuming contract.
 :::
 
 ### Events and Notifications
@@ -158,4 +158,6 @@ However, unlike EVM, Neo notifications do not utilize "Topics" for indexed param
 
 ### Create
 
-Smart contracts can be created by other contracts. However, Neo Solidity disables the `new Contract()` syntax to prevent ambiguities. Contracts must be deployed explicitly using the `ContractManagement.deploy()` syscall, providing the compiled `.nef` bytecode and `.manifest.json`.
+Neo N3 contracts are deployed through the native `ContractManagement.deploy()` syscall with the compiled `.nef` bytecode and `.manifest.json`.
+
+For Solidity source compatibility, `new Contract(...)` is accepted when the target contract is available in the compilation graph, but it does **not** deploy a child contract. The compiler inlines/simulates constructor-like logic and returns a zero-address placeholder. Use `ContractManagement.deploy(nef, manifest, data)` for real deployment.

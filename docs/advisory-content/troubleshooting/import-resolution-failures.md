@@ -7,7 +7,7 @@ description: "Import Resolution Failures from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### E4003: Unresolved Import
+## E4003: Unresolved Import
 
 ```
 error[E4003]: unresolved import 'libraries/Storage.sol'

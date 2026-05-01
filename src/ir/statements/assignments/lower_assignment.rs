@@ -770,7 +770,7 @@ fn lower_storage_array_assign_from_memory(
 /// multi-return methods. Covers three shapes:
 ///
 ///   1. `this.<method>(...)`            — Variable("this") inner
-///   2. `IContract(addr).<method>(...)` — FunctionCall(ContractType, [addr]) inner
+///   2. `IContract(addr).<method>(...)` — `FunctionCall(ContractType, [addr])` inner
 ///   3. `<addr-typed var>.<method>(...)` — inner infers to `ValueType::Address`
 ///
 /// Without this broader match, (2) and (3) skipped the compile-time

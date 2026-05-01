@@ -172,8 +172,8 @@ fn emit_verify_signature(
 }
 
 /// Task #H6a: emit the 0x01 ecrecover precompile routing.
-/// Stack in : [abi_payload]  (128-byte `bytes memory` = hash || v || r || s)
-/// Stack out: [result32]     (20-byte address left-padded into a 32-byte slot)
+/// Stack in: `[abi_payload]` (128-byte `bytes memory` = hash || v || r || s)
+/// Stack out: `[result32]` (20-byte address left-padded into a 32-byte slot)
 ///
 /// We extract the 4 ABI slots via SUBSTR opcodes, normalize `v` (which is a
 /// 32-byte BE integer slot in the ABI payload) into a single-byte integer on

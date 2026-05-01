@@ -38,7 +38,7 @@ contract Bridge {
 }
 ```
 
-### CallFlags
+## CallFlags
 
 The `System.Contract.GetCallFlags` syscall returns the permission flags for the current execution context. These flags control what operations the called contract is allowed to perform.
 

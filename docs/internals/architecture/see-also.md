@@ -1,11 +1,13 @@
 ---
-title: "Architecture: See Also"
+title: "Architecture See Also"
 description: "See Also from Architecture."
 ---
 
-# See Also
+# Architecture See Also
 
 [Back to Architecture](/internals/architecture)
+
+## Overview
 
 - [CLI Reference](/compiler/using-the-compiler) -- all compiler options
 - [Runtime Specification](/internals/runtime-specification) -- NeoVM execution model

@@ -3,30 +3,47 @@
 Solidity defines an assembly language that can be used without Solidity. This assembly language can also be used as "inline assembly" inside Solidity source code. 
 
 ::: tip 💡 NeoVM Difference
-In Ethereum, inline assembly gives you direct access to the EVM stack and opcodes (e.g., `sload`, `sstore`, `call`). **On NeoVM, EVM inline assembly blocks are not supported** because the opcodes and stack architecture fundamentally differ.
+In Ethereum, inline assembly gives you direct access to the EVM stack and opcodes (e.g., `sload`, `sstore`, `call`). **On NeoVM, the compiler lowers a limited Yul compatibility subset and warns on anything outside that subset** because the opcodes and stack architecture fundamentally differ. Treat assembly blocks as portability scaffolding, not as EVM-opcode-level access.
 :::
 
 ## How Neo Solidity Handles Inline Assembly
 
-When the Neo Solidity compiler encounters an `assembly { ... }` block, it parses the syntax for source compatibility but **safely compiles it to a no-op**. 
+When the Neo Solidity compiler encounters an `assembly { ... }` block, it parses
+Yul syntax and lowers a documented compatibility subset to NeoVM IR. This is not
+EVM opcode parity: unsupported Yul constructs fall back to a compatibility
+warning and emit no assembly logic for that block.
 
-Any logic written inside an `assembly` block will be skipped at runtime. The compiler will emit a semantic warning notifying you of this behavior:
+The supported subset is meant for common library idioms, not arbitrary EVM
+assembly. It includes:
+
+- Yul locals and assignments (`let x := ...`, `x := ...`)
+- Reads from Solidity locals and parameters
+- `mstore`, `mload`, and `return` over a bounded scratch memory buffer
+- `tstore` and `tload` transient storage helpers
+- `returndatasize()` and guarded `returndatacopy(...)`
+- Arithmetic, bitwise, shift, and comparison helpers such as `add`, `sub`,
+  `mul`, `div`, `mod`, `and`, `or`, `xor`, `not`, `shl`, `shr`, `lt`, `gt`,
+  `eq`, and `iszero`
+- Simple `if`, `for`, `switch`, and nested block forms when every nested
+  expression is also in the supported subset
+
+Unsupported EVM-only operations such as `sload`, `sstore`, raw `call`, and
+`create` do not map directly to NeoVM. Rewrite those paths with Solidity,
+devpack libraries, or explicit Neo native-contract/syscall wrappers.
 
 ```solidity
-function doSomething() public {
-    uint256 x = 5;
-
-    // ⚠️ Warning: inline assembly block compiled as no-op: NeoVM does not support EVM assembly
+function loadWord() public pure returns (uint256) {
     assembly {
-        let y := sload(0)
-        sstore(1, add(y, x))
+        mstore(0, 42)
+        return(0, 32)
     }
 }
 ```
 
 ## NeoVM Alternatives
 
-If your contract requires low-level operations, do not use `assembly`. Instead, you must use Neo's native intrinsics and Syscalls directly.
+If your contract requires Neo-specific low-level operations, prefer Neo's native
+intrinsics and Syscalls directly.
 
 For example, to execute a cross-contract call with dynamic parameters or specific execution flags, use the `Syscalls` library rather than EVM's `call` opcode.
 

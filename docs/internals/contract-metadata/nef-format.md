@@ -7,12 +7,14 @@ description: "NEF Format from Manifest Specification."
 
 [Back to Manifest Specification](/internals/contract-metadata)
 
+## Overview
+
 The Neo Executable Format (NEF) is the binary container for NeoVM bytecode. The compiler produces a `.nef` file alongside the manifest for every compiled contract.
 
 | Field         | Size     | Description                                                     |
 | ------------- | -------- | --------------------------------------------------------------- |
 | Magic         | 4 bytes  | `NEF3` — identifies the file as a Neo N3 executable             |
-| Compiler ID   | 64 bytes | UTF-8 string, zero-padded (e.g. `neo-solidity-0.1.0`)           |
+| Compiler ID   | 64 bytes | UTF-8 string, zero-padded (e.g. `neo-solidity-0.18.0`)          |
 | Source URL    | variable | Length-prefixed string, max 256 bytes. Set via `--nef-source`   |
 | Reserved      | 1 byte   | Must be `0x00`                                                  |
 | Method Tokens | variable | Varint count + up to 128 token entries for `CALLT` optimization |

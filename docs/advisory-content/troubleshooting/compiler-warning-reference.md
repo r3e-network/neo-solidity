@@ -7,7 +7,7 @@ description: "Compiler Warning Reference from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### Auto-Mapping Warnings
+## Auto-Mapping Warnings
 
 These warnings indicate EVM globals that are auto-mapped to approximate Neo equivalents:
 
@@ -19,7 +19,7 @@ These warnings indicate EVM globals that are auto-mapped to approximate Neo equi
 | `block.basefee`    | Auto-mapped to `Policy.getFeePerByte()`    | Review — different fee model                         |
 | Ether literals     | Parsed but warned                          | Convert to Neo GAS units (10^8 decimals)             |
 
-### Standards Migration Warnings
+## Standards Migration Warnings
 
 | Code | Pattern                              | Fix                                             |
 | ---- | ------------------------------------ | ----------------------------------------------- |

@@ -96,9 +96,9 @@ Both features are perfectly supported on NeoVM. Interfaces are crucial for execu
 Libraries are similar to contracts, but their purpose is that they are deployed only once at a specific address and their code is reused using the `DELEGATECALL` feature of the EVM.
 
 ::: tip 💡 NeoVM Difference: No Delegatecall
-Because NeoVM does not support `delegatecall` (each contract has entirely isolated storage and logic contexts), **external libraries are not supported on Neo N3.** 
+Because NeoVM does not support `delegatecall` (each contract has entirely isolated storage and logic contexts), user-defined libraries are compiled by inlining their functions into the consuming contract.
 
-All library functions must be `internal`. This forces the compiler to inline the library functions directly into the consuming contract at compile time, eliminating the need for an external deployment.
+`external` and `public` library functions are accepted for source compatibility, but the compiler normalizes them to internal-call lowering and emits warnings. Separate deployable/linkable library semantics are not available on Neo N3.
 :::
 
 ## Using For

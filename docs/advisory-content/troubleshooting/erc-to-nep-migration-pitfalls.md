@@ -7,7 +7,7 @@ description: "ERC to NEP Migration Pitfalls from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### Common ERC-20 → NEP-17 Mistakes
+## Common ERC-20 → NEP-17 Mistakes
 
 1. **Keeping 2-parameter transfer:**
 
@@ -49,7 +49,7 @@ description: "ERC to NEP Migration Pitfalls from Troubleshooting."
    function onNEP17Payment(address from, uint256 amount, Any calldata data) external { ... }
    ```
 
-### Common ERC-721 → NEP-11 Mistakes
+## Common ERC-721 → NEP-11 Mistakes
 
 1. **Using uint256 token IDs instead of bytes32**
 2. **Keeping transferFrom instead of 3-param transfer**

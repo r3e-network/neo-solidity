@@ -16,7 +16,7 @@ description: "Type Errors (E25xx) from Error Reference."
 | `E2505` | InvalidCast      | Invalid type cast         | Incompatible explicit cast (e.g., `string` to `uint`) |
 | `E2506` | NullReference    | Null reference            | Accessing member on potentially null reference        |
 
-### Example: E2501 IntegerOverflow
+## Example: E2501 IntegerOverflow
 
 ```
 error[E2501]: integer overflow: value 999999999999999999999 exceeds uint256 range

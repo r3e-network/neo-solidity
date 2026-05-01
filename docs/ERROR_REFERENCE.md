@@ -139,7 +139,7 @@ Use `--json-errors` for machine-readable diagnostics:
 
 2. **Slow compilation**
    - Use optimization flags: `neo-solc contract.sol -O2`
-   - Disable debug info: `neo-solc contract.sol --no-debug`
+   - Use `--format nef` or `--format manifest` when you only need one artifact type
 
 3. **Large bytecode**
    - Use higher optimization levels

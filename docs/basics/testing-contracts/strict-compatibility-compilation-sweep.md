@@ -7,6 +7,8 @@ description: "Strict Compatibility Compilation Sweep from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
+## Overview
+
 This sweep compiles all devpack libraries and example contracts with strict settings to catch regressions:
 
 ```bash

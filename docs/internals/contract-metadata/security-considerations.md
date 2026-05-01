@@ -1,11 +1,13 @@
 ---
-title: "Manifest Specification: Security Considerations"
+title: "Contract Metadata Security Considerations"
 description: "Security Considerations from Manifest Specification."
 ---
 
-# Security Considerations
+# Contract Metadata Security Considerations
 
 [Back to Manifest Specification](/internals/contract-metadata)
+
+## Overview
 
 - **Wildcard permissions** — `contract="*"` with `methods="*"` allows your contract to call any method on any contract. This is the maximum attack surface. Use `--deny-wildcard-permissions` in production builds.
 - **Wildcard contracts** — `contract="*"` with specific methods still allows calling that method on any contract, which may include malicious ones. Use `--deny-wildcard-contracts` when possible.

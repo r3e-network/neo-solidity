@@ -596,7 +596,7 @@ fn lower_return_statement(
 
 /// Task #116 — true iff `expr` is `abi.decode(buf, types)` (with 2 args)
 /// where `buf` is any expression and `types` is the tuple type spec.
-/// Returns a Vec<Expression> clone of the arg slice for downstream
+/// Returns a `Vec<Expression>` clone of the arg slice for downstream
 /// helpers that only take `&[Expression]` (matches the shape those
 /// helpers already accept, e.g. `abi_decode_expected_static_bytes`).
 fn extract_abi_decode_call(expr: &Expression) -> Option<Vec<Expression>> {
@@ -1505,7 +1505,7 @@ fn lower_revert_named_args(
     true
 }
 
-/// Task #185 — parse a Solidity return type string like "uint[3][2]" into
+/// Task #185 — parse a Solidity return type string like `uint[3][2]` into
 /// its nested fixed-size dimensions in OUTER-FIRST order (matches Solidity
 /// source convention: `uint[3][2]` is an array of 2 arrays of 3 uints, so
 /// this returns `vec![2, 3]`).

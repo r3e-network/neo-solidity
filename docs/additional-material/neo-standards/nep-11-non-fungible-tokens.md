@@ -11,7 +11,7 @@ NEP-11 is Neo's non-fungible token standard. Compared to ERC-721, it requires `t
 
 **Spec:** [NEP-11 Proposal](https://github.com/neo-project/proposals/blob/master/nep-11.mediawiki)
 
-### Required Interface
+## Required Interface
 
 | Method        | Parameters                                | Return     | Safe | Description                             |
 | ------------- | ----------------------------------------- | ---------- | ---- | --------------------------------------- |
@@ -34,7 +34,7 @@ Transfer(Hash160 from, Hash160 to, Integer amount, ByteArray tokenId)
 Unlike NEP-17's 3-parameter Transfer event, NEP-11 includes the `tokenId` as a fourth parameter. The `amount` field is `1` for indivisible NFTs.
 :::
 
-### Divisible vs Indivisible
+## Divisible vs Indivisible
 
 NEP-11 supports two modes in a single standard:
 
@@ -56,7 +56,7 @@ interface INEP11Divisible is INEP11 {
 }
 ```
 
-### Token IDs
+## Token IDs
 
 |                  | ERC-721 (Ethereum)         | NEP-11 (Neo)                                  |
 | ---------------- | -------------------------- | --------------------------------------------- |
@@ -72,7 +72,7 @@ function ownerOf(uint256 tokenId) public view returns (address) { ... }
 function ownerOf(bytes32 tokenId) public view returns (address) { ... }
 ```
 
-### Implementation Example
+## Implementation Example
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -139,7 +139,7 @@ contract MyNFT is NEP11 {
 }
 ```
 
-### ERC-721 Migration Checklist
+## ERC-721 Migration Checklist
 
 1. Replace `uint256 tokenId` with `bytes32`
 2. Replace `transferFrom(from, to, tokenId)` with `transfer(to, tokenId, data)` (3 params)

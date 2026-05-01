@@ -7,7 +7,7 @@ The standard `solc` SMTChecker module operates specifically on the behavioral co
 
 **Neo Solidity does not currently include the SMTChecker.** 
 
-Because NeoVM uses arbitrary-precision integers (`BigInteger`) and a dynamic Key-Value storage model, many of the constraints the standard SMTChecker attempts to verify (like arithmetic overflows) are not applicable to the NeoVM runtime.
+Because NeoVM uses arbitrary-precision integers (`BigInteger`) internally, Neo Solidity implements fixed-width overflow behavior with compiler/runtime guards rather than native EVM word overflow. Standard EVM SMTChecker results are therefore not a direct proof for generated NeoVM artifacts; use them as source-level hints and validate arithmetic behavior with Neo Solidity tests.
 :::
 
 ## Verification on Neo

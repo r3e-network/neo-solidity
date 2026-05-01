@@ -7,6 +7,8 @@ description: "I. ERC to NEP Protocol Mapping from Solidity Feature Support."
 
 [Back to Solidity Feature Support](/solidity/feature-support)
 
+## Overview
+
 | Ethereum Standard            | Neo Standard                  | Status | Notes                                                                          |
 | ---------------------------- | ----------------------------- | :----: | ------------------------------------------------------------------------------ |
 | ERC-20 (Fungible Token)      | NEP-17                        |   ✅   | Auto-detected. `transfer(to,amount)` warns to use 4-param NEP-17 form.         |

@@ -7,6 +7,8 @@ description: "Compiler Diagnostics for Standards from Standards and Contracts."
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
+## Overview
+
 The compiler emits actionable diagnostics when it detects Ethereum patterns that need migration. These help catch common mistakes during ERC → NEP porting:
 
 | Code   | Pattern Detected                               | Suggestion                                       |

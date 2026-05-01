@@ -1,85 +1,16 @@
-# Neo Solidity 项目卓越性评估报告
+# Neo Solidity Historical Excellence Assessment
 
-**评估日期**: 2025-01-30
-**评估版本**: v0.9.9
-**更新日期**: 2025-01-30
+::: warning Historical snapshot
+This file is retained only to preserve a pre-`0.18.0` assessment artifact. It is not a current release report and intentionally avoids carrying old score, version, or test-count claims forward.
+:::
 
-## 📊 总体评分
+## Current Sources of Truth
 
-| 维度 | 评分 | 状态 |
-|------|------|------|
-| 功能完整性 | 85% | 🟢 良好 |
-| 正确性 | 90% | 🟢 优秀 |
-| 健壮性 | 80% | 🟢 良好 |
-| 兼容性 | 80% | 🟢 良好 |
-| 可用性 | 85% | 🟢 良好 |
-| 测试覆盖 | 78% | 🟢 良好 |
+- [README](../README.md) — current project status and primary commands.
+- [Solidity Support Matrix](./SOLIDITY_SUPPORT_MATRIX.md) — current audited feature support.
+- [Testing Contracts](/basics/testing-contracts) — current validation suites and commands.
+- [Runtime Specification](/internals/runtime-specification) — current embedded runtime behavior.
 
-**总体评分: 83%** 🟢
+## Archive Note
 
-## ✅ 当前优势
-
-### 1. 测试通过率 100%
-- 322 个核心单元测试全部通过
-- 40 个 conformance 测试全部通过
-- 29 个新增单元测试全部通过
-- 5 个边界条件测试全部通过
-- 3 个错误处理测试全部通过
-- **总计 478 个测试全部通过**
-
-### 2. 代码质量
-- Clippy 零警告
-- 清晰的模块结构
-- 完整的错误处理系统
-
-### 3. 功能完整
-- 完整的 NeoVM opcode 支持
-- 完整的 syscall 支持
-- NEP-11/17/24 标准支持
-- 多级优化器 (O0-O3)
-
-### 4. 文档完善
-- 详细的 README
-- 架构文档
-- 运行时规范
-- 错误参考
-
-## 🔧 改进计划
-
-### P1 - 高优先级
-
-1. **增强测试覆盖**
-   - [ ] 添加更多边界条件测试
-   - [ ] 添加模糊测试
-   - [ ] 添加性能回归测试
-
-2. **健壮性改进**
-   - [ ] 添加输入大小限制
-   - [ ] 添加编译超时机制
-   - [ ] 改进内存使用监控
-
-3. **Gas 精度提升**
-   - [ ] 对齐 Neo N3 官方 gas 表
-   - [ ] 添加 gas 回归测试
-
-### P2 - 中优先级
-
-4. **错误消息增强**
-   - [ ] 添加更多修复建议
-   - [ ] 改进源码位置报告
-
-5. **性能优化**
-   - [ ] 编译缓存
-   - [ ] 增量编译支持
-
-### P3 - 低优先级
-
-6. **工具链集成**
-   - [ ] 完善 Hardhat 插件
-   - [ ] 完善 Foundry 适配器
-
-## 📈 下一步行动
-
-1. 首先增强测试覆盖率
-2. 然后改进健壮性
-3. 最后优化性能
+Earlier versions of this file contained point-in-time quality scores and test totals. Those values were useful as a historical assessment, but they were not generated from the current repository state. Current documentation should cite live metadata, source files, and checked-in verification commands instead of this archive.

@@ -1,21 +1,21 @@
 ---
-title: "Production Readiness: Security Considerations"
+title: "Production Readiness Security Considerations"
 description: "Security Considerations from Production Readiness."
 ---
 
-# Security Considerations
+# Production Readiness Security Considerations
 
 [Back to Production Readiness](/advisory-content/production-readiness)
 
-### Smart Contract Security
+## Smart Contract Security
 
 - **Reentrancy protection**: Use a `locked` state variable with a `nonReentrant` modifier.
 - **Access control**: Use `msg.sender` checks (maps to `Runtime.GetCallingScriptHash()`).
 - **Input validation**: Validate all function parameters with `require`.
-- **Integer overflow**: Solidity 0.8+ has built-in overflow protection. NeoVM uses arbitrary-precision BigInteger, so overflow is not a concern on Neo.
+- **Integer overflow**: Solidity 0.8 checked arithmetic is enforced outside `unchecked`; verify intentional wraparound paths explicitly.
 - **Event logging**: Emit events for all state changes to enable off-chain monitoring.
 
-### Neo-Specific Security
+## Neo-Specific Security
 
 ::: tip Neo Authorization Model
 Neo uses witness-based authorization (`Runtime.checkWitness`) rather than EVM's `msg.sender`-only model. Always use witness checks for sensitive operations, even if your Solidity source uses `msg.sender` guards.
@@ -27,7 +27,7 @@ Neo uses witness-based authorization (`Runtime.checkWitness`) rather than EVM's 
 - **Contract updates**: Protect the update mechanism with strict access control. Test the update path thoroughly.
 - **Storage key collisions**: The compiler uses prefix-based storage keys. Be aware of key layout when upgrading contracts.
 
-### External Audit
+## External Audit
 
 For high-value contracts:
 

@@ -7,6 +7,8 @@ description: "Common Deployment Errors from Deploying Contracts."
 
 [Back to Deploying Contracts](/basics/deploying-contracts)
 
+## Overview
+
 | Error                        | Cause                                                   | Solution                                                       |
 | ---------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
 | `FAULT` on deploy            | Manifest permissions insufficient for constructor logic | Add required permissions or use `--manifest-permissions`       |

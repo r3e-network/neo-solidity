@@ -30,7 +30,7 @@ description: "A. Types from Solidity Feature Support."
 | Tuple types               |   ✅   | Represented as NeoVM arrays internally.                                                                                       |
 | Function types            |   ❌   | `function(...) internal/external` is not representable on NeoVM. State variables, locals, parameters, and return types of function type are rejected with an "unsupported type" diagnostic. Use named functions and inheritance instead of function pointers. |
 
-### Partial type details
+## Partial type details
 
 **`address payable`** — The type is accepted and treated identically to `address`. On Neo, `.transfer(amount)` / `.send(amount)` compile via GAS NEP-17 transfer lowering (`transfer(from,to,amount,data)`), so behavior is close but not identical to EVM attached-value calls.
 

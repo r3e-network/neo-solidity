@@ -22,7 +22,7 @@ contract calls used by Neo Solidity.
 
 | Solidity / EVM | Neo N3 Mapping | Fidelity |
 | --- | --- | --- |
-| `msg.sender` | `System.Runtime.GetCallingScriptHash` | Caller script hash or transaction signer, depending on invocation path. |
+| `msg.sender` | `System.Runtime.GetCallingScriptHash` | Caller script hash or transaction signer, depending on invocation path; internal/self-offset routes can inject a direct-caller override. |
 | `msg.value` | Payment callback amount parameter | Only meaningful inside NEP-17/NEP-11 payment callbacks. |
 | `msg.data` | Current selector plus ABI-encoded arguments | Approximate outside payment callbacks; callback data is typed. |
 | `msg.sig` | Current function selector | Approximate for internal-call semantics. |

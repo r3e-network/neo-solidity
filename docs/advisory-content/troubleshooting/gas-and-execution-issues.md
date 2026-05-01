@@ -7,7 +7,7 @@ description: "Gas and Execution Issues from Troubleshooting."
 
 [Back to Troubleshooting](/advisory-content/troubleshooting)
 
-### Insufficient GAS at Runtime
+## Insufficient GAS at Runtime
 
 ```
 error: execution failed: insufficient GAS

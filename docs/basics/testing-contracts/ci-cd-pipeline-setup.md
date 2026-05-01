@@ -7,7 +7,7 @@ description: "CI/CD Pipeline Setup from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
-### Recommended CI Sequence
+## Recommended CI Sequence
 
 The recommended CI pipeline runs these steps in order:
 
@@ -34,7 +34,7 @@ STRICT_SWEEP_FAIL_ON_UNEXPECTED_WARNINGS=1 make test-compile-strict
 make test-deploy-smoke-full
 ```
 
-### One-Command CI Gate
+## One-Command CI Gate
 
 The `production-gate` target runs all of the above:
 
@@ -44,7 +44,7 @@ make production-gate
 
 See [Production Readiness](/advisory-content/production-readiness) for details.
 
-### GitHub Actions Example
+## GitHub Actions Example
 
 The repository's CI workflow (`.github/workflows/ci.yml`) includes:
 
