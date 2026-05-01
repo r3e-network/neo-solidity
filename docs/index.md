@@ -5,7 +5,7 @@ title: Neo DevPack for Solidity
 titleTemplate: Compile Solidity to Neo N3
 
 hero:
-  name: "{NEO_SOLIDITY}"
+  name: "{NEO_DEVPACK_SOLIDITY}"
   text: "Compile Solidity to Neo N3"
   tagline: "A statically-typed curly-braces programming language compiler designed for developing smart contracts that run on the Neo N3 blockchain."
   image:

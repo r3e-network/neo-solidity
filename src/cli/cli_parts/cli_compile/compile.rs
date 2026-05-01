@@ -189,7 +189,7 @@ fn compile_metadata(
         let has_deserialize = manifest_allows_permission(&manifest, &stdlib_contract, "deserialize");
 
         if !(has_json_deserialize && has_deserialize) {
-            warnings.push(neo_solidity::solidity::Diagnostic::warning(format!(
+            warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(format!(
                     "contract '{}' has a parameterised constructor; deploy it by passing constructor args through `_deploy(data, update)`. Neo-Express: pass a JSON array string via `-d '[7]'`; SDKs that support StackItems may pass an Array directly. The injected deploy prologue uses `StdLib.jsonDeserialize` with a `StdLib.deserialize` fallback, so the manifest must allow these methods.",
                     metadata.name
                 )));
@@ -254,7 +254,7 @@ fn compile_metadata(
         {
             return Err(CompileError::Manifest(message));
         }
-        warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
+        warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
     } else {
         if has_wildcard_contract {
             let message = format!(
@@ -265,7 +265,7 @@ fn compile_metadata(
                 return Err(CompileError::Manifest(message));
             }
             if !wildcard_contract_only_nep_callbacks {
-                warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
+                warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
             }
         }
 
@@ -277,7 +277,7 @@ fn compile_metadata(
             if options.deny_wildcard_methods {
                 return Err(CompileError::Manifest(message));
             }
-            warnings.push(neo_solidity::solidity::Diagnostic::warning(message));
+            warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
         }
     }
 

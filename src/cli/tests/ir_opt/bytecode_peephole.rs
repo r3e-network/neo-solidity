@@ -11,8 +11,8 @@ fn bytecode_peephole_reduces_size_at_o3() {
             kind: FunctionKind::Regular,
             parameters: vec![],
             return_parameters: vec![],
-            state_mutability: neo_solidity::solidity::StateMutability::NonPayable,
-            visibility: neo_solidity::frontend::VisibilityKind::Public,
+            state_mutability: neo_devpack_solidity::solidity::StateMutability::NonPayable,
+            visibility: neo_devpack_solidity::frontend::VisibilityKind::Public,
             offset: 0,
             body: None,
             selector: [0u8; 4],
@@ -27,7 +27,7 @@ fn bytecode_peephole_reduces_size_at_o3() {
         structs: vec![],
         enums: vec![],
         contract_types: vec![],
-        selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
+        selector_registry: std::sync::Arc::new(neo_devpack_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
         has_using_for_star: false,
         has_using_function_list: false,
@@ -47,7 +47,7 @@ fn bytecode_peephole_reduces_size_at_o3() {
             returns: vec![],
             basic_blocks: vec![BasicBlock {
                 instructions: vec![
-                    Instruction::PushLiteral(neo_solidity::ir::LiteralValue::Boolean(true)),
+                    Instruction::PushLiteral(neo_devpack_solidity::ir::LiteralValue::Boolean(true)),
                     Instruction::Drop(ValueType::Boolean),
                     Instruction::Return,
                 ],

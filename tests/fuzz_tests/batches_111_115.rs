@@ -12,9 +12,9 @@
 //! Prefix scheme: 111=III2, 112=JJJ2, 113=KKK2, 114=LLL2, 115=MMM2.
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 
 // ==================== Batch #111 — StdLib utilities runtime ====================
 //

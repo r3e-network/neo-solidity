@@ -1,6 +1,6 @@
 //! Error handling tests for compiler robustness.
 
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 
 #[test]
 fn test_syntax_error_detected() {

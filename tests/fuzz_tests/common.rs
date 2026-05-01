@@ -6,8 +6,8 @@
 
 #![allow(dead_code)]
 
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 pub fn is_solidity_reserved(s: &str) -> bool {
@@ -196,7 +196,7 @@ pub enum ObservedBehavior {
 /// frontend, not in the arithmetic lowering under test). Runtime execution
 /// errors (vs. execution-that-produced-a-fault) also panic, matching the
 /// `execute(..).expect(...)` idiom used by batches #5/#8/#9.
-pub fn compile_and_execute(source: &str) -> neo_solidity::runtime::ExecutionResult {
+pub fn compile_and_execute(source: &str) -> neo_devpack_solidity::runtime::ExecutionResult {
     let artifacts = compile_contracts(source, false, 2)
         .unwrap_or_else(|e| panic!("arith-scope compile failed: {:?}\nsource:\n{}", e, source));
     assert!(
@@ -219,7 +219,7 @@ pub fn compile_and_execute(source: &str) -> neo_solidity::runtime::ExecutionResu
 /// src/runtime/execution/instruction/flow/exceptions.rs). Two-digit selectors
 /// like `0x11` and `0x12` are supported directly; future single-digit
 /// selectors (none currently defined by Solidity) would need padding.
-pub fn observe(result: &neo_solidity::runtime::ExecutionResult) -> ObservedBehavior {
+pub fn observe(result: &neo_devpack_solidity::runtime::ExecutionResult) -> ObservedBehavior {
     if result.success {
         return ObservedBehavior::Returned(decode_uint_le(&result.return_data));
     }

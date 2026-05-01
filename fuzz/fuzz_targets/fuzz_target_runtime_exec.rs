@@ -25,7 +25,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 
 fn fuzz_config() -> RuntimeConfig {
     let mut cfg = RuntimeConfig::default();

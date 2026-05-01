@@ -573,7 +573,7 @@ cargo test --test fuzz_tests differential
 #### **Compiler API**
 
 ```rust
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 
 let source = std::fs::read_to_string("contract.sol").expect("read source");
 let artifacts = compile_contracts(&source, false, 3).expect("compile");

@@ -15,7 +15,7 @@ const debug = Debug("hardhat:neo-devpack-solidity:compiler");
 /**
  * Neo DevPack for Solidity compiler wrapper for Hardhat integration
  */
-export class NeoSolidityCompiler {
+export class NeoDevpackSolidityCompiler {
   private config: NeoHardhatConfig;
   private paths: any;
 

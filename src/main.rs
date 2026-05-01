@@ -27,5 +27,5 @@
 //! - `*.manifest.json` - Contract manifest for deployment
 
 fn main() {
-    neo_solidity::cli::run();
+    neo_devpack_solidity::cli::run();
 }

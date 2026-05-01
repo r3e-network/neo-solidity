@@ -1,6 +1,6 @@
 use super::*;
-use neo_solidity::neo::NEF_SOURCE_MAX_BYTES;
-use neo_solidity::solidity::StateMutability;
+use neo_devpack_solidity::neo::NEF_SOURCE_MAX_BYTES;
+use neo_devpack_solidity::solidity::StateMutability;
 use sha3::{Digest, Keccak256};
 use std::fs;
 use tempfile::tempdir;

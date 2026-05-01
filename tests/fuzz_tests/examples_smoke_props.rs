@@ -39,8 +39,8 @@
 #![allow(unused_imports)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
@@ -186,7 +186,7 @@ fn is_acceptable_init_failure(msg: &str) -> bool {
 enum CompileOutcome {
     Compiled {
         path: PathBuf,
-        artifacts: Vec<neo_solidity::cli::CompilationArtifacts>,
+        artifacts: Vec<neo_devpack_solidity::cli::CompilationArtifacts>,
     },
     SkippedImport,
     SkippedNegativeTest,

@@ -25,9 +25,9 @@
 #![allow(unused_imports)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 proptest! {
@@ -197,7 +197,7 @@ contract C {{
         bytes in prop::collection::vec(any::<u8>(), 0..=1024),
     ) {
         let result = std::panic::catch_unwind(|| {
-            neo_solidity::cli::disassemble_neovm_bytecode(&bytes)
+            neo_devpack_solidity::cli::disassemble_neovm_bytecode(&bytes)
         });
         prop_assert!(result.is_ok(),
             "disasm panicked on {}B input starting {:?}",

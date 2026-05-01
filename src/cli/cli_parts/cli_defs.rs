@@ -14,16 +14,16 @@ fn compiler_version_string_4() -> String {
 pub struct CompilationArtifacts {
     pub metadata: ContractMetadata,
     pub bytecode: Vec<u8>,
-    pub tokens: Vec<neo_solidity::neo::MethodToken>,
+    pub tokens: Vec<neo_devpack_solidity::neo::MethodToken>,
     pub manifest: Value,
-    pub warnings: Vec<neo_solidity::solidity::Diagnostic>,
+    pub warnings: Vec<neo_devpack_solidity::solidity::Diagnostic>,
 }
 
 #[derive(Debug)]
 pub enum CompileError {
-    Diagnostics(Vec<neo_solidity::solidity::Diagnostic>),
-    Semantic(Vec<neo_solidity::solidity::Diagnostic>),
-    Ir(Vec<neo_solidity::ir::IrDiagnostic>),
+    Diagnostics(Vec<neo_devpack_solidity::solidity::Diagnostic>),
+    Semantic(Vec<neo_devpack_solidity::solidity::Diagnostic>),
+    Ir(Vec<neo_devpack_solidity::ir::IrDiagnostic>),
     Manifest(String),
     Message(String),
 }

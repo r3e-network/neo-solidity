@@ -17,6 +17,6 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let _ = std::panic::catch_unwind(|| {
-        let _ = neo_solidity::cli::disassemble_neovm_bytecode(data);
+        let _ = neo_devpack_solidity::cli::disassemble_neovm_bytecode(data);
     });
 });

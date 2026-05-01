@@ -1,5 +1,5 @@
-use neo_solidity::runtime::execution::ExecutionContext;
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::ExecutionContext;
+use neo_devpack_solidity::runtime::RuntimeConfig;
 
 #[test]
 fn ret_without_value_clears_return_data() {

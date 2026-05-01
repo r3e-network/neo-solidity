@@ -6,8 +6,8 @@
 
 #![allow(dead_code)]
 
-use neo_solidity::ir;
-use neo_solidity::runtime::{ExecutionResult, NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::ir;
+use neo_devpack_solidity::runtime::{ExecutionResult, NeoRuntime, RuntimeConfig};
 
 /// Execute bytecode and return the execution result.
 ///
@@ -31,7 +31,7 @@ pub fn execute_bytecode(bytecode: &[u8]) -> ExecutionResult {
 /// The execution result
 pub fn execute_bytecode_with_tokens(
     bytecode: &[u8],
-    tokens: &[neo_solidity::neo::MethodToken],
+    tokens: &[neo_devpack_solidity::neo::MethodToken],
 ) -> ExecutionResult {
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
     runtime

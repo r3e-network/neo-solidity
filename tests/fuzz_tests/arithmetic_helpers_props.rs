@@ -19,8 +19,8 @@
 #![allow(clippy::cast_possible_wrap)]
 #![allow(clippy::cast_lossless)]
 
-use neo_solidity::runtime::execution::{ExecutionContext, StackItem};
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::{ExecutionContext, StackItem};
+use neo_devpack_solidity::runtime::RuntimeConfig;
 use proptest::prelude::*;
 
 const OP_SIGN: u8 = 0x99;

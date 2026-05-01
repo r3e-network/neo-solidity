@@ -2,7 +2,7 @@
 //!
 //! Tests for storage key computation and derivation.
 
-use neo_solidity::storage_key::{compute_state_slot, derive_mapping_slot, KeyFragment};
+use neo_devpack_solidity::storage_key::{compute_state_slot, derive_mapping_slot, KeyFragment};
 use num_bigint::BigInt;
 
 #[test]

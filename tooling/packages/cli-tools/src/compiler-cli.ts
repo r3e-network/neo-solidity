@@ -7,7 +7,7 @@ import { glob } from "glob";
 import { 
   CompilationInput,
   CompilationOutput,
-  NeoSolidityConfig,
+  NeoDevpackSolidityConfig,
   isNeoAddress,
   neoAddressToScriptHash
 } from "@neo-devpack-solidity/types";
@@ -395,7 +395,7 @@ ${flattened}`;
     return resolved;
   }
 
-  private buildCompilerConfig(options: any): NeoSolidityConfig {
+  private buildCompilerConfig(options: any): NeoDevpackSolidityConfig {
     return {
       version: "latest",
       optimizer: {
@@ -433,7 +433,7 @@ ${flattened}`;
 
   private async executeCompilation(
     sources: { [fileName: string]: { content: string } },
-    config: NeoSolidityConfig
+    config: NeoDevpackSolidityConfig
   ): Promise<CompilationOutput> {
     const input: CompilationInput = {
       language: "Solidity",

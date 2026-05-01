@@ -1,6 +1,6 @@
 //! Boundary condition tests for compiler robustness.
 
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 
 #[test]
 fn test_empty_contract() {

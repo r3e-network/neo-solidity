@@ -1,5 +1,5 @@
 pub(crate) fn diagnostic_to_standard_error(
-    diagnostic: &neo_solidity::solidity::Diagnostic,
+    diagnostic: &neo_devpack_solidity::solidity::Diagnostic,
     file: &str,
 ) -> Value {
     let severity = match diagnostic.severity {

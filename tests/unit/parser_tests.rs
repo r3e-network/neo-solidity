@@ -2,7 +2,7 @@
 //!
 //! Tests parsing through compilation.
 
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 
 #[test]
 fn test_simple_contract() {

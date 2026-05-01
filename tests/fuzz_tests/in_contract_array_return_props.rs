@@ -23,8 +23,8 @@
 
 #![allow(clippy::uninlined_format_args)]
 
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 
 /// Wave-#28 minimal repro: a `T[] memory` returned from `this.method()`
 /// must yield an array whose `.length` is the element count and whose

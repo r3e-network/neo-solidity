@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { NeoABICompatibilityLayer } from "@neo-devpack-solidity/abi-router";
-import { NeoSolidityCLI } from "@neo-devpack-solidity/cli-tools";
+import { NeoDevpackSolidityCLI } from "@neo-devpack-solidity/cli-tools";
 import { NeoForge } from "@neo-devpack-solidity/neo-foundry";
 import { ProjectScaffolder } from "@neo-devpack-solidity/templates";
 
@@ -119,7 +119,7 @@ describe("Integration Test Scenarios", () => {
   it("executes registered CLI commands and returns structured failures", async () => {
     const root = await makeTempDir("neo-devpack-solidity-cli-");
 
-    const successCli = new NeoSolidityCLI({
+    const successCli = new NeoDevpackSolidityCLI({
       defaults: {},
       profiles: {},
       plugins: [],
@@ -142,7 +142,7 @@ describe("Integration Test Scenarios", () => {
     expect(success.success).toBe(true);
     expect(await fs.pathExists(path.join(root, "CLITestToken"))).toBe(true);
 
-    const failingCli = new NeoSolidityCLI({
+    const failingCli = new NeoDevpackSolidityCLI({
       defaults: {},
       profiles: {},
       plugins: [],

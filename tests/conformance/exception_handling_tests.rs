@@ -1,8 +1,8 @@
 /// Conformance tests for exception handling
 ///
 /// Tests TRY/ENDTRY/ENDFINALLY with CATCH and FINALLY blocks
-use neo_solidity::runtime::execution::ExecutionContext;
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::ExecutionContext;
+use neo_devpack_solidity::runtime::RuntimeConfig;
 
 /// Test TRY without exception takes normal path
 #[test]

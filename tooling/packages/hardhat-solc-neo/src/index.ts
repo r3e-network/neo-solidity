@@ -8,7 +8,7 @@ import "./tasks/clean";
 import "./tasks/verify-contract";
 
 // Import core components
-import { NeoSolidityCompiler } from "./compiler";
+import { NeoDevpackSolidityCompiler } from "./compiler";
 import { ArtifactManager } from "./artifacts";
 
 // Configuration extension
@@ -26,7 +26,7 @@ declare module "hardhat/types/config" {
 declare module "hardhat/types/runtime" {
   export interface HardhatRuntimeEnvironment {
     neoSolc: {
-      compiler: NeoSolidityCompiler;
+      compiler: NeoDevpackSolidityCompiler;
       artifacts: ArtifactManager;
     };
   }
@@ -150,7 +150,7 @@ extendConfig(
 // Extend Hardhat runtime environment
 extendEnvironment((hre: HardhatRuntimeEnvironment) => {
   hre.neoSolc = {
-    compiler: new NeoSolidityCompiler(hre.config.neoSolc, hre.config.paths),
+    compiler: new NeoDevpackSolidityCompiler(hre.config.neoSolc, hre.config.paths),
     artifacts: new ArtifactManager(hre.config.paths.artifacts)
   };
 });

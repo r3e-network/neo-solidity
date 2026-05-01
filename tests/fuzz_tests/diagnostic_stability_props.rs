@@ -27,7 +27,7 @@
 #![allow(clippy::uninlined_format_args)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 use proptest::prelude::*;
 
 /// Render a `CompileError` to a string in the same shape both calls produce.

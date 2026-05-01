@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { NeoSolidityConfig, NeoNetworkConfig } from "@neo-devpack-solidity/types";
+import { NeoDevpackSolidityConfig, NeoNetworkConfig } from "@neo-devpack-solidity/types";
 
 /**
  * Neo-Foundry configuration
@@ -22,7 +22,7 @@ export interface NeoFoundryConfig {
       /** Remappings */
       remappings: string[];
       /** Neo DevPack for Solidity compiler settings */
-      neoSolc: NeoSolidityConfig;
+      neoSolc: NeoDevpackSolidityConfig;
       /** Neo networks configuration */
       networks: {
         [networkName: string]: NeoNetworkConfig & {

@@ -13,7 +13,7 @@ pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
         let opcode = bytecode[pc];
         pc += 1;
 
-        let opname = neo_solidity::runtime::spec::opcode_name(opcode)
+        let opname = neo_devpack_solidity::runtime::spec::opcode_name(opcode)
             .map(str::to_string)
             .unwrap_or_else(|| format!("OP_{opcode:02X}"));
 
@@ -245,7 +245,7 @@ pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
                     break;
                 };
                 let id = [id_bytes[0], id_bytes[1], id_bytes[2], id_bytes[3]];
-                if let Some(name) = neo_solidity::runtime::spec::syscall_name(&id) {
+                if let Some(name) = neo_devpack_solidity::runtime::spec::syscall_name(&id) {
                     out.push_str(&format!(" {name}"));
                 } else {
                     out.push_str(&format!(" 0x{}", hex::encode(id)));

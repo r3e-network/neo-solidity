@@ -31,7 +31,7 @@ fn removes_trivial_jump_to_next_label() {
 
 #[test]
 fn neovm_peephole_removes_push_drop() {
-    use neo_solidity::ir::LiteralValue;
+    use neo_devpack_solidity::ir::LiteralValue;
     use num_bigint::BigInt;
 
     let module = Module {
@@ -96,7 +96,7 @@ fn neovm_peephole_removes_load_local_drop() {
 
 #[test]
 fn neovm_simplify_removes_add_zero() {
-    use neo_solidity::ir::{BinaryOperator, LiteralValue};
+    use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
     use num_bigint::BigInt;
 
     let module = Module {
@@ -129,7 +129,7 @@ fn neovm_simplify_removes_add_zero() {
 
 #[test]
 fn neovm_simplify_removes_mul_one() {
-    use neo_solidity::ir::{BinaryOperator, LiteralValue};
+    use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
     use num_bigint::BigInt;
 
     let module = Module {
@@ -162,7 +162,7 @@ fn neovm_simplify_removes_mul_one() {
 
 #[test]
 fn neovm_bool_removes_eq_true() {
-    use neo_solidity::ir::{BinaryOperator, LiteralValue};
+    use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
 
     let module = Module {
         functions: vec![Function {
@@ -194,7 +194,7 @@ fn neovm_bool_removes_eq_true() {
 
 #[test]
 fn neovm_bool_removes_ne_false() {
-    use neo_solidity::ir::{BinaryOperator, LiteralValue};
+    use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
 
     let module = Module {
         functions: vec![Function {

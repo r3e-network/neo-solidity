@@ -26,7 +26,7 @@
 #![allow(dead_code)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 use proptest::prelude::*;
 
 /// Reuse the `compile_runtime_roundtrip` simple-type set, but trimmed to the

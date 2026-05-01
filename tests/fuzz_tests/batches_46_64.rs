@@ -7,8 +7,8 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ==================== Batch #46 — Scale probes: slot fan-out, loops, recursion, packed structs, MRO ====================
@@ -35,7 +35,7 @@ use proptest::prelude::*;
 // sum_{i=0..29} (100+i) = 30*100 + 435 = 3435.
 #[test]
 fn batch46_v1_thirty_state_vars_sum_no_slot_collision() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     // Build 30 state var declarations and the setAll/sum bodies programmatically.
     let vars: String = (1..=30u32)
         .map(|i| format!("    uint256 v{};\n", i))
@@ -124,7 +124,7 @@ proptest! {
     fn batch46_v2_for_loop_with_continue_sum(
         n in 0u32..=20u32,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -168,7 +168,7 @@ contract C {
 // the depth ceiling is characterized.
 #[test]
 fn batch46_v3_recursive_sum_range_depth_behavior() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -305,7 +305,7 @@ proptest! {
         nonce_in in 0u64..=(i64::MAX as u64),
         addr_byte in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -386,7 +386,7 @@ contract C {
 // the call would fault with a stack-overflow shape.
 #[test]
 fn batch46_v5_diamond_inheritance_c3_mro_super_resolves_to_c() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract A { function foo() public virtual returns (uint) { return 1; } }
@@ -504,7 +504,7 @@ proptest! {
         v0 in 0u64..=1_000_000u64,
         v1 in 0u64..=1_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         // Guard — the two inner keys (c0 and c0+1) must differ for the
         // collision probe below to be meaningful. They do by construction
         // (c0+1 > c0 within u64 for c0 < u64::MAX), but we also want the two
@@ -620,7 +620,7 @@ contract C {
     fn batch47_w3_bytes32_uint256_cast_is_bit_identity(
         n in 0u32..u32::MAX,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -684,7 +684,7 @@ contract C {
 // return-data marshaling layer, NOT the keccak opcode itself.
 #[test]
 fn batch47_w2_keccak256_empty_bytes_via_call_method() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function f() external pure returns (bytes32) { return keccak256(""); } }
@@ -764,7 +764,7 @@ contract C { function f() external pure returns (bytes32) { return keccak256("")
 // `#[ignore]` off.
 #[test]
 fn batch47_w4_msg_data_length_and_selector_via_call_method() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -858,7 +858,7 @@ contract C {
 // Single-shot (no fuzz input) — the behavior is deterministic.
 #[test]
 fn batch47_w5_require_chain_first_fires_second_is_dead() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1005,7 +1005,7 @@ proptest! {
         safe_a in 1u64..=1_000u64,
         safe_b in 1u64..=1_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1103,7 +1103,7 @@ contract C {
     fn batch48_x4_memory_array_fill_0_to_n_minus_1_sum_closed_form(
         n in 1u32..=20u32,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1201,7 +1201,7 @@ contract C {
 //   - topics[0] = keccak256("Fell(uint256,bytes)").
 #[test]
 fn batch48_x2_fallback_emits_msg_value_and_msg_data() {
-    use neo_solidity::runtime::ExecutionOverrides;
+    use neo_devpack_solidity::runtime::ExecutionOverrides;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -1349,7 +1349,7 @@ contract C {
 // the COMPLETE state machine, not one half of it.
 #[test]
 fn batch48_x3_modifier_on_internal_call_fires_reentrancy_guard() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1592,7 +1592,7 @@ proptest! {
     fn batch49_y1_ternary_dynamic_string_arms_select_correct_literal(
         seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1638,7 +1638,7 @@ contract C {
         nonce in 0u64..=1_000u64,
         addr_seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use sha3::{Digest, Keccak256};
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -1723,7 +1723,7 @@ contract C {
 // drift here.
 #[test]
 fn batch49_y2_address_this_balance_lowers_to_gas_balance_of_self() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1789,7 +1789,7 @@ contract C {
 // literals are baked into the contract source so there's no fuzz axis.
 #[test]
 fn batch49_y4_six_uint_tuple_return_192_bytes_be_packed() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1885,7 +1885,7 @@ contract C {
 // that path is green. Y5 isolates the struct-return-type gap.
 #[test]
 fn batch49_y5_cross_contract_try_catch_returns_struct_binding() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     // The target T and caller C are compiled in the same source so
     // `analyse_all_sources` merges T's public methods into C's manifest
     // (Task #83 wiring). The zero-placeholder target address triggers
@@ -2045,7 +2045,7 @@ contract C {
 
 #[test]
 fn batch50_z1_block_number_default_and_override() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     // Task spec: block.number must respect `override_block_height`. The
     // default-path value is implementation-defined (RuntimeConfig sets
     // default_block_height=0); we pin the with-override value exactly.
@@ -2129,7 +2129,7 @@ contract C {
 
 #[test]
 fn batch50_z2_tx_origin_equals_msg_sender_on_direct_call() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     // For a direct entry-contract call (no proxy/intermediate), msg.sender
     // and tx.origin must resolve to the same 20-byte address. The lowering
     // paths diverge under inter-contract calls — msg.sender becomes
@@ -2241,7 +2241,7 @@ contract C {
 // the runtime decode helper rather than an `Expression::List`.
 #[test]
 fn batch50_z3_abi_decode_three_types_roundtrip() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -2366,7 +2366,7 @@ proptest! {
     fn batch50_z5_array_push_pop_length_and_empty_pop_panic(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -2594,7 +2594,7 @@ contract Token {
 // (caller-override survives _deploy) together enable this probe.
 #[test]
 fn batch51_aa1_ownable_pattern_ctor_captures_sender_and_only_owner_gate() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract Ownable {
@@ -2768,7 +2768,7 @@ proptest! {
         v in 1u64..=1_000_000u64,
         o in 1u64..=1_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         prop_assume!(v != o);
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -2870,7 +2870,7 @@ contract C {
         b2 in any::<u8>(),
         b3 in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -2944,7 +2944,7 @@ contract C {
 //       shared between the two frames.
 #[test]
 fn batch51_aa3_reentrancy_guard_self_call_fires_uint_lock() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -3021,7 +3021,7 @@ contract C {
 // assertion pins the fix.
 #[test]
 fn batch51_aa5_storage_pointer_alias_mutation_round_trips() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -3216,7 +3216,7 @@ contract C {
 // external→internal dispatch.
 #[test]
 fn batch52_bb1_erc20_style_transfer_internal_helper_roundtrips_balances() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract T {
@@ -3366,7 +3366,7 @@ contract T {
 // on the raw UTF-8 bytes.
 #[test]
 fn batch52_bb2_string_concat_payload_bytes_hello_world() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -3417,7 +3417,7 @@ contract C {
 // 0..3) and is a purer test of the field-read + bool-return path.
 #[test]
 fn batch52_bb3_storage_struct_field_equality_with_short_circuit_and() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -3554,7 +3554,7 @@ proptest! {
         a in 1u64..=10_000_000_000u64,
         b in 1u64..=10_000_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -3627,7 +3627,7 @@ contract C {
         hit_slot in 0usize..5,
         d0 in 1u64..=50, d1 in 1u64..=50, d2 in 1u64..=50, d3 in 1u64..=50,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         use num_traits::Num;
         // Build slots[0..5] so slots[hit_slot] == 99 and the other four
@@ -3711,7 +3711,7 @@ contract C {{
 // round-trip at representative DeFi magnitudes, not just the fuzz range.
 #[test]
 fn batch52_bb4b_fixed_point_mul_2e18_times_3e18_equals_6e18() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -3820,7 +3820,7 @@ contract C {
 // and reads with "does-not-exist". Different mapping-guard shape.
 #[test]
 fn batch53_cc1_nft_ownership_map_mint_and_owner_of_with_guards() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract NFT {
@@ -4072,7 +4072,7 @@ contract C {{
         e in 0u64..=16u64,
         m in 2u64..=1000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -4131,7 +4131,7 @@ contract C {
 // First run will tell us whether it's GREEN or gap-flagged.
 #[test]
 fn batch53_cc4_storage_log_array_push_struct_with_bytes_and_timestamp() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -4286,7 +4286,7 @@ contract C {
 // back the state vars through the three Solidity public getters.
 #[test]
 fn batch53_cc5_inheritance_3_deep_constructor_args_runtime_roundtrip() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -4499,7 +4499,7 @@ contract C is B { uint public c; constructor(uint x, uint y, uint z) B(x, y) { c
 // direct-call equality assertion.
 #[test]
 fn batch54_dd1_tx_origin_differs_from_msg_sender_in_nested_call() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract Caller {
@@ -4621,7 +4621,7 @@ proptest! {
     fn batch54_dd2_int256_sub_overflow_underflow_and_narrow_safe(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigInt;
 
         // (a) f(INT_MAX, -1) MUST revert Panic(0x11) — `a - (-1) = a + 1 =
@@ -4743,7 +4743,7 @@ contract C { function f(int256 a, int256 b) external pure returns (int256) {
         expiry in 0u64..=1_000_000u64,
         addr_seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use sha3::{Digest, Keccak256};
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -4840,7 +4840,7 @@ contract C {
 //   - r.return_data[132..164] == BE32(3)
 #[test]
 fn batch54_dd4_custom_error_with_array_arg_emits_evm_canonical_payload() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -4954,7 +4954,7 @@ contract C {
 // harness doesn't pin an implementation detail.
 #[test]
 fn batch54_dd5_address_code_length_eoa_returns_false() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -5101,7 +5101,7 @@ proptest! {
         a in 0u64..=1_000_000_000u64,
         b in 0u64..=1_000_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -5192,7 +5192,7 @@ contract C { function f() external pure returns (uint128) {
 // the call doesn't fault and the raw payload contains "foo".
 #[test]
 fn batch55_ee2_storage_mixed_struct_with_bytes32_and_string() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -5349,7 +5349,7 @@ proptest! {
         mint_amt in 100u64..=1_000_000u64,
         transfer_amt in 1u64..=100u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         // Ensure approve_amt ≥ transfer_amt (else `require(allowances …)` fires
         // legitimately). Pin approve = transfer_amt + 5 so there's headroom
@@ -5485,7 +5485,7 @@ contract T {
 // middle literal.
 #[test]
 fn batch55_ee4_string_concat_three_args_mixed_param_literal_param() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -5571,7 +5571,7 @@ contract C {
 // flip the `#[ignore]` off; the b"bad" assertion should then pin.
 #[test]
 fn batch55_ee5_try_catch_error_string_cross_contract_propagates_reason() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract Target {
@@ -5875,7 +5875,7 @@ contract C {
 // 31 zero-pad bytes before). Total rd.len() = 3 × 32 = 96 bytes.
 #[test]
 fn batch56_ff2_address_comparison_equality_and_lexicographic_ordering() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -6000,7 +6000,7 @@ contract C {
 // injection facility.
 #[test]
 fn batch56_ff3_reentrancy_vulnerable_deposit_withdraw_shape_compiles_and_deploys() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract V {
@@ -6247,7 +6247,7 @@ proptest! {
     fn batch57_gg1_signed_div_rounds_toward_zero_per_solidity_spec(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function div(int a, int b) external pure returns (int) { return a / b; } }"#;
@@ -6312,7 +6312,7 @@ contract C { function div(int a, int b) external pure returns (int) { return a /
         a in 0u64..(1u64 << 32),
         b in 0u64..(1u64 << 32),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function add(uint a, uint b) external pure returns (uint) { return a + b; } }"#;
@@ -6375,7 +6375,7 @@ contract C { function add(uint a, uint b) external pure returns (uint) { return 
 // exhaustively cover the sign trichotomy — no fuzz-sampling needed.
 #[test]
 fn batch57_gg2_uint256_cast_of_int256_two_complement_reinterpretation() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function f(int256 n) external pure returns (uint256) { return uint256(n); } }"#;
@@ -6502,7 +6502,7 @@ contract C { function f(int256 n) external pure returns (uint256) { return uint2
 // byte-pattern invariance.
 #[test]
 fn batch57_gg4_uint160_to_address_bit_width_cast_preserves_20_bytes() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function f(uint160 n) external pure returns (address) { return address(n); } }"#;
@@ -6615,7 +6615,7 @@ contract C { function f(uint160 n) external pure returns (address) { return addr
 // semantics require (§4.3, §4.7.3).
 #[test]
 fn batch57_gg5_payable_address_cast_is_type_only_bytes_preserved() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C { function f(address a) external pure returns (address payable) { return payable(a); } }"#;
@@ -6782,7 +6782,7 @@ proptest! {
     fn batch58_hh1_storage_packed_struct_mapping_roundtrip_four_uint64_fields(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -6891,7 +6891,7 @@ contract C {
     fn batch58_hh2_string_array_push_push_get_roundtrip_preserves_order(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -6987,7 +6987,7 @@ contract C {
 // observes caller=alice and binds owner := alice.
 #[test]
 fn batch58_hh3_immutable_msg_sender_owner_check_isolates_caller_identity() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -7182,7 +7182,7 @@ contract C {
 // pattern as batch53 CC2 / batch54 DD3 JSON-leak probes.
 #[test]
 fn batch58_hh4_abi_decode_3tuple_mixed_uint_string_address_roundtrips() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -7310,7 +7310,7 @@ contract C {
 //       `catch Error(string)` arm.
 #[test]
 fn batch58_hh5_fallback_revert_caught_by_try_catch_error_string() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 interface Target {
@@ -7498,7 +7498,7 @@ proptest! {
         v0 in 0u64..=1_000_000u64,
         v1 in 0u64..=1_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         prop_assume!(v0 != v1);
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -7773,7 +7773,7 @@ contract C {
 //   true:  single byte 0x01 OR 32-byte BE slot (31 zeros + 0x01)
 #[test]
 fn batch59_ii3_enum_equality_compare_dispatches_three_variants() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -7887,7 +7887,7 @@ contract C {
 // makes Target.* methods reachable through C's self_method_offsets.
 #[test]
 fn batch59_ii4_multi_arm_try_catch_dispatches_panic_error_bytes_by_kind() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 interface ITarget {
@@ -8161,7 +8161,7 @@ proptest! {
     fn batch60_jj1_require_else_branch_does_not_mutate_counter(
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -8260,7 +8260,7 @@ contract C {
 // 10, 20, or a garbage collision value.
 #[test]
 fn batch60_jj2_shared_storage_across_methods_sum_view() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -8419,7 +8419,7 @@ contract C {
 // arm, as the commented body below already asserts).
 #[test]
 fn batch60_jj3_try_catch_self_call_reentrancy_absorbs_revert_envelope() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -8503,7 +8503,7 @@ proptest! {
     // across seed variations (same pattern as FF1 / EE1b / CC2).
     #[test]
     fn batch60_jj4_bytes_memory_element_equality_loop(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -8603,7 +8603,7 @@ contract C {
 // or encoding a stale value.
 #[test]
 fn batch60_jj5_event_emit_after_balance_mutation_captures_args() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -8907,7 +8907,7 @@ contract C { function f(uint a) external pure returns (uint) { return a / 0; } }
         }
         Ok(arts) => {
             // Path B: compile accepted; runtime must Panic(0x12).
-            use neo_solidity::runtime::types::StackItem;
+            use neo_devpack_solidity::runtime::types::StackItem;
             let art = &arts[0];
             let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("KK1 rt");
             let r = rt
@@ -9025,7 +9025,7 @@ proptest! {
         ov in 1u64..=1_000_000u64,
         _seed in any::<u8>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         prop_assume!(v != ov);
         let src = r#"// SPDX-License-Identifier: MIT
@@ -9143,7 +9143,7 @@ contract C {
     // byte-memory literals in at source time (same pattern as JJ4).
     #[test]
     fn batch61_kk4_bytes_memory_keccak_equality(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -9225,7 +9225,7 @@ contract C {
     // surfaces.
     #[test]
     fn batch61_kk5_calldata_open_ended_slice_raw_bytes(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -9361,7 +9361,7 @@ contract C {
 // abi.decode shapes.
 #[test]
 fn batch62_ll1_memory_array_bubble_sort_roundtrip() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9459,7 +9459,7 @@ contract C {
 // LL2 — Deep internal-call chain across 5 nested frames. f() == 15.
 #[test]
 fn batch62_ll2_deep_function_call_chain_5_levels() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9519,7 +9519,7 @@ contract C {
 // `is_fixed_bytes_cast_expr`, so the leak is drained before SETITEM.
 #[test]
 fn batch62_ll3_keccak256_over_1kb_buffer() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9582,7 +9582,7 @@ contract C {
 // call must still see 42 (storage persisted across the tx).
 #[test]
 fn batch62_ll4_modifier_with_state_mutation_pre_body() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9657,7 +9657,7 @@ contract C {
 // a 2-contract inheritance chain. B.f() must = A.f() + 10 = 11.
 #[test]
 fn batch62_ll5_virtual_override_super_dispatch() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9821,7 +9821,7 @@ proptest! {
 
     #[test]
     fn batch63_mm1_eight_parameter_arity_sum(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -9878,7 +9878,7 @@ contract C {
 // without field collisions.
 #[test]
 fn batch63_mm2_nested_struct_in_dynamic_storage_array() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10014,7 +10014,7 @@ proptest! {
 
     #[test]
     fn batch63_mm3_three_arg_string_concat_all_params(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -10056,7 +10056,7 @@ contract C {
 // return the 4-byte selector keccak256("f()")[..4] = 0x26121ff0.
 #[test]
 fn batch63_mm4_msg_sig_returns_function_selector_literal() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10133,7 +10133,7 @@ proptest! {
 
     #[test]
     fn batch63_mm5_calldata_slice_dynamic_indices(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -10365,7 +10365,7 @@ proptest! {
         nonce in 0u64..=1_000u64,
         deadline in 0u64..=2_000_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use sha3::{Digest, Keccak256};
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10473,7 +10473,7 @@ proptest! {
 
     #[test]
     fn batch64_nn2_storage_quicksort_recursive(_seed in any::<u8>()) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10617,7 +10617,7 @@ contract C { function f() external pure returns (int256) {
 // selector+args; unwrap strips the selector and decodes back to 42.
 #[test]
 fn batch64_nn4_encode_call_decode_roundtrip() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10716,7 +10716,7 @@ contract C {
 // get(0)=1, get(1)=0, get(2)=3, len()=3.
 #[test]
 fn batch64_nn5_delete_array_element_preserves_length() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -10956,7 +10956,7 @@ contract C {
 // (wired via `#[ignore]` flip below if any of the four assertions break).
 #[test]
 fn batch65_oo1_erc721_enumerable_mint_sequence() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -11151,7 +11151,7 @@ proptest! {
 
     #[test]
     fn batch65_oo2_merkle_proof_verify_2leaf(leaf_choice in 0u8..=1u8) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use sha3::{Digest, Keccak256};
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -11298,7 +11298,7 @@ contract C {
             0 => {
                 // addMaxPlusOne() → Panic(0x11).
                 let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-                    "addMaxPlusOne", &[] as &[neo_solidity::runtime::types::StackItem])
+                    "addMaxPlusOne", &[] as &[neo_devpack_solidity::runtime::types::StackItem])
                     .expect("OO3 addMaxPlusOne call");
                 prop_assert!(!r.success,
                     "OO3 addMaxPlusOne (MAX_INT128 + 1) must PANIC; got \
@@ -11320,7 +11320,7 @@ contract C {
             1 => {
                 // mulMaxTimesTwo() → Panic(0x11).
                 let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-                    "mulMaxTimesTwo", &[] as &[neo_solidity::runtime::types::StackItem])
+                    "mulMaxTimesTwo", &[] as &[neo_devpack_solidity::runtime::types::StackItem])
                     .expect("OO3 mulMaxTimesTwo call");
                 prop_assert!(!r.success,
                     "OO3 mulMaxTimesTwo (MAX_INT128 * 2) must PANIC; got \
@@ -11334,7 +11334,7 @@ contract C {
             2 => {
                 // addSafe() → 3000 (1000 + 2000 fits comfortably in int128).
                 let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-                    "addSafe", &[] as &[neo_solidity::runtime::types::StackItem])
+                    "addSafe", &[] as &[neo_devpack_solidity::runtime::types::StackItem])
                     .expect("OO3 addSafe call");
                 prop_assert!(r.success,
                     "OO3 addSafe (1000 + 2000) must succeed; exc={:?}. \
@@ -11350,7 +11350,7 @@ contract C {
             _ => {
                 // mulSafe() → 5000 (100 * 50 fits comfortably in int128).
                 let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest,
-                    "mulSafe", &[] as &[neo_solidity::runtime::types::StackItem])
+                    "mulSafe", &[] as &[neo_devpack_solidity::runtime::types::StackItem])
                     .expect("OO3 mulSafe call");
                 prop_assert!(r.success,
                     "OO3 mulSafe (100 * 50) must succeed; exc={:?}. \
@@ -11383,7 +11383,7 @@ contract C {
 // STATUS — Expected active. Task #155 tracks any divergence.
 #[test]
 fn batch65_oo4_uninit_state_vars_default_zero() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     use num_bigint::BigUint;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -11519,7 +11519,7 @@ proptest! {
         a in 0u64..=1_000_000u64,
         b in 0u64..=1_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use num_bigint::BigUint;
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;

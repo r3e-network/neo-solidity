@@ -114,10 +114,10 @@ fn parse_manifest_permissions_array(value: &Value) -> Result<ManifestPermissionM
         let contract = if contract_raw.trim() == "*" {
             "*".to_string()
         } else {
-            let parsed = neo_solidity::neo::parse_uint160_hex_be(contract_raw).map_err(|err| {
+            let parsed = neo_devpack_solidity::neo::parse_uint160_hex_be(contract_raw).map_err(|err| {
                 format!("manifest permission entry #{index} has invalid 'contract': {err}")
             })?;
-            neo_solidity::neo::format_uint160_hex_be(&parsed)
+            neo_devpack_solidity::neo::format_uint160_hex_be(&parsed)
         };
 
         let methods_value = obj.get("methods").ok_or_else(|| {

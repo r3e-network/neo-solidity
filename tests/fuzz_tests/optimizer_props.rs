@@ -7,10 +7,10 @@
 #![allow(clippy::uninlined_format_args)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 use sha2::{Digest, Sha256};
 
@@ -20,7 +20,7 @@ fn compile_and_call(
     opt_level: u8,
     method: &str,
     args: &[StackItem],
-) -> Result<neo_solidity::runtime::ExecutionResult, String> {
+) -> Result<neo_devpack_solidity::runtime::ExecutionResult, String> {
     let artifacts = compile_contracts(source, false, opt_level)
         .map_err(|e| format!("compile failed at O{opt_level}: {e:?}"))?;
     if artifacts.is_empty() {
@@ -36,8 +36,8 @@ fn compile_and_call(
 /// Assert that two execution results are semantically equivalent (success,
 /// return data, and exception shape).
 fn assert_results_equivalent(
-    a: &neo_solidity::runtime::ExecutionResult,
-    b: &neo_solidity::runtime::ExecutionResult,
+    a: &neo_devpack_solidity::runtime::ExecutionResult,
+    b: &neo_devpack_solidity::runtime::ExecutionResult,
 ) {
     assert_eq!(a.success, b.success, "success mismatch between O0 and O3");
     assert_eq!(
@@ -1017,7 +1017,7 @@ struct DiffOutcome {
 }
 
 impl DiffOutcome {
-    fn from_result(r: &neo_solidity::runtime::ExecutionResult) -> Self {
+    fn from_result(r: &neo_devpack_solidity::runtime::ExecutionResult) -> Self {
         let exception_kind = r.exception.as_ref().map(|e| e.exception_type.as_str());
         DiffOutcome {
             success: r.success,

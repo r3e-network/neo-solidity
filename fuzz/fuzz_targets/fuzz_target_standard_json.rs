@@ -8,7 +8,7 @@
 //! paths for malicious or malformed input. Panics here indicate a bug
 //! that would bring down the compiler process.
 //!
-//! The entry point is `neo_solidity::cli::fuzz_process_standard_json_content`,
+//! The entry point is `neo_devpack_solidity::cli::fuzz_process_standard_json_content`,
 //! a total wrapper around the internal `process_standard_json_content`.
 
 #![no_main]
@@ -17,6 +17,6 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let _ = std::panic::catch_unwind(|| {
-        let _ = neo_solidity::cli::fuzz_process_standard_json_content(data);
+        let _ = neo_devpack_solidity::cli::fuzz_process_standard_json_content(data);
     });
 });

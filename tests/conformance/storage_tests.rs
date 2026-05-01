@@ -1,8 +1,8 @@
 /// Conformance tests for storage operations
 ///
 /// Tests System.Storage.Get/Put/Delete/Find syscalls
-use neo_solidity::runtime::execution::ExecutionContext;
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::ExecutionContext;
+use neo_devpack_solidity::runtime::RuntimeConfig;
 use sha2::{Digest, Sha256};
 
 fn syscall_id(name: &str) -> [u8; 4] {

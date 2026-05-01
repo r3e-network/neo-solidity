@@ -2,7 +2,7 @@
 //!
 //! Provides types and utilities for running NeoVM specification conformance tests.
 
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use serde::{Deserialize, Serialize};
 
 /// A single conformance test vector
@@ -71,7 +71,7 @@ impl ConformanceRunner {
     /// Run a single test vector
     pub fn run_single(&self, vector: &TestVector) -> TestResult {
         // Compile the source using the CLI compile function
-        let compile_result = neo_solidity::cli::compile_contracts(&vector.source, false, 0);
+        let compile_result = neo_devpack_solidity::cli::compile_contracts(&vector.source, false, 0);
 
         let artifacts = match compile_result {
             Ok(artifacts) => artifacts,

@@ -8,8 +8,8 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ==================== Task #107 — Canonical Panic envelope round-trip ====================
@@ -29,7 +29,7 @@ use proptest::prelude::*;
 // `unchecked { }` must revert with Panic(0x11).
 #[test]
 fn task107_catch_panic_0x11_arith_overflow() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -76,7 +76,7 @@ contract C {
 // variants (0,1,2) must revert with Panic(0x21).
 #[test]
 fn task107_catch_panic_0x21_enum_cast() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -125,7 +125,7 @@ contract C {
 // Task #107 on `lower_array_subscript_expression`.
 #[test]
 fn task107_catch_panic_0x32_array_oob() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -174,7 +174,7 @@ contract C {
 // expected static layout requires 32 bytes.
 #[test]
 fn task107_catch_panic_0x41_abi_decode_short() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -239,7 +239,7 @@ contract C {
 // `basic_ops.rs:306`).
 #[test]
 fn task108_catch_panic_int256_min_div_neg_one_routes_canonical() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {

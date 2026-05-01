@@ -10,7 +10,7 @@ fuzz_target!(|data: &[u8]| {
         // We only care about panics/crashes, not semantic correctness.
         for opt in [0, 1, 2, 3] {
             let _ = std::panic::catch_unwind(|| {
-                let _ = neo_solidity::cli::compile_contracts(source, false, opt);
+                let _ = neo_devpack_solidity::cli::compile_contracts(source, false, opt);
             });
         }
     }

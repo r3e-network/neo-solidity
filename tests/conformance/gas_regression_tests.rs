@@ -1,8 +1,8 @@
 /// Gas accounting regression tests
 ///
 /// These tests verify that gas consumption remains stable across refactoring.
-use neo_solidity::runtime::execution::ExecutionContext;
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::ExecutionContext;
+use neo_devpack_solidity::runtime::RuntimeConfig;
 use sha2::{Digest, Sha256};
 
 fn syscall_id(name: &str) -> [u8; 4] {

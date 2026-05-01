@@ -44,8 +44,8 @@
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::needless_borrows_for_generic_args)]
 
-use neo_solidity::neo::MethodToken;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::neo::MethodToken;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 /// StdLib native-contract hash (UInt160 LE) — copied from

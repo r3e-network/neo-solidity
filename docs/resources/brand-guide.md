@@ -12,6 +12,6 @@ For the official Solidity brand name guidelines, logo licenses, and usage criter
 
 When referring to the compiler project that targets the Neo N3 blockchain:
 
-*   **Project Name:** "Neo DevPack for Solidity" (not "NeoSolidity", "neosol", or "Neo DevPack for Solidity").
+*   **Project Name:** "Neo DevPack for Solidity" (not "NeoDevpackSolidity", "neosol", "Neo Solidity", or "Neo-Solidity").
 *   **Compiler Binary:** `neo-solc`
 *   **Logos:** The Neo DevPack for Solidity logo combines the visual identity of the Neo Smart Economy with the standard recognizable elements of smart contract compilation. Please refer to the Neo Foundation's official [brand assets](https://neo.org/press) when representing the target network.

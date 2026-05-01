@@ -44,7 +44,7 @@
 //! observing `instruction_pointer` on `RuntimeException`, which is only
 //! populated on faults.
 
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ===== Markers =====

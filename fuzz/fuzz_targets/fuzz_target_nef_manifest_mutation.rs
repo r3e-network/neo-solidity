@@ -16,7 +16,7 @@
 //! which lets the mutation reach much further into the parser.
 //!
 //! Invariant under test: for any (seed_index, mutations) pair, parsing
-//! the mutated input via `neo_solidity::neo::parse_nef` and via
+//! the mutated input via `neo_devpack_solidity::neo::parse_nef` and via
 //! `serde_json::from_slice::<Value>` (the manifest entry point used by
 //! `fuzz_target_manifest_json`) terminates with either `Ok(_)` or
 //! `Err(_)` — never a Rust panic, never an OOM-abort.
@@ -258,7 +258,7 @@ fuzz_target!(|data: &[u8]| {
                 // every byte sequence — never panics. Output is
                 // discarded; we only care about reachability + absence
                 // of crashes.
-                let _ = neo_solidity::neo::parse_nef(&buf);
+                let _ = neo_devpack_solidity::neo::parse_nef(&buf);
             }
             Parser::Manifest => {
                 // Mirror `fuzz_target_manifest_json`: parse as JSON and

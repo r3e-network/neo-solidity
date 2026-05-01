@@ -1,4 +1,4 @@
-import type { NeoSolidityConfig, CompilationError } from './compiler';
+import type { NeoDevpackSolidityConfig, CompilationError } from './compiler';
 
 export type TaskArguments = Record<string, any>;
 export interface HardhatRuntimeEnvironment {
@@ -57,7 +57,7 @@ export interface NeoHardhatConfig {
   };
 }
 
-type CompilerConfig = NeoSolidityConfig;
+type CompilerConfig = NeoDevpackSolidityConfig;
 
 export interface NeoNetworkConfig {
   magic: number;

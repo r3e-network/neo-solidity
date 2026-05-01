@@ -42,13 +42,13 @@
 #![allow(unused_imports)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 /// Compile a tiny contract source and assert success (with rich error
 /// context). Returns the artifact for any further runtime probing.
-fn must_compile(label: &str, src: &str) -> neo_solidity::cli::CompilationArtifacts {
+fn must_compile(label: &str, src: &str) -> neo_devpack_solidity::cli::CompilationArtifacts {
     let arts = compile_contracts(src, false, 2)
         .unwrap_or_else(|e| panic!("{label}: compile failed: {:?}\nsource:\n{}", e, src));
     assert!(!arts.is_empty(), "{label}: compile produced no artifacts");
@@ -458,7 +458,7 @@ contract C {
         let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
         let r = rt.call_method(
             &art.bytecode, &art.tokens, &art.manifest, "rt",
-            &[neo_solidity::runtime::types::StackItem::UnsignedInteger(factor as u64)],
+            &[neo_devpack_solidity::runtime::types::StackItem::UnsignedInteger(factor as u64)],
         ).expect("policy fee factor host-level");
         prop_assert!(r.success);
         prop_assert_eq!(decode_uint_le(&r.return_data), num_bigint::BigUint::from(factor as u64));
@@ -549,7 +549,7 @@ contract C {{
         let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
         let r = rt.call_method(
             &art.bytecode, &art.tokens, &art.manifest, "probe",
-            &[neo_solidity::runtime::types::StackItem::UnsignedInteger(block_idx)],
+            &[neo_devpack_solidity::runtime::types::StackItem::UnsignedInteger(block_idx)],
         ).expect("ledger.currentIndex host-level");
         prop_assert!(r.success,
             "Ledger.currentIndex must succeed; exc={:?}",

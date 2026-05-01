@@ -32,9 +32,9 @@
 
 #![allow(unused_imports)]
 
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use std::time::Instant;
 
 // ---------- Representative contracts ----------
@@ -387,7 +387,7 @@ const THRESHOLD_LARGE_RUNTIME_US: u128 = 1_000_000; // 1 s total
 /// Time `compile_contracts(src, false, 2)`. Panics if compilation fails —
 /// these contracts are baked-in known-good source; a compile failure is a
 /// frontend regression, not a perf regression.
-fn time_compile(label: &str, src: &str) -> (u128, Vec<neo_solidity::cli::CompilationArtifacts>) {
+fn time_compile(label: &str, src: &str) -> (u128, Vec<neo_devpack_solidity::cli::CompilationArtifacts>) {
     let t0 = Instant::now();
     let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
         panic!(
@@ -410,7 +410,7 @@ fn time_compile(label: &str, src: &str) -> (u128, Vec<neo_solidity::cli::Compila
 /// per RPC). Returns the total elapsed µs across all `n` calls.
 fn time_runtime_calls(
     label: &str,
-    art: &neo_solidity::cli::CompilationArtifacts,
+    art: &neo_devpack_solidity::cli::CompilationArtifacts,
     method: &str,
     args: &[StackItem],
     n: usize,

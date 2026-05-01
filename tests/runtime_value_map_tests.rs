@@ -1,4 +1,4 @@
-use neo_solidity::runtime::types::RuntimeValue;
+use neo_devpack_solidity::runtime::types::RuntimeValue;
 use std::collections::HashMap;
 
 #[test]

@@ -14,8 +14,8 @@
 //!
 //! Author: Jimmy <jimmy@r3e.network>
 
-// Allow referring to this crate by name (`neo_solidity::...`) internally.
-extern crate self as neo_solidity;
+// Allow referring to this crate by name (`neo_devpack_solidity::...`) internally.
+extern crate self as neo_devpack_solidity;
 
 // Core compilation modules
 pub mod ir;

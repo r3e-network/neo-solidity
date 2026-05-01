@@ -10,9 +10,9 @@
 //! 104 = BBB2, 105 = CCC2.
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 #[allow(unused_imports)]
 use proptest::prelude::*;
 
@@ -358,7 +358,7 @@ contract C {
 
 #[test]
 fn batch100_unsupported_evm_precompiles_0x06_to_0x09_are_rejected() {
-    use neo_solidity::cli::CompileError;
+    use neo_devpack_solidity::cli::CompileError;
 
     for index in 0x06u8..=0x09 {
         let src = format!(

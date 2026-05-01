@@ -25,8 +25,8 @@
 
 use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
-use neo_solidity::neo::MethodToken;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::neo::MethodToken;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 
 /// Cap on the bytecode prefix length. Plenty of room for a handful of
 /// stack-priming opcodes plus a CALLT (3 bytes: 0x37 + u16 LE token index)

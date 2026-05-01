@@ -23,7 +23,7 @@
 #![allow(clippy::uninlined_format_args)]
 
 use super::common::*;
-use neo_solidity::cli::{compile_contracts, disassemble_neovm_bytecode};
+use neo_devpack_solidity::cli::{compile_contracts, disassemble_neovm_bytecode};
 use proptest::prelude::*;
 
 proptest! {

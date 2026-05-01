@@ -190,7 +190,7 @@ fn enforce_supported_pragma(
 
     // Compiler compatibility targets mainstream modern Solidity ranges used by
     // upstream protocols. We accept pragmas that intersect 0.5.x through 0.8.x.
-    if pragma_supports_neo_solidity(spec.as_str()) {
+    if pragma_supports_neo_devpack_solidity(spec.as_str()) {
         Ok(pragma_min_version(spec.as_str()))
     } else {
         Err(FrontendError::UnsupportedVersion(spec))
@@ -365,7 +365,7 @@ fn strip_comments_and_strings(source: &str) -> String {
     out
 }
 
-fn pragma_supports_neo_solidity(spec: &str) -> bool {
+fn pragma_supports_neo_devpack_solidity(spec: &str) -> bool {
     let normalized = spec.replace(' ', "").to_lowercase();
 
     if normalized.is_empty() {
@@ -375,10 +375,10 @@ fn pragma_supports_neo_solidity(spec: &str) -> bool {
     // Accept if any OR-branch can include a supported compiler range.
     normalized
         .split("||")
-        .any(branch_supports_neo_solidity)
+        .any(branch_supports_neo_devpack_solidity)
 }
 
-fn branch_supports_neo_solidity(branch: &str) -> bool {
+fn branch_supports_neo_devpack_solidity(branch: &str) -> bool {
     if branch.is_empty() {
         return false;
     }

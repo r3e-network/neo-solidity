@@ -16,7 +16,7 @@ struct FileUpgradeReport {
     compile_success: bool,
     contracts: Vec<String>,
     summary: UpgradeSummary,
-    findings: Vec<neo_solidity::solidity::UpgradeFinding>,
+    findings: Vec<neo_devpack_solidity::solidity::UpgradeFinding>,
 }
 
 fn serialize_upgrade_reports(reports: &[FileUpgradeReport]) -> Result<String, String> {
@@ -26,9 +26,9 @@ fn serialize_upgrade_reports(reports: &[FileUpgradeReport]) -> Result<String, St
 }
 
 fn summarize_upgrade_findings(
-    findings: &[neo_solidity::solidity::UpgradeFinding],
+    findings: &[neo_devpack_solidity::solidity::UpgradeFinding],
 ) -> UpgradeSummary {
-    use neo_solidity::solidity::{UpgradeCategory, UpgradeSeverity};
+    use neo_devpack_solidity::solidity::{UpgradeCategory, UpgradeSeverity};
 
     let mut summary = UpgradeSummary {
         total_findings: findings.len(),
@@ -52,8 +52,8 @@ fn summarize_upgrade_findings(
     summary
 }
 
-fn classify_upgrade_category(message: &str) -> neo_solidity::solidity::UpgradeCategory {
-    use neo_solidity::solidity::UpgradeCategory;
+fn classify_upgrade_category(message: &str) -> neo_devpack_solidity::solidity::UpgradeCategory {
+    use neo_devpack_solidity::solidity::UpgradeCategory;
 
     let lower = message.to_ascii_lowercase();
 
@@ -72,8 +72,8 @@ fn classify_upgrade_category(message: &str) -> neo_solidity::solidity::UpgradeCa
 
 fn collect_overload_findings(
     metadata: &ContractMetadata,
-) -> Vec<neo_solidity::solidity::UpgradeFinding> {
-    use neo_solidity::solidity::{UpgradeCategory, UpgradeFinding, UpgradeSeverity};
+) -> Vec<neo_devpack_solidity::solidity::UpgradeFinding> {
+    use neo_devpack_solidity::solidity::{UpgradeCategory, UpgradeFinding, UpgradeSeverity};
 
     let mut groups: HashMap<&str, usize> = HashMap::new();
     for method in &metadata.methods {
@@ -119,7 +119,7 @@ fn build_upgrade_report(
     options: &CompileOptions,
     contract_filters: &[String],
 ) -> Option<FileUpgradeReport> {
-    use neo_solidity::solidity::{
+    use neo_devpack_solidity::solidity::{
         analyse_all_sources, analyze_upgrade_patterns, UpgradeCategory, UpgradeFinding,
         UpgradeSeverity,
     };

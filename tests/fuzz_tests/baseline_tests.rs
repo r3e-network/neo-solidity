@@ -13,8 +13,8 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_solidity::cli::{compile_contracts, compile_contracts_with_options, CompileOptions};
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::{compile_contracts, compile_contracts_with_options, CompileOptions};
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ==================== Batch #1 — NEF, Manifest, Types ====================
@@ -64,7 +64,7 @@ contract TestContract {{
     fn nef_checksum_validates(
         var_name in identifier_strategy()
     ) {
-        use neo_solidity::neo::build_nef_with_tokens;
+        use neo_devpack_solidity::neo::build_nef_with_tokens;
         use sha2::{Digest, Sha256};
 
         let source = format!(
@@ -277,7 +277,7 @@ contract Sha256Showcase {{
         // returned `bytes32` equals `sha2::Sha256::digest(payload)` byte-for-byte.
         // `call_method` delivers args via INITSLOT (Task #19) and dispatches to the
         // method's manifest offset, so the wrapper body is actually executed.
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
         let args = [StackItem::byte_array(payload.clone())];
         let result = runtime
@@ -333,7 +333,7 @@ contract Ripemd160Showcase {{
         // `ripemd::Ripemd160::digest(payload)` byte-for-byte. CryptoLib's
         // `ripemd160` native is wired through src/cli/bytecode/bytecode_builtins/
         // syscalls.rs:160, so this exercises the real precompile lowering.
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
         let args = [StackItem::byte_array(payload.clone())];
         let result = runtime
@@ -440,7 +440,7 @@ contract ModExpShowcase {{
         // in u64. Every other iteration still validates compile + reference
         // invariants above.
         if base < (1u64 << 32) && (base % modulus) < (1u64 << 32) {
-            use neo_solidity::runtime::types::StackItem;
+            use neo_devpack_solidity::runtime::types::StackItem;
             let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
             let args = [
                 StackItem::UnsignedInteger(base),
@@ -538,7 +538,7 @@ fn storage_iterator_lex_order() {
 // preserving magic=NEF3, compiler, source, tokens, and script payload.
 #[test]
 fn nef_round_trip_to_bytes_and_back() {
-    use neo_solidity::neo::{build_nef_with_tokens, parse_nef, MethodToken};
+    use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef, MethodToken};
 
     // A small, deterministic NeoVM-ish script (contents don't need to be valid
     // bytecode — `parse_nef` only validates framing, not opcodes).
@@ -1237,7 +1237,7 @@ contract EcrecoverShowcase {{
         // `System.Contract.CreateStandardAccount` (Neo script hash).
         // Pin both directions so a regression cannot silently revert.
         let create_standard_account_id =
-            neo_solidity::codegen::interop_id_bytes("System.Contract.CreateStandardAccount");
+            neo_devpack_solidity::codegen::interop_id_bytes("System.Contract.CreateStandardAccount");
         let bytecode = &artifacts[0].bytecode;
         let has_create_account = bytecode
             .windows(4)
@@ -1263,7 +1263,7 @@ contract EcrecoverShowcase {{
         var_name in identifier_strategy(),
         literal in any::<u64>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
 
         let source = format!(
             r#"// SPDX-License-Identifier: MIT
@@ -1375,7 +1375,7 @@ proptest! {
     fn runtime_getter_returns_initial_value(
         n in 0u64..=1_000_000_000u64,
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
 
         let source = format!(
             r#"// SPDX-License-Identifier: MIT
@@ -1414,7 +1414,7 @@ contract C {{
         a in 0u64..(1u64 << 62),
         b in 0u64..(1u64 << 62),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
 
         // Operands are < 2^62, so sum is always < 2^63 (fits in positive i64
         // range for scalar return_data encoding). Clamping via range instead of
@@ -1500,7 +1500,7 @@ contract C {
         addr_bytes in any::<[u8; 20]>(),
         n in 0u64..(1u64 << 62),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
 
         let source = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -1651,7 +1651,7 @@ contract CCaller {
         sk_bytes in any::<[u8; 32]>(),
         hash_bytes in any::<[u8; 32]>(),
     ) {
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         use secp256k1::{ecdsa::RecoverableSignature, Message, Secp256k1, SecretKey};
         use sha3::{Digest, Keccak256};
 
@@ -1724,7 +1724,7 @@ contract C {
 // `manifest.abi.methods[name].offset` to jump to the right function.
 #[test]
 fn runtime_call_method_reaches_non_first_method() {
-    use neo_solidity::runtime::types::StackItem;
+    use neo_devpack_solidity::runtime::types::StackItem;
 
     // Two methods so `getX` is not at `bytecode[0]`. `getX` returns the
     // compile-time constant 42 without touching storage, so the result
@@ -1961,7 +1961,7 @@ contract C {{ function nop() external pure returns (uint256) {{ {body} return 0;
         // snippet's `let x` / `let y` declarations are side-effect-free and
         // cannot escape the assembly scope). Exercises the claim that inline
         // assembly is genuinely dropped, not silently corrupting the return.
-        use neo_solidity::runtime::types::StackItem;
+        use neo_devpack_solidity::runtime::types::StackItem;
         let mut runtime = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
         let result = runtime
             .call_method(&artifacts[0].bytecode, &artifacts[0].tokens, &artifacts[0].manifest,
@@ -2051,7 +2051,7 @@ proptest! {
     fn parse_nef_rejects_malformed_magic(
         replacement in any::<[u8; 4]>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
         use sha2::{Digest, Sha256};
 
         // Skip no-op mutations that reproduce the original magic.
@@ -2091,7 +2091,7 @@ proptest! {
         idx_seed in any::<u32>(),
         replacement in any::<u8>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
 
         let script = vec![0x10u8, 0x40u8];
         let nef = build_nef_with_tokens(&script, "batch7", "", &[])
@@ -2135,7 +2135,7 @@ proptest! {
     fn parse_nef_handles_truncation(
         len_seed in any::<u32>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
 
         let script = vec![0x10u8, 0x40u8];
         let nef = build_nef_with_tokens(&script, "batch7", "", &[])
@@ -3690,7 +3690,7 @@ contract C {{
         var_name in identifier_strategy(),
         sender_bytes in any::<[u8; 20]>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, compute_contract_hash};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, compute_contract_hash};
 
         let source = format!(
             r#"// SPDX-License-Identifier: MIT
@@ -3955,7 +3955,7 @@ contract {cn} {{
         vb in 0u64..=1_000_000u64,
         sender_bytes in any::<[u8; 20]>(),
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, compute_contract_hash};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, compute_contract_hash};
 
         let source = format!(r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -5118,7 +5118,7 @@ contract C {{ function f() external pure returns (uint256) {{
     fn cross_contract_call_via_calltoken_or_ignore(
         _unused in any::<u8>(),
     ) {
-        use neo_solidity::neo::MethodToken;
+        use neo_devpack_solidity::neo::MethodToken;
 
         // StdLib hash as pushed onto the VM stack (UInt160 internal
         // little-endian byte order) — pulled verbatim from
@@ -5730,7 +5730,7 @@ proptest! {
     fn callt_stdlib_itoa_roundtrip_via_token(
         n in 0u32..=999_999_999u32,
     ) {
-        use neo_solidity::neo::MethodToken;
+        use neo_devpack_solidity::neo::MethodToken;
 
         let stdlib_hash: [u8; 20] = [
             0xc0, 0xef, 0x39, 0xce, 0xe0, 0xe4, 0xe9, 0x25,
@@ -5819,7 +5819,7 @@ proptest! {
     fn callt_cryptolib_sha256_matches_sha2_crate(
         data in prop::collection::vec(any::<u8>(), 0..=32),
     ) {
-        use neo_solidity::neo::MethodToken;
+        use neo_devpack_solidity::neo::MethodToken;
         use sha2::{Digest, Sha256};
 
         let cryptolib_hash: [u8; 20] = [

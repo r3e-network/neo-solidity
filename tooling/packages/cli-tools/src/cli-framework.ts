@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { EventEmitter } from 'events';
 
-export class NeoSolidityCLI extends EventEmitter {
+export class NeoDevpackSolidityCLI extends EventEmitter {
   private commands: Map<string, CLICommand> = new Map();
   private config: CLIConfig;
   private context: CLIContext;
@@ -120,7 +120,7 @@ export class NeoSolidityCLI extends EventEmitter {
   }
 
   saveConfig(configPath?: string): void {
-    const configFile = configPath || path.join(process.cwd(), '.neosolidity.json');
+    const configFile = configPath || path.join(process.cwd(), '.neodevpacksolidity.json');
     
     try {
       fs.writeJsonSync(configFile, this.config, { spaces: 2 });
@@ -236,9 +236,9 @@ export class NeoSolidityCLI extends EventEmitter {
 
   private findConfigFile(): string | null {
     const candidates = [
-      path.join(process.cwd(), '.neosolidity.json'),
-      path.join(process.cwd(), 'neosolidity.config.json'),
-      path.join(os.homedir(), '.neosolidity.json')
+      path.join(process.cwd(), '.neodevpacksolidity.json'),
+      path.join(process.cwd(), 'neodevpacksolidity.config.json'),
+      path.join(os.homedir(), '.neodevpacksolidity.json')
     ];
 
     return candidates.find(file => fs.existsSync(file)) || null;

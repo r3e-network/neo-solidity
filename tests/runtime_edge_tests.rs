@@ -1,15 +1,15 @@
-use neo_solidity::runtime::execution::ExecutionContext;
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::execution::ExecutionContext;
+use neo_devpack_solidity::runtime::RuntimeConfig;
 
 #[test]
 fn stack_push_overflow_errors_after_limit() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
     // Push up to the NeoVM stack depth limit (2048)
     for _ in 0..2048 {
-        ctx.push_stack(neo_solidity::runtime::execution::StackItem::Integer(1))
+        ctx.push_stack(neo_devpack_solidity::runtime::execution::StackItem::Integer(1))
             .expect("push within limit");
     }
-    let overflow = ctx.push_stack(neo_solidity::runtime::execution::StackItem::Integer(2));
+    let overflow = ctx.push_stack(neo_devpack_solidity::runtime::execution::StackItem::Integer(2));
     assert!(overflow.is_err(), "pushing past stack limit should error");
 }
 

@@ -36,9 +36,9 @@
 
 #![allow(clippy::uninlined_format_args)]
 
-use neo_solidity::runtime::state::{StateBatch, StateManager};
-use neo_solidity::runtime::types::{StateChange, StateChangeType};
-use neo_solidity::runtime::RuntimeConfig;
+use neo_devpack_solidity::runtime::state::{StateBatch, StateManager};
+use neo_devpack_solidity::runtime::types::{StateChange, StateChangeType};
+use neo_devpack_solidity::runtime::RuntimeConfig;
 use proptest::prelude::*;
 
 // ---------- helpers ----------

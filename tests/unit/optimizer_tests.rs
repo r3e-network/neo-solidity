@@ -2,9 +2,9 @@
 //!
 //! Tests optimization passes through compilation and direct AST manipulation.
 
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::optimizer::Optimizer;
-use neo_solidity::parser::{AstNode, AstNodeType};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::optimizer::Optimizer;
+use neo_devpack_solidity::parser::{AstNode, AstNodeType};
 
 // === Helper constructors ===
 

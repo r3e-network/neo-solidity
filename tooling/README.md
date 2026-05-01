@@ -113,7 +113,7 @@ solc-neo verify-contract --address N123... --source Token.sol --contract Token -
 Shared TypeScript interfaces and type definitions for all tooling packages.
 
 **Key Types:**
-- `NeoSolidityConfig` - Compiler configuration
+- `NeoDevpackSolidityConfig` - Compiler configuration
 - `NeoNetworkConfig` - Network definitions  
 - `BuildArtifact` - Compilation artifacts
 - `ContractDeployment` - Deployment results
@@ -382,7 +382,7 @@ solc-neo analyze --output csv     # CSV export
 ### Compiler Configuration
 
 ```typescript
-interface NeoSolidityConfig {
+interface NeoDevpackSolidityConfig {
   version?: string;
   optimizer?: {
     enabled: boolean;

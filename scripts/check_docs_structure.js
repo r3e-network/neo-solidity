@@ -48,8 +48,8 @@ const staleContentChecks = [
     message: 'stale inline assembly wording; document limited Yul subset lowering plus fallback warnings for unsupported EVM-only operations'
   },
   {
-    pattern: /neo_solidity::compiler|Compiler::new\(config\)|compile_file\("contract\.yul"\)/,
-    message: 'stale Rust API example; use the current public neo_solidity::cli entry points'
+    pattern: /neo_devpack_solidity::compiler|Compiler::new\(config\)|compile_file\("contract\.yul"\)/,
+    message: 'stale Rust API example; use the current public neo_devpack_solidity::cli entry points'
   },
   {
     pattern: /neo-devpack-solidity-0\.1\.0\b/,

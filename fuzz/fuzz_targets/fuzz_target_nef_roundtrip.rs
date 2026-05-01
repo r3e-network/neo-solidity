@@ -14,7 +14,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use neo_solidity::neo::{build_nef_with_tokens, parse_nef};
+use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef};
 
 fuzz_target!(|data: &[u8]| {
     let _ = std::panic::catch_unwind(|| {

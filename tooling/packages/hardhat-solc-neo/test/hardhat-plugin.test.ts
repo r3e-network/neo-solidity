@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NeoSolidityCompiler } from "../src/compiler";
+import { NeoDevpackSolidityCompiler } from "../src/compiler";
 import type { CompilationOutput, NeoHardhatConfig } from "@neo-devpack-solidity/types";
 
 const MINIMAL_CONFIG: NeoHardhatConfig = {
@@ -30,7 +30,7 @@ const MINIMAL_CONFIG: NeoHardhatConfig = {
 
 describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
   it("extracts versions from neo-solc output", () => {
-    const compiler = new NeoSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
+    const compiler = new NeoDevpackSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
     const parsed = (compiler as any).parseVersionOutput(
       "neo-devpack-solidity: 0.9.10\nsolidity: 0.8.34\n"
     ) as string[];
@@ -40,7 +40,7 @@ describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
   });
 
   it("validates version strings", () => {
-    const compiler = new NeoSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
+    const compiler = new NeoDevpackSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
 
     expect((compiler as any).isValidVersion("0.1.0")).toBe(true);
     expect((compiler as any).isValidVersion("0.1.0-alpha.1")).toBe(true);
@@ -49,7 +49,7 @@ describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
   });
 
   it("computes compilation stats from standard-json output", () => {
-    const compiler = new NeoSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
+    const compiler = new NeoDevpackSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
 
     const output = {
       sources: {},

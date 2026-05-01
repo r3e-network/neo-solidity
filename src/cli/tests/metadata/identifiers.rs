@@ -44,7 +44,7 @@ fn method_identifiers_include_selectors() {
         structs: vec![],
         enums: vec![],
         contract_types: vec![],
-        selector_registry: std::sync::Arc::new(neo_solidity::solidity::SelectorRegistry::default()),
+        selector_registry: std::sync::Arc::new(neo_devpack_solidity::solidity::SelectorRegistry::default()),
         documentation: NatspecDoc::default(),
         has_using_for_star: false,
         has_using_function_list: false,

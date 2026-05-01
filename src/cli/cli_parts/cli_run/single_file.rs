@@ -179,7 +179,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
     }
 
     let deployer_le = match deployer {
-        Some(value) => match neo_solidity::neo::parse_uint160_hex_be(value) {
+        Some(value) => match neo_devpack_solidity::neo::parse_uint160_hex_be(value) {
             Ok(parsed) => Some(parsed),
             Err(err) => {
                 eprintln!("error: invalid --deployer value: {err}");

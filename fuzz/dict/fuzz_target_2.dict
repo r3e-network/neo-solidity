@@ -3,7 +3,7 @@
 "neo-go"
 "neon"
 "neo-devpack-solidity"
-"NeoSolidity"
+"NeoDevpackSolidity"
 "Neo.Compiler.CSharp"
 "0.16.0"
 "0.15.0"

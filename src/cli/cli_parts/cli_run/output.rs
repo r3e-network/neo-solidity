@@ -81,15 +81,15 @@ fn write_contract_outputs(
                     artifact.metadata.name
                 );
                 if let Some(sender) = config.deployer {
-                    let predicted = neo_solidity::neo::compute_contract_hash(
+                    let predicted = neo_devpack_solidity::neo::compute_contract_hash(
                         sender,
                         checksum,
                         artifact.metadata.name.as_str(),
                     );
                     println!(
                         "   • Predicted contract hash (sender {}, checksum 0x{checksum:08x}): {}",
-                        neo_solidity::neo::format_uint160_hex_be(&sender),
-                        neo_solidity::neo::format_uint160_hex_be(&predicted)
+                        neo_devpack_solidity::neo::format_uint160_hex_be(&sender),
+                        neo_devpack_solidity::neo::format_uint160_hex_be(&predicted)
                     );
                 }
             }
@@ -133,15 +133,15 @@ fn write_contract_outputs(
                     artifact.metadata.name
                 );
                 if let Some(sender) = config.deployer {
-                    let predicted = neo_solidity::neo::compute_contract_hash(
+                    let predicted = neo_devpack_solidity::neo::compute_contract_hash(
                         sender,
                         checksum,
                         artifact.metadata.name.as_str(),
                     );
                     println!(
                         "   • Predicted contract hash (sender {}, checksum 0x{checksum:08x}): {}",
-                        neo_solidity::neo::format_uint160_hex_be(&sender),
-                        neo_solidity::neo::format_uint160_hex_be(&predicted)
+                        neo_devpack_solidity::neo::format_uint160_hex_be(&sender),
+                        neo_devpack_solidity::neo::format_uint160_hex_be(&predicted)
                     );
                 }
             }

@@ -68,7 +68,7 @@ fn ensure_output_dir(path: &str) -> Result<(), String> {
 fn write_nef_file(
     path: &str,
     script: &[u8],
-    tokens: &[neo_solidity::neo::MethodToken],
+    tokens: &[neo_devpack_solidity::neo::MethodToken],
     source: &str,
     json_warnings: bool,
 ) -> Result<u32, String> {
@@ -117,7 +117,7 @@ fn write_manifest_file(path: &str, manifest: &serde_json::Value) -> Result<(), S
 fn write_json_file(
     path: &str,
     script: &[u8],
-    tokens: &[neo_solidity::neo::MethodToken],
+    tokens: &[neo_devpack_solidity::neo::MethodToken],
     manifest: &serde_json::Value,
     metadata: &ContractMetadata,
     source: &str,

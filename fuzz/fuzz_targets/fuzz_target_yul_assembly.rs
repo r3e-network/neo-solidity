@@ -463,6 +463,6 @@ fuzz_target!(|data: &[u8]| {
     // Result::Err is expected (semantically-weird Yul: uninitialized
     // reads, unreachable code after `return`, jumps out of scope, etc.).
     let _ = std::panic::catch_unwind(move || {
-        let _ = neo_solidity::cli::compile_contracts(&src, false, opt);
+        let _ = neo_devpack_solidity::cli::compile_contracts(&src, false, opt);
     });
 });

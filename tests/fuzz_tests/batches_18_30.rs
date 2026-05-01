@@ -7,8 +7,8 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 
 // ==================== Batch #18 — Example Contract Regression ====================
@@ -2288,7 +2288,7 @@ proptest! {
     fn nef_roundtrips_with_max_tokens(
         count in 1usize..=512usize,
     ) {
-        use neo_solidity::neo::{build_nef_with_tokens, parse_nef, MethodToken};
+        use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef, MethodToken};
 
         // MAX_METHOD_TOKENS is 512 on this codebase (src/neo/constants.rs:9),
         // matching the NEF3 spec maximum. We parametrise `count` over the
@@ -2376,7 +2376,7 @@ proptest! {
     fn callt_self_reentrancy_uses_two_execute_calls(
         _unused in 0u8..=0u8,
     ) {
-        use neo_solidity::neo::MethodToken;
+        use neo_devpack_solidity::neo::MethodToken;
 
         // StdLib hash (internal UInt160 LE byte order) — from
         // src/runtime/spec/native_contracts.rs:46. Same as batch #15 H5.
@@ -2825,7 +2825,7 @@ contract C {
     fn batch26_h3_fallback_msg_data_length_matches_calldata(
         injected_len in 0usize..=64usize,
     ) {
-        use neo_solidity::runtime::ExecutionOverrides;
+        use neo_devpack_solidity::runtime::ExecutionOverrides;
         let source = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {

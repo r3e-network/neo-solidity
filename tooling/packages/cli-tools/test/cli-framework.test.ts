@@ -2,7 +2,7 @@ import fs from "fs-extra";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { NeoSolidityCLI } from "../src/cli-framework";
+import { NeoDevpackSolidityCLI } from "../src/cli-framework";
 
 const tempRoots: string[] = [];
 
@@ -24,7 +24,7 @@ async function makeTempDir(prefix: string): Promise<string> {
 describe("@neo-devpack-solidity/cli-tools", () => {
   it("returns structured success and failure results for registered commands", async () => {
     const root = await makeTempDir("neo-cli-test-");
-    const cli = new NeoSolidityCLI({
+    const cli = new NeoDevpackSolidityCLI({
       defaults: {},
       profiles: {},
       plugins: [],
@@ -47,7 +47,7 @@ describe("@neo-devpack-solidity/cli-tools", () => {
     expect(success.success).toBe(true);
     expect(await fs.pathExists(path.join(root, "CLITestToken"))).toBe(true);
 
-    const failingCli = new NeoSolidityCLI({
+    const failingCli = new NeoDevpackSolidityCLI({
       defaults: {},
       profiles: {},
       plugins: [],

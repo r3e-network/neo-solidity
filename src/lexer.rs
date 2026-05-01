@@ -14,7 +14,7 @@
 //! # Example
 //!
 //! ```text
-//! use neo_solidity::lexer::Lexer;
+//! use neo_devpack_solidity::lexer::Lexer;
 //!
 //! let mut lexer = Lexer::new("let x := add(1, 2)");
 //! let tokens = lexer.tokenize()?;

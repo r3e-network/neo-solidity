@@ -8,9 +8,9 @@
 //! Prefix scheme: 106=DDD2, 107=EEE2, 108=FFF2, 109=GGG2, 110=HHH2.
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 #[allow(unused_imports)]
 use proptest::prelude::*;
 

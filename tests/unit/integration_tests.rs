@@ -2,7 +2,7 @@
 //!
 //! Tests end-to-end compilation from Solidity source.
 
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 
 #[test]
 fn test_erc20_like_contract() {

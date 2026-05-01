@@ -11,7 +11,7 @@ use std::collections::HashMap;
 ///
 /// # Examples
 /// ```
-/// use neo_solidity::utils::canonical_param_type;
+/// use neo_devpack_solidity::utils::canonical_param_type;
 /// assert_eq!(canonical_param_type("uint256"), "uint256");
 /// assert_eq!(canonical_param_type("struct MyStruct"), "MyStruct");
 /// assert_eq!(canonical_param_type("enum MyEnum"), "MyEnum");

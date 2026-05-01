@@ -2,7 +2,7 @@
 //!
 //! Tests memory management, calldata, and returndata operations.
 
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 
 #[test]
 fn runtime_captures_return_payload() {

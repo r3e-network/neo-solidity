@@ -25,12 +25,12 @@
 //! Storage keys are computed using SHA-256 hashing of variable names and
 //! mapping keys, following Neo N3 storage conventions.
 
-use neo_solidity::frontend::VisibilityKind;
-use neo_solidity::ir::{self, LiteralValue, ValueType};
-use neo_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata};
+use neo_devpack_solidity::frontend::VisibilityKind;
+use neo_devpack_solidity::ir::{self, LiteralValue, ValueType};
+use neo_devpack_solidity::solidity::{ContractMetadata, FunctionKind, FunctionMetadata};
 
 #[cfg(test)]
-use neo_solidity::solidity::NatspecDoc;
+use neo_devpack_solidity::solidity::NatspecDoc;
 use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 use std::collections::HashMap;

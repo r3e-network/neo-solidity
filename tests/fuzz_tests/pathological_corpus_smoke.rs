@@ -19,7 +19,7 @@
 
 #![allow(unused_imports)]
 
-use neo_solidity::cli::compile_contracts;
+use neo_devpack_solidity::cli::compile_contracts;
 use std::fs::read_to_string;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};

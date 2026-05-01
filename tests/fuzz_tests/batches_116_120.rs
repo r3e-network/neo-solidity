@@ -9,9 +9,9 @@
 //! Prefix scheme: 116=NNN2, 117=OOO2, 118=PPP2, 119=QQQ2, 120=RRR2.
 
 use super::common::*;
-use neo_solidity::cli::compile_contracts;
-use neo_solidity::runtime::types::StackItem;
-use neo_solidity::runtime::{NeoRuntime, RuntimeConfig};
+use neo_devpack_solidity::cli::compile_contracts;
+use neo_devpack_solidity::runtime::types::StackItem;
+use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 #[allow(unused_imports)]
 use proptest::prelude::*;
 
@@ -3424,7 +3424,7 @@ contract C {
         0xfd, 0xa3, 0xfa, 0x43, 0x46, 0xea, 0x53, 0x2a, 0x25, 0x8f, 0xc4, 0x97, 0xdd, 0xad, 0xdb,
         0x64, 0x37, 0xc9, 0xfd, 0xff,
     ];
-    let token_hits: Vec<&neo_solidity::neo::MethodToken> = art
+    let token_hits: Vec<&neo_devpack_solidity::neo::MethodToken> = art
         .tokens
         .iter()
         .filter(|t| t.hash == cm_hash_le && t.method == "update")

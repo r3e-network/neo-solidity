@@ -1,7 +1,7 @@
 /**
  * Configuration for the Neo DevPack for Solidity compiler
  */
-export interface NeoSolidityConfig {
+export interface NeoDevpackSolidityConfig {
   /** Compiler version to use */
   version?: string;
   /** Optimization settings */
@@ -47,7 +47,7 @@ export interface CompilationInput {
       urls?: string[];
     };
   };
-  settings: NeoSolidityConfig;
+  settings: NeoDevpackSolidityConfig;
 }
 
 /**
@@ -291,7 +291,7 @@ export interface CompilerOptions {
   /** Output directory */
   output?: string;
   /** Compiler configuration */
-  config?: NeoSolidityConfig;
+  config?: NeoDevpackSolidityConfig;
   /** Include remappings */
   remappings?: string[];
   /** Base path for imports */
