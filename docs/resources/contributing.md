@@ -1,10 +1,10 @@
 # Contributing
 
-Neo Solidity is an open-source project, and we welcome contributions from the community! Whether you're fixing bugs in the Rust compiler, improving the EVM-to-NeoVM semantic mapping, or writing documentation, your help is appreciated.
+Neo DevPack for Solidity is an open-source project, and we welcome contributions from the community! Whether you're fixing bugs in the Rust compiler, improving the EVM-to-NeoVM semantic mapping, or writing documentation, your help is appreciated.
 
 ## How to Report Issues
 
-If you find a bug, an unhandled EVM feature, or have a feature request, please open an issue on the [Neo Solidity GitHub Repository](https://github.com/r3e-network/neo-solidity/issues).
+If you find a bug, an unhandled EVM feature, or have a feature request, please open an issue on the [Neo DevPack for Solidity GitHub Repository](https://github.com/r3e-network/neo-devpack-solidity/issues).
 
 When reporting an issue, please include:
 1. The exact version of `neo-solc` you are using (`neo-solc --version`).

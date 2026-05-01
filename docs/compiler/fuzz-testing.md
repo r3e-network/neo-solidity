@@ -1,6 +1,6 @@
 # Fuzz Testing
 
-The Neo Solidity compiler uses a multi-layered fuzzing strategy to catch crashes, semantic regressions, and runtime parity issues before they reach production.
+The Neo DevPack for Solidity compiler uses a multi-layered fuzzing strategy to catch crashes, semantic regressions, and runtime parity issues before they reach production.
 
 ## Overview
 

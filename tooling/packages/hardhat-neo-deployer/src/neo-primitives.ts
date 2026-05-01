@@ -1,4 +1,4 @@
-import { base64ToHex, isHexString, strip0x } from "@neo-solidity/types";
+import { base64ToHex, isHexString, strip0x } from "@neo-devpack-solidity/types";
 
 export function reverseHexBytes(value: string): string {
   const hex = strip0x(value);

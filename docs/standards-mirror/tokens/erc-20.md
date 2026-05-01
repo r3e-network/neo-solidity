@@ -66,7 +66,7 @@ Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 Cross-implementation invocations match: `symbol`, `decimals`, `totalSupply`,
 `balanceOf`, plus a write op (`faucet` for Solidity / `_deploy` initial mint for
 C#) — same values on both. Source pairs and assertion runner under
-[`docs/standards-mirror/deployments/erc-20/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-20).
+[`docs/standards-mirror/deployments/erc-20/`](https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-20).
 :::
 
 </template>

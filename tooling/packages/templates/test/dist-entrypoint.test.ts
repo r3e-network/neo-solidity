@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distEntrypoint = path.join(__dirname, "..", "dist", "index.js");
 
-describe("@neo-solidity/templates dist entrypoint", () => {
+describe("@neo-devpack-solidity/templates dist entrypoint", () => {
   it("is importable after build", async () => {
     if (!fs.existsSync(distEntrypoint)) {
       return;
@@ -35,8 +35,8 @@ describe("@neo-solidity/templates dist entrypoint", () => {
       directory: projectPath,
       context: {
         contractName: "BasicProject",
-        author: "Neo Solidity Team",
-        description: "Basic Neo-Solidity project",
+        author: "Neo DevPack for Solidity Team",
+        description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
         solcVersion: "0.8.34",
       },

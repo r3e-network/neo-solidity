@@ -1,4 +1,4 @@
-//! Canonical intermediate representation for Neo Solidity.
+//! Canonical intermediate representation for Neo DevPack for Solidity.
 
 use crate::solidity::{
     ContractMetadata, EnumMetadata, EventMetadata, FunctionKind as MetadataFunctionKind,

@@ -1,15 +1,15 @@
-# neo-solidity v0.16.0 + devpack v1.1.0 — Fuzz-Driven Stability Release (Archived)
+# neo-devpack-solidity v0.16.0 + devpack v1.1.0 — Fuzz-Driven Stability Release (Archived)
 
 > **Archived release notes**: this file documents the v0.16.0 release.
 > The current compiler version is v0.18.0; for the latest state see
 > [`CHANGELOG.md`](./CHANGELOG.md) and the
-> [GitHub releases page](https://github.com/r3e-network/neo-solidity/releases).
+> [GitHub releases page](https://github.com/r3e-network/neo-devpack-solidity/releases).
 > The numbers, status claims, and TL;DR below reflect v0.16.0 specifically and
 > are kept for archaeology rather than current accuracy.
 
 **Release date:** 2026-04-19
 **Compiler / CLI / workspace:** **v0.16.0**
-**devpack (`@r3e-network/neo-solidity-devpack`):** **v1.1.0**
+**devpack (`@neo-devpack-solidity/contracts`):** **v1.1.0**
 
 ---
 
@@ -173,7 +173,7 @@ Most contracts need no source changes. The main things to check:
    switch to `// solhint-disable-next-line no-inline-assembly` or strip
    the block — the compiler now emits real code for supported
    primitives.
-5. **Devpack users** — bump `@r3e-network/neo-solidity-devpack` to
+5. **Devpack users** — bump `@neo-devpack-solidity/contracts` to
    `^1.1.0`. New `Precompiles.sol` library available for EVM precompile
    routing (`ecrecover`, `sha256`, `ripemd160`, `identity`, `modexp`).
 
@@ -188,7 +188,7 @@ neo-solc --version
 
 ## What ships
 
-### Core compiler (`neo-solidity` v0.16.0)
+### Core compiler (`neo-devpack-solidity` v0.16.0)
 
 - `src/ir/build/panic.rs` — new shared panic envelope emitter.
 - `src/ir/ir_types.rs` — 5 new IR variants (`Substr`, `NewMap`,
@@ -211,7 +211,7 @@ neo-solc --version
 - `src/runtime/execution/execution_impl_part2_native/stdlib.rs` —
   canonical EVM abi.encode*/abi.decode; itoa / atoi / base64*.
 
-### Devpack (`@r3e-network/neo-solidity-devpack` v1.1.0)
+### Devpack (`@neo-devpack-solidity/contracts` v1.1.0)
 
 - `devpack/libraries/Precompiles.sol` — NEW. EVM precompile routing
   wrappers.
@@ -239,6 +239,6 @@ runtime bridge honest while the compiler caught up with the spec.
 ## Links
 
 - [CHANGELOG.md](./CHANGELOG.md) — detailed per-task log.
-- [Release notes on GitHub](https://github.com/r3e-network/neo-solidity/releases)
-- [Documentation site](https://docs.r3e.network/neo-solidity)
+- [Release notes on GitHub](https://github.com/r3e-network/neo-devpack-solidity/releases)
+- [Documentation site](https://docs.r3e.network/neo-devpack-solidity)
 - [SOLIDITY_SUPPORT_MATRIX.md](./docs/SOLIDITY_SUPPORT_MATRIX.md)

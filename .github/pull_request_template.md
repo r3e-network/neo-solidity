@@ -70,7 +70,7 @@ Closes #(issue_number)
 Relates to #(issue_number)
 
 ---
-**Repository**: https://github.com/r3e-network/neo-solidity
+**Repository**: https://github.com/r3e-network/neo-devpack-solidity
 **Author**: Jimmy <jimmy@r3e.network>
 
 ### Review Checklist for Maintainers

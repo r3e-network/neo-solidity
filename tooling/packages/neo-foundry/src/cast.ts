@@ -2,7 +2,7 @@ import axios from "axios";
 import chalk from "chalk";
 import { createHash, randomBytes } from "crypto";
 import Debug from "debug";
-import type { rpcTypes } from "@neo-solidity/types";
+import type { rpcTypes } from "@neo-devpack-solidity/types";
 
 type NeoRpcProvider = rpcTypes.NeoRpcProvider;
 type InvokeResult = rpcTypes.InvokeResult;

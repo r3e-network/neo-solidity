@@ -1,4 +1,4 @@
-//! Neo Solidity Compiler Library
+//! Neo DevPack for Solidity Library
 //!
 //! A Solidity to NeoVM bytecode compiler for Neo N3 smart contracts.
 //!

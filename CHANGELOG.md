@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Neo Solidity Compiler will be documented in this file.
+All notable changes to the Neo DevPack for Solidity will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -568,7 +568,7 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 - **Regression corpus**: `.proptest-regressions` files under
   `tests/fuzz_tests/` and `tests/` checkpoint failing seeds for all
   property tests.
-- **Devpack bump**: `@r3e-network/neo-solidity-devpack` → **1.1.0** to
+- **Devpack bump**: `@neo-devpack-solidity/contracts` → **1.1.0** to
   align with the new compiler semantics (new `Precompiles.sol`
   library, refreshed `Framework.sol`, `NEP17.sol`, `NEP11.sol`).
 
@@ -676,7 +676,7 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 ### Changed
 
 - **Developer Tools**: 85% → 95% complete
-  - Added debug tooling support (@neo-solidity/types/debugger)
+  - Added debug tooling support (@neo-devpack-solidity/types/debugger)
   - Added network configurations for Neo TestNet/MainNet
   - Added artifact management
   - Added source map support
@@ -926,21 +926,21 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-solidity/compare/v0.18.0...HEAD
-[v0.18.0]: https://github.com/r3e-network/neo-solidity/compare/v0.17.0...v0.18.0
-[v0.17.0]: https://github.com/r3e-network/neo-solidity/compare/v0.16.0...v0.17.0
-[v0.16.0]: https://github.com/r3e-network/neo-solidity/compare/v0.15.0...v0.16.0
-[v0.15.0]: https://github.com/r3e-network/neo-solidity/compare/v0.14.0...v0.15.0
-[v0.14.0]: https://github.com/r3e-network/neo-solidity/compare/v0.13.1...v0.14.0
-[v0.13.1]: https://github.com/r3e-network/neo-solidity/compare/v0.13.0...v0.13.1
-[v0.13.0]: https://github.com/r3e-network/neo-solidity/compare/v0.12.0...v0.13.0
-[v0.12.0]: https://github.com/r3e-network/neo-solidity/compare/v0.11.0...v0.12.0
-[v0.11.0]: https://github.com/r3e-network/neo-solidity/compare/v0.10.0...v0.11.0
-[v0.10.0]: https://github.com/r3e-network/neo-solidity/compare/v0.9.10...v0.10.0
-[v0.9.10]: https://github.com/r3e-network/neo-solidity/compare/v0.9.9...v0.9.10
-[v0.9.9]: https://github.com/r3e-network/neo-solidity/compare/v0.9.8...v0.9.9
-[v0.9.8]: https://github.com/r3e-network/neo-solidity/compare/v0.9.7...v0.9.8
-[v0.9.7]: https://github.com/r3e-network/neo-solidity/compare/v0.9.6...v0.9.7
-[v0.9.6]: https://github.com/r3e-network/neo-solidity/compare/v0.9.5...v0.9.6
-[v0.9.5]: https://github.com/r3e-network/neo-solidity/compare/v0.9.4...v0.9.5
-[v0.9.4]: https://github.com/r3e-network/neo-solidity/releases/tag/v0.9.4
+[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...HEAD
+[v0.18.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.17.0...v0.18.0
+[v0.17.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.16.0...v0.17.0
+[v0.16.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.15.0...v0.16.0
+[v0.15.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.14.0...v0.15.0
+[v0.14.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.13.1...v0.14.0
+[v0.13.1]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.13.0...v0.13.1
+[v0.13.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.12.0...v0.13.0
+[v0.12.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.11.0...v0.12.0
+[v0.11.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.10.0...v0.11.0
+[v0.10.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.10...v0.10.0
+[v0.9.10]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.9...v0.9.10
+[v0.9.9]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.8...v0.9.9
+[v0.9.8]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.7...v0.9.8
+[v0.9.7]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.6...v0.9.7
+[v0.9.6]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.5...v0.9.6
+[v0.9.5]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.9.4...v0.9.5
+[v0.9.4]: https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.9.4

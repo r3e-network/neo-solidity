@@ -1,5 +1,5 @@
 /**
- * Neo-Foundry - Foundry integration for Neo-Solidity development
+ * Neo-Foundry - Foundry integration for Neo DevPack for Solidity development
  */
 
 export * from './forge.js';

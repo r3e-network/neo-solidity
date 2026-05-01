@@ -155,7 +155,7 @@ impl NeoRuntime {
         self.execute(bytecode, &call_data)
     }
 
-    /// Invoke a named method on a compiled Neo-Solidity contract.
+    /// Invoke a named method on a compiled Neo DevPack for Solidity contract.
     ///
     /// Unlike `call_function`, which cannot reach anything past the first
     /// public method of a multi-method contract, this helper (Task #19):

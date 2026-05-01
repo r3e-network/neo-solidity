@@ -1,6 +1,6 @@
-# Neo Solidity Compiler - Professional Build System
+# Neo DevPack for Solidity - Professional Build System
 # Author: Jimmy <jimmy@r3e.network>
-# Repository: https://github.com/r3e-network/neo-solidity
+# Repository: https://github.com/r3e-network/neo-devpack-solidity
 
 .PHONY: all build clean test test-all test-all-full test-fuzz-gate test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs docs-api docs-site install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
 .PHONY: test-compile-strict production-gate test-fuzz-start test-fuzz-status test-fuzz-stop test-fuzz-cargo-all test-fuzz-differential test-fuzz-coverage
@@ -8,7 +8,7 @@
 all: build
 
 build:
-	@echo "🔨 Building Neo Solidity Compiler..."
+	@echo "🔨 Building Neo DevPack for Solidity..."
 	cargo build --release
 	@echo "✅ Build complete"
 
@@ -297,7 +297,7 @@ release: clean build test
 	@echo "✅ Release ready"
 
 help:
-	@echo "Neo Solidity Compiler - Build System"
+	@echo "Neo DevPack for Solidity - Build System"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  build           - Build the compiler"
@@ -316,7 +316,7 @@ help:
 	@echo "  release         - Create release package"
 	@echo "  help            - Show this help message"
 	@echo ""
-	@echo "Repository: https://github.com/r3e-network/neo-solidity"
+	@echo "Repository: https://github.com/r3e-network/neo-devpack-solidity"
 	@echo ""
 	@echo "Testing targets:"
 	@echo "  test-deploy-smoke      - Basic deployment test"

@@ -9,7 +9,7 @@ import {
   isNeoAddress,
   neoAddressToScriptHash,
   neoScriptHashToAddress,
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 import { HardhatPluginError } from "hardhat/plugins";
 import chalk from "chalk";
 import Debug from "debug";
@@ -228,7 +228,7 @@ export class NeoDeployer {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-neo-deployer",
+        "@neo-devpack-solidity/hardhat-neo-deployer",
         `Deployment failed: ${message}`
       );
     }
@@ -309,7 +309,7 @@ export class NeoDeployer {
 
     throw new Error(
       `Neo build artifact not found for ${contractName}. ` +
-        `Run \`npx hardhat neo-compile\` (from @neo-solidity/hardhat-solc-neo) before deploying.`
+        `Run \`npx hardhat neo-compile\` (from @neo-devpack-solidity/hardhat-solc-neo) before deploying.`
     );
   }
 

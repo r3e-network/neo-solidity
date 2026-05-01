@@ -11,7 +11,7 @@ import {
   ScriptResult,
   FlattenOptions,
   FlattenResult
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import { EventEmitter } from 'events';
 import * as fs from 'fs-extra';
 import * as path from 'path';
@@ -337,7 +337,7 @@ export class NeoForge extends EventEmitter {
     errors: CompilationMessage[];
     warnings: CompilationMessage[];
   }> {
-    // This would integrate with the Neo-Solidity compiler
+    // This would integrate with the Neo DevPack for Solidity compiler
     // For now, return placeholder data
     const contractName = path.basename(sourceFile, '.sol');
     
@@ -393,7 +393,7 @@ export class NeoForge extends EventEmitter {
   }
 
   private async runTests(_testFiles: string[], _options: ForgeTestOptions): Promise<any[]> {
-    // This would execute test contracts using the Neo-Solidity test runner
+    // This would execute test contracts using the Neo DevPack for Solidity test runner
     return [];
   }
 
@@ -440,7 +440,7 @@ export class NeoForge extends EventEmitter {
   }
 
   private async executeScript(_script: string, _options: ScriptOptions): Promise<any[]> {
-    // This would execute Solidity scripts using the Neo-Solidity runtime
+    // This would execute Solidity scripts using the Neo DevPack for Solidity runtime
     return [];
   }
 

@@ -1,5 +1,5 @@
 /**
- * ABI-compatible caller routing for Neo-Solidity contracts
+ * ABI-compatible caller routing for Neo DevPack for Solidity contracts
  */
 
 export * from './abi-router.js';

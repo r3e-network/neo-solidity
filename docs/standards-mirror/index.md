@@ -145,9 +145,9 @@ The checked-in TestNet snapshot is a validation matrix, not an all-green parity 
 
 **Checked-in TestNet snapshot: 147 / 183 assertions pass** across 47 deployed
 pairs. The full pass/fail matrix is in
-[`results.json`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/results.json)
+[`results.json`](https://github.com/r3e-network/neo-devpack-solidity/blob/main/docs/standards-mirror/deployments/results.json)
 and
-[`RESULTS.md`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/RESULTS.md).
+[`RESULTS.md`](https://github.com/r3e-network/neo-devpack-solidity/blob/main/docs/standards-mirror/deployments/RESULTS.md).
 The deploy runner now exits non-zero when any compile, deploy, liveness, or
 assertion check fails.
 
@@ -166,7 +166,7 @@ The other protocol entries in the table have live demos exposing their Neo count
 
 Source pairs, deploy script, full results JSON, and instructions to reproduce live
 under
-[`docs/standards-mirror/deployments/`](https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments).
+[`docs/standards-mirror/deployments/`](https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments).
 
 ## How to Read This
 
@@ -199,4 +199,4 @@ page. The page automatically picks it up.
 
 For deeper reference on the Neo standards behind the mirrors, see
 [Standards and Contracts](/additional-material/neo-standards) and
-[`devpack/standards/STANDARDS_MAPPING.md`](https://github.com/r3e-network/neo-solidity/blob/main/devpack/standards/STANDARDS_MAPPING.md).
+[`devpack/standards/STANDARDS_MAPPING.md`](https://github.com/r3e-network/neo-devpack-solidity/blob/main/devpack/standards/STANDARDS_MAPPING.md).

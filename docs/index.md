@@ -1,7 +1,7 @@
 ---
 layout: home
 
-title: Neo Solidity
+title: Neo DevPack for Solidity
 titleTemplate: Compile Solidity to Neo N3
 
 hero:
@@ -9,15 +9,15 @@ hero:
   text: "Compile Solidity to Neo N3"
   tagline: "A statically-typed curly-braces programming language compiler designed for developing smart contracts that run on the Neo N3 blockchain."
   image:
-    src: /assets/neo-solidity-logo.png
-    alt: Neo Solidity Compiler
+    src: /assets/neo-devpack-solidity-logo.png
+    alt: Neo DevPack for Solidity
   actions:
     - theme: brand
       text: Read the docs
       link: /basics/introduction-to-smart-contracts
     - theme: alt
       text: Repository
-      link: https://github.com/r3e-network/neo-solidity
+      link: https://github.com/r3e-network/neo-devpack-solidity
 ---
 
 <div class="vp-doc home-section">
@@ -30,15 +30,15 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo Solidity v0.18.0</h3>
+    <h3>Neo DevPack for Solidity v0.18.0</h3>
     <p>Version 0.18.0 is the current compiler line reflected by the checked-in Rust package metadata. It continues the stability work with expanded runtime/property coverage, stricter manifest and permission handling, Standard JSON support, and clearer diagnostics for Neo-specific behavior such as blocked <code>delegatecall</code>/<code>callcode</code> and source-compatible <code>new Contract(...)</code> lowering. See the support matrix and fuzz guide for the current validation surface.</p>
-    <a href="https://github.com/r3e-network/neo-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
 
 <br/>
 
-<h2 class="solidity-section-header">NEO SOLIDITY IS EVOLVING RAPIDLY</h2>
+<h2 class="solidity-section-header">NEO DEVPACK FOR SOLIDITY IS EVOLVING RAPIDLY</h2>
 
 Our release cycle prioritizes both stability for production and rapid innovation for developers transitioning from EVM to Neo N3. We regularly ship **non-breaking minor releases** with enhanced mappings, deeper standard support (like NEP-17/NEP-11), and expanded diagnostic intelligence.
 
@@ -48,30 +48,30 @@ Our release cycle prioritizes both stability for production and rapid innovation
 
 <hr class="solidity-hr" />
 
-<h2 class="solidity-section-header">CONTRIBUTE TO NEO SOLIDITY</h2>
+<h2 class="solidity-section-header">CONTRIBUTE TO NEO DEVPACK FOR SOLIDITY</h2>
 
-Neo Solidity is an open-source project. We welcome developers, auditors, and technical writers to shape the future of smart contract development on Neo N3.
+Neo DevPack for Solidity is an open-source project. We welcome developers, auditors, and technical writers to shape the future of smart contract development on Neo N3.
 
 <div class="contribute-grid">
   <div class="contribute-card">
     <h4>Reporting issues and vulnerabilities</h4>
     <p>Found a bug or an EVM feature that doesn't map correctly? Let us know on GitHub so we can fix it.</p>
-    <a href="https://github.com/r3e-network/neo-solidity/issues">Report an issue &rarr;</a>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/issues">Report an issue &rarr;</a>
   </div>
   <div class="contribute-card">
     <h4>Translating the documentation</h4>
     <p>Help us write tutorials, translate pages, or expand our EVM-to-NeoVM mapping guides.</p>
-    <a href="https://github.com/r3e-network/neo-solidity/tree/main/docs">Edit Docs &rarr;</a>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs">Edit Docs &rarr;</a>
   </div>
   <div class="contribute-card">
     <h4>Fixing and responding to issues</h4>
     <p>Looking for a place to start? Check our repository for issues tagged with <code>good first issue</code>.</p>
-    <a href="https://github.com/r3e-network/neo-solidity/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Browse issues &rarr;</a>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Browse issues &rarr;</a>
   </div>
   <div class="contribute-card">
     <h4>Contributing to language design</h4>
     <p>Propose new intrinsics or discuss how EVM paradigms should translate to NeoVM.</p>
-    <a href="https://github.com/r3e-network/neo-solidity/discussions">Join Discussions &rarr;</a>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/discussions">Join Discussions &rarr;</a>
   </div>
 </div>
 
@@ -83,7 +83,7 @@ Neo Solidity is an open-source project. We welcome developers, auditors, and tec
 
 <h2 class="solidity-section-header" style="text-align: left;">PLAYGROUND</h2>
 
-<p>Try Neo Solidity for yourself. See how standard Ethereum paradigms translate effortlessly to Neo N3 artifacts.</p>
+<p>Try Neo DevPack for Solidity for yourself. See how standard Ethereum paradigms translate effortlessly to Neo N3 artifacts.</p>
 
 <div class="playground-mockup">
   <div class="playground-sidebar">
@@ -139,7 +139,7 @@ contract SimpleStorage {
 
 <hr class="solidity-hr" />
 
-<h2 class="solidity-section-header">NEO SOLIDITY EVENTS</h2>
+<h2 class="solidity-section-header">NEO DEVPACK FOR SOLIDITY EVENTS</h2>
 
 <h3 style="font-size: 1rem; color: var(--vp-c-text-2); letter-spacing: 0.1em; text-transform: uppercase;">UPCOMING EVENTS</h3>
 

@@ -22,7 +22,7 @@
 
 ## Compile guardrails (kept for future contract authors)
 
-These came out of the deploy effort that produced PRs #5–#11. Future Neo-Solidity
+These came out of the deploy effort that produced PRs #5–#11. Future Neo DevPack for Solidity
 contracts must respect them or they fault on real Neo nodes:
 
 - **`uint256(uintN var)` casts in constructor fault at deploy** (neo-solc 0.18,

@@ -307,7 +307,7 @@ function classifyBlocker(message) {
 
   return {
     tag: 'other',
-    fix: '需要扩展 neo-solidity 对该语义的 IR lowering，或用 Neo 等价模式重写该模块'
+    fix: '需要扩展 neo-devpack-solidity 对该语义的 IR lowering，或用 Neo 等价模式重写该模块'
   };
 }
 
@@ -470,7 +470,7 @@ function generateMarkdown(neoSolcVersion, results, generatedAt = new Date().toIS
   lines.push('');
   lines.push('## What "Need XXX to Implement" Means');
   lines.push('');
-  lines.push('- This report marks each failing contract with the **primary unsupported point** in current `neo-solidity`.');
+  lines.push('- This report marks each failing contract with the **primary unsupported point** in current `neo-devpack-solidity`.');
   lines.push('- The "Need on Neo" column states what is required to make that pattern work:');
   lines.push('  1) compiler capability expansion, and/or');
   lines.push('  2) Solidity source refactor to Neo-native patterns (`Runtime`, `Syscalls`, `NativeCalls`, `onNEP17Payment`, etc.).');

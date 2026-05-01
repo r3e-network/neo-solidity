@@ -13,7 +13,7 @@ impl CompileError {
                         .code
                         .unwrap_or_else(|| "IR_GENERATION_ERROR".to_string());
                     let mut obj = json!({
-                        "component": "neo-solidity",
+                        "component": "neo-devpack-solidity",
                         "severity": "error",
                         "type": "IrGeneration",
                         "code": code,
@@ -29,7 +29,7 @@ impl CompileError {
                 })
                 .collect(),
             CompileError::Manifest(message) => vec![json!({
-                "component": "neo-solidity",
+                "component": "neo-devpack-solidity",
                 "severity": "error",
                 "type": "ManifestGeneration",
                 "code": "MANIFEST_GENERATION_ERROR",
@@ -38,7 +38,7 @@ impl CompileError {
                 "message": message,
             })],
             CompileError::Message(message) => vec![json!({
-                "component": "neo-solidity",
+                "component": "neo-devpack-solidity",
                 "severity": "error",
                 "type": "Generic",
                 "code": "GENERIC_ERROR",

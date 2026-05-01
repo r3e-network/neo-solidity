@@ -28,7 +28,7 @@ Transfer(Hash160 from, Hash160 to, Integer amount)
 ```
 
 ::: info The `Any` Type
-The `data` parameter uses the Neo-Solidity `Any` type, which maps to NeoVM's unconstrained `StackItem`. This allows callers to pass any serializable value to the recipient's `onNEP17Payment` callback. In the devpack, `Any` is defined as `type Any is bytes;`.
+The `data` parameter uses the Neo DevPack for Solidity `Any` type, which maps to NeoVM's unconstrained `StackItem`. This allows callers to pass any serializable value to the recipient's `onNEP17Payment` callback. In the devpack, `Any` is defined as `type Any is bytes;`.
 :::
 
 ## Authorization Model
@@ -75,7 +75,7 @@ interface INEP17Receiver {
 }
 ```
 
-|                      | Solidity (EVM)             | Neo-Solidity (NeoVM)                  |
+|                      | Solidity (EVM)             | Neo DevPack for Solidity (NeoVM)                  |
 | -------------------- | -------------------------- | ------------------------------------- |
 | **Callback**         | `receive()` / `fallback()` | `onNEP17Payment(from, amount, data)`  |
 | **Trigger**          | ETH sent to contract       | NEP-17 tokens transferred to contract |

@@ -10,11 +10,11 @@ import {
   NeoSolidityConfig,
   isNeoAddress,
   neoAddressToScriptHash
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
 
-const debug = Debug("neo-solidity:cli:compiler");
+const debug = Debug("neo-devpack-solidity:cli:compiler");
 
 /**
  * Compiler CLI implementation
@@ -126,7 +126,7 @@ export class CompilerCLI {
         child.on("error", reject);
       });
     } catch (_error) {
-      throw new Error("Neo-Solidity compiler not found");
+      throw new Error("Neo DevPack for Solidity compiler not found");
     }
   }
 
@@ -144,7 +144,7 @@ export class CompilerCLI {
       throw new Error(`Invalid version format: ${version}`);
     }
 
-    const compilerDir = path.join(process.cwd(), '.neo-solidity', 'compilers');
+    const compilerDir = path.join(process.cwd(), '.neo-devpack-solidity', 'compilers');
     const compilerPath = path.join(compilerDir, `neo-solc-${version}`);
     
     // Check if already installed
@@ -177,7 +177,7 @@ export class CompilerCLI {
     prerelease: boolean;
   }>> {
     try {
-      const response = await fetch('https://api.github.com/repos/r3e-network/neo-solidity/releases');
+      const response = await fetch('https://api.github.com/repos/r3e-network/neo-devpack-solidity/releases');
       if (!response.ok) {
         throw new Error(`GitHub API request failed: ${response.statusText}`);
       }
@@ -564,8 +564,8 @@ ${flattened}`;
     
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.includes('neo-solidity')) {
-        const match = trimmed.match(/neo-solidity[:\s]+([\d.\w-]+)/);
+      if (trimmed.includes('neo-devpack-solidity')) {
+        const match = trimmed.match(/neo-devpack-solidity[:\s]+([\d.\w-]+)/);
         if (match) compiler = match[1];
       } else if (trimmed.includes('solidity')) {
         const match = trimmed.match(/solidity[:\s]+([\d.\w-]+)/);
@@ -652,7 +652,7 @@ ${flattened}`;
 
   private async getLatestVersion(): Promise<string> {
     try {
-      const response = await fetch('https://api.github.com/repos/r3e-network/neo-solidity/releases/latest');
+      const response = await fetch('https://api.github.com/repos/r3e-network/neo-devpack-solidity/releases/latest');
       if (!response.ok) {
         throw new Error('Failed to fetch latest version');
       }
@@ -672,7 +672,7 @@ ${flattened}`;
     const platform = process.platform;
     const arch = process.arch;
     const ext = platform === 'win32' ? '.exe' : '';
-    return `https://github.com/r3e-network/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+    return `https://github.com/r3e-network/neo-devpack-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
   }
 
   private async downloadCompiler(url: string, outputPath: string): Promise<void> {
@@ -714,7 +714,7 @@ ${flattened}`;
     current: boolean;
     prerelease: boolean;
   }>> {
-    const compilerDir = path.join(process.cwd(), '.neo-solidity', 'compilers');
+    const compilerDir = path.join(process.cwd(), '.neo-devpack-solidity', 'compilers');
     try {
       const files = await fs.readdir(compilerDir);
       const currentVersion = await this.getCurrentVersion();

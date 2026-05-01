@@ -1,7 +1,7 @@
 {
-  "name": "@neo-solidity/templates",
+  "name": "@neo-devpack-solidity/templates",
   "version": "0.14.0",
-  "description": "Project scaffolding templates for Neo-Solidity tooling",
+  "description": "Project scaffolding templates for Neo DevPack for Solidity tooling",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,7 +33,7 @@
     "foundry"
   ],
   "dependencies": {
-    "@neo-solidity/types": "^0.14.0",
+    "@neo-devpack-solidity/types": "^0.14.0",
     "fs-extra": "^11.3.4"
   },
   "devDependencies": {

@@ -8,7 +8,7 @@ export {
   neoScriptHashToAddress,
   normalizeNeoHash160,
   strip0x,
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 
 export function stackItemArrayValue(item: any): any[] {
   if (!item) return [];

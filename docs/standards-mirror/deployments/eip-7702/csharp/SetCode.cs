@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("SetCode")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("EIP-7702 set-code-for-EOAs mirror — Neo accounts are first-class smart contracts.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

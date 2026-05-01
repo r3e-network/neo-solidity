@@ -1,7 +1,7 @@
 //! Conformance Test Suite
 //!
 //! This test file runs the NeoVM conformance tests to validate
-//! that the neo-solidity compiler produces correct bytecode.
+//! that the neo-devpack-solidity compiler produces correct bytecode.
 
 mod conformance;
 

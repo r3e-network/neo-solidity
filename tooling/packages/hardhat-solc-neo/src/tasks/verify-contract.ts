@@ -10,7 +10,7 @@ import {
   isNeoAddress,
   neoAddressToScriptHash,
   setTaskAction,
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 
 const neoVerifyTask = task("neo-verify", "Verify on-chain NEF/manifest matches local build artifact");
 addRequiredStringOption(neoVerifyTask, "contract", "Contract name");
@@ -49,7 +49,7 @@ setTaskAction(neoVerifyTask, async (taskArgs: any, hre: HardhatRuntimeEnvironmen
       // Perform verification
       if (!(hre as any).neoDeploy?.rpc) {
         throw new Error(
-          "Neo RPC provider not available. Install and enable @neo-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
+          "Neo RPC provider not available. Install and enable @neo-devpack-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
         );
       }
 
@@ -247,7 +247,7 @@ setTaskAction(neoVerifyAllTask, async (taskArgs: any, hre: HardhatRuntimeEnviron
     try {
       if (!(hre as any).neoDeploy?.rpc) {
         throw new Error(
-          "Neo RPC provider not available. Install and enable @neo-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
+          "Neo RPC provider not available. Install and enable @neo-devpack-solidity/hardhat-neo-deployer (it provides hre.neoDeploy.rpc)."
         );
       }
 

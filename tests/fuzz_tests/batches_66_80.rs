@@ -555,7 +555,7 @@ contract C {
 //        that every token-symbol allowlist depends on.
 //        15 fuzz cases exercise repeat-exec stability.
 //   QQ3: block.basefee — EIP-1559 accessor. Per runtime_values.rs
-//        lines 241-260, Neo-Solidity maps `block.basefee` to
+//        lines 241-260, Neo DevPack for Solidity maps `block.basefee` to
 //        `Policy.getFeePerByte()` with an auto-compat warning. The
 //        return value is Neo-native (not EVM-canonical 7 wei) and
 //        may legitimately be 0 on some Policy configurations.

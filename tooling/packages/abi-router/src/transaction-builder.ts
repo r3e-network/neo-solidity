@@ -1,8 +1,8 @@
-import { NeoRpcProvider } from "@neo-solidity/types";
+import { NeoRpcProvider } from "@neo-devpack-solidity/types";
 import { NeoDeploymentArtifacts } from "./types.js";
 import Debug from "debug";
 
-const debug = Debug("neo-solidity:transaction-builder");
+const debug = Debug("neo-devpack-solidity:transaction-builder");
 
 /**
  * Transaction builder for Neo N3.
@@ -14,7 +14,7 @@ const debug = Debug("neo-solidity:transaction-builder");
  * - fee estimation (`invokescript` + `calculatenetworkfee`)
  * - raw transaction serialization + `sendrawtransaction`
  *
- * These flows are implemented in `@neo-solidity/hardhat-neo-deployer`.
+ * These flows are implemented in `@neo-devpack-solidity/hardhat-neo-deployer`.
  */
 export class TransactionBuilder {
   constructor(private readonly rpcProvider: NeoRpcProvider) {
@@ -36,7 +36,7 @@ export class TransactionBuilder {
     void options;
 
     throw new Error(
-      "TransactionBuilder.sendTransaction is not implemented. Use @neo-solidity/hardhat-neo-deployer " +
+      "TransactionBuilder.sendTransaction is not implemented. Use @neo-devpack-solidity/hardhat-neo-deployer " +
         "(Hardhat) or sign a Neo N3 transaction with @cityofzion/neon-js and call NeoRpcProvider.sendRawTransaction."
     );
   }
@@ -56,7 +56,7 @@ export class TransactionBuilder {
     void options;
 
     throw new Error(
-      "TransactionBuilder.deployContract is not implemented. Use @neo-solidity/hardhat-neo-deployer (Hardhat) " +
+      "TransactionBuilder.deployContract is not implemented. Use @neo-devpack-solidity/hardhat-neo-deployer (Hardhat) " +
         "or neo-solc + native Neo tooling to deploy."
     );
   }

@@ -10,7 +10,7 @@ import {
   CLIConfig,
   CLIFormatter,
   CLITable
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import chalk from 'chalk';
@@ -245,8 +245,8 @@ export class NeoSolidityCLI extends EventEmitter {
   }
 
   private showGlobalHelp(): void {
-    console.log(chalk.blue.bold('Neo-Solidity CLI'));
-    console.log(chalk.gray('Comprehensive tooling for Neo-Solidity development'));
+    console.log(chalk.blue.bold('Neo DevPack for Solidity CLI'));
+    console.log(chalk.gray('Comprehensive tooling for Neo DevPack for Solidity development'));
     console.log('');
     console.log(chalk.yellow('Available Commands:'));
     

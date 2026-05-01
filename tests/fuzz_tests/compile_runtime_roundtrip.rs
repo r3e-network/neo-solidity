@@ -345,7 +345,7 @@ proptest! {
         // exercises exactly the production NEF path.
         let nef = build_nef_with_tokens(
             &art.bytecode,
-            "neo-solidity-fuzz",
+            "neo-devpack-solidity-fuzz",
             "",
             &art.tokens,
         ).expect("NEF must build for compiled artifact");

@@ -217,7 +217,7 @@ fn try_lower_type_code(
 ///
 /// The layout is a minimal subset of the NEF3 format:
 ///   - 4 byte magic `NEF3`
-///   - 64 byte compiler field (`"neo-solidity-type-code"` + zero pad)
+///   - 64 byte compiler field (`"neo-devpack-solidity-type-code"` + zero pad)
 ///   - varstring source identifier (`"creationCode:<name>"` or similar)
 ///   - reserved 0x00
 ///   - token count = 0 (varint)
@@ -236,7 +236,7 @@ fn creation_code_payload(contract_name: &str, member_name: &str) -> Vec<u8> {
 
     let mut buffer: Vec<u8> = Vec::with_capacity(128);
     buffer.extend_from_slice(b"NEF3");
-    let compiler = b"neo-solidity-type-code";
+    let compiler = b"neo-devpack-solidity-type-code";
     buffer.extend_from_slice(compiler);
     buffer.extend(std::iter::repeat_n(0u8, 64 - compiler.len()));
     let source = format!("{member_name}:{contract_name}");

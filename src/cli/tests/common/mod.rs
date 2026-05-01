@@ -1,7 +1,7 @@
 //! Common test utilities for CLI tests
 //!
 //! This module provides shared helper functions and utilities for testing
-//! the neo-solidity compiler. It reduces code duplication across test files
+//! the neo-devpack-solidity compiler. It reduces code duplication across test files
 //! and provides a consistent testing interface.
 
 #![allow(dead_code)]

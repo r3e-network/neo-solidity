@@ -1,6 +1,6 @@
 # Solidity Brand Guide
 
-The Neo Solidity project provides a compiler infrastructure for the Neo N3 blockchain, but the language being compiled is **Solidity**.
+The Neo DevPack for Solidity project provides a compiler infrastructure for the Neo N3 blockchain, but the language being compiled is **Solidity**.
 
 ## The Solidity Brand
 
@@ -12,6 +12,6 @@ For the official Solidity brand name guidelines, logo licenses, and usage criter
 
 When referring to the compiler project that targets the Neo N3 blockchain:
 
-*   **Project Name:** "Neo Solidity" (not "NeoSolidity", "neosol", or "Neo-Solidity").
+*   **Project Name:** "Neo DevPack for Solidity" (not "NeoSolidity", "neosol", or "Neo DevPack for Solidity").
 *   **Compiler Binary:** `neo-solc`
-*   **Logos:** The Neo Solidity logo combines the visual identity of the Neo Smart Economy with the standard recognizable elements of smart contract compilation. Please refer to the Neo Foundation's official [brand assets](https://neo.org/press) when representing the target network.
+*   **Logos:** The Neo DevPack for Solidity logo combines the visual identity of the Neo Smart Economy with the standard recognizable elements of smart contract compilation. Please refer to the Neo Foundation's official [brand assets](https://neo.org/press) when representing the target network.

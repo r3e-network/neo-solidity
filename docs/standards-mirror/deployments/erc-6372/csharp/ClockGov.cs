@@ -7,7 +7,7 @@ using System.ComponentModel;
 namespace R3E.StandardsMirror;
 
 [DisplayName("ClockGov")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-6372 contract-clock pattern in Neo C# — block-number mode.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

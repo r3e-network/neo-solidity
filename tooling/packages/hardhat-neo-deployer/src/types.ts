@@ -1,5 +1,5 @@
 // Re-export types for convenience
-export * from "@neo-solidity/types";
+export * from "@neo-devpack-solidity/types";
 
 /**
  * Hardhat deployer plugin-specific types

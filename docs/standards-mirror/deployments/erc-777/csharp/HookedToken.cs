@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("HookedToken")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-777 mirror in Neo C# — NEP-17 with safe-by-construction recipient callback.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.OnNEP17Payment)]

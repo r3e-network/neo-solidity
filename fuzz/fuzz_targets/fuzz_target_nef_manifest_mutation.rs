@@ -62,7 +62,7 @@ const EMBEDDED_MANIFEST: &[u8] = br#"{
       ], "returntype": "Void", "safe": false}
     ]
   },
-  "extra": {"Author": "fuzz", "Compiler": "neo-solidity-0.16.0"},
+  "extra": {"Author": "fuzz", "Compiler": "neo-devpack-solidity-0.16.0"},
   "features": {},
   "groups": [],
   "name": "Target",

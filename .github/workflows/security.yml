@@ -167,13 +167,13 @@ jobs:
       with:
         name: contract-security-report
     - name: Create comprehensive security summary
-      run: 'echo "# Neo Solidity Compiler - Security Analysis Summary" > SECURITY_SUMMARY.md
+      run: 'echo "# Neo DevPack for Solidity - Security Analysis Summary" > SECURITY_SUMMARY.md
 
         echo "" >> SECURITY_SUMMARY.md
 
         echo "**Analysis Date**: $(date)" >> SECURITY_SUMMARY.md
 
-        echo "**Repository**: https://github.com/r3e-network/neo-solidity" >> SECURITY_SUMMARY.md
+        echo "**Repository**: https://github.com/r3e-network/neo-devpack-solidity" >> SECURITY_SUMMARY.md
 
         echo "**Author**: Jimmy <jimmy@r3e.network>" >> SECURITY_SUMMARY.md
 
@@ -203,7 +203,7 @@ jobs:
 
         echo "## Overall Security Assessment" >> SECURITY_SUMMARY.md
 
-        echo "The Neo Solidity Compiler has undergone comprehensive security analysis"
+        echo "The Neo DevPack for Solidity has undergone comprehensive security analysis"
         >> SECURITY_SUMMARY.md
 
         echo "across all components including dependencies, static code analysis,

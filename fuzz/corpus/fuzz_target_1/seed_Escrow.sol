@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title Escrow - Secure escrow service for Neo N3
-/// @author Neo Solidity Team
+/// @author Neo DevPack for Solidity Team
 /// @notice Holds funds in escrow until conditions are met
 /// @dev Supports time-locked releases and multi-party approval
 contract Escrow {

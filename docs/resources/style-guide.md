@@ -1,6 +1,6 @@
 # Style Guide
 
-Neo Solidity adheres perfectly to the official Ethereum Solidity Style Guide. Because the language syntax is identical, all naming conventions, code layouts, and NatSpec guidelines apply equally to Neo Solidity development.
+Neo DevPack for Solidity adheres perfectly to the official Ethereum Solidity Style Guide. Because the language syntax is identical, all naming conventions, code layouts, and NatSpec guidelines apply equally to Neo DevPack for Solidity development.
 
 For the definitive guide on styling your smart contracts, please see the [official Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html).
 

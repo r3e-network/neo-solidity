@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-neoxp-nested.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-devpack-solidity-neoxp-nested.XXXXXX")"
 
 cleanup() {
   rm -rf "$WORK_DIR"

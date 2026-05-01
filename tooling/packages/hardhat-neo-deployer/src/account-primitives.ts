@@ -1,5 +1,5 @@
 import { createECDH, createHash, randomBytes } from "crypto";
-import { neoScriptHashToAddress } from "@neo-solidity/types";
+import { neoScriptHashToAddress } from "@neo-devpack-solidity/types";
 
 const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const DEFAULT_SIGNATURE_CONTRACT = {

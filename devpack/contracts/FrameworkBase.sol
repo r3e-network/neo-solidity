@@ -375,7 +375,7 @@ contract FrameworkBase {
             "Neo N3 Solidity Framework",
             "1.0.0",
             "Jimmy <jimmy@r3e.network>",
-            "https://github.com/r3e-network/neo-solidity"
+            "https://github.com/r3e-network/neo-devpack-solidity"
         );
     }
 }

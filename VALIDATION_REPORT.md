@@ -1,4 +1,4 @@
-# Neo Solidity Validation Report
+# Neo DevPack for Solidity Validation Report
 
 This file is a historical validation-report entry point. Earlier revisions
 described point-in-time test counts and quality metrics; those values are no

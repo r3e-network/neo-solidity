@@ -87,7 +87,7 @@ Storage writes and cryptographic verification. The most expensive operations.
 | `System.Crypto.CheckMultisig` | Crypto   |
 
 ::: info Gas Accuracy
-The neo-solidity embedded runtime tracks syscall gas costs with static approximation tables. The primary gaps are in storage pricing (which depends on the dynamic `Policy.getStoragePrice()` value on mainnet) and opcode-level metering. Always perform final gas estimation against a Neo N3 testnet node before mainnet deployment.
+The neo-devpack-solidity embedded runtime tracks syscall gas costs with static approximation tables. The primary gaps are in storage pricing (which depends on the dynamic `Policy.getStoragePrice()` value on mainnet) and opcode-level metering. Always perform final gas estimation against a Neo N3 testnet node before mainnet deployment.
 :::
 
 ::: warning LoadScript

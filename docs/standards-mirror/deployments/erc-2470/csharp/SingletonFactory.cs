@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("SingletonFactory")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-2470 mirror — Neo's deploys are already deterministic, so the factory is each deployer themselves.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

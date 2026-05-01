@@ -11,7 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("@neo-solidity/neo-foundry", () => {
+describe("@neo-devpack-solidity/neo-foundry", () => {
   it("does not execute the CLI parser when importing the library entrypoint", async () => {
     const exitSpy = vi
       .spyOn(process, "exit")

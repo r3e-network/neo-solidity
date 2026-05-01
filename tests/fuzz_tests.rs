@@ -1,4 +1,4 @@
-//! Comprehensive Fuzz Tests for Neo Solidity
+//! Comprehensive Fuzz Tests for Neo DevPack for Solidity
 //!
 //! Split into submodules for maintainability. See `tests/fuzz_tests/` for
 //! per-category sources.

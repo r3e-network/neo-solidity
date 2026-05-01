@@ -1,10 +1,10 @@
 [
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"WGAS","path":"examples/famous/WGAS.sol"},
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"SimpleAMM","path":"examples/famous/SimpleAMM.sol"},
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"FlashLoan","path":"examples/famous/FlashLoan.sol"},
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"SimpleDAO","path":"examples/famous/SimpleDAO.sol"},
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"TokenVesting","path":"examples/famous/TokenVesting.sol"},
-  {"source":"repo","project":"Neo Solidity Famous Ports","contract":"SimpleLending","path":"examples/famous/SimpleLending.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"WGAS","path":"examples/famous/WGAS.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"SimpleAMM","path":"examples/famous/SimpleAMM.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"FlashLoan","path":"examples/famous/FlashLoan.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"SimpleDAO","path":"examples/famous/SimpleDAO.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"TokenVesting","path":"examples/famous/TokenVesting.sol"},
+  {"source":"repo","project":"Neo DevPack for Solidity Famous Ports","contract":"SimpleLending","path":"examples/famous/SimpleLending.sol"},
 
   {"source":"npm","project":"OpenZeppelin","contract":"ERC20","path":"@openzeppelin/contracts/token/ERC20/ERC20.sol"},
   {"source":"npm","project":"OpenZeppelin","contract":"ERC20Permit","path":"@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol"},

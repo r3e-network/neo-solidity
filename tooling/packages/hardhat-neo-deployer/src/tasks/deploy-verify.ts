@@ -7,7 +7,7 @@ import {
   addRequiredStringOption,
   getHardhatSelectedNetworkName,
   setTaskAction,
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 
 const neoDeployAndVerifyTask = task("neo-deploy-and-verify", "Deploy and verify contract in one step");
 addRequiredStringOption(neoDeployAndVerifyTask, "contract", "Contract name to deploy");
@@ -126,7 +126,7 @@ setTaskAction(neoDeployUpgradeTask, async (taskArgs: any, hre: HardhatRuntimeEnv
       const artifactsAny = (hre as any).neoSolc?.artifacts;
       if (typeof artifactsAny?.getBuildArtifact !== "function") {
         throw new Error(
-          "Neo build artifacts not available. Install and use @neo-solidity/hardhat-solc-neo and run `npx hardhat neo-compile`."
+          "Neo build artifacts not available. Install and use @neo-devpack-solidity/hardhat-solc-neo and run `npx hardhat neo-compile`."
         );
       }
 

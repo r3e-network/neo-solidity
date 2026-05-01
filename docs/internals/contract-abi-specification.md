@@ -10,7 +10,7 @@ Ethereum relies on a tightly-packed binary encoding scheme and 4-byte `keccak256
 
 ## Basic Design
 
-When you compile a contract, Neo Solidity generates a `.manifest.json` file. The `abi` object inside this manifest dictates exactly how clients and other contracts interact with your code.
+When you compile a contract, Neo DevPack for Solidity generates a `.manifest.json` file. The `abi` object inside this manifest dictates exactly how clients and other contracts interact with your code.
 
 ### Method Dispatch
 
@@ -31,7 +31,7 @@ function transfer(address to, uint256 amount) public { }
 function transferWithData(address to, uint256 amount, bytes calldata data) public { }
 ```
 
-When a collision occurs, the `neo-solidity` compiler retains one canonical method in the ABI and mangles the names of the others, emitting a warning. Downstream tools calling the contract must use the mangled name if they intend to hit the overloaded variant.
+When a collision occurs, the `neo-devpack-solidity` compiler retains one canonical method in the ABI and mangles the names of the others, emitting a warning. Downstream tools calling the contract must use the mangled name if they intend to hit the overloaded variant.
 
 ## Argument Encoding and Types
 
@@ -52,7 +52,7 @@ Because NeoVM execution relies on strongly-typed StackItems rather than a raw by
 
 ### The `Any` Type
 
-Neo Solidity introduces a special type, `Any`, which directly maps to the Neo ABI `Any` type. This represents a completely unconstrained StackItem. It is strictly used for Neo-native interface compliance, such as the `data` parameter in `NEP-17`'s `transfer` method.
+Neo DevPack for Solidity introduces a special type, `Any`, which directly maps to the Neo ABI `Any` type. This represents a completely unconstrained StackItem. It is strictly used for Neo-native interface compliance, such as the `data` parameter in `NEP-17`'s `transfer` method.
 
 ## Function Selector and Argument Encoding
 

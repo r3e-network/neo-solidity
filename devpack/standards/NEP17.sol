@@ -33,7 +33,7 @@ interface INEP17 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
     // NEP-17 `data` is an unconstrained StackItem (Neo ABI type: Any).
-    // This devpack uses the Neo-Solidity `Any` type to accurately reflect the standard.
+    // This devpack uses the Neo DevPack for Solidity `Any` type to accurately reflect the standard.
     function transfer(address from, address to, uint256 amount, Any calldata data) external returns (bool);
     
     // Events

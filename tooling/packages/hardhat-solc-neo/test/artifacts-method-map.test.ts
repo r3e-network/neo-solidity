@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { ArtifactManager } from "../src/artifacts";
-import type { BuildArtifact } from "@neo-solidity/types";
+import type { BuildArtifact } from "@neo-devpack-solidity/types";
 
 function buildArtifact(methodMap: Record<string, string>): BuildArtifact {
   return {
@@ -27,7 +27,7 @@ function buildArtifact(methodMap: Record<string, string>): BuildArtifact {
       neo: {
         nef: {
           magic: "NEF3",
-          compiler: "neo-solidity",
+          compiler: "neo-devpack-solidity",
           source: "OverloadedApi.sol",
           tokens: [],
           script: "aa",

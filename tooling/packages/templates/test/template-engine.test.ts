@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ProjectScaffolder, TemplateEngine, TemplateGenerator } from "../src/template-engine";
 
-describe("@neo-solidity/templates", () => {
+describe("@neo-devpack-solidity/templates", () => {
   it("renders each-loop @index placeholders", () => {
     const engine = new TemplateEngine();
 
@@ -27,8 +27,8 @@ describe("@neo-solidity/templates", () => {
     const generator = new TemplateGenerator();
     const template = generator.generateBasic({
       name: "basic",
-      author: "Neo Solidity Team",
-      description: "Basic Neo-Solidity project",
+      author: "Neo DevPack for Solidity Team",
+      description: "Basic Neo DevPack for Solidity project",
       license: "MIT",
       solcVersion: "0.8.34",
       includeTests: true,
@@ -39,8 +39,8 @@ describe("@neo-solidity/templates", () => {
     expect(template.dependencies).toEqual({});
     expect(template.devDependencies).toMatchObject({
       hardhat: "^2.28.6",
-      "@neo-solidity/hardhat-solc-neo": "^0.14.0",
-      "@neo-solidity/hardhat-neo-deployer": "^0.14.0",
+      "@neo-devpack-solidity/hardhat-solc-neo": "^0.14.0",
+      "@neo-devpack-solidity/hardhat-neo-deployer": "^0.14.0",
       chai: "^4.5.0",
     });
     expect(template.scripts).toMatchObject({
@@ -52,9 +52,9 @@ describe("@neo-solidity/templates", () => {
 
     const hardhatConfig = String(template.files.find((file) => file.path === "hardhat.config.js")?.content);
     const contractTemplate = String(template.files.find((file) => file.path === "contracts/{{contractName}}.sol")?.content);
-    expect(hardhatConfig).toContain('@neo-solidity/hardhat-solc-neo');
-    expect(hardhatConfig).toContain('@neo-solidity/hardhat-neo-deployer');
-    expect(hardhatConfig).not.toContain('@neo-solidity/hardhat-plugin');
+    expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-solc-neo');
+    expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-neo-deployer');
+    expect(hardhatConfig).not.toContain('@neo-devpack-solidity/hardhat-plugin');
     expect(contractTemplate).toContain("pragma solidity ^0.8.34;");
 
     const testTemplate = String(template.files.find((file) => file.path === "test/{{contractName}}.test.js")?.content);
@@ -73,8 +73,8 @@ describe("@neo-solidity/templates", () => {
       directory: projectPath,
       context: {
         contractName: "BasicProject",
-        author: "Neo Solidity Team",
-        description: "Basic Neo-Solidity project",
+        author: "Neo DevPack for Solidity Team",
+        description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
         solcVersion: "0.8.34",
       },

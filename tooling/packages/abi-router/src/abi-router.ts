@@ -8,7 +8,7 @@ import {
 import { 
   NeoRpcProvider,
   InvokeResult
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 import { RpcAdapter } from "./rpc-adapter.js";
 import { TransactionBuilder } from "./transaction-builder.js";
 import { EventDecoder } from "./event-decoder.js";
@@ -25,7 +25,7 @@ import {
   stackItemArrayValue,
 } from "./neo-utils.js";
 
-const debug = Debug("neo-solidity:abi-router");
+const debug = Debug("neo-devpack-solidity:abi-router");
 
 /**
  * ABI Router - Provides Ethereum-compatible interface for Neo contracts

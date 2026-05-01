@@ -1,6 +1,6 @@
-# @neo-solidity/cli-tools
+# @neo-devpack-solidity/cli-tools
 
-CLI utility scaffolding for the Neo Solidity toolchain. The package ships lightweight Node CLIs (`solc-neo`, `neo-sol`) that shell out to the Rust `neo-solc` binary, plus a reusable CLI framework. The compile-oriented flows are still scaffold-level, but the framework itself is usable and returns structured results instead of terminating the process on command failures.
+CLI utility scaffolding for the Neo DevPack for Solidity toolchain. The package ships lightweight Node CLIs (`solc-neo`, `neo-sol`) that shell out to the Rust `neo-solc` binary, plus a reusable CLI framework. The compile-oriented flows are still scaffold-level, but the framework itself is usable and returns structured results instead of terminating the process on command failures.
 
 ## Status
 
@@ -14,7 +14,7 @@ CLI utility scaffolding for the Neo Solidity toolchain. The package ships lightw
 ## Installation
 
 ```bash
-npm install -g @neo-solidity/cli-tools
+npm install -g @neo-devpack-solidity/cli-tools
 ```
 
 ## Usage
@@ -32,7 +32,7 @@ solc-neo --version
 The `CompilerCLI` module is also exportable so tool authors can integrate it programmatically:
 
 ```ts
-import { CompilerCLI } from "@neo-solidity/cli-tools";
+import { CompilerCLI } from "@neo-devpack-solidity/cli-tools";
 
 const cli = new CompilerCLI();
 await cli.compile(["contracts/MyToken.sol"], { optimize: true });
@@ -40,7 +40,7 @@ await cli.compile(["contracts/MyToken.sol"], { optimize: true });
 
 ## Roadmap
 
-1. Wire compiler output into the artifact format consumed by `@neo-solidity/hardhat-solc-neo` and Neo Foundry.
+1. Wire compiler output into the artifact format consumed by `@neo-devpack-solidity/hardhat-solc-neo` and Neo Foundry.
 2. Move `neo-forge`/`neo-cast` commands into this package once they perform real RPC transactions.
 3. Provide a `neo-anvil` CLI that launches a real Neo Express instance or VM sandbox.
 

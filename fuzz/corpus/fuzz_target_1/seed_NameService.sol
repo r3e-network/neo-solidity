@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title NameService - Decentralized name registration for Neo N3
-/// @author Neo Solidity Team
+/// @author Neo DevPack for Solidity Team
 /// @notice Register and manage human-readable names mapped to addresses
 /// @dev Similar to ENS but simplified for Neo N3
 contract NameService {

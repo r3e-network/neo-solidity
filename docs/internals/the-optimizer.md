@@ -1,6 +1,6 @@
 # The Optimizer
 
-The Neo Solidity compiler includes a multi-stage Intermediate Representation (IR) optimizer designed to reduce the size and execution cost of the compiled NeoVM script.
+The Neo DevPack for Solidity compiler includes a multi-stage Intermediate Representation (IR) optimizer designed to reduce the size and execution cost of the compiled NeoVM script.
 
 By default, optimizations are enabled when compiling through standard workflows, but can be controlled explicitly using the `-O` flag.
 

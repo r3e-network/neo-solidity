@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("YieldVault")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-4626 yield vault in Neo C# — wraps a NEP-17 underlying.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

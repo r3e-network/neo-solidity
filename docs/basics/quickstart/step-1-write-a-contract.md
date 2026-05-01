@@ -47,7 +47,7 @@ contract MyStorage {
 
 ## What It Demonstrates
 
-This contract demonstrates the core patterns you will use in Neo Solidity:
+This contract demonstrates the core patterns you will use in Neo DevPack for Solidity:
 
 - **State variables** (`value`) persist in Neo Storage.
 - **Events** (`ValueChanged`) map to `Runtime.Notify` on Neo.

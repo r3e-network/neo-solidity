@@ -1,4 +1,4 @@
-# Multi-stage build for Neo Solidity Compiler
+# Multi-stage build for Neo DevPack for Solidity
 # Use a Rust toolchain new enough for Edition 2024 dependencies.
 FROM rust:1.88 AS rust-builder
 
@@ -23,9 +23,9 @@ RUN apt-get update && apt-get install -y \
 COPY --from=rust-builder /app/target/release/neo-solc /usr/local/bin/neo-solc
 
 # Copy project files
-COPY devpack/ /opt/neo-solidity/devpack/
-COPY examples/ /opt/neo-solidity/examples/
-COPY *.md /opt/neo-solidity/docs/
+COPY devpack/ /opt/neo-devpack-solidity/devpack/
+COPY examples/ /opt/neo-devpack-solidity/examples/
+COPY *.md /opt/neo-devpack-solidity/docs/
 
 # Create entrypoint script
 RUN echo '#!/bin/bash' > /usr/local/bin/entrypoint.sh \
@@ -41,11 +41,11 @@ RUN echo '#!/bin/bash' > /usr/local/bin/entrypoint.sh \
 WORKDIR /workspace
 
 # Labels
-LABEL org.opencontainers.image.title="Neo Solidity Compiler"
+LABEL org.opencontainers.image.title="Neo DevPack for Solidity"
 LABEL org.opencontainers.image.description="Complete Solidity-to-NeoVM compilation system"
 LABEL org.opencontainers.image.vendor="R3E Network"
 LABEL org.opencontainers.image.authors="Jimmy <jimmy@r3e.network>"
-LABEL org.opencontainers.image.source="https://github.com/r3e-network/neo-solidity"
+LABEL org.opencontainers.image.source="https://github.com/r3e-network/neo-devpack-solidity"
 LABEL org.opencontainers.image.licenses="MIT"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

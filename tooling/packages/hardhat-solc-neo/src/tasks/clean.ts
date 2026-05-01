@@ -1,14 +1,14 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
-import { addFlagOption, setTaskAction } from "@neo-solidity/types";
+import { addFlagOption, setTaskAction } from "@neo-devpack-solidity/types";
 
-const neoCleanTask = task("neo-clean", "Clean Neo-Solidity compilation artifacts");
+const neoCleanTask = task("neo-clean", "Clean Neo DevPack for Solidity compilation artifacts");
 addFlagOption(neoCleanTask, "deployments", "Also clean deployment artifacts");
 addFlagOption(neoCleanTask, "cache", "Also clean cache files");
 addFlagOption(neoCleanTask, "all", "Clean everything including build info");
 setTaskAction(neoCleanTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
-    console.log(chalk.blue("🧹 Cleaning Neo-Solidity artifacts..."));
+    console.log(chalk.blue("🧹 Cleaning Neo DevPack for Solidity artifacts..."));
 
     try {
       if (taskArgs.all) {

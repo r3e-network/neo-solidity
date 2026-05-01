@@ -21,7 +21,7 @@ async function makeTempDir(prefix: string): Promise<string> {
   return dir;
 }
 
-describe("@neo-solidity/cli-tools", () => {
+describe("@neo-devpack-solidity/cli-tools", () => {
   it("returns structured success and failure results for registered commands", async () => {
     const root = await makeTempDir("neo-cli-test-");
     const cli = new NeoSolidityCLI({

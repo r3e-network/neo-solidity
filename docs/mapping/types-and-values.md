@@ -1,6 +1,6 @@
 # Types and Values
 
-Neo Solidity enforces Solidity typing at compile time, then lowers values to
+Neo DevPack for Solidity enforces Solidity typing at compile time, then lowers values to
 NeoVM stack items, storage payloads, and ABI types.
 
 ## Value Types

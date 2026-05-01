@@ -1,6 +1,6 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-solidity v0.18.0
+> **Compiler**: neo-devpack-solidity v0.18.0
 > **Parser**: foundry-solang-parser 0.3.9
 > **Target**: NeoVM (Neo N3)
 > **Audit date**: 2026-04-30

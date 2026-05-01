@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("DeterministicFactory")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-1014 CREATE2 deterministic-deploy mirror — uses ContractManagement.Deploy in Neo C#.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

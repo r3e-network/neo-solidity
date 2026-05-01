@@ -13,7 +13,7 @@ fn emit_warning_with_suggestion(
 
     if json {
         let warning = json!({
-            "component": "neo-solidity",
+            "component": "neo-devpack-solidity",
             "severity": "warning",
             "type": "CompilerWarning",
             "code": code.unwrap_or("COMPILER_WARNING"),
@@ -51,7 +51,7 @@ fn emit_error_with_suggestion(message: &str, code: &str, json: bool, suggestion:
 
     if json {
         let error = json!({
-            "component": "neo-solidity",
+            "component": "neo-devpack-solidity",
             "severity": "error",
             "type": "CompilerError",
             "code": code,

@@ -1,6 +1,6 @@
-# Contributing to Neo Solidity Compiler
+# Contributing to Neo DevPack for Solidity
 
-We welcome contributions to the Neo Solidity Compiler project! This guide will help you get started.
+We welcome contributions to the Neo DevPack for Solidity project! This guide will help you get started.
 
 ## 🎯 Getting Started
 
@@ -15,8 +15,8 @@ We welcome contributions to the Neo Solidity Compiler project! This guide will h
 
 ```bash
 # 1. Fork and clone the repository
-git clone https://github.com/yourusername/neo-solidity.git
-cd neo-solidity
+git clone https://github.com/yourusername/neo-devpack-solidity.git
+cd neo-devpack-solidity
 
 # 2. Install dependencies
 make install-deps
@@ -53,7 +53,7 @@ Have an idea? Create an issue with:
 
 #### Good First Issues
 
-Look for issues labeled [`good first issue`](https://github.com/r3e-network/neo-solidity/labels/good%20first%20issue) - these are perfect for new contributors.
+Look for issues labeled [`good first issue`](https://github.com/r3e-network/neo-devpack-solidity/labels/good%20first%20issue) - these are perfect for new contributors.
 
 #### Development Workflow
 
@@ -347,4 +347,4 @@ Don't hesitate to ask! We're here to help:
 - Join our Discord
 - Email jimmy@r3e.network
 
-Thank you for contributing to Neo Solidity Compiler! 🚀
+Thank you for contributing to Neo DevPack for Solidity! 🚀

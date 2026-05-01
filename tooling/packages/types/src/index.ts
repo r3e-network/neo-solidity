@@ -1,4 +1,4 @@
-// Core Types for Neo-Solidity Tooling
+// Core Types for Neo DevPack for Solidity Tooling
 export * from './compiler';
 export * from './contracts';
 export * from './networks';

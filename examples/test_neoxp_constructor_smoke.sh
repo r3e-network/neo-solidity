@@ -6,7 +6,7 @@
 # - deploy it via Neo-Express while passing constructor args through `_deploy(data, update)`
 # - observe the expected initialized state on-chain
 #
-# Note: neo-solidity injects `_deploy(data, update)` and expects `data` to be a JSON-encoded
+# Note: neo-devpack-solidity injects `_deploy(data, update)` and expects `data` to be a JSON-encoded
 # array (e.g. `[7]`) when the Solidity constructor requires arguments.
 #
 # Constructor-side event emission is intentionally excluded here so this
@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-neoxp-ctor.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-devpack-solidity-neoxp-ctor.XXXXXX")"
 
 cleanup() {
   rm -rf "$WORK_DIR"

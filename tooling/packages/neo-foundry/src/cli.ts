@@ -200,7 +200,7 @@ program
     if (command) {
       program.outputHelp();
     } else {
-      console.log(chalk.blue("Neo-Forge - Build and test Neo-Solidity contracts"));
+      console.log(chalk.blue("Neo-Forge - Build and test Neo DevPack for Solidity contracts"));
       console.log("");
       console.log("Common commands:");
       console.log("  neo-forge init          Initialize new project");

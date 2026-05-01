@@ -1,5 +1,5 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { getHardhatSelectedNetworkName } from "@neo-solidity/types";
+import { getHardhatSelectedNetworkName } from "@neo-devpack-solidity/types";
 
 import { NeoDeployer } from "./deployer";
 import { NeoRpcClient } from "./rpc-client";
@@ -50,7 +50,7 @@ export function createNeoDeployRuntime(hre: HardhatRuntimeEnvironment): NeoDeplo
     networkConfig.accounts,
     Number(networkConfig.addressVersion ?? 0x35),
   );
-  // Prefer neo-solc build artifacts when available (from @neo-solidity/hardhat-solc-neo).
+  // Prefer neo-solc build artifacts when available (from @neo-devpack-solidity/hardhat-solc-neo).
   const artifactProvider = (hre as any).neoSolc?.artifacts ?? hre.artifacts;
   const deployer = new NeoDeployer(
     rpc,

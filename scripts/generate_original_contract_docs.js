@@ -131,7 +131,7 @@ function cleanPathText(value) {
   }
 
   let text = String(value).split(path.sep).join('/');
-  text = text.replace(/\/(?:Users|home|private\/tmp|tmp)\/[^\s"'<>]+\/neo-solidity\//g, '');
+  text = text.replace(/\/(?:Users|home|private\/tmp|tmp)\/[^\s"'<>]+\/neo-devpack-solidity\//g, '');
   text = text.replaceAll('/private/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
   text = text.replaceAll('/tmp/neo-famous-contracts-audit/node_modules/', 'node_modules/');
 

@@ -25,7 +25,7 @@ public class ERC20Token : SmartContract
     private static readonly BigInteger ALLOWANCES_SLOT = 2;     // mapping(address => mapping(address => uint256))
     
     // Token metadata
-    private const string NAME = "Neo Solidity Token";
+    private const string NAME = "Neo DevPack for Solidity Token";
     private const string SYMBOL = "NST";
     private const byte DECIMALS = 18;
     

@@ -33,7 +33,7 @@ fn builds_nef_payload_matching_spec() {
     let script = vec![0x0C, 0x01, 0x2A, 0x40];
     let token = MethodToken::new([0x11; 20], "transfer", 2, true, 0x07);
     let source = "https://example.com/src.sol";
-    let compiler = "neo-solidity-test";
+    let compiler = "neo-devpack-solidity-test";
 
     let nef = build_nef_with_tokens(&script, compiler, source, &[token]).unwrap();
     let mut offset = 0usize;

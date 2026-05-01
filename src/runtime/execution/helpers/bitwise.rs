@@ -273,7 +273,7 @@ impl ExecutionContext {
     fn extract_shift_amount(&self, item: StackItem) -> Result<u32, RuntimeError> {
         // Per EIP-145 (adopted by Solidity 0.8.x), a shift amount >= the
         // operand's bit-width silently produces 0 rather than faulting.
-        // Neo-Solidity's widest scalar is uint256, so we clamp any
+        // Neo DevPack for Solidity's widest scalar is uint256, so we clamp any
         // out-of-range non-negative shift amount to 256. Callers
         // (`shift_left`/`shift_right`) already short-circuit to 0 once the
         // amount exceeds their operand width, so the sentinel flows through

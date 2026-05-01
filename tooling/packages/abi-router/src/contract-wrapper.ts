@@ -16,7 +16,7 @@ import {
   strip0x,
 } from "./neo-utils.js";
 
-const debug = Debug("neo-solidity:contract-wrapper");
+const debug = Debug("neo-devpack-solidity:contract-wrapper");
 
 /**
  * Contract wrapper that provides Ethereum-compatible interface for Neo contracts

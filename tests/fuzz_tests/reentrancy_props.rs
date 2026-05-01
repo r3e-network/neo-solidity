@@ -1,6 +1,6 @@
 //! Property tests for re-entrancy detection and call-depth tracking.
 //!
-//! These tests target two host-level safety properties of the Neo-Solidity
+//! These tests target two host-level safety properties of the Neo DevPack for Solidity
 //! runtime:
 //!
 //!   1. **Re-entrancy guards work**: a Solidity contract using the
@@ -314,7 +314,7 @@ contract C {
     ///
     /// Implementation note: building two truly distinct contracts that
     /// know each other's hash + ABI at compile time is non-trivial in the
-    /// current Neo-Solidity test surface — `compile_contracts` does not
+    /// current Neo DevPack for Solidity test surface — `compile_contracts` does not
     /// give us a cross-contract dispatch wiring. Instead, we approximate
     /// the A → B → A pattern using the supported `this.<method>()` self-
     /// dispatch path (Task #70): `methodA_x` calls `methodB_y` (a public

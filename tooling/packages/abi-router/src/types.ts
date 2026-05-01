@@ -1,4 +1,4 @@
-import type { ContractManifest } from "@neo-solidity/types";
+import type { ContractManifest } from "@neo-devpack-solidity/types";
 
 /**
  * ABI Router specific types

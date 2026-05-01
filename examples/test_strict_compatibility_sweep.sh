@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Strict compatibility sweep for Neo Solidity contracts.
+# Strict compatibility sweep for Neo DevPack for Solidity contracts.
 #
 # Compiles strict-safe Solidity sets with strict manifest denial flags and fails on:
 # - any compilation error
@@ -37,7 +37,7 @@ resolve_neo_solc_once
 
 echo "(info) Using compiler: $NEO_SOLC"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-strict-sweep.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-devpack-solidity-strict-sweep.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 STRICT_FLAGS=(

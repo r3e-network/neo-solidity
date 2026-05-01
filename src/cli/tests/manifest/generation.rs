@@ -194,7 +194,7 @@ fn manifest_supports_natspec_manifest_field_overrides() {
      * @custom:neo.manifest.supportedstandards ["NEP-17","NEP-26"]
      * @custom:neo.manifest.groups [{"pubkey":"03aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","signature":"AQID"}]
      * @custom:neo.manifest.trusts ["0x1111111111111111111111111111111111111111"]
-     * @custom:neo.manifest.extra.Repository "https://github.com/r3e-network/neo-solidity"
+     * @custom:neo.manifest.extra.Repository "https://github.com/r3e-network/neo-devpack-solidity"
      * @custom:neo.manifest.extra.Build {"commit":"abc123"}
      */
     contract ManifestOverrides {
@@ -244,7 +244,7 @@ fn manifest_supports_natspec_manifest_field_overrides() {
     let extra = manifest["extra"].as_object().expect("extra object");
     assert_eq!(
         extra.get("Repository").and_then(Value::as_str),
-        Some("https://github.com/r3e-network/neo-solidity")
+        Some("https://github.com/r3e-network/neo-devpack-solidity")
     );
     assert_eq!(
         extra

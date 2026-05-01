@@ -5,7 +5,7 @@ description: "Syscalls section index."
 
 # Syscalls
 
-NeoVM syscalls are the interface between smart contract bytecode and the Neo N3 blockchain runtime. Each syscall is identified by a 4-byte hash derived from SHA-256 of its name string. The neo-solidity compiler lowers Solidity constructs to these syscalls automatically.
+NeoVM syscalls are the interface between smart contract bytecode and the Neo N3 blockchain runtime. Each syscall is identified by a 4-byte hash derived from SHA-256 of its name string. The neo-devpack-solidity compiler lowers Solidity constructs to these syscalls automatically.
 
 When the NeoVM encounters a `SYSCALL` opcode, it reads the next 4 bytes as the syscall ID, looks up the corresponding handler in the interop service table, and dispatches execution. The compiler handles this translation transparently — you write Solidity, and the correct syscall sequence is emitted in the NEF output.
 

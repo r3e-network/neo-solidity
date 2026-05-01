@@ -5,9 +5,9 @@ description: "Solidity Feature Support section index."
 
 # Solidity Feature Support
 
-The `neo-solidity` compiler parses Solidity 0.8.x source code and lowers it to NeoVM bytecode targeting Neo N3. "Feature support" describes how each Solidity language construct maps to NeoVM semantics — whether it compiles unchanged, compiles with behavioral differences, is rejected outright, or is intentionally blocked because no safe Neo equivalent exists.
+The `neo-devpack-solidity` compiler parses Solidity 0.8.x source code and lowers it to NeoVM bytecode targeting Neo N3. "Feature support" describes how each Solidity language construct maps to NeoVM semantics — whether it compiles unchanged, compiles with behavioral differences, is rejected outright, or is intentionally blocked because no safe Neo equivalent exists.
 
-This page is the human-readable companion to the canonical machine-audited matrix at [`docs/SOLIDITY_SUPPORT_MATRIX.md`](https://github.com/r3e-network/neo-solidity/blob/main/docs/SOLIDITY_SUPPORT_MATRIX.md).
+This page is the human-readable companion to the canonical machine-audited matrix at [`docs/SOLIDITY_SUPPORT_MATRIX.md`](https://github.com/r3e-network/neo-devpack-solidity/blob/main/docs/SOLIDITY_SUPPORT_MATRIX.md).
 
 For protocol-level migration status on well-known production contracts, start with [Original Famous Contracts (Per Contract)](/solidity/original-contracts/) and use [Famous Contracts Audit](/solidity/famous-contracts-neo-audit) for the aggregate report.
 

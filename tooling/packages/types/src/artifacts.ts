@@ -49,7 +49,7 @@ export interface BuildInfo {
   id: string;
   /** Solidity version used */
   solcVersion: string;
-  /** Neo-Solidity compiler version */
+  /** Neo DevPack for Solidity compiler version */
   neoSolcVersion: string;
   /** Input to compiler */
   input: any;

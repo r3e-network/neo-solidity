@@ -14,10 +14,10 @@ public class DemoNFTState : Nep11TokenState
 }
 
 [DisplayName("DemoNFT")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-721 / NEP-11 mirror demo — non-fungible token in Neo C#.")]
 [ContractVersion("1.0.0")]
-[ContractSourceCode("https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-721/csharp")]
+[ContractSourceCode("https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-721/csharp")]
 [ContractPermission(Permission.Any, Method.OnNEP11Payment)]
 [SupportedStandards(NepStandard.Nep11)]
 public class DemoNFT : Nep11Token<DemoNFTState>

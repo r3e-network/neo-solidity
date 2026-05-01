@@ -1,4 +1,4 @@
-import { sourcemapTypes, profilerTypes } from '@neo-solidity/types';
+import { sourcemapTypes, profilerTypes } from '@neo-devpack-solidity/types';
 import { EventEmitter } from 'events';
 import { HardhatPluginError } from "hardhat/plugins";
 
@@ -13,7 +13,7 @@ type StorageState = sourcemapTypes.StorageState;
 
 const notSupported = (feature: string): never => {
   throw new HardhatPluginError(
-    '@neo-solidity/hardhat-solc-neo',
+    '@neo-devpack-solidity/hardhat-solc-neo',
     `Neo debugger placeholder: ${feature} is not implemented yet.`
   );
 };

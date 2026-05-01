@@ -2,14 +2,14 @@
 
 ## Versioning
 
-Neo Solidity versions follow semantic versioning. We recommend always using the latest release to ensure you have the most up-to-date EVM-to-NeoVM mappings, intrinsic library support, and security hardening patches.
+Neo DevPack for Solidity versions follow semantic versioning. We recommend always using the latest release to ensure you have the most up-to-date EVM-to-NeoVM mappings, intrinsic library support, and security hardening patches.
 
 ## npm / Node.js
 
-Use `npm` for a convenient and portable way to install `neo-solidity` locally into your JavaScript/TypeScript project. This is highly recommended if you are using Hardhat or other Node.js-based tooling.
+Use `npm` for a convenient and portable way to install `neo-devpack-solidity` locally into your JavaScript/TypeScript project. This is highly recommended if you are using Hardhat or other Node.js-based tooling.
 
 ```bash
-npm install --save-dev @neo-solidity/hardhat-solc-neo
+npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo
 ```
 
 The Hardhat plugin will automatically manage the underlying compiler binary for your system.
@@ -19,8 +19,8 @@ The Hardhat plugin will automatically manage the underlying compiler binary for 
 If you prefer to run the compiler inside a containerized environment to avoid installing Rust and other dependencies locally, build the checked-in Dockerfile from the source repository.
 
 ```bash
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity
 docker build -t neo-solc:local .
 docker run --rm -v "$(pwd)":/sources neo-solc:local -o /sources/build /sources/MyContract.sol
 ```
@@ -29,7 +29,7 @@ docker run --rm -v "$(pwd)":/sources neo-solc:local -o /sources/build /sources/M
 
 We provide pre-built static binaries for major operating systems via our GitHub Releases page.
 
-1. Navigate to [Neo Solidity Releases](https://github.com/r3e-network/neo-solidity/releases).
+1. Navigate to [Neo DevPack for Solidity Releases](https://github.com/r3e-network/neo-devpack-solidity/releases).
 2. Download the binary archive for your platform.
 3. Extract the archive.
 4. Move the `neo-solc` executable to a directory in your system `$PATH` (e.g., `/usr/local/bin`).
@@ -61,8 +61,8 @@ source "$HOME/.cargo/env"
 ### Clone and Build
 
 ```bash
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity
 
 # Build the release binary
 cargo build --release
@@ -82,7 +82,7 @@ Ensure your `~/.cargo/bin` directory is in your system's `$PATH`.
 
 ## The Version String in Detail
 
-The Neo Solidity version string contains the primary version number, along with build metadata if compiled from a non-release branch.
+The Neo DevPack for Solidity version string contains the primary version number, along with build metadata if compiled from a non-release branch.
 
 ```bash
 neo-solc --version

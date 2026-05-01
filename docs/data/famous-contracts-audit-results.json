@@ -15,7 +15,7 @@
   "results": [
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "WGAS",
       "path": "examples/famous/WGAS.sol",
       "sourcePath": "examples/famous/WGAS.sol",
@@ -35,7 +35,7 @@
     },
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "SimpleAMM",
       "path": "examples/famous/SimpleAMM.sol",
       "sourcePath": "examples/famous/SimpleAMM.sol",
@@ -49,7 +49,7 @@
     },
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "FlashLoan",
       "path": "examples/famous/FlashLoan.sol",
       "sourcePath": "examples/famous/FlashLoan.sol",
@@ -69,7 +69,7 @@
     },
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "SimpleDAO",
       "path": "examples/famous/SimpleDAO.sol",
       "sourcePath": "examples/famous/SimpleDAO.sol",
@@ -99,7 +99,7 @@
     },
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "TokenVesting",
       "path": "examples/famous/TokenVesting.sol",
       "sourcePath": "examples/famous/TokenVesting.sol",
@@ -113,7 +113,7 @@
     },
     {
       "source": "repo",
-      "project": "Neo Solidity Famous Ports",
+      "project": "Neo DevPack for Solidity Famous Ports",
       "contract": "SimpleLending",
       "path": "examples/famous/SimpleLending.sol",
       "sourcePath": "examples/famous/SimpleLending.sol",

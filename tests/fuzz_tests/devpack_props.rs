@@ -1,6 +1,6 @@
 //! Devpack library property tests.
 //!
-//! Exhaustively fuzzes the Neo Solidity devpack libraries
+//! Exhaustively fuzzes the Neo DevPack for Solidity devpack libraries
 //! (`devpack/libraries/*.sol` and `devpack/contracts/*.sol`) by compiling
 //! tiny harness contracts that exercise each helper and asserting on the
 //! runtime behavior. Earlier batches (`baseline_tests.rs::runtime_*`,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Continuous Fuzz Suite Runner for Neo-Solidity
+# Continuous Fuzz Suite Runner for Neo DevPack for Solidity
 # Runs the full fuzz test suite with configurable case counts.
 #
 # Usage:

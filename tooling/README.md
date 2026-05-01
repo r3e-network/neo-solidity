@@ -1,30 +1,30 @@
-# Neo-Solidity Comprehensive Development Tooling
+# Neo DevPack for Solidity Comprehensive Development Tooling
 
-A complete toolchain under active development for Neo-Solidity. Some packages remain experimental, but the core workspace now has build/test/lint/typecheck coverage.
+A complete toolchain under active development for Neo DevPack for Solidity. Some packages remain experimental, but the core workspace now has build/test/lint/typecheck coverage.
 
 > ⚠️ **Current Status**  
-> - `@neo-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
-> - `@neo-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
-> - `@neo-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real; build/test/deploy flows remain scaffolding.  
-> - `@neo-solidity/abi-router`, `@neo-solidity/cli-tools`: usable for ABI/CLI composition, but still not full end-to-end deployment frameworks.
-> - `@neo-solidity/templates`, `@neo-solidity/integration-tests`: now wired into the workspace and covered by the tooling test/lint/typecheck pipeline.
+> - `@neo-devpack-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
+> - `@neo-devpack-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
+> - `@neo-devpack-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real; build/test/deploy flows remain scaffolding.  
+> - `@neo-devpack-solidity/abi-router`, `@neo-devpack-solidity/cli-tools`: usable for ABI/CLI composition, but still not full end-to-end deployment frameworks.
+> - `@neo-devpack-solidity/templates`, `@neo-devpack-solidity/integration-tests`: now wired into the workspace and covered by the tooling test/lint/typecheck pipeline.
 
 ## 🏗️ Architecture Overview
 
 ```
-Neo-Solidity Tooling Ecosystem
+Neo DevPack for Solidity Tooling Ecosystem
 ├── Hardhat Integration
-│   ├── @neo-solidity/hardhat-solc-neo      # Compilation plugin
-│   └── @neo-solidity/hardhat-neo-deployer  # Deployment plugin
+│   ├── @neo-devpack-solidity/hardhat-solc-neo      # Compilation plugin
+│   └── @neo-devpack-solidity/hardhat-neo-deployer  # Deployment plugin
 ├── Foundry Integration  
-│   └── @neo-solidity/neo-foundry           # Foundry-style scaffold + init flow
+│   └── @neo-devpack-solidity/neo-foundry           # Foundry-style scaffold + init flow
 ├── Core Libraries
-│   ├── @neo-solidity/types                 # Shared type definitions
-│   ├── @neo-solidity/abi-router            # ABI compatibility layer
-│   └── @neo-solidity/cli-tools             # Command-line tools
+│   ├── @neo-devpack-solidity/types                 # Shared type definitions
+│   ├── @neo-devpack-solidity/abi-router            # ABI compatibility layer
+│   └── @neo-devpack-solidity/cli-tools             # Command-line tools
 └── Developer Experience
-    ├── @neo-solidity/templates             # Project scaffolding templates
-    ├── @neo-solidity/integration-tests     # Cross-package smoke coverage
+    ├── @neo-devpack-solidity/templates             # Project scaffolding templates
+    ├── @neo-devpack-solidity/integration-tests     # Cross-package smoke coverage
     ├── Network configurations              # Neo network presets
     ├── Artifact management                 # Build output handling
     └── Debugging support                   # Development debugging
@@ -35,12 +35,12 @@ Neo-Solidity Tooling Ecosystem
 ### 1. Hardhat Setup (compile + deploy)
 
 ```bash
-npm install --save-dev @neo-solidity/hardhat-solc-neo
-npm install --save-dev @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo
+npm install --save-dev @neo-devpack-solidity/hardhat-neo-deployer
 
 # hardhat.config.ts
-import "@neo-solidity/hardhat-solc-neo";
-import "@neo-solidity/hardhat-neo-deployer";
+import "@neo-devpack-solidity/hardhat-solc-neo";
+import "@neo-devpack-solidity/hardhat-neo-deployer";
 
 export default {
   neoSolc: {
@@ -71,7 +71,7 @@ npx hardhat neo-deploy --contract MyContract --network testnet
 ### 2. Foundry Setup
 
 ```bash
-npm install -g @neo-solidity/neo-foundry
+npm install -g @neo-devpack-solidity/neo-foundry
 
 # Initialize project
 neo-forge init my-neo-project
@@ -93,7 +93,7 @@ neo-forge test
 ### 3. CLI Tools
 
 ```bash
-npm install -g @neo-solidity/cli-tools
+npm install -g @neo-devpack-solidity/cli-tools
 
 # Compile contracts directly
 solc-neo compile contracts/*.sol --optimize --gas-model hybrid
@@ -109,7 +109,7 @@ solc-neo verify-contract --address N123... --source Token.sol --contract Token -
 
 ### Core Packages
 
-#### `@neo-solidity/types`
+#### `@neo-devpack-solidity/types`
 Shared TypeScript interfaces and type definitions for all tooling packages.
 
 **Key Types:**
@@ -119,8 +119,8 @@ Shared TypeScript interfaces and type definitions for all tooling packages.
 - `ContractDeployment` - Deployment results
 - `NeoRpcProvider` - RPC interface
 
-#### `@neo-solidity/abi-router` 
-ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. It currently supports static ABIs and best-effort event scanning; transaction signing + deployments are handled by `@neo-solidity/hardhat-neo-deployer` or native Neo tooling.
+#### `@neo-devpack-solidity/abi-router` 
+ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. It currently supports static ABIs and best-effort event scanning; transaction signing + deployments are handled by `@neo-devpack-solidity/hardhat-neo-deployer` or native Neo tooling.
 
 **Current capabilities / caveats:**
 - ✅ Ethereum-style contract interaction (call/send/estimate).
@@ -131,7 +131,7 @@ ABI-compatible interface layer that bridges Ethereum tooling to Neo contracts. I
 
 ```typescript
 import { readFileSync } from 'fs';
-import { AbiRouter } from '@neo-solidity/abi-router';
+import { AbiRouter } from '@neo-devpack-solidity/abi-router';
 
 const router = new AbiRouter(neoRpcProvider);
 const artifacts = { nef: readFileSync('Token.nef', 'hex'), manifest: require('./Token.manifest.json') };
@@ -145,15 +145,15 @@ await contract.transfer(recipient, amount);
       const balance = await contract.balanceOf(account);
 ```
 
-#### `@neo-solidity/templates`
-Project scaffolding helpers for Neo-Solidity. The package now ships as a real workspace package and can generate current Hardhat-based starter projects that use `neo-compile`, `neo-deploy`, and `neo-verify` instead of stale EVM-only scripts.
+#### `@neo-devpack-solidity/templates`
+Project scaffolding helpers for Neo DevPack for Solidity. The package now ships as a real workspace package and can generate current Hardhat-based starter projects that use `neo-compile`, `neo-deploy`, and `neo-verify` instead of stale EVM-only scripts.
 
-#### `@neo-solidity/integration-tests`
+#### `@neo-devpack-solidity/integration-tests`
 Workspace-level smoke coverage for the package boundary between templates, CLI tools, Neo Foundry, and the ABI router. These tests intentionally validate the behavior the packages support today rather than future placeholder workflows.
 
 ### Hardhat Integration
 
-#### `@neo-solidity/hardhat-solc-neo`
+#### `@neo-devpack-solidity/hardhat-solc-neo`
 Hardhat plugin for compiling Solidity to NeoVM bytecode. The runtime extension only exposes `hre.neoSolc.compiler` and `hre.neoSolc.artifacts`; other helpers were removed until a real Neo RPC workflow exists.
 
 **Tasks (currently supported):**
@@ -161,7 +161,7 @@ Hardhat plugin for compiling Solidity to NeoVM bytecode. The runtime extension o
 - `neo-clean` - Clean build artifacts  
 - `neo-verify` - Verify on-chain NEF/manifest matches local build artifact (updates deployment metadata)
 
-Pair this with `@neo-solidity/hardhat-neo-deployer` if you want `neo-deploy` tasks inside Hardhat.
+Pair this with `@neo-devpack-solidity/hardhat-neo-deployer` if you want `neo-deploy` tasks inside Hardhat.
 
 **Configuration:**
 ```typescript
@@ -176,7 +176,7 @@ neoSolc: {
 }
 ```
 
-#### `@neo-solidity/hardhat-neo-deployer`
+#### `@neo-devpack-solidity/hardhat-neo-deployer`
 Experimental Hardhat plugin for deploying Neo N3 contracts. It builds/signs/sends `ContractManagement.deploy` transactions using the NEF + manifest embedded in build artifacts.
 
 **Status**
@@ -186,7 +186,7 @@ Experimental Hardhat plugin for deploying Neo N3 contracts. It builds/signs/send
 
 ### Foundry Integration
 
-#### `@neo-solidity/neo-foundry`
+#### `@neo-devpack-solidity/neo-foundry`
 Foundry-style tooling for Neo. `neo-forge init` now creates a working project layout and config; build/test/transaction flows remain scaffold-only.
 
 **Tools:**
@@ -350,7 +350,7 @@ const stats = await hre.neoSolc.artifacts.getStatistics();
 
 ### Debugging Support
 
-There is no published `@neo-solidity/debugger` package yet. For debugging today:
+There is no published `@neo-devpack-solidity/debugger` package yet. For debugging today:
 
 ```bash
 # Emit NeoVM assembly for inspection
@@ -440,7 +440,7 @@ interface ContractWrapper {
 **Compiler Not Found**
 ```bash
 # Install compiler
-npm install -g @neo-solidity/cli-tools
+npm install -g @neo-devpack-solidity/cli-tools
 solc-neo install latest
 ```
 
@@ -470,7 +470,7 @@ const tx = await contract.method({
 Enable debug logging:
 
 ```bash
-DEBUG=neo-solidity:* npx hardhat neo-compile
+DEBUG=neo-devpack-solidity:* npx hardhat neo-compile
 DEBUG=neo-foundry:* neo-forge build
 ```
 
@@ -481,8 +481,8 @@ Contributions welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guid
 ### Development Setup
 
 ```bash
-git clone https://github.com/r3e-network/neo-solidity
-cd neo-solidity/tooling
+git clone https://github.com/r3e-network/neo-devpack-solidity
+cd neo-devpack-solidity/tooling
 npm install
 npm run build
 ```

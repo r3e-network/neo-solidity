@@ -1,6 +1,6 @@
 # Keyword Index
 
-This page serves as a reference for all keywords reserved in the Neo Solidity compiler. Because Neo Solidity uses the upstream `solang-parser`, it reserves the exact same keywords as mainline Ethereum Solidity.
+This page serves as a reference for all keywords reserved in the Neo DevPack for Solidity compiler. Because Neo DevPack for Solidity uses the upstream `solang-parser`, it reserves the exact same keywords as mainline Ethereum Solidity.
 
 ## Reserved Keywords
 

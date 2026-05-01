@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test script for Neo Solidity Compiler
+# Test script for Neo DevPack for Solidity
 # Author: Jimmy <jimmy@r3e.network>
 # Tests complete compilation to Neo N3 contract format
 
@@ -8,7 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-test.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-devpack-solidity-test.XXXXXX")"
 
 file_size_bytes() {
   local file="$1"
@@ -99,7 +99,7 @@ fi
 
 cd "$WORK_DIR"
 
-echo "🔨 Testing Neo Solidity Compiler - Neo N3 Contract Generation"
+echo "🔨 Testing Neo DevPack for Solidity - Neo N3 Contract Generation"
 echo "============================================================"
 echo "(info) Using compiler: $NEO_SOLC_BIN"
 echo "(info) Work dir: $WORK_DIR"
@@ -296,7 +296,7 @@ if [ -f "$ROOT_DIR/examples/ERC20Token.sol" ]; then
 fi
 
 echo
-echo "🎉 All tests passed! Neo Solidity Compiler correctly generates:"
+echo "🎉 All tests passed! Neo DevPack for Solidity correctly generates:"
 echo "   ✓ .nef files (Neo Executable Format)"
 echo "   ✓ .manifest.json files (Contract metadata)"
 echo "   ✓ Proper Neo N3 contract structure"

@@ -1,6 +1,6 @@
 # Mapping Parity and Limitations
 
-Neo Solidity is source-compatible with many Solidity 0.8.x patterns, but not
+Neo DevPack for Solidity is source-compatible with many Solidity 0.8.x patterns, but not
 every EVM behavior has an exact Neo N3 equivalent.
 
 ## Fidelity Levels

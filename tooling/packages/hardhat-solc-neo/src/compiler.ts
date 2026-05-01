@@ -6,14 +6,14 @@ import {
   CompilationInput, 
   CompilationOutput, 
   NeoHardhatConfig
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
 
-const debug = Debug("hardhat:neo-solidity:compiler");
+const debug = Debug("hardhat:neo-devpack-solidity:compiler");
 
 /**
- * Neo-Solidity compiler wrapper for Hardhat integration
+ * Neo DevPack for Solidity compiler wrapper for Hardhat integration
  */
 export class NeoSolidityCompiler {
   private config: NeoHardhatConfig;
@@ -28,7 +28,7 @@ export class NeoSolidityCompiler {
    * Compile Solidity sources to NeoVM bytecode
    */
   async compile(sources: { [fileName: string]: { content: string } }): Promise<CompilationOutput> {
-    debug("Starting Neo-Solidity compilation");
+    debug("Starting Neo DevPack for Solidity compilation");
     
     try {
       const settings = this.getStandardJsonSettings();
@@ -45,7 +45,7 @@ export class NeoSolidityCompiler {
       await fs.mkdir(path.dirname(inputFile), { recursive: true });
       await fs.writeFile(inputFile, JSON.stringify(input, null, 2));
 
-      // Execute Neo-Solidity compiler
+      // Execute Neo DevPack for Solidity compiler
       const outputFile = path.join(this.paths.cache, "neo-solc-output.json");
       await this.executeCompiler(inputFile, outputFile);
 
@@ -56,20 +56,20 @@ export class NeoSolidityCompiler {
       // Validate compilation results
       this.validateOutput(output);
 
-      debug("Neo-Solidity compilation completed successfully");
+      debug("Neo DevPack for Solidity compilation completed successfully");
       return output;
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Compilation failed: ${message}`
       );
     }
   }
 
   /**
-   * Execute the Neo-Solidity compiler binary
+   * Execute the Neo DevPack for Solidity compiler binary
    */
   private async executeCompiler(inputFile: string, outputFile: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -141,7 +141,7 @@ export class NeoSolidityCompiler {
   }
 
   /**
-   * Get path to Neo-Solidity compiler binary
+   * Get path to Neo DevPack for Solidity compiler binary
    */
   private getCompilerPath(): string {
     const ext = process.platform === "win32" ? ".exe" : "";
@@ -263,8 +263,8 @@ export class NeoSolidityCompiler {
     
     for (const line of lines) {
       const trimmed = line.trim();
-      // Look for version patterns like "neo-solidity: 0.1.0"
-      const versionMatch = trimmed.match(/neo-solidity[:\s]+([\d.\w-]+)/);
+      // Look for version patterns like "neo-devpack-solidity: 0.1.0"
+      const versionMatch = trimmed.match(/neo-devpack-solidity[:\s]+([\d.\w-]+)/);
       if (versionMatch) {
         versions.push(versionMatch[1]);
       }
@@ -283,7 +283,7 @@ export class NeoSolidityCompiler {
    * Download and install compiler version
    */
   async downloadCompiler(version: string): Promise<void> {
-    debug(`Downloading Neo-Solidity compiler version ${version}`);
+    debug(`Downloading Neo DevPack for Solidity compiler version ${version}`);
     
     if (!this.isValidVersion(version)) {
       throw new Error(`Invalid version format: ${version}`);
@@ -338,9 +338,9 @@ export class NeoSolidityCompiler {
     const ext = platform === 'win32' ? '.exe' : '';
     
     if (version === 'latest') {
-      return `https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-${platform}-${arch}${ext}`;
+      return `https://github.com/r3e-network/neo-devpack-solidity/releases/latest/download/neo-solc-${platform}-${arch}${ext}`;
     } else {
-      return `https://github.com/r3e-network/neo-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
+      return `https://github.com/r3e-network/neo-devpack-solidity/releases/download/v${version}/neo-solc-${platform}-${arch}${ext}`;
     }
   }
 

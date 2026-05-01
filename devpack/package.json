@@ -1,15 +1,15 @@
 {
-  "name": "@r3e-network/neo-solidity-devpack",
+  "name": "@neo-devpack-solidity/contracts",
   "version": "1.1.0",
   "description": "Complete Neo N3 development framework for Solidity smart contracts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/r3e-network/neo-solidity.git",
+    "url": "https://github.com/r3e-network/neo-devpack-solidity.git",
     "directory": "devpack"
   },
-  "homepage": "https://github.com/r3e-network/neo-solidity/tree/main/devpack",
+  "homepage": "https://github.com/r3e-network/neo-devpack-solidity/tree/main/devpack",
   "bugs": {
-    "url": "https://github.com/r3e-network/neo-solidity/issues"
+    "url": "https://github.com/r3e-network/neo-devpack-solidity/issues"
   },
   "author": {
     "name": "Jimmy",
@@ -52,9 +52,9 @@
   },
   "devDependencies": {
     "@ethersproject/bignumber": "^5.7.0",
-    "@neo-solidity/types": "file:../tooling/packages/types",
-    "@neo-solidity/hardhat-solc-neo": "file:../tooling/packages/hardhat-solc-neo",
-    "@neo-solidity/hardhat-neo-deployer": "file:../tooling/packages/hardhat-neo-deployer",
+    "@neo-devpack-solidity/types": "file:../tooling/packages/types",
+    "@neo-devpack-solidity/hardhat-solc-neo": "file:../tooling/packages/hardhat-solc-neo",
+    "@neo-devpack-solidity/hardhat-neo-deployer": "file:../tooling/packages/hardhat-neo-deployer",
     "axios": "^1.13.6",
     "chai": "^4.5.0",
     "chalk": "^5.3.0",

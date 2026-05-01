@@ -1,6 +1,6 @@
-# Neo Solidity Compiler Architecture
+# Neo DevPack for Solidity Architecture
 
-This document describes the architecture of the Neo Solidity compiler, a Rust-based production-ready toolchain for compiling Solidity smart contracts to Neo N3 blockchain.
+This document describes the architecture of the Neo DevPack for Solidity compiler, a Rust-based production-ready toolchain for compiling Solidity smart contracts to Neo N3 blockchain.
 
 ## Overview
 
@@ -54,7 +54,7 @@ Output (.nef, .manifest.json)
 ## Project Structure
 
 ```
-neo-solidity/
+neo-devpack-solidity/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Library root, exports public API

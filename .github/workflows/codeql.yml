@@ -174,7 +174,7 @@ jobs:
     - name: Create comprehensive security summary
       run: "echo \"# Comprehensive Security Analysis Summary\" > SECURITY_ANALYSIS_SUMMARY.md\n\
         echo \"\" >> SECURITY_ANALYSIS_SUMMARY.md\necho \"**Analysis Date**: $(date)\"\
-        \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"**Repository**: https://github.com/r3e-network/neo-solidity\"\
+        \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"**Repository**: https://github.com/r3e-network/neo-devpack-solidity\"\
         \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"**Author**: Jimmy <jimmy@r3e.network>\"\
         \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"\" >> SECURITY_ANALYSIS_SUMMARY.md\n\
         \necho \"## Analysis Coverage\" >> SECURITY_ANALYSIS_SUMMARY.md\necho \"-\
@@ -189,7 +189,7 @@ jobs:
         \ ]; then\n  echo \"## Smart Contract Security Analysis\" >> SECURITY_ANALYSIS_SUMMARY.md\n\
         \  cat solidity-security-report/solidity_security.md >> SECURITY_ANALYSIS_SUMMARY.md\n\
         \  echo \"\" >> SECURITY_ANALYSIS_SUMMARY.md\nfi\n\necho \"## Security Certification\"\
-        \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"The Neo Solidity Compiler has undergone\
+        \ >> SECURITY_ANALYSIS_SUMMARY.md\necho \"The Neo DevPack for Solidity has undergone\
         \ comprehensive security analysis\" >> SECURITY_ANALYSIS_SUMMARY.md\necho\
         \ \"across all components and languages. The analysis includes:\" >> SECURITY_ANALYSIS_SUMMARY.md\n\
         echo \"\" >> SECURITY_ANALYSIS_SUMMARY.md\necho \"✅ **Dependency Security**:\

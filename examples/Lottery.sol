@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title Lottery - Decentralized lottery system for Neo N3
-/// @author Neo Solidity Team
+/// @author Neo DevPack for Solidity Team
 /// @notice A fair lottery system with provable randomness
 /// @dev Uses block data for randomness seed
 contract Lottery {

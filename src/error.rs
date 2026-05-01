@@ -1,6 +1,6 @@
 //! Compiler Error Types
 //!
-//! Defines error types used throughout the Neo Solidity compiler pipeline.
+//! Defines error types used throughout the Neo DevPack for Solidity compiler pipeline.
 //! All errors implement the standard `Error` trait for easy integration.
 //!
 //! # Error Categories

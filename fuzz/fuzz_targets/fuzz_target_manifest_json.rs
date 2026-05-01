@@ -1,7 +1,7 @@
 //! Fuzz target: manifest JSON parser must not panic on arbitrary UTF-8
 //! input, and must reject malformed inputs cleanly with an error.
 //!
-//! The neo-solidity compiler consumes manifests produced by other tools
+//! The neo-devpack-solidity compiler consumes manifests produced by other tools
 //! (Hardhat, Foundry, legacy .NET compiler). Production robustness
 //! requires that pathological / malicious manifests are rejected, not
 //! crashed on.

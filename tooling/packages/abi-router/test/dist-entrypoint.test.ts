@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distEntrypoint = path.join(__dirname, "..", "dist", "index.js");
 
-describe("@neo-solidity/abi-router dist entrypoint", () => {
+describe("@neo-devpack-solidity/abi-router dist entrypoint", () => {
   it("is importable after build", async () => {
     if (!fs.existsSync(distEntrypoint)) {
       return;

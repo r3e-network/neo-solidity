@@ -9,10 +9,10 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("DemoToken")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-20 / NEP-17 mirror demo — fungible token in Neo C#.")]
 [ContractVersion("1.0.0")]
-[ContractSourceCode("https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-20/csharp")]
+[ContractSourceCode("https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-20/csharp")]
 [ContractPermission(Permission.Any, Method.Any)]
 [SupportedStandards(NepStandard.Nep17)]
 public class DemoToken : Nep17Token

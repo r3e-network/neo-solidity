@@ -5,7 +5,7 @@ description: "Native Contracts section index."
 
 # Native Contracts
 
-Neo N3 ships eleven native contracts that are deployed at genesis and provide core platform functionality — token management, governance, cryptography, blockchain queries, and more. Unlike user-deployed contracts, native contracts have deterministic script hashes that are identical across all Neo N3 networks (mainnet, testnet, private chains). The `neo-solidity` compiler and devpack expose these contracts through the `NativeCalls` library and `Syscalls` wrappers, lowering calls to either `System.Contract.Call` syscalls or optimized `CALLT` method token instructions.
+Neo N3 ships eleven native contracts that are deployed at genesis and provide core platform functionality — token management, governance, cryptography, blockchain queries, and more. Unlike user-deployed contracts, native contracts have deterministic script hashes that are identical across all Neo N3 networks (mainnet, testnet, private chains). The `neo-devpack-solidity` compiler and devpack expose these contracts through the `NativeCalls` library and `Syscalls` wrappers, lowering calls to either `System.Contract.Call` syscalls or optimized `CALLT` method token instructions.
 
 ---
 

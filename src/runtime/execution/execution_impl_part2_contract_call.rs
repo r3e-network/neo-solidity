@@ -148,7 +148,7 @@ impl ExecutionContext {
         // Domain tag keeps the derivation distinct from any other `Hash160`
         // preimage the compiler emits (address derivation, bytecode hashing,
         // etc.) so accidental collisions are not possible.
-        const DOMAIN: &[u8] = b"neo-solidity/self-offsets/msg-sender/v1";
+        const DOMAIN: &[u8] = b"neo-devpack-solidity/self-offsets/msg-sender/v1";
         let mut preimage = Vec::with_capacity(DOMAIN.len() + executing.len());
         preimage.extend_from_slice(DOMAIN);
         preimage.extend_from_slice(executing);

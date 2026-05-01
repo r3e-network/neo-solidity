@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title Staking - Token staking with rewards for Neo N3
-/// @author Neo Solidity Team
+/// @author Neo DevPack for Solidity Team
 /// @notice Stake tokens to earn rewards over time
 /// @dev Implements a simple staking mechanism with configurable APY
 contract Staking {

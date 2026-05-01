@@ -25,7 +25,7 @@ Each diagnostic is a single JSON object on one line of stderr:
 
 ```json
 {
-  "component": "neo-solidity",
+  "component": "neo-devpack-solidity",
   "severity": "error",
   "type": "CompilerError",
   "code": "E2002",

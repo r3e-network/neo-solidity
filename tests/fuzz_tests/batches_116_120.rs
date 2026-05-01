@@ -1816,7 +1816,7 @@ contract C {
         compile_contracts(src, false, 2).unwrap_or_else(|e| panic!("SSS2_5 compile: {:?}", e));
     assert!(!arts.is_empty());
     let art = &arts[0];
-    let payload = b"neo-solidity-fuzz".to_vec();
+    let payload = b"neo-devpack-solidity-fuzz".to_vec();
     let mut rt1 = NeoRuntime::new(RuntimeConfig::default()).expect("SSS2_5 rt1");
     let r1 = rt1
         .call_method(
@@ -3231,7 +3231,7 @@ contract NEP17Token {
 // Neo, an upgradeable contract calls the native
 // `ContractManagement.update(nef, manifest)` endpoint to swap its own
 // bytecode + manifest in-place (with the same hash and storage). The
-// neo-solidity compiler exposes this through the `NativeCalls`
+// neo-devpack-solidity compiler exposes this through the `NativeCalls`
 // devpack-builtin shortcut `NativeCalls.updateContract(bytes, bytes)`,
 // which the IR layer rewrites to `BuiltinCall::NativeCall { contract:
 // ContractManagement, method: "update" }` and emits as a token-bound

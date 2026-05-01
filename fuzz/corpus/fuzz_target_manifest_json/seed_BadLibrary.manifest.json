@@ -34,7 +34,7 @@
   },
   "extra": {
     "Author": "Jimmy <jimmy@r3e.network>",
-    "Compiler": "neo-solidity-0.16.0",
+    "Compiler": "neo-devpack-solidity-0.16.0",
     "Description": "Solidity contract 'BadLibrary' compiled to NeoVM",
     "Version": "0.16.0.0"
   },

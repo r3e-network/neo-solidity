@@ -10,7 +10,7 @@ on:
     - main
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: r3e-network/neo-solidity
+  IMAGE_NAME: r3e-network/neo-devpack-solidity
 jobs:
   docker-build:
     name: Build Docker Images
@@ -51,11 +51,11 @@ jobs:
         context: .
         platforms: linux/amd64
         load: true
-        tags: neo-solidity:test
+        tags: neo-devpack-solidity:test
         cache-from: type=gha
     - name: Test Docker image
       env:
-        IMAGE_UNDER_TEST: neo-solidity:test
+        IMAGE_UNDER_TEST: neo-devpack-solidity:test
       run: '# Test the built image
 
         docker run --rm "$IMAGE_UNDER_TEST" neo-solc --version
@@ -109,9 +109,9 @@ jobs:
         \n    && apt-get install -y nodejs\n\n# Install Go\nRUN curl -L https://go.dev/dl/go1.21.0.linux-amd64.tar.gz\
         \ | tar -C /usr/local -xz\nENV PATH=\"/usr/local/go/bin:$PATH\"\n\n# Set working\
         \ directory\nWORKDIR /workspace\n\n# Create development script\nRUN echo '#!/bin/bash'\
-        \ > /usr/local/bin/dev-setup \\\n    && echo 'echo \"\U0001F680 Neo Solidity\
+        \ > /usr/local/bin/dev-setup \\\n    && echo 'echo \"\U0001F680 Neo DevPack for Solidity\
         \ Development Environment\"' >> /usr/local/bin/dev-setup \\\n    && echo 'echo\
-        \ \"Repository: https://github.com/r3e-network/neo-solidity\"' >> /usr/local/bin/dev-setup\
+        \ \"Repository: https://github.com/r3e-network/neo-devpack-solidity\"' >> /usr/local/bin/dev-setup\
         \ \\\n    && echo 'echo \"Author: Jimmy <jimmy@r3e.network>\"' >> /usr/local/bin/dev-setup\
         \ \\\n    && echo 'echo \"\"' >> /usr/local/bin/dev-setup \\\n    && echo\
         \ 'echo \"Available commands:\"' >> /usr/local/bin/dev-setup \\\n    && echo\
@@ -123,17 +123,17 @@ jobs:
         \ \\\n    && chmod +x /usr/local/bin/dev-setup\n\nCMD [\"/usr/local/bin/dev-setup\"\
         ]\nEOF\n"
     - name: Build development image
-      run: 'docker build -f Dockerfile.dev -t neo-solidity-dev:latest .
+      run: 'docker build -f Dockerfile.dev -t neo-devpack-solidity-dev:latest .
 
 
         # Test development environment
 
-        docker run --rm neo-solidity-dev:latest
+        docker run --rm neo-devpack-solidity-dev:latest
 
         '
     - name: Tag development image
       if: github.ref == 'refs/heads/main'
-      run: 'docker tag neo-solidity-dev:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME
+      run: 'docker tag neo-devpack-solidity-dev:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME
         }}:dev
 
         '

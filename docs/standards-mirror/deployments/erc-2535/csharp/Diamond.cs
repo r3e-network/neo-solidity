@@ -8,7 +8,7 @@ using System.ComponentModel;
 namespace R3E.StandardsMirror;
 
 [DisplayName("Diamond")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-2535 Diamond router in Neo C# — method-name routing to facet contracts.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

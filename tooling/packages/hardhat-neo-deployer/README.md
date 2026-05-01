@@ -1,20 +1,20 @@
-# @neo-solidity/hardhat-neo-deployer
+# @neo-devpack-solidity/hardhat-neo-deployer
 
 Deploy Neo N3 contracts (NEF + manifest) from Hardhat.
 
-This plugin is designed to work with build artifacts produced by `@neo-solidity/hardhat-solc-neo` (it reads the embedded `contract.neo.nef.image` + `contract.neo.manifest` fields).
+This plugin is designed to work with build artifacts produced by `@neo-devpack-solidity/hardhat-solc-neo` (it reads the embedded `contract.neo.nef.image` + `contract.neo.manifest` fields).
 
 ## Installation
 
 ```bash
-npm install --save-dev @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 ```
 
 Enable the plugins:
 
 ```ts
-import "@neo-solidity/hardhat-solc-neo";
-import "@neo-solidity/hardhat-neo-deployer";
+import "@neo-devpack-solidity/hardhat-solc-neo";
+import "@neo-devpack-solidity/hardhat-neo-deployer";
 
 export default {
   neoSolc: {

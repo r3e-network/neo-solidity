@@ -9,8 +9,8 @@ function loadOptionalPlugin(name) {
   }
 }
 
-const hasNeoSolcPlugin = loadOptionalPlugin("@neo-solidity/hardhat-solc-neo");
-const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-solidity/hardhat-neo-deployer");
+const hasNeoSolcPlugin = loadOptionalPlugin("@neo-devpack-solidity/hardhat-solc-neo");
+const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-devpack-solidity/hardhat-neo-deployer");
 
 /**
  * Hardhat configuration for Neo N3 Devpack

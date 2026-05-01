@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from "axios";
-import type { rpcTypes } from "@neo-solidity/types";
-import { NeoNetworkConfig, base64ToHex, hexToBase64 } from "@neo-solidity/types";
+import type { rpcTypes } from "@neo-devpack-solidity/types";
+import { NeoNetworkConfig, base64ToHex, hexToBase64 } from "@neo-devpack-solidity/types";
 import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
 
@@ -21,7 +21,7 @@ export class NeoRpcClient implements rpcTypes.NeoRpcProvider {
     this.rpcUrls = Array.isArray(config.rpcUrls) && config.rpcUrls.length > 0 ? config.rpcUrls : [];
     if (this.rpcUrls.length === 0) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-neo-deployer",
+        "@neo-devpack-solidity/hardhat-neo-deployer",
         "Neo RPC configuration must include at least one URL (neoNetworks.<name>.rpcUrls)"
       );
     }
@@ -93,7 +93,7 @@ export class NeoRpcClient implements rpcTypes.NeoRpcProvider {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-neo-deployer",
+        "@neo-devpack-solidity/hardhat-neo-deployer",
         `RPC call failed: ${message}`
       );
     }

@@ -1,4 +1,4 @@
-const COMPILER_ID: &str = concat!("neo-solidity-", env!("CARGO_PKG_VERSION"));
+const COMPILER_ID: &str = concat!("neo-devpack-solidity-", env!("CARGO_PKG_VERSION"));
 const COMPILER_EMAIL: &str = "Jimmy <jimmy@r3e.network>";
 const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
 

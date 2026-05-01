@@ -2682,7 +2682,7 @@ contract C {
     }
 
     // R3 — `unchecked { return x + 1; }` at x = type(uint256).max.
-    // Solidity 0.8.x spec: wraps to 0. Current Neo-Solidity (post Task #30):
+    // Solidity 0.8.x spec: wraps to 0. Current Neo DevPack for Solidity (post Task #30):
     // BigInt-wide path returns 2^256 OR the narrow-wrapped 0 (both accepted
     // per batch10 harness #9 `arith_scope_unchecked_wraps`). This probe is
     // the max-specific pin complementing that general harness: if some future

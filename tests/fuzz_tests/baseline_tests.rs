@@ -84,7 +84,7 @@ contract TestContract {{
         // exercise the exact trailer path used in production output.
         let nef = build_nef_with_tokens(
             &artifact.bytecode,
-            "neo-solidity-fuzz",
+            "neo-devpack-solidity-fuzz",
             "",
             &artifact.tokens,
         ).expect("NEF should build");
@@ -543,7 +543,7 @@ fn nef_round_trip_to_bytes_and_back() {
     // A small, deterministic NeoVM-ish script (contents don't need to be valid
     // bytecode — `parse_nef` only validates framing, not opcodes).
     let script: Vec<u8> = vec![0x10, 0x11, 0x40]; // PUSH0, PUSH1, RET (roughly)
-    let compiler = "neo-solidity-fuzz-roundtrip";
+    let compiler = "neo-devpack-solidity-fuzz-roundtrip";
     let source = "https://example.test/round-trip";
 
     let tokens = vec![
@@ -1281,7 +1281,7 @@ contract NefRoundTripFuzz {{
         let artifact = &artifacts[0];
         prop_assert!(!artifact.bytecode.is_empty(), "bytecode should be non-empty");
 
-        let compiler = "neo-solidity-fuzz-batch4";
+        let compiler = "neo-devpack-solidity-fuzz-batch4";
         let source_url = "https://example.test/fuzz-batch-4";
 
         let built = build_nef_with_tokens(&artifact.bytecode, compiler, source_url, &artifact.tokens)
@@ -3176,7 +3176,7 @@ contract C { function f() external pure returns (uint256) {
 
     // Harness #4 — Division by zero (positive control).
     // Solidity 0.8.x spec: `100 / 0` MUST revert with Panic(0x12).
-    // Current Neo-Solidity behavior: CORRECT — `Panic: 0x12` is surfaced via
+    // Current Neo DevPack for Solidity behavior: CORRECT — `Panic: 0x12` is surfaced via
     // the THROW path (same shape as batch #9 harness #3). This harness
     // exists to pin that the dedicated div-by-zero lowering keeps working.
     #[test]
@@ -3196,7 +3196,7 @@ contract C { function f() external pure returns (uint256) {
 
     // Harness #5 — Modulo by zero.
     // Solidity 0.8.x spec: `100 % 0` MUST revert with Panic(0x12).
-    // Current Neo-Solidity behavior: CORRECT — shares the div-by-zero
+    // Current Neo DevPack for Solidity behavior: CORRECT — shares the div-by-zero
     // lowering path, panics with 0x12.
     #[test]
     fn arith_scope_uint256_mod_by_zero(_seed in any::<u8>()) {
@@ -3241,7 +3241,7 @@ contract C { function f() external pure returns (uint256) {
     // an explicit cast is always legal. Positive control: this is one place
     // where "silently return a truncated value" is the *spec-correct*
     // behavior, distinguishing it from the overflow rows above.
-    // Current Neo-Solidity behavior: CORRECT — returns 44.
+    // Current Neo DevPack for Solidity behavior: CORRECT — returns 44.
     #[test]
     fn arith_scope_uint8_downcast_overflow(_seed in any::<u8>()) {
         let source = r#"// SPDX-License-Identifier: MIT
@@ -3282,7 +3282,7 @@ contract C { function f() external pure returns (uint256) {
     // Harness #9 — `unchecked { MAX + 1 }` wraps (positive control).
     // Solidity 0.8.x spec: an `unchecked` block suppresses the
     // checked-arithmetic guard, so `type(uint256).max + 1 == 0` silently.
-    // Current Neo-Solidity behavior: CORRECT — returns 0. This also
+    // Current Neo DevPack for Solidity behavior: CORRECT — returns 0. This also
     // incidentally matches the (buggy) checked path, which is *why* the
     // checked-gap was invisible for so long: both paths wrap, so no
     // differential test caught it.
@@ -3714,9 +3714,9 @@ contract HashStable {{
         prop_assert_eq!(&art_a.bytecode, &art_b.bytecode,
             "same source must produce byte-identical bytecode");
 
-        let nef_a = build_nef_with_tokens(&art_a.bytecode, "neo-solidity-batch11",
+        let nef_a = build_nef_with_tokens(&art_a.bytecode, "neo-devpack-solidity-batch11",
             "batch11", &art_a.tokens).expect("build_nef_a");
-        let nef_b = build_nef_with_tokens(&art_b.bytecode, "neo-solidity-batch11",
+        let nef_b = build_nef_with_tokens(&art_b.bytecode, "neo-devpack-solidity-batch11",
             "batch11", &art_b.tokens).expect("build_nef_b");
         prop_assert_eq!(&nef_a, &nef_b, "NEFs must be byte-identical");
 
@@ -3990,9 +3990,9 @@ contract B {{ uint256 public v = {}; }}"#, va, vb);
 
         // Contract hashes must differ — names differ, so the hash input
         // differs even if initializer literals coincide (`va == vb`).
-        let nef_a = build_nef_with_tokens(&art_a.bytecode, "neo-solidity-batch12",
+        let nef_a = build_nef_with_tokens(&art_a.bytecode, "neo-devpack-solidity-batch12",
             "batch12", &art_a.tokens).expect("build_nef A");
-        let nef_b = build_nef_with_tokens(&art_b.bytecode, "neo-solidity-batch12",
+        let nef_b = build_nef_with_tokens(&art_b.bytecode, "neo-devpack-solidity-batch12",
             "batch12", &art_b.tokens).expect("build_nef B");
         prop_assert!(nef_a.len() > 4 && nef_b.len() > 4,
             "NEFs must carry a trailer");
@@ -5652,7 +5652,7 @@ contract C { function multi() external pure returns (uint256) {
 //       Harness #1 is `#[ignore]`d with a TASK to implement.
 //
 //   (2) **CryptoLib.sha256 WORKS** end-to-end via CALLT. Probe: PUSHDATA1
-//       "hello, neo-solidity" → CALLT sha256 → RET returns 32 bytes matching
+//       "hello, neo-devpack-solidity" → CALLT sha256 → RET returns 32 bytes matching
 //       `sha2::Sha256::digest` EXACTLY, including the empty-input case
 //       (well-known `e3b0c442...b855` SHA256 of empty string). Harness #2 is
 //       ACTIVE and confirms CALLT+CryptoLib is a production-viable path.
@@ -5801,7 +5801,7 @@ proptest! {
     // ALL input lengths 0..=32.
     //
     // Status: ACTIVE. Probe confirmed the full path works end-to-end:
-    //   * `sha256("hello, neo-solidity")` — 32 bytes, matches sha2 crate.
+    //   * `sha256("hello, neo-devpack-solidity")` — 32 bytes, matches sha2 crate.
     //   * `sha256(b"")` (empty input) — 32 bytes, matches well-known
     //     `e3b0c442...85a470` SHA256 of empty string.
     //

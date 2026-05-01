@@ -9,7 +9,7 @@ const program = new Command();
 
 program
   .name("solc-neo")
-  .description("Neo-Solidity Compiler Command Line Interface")
+  .description("Neo DevPack for Solidity Compiler Command Line Interface")
   .version("0.1.0");
 
 // Compilation commands
@@ -64,7 +64,7 @@ program
       const compiler = new CompilerCLI();
       const version = await compiler.getVersion();
       
-      console.log(chalk.blue("Neo-Solidity Compiler"));
+      console.log(chalk.blue("Neo DevPack for Solidity Compiler"));
       console.log(`Version: ${version.compiler}`);
       console.log(`Solidity: ${version.solidity}`);
       console.log(`Neo VM: ${version.neovm}`);
@@ -100,7 +100,7 @@ program
       const compiler = new CompilerCLI();
       const versions = await compiler.listVersions();
       
-      console.log(chalk.blue("Available Neo-Solidity Compiler Versions:"));
+      console.log(chalk.blue("Available Neo DevPack for Solidity Compiler Versions:"));
       versions.forEach(v => {
         const marker = v.current ? chalk.green("* ") : "  ";
         console.log(`${marker}${v.version}${v.prerelease ? chalk.yellow(" (prerelease)") : ""}`);

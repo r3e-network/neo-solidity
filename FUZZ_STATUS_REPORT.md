@@ -1,4 +1,4 @@
-# Neo-Solidity Fuzz System — Status Report
+# Neo DevPack for Solidity Fuzz System — Status Report
 
 > **Snapshot note**: this report captures the post-v0.18.0 fuzz-system
 > maturation cycle. Specific test counts (e.g. proptest cases) drift as new

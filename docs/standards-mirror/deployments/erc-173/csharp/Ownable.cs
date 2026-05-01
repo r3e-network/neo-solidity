@@ -8,7 +8,7 @@ using System.ComponentModel;
 namespace R3E.StandardsMirror;
 
 [DisplayName("Ownable")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-173 ownership pattern in Neo C#.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

@@ -5,7 +5,7 @@ const hre = require("hardhat");
 
 /**
  * Integration tests for Neo N3 Devpack artifacts.
- * These tests validate neo-solidity compile outputs instead of EVM deployment flows.
+ * These tests validate neo-devpack-solidity compile outputs instead of EVM deployment flows.
  */
 
 function readJson(filePath) {

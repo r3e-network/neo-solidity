@@ -1,6 +1,6 @@
 //! Compiler Configuration Types
 //!
-//! This module defines configuration structures for the Neo Solidity compiler,
+//! This module defines configuration structures for the Neo DevPack for Solidity compiler,
 //! including input/output settings, optimization levels, and output formats.
 //!
 //! # Key Types

@@ -1,14 +1,14 @@
 # Neo N3 Devpack for Solidity
 
-**Neo N3 smart contract devpack for the `neo-solidity` compiler**
+**Neo N3 smart contract devpack for the `neo-devpack-solidity` compiler**
 
-> Important: `neo-solidity` treats `Runtime`, `Storage`, `Syscalls`, `Neo`, `NativeCalls` and `abi`
+> Important: `neo-devpack-solidity` treats `Runtime`, `Storage`, `Syscalls`, `Neo`, `NativeCalls` and `abi`
 > as **compiler intrinsics** (built-in libraries). Their Solidity source is primarily for editor
 > tooling (signatures/docs). The compiler lowers supported members directly to Neo N3 syscalls and
 > native contract calls. Unsupported members will fail compilation with a diagnostic listing the
 > supported intrinsics.
 
-This devpack provides Solidity-facing interfaces for the Neo N3 features that `neo-solidity`
+This devpack provides Solidity-facing interfaces for the Neo N3 features that `neo-devpack-solidity`
 currently supports, plus complete example contracts (NEP-17/NEP-11) and reusable NEP lifecycle/callback interfaces.
 
 ## 🎯 Features
@@ -61,13 +61,13 @@ with method signatures, event mappings, migration checklists, and code examples.
 ### Installation
 
 ```bash
-# Install Neo Solidity Compiler with devpack
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity
+# Install Neo DevPack for Solidity with devpack
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity
 make install
 
 # Or add the devpack to an existing Hardhat project
-npm install --save-dev @r3e-network/neo-solidity-devpack hardhat @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-devpack-solidity/contracts hardhat @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 ```
 
 ### Basic Usage
@@ -76,7 +76,7 @@ npm install --save-dev @r3e-network/neo-solidity-devpack hardhat @neo-solidity/h
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
-import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP17.sol";
 
 contract MyToken is NEP17 {
     constructor() NEP17("My Token", "MTK", 8, 0, 1_000_000 * 10**8) {}
@@ -144,7 +144,7 @@ All are designed to compile with strict manifest flags (`--deny-wildcard-permiss
 
 ### Supported Intrinsics
 
-`neo-solidity` lowers calls to a supported subset of these libraries:
+`neo-devpack-solidity` lowers calls to a supported subset of these libraries:
 
 #### Runtime (`devpack/libraries/Runtime.sol`)
 
@@ -270,7 +270,7 @@ neo-solc MyContract.sol -I devpack -o build/MyContract \\
 ## 🏗️ Constructors & Deployment Data
 
 Neo N3 deployment invokes the contract’s `_deploy(data, update)` method.
-`neo-solidity` injects `_deploy` automatically.
+`neo-devpack-solidity` injects `_deploy` automatically.
 
 - If your Solidity contract has **no constructor parameters**, you can deploy normally.
 - If your Solidity contract has a **parameterised constructor**, pass constructor arguments via

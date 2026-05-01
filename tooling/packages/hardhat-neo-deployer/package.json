@@ -1,5 +1,5 @@
 {
-  "name": "@neo-solidity/hardhat-neo-deployer",
+  "name": "@neo-devpack-solidity/hardhat-neo-deployer",
   "version": "0.14.0",
   "description": "Hardhat plugin for deploying contracts to Neo blockchain",
   "main": "./dist/index.js",
@@ -34,7 +34,7 @@
     "neovm"
   ],
   "dependencies": {
-    "@neo-solidity/types": "^0.14.0",
+    "@neo-devpack-solidity/types": "^0.14.0",
     "axios": "^1.13.6",
     "chalk": "^5.3.0",
     "debug": "^4.3.4",

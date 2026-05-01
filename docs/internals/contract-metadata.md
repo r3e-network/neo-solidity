@@ -5,7 +5,7 @@ description: "Manifest Specification section index."
 
 # Manifest Specification
 
-Every Neo N3 smart contract is deployed as two artifacts: a `.nef` file (NeoVM bytecode) and a `.manifest.json` file (contract metadata). The manifest describes the contract's ABI, permissions, supported standards, and trust relationships. The neo-solidity compiler generates both artifacts automatically from your Solidity source code — no manual JSON authoring required.
+Every Neo N3 smart contract is deployed as two artifacts: a `.nef` file (NeoVM bytecode) and a `.manifest.json` file (contract metadata). The manifest describes the contract's ABI, permissions, supported standards, and trust relationships. The neo-devpack-solidity compiler generates both artifacts automatically from your Solidity source code — no manual JSON authoring required.
 
 ## Sections
 

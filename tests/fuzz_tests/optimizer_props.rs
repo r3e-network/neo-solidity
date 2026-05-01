@@ -300,7 +300,7 @@ contract TestContract {{
         prop_assert!(!artifacts.is_empty());
         let art = &artifacts[0];
 
-        let nef = build_nef_with_tokens(&art.bytecode, "neo-solidity-fuzz", "", &art.tokens)
+        let nef = build_nef_with_tokens(&art.bytecode, "neo-devpack-solidity-fuzz", "", &art.tokens)
             .expect("NEF build");
 
         // Magic header

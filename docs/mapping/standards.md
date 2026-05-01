@@ -1,6 +1,6 @@
 # Standards Mapping
 
-Neo Solidity supports Neo standards through devpack contracts, manifest
+Neo DevPack for Solidity supports Neo standards through devpack contracts, manifest
 generation, and the deployable ERC/EIP to Neo mirror.
 
 ## Standard Equivalents

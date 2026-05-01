@@ -1,6 +1,6 @@
 # Semantic Mapping
 
-Neo Solidity accepts Solidity syntax and lowers it to Neo N3 contracts. This
+Neo DevPack for Solidity accepts Solidity syntax and lowers it to Neo N3 contracts. This
 section splits the EVM-to-Neo behavior map by topic so readers do not have to
 scan the language, internals, devpack, and standards references on one page.
 
@@ -19,7 +19,7 @@ scan the language, internals, devpack, and standards references on one page.
 
 ## Mapping Rule of Thumb
 
-Neo Solidity preserves Solidity source compatibility where it can, but the
+Neo DevPack for Solidity preserves Solidity source compatibility where it can, but the
 runtime target is Neo N3. Exact mappings compile silently. Approximate mappings
 compile with diagnostics. Unsupported mappings are rejected or intentionally
 blocked when Neo cannot provide the EVM security or state semantics.

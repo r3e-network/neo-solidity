@@ -1,7 +1,7 @@
 {
-  "name": "@neo-solidity/tooling",
+  "name": "@neo-devpack-solidity/tooling",
   "version": "0.1.0",
-  "description": "Comprehensive developer tooling for Neo-Solidity ecosystem",
+  "description": "Comprehensive developer tooling for Neo DevPack for Solidity ecosystem",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.6.0",
@@ -84,9 +84,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/r3e-network/neo-solidity.git",
+    "url": "https://github.com/r3e-network/neo-devpack-solidity.git",
     "directory": "tooling"
   },
-  "author": "Neo Solidity Team",
+  "author": "Neo DevPack for Solidity Team",
   "license": "MIT"
 }

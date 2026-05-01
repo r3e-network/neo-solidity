@@ -236,7 +236,7 @@ fn storage_put_contract_metadata_sets_storage_feature_and_stdlib_permissions() {
             Storage.putContractMetadata(
                 "MyContract",
                 "1.0.0",
-                "Neo Solidity",
+                "Neo DevPack for Solidity",
                 abi.encode(uint256(1))
             );
         }

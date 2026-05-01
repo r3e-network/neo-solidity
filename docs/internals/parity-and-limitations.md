@@ -1,6 +1,6 @@
 # Runtime Parity and Limitations
 
-This page documents the current state of parity between the Neo Solidity compiler's embedded runtime and the production Neo N3 virtual machine, known limitations, and planned improvements.
+This page documents the current state of parity between the Neo DevPack for Solidity compiler's embedded runtime and the production Neo N3 virtual machine, known limitations, and planned improvements.
 
 For a reader-focused summary of exact, approximate, replacement, and unsupported
 semantic mappings, see [Parity and Limitations](/mapping/parity-and-limitations).
@@ -198,7 +198,7 @@ If you encounter a behavior difference between the embedded runtime and producti
 2. Check this page to see if the gap is already documented
 3. Report the issue with a minimal reproduction case
 
-Issue tracker: [github.com/r3e-network/neo-solidity/issues](https://github.com/r3e-network/neo-solidity/issues)
+Issue tracker: [github.com/r3e-network/neo-devpack-solidity/issues](https://github.com/r3e-network/neo-devpack-solidity/issues)
 
 Include:
 

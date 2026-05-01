@@ -170,10 +170,10 @@ fn run_single_file(matches: &clap::ArgMatches) {
 
     if verbose {
         if analyze_only {
-            eprintln!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
+            eprintln!("Neo DevPack for Solidity v{}", env!("CARGO_PKG_VERSION"));
             eprintln!("Format: {format}");
         } else {
-            println!("Neo Solidity Compiler v{}", env!("CARGO_PKG_VERSION"));
+            println!("Neo DevPack for Solidity v{}", env!("CARGO_PKG_VERSION"));
             println!("Format: {format}");
         }
     }
@@ -410,5 +410,5 @@ fn run_single_file(matches: &clap::ArgMatches) {
         std::process::exit(1);
     }
 
-    println!("🎉 Neo Solidity compilation completed");
+    println!("🎉 Neo DevPack for Solidity compilation completed");
 }

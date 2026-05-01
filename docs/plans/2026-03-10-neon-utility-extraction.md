@@ -1,6 +1,6 @@
 # Neon Utility Extraction Implementation Plan
 
-**Goal:** Reduce the remaining `@cityofzion/neon-js` coupling by replacing the simple address and encoding helper usage with repo-owned utilities in `@neo-solidity/types`, without touching the deployer's transaction/signing stack yet.
+**Goal:** Reduce the remaining `@cityofzion/neon-js` coupling by replacing the simple address and encoding helper usage with repo-owned utilities in `@neo-devpack-solidity/types`, without touching the deployer's transaction/signing stack yet.
 
 **Architecture:** Keep this slice intentionally narrow. Extract only the helper functions that are already used in read-only and formatting paths: Neo base58 address validation/conversion, Hash160 endianness conversion, and hex/base64 helpers. Move them into the shared types package with focused tests, then switch `abi-router`, `cli-tools`, and the Hardhat verify path to use the shared implementation.
 
@@ -45,7 +45,7 @@ Cover:
 Run: `cd tooling/packages/types && npm test -- --run test/neo.test.ts`
 Historical expected result: FAIL at the start of this plan because the shared helper module did not exist yet.
 
-## Task 3: Implement shared helpers in `@neo-solidity/types`
+## Task 3: Implement shared helpers in `@neo-devpack-solidity/types`
 
 **Files:**
 - Create: `tooling/packages/types/src/neo.ts`
@@ -79,7 +79,7 @@ Expected: PASS.
 
 **Step 1: Replace direct Neon helper usage**
 
-Switch imports from `@cityofzion/neon-js` to `@neo-solidity/types` for the helper subset only.
+Switch imports from `@cityofzion/neon-js` to `@neo-devpack-solidity/types` for the helper subset only.
 
 **Step 2: Keep behavior unchanged**
 

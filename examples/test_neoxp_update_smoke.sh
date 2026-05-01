@@ -7,7 +7,7 @@
 # - update the deployed contract to v2 via Neo-Express
 # - ensure `_deploy(data, update)` behaves correctly on update (constructors/initializers are skipped)
 #
-# Note: neo-solidity injects `_deploy(data, update)` and expects `data` to be a JSON-encoded array
+# Note: neo-devpack-solidity injects `_deploy(data, update)` and expects `data` to be a JSON-encoded array
 # (e.g. `[7]`) for parameterised constructors when deploying via Neo-Express.
 
 set -euo pipefail
@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-solidity-neoxp-update.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/neo-devpack-solidity-neoxp-update.XXXXXX")"
 
 cleanup() {
   rm -rf "$WORK_DIR"

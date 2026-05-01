@@ -4,7 +4,7 @@
 
 **Architecture:** Keep compilation centered on the current `compile_contracts` / `compile_metadata` flow. Add a small source-pattern analyzer for common EVM compatibility constructs, combine it with existing compiler diagnostics, and expose it through a CLI `--analyze` mode. Preserve artifact generation behavior when `--analyze` is not used.
 
-**Tech Stack:** Rust, Clap, Serde JSON, existing neo-solidity CLI and Solidity diagnostic pipeline
+**Tech Stack:** Rust, Clap, Serde JSON, existing neo-devpack-solidity CLI and Solidity diagnostic pipeline
 
 ## Task 1: Lock The Expected Behavior With Tests
 

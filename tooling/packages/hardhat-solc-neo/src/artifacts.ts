@@ -10,14 +10,14 @@ import {
   ArtifactDifference,
   ArtifactSearchCriteria,
   ArtifactStatistics
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
 
-const debug = Debug("hardhat:neo-solidity:artifacts");
+const debug = Debug("hardhat:neo-devpack-solidity:artifacts");
 
 /**
- * Artifact manager implementation for Neo-Solidity
+ * Artifact manager implementation for Neo DevPack for Solidity
  */
 export class ArtifactManager implements IArtifactManager {
   private config: ArtifactStorageConfig;
@@ -58,7 +58,7 @@ export class ArtifactManager implements IArtifactManager {
         return null;
       }
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to read build artifact: ${error}`
       );
     }
@@ -80,7 +80,7 @@ export class ArtifactManager implements IArtifactManager {
       debug(`Build artifact saved to ${artifactPath}`);
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to save build artifact: ${error}`
       );
     }
@@ -109,7 +109,7 @@ export class ArtifactManager implements IArtifactManager {
       return artifacts;
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to get build artifacts: ${error}`
       );
     }
@@ -130,7 +130,7 @@ export class ArtifactManager implements IArtifactManager {
         return null;
       }
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to read deployment artifact: ${error}`
       );
     }
@@ -152,7 +152,7 @@ export class ArtifactManager implements IArtifactManager {
       debug(`Deployment artifact saved to ${deploymentPath}`);
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to save deployment artifact: ${error}`
       );
     }
@@ -182,7 +182,7 @@ export class ArtifactManager implements IArtifactManager {
         return [];
       }
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to get network deployments: ${error}`
       );
     }
@@ -201,7 +201,7 @@ export class ArtifactManager implements IArtifactManager {
       await this.removeDirectory(this.config.cacheDir);
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to clear artifacts: ${error}`
       );
     }
@@ -238,7 +238,7 @@ export class ArtifactManager implements IArtifactManager {
       debug("Artifacts exported successfully");
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to export artifacts: ${error}`
       );
     }
@@ -284,7 +284,7 @@ export class ArtifactManager implements IArtifactManager {
       debug("Artifacts imported successfully");
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Failed to import artifacts: ${error}`
       );
     }
@@ -609,7 +609,7 @@ export class ArtifactManager implements IArtifactManager {
     if (matches.length > 1) {
       const matchList = matches.map(match => ` • ${match}`).join("\n");
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-solc-neo",
+        "@neo-devpack-solidity/hardhat-solc-neo",
         `Multiple artifacts match '${simpleName}'. Use fully qualified name (source:contract).\n${matchList}`
       );
     }

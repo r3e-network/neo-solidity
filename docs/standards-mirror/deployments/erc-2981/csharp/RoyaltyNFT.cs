@@ -14,10 +14,10 @@ public class RoyaltyNFTState : Nep11TokenState
 }
 
 [DisplayName("RoyaltyNFT")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-2981 / NEP-24 mirror demo — multi-recipient royalty NFT in Neo C#.")]
 [ContractVersion("1.0.0")]
-[ContractSourceCode("https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-2981/csharp")]
+[ContractSourceCode("https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-2981/csharp")]
 [ContractPermission(Permission.Any, Method.OnNEP11Payment)]
 [SupportedStandards(NepStandard.Nep11, NepStandard.Nep24)]
 public class RoyaltyNFT : Nep11Token<RoyaltyNFTState>

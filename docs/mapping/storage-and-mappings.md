@@ -1,6 +1,6 @@
 # Storage and Mappings
 
-NeoVM uses key-value storage. Neo Solidity therefore maps Solidity's slot-based
+NeoVM uses key-value storage. Neo DevPack for Solidity therefore maps Solidity's slot-based
 storage model onto deterministic byte keys instead of contiguous 256-bit slots.
 
 ## State Variables

@@ -2,7 +2,7 @@
 
 In order to be able to support reproducible builds on all platforms, the Solidity compiler has to abstract away the details of the filesystem where source files are stored. Paths used in imports must work the same way everywhere while the command-line interface must be able to work with platform-specific paths to provide good user experience. 
 
-Neo Solidity uses the same import path resolution strategy as mainline Solidity.
+Neo DevPack for Solidity uses the same import path resolution strategy as mainline Solidity.
 
 ## Virtual Filesystem
 
@@ -24,7 +24,7 @@ When an import is not found relative to the current file, the compiler scans the
 
 ### Devpack Resolution
 
-In Neo Solidity, you typically import standard Neo interfaces from the devpack:
+In Neo DevPack for Solidity, you typically import standard Neo interfaces from the devpack:
 
 ```solidity
 import {Runtime} from "@neo/Runtime.sol";
@@ -39,5 +39,5 @@ This instructs the compiler to look inside `devpack/@neo/Runtime.sol` when attem
 ## URL Imports
 
 ::: tip 💡 NeoVM Difference
-Some Ethereum frameworks (like Remix) allow importing directly from GitHub URLs (e.g. `import "https://github.com/..."`). **Neo Solidity's command-line compiler does not support absolute URL imports.** You must download dependencies locally and provide their paths via `-I`.
+Some Ethereum frameworks (like Remix) allow importing directly from GitHub URLs (e.g. `import "https://github.com/..."`). **Neo DevPack for Solidity's command-line compiler does not support absolute URL imports.** You must download dependencies locally and provide their paths via `-I`.
 :::

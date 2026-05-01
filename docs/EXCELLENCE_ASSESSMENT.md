@@ -1,4 +1,4 @@
-# Neo Solidity Historical Excellence Assessment
+# Neo DevPack for Solidity Historical Excellence Assessment
 
 ::: warning Historical snapshot
 This file is retained only to preserve a pre-`0.18.0` assessment artifact. It is not a current release report and intentionally avoids carrying old score, version, or test-count claims forward.

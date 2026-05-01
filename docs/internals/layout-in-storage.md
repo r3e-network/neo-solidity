@@ -3,7 +3,7 @@
 Statically-sized variables (everything except mapping and dynamically-sized array types) are laid out in storage consecutively starting from position `0` in Ethereum.
 
 ::: tip 💡 NeoVM Difference: Key-Value Architecture
-EVM uses a linear, sequential 256-bit slot model for storage where variables occupy contiguous 32-byte slots. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
+EVM uses a linear, sequential 256-bit slot model for storage where variables occupy contiguous 32-byte slots. **NeoVM uses a dynamic Key-Value storage model.** Keys are arbitrary-length byte arrays. Neo DevPack for Solidity computes a unique, deterministic hash for every state variable using `SHA256` rather than assigning sequential slots.
 :::
 
 For a split reader guide to mappings, arrays, structs, and key derivation, see
@@ -14,12 +14,12 @@ For a split reader guide to mappings, arrays, structs, and key derivation, see
 ::: tip 💡 NeoVM Difference: Transient Keyword
 Ethereum Solidity v0.8.24 introduced the `transient` data location keyword (EIP-1153) to store data that is discarded after every transaction. **NeoVM does not currently have a native transient storage mechanism.**
 
-Using the `transient` keyword in Neo Solidity is currently parsed for compatibility but will emit a compilation warning or error depending on the use-case, as the runtime does not support reverting state without a transaction failure.
+Using the `transient` keyword in Neo DevPack for Solidity is currently parsed for compatibility but will emit a compilation warning or error depending on the use-case, as the runtime does not support reverting state without a transaction failure.
 :::
 
 ## Deterministic Key Derivation
 
-The Neo Solidity compiler derives storage keys by utilizing the `SHA256` hashing algorithm.
+The Neo DevPack for Solidity compiler derives storage keys by utilizing the `SHA256` hashing algorithm.
 
 For simple, non-dynamic variables, the storage key is the hash of the variable name:
 ```
@@ -77,7 +77,7 @@ Config public config;
 
 ## Storage Serialization Formats
 
-When encoding values to create storage keys or persisting them to storage, Neo Solidity uses specific binary formats:
+When encoding values to create storage keys or persisting them to storage, Neo DevPack for Solidity uses specific binary formats:
 
 | Type | Serialization Strategy |
 | --- | --- |

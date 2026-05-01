@@ -1,6 +1,6 @@
 # Common Patterns
 
-This section highlights common Solidity design patterns and explains how they are adapted for NeoVM using Neo Solidity.
+This section highlights common Solidity design patterns and explains how they are adapted for NeoVM using Neo DevPack for Solidity.
 
 ## The Withdrawal Pattern
 

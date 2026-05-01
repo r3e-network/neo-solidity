@@ -86,7 +86,7 @@ Below is the full `manifest.json` output for the `GoldToken` contract above:
         "Author": "Acme Corp",
         "Description": "Solidity contract 'GoldToken' compiled to NeoVM",
         "Version": "0.18.0.0",
-        "Compiler": "neo-solidity-0.18.0",
+        "Compiler": "neo-devpack-solidity-0.18.0",
         "Repository": "https://github.com/acme/gold-token",
         "Build": { "commit": "abc123", "branch": "main" }
     }

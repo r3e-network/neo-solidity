@@ -1,6 +1,6 @@
 # Production Readiness Pass Implementation Plan
 
-**Goal:** Align the verified quality gates and public production-readiness claims for the Neo Solidity compiler, then close the concrete failures uncovered by baseline validation.
+**Goal:** Align the verified quality gates and public production-readiness claims for the Neo DevPack for Solidity compiler, then close the concrete failures uncovered by baseline validation.
 
 **Architecture:** Keep this pass narrow and evidence-driven. Fix the CI-breaking Rust/Clippy policy mismatch first, then update stale quality metrics/docs so the repository’s “production-ready” claims match what the verified gates actually prove.
 

@@ -469,7 +469,7 @@ contract C {
     assert!(!arts.is_empty(), "JJJ2_5 compile produced no artifacts");
     let art = &arts[0];
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("JJJ2_5 rt");
-    let payload = b"neo-solidity-fuzz-test".to_vec();
+    let payload = b"neo-devpack-solidity-fuzz-test".to_vec();
     let first = rt
         .call_method(
             &art.bytecode,

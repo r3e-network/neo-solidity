@@ -1,4 +1,4 @@
-name: "Neo Solidity CodeQL Configuration"
+name: "Neo DevPack for Solidity CodeQL Configuration"
 
 disable-default-queries: false
 

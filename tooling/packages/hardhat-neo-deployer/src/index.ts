@@ -1,6 +1,6 @@
 import { extendConfig, extendEnvironment } from "hardhat/config";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
-import { NeoNetworkConfig, NeoAccount } from "@neo-solidity/types";
+import { NeoNetworkConfig, NeoAccount } from "@neo-devpack-solidity/types";
 
 import "./tasks/deploy";
 import "./tasks/deploy-verify";

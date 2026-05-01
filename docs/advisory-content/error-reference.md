@@ -5,7 +5,7 @@ description: "Error Reference section index."
 
 # Error Reference
 
-Complete reference for all error codes, warning codes, and diagnostic output produced by the Neo Solidity compiler.
+Complete reference for all error codes, warning codes, and diagnostic output produced by the Neo DevPack for Solidity compiler.
 
 ## Sections
 

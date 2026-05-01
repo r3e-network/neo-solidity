@@ -3,7 +3,7 @@
 When you compile a Solidity contract using `neo-solc`, the output differs significantly from standard `solc`.
 
 ::: tip 💡 NeoVM Difference
-Standard Solidity outputs an EVM binary (often represented as a hex string) and an Ethereum ABI JSON. **Neo Solidity outputs a `.nef` (Neo Executable Format) binary file and a `.manifest.json` file.**
+Standard Solidity outputs an EVM binary (often represented as a hex string) and an Ethereum ABI JSON. **Neo DevPack for Solidity outputs a `.nef` (Neo Executable Format) binary file and a `.manifest.json` file.**
 :::
 
 ## The NEF File (`.nef`)
@@ -11,7 +11,7 @@ Standard Solidity outputs an EVM binary (often represented as a hex string) and 
 The NEF file is the compiled bytecode executable deployed to the Neo blockchain. It is a strictly formatted binary file containing:
 
 1. **Magic Header**: Identifies the file as a Neo N3 executable (`0x3346454E`).
-2. **Compiler Name**: A 64-byte string identifying the compiler (for example, `neo-solidity-0.18.0`).
+2. **Compiler Name**: A 64-byte string identifying the compiler (for example, `neo-devpack-solidity-0.18.0`).
 3. **Source/Version Context**: Metadata tracking the compiler version used.
 4. **Method Tokens**: A table mapping external contract calls to optimize runtime execution (if `--callt` is used).
 5. **Script**: The actual NeoVM opcodes representing your contract logic.

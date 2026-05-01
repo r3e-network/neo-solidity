@@ -1,11 +1,11 @@
-# Neo Solidity Compiler
+# Neo DevPack for Solidity
 
 <p align="center">
-  <img src="docs/assets/neo-solidity-banner.png" alt="Neo Solidity Compiler Banner" width="100%">
+  <img src="docs/assets/neo-devpack-solidity-banner.png" alt="Neo DevPack for Solidity Banner" width="100%">
 </p>
 
-[![Build Status](https://github.com/r3e-network/neo-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-solidity/actions)
-[![Neo-Express Showcases Workflow](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3e-network/neo-solidity/actions/workflows/ci.yml)
+[![Build Status](https://github.com/r3e-network/neo-devpack-solidity/workflows/CI/badge.svg)](https://github.com/r3e-network/neo-devpack-solidity/actions)
+[![Neo-Express Showcases Workflow](https://github.com/r3e-network/neo-devpack-solidity/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/r3e-network/neo-devpack-solidity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.88+-blue.svg)](https://rustup.rs)
 [![Neo Version](https://img.shields.io/badge/neo-N3%203.0+-green.svg)](https://neo.org)
@@ -29,12 +29,12 @@
 
 ```bash
 # Install from source
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity
 cargo install --path .
 
 # Or download pre-built binaries
-curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64 -o neo-solc
+curl -L https://github.com/r3e-network/neo-devpack-solidity/releases/latest/download/neo-solc-linux-x64 -o neo-solc
 chmod +x neo-solc
 ```
 
@@ -264,7 +264,7 @@ Important NeoVM differences:
 
 ### **🏗️ Architecture Overview**
 
-The Neo Solidity Compiler consists of several integrated components:
+The Neo DevPack for Solidity consists of several integrated components:
 
 <p align="center">
   <img src="docs/assets/compiler-architecture.png" alt="Compiler Architecture" width="80%">
@@ -273,7 +273,7 @@ The Neo Solidity Compiler consists of several integrated components:
 ```mermaid
 graph TB
     A[Solidity Source] --> B[Yul IR Generation]
-    B --> C[Neo Solidity Compiler]
+    B --> C[Neo DevPack for Solidity]
     C --> D[Lexer]
     C --> E[Parser]
     C --> F[Semantic Analyzer]
@@ -310,8 +310,8 @@ graph TB
 
 ```bash
 # Clone repository
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity
 
 # Build compiler
 cargo build --release
@@ -462,7 +462,7 @@ Hardhat integration is primarily useful for **compilation + artifact management*
 
 ```ts
 // hardhat.config.ts
-import "@neo-solidity/hardhat-solc-neo";
+import "@neo-devpack-solidity/hardhat-solc-neo";
 
 export default {
   neoSolc: {
@@ -499,7 +499,7 @@ npx hardhat neo-deploy --contract MyContract --network testnet
 
 ```bash
 # Install Neo Foundry
-npm install -g @neo-solidity/neo-foundry
+npm install -g @neo-devpack-solidity/neo-foundry
 
 # Initialize project
 neo-forge init my-project
@@ -520,8 +520,8 @@ There is no stable published JavaScript runtime package for the compiler itself 
 For programmatic workflows today, prefer:
 
 - the Rust `neo-solc` binary directly
-- `@neo-solidity/cli-tools` for Node-based wrapper commands
-- `@neo-solidity/hardhat-solc-neo` and `@neo-solidity/hardhat-neo-deployer` for Hardhat integration
+- `@neo-devpack-solidity/cli-tools` for Node-based wrapper commands
+- `@neo-devpack-solidity/hardhat-solc-neo` and `@neo-devpack-solidity/hardhat-neo-deployer` for Hardhat integration
 
 ### Testing Framework
 
@@ -777,7 +777,7 @@ neo-solc does not currently emit source-map/debug-info artifacts as standalone C
 
 ```bash
 # 1. Fork and clone
-git clone https://github.com/yourusername/neo-solidity.git
+git clone https://github.com/yourusername/neo-devpack-solidity.git
 
 # 2. Create feature branch
 git checkout -b feature/my-new-feature
@@ -887,12 +887,12 @@ git push origin vX.Y.Z
 #### **Developer Tools**
 
 - ✅ CLI tools (neo-solc) - fully functional
-- ✅ Hardhat integration (@neo-solidity/hardhat-solc-neo)
-- ✅ Hardhat deployer (@neo-solidity/hardhat-neo-deployer)
-- ✅ Foundry adapter (@neo-solidity/neo-foundry)
-- ✅ ABI router (@neo-solidity/abi-router)
-- ✅ Shared types (@neo-solidity/types)
-- ✅ CLI tools package (@neo-solidity/cli-tools)
+- ✅ Hardhat integration (@neo-devpack-solidity/hardhat-solc-neo)
+- ✅ Hardhat deployer (@neo-devpack-solidity/hardhat-neo-deployer)
+- ✅ Foundry adapter (@neo-devpack-solidity/neo-foundry)
+- ✅ ABI router (@neo-devpack-solidity/abi-router)
+- ✅ Shared types (@neo-devpack-solidity/types)
+- ✅ CLI tools package (@neo-devpack-solidity/cli-tools)
 - ✅ Debug/source-map type support for downstream tooling
 - ✅ Network configurations for Neo TestNet/MainNet
 - ✅ Artifact management
@@ -1102,7 +1102,7 @@ cargo test test_erc20_like_contract
 
 - **📖 Documentation**: Complete guides and API reference
 - **💬 Discord**: Join our [Discord server](https://discord.gg/r3e-network)
-- **🐛 Issues**: Report bugs on [GitHub Issues](https://github.com/r3e-network/neo-solidity/issues)
+- **🐛 Issues**: Report bugs on [GitHub Issues](https://github.com/r3e-network/neo-devpack-solidity/issues)
 - **📧 Email**: Technical support at jimmy@r3e.network
 
 ### **Community Resources**
@@ -1117,7 +1117,7 @@ cargo test test_erc20_like_contract
 We welcome contributions from the community! Check out our:
 
 - **👥 [Contributing Guide](./CONTRIBUTING.md)**
-- **🎯 [Good First Issues](https://github.com/r3e-network/neo-solidity/labels/good%20first%20issue)**
+- **🎯 [Good First Issues](https://github.com/r3e-network/neo-devpack-solidity/labels/good%20first%20issue)**
 - **🏗️ [Testing and Local Validation](./TESTING.md)**
 - **🔐 [Security Policy](./SECURITY.md)**
 

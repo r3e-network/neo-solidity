@@ -5,7 +5,7 @@ reader-friendly version, see
 [Indexed Storage Lowering](/mapping/indexed-storage-lowering).
 
 This note captures the first-phase implementation plan for supporting Solidity
-`mapping` access inside the Neo Solidity compiler. It is intentionally scoped to
+`mapping` access inside the Neo DevPack for Solidity compiler. It is intentionally scoped to
 what is required to compile the NEP‑11/17/24 sample contracts; follow-up work
 will extend support to dynamic arrays (struct fields are now wired through the
 same lowering path).

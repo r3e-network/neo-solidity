@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The Neo Solidity Compiler is currently in active development. We recommend using the latest stable release for production use.
+The Neo DevPack for Solidity is currently in active development. We recommend using the latest stable release for production use.
 
 | Version | Supported        |
 | ------- | ---------------- |
@@ -12,7 +12,7 @@ The Neo Solidity Compiler is currently in active development. We recommend using
 
 ## Reporting a Vulnerability
 
-We take the security of the Neo Solidity Compiler seriously. If you believe you have found a security vulnerability, please report it responsibly.
+We take the security of the Neo DevPack for Solidity seriously. If you believe you have found a security vulnerability, please report it responsibly.
 
 ### Reporting Process
 
@@ -133,4 +133,4 @@ The compiler handles untrusted input (Solidity source code):
 
 ---
 
-Thank you for helping keep the Neo Solidity Compiler and the Neo ecosystem secure.
+Thank you for helping keep the Neo DevPack for Solidity and the Neo ecosystem secure.

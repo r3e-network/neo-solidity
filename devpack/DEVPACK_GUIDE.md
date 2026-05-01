@@ -5,9 +5,9 @@
 ## 🎯 Overview
 
 The Neo N3 Devpack provides Solidity-facing interfaces for Neo N3 features supported by the
-`neo-solidity` compiler (syscalls, native contract calls, and NEP standard examples).
+`neo-devpack-solidity` compiler (syscalls, native contract calls, and NEP standard examples).
 
-> Important: `neo-solidity` treats `Runtime`, `Storage`, `Syscalls`, `Neo`, `NativeCalls` and `abi`
+> Important: `neo-devpack-solidity` treats `Runtime`, `Storage`, `Syscalls`, `Neo`, `NativeCalls` and `abi`
 > as **compiler intrinsics** (built-in libraries). Calls to supported members are lowered directly
 > to Neo N3 syscalls / native contract calls. The Solidity bodies of these libraries are not
 > compiled, and unsupported members will fail compilation with an error that lists the supported
@@ -19,11 +19,11 @@ The Neo N3 Devpack provides Solidity-facing interfaces for Neo N3 features suppo
 
 ```bash
 # Install via npm
-npm install --save-dev @r3e-network/neo-solidity-devpack hardhat @neo-solidity/hardhat-solc-neo @neo-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-devpack-solidity/contracts hardhat @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 
 # Or clone and build
-git clone https://github.com/r3e-network/neo-solidity.git
-cd neo-solidity/devpack
+git clone https://github.com/r3e-network/neo-devpack-solidity.git
+cd neo-devpack-solidity/devpack
 npm install
 ```
 
@@ -33,7 +33,7 @@ npm install
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP17.sol";
 
 contract MyToken is NEP17 {
     constructor() NEP17("My Token", "MTK", 18, 1000000, 10000000) {
@@ -44,7 +44,7 @@ contract MyToken is NEP17 {
 
 ## 🏗️ Deploying Contracts With Constructor Arguments
 
-Neo N3 deployment invokes `_deploy(data, update)`. `neo-solidity` injects `_deploy` automatically.
+Neo N3 deployment invokes `_deploy(data, update)`. `neo-devpack-solidity` injects `_deploy` automatically.
 
 When your Solidity contract constructor has parameters, pass them through `_deploy.data` as an
 array of arguments:
@@ -67,7 +67,7 @@ This means the generated manifest will include permission entries for `StdLib.js
 Base framework providing Neo N3 integration with minimally-permissioned manifests.
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/contracts/FrameworkBase.sol";
+import "@neo-devpack-solidity/contracts/contracts/FrameworkBase.sol";
 
 contract MyContract is FrameworkBase {
     event MyEvent(string data);
@@ -118,10 +118,10 @@ Example `permissions.json`:
 
 ### 🔧 Syscalls.sol
 
-Neo N3 syscall (and syscall-like) integration used by `neo-solidity`:
+Neo N3 syscall (and syscall-like) integration used by `neo-devpack-solidity`:
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
+import "@neo-devpack-solidity/contracts/contracts/Syscalls.sol";
 
 contract MySyscallContract {
     using Syscalls for *;
@@ -148,7 +148,7 @@ contract MySyscallContract {
 Direct integration with Neo native contracts:
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/contracts/NativeCalls.sol";
+import "@neo-devpack-solidity/contracts/contracts/NativeCalls.sol";
 
 contract MyNativeContract {
     using NativeCalls for *;
@@ -178,7 +178,7 @@ contract MyNativeContract {
 ### 🪙 NEP-17 Fungible Tokens
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP17.sol";
 
 contract MyNEP17Token is NEP17 {
     constructor() NEP17("My Token", "MTK", 18, 1000000, 0) {
@@ -199,7 +199,7 @@ contract MyNEP17Token is NEP17 {
 ### 🎨 NEP-11 Non-Fungible Tokens
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/standards/NEP11.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP11.sol";
 
 contract MyNEP11NFT is NEP11 {
     constructor() NEP11("My NFT", "MNFT", 0, "https://api.mynft.com/", 10000, false) {
@@ -217,7 +217,7 @@ contract MyNEP11NFT is NEP11 {
 ### 💸 NEP-24 Royalties (NFT)
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/standards/NEP24.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP24.sol";
 
 contract MyRoyaltyMixin is NEP24Royalty {
     constructor(address recipient, uint96 bps) {
@@ -232,8 +232,8 @@ contract MyRoyaltyMixin is NEP24Royalty {
 ### 🌐 Neo.sol - Blockchain Utilities
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/libraries/Neo.sol";
-import "@r3e-network/neo-solidity-devpack/libraries/Runtime.sol";
+import "@neo-devpack-solidity/contracts/libraries/Neo.sol";
+import "@neo-devpack-solidity/contracts/libraries/Runtime.sol";
 
 contract MyContract {
     using Neo for *;
@@ -269,8 +269,8 @@ contract MyContract {
 ### 💾 Storage.sol - Advanced Storage
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/libraries/Storage.sol";
-import "@r3e-network/neo-solidity-devpack/contracts/Syscalls.sol";
+import "@neo-devpack-solidity/contracts/libraries/Storage.sol";
+import "@neo-devpack-solidity/contracts/contracts/Syscalls.sol";
 
 contract MyStorageContract {
     using Storage for *;
@@ -298,7 +298,7 @@ contract MyStorageContract {
 ### ⚡ Runtime.sol - Runtime Services
 
 ```solidity
-import "@r3e-network/neo-solidity-devpack/libraries/Runtime.sol";
+import "@neo-devpack-solidity/contracts/libraries/Runtime.sol";
 
 contract MyRuntimeContract {
     using Runtime for *;
@@ -357,7 +357,7 @@ See [`examples/CompleteNEP11NFT.sol`](./examples/CompleteNEP11NFT.sol) for:
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-solidity-devpack/standards/NEP17.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP17.sol";
 
 contract SimpleToken is NEP17 {
     constructor() NEP17("Simple Token", "SIMPLE", 8, 1000000, 0) {
@@ -373,7 +373,7 @@ contract SimpleToken is NEP17 {
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-solidity-devpack/standards/NEP11.sol";
+import "@neo-devpack-solidity/contracts/standards/NEP11.sol";
 
 contract SimpleNFT is NEP11 {
     constructor() NEP11("Simple NFT", "SNFT", 0, "https://api.simple.nft/", 1000, false) {
@@ -393,7 +393,7 @@ contract SimpleNFT is NEP11 {
 ```solidity
 pragma solidity ^0.8.19;
 
-import "@r3e-network/neo-solidity-devpack/contracts/OracleService.sol";
+import "@neo-devpack-solidity/contracts/contracts/OracleService.sol";
 
 contract PriceConsumer is IOracleServiceReceiver {
     OracleService private _oracle;
@@ -541,8 +541,8 @@ contract GasOptimized is Framework {
 
 ```javascript
 // hardhat.config.js
-require("@neo-solidity/hardhat-solc-neo");
-require("@neo-solidity/hardhat-neo-deployer");
+require("@neo-devpack-solidity/hardhat-solc-neo");
+require("@neo-devpack-solidity/hardhat-neo-deployer");
 
 module.exports = {
   solidity: {
@@ -568,8 +568,8 @@ module.exports = {
 
 ### Deployment Workflow
 
-Use the Neo-native Hardhat tasks exposed by `@neo-solidity/hardhat-solc-neo` and
-`@neo-solidity/hardhat-neo-deployer`. They operate on Neo build artifacts and constructor arguments
+Use the Neo-native Hardhat tasks exposed by `@neo-devpack-solidity/hardhat-solc-neo` and
+`@neo-devpack-solidity/hardhat-neo-deployer`. They operate on Neo build artifacts and constructor arguments
 encoded as a JSON array.
 
 ```bash
@@ -771,7 +771,7 @@ function emergencyStop() public onlyOwner withWitness {
 ## 💬 Support
 
 - **📖 Documentation**: Complete API reference and guides
-- **🐛 Issues**: [GitHub Issues](https://github.com/r3e-network/neo-solidity/issues)
+- **🐛 Issues**: [GitHub Issues](https://github.com/r3e-network/neo-devpack-solidity/issues)
 - **💬 Discord**: Community support and discussions
 - **📧 Email**: jimmy@r3e.network for technical support
 

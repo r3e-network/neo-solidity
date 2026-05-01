@@ -39,7 +39,7 @@ error[E2002]: type mismatch: expected uint256, found address
    = help: use explicit cast: uint256(uint160(msg.sender))
 ```
 
-**Fix:** Correct the type usage. In Neo Solidity, addresses and integers are distinct types just as in standard Solidity. Use explicit casts when conversion is intentional.
+**Fix:** Correct the type usage. In Neo DevPack for Solidity, addresses and integers are distinct types just as in standard Solidity. Use explicit casts when conversion is intentional.
 
 ## Example: E2003 DuplicateDefinition
 

@@ -1,7 +1,7 @@
 # Execution Context
 
 This page maps Solidity execution globals to the Neo N3 runtime calls or native
-contract calls used by Neo Solidity.
+contract calls used by Neo DevPack for Solidity.
 
 ## Block and Transaction Context
 

@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import chalk from "chalk";
-import { addFlagOption, addOptionalStringOption, addRequiredStringOption, getHardhatSelectedNetworkName, setTaskAction } from "@neo-solidity/types";
+import { addFlagOption, addOptionalStringOption, addRequiredStringOption, getHardhatSelectedNetworkName, setTaskAction } from "@neo-devpack-solidity/types";
 import { createAccountFromPrivateKey, generatePrivateKeyHex } from "../account-primitives";
 
 const neoAccountsTask = task("neo-accounts", "List Neo accounts configured for deployment");

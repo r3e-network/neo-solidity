@@ -1,7 +1,7 @@
 # EIP ↔ NEP Standards Mapping
 
 > Comprehensive mapping between Ethereum Improvement Proposals (EIP) and Neo
-> Enhancement Proposals (NEP) as implemented by the `neo-solidity` compiler.
+> Enhancement Proposals (NEP) as implemented by the `neo-devpack-solidity` compiler.
 
 ## Quick Reference
 
@@ -230,7 +230,7 @@ manifest** — a static JSON document deployed alongside the NEF bytecode.
 
 ### Compiler Behavior
 
-The `neo-solidity` compiler **automatically populates** `supportedstandards` based on
+The `neo-devpack-solidity` compiler **automatically populates** `supportedstandards` based on
 method signature analysis. No `supportsInterface()` function is needed.
 
 ---
@@ -270,7 +270,7 @@ Neo N3 defines additional contract behavior standards beyond NEP-11/17/24.
 
 ### Compiler Behavior
 
-- `neo-solidity` detects and advertises the corresponding NEP when these signatures are present.
+- `neo-devpack-solidity` detects and advertises the corresponding NEP when these signatures are present.
 - Detection is signature-based; methods with the same name but incompatible arity/return type are reported as near-misses.
 - Lifecycle NEPs are additive to token standards (e.g., a contract can advertise both `NEP-17` and `NEP-27`).
 
@@ -291,16 +291,16 @@ Neo N3 defines additional contract behavior standards beyond NEP-11/17/24.
 | `address[]`          | `Array`       | Array of Hash160                          |
 | `mapping(K => V)`    | Storage       | Compiled to Neo storage prefix operations |
 | `struct`             | `Array`/`Map` | Serialized via `StdLib.serialize()`       |
-| `Any` (neo-solidity) | `Any`         | Unconstrained NeoVM StackItem             |
+| `Any` (neo-devpack-solidity) | `Any`         | Unconstrained NeoVM StackItem             |
 
 ### Neo-Specific Types
 
-The `neo-solidity` compiler introduces the `Any` type for NEP-17/NEP-11 `data`
+The `neo-devpack-solidity` compiler introduces the `Any` type for NEP-17/NEP-11 `data`
 parameters. This maps to NeoVM's unconstrained `StackItem`, allowing callers to
 pass any serializable value.
 
 ```solidity
-// The `Any` type is available without import in neo-solidity
+// The `Any` type is available without import in neo-devpack-solidity
 function transfer(address from, address to, uint256 amount, Any calldata data)
     public returns (bool) { ... }
 ```
@@ -309,7 +309,7 @@ function transfer(address from, address to, uint256 amount, Any calldata data)
 
 ## 9. Migration Checklist
 
-When porting an Ethereum contract to Neo N3 via `neo-solidity`:
+When porting an Ethereum contract to Neo N3 via `neo-devpack-solidity`:
 
 ### ERC-20 → NEP-17
 

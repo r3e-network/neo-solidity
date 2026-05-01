@@ -16,7 +16,7 @@ The `pragma` keyword is used to enable certain compiler features or checks. A pr
 
 ### Version Pragma
 
-Source files can (and should) be annotated with a version pragma to reject compilation with future compiler versions that might introduce incompatible changes. Neo Solidity parses these pragmas exactly like mainline Solidity:
+Source files can (and should) be annotated with a version pragma to reject compilation with future compiler versions that might introduce incompatible changes. Neo DevPack for Solidity parses these pragmas exactly like mainline Solidity:
 
 ```solidity
 pragma solidity ^0.8.20;
@@ -24,7 +24,7 @@ pragma solidity ^0.8.20;
 
 ## Importing other Source Files
 
-Neo Solidity supports import statements that are very similar to those available in JavaScript (from ES6 on). 
+Neo DevPack for Solidity supports import statements that are very similar to those available in JavaScript (from ES6 on). 
 
 ```solidity
 import "filename";
@@ -32,7 +32,7 @@ import "filename";
 
 ### Path Resolution
 
-Neo Solidity resolves imports relative to the current directory or relative to defined include paths (passed via `-I`). Absolute URL imports are not currently supported by the local compiler.
+Neo DevPack for Solidity resolves imports relative to the current directory or relative to defined include paths (passed via `-I`). Absolute URL imports are not currently supported by the local compiler.
 
 ```solidity
 // Import from standard libraries installed in the devpack
@@ -55,7 +55,7 @@ multi-line comment.
 
 ### NatSpec Comments
 
-Additionally, there is another type of comment called a NatSpec comment, which the Neo Solidity compiler uses for manifest permission overrides and interface generation:
+Additionally, there is another type of comment called a NatSpec comment, which the Neo DevPack for Solidity compiler uses for manifest permission overrides and interface generation:
 
 ```solidity
 /// @title My Token Contract

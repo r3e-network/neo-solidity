@@ -1,4 +1,4 @@
-import type { NeoHardhatNetworkConfig } from '@neo-solidity/types';
+import type { NeoHardhatNetworkConfig } from '@neo-devpack-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import * as fs from 'fs-extra';

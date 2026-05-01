@@ -8,7 +8,7 @@ using System.ComponentModel;
 namespace R3E.StandardsMirror;
 
 [DisplayName("InterfaceRegistry")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-1820 interface registry in Neo C#.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

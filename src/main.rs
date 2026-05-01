@@ -1,4 +1,4 @@
-//! Neo Solidity Compiler (neo-solc)
+//! Neo DevPack for Solidity (neo-solc)
 //!
 //! Command-line compiler for Neo N3 smart contracts written in Solidity.
 //!

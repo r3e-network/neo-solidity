@@ -1,4 +1,4 @@
-import { isNeoAddress, neoAddressToScriptHash, strip0x } from "@neo-solidity/types";
+import { isNeoAddress, neoAddressToScriptHash, strip0x } from "@neo-devpack-solidity/types";
 
 const OP_PUSHINT8 = 0x00;
 const OP_PUSHT = 0x08;

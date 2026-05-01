@@ -6,9 +6,9 @@ Solidity defines an assembly language that can be used without Solidity. This as
 In Ethereum, inline assembly gives you direct access to the EVM stack and opcodes (e.g., `sload`, `sstore`, `call`). **On NeoVM, the compiler lowers a limited Yul compatibility subset and warns on anything outside that subset** because the opcodes and stack architecture fundamentally differ. Treat assembly blocks as portability scaffolding, not as EVM-opcode-level access.
 :::
 
-## How Neo Solidity Handles Inline Assembly
+## How Neo DevPack for Solidity Handles Inline Assembly
 
-When the Neo Solidity compiler encounters an `assembly { ... }` block, it parses
+When the Neo DevPack for Solidity compiler encounters an `assembly { ... }` block, it parses
 Yul syntax and lowers a documented compatibility subset to NeoVM IR. This is not
 EVM opcode parity: unsupported Yul constructs fall back to a compatibility
 warning and emit no assembly logic for that block.

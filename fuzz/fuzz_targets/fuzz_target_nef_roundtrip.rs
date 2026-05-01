@@ -27,7 +27,7 @@ fuzz_target!(|data: &[u8]| {
         // parse / serialize contract is broken.
         let _ = build_nef_with_tokens(
             &parsed.script,
-            "neo-solidity-fuzz",
+            "neo-devpack-solidity-fuzz",
             parsed.source.as_str(),
             &parsed.tokens,
         );

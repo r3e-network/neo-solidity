@@ -7,10 +7,10 @@ pragma solidity ^0.8.19;
  * @author Jimmy <jimmy@r3e.network>
  * 
  * This library provides Solidity helpers for the syscall and native contract surfaces that
- * neo-solidity lowers today. The embedded runtime does not implement every Neo N3 host syscall.
+ * neo-devpack-solidity lowers today. The embedded runtime does not implement every Neo N3 host syscall.
  *
  * NOTE: Neo N3 exposes many features via *native contracts* (Ledger, Policy,
- * Oracle, ContractManagement, etc.) rather than syscalls. The neo-solidity
+ * Oracle, ContractManagement, etc.) rather than syscalls. The neo-devpack-solidity
  * compiler lowers these helpers to `System.Contract.Call` as needed.
  */
 
@@ -540,7 +540,7 @@ library Syscalls {
      * @dev Keccak-256 hash (CryptoLib native call, added at Neo N3 Cockatrice hardfork)
      *
      * NOTE: Solidity's built-in `keccak256()` is also lowered to this native call
-     * by the neo-solidity compiler. This explicit wrapper is provided for
+     * by the neo-devpack-solidity compiler. This explicit wrapper is provided for
      * discoverability when calling through the Syscalls namespace.
      */
     function neoKeccak256(bytes memory data) internal view returns (bytes32) {
@@ -1298,7 +1298,7 @@ library Syscalls {
     /**
      * @dev Get contract NEF (script container)
      *
-     * NOTE: The neo-solidity compiler treats this as an intrinsic and lowers it
+     * NOTE: The neo-devpack-solidity compiler treats this as an intrinsic and lowers it
      * to `ContractManagement.getContract(contractHash).nef`.
      */
     function getContractScript(address contractHash) internal view returns (bytes memory) {

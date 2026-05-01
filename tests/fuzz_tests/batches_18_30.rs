@@ -1430,7 +1430,7 @@ contract C {
 //   (H3 observed) Return-data is exactly 32 bytes
 //        `c5d24601..5d85a470` — a BYTE-FOR-BYTE match against
 //        `sha3::Keccak256::digest(b"")`. The empty-input keccak path is
-//        CORRECT; this is the FIRST keccak-related Neo-Solidity harness in
+//        CORRECT; this is the FIRST keccak-related Neo DevPack for Solidity harness in
 //        the file that passes without an EXPECTED/CURRENT dual block. The
 //        corruption observed in batches #16/#19 is confined to the
 //        non-empty / abi.encode* paths (Task #44); the bare opcode is fine.
@@ -1536,7 +1536,7 @@ contract C { function f() external view returns (uint256) { return block.gaslimi
     //
     // Solidity 0.8.x spec: `type(int256).min / -1` produces the mathematically
     // unrepresentable `INT256_MAX + 1` and MUST Panic(0x11).
-    // Current Neo-Solidity behavior: GAP — execution succeeds and returns 0
+    // Current Neo DevPack for Solidity behavior: GAP — execution succeeds and returns 0
     // (observed: 8 zero bytes). Extends batch #10's arithmetic-scope map;
     // this is a new scope for Task #30/#32 (signed-division overflow guard).
     #[test]
@@ -1603,7 +1603,7 @@ contract C { function f() external pure returns (bytes32) {
             hex::encode(&canonical), hex::encode(&reference));
 
         prop_assert_eq!(&result.return_data, &canonical,
-            "H3: Neo-Solidity keccak256(\"\") must equal the canonical \
+            "H3: Neo DevPack for Solidity keccak256(\"\") must equal the canonical \
              0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470. \
              Got 0x{}. Unlike the non-empty / abi.encode* paths (Task #44), \
              the empty-input keccak path is the ONE keccak harness in this \
@@ -1665,7 +1665,7 @@ contract C { function f() external pure returns (bytes32) {
 //        UTF-8 string, as expected. First non-gap in batch #22 — `type(C).name`
 //        is CORRECT. ACTIVE harness pins this.
 //
-//   (H2 observed) Execution SUCCEEDS but returns ZERO bytes. The Neo-Solidity
+//   (H2 observed) Execution SUCCEEDS but returns ZERO bytes. The Neo DevPack for Solidity
 //        lowering is a deliberate compatibility stub (returns an empty
 //        ByteArray literal) because Neo deployment does not consume EVM
 //        bytecode blobs. This makes every Uniswap V2-style
@@ -1703,7 +1703,7 @@ proptest! {
     // `Context` events), reflection-style framework scaffolding, and
     // human-readable error messages.
     //
-    // Neo-Solidity behavior (observed pre-probe): returns exactly 3 bytes
+    // Neo DevPack for Solidity behavior (observed pre-probe): returns exactly 3 bytes
     // `0x466f6f` = ASCII "Foo". This matches
     // src/ir/expressions/member_access/type_bounds.rs:131-153 which pushes
     // the type argument's name as a UTF-8 string literal.
@@ -1721,7 +1721,7 @@ contract Foo { function f() external pure returns (string memory) { return type(
             "H1: `type(Foo).name` execute must succeed; exc={:?}",
             result.exception.as_ref().map(|e| &e.message));
         // The expected return is the ASCII byte sequence of the contract name.
-        // Solidity `string memory` is variable-length; Neo-Solidity's
+        // Solidity `string memory` is variable-length; Neo DevPack for Solidity's
         // string-literal encoding surfaces as the raw UTF-8 bytes in
         // return_data (no ABI length prefix — the observed width IS the
         // string width).
@@ -1746,7 +1746,7 @@ contract Foo { function f() external pure returns (string memory) { return type(
     // clones, and any deterministic-address scheme of the form
     // `keccak256(abi.encodePacked(0xff, sender, salt, keccak256(type(C).creationCode)))`.
     //
-    // Neo-Solidity behavior (post-fix, Task #60): emits a deterministic NEF3-
+    // Neo DevPack for Solidity behavior (post-fix, Task #60): emits a deterministic NEF3-
     // shaped envelope whose script payload is `keccak256("creationCode:<name>")`
     // so every contract name yields a distinct blob. Neo deployment does not
     // consume this (it is an off-chain compatibility artefact used only for
@@ -1807,7 +1807,7 @@ contract Parent {{ function f() external pure returns (bytes memory) {{ return t
     // uint256). Assigning 42, then `delete v`, then reading `v` must
     // produce 0 at runtime.
     //
-    // Neo-Solidity behavior (observed pre-probe): execution SUCCEEDS and
+    // Neo DevPack for Solidity behavior (observed pre-probe): execution SUCCEEDS and
     // returns 8 LE zero bytes = uint256 0. `delete v` correctly zeros the
     // storage slot.
     //
@@ -1944,7 +1944,7 @@ contract C { function f() external view returns (address) { return address(this)
     // `call_function` is not available in this file's harness; this is a
     // COMPILE + MANIFEST-SHAPE probe only.
     //
-    // Neo-Solidity behavior (observed pre-probe): compiles; manifest lists
+    // Neo DevPack for Solidity behavior (observed pre-probe): compiles; manifest lists
     // `fallback` (offset 0), `read` (offset 51), auto-generated `lastData`
     // getter (offset 128), and `_deploy` (offset 205). The
     // `receive → onNEP17Payment` remap does NOT fire when `receive` is

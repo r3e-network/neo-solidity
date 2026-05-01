@@ -1,4 +1,4 @@
-# Neo Solidity by Example
+# Neo DevPack for Solidity by Example
 
 This section provides practical examples of smart contracts written in Solidity and compiled for the Neo N3 blockchain. Each example demonstrates how standard EVM patterns map seamlessly to NeoVM, along with Neo-specific best practices.
 

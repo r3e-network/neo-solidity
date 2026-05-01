@@ -5,7 +5,7 @@ description: "Architecture section index."
 
 # Architecture
 
-Complete reference for the Neo Solidity compiler architecture, covering the 8-stage compilation pipeline, optimizer design, module organization, and extension points.
+Complete reference for the Neo DevPack for Solidity compiler architecture, covering the 8-stage compilation pipeline, optimizer design, module organization, and extension points.
 
 ## Sections
 

@@ -9,10 +9,10 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("Bond")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-3525 semi-fungible token mirror — Neo C# port (no NEP equivalent).")]
 [ContractVersion("1.0.0")]
-[ContractSourceCode("https://github.com/r3e-network/neo-solidity/tree/main/docs/standards-mirror/deployments/erc-3525/csharp")]
+[ContractSourceCode("https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-3525/csharp")]
 [ContractPermission(Permission.Any, Method.Any)]
 public class Bond : SmartContract
 {

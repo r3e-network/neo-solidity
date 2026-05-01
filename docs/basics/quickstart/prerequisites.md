@@ -15,4 +15,4 @@ Before starting, ensure you have:
 - `jq` installed for JSON inspection
 - Neo-Express installed (optional, for local deployment)
 
-All commands below assume you are in the `neo-solidity` repository root and have built the release binary.
+All commands below assume you are in the `neo-devpack-solidity` repository root and have built the release binary.

@@ -198,11 +198,11 @@ function originalContractPages(): SidebarItem[] {
 }
 
 export default defineConfig({
-  title: 'Neo Solidity',
+  title: 'Neo DevPack for Solidity',
   description:
     'Production-grade Solidity to Neo N3 compiler — compile .sol to .nef + .manifest.json with EVM-to-Neo semantic mapping',
   lang: 'en-US',
-  base: isCI ? '/neo-solidity/' : '/',
+  base: isCI ? '/neo-devpack-solidity/' : '/',
   cleanUrls: true,
   lastUpdated: true,
   srcExclude: [
@@ -278,7 +278,7 @@ export default defineConfig({
   head: [
     ['meta', { name: 'theme-color', content: '#00E599' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'Neo Solidity — Compile Solidity to Neo N3' }],
+    ['meta', { property: 'og:title', content: 'Neo DevPack for Solidity — Compile Solidity to Neo N3' }],
     [
       'meta',
       {
@@ -287,9 +287,9 @@ export default defineConfig({
           'Production-grade compiler that transforms Solidity 0.8.x contracts into deployable NeoVM artifacts (.nef + .manifest.json) with full EVM-to-Neo semantic mapping.'
       }
     ],
-    ['meta', { property: 'og:image', content: '/assets/neo-solidity-logo.png' }],
+    ['meta', { property: 'og:image', content: '/assets/neo-devpack-solidity-logo.png' }],
     ['meta', { name: 'twitter:card', content: 'summary' }],
-    ['meta', { name: 'twitter:title', content: 'Neo Solidity — Compile Solidity to Neo N3' }],
+    ['meta', { name: 'twitter:title', content: 'Neo DevPack for Solidity — Compile Solidity to Neo N3' }],
     [
       'meta',
       {
@@ -298,7 +298,7 @@ export default defineConfig({
           'Production-grade Solidity to Neo N3 compiler with broad Solidity 0.8.x support, manifest hardening, and Neo-Express integration.'
       }
     ],
-    ['link', { rel: 'icon', type: 'image/png', href: '/assets/neo-solidity-logo.png' }]
+    ['link', { rel: 'icon', type: 'image/png', href: '/assets/neo-devpack-solidity-logo.png' }]
   ],
   vite: {
     build: {
@@ -306,17 +306,17 @@ export default defineConfig({
     }
   },
   themeConfig: {
-    logo: '/assets/neo-solidity-logo.png',
-    siteTitle: 'Neo Solidity',
+    logo: '/assets/neo-devpack-solidity-logo.png',
+    siteTitle: 'Neo DevPack for Solidity',
     nav: [
       { text: 'Blog', link: 'https://medium.com/neo-smart-economy' },
       { text: 'Documentation', link: '/basics/introduction-to-smart-contracts' },
       { text: 'Mapping', link: '/mapping/' },
       { text: 'ERC ↔ Neo', link: '/standards-mirror/' },
       { text: 'Use cases', link: '/use-cases' },
-      { text: 'Contribute', link: 'https://github.com/r3e-network/neo-solidity/blob/main/CONTRIBUTING.md' },
+      { text: 'Contribute', link: 'https://github.com/r3e-network/neo-devpack-solidity/blob/main/CONTRIBUTING.md' },
       { text: 'About', link: '/internals/architecture' },
-      { text: 'Forum', link: 'https://github.com/r3e-network/neo-solidity/discussions' }
+      { text: 'Forum', link: 'https://github.com/r3e-network/neo-devpack-solidity/discussions' }
     ],
     sidebar: [
       {
@@ -455,7 +455,7 @@ export default defineConfig({
         ]
       }
     ],
-    socialLinks: [{ icon: 'github', link: 'https://github.com/r3e-network/neo-solidity' }],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/r3e-network/neo-devpack-solidity' }],
     footer: {
       message: 'MIT Licensed',
       copyright: 'Copyright © R3E Network'
@@ -465,7 +465,7 @@ export default defineConfig({
     },
     outline: false,
     editLink: {
-      pattern: 'https://github.com/r3e-network/neo-solidity/edit/main/docs/:path',
+      pattern: 'https://github.com/r3e-network/neo-devpack-solidity/edit/main/docs/:path',
       text: 'Edit this page on GitHub'
     }
   }

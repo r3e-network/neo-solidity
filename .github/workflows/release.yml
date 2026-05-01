@@ -27,7 +27,7 @@ jobs:
       id: release_notes
       run: 'echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
 
-        echo "# Neo Solidity Compiler Release" >> $GITHUB_OUTPUT
+        echo "# Neo DevPack for Solidity Release" >> $GITHUB_OUTPUT
 
         echo "" >> $GITHUB_OUTPUT
 
@@ -50,7 +50,7 @@ jobs:
 
         echo "# Download binary for your platform" >> $GITHUB_OUTPUT
 
-        echo "curl -L https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64
+        echo "curl -L https://github.com/r3e-network/neo-devpack-solidity/releases/latest/download/neo-solc-linux-x64
         -o neo-solc" >> $GITHUB_OUTPUT
 
         echo "chmod +x neo-solc" >> $GITHUB_OUTPUT
@@ -110,7 +110,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
-        name: Neo Solidity Compiler ${{ github.ref_name }}
+        name: Neo DevPack for Solidity ${{ github.ref_name }}
         body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
         draft: false
         prerelease: false
@@ -228,7 +228,7 @@ jobs:
 
         cd dist
 
-        tar -czf ../neo-solidity-devpack-complete.tar.gz .
+        tar -czf ../neo-devpack-solidity-contracts-complete.tar.gz .
 
         cd ..
 
@@ -239,7 +239,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: ./neo-solidity-devpack-complete.tar.gz
+        files: ./neo-devpack-solidity-contracts-complete.tar.gz
     timeout-minutes: 15
   package-examples:
     name: Package Examples
@@ -293,7 +293,7 @@ jobs:
 
         cat > examples-dist/README.md << ''EOF''
 
-        # Neo Solidity Examples
+        # Neo DevPack for Solidity Examples
 
 
         This package contains production-ready smart contract examples for Neo N3
@@ -332,7 +332,7 @@ jobs:
 
         # Create archive
 
-        tar -czf neo-solidity-examples.tar.gz examples-dist/
+        tar -czf neo-devpack-solidity-examples.tar.gz examples-dist/
 
         '
     - name: Upload examples to release
@@ -341,7 +341,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: ./neo-solidity-examples.tar.gz
+        files: ./neo-devpack-solidity-examples.tar.gz
     timeout-minutes: 15
   post-release:
     name: Post-Release Validation
@@ -357,12 +357,12 @@ jobs:
 
         # Get latest release info
 
-        RELEASE_URL="https://api.github.com/repos/r3e-network/neo-solidity/releases/latest"
+        RELEASE_URL="https://api.github.com/repos/r3e-network/neo-devpack-solidity/releases/latest"
 
 
         # Download and test Linux binary
 
-        curl -L -o neo-solc-test "https://github.com/r3e-network/neo-solidity/releases/latest/download/neo-solc-linux-x64"
+        curl -L -o neo-solc-test "https://github.com/r3e-network/neo-devpack-solidity/releases/latest/download/neo-solc-linux-x64"
 
         chmod +x neo-solc-test
 
@@ -392,11 +392,11 @@ jobs:
 
         echo "## Status" >> validation_report.md
 
-        echo "The Neo Solidity Compiler release is ready for production use." >> validation_report.md
+        echo "The Neo DevPack for Solidity release is ready for production use." >> validation_report.md
 
         echo "" >> validation_report.md
 
-        echo "Repository: https://github.com/r3e-network/neo-solidity" >> validation_report.md
+        echo "Repository: https://github.com/r3e-network/neo-devpack-solidity" >> validation_report.md
 
         echo "Author: Jimmy <jimmy@r3e.network>" >> validation_report.md
 

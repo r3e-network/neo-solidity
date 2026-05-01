@@ -52,7 +52,7 @@ const staleContentChecks = [
     message: 'stale Rust API example; use the current public neo_solidity::cli entry points'
   },
   {
-    pattern: /neo-solidity-0\.1\.0\b/,
+    pattern: /neo-devpack-solidity-0\.1\.0\b/,
     message: 'stale compiler ID example; use the current 0.18.0 compiler line in manifest and NEF examples'
   },
   {

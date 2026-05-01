@@ -1,4 +1,4 @@
-# @neo-solidity/neo-foundry
+# @neo-devpack-solidity/neo-foundry
 
 Neo Foundry is the companion CLI that mirrors Foundry/Hardhat ergonomics for the Neo chain. It is still mostly scaffold-level, but `neo-forge init` now creates a working project layout and config, and the package can be imported as a library without executing the CLI parser as a side effect.
 
@@ -15,7 +15,7 @@ Neo Foundry is the companion CLI that mirrors Foundry/Hardhat ergonomics for the
 ## Installation
 
 ```bash
-npm install -g @neo-solidity/neo-foundry
+npm install -g @neo-devpack-solidity/neo-foundry
 ```
 
 The CLI exposes three entry points:
@@ -30,7 +30,7 @@ The package understands a Foundry-like `neo-foundry.toml` via `ConfigManager`, a
 
 ## Roadmap
 
-1. Wire `neo-forge build` to the Neo Solidity compiler pipeline and persist artifacts.
+1. Wire `neo-forge build` to the Neo DevPack for Solidity compiler pipeline and persist artifacts.
 2. Implement `neo-forge test` by driving the Neo VM test harness.
 3. Turn `neo-cast send/deploy` into real RPC transactions using the shared `NeoRpcClient`.
 4. Replace `neo-anvil` with an actual Neo VM sandbox (or connect to Neo Express).

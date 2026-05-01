@@ -49,7 +49,7 @@ pub(crate) fn process_standard_json_content(
                 }
             }
             errors.push(json!({
-                "component": "neo-solidity",
+                "component": "neo-devpack-solidity",
                 "severity": "error",
                 "type": "MissingSourceContent",
                 "code": standard_json_manual_code("MissingSourceContent"),
@@ -90,7 +90,7 @@ pub(crate) fn process_standard_json_content(
                 }
                 if has_duplicate_contract_names(&source_unit.contract_sources) {
                     errors.push(json!({
-                        "component": "neo-solidity",
+                        "component": "neo-devpack-solidity",
                         "severity": "error",
                         "type": "StandardJsonOutput",
                         "code": standard_json_manual_code("StandardJsonOutput"),
@@ -157,7 +157,7 @@ pub(crate) fn process_standard_json_content(
                         .unwrap_or_else(|| {
                             let fallback = ordered_sources[0].0.clone();
                             errors.push(json!({
-                                "component": "neo-solidity",
+                                "component": "neo-devpack-solidity",
                                 "severity": "error",
                                 "type": "StandardJsonOutput",
                                 "code": standard_json_manual_code("StandardJsonOutput"),
@@ -191,7 +191,7 @@ pub(crate) fn process_standard_json_content(
                         let (source_field, truncated) = clamp_nef_source_with_flag(raw_source);
                         if truncated {
                             errors.push(json!({
-                                "component": "neo-solidity",
+                                "component": "neo-devpack-solidity",
                                 "severity": "warning",
                                 "type": "NefSourceTruncated",
                                 "code": standard_json_manual_code("NefSourceTruncated"),
@@ -218,7 +218,7 @@ pub(crate) fn process_standard_json_content(
                             Ok(value) => value,
                             Err(message) => {
                                 errors.push(json!({
-                                    "component": "neo-solidity",
+                                    "component": "neo-devpack-solidity",
                                     "severity": "error",
                                     "type": "StandardJsonOutput",
                                     "code": standard_json_manual_code("StandardJsonOutput"),
@@ -241,7 +241,7 @@ pub(crate) fn process_standard_json_content(
                                     Value::Object(map) => map,
                                     _ => {
                                         errors.push(json!({
-                                            "component": "neo-solidity",
+                                            "component": "neo-devpack-solidity",
                                             "severity": "error",
                                             "type": "StandardJsonOutput",
                                             "code": standard_json_manual_code("StandardJsonOutput"),
@@ -280,7 +280,7 @@ pub(crate) fn process_standard_json_content(
             let file_name = &ordered_sources[0].0;
             if options.contract_names.is_empty() {
                 errors.push(json!({
-                    "component": "neo-solidity",
+                    "component": "neo-devpack-solidity",
                     "severity": "error",
                     "type": "NoContracts",
                     "code": standard_json_manual_code("NoContracts"),
@@ -291,7 +291,7 @@ pub(crate) fn process_standard_json_content(
             } else {
                 let names = options.contract_names.join(", ");
                 errors.push(json!({
-                    "component": "neo-solidity",
+                    "component": "neo-devpack-solidity",
                     "severity": "error",
                     "type": "ContractNotFound",
                     "code": standard_json_manual_code("ContractNotFound"),

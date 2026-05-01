@@ -1,5 +1,5 @@
 /**
- * Debugging support types for Neo-Solidity development
+ * Debugging support types for Neo DevPack for Solidity development
  */
 
 /**

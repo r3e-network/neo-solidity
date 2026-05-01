@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Continuous fuzz runner for neo-solidity.
+# Continuous fuzz runner for neo-devpack-solidity.
 #
 # Runs the full proptest suite + every cargo-fuzz target in a loop. Each
 # round logs to /tmp/fuzz-continuous/; on a failure (proptest fail or

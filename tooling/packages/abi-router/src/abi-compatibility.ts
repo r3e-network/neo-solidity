@@ -7,7 +7,7 @@ import {
   EventSelector,
   ABIRegistry,
   ABICodec
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 

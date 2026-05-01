@@ -7,7 +7,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("TypedTx")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("EIP-2718 typed-transaction envelope mirror — Neo has one tx format.")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

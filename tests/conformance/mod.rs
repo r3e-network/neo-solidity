@@ -1,6 +1,6 @@
 //! NeoVM Conformance Test Suite
 //!
-//! This module provides infrastructure for validating the neo-solidity compiler
+//! This module provides infrastructure for validating the neo-devpack-solidity compiler
 //! against NeoVM specification test vectors.
 
 pub mod crypto_signature_tests;

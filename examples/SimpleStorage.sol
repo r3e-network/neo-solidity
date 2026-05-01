@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title SimpleStorage - Basic storage operations for Neo N3
-/// @author Neo Solidity Team
+/// @author Neo DevPack for Solidity Team
 /// @notice A simple contract demonstrating storage read/write operations
 /// @dev Uses Neo N3 storage primitives under the hood
 contract SimpleStorage {

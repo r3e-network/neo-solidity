@@ -1,4 +1,4 @@
-//! Warning System for Neo Solidity Compiler
+//! Warning System for Neo DevPack for Solidity
 //!
 //! Provides configurable warnings for code quality and security issues.
 

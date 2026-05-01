@@ -1,5 +1,5 @@
 //! Property-based tests for the under-covered arithmetic helpers in the
-//! Neo-Solidity runtime: POW, SQRT, SIGN, ABS, NEGATE, INC, DEC.
+//! Neo DevPack for Solidity runtime: POW, SQRT, SIGN, ABS, NEGATE, INC, DEC.
 //!
 //! These helpers live in `src/runtime/execution/helpers/arithmetic/` and were
 //! identified as 0-12% covered per the coverage analysis. The functions

@@ -1,6 +1,6 @@
-# Neo Solidity Compiler Error Reference
+# Neo DevPack for Solidity Error Reference
 
-This document provides a comprehensive reference for error and warning codes produced by the Neo Solidity compiler.
+This document provides a comprehensive reference for error and warning codes produced by the Neo DevPack for Solidity compiler.
 
 ## Error Codes
 
@@ -115,7 +115,7 @@ Use `--json-errors` for machine-readable diagnostics:
 
 ```json
 {
-  "component": "neo-solidity",
+  "component": "neo-devpack-solidity",
   "severity": "error",
   "type": "CompilerError",
   "code": "VALIDATION_ERROR",
@@ -164,5 +164,5 @@ Use `--json-errors` for machine-readable diagnostics:
 ## Getting Help
 
 - Check [Getting Started](/basics/introduction-to-smart-contracts) for quick start
-- Review [examples](https://github.com/r3e-network/neo-solidity/tree/main/examples) for working contracts
-- Report issues: https://github.com/r3e-network/neo-solidity/issues
+- Review [examples](https://github.com/r3e-network/neo-devpack-solidity/tree/main/examples) for working contracts
+- Report issues: https://github.com/r3e-network/neo-devpack-solidity/issues

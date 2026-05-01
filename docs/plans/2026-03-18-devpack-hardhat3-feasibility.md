@@ -49,8 +49,8 @@ Minimal probe fix:
 
 After the minimal ESM conversion, `npm --prefix <probe>/devpack test` failed again with:
 
-- `optional plugin '@neo-solidity/hardhat-solc-neo' not loaded: Cannot read properties of undefined (reading 'boolean')`
-- `optional plugin '@neo-solidity/hardhat-neo-deployer' not loaded: (0 , config_1.task)(...).addParam is not a function`
+- `optional plugin '@neo-devpack-solidity/hardhat-solc-neo' not loaded: Cannot read properties of undefined (reading 'boolean')`
+- `optional plugin '@neo-devpack-solidity/hardhat-neo-deployer' not loaded: (0 , config_1.task)(...).addParam is not a function`
 
 This shows the current plugin task code is still written against the Hardhat 2 task builder surface (`addParam`, `addOptionalParam`, `types.boolean`, etc.).
 

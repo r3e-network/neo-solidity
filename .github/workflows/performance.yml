@@ -235,9 +235,9 @@ jobs:
     - name: Download performance reports
       uses: actions/download-artifact@v4
     - name: Create performance dashboard
-      run: "echo \"# Neo Solidity Compiler - Performance Dashboard\" > PERFORMANCE_DASHBOARD.md\n\
+      run: "echo \"# Neo DevPack for Solidity - Performance Dashboard\" > PERFORMANCE_DASHBOARD.md\n\
         echo \"\" >> PERFORMANCE_DASHBOARD.md\necho \"**Generated**: $(date)\" >>\
-        \ PERFORMANCE_DASHBOARD.md\necho \"**Repository**: https://github.com/r3e-network/neo-solidity\"\
+        \ PERFORMANCE_DASHBOARD.md\necho \"**Repository**: https://github.com/r3e-network/neo-devpack-solidity\"\
         \ >> PERFORMANCE_DASHBOARD.md\necho \"\" >> PERFORMANCE_DASHBOARD.md\n\n#\
         \ Combine all performance reports\nif [ -f compilation-performance-report/performance_report.md\
         \ ]; then\n  cat compilation-performance-report/performance_report.md >> PERFORMANCE_DASHBOARD.md\n\
@@ -246,7 +246,7 @@ jobs:
         \  echo \"\" >> PERFORMANCE_DASHBOARD.md\nfi\n\nif [ -f gas-analysis-report/gas_analysis.md\
         \ ]; then\n  cat gas-analysis-report/gas_analysis.md >> PERFORMANCE_DASHBOARD.md\n\
         \  echo \"\" >> PERFORMANCE_DASHBOARD.md\nfi\n\necho \"## Performance Summary\"\
-        \ >> PERFORMANCE_DASHBOARD.md\necho \"The Neo Solidity Compiler demonstrates\
+        \ >> PERFORMANCE_DASHBOARD.md\necho \"The Neo DevPack for Solidity demonstrates\
         \ excellent performance characteristics:\" >> PERFORMANCE_DASHBOARD.md\necho\
         \ \"- **Fast Compilation**: Sub-second compilation for most contracts\" >>\
         \ PERFORMANCE_DASHBOARD.md\necho \"- **Efficient Runtime**: Optimized memory\

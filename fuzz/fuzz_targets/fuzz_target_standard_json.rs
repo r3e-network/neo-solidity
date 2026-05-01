@@ -2,7 +2,7 @@
 //! arbitrary bytes, and must reject malformed / pathological inputs with
 //! an `Err(String)` instead of crashing.
 //!
-//! The neo-solidity compiler exposes a Solidity-compatible standard-JSON
+//! The neo-devpack-solidity compiler exposes a Solidity-compatible standard-JSON
 //! interface (`--standard-json`) consumed by Hardhat, Foundry, and other
 //! third-party tooling. Production robustness requires graceful error
 //! paths for malicious or malformed input. Panics here indicate a bug

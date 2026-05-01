@@ -1,6 +1,6 @@
 import { extendConfig, extendEnvironment } from "hardhat/config";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
-import { NeoHardhatConfig } from "@neo-solidity/types";
+import { NeoHardhatConfig } from "@neo-devpack-solidity/types";
 
 // Import supported tasks
 import "./tasks/compile";

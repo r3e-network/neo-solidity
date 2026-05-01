@@ -1,7 +1,7 @@
 {
-  "name": "@neo-solidity/types",
+  "name": "@neo-devpack-solidity/types",
   "version": "0.14.0",
-  "description": "Core types and interfaces for Neo-Solidity tooling",
+  "description": "Core types and interfaces for Neo DevPack for Solidity tooling",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

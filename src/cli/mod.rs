@@ -1,6 +1,6 @@
-//! Neo Solidity CLI Module
+//! Neo DevPack for Solidity CLI Module
 //!
-//! Command-line interface for the Neo Solidity compiler. This module provides
+//! Command-line interface for the Neo DevPack for Solidity compiler. This module provides
 //! the main entry point for compiling Solidity contracts to NeoVM bytecode.
 //!
 //! # Features

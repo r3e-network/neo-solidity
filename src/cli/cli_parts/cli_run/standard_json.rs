@@ -13,7 +13,7 @@ fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
             "contracts": {},
             "sources": {},
             "errors": [{
-                "component": "neo-solidity",
+                "component": "neo-devpack-solidity",
                 "severity": "error",
                 "type": "StandardJsonInput",
                 "code": standard_json_cli_error_code(message),

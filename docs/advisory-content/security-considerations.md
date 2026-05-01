@@ -14,7 +14,7 @@ On Ethereum, authorization is implicit through `msg.sender`. The caller's addres
 
 On Neo, authorization is explicit. The transaction includes cryptographic witnesses (signatures) that prove the caller controls specific addresses. 
 
-While Neo Solidity maps `msg.sender` to `Runtime.getCallingScriptHash()` (which securely returns the hash of the contract calling your contract), **it is an anti-pattern to use this for user authorization**. You must use `Runtime.checkWitness()`.
+While Neo DevPack for Solidity maps `msg.sender` to `Runtime.getCallingScriptHash()` (which securely returns the hash of the contract calling your contract), **it is an anti-pattern to use this for user authorization**. You must use `Runtime.checkWitness()`.
 
 ```solidity
 // ❌ EVM pattern — relies on msg.sender implicitly
@@ -42,7 +42,7 @@ By default, dynamic calls in Solidity (like `address(target).call(...)`) force t
 
 ### Checked Arithmetic and Wraparound
 
-NeoVM uses arbitrary-precision `BigInteger` representation internally, but Neo Solidity emits Solidity 0.8 fixed-width overflow and underflow guards outside `unchecked` blocks. Checked overflows revert with `Panic(0x11)`.
+NeoVM uses arbitrary-precision `BigInteger` representation internally, but Neo DevPack for Solidity emits Solidity 0.8 fixed-width overflow and underflow guards outside `unchecked` blocks. Checked overflows revert with `Panic(0x11)`.
 
 If your contract's security model relies on wraparound, put the operation in an `unchecked` block and cover that behavior with tests. `unchecked` does not suppress division-by-zero or modulo-by-zero panics.
 

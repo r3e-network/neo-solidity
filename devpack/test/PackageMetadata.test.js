@@ -16,7 +16,7 @@ describe("Devpack package metadata", function () {
     assert.doesNotMatch(packageJson.scripts.test, /\b--force\s+true\b/);
     assert.doesNotMatch(packageJson.scripts["test:integration"], /\b--force\s+true\b/);
     assert.ok(!packageJson.files.includes("dist/"));
-    assert.ok(!("@r3e-network/neo-solidity" in (packageJson.peerDependencies || {})));
+    assert.ok(!("@r3e-network/neo-devpack-solidity" in (packageJson.peerDependencies || {})));
     assert.ok(!("lint" in packageJson.scripts));
     assert.ok(!("size" in packageJson.scripts));
     assert.ok(!("coverage" in packageJson.scripts));

@@ -5,7 +5,7 @@ import {
   CastSendResult,
   ContractABI,
   TransactionReceipt
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import * as fs from 'fs-extra';

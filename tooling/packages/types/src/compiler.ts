@@ -1,5 +1,5 @@
 /**
- * Configuration for the Neo-Solidity compiler
+ * Configuration for the Neo DevPack for Solidity compiler
  */
 export interface NeoSolidityConfig {
   /** Compiler version to use */

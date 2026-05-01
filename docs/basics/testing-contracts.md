@@ -5,7 +5,7 @@ description: "Testing Contracts section index."
 
 # Testing Contracts
 
-The Neo Solidity project uses a layered testing strategy that validates the compiler at every level: unit tests for individual components, integration tests for the pipeline, E2E compilation tests for real contracts, conformance tests against reference implementations, and Neo-Express smoke tests for on-chain deployment behavior.
+The Neo DevPack for Solidity project uses a layered testing strategy that validates the compiler at every level: unit tests for individual components, integration tests for the pipeline, E2E compilation tests for real contracts, conformance tests against reference implementations, and Neo-Express smoke tests for on-chain deployment behavior.
 
 ## Sections
 

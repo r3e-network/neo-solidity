@@ -3,9 +3,9 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { promises as fs } from "fs";
 import path from "path";
 import chalk from "chalk";
-import { BuildArtifact, BuildInfo, addFlagOption, setTaskAction } from "@neo-solidity/types";
+import { BuildArtifact, BuildInfo, addFlagOption, setTaskAction } from "@neo-devpack-solidity/types";
 
-const neoCompileTask = task("neo-compile", "Compile contracts using Neo-Solidity compiler");
+const neoCompileTask = task("neo-compile", "Compile contracts using Neo DevPack for Solidity compiler");
 addFlagOption(neoCompileTask, "force", "Force recompilation");
 addFlagOption(neoCompileTask, "quiet", "Suppress output");
 setTaskAction(neoCompileTask, async (taskArgs: any, hre: HardhatRuntimeEnvironment) => {
@@ -13,7 +13,7 @@ setTaskAction(neoCompileTask, async (taskArgs: any, hre: HardhatRuntimeEnvironme
     const projectRoot = hre.config.paths.root || process.cwd();
     
     if (!quiet) {
-      console.log(chalk.blue("🔧 Compiling contracts with Neo-Solidity..."));
+      console.log(chalk.blue("🔧 Compiling contracts with Neo DevPack for Solidity..."));
     }
 
     try {
@@ -50,7 +50,7 @@ setTaskAction(neoCompileTask, async (taskArgs: any, hre: HardhatRuntimeEnvironme
         console.log(chalk.blue(`📝 Compiling ${sourceFiles.length} files...`));
       }
 
-      // Compile with Neo-Solidity
+      // Compile with Neo DevPack for Solidity
       const compileStartedAt = Date.now();
       const compilationOutput = await hre.neoSolc.compiler.compile(sources);
       const compileDurationMs = Date.now() - compileStartedAt;

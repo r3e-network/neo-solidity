@@ -8,7 +8,7 @@ Solidity reserves four 32-byte slots in memory for special purposes in the EVM, 
 
 ## Stack-Based Memory Allocation
 
-When you declare a `memory` variable in Neo Solidity, the compiler allocates a local slot on the execution stack. 
+When you declare a `memory` variable in Neo DevPack for Solidity, the compiler allocates a local slot on the execution stack. 
 
 ```solidity
 function doSomething() public {

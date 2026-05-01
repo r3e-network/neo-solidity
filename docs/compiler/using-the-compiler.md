@@ -2,7 +2,7 @@
 
 ## Using the Commandline Compiler
 
-One of the build targets of the Neo Solidity repository is `neo-solc`, the commandline compiler. Using `neo-solc --help` provides you with an explanation of all options. The compiler can produce various outputs, ranging from simple binaries and JSON manifests over assembly to standard JSON configurations.
+One of the build targets of the Neo DevPack for Solidity repository is `neo-solc`, the commandline compiler. Using `neo-solc --help` provides you with an explanation of all options. The compiler can produce various outputs, ranging from simple binaries and JSON manifests over assembly to standard JSON configurations.
 
 ### Command Syntax
 
@@ -64,7 +64,7 @@ neo-solc contract.sol -I devpack -I ./lib -o build/
 ## Setting the EVM Version to Target
 
 ::: tip 💡 NeoVM Difference
-Neo Solidity targets Neo N3 (`NeoVM`) exclusively. Standard EVM version targets (like `istanbul`, `paris`, `cancun`) do not apply and are safely ignored by the compiler if provided through standard JSON configurations.
+Neo DevPack for Solidity targets Neo N3 (`NeoVM`) exclusively. Standard EVM version targets (like `istanbul`, `paris`, `cancun`) do not apply and are safely ignored by the compiler if provided through standard JSON configurations.
 :::
 
 Because Neo N3 relies on standard execution mechanics and syscall interfaces, versioning is primarily handled at the node runtime level rather than requiring specific hardfork flags during compilation.
@@ -109,7 +109,7 @@ The input JSON format is completely compatible with the Ethereum Solidity Standa
 The output JSON includes any compiler diagnostics (errors/warnings) and the compiled artifacts.
 
 ::: tip 💡 NeoVM Difference
-In EVM output, contracts produce `evm.bytecode` and `abi` fields. In Neo Solidity, the output produces a Base64-encoded `nef` string and the structural Neo `manifest`.
+In EVM output, contracts produce `evm.bytecode` and `abi` fields. In Neo DevPack for Solidity, the output produces a Base64-encoded `nef` string and the structural Neo `manifest`.
 :::
 
 ```json
@@ -128,7 +128,7 @@ In EVM output, contracts produce `evm.bytecode` and `abi` fields. In Neo Solidit
   },
   "errors": [
     {
-      "component": "neo-solidity",
+      "component": "neo-devpack-solidity",
       "severity": "warning",
       "code": "COMPILER_WARNING",
       "message": "...",

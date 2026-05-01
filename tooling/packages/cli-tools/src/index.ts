@@ -1,5 +1,5 @@
 /**
- * CLI Tools for Neo-Solidity development
+ * CLI Tools for Neo DevPack for Solidity development
  */
 
 export * from './cli-framework.js';

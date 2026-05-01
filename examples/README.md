@@ -1,6 +1,6 @@
 # Examples
 
-This folder contains reference Solidity contracts you can compile with the Neo Solidity compiler (`neo-solc`).
+This folder contains reference Solidity contracts you can compile with the Neo DevPack for Solidity compiler (`neo-solc`).
 
 Compiled artifacts are not committed. Use `examples/out/` (ignored by git) or `/tmp` for generated
 `.nef` / `.manifest.json` outputs.

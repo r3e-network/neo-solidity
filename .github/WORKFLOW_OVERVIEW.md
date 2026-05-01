@@ -1,11 +1,11 @@
 # GitHub Workflows Overview
 
-**Repository**: https://github.com/r3e-network/neo-solidity  
+**Repository**: https://github.com/r3e-network/neo-devpack-solidity  
 **Author**: Jimmy <jimmy@r3e.network>
 
 ## 🚀 **Comprehensive CI/CD Pipeline**
 
-The Neo Solidity Compiler project includes a complete CI/CD pipeline with 6 specialized workflows covering all aspects of development, testing, security, and deployment.
+The Neo DevPack for Solidity project includes a complete CI/CD pipeline with 6 specialized workflows covering all aspects of development, testing, security, and deployment.
 
 ---
 
@@ -150,12 +150,12 @@ git push origin v1.1.0
 ### **Docker Usage**
 ```bash
 # Pull and run the latest container
-docker pull ghcr.io/r3e-network/neo-solidity:latest
-docker run --rm -v $(pwd):/workspace ghcr.io/r3e-network/neo-solidity:latest neo-solc contract.sol
+docker pull ghcr.io/r3e-network/neo-devpack-solidity:latest
+docker run --rm -v $(pwd):/workspace ghcr.io/r3e-network/neo-devpack-solidity:latest neo-solc contract.sol
 
 # Development environment
-docker pull ghcr.io/r3e-network/neo-solidity:dev
-docker run -it --rm -v $(pwd):/workspace ghcr.io/r3e-network/neo-solidity:dev
+docker pull ghcr.io/r3e-network/neo-devpack-solidity:dev
+docker run -it --rm -v $(pwd):/workspace ghcr.io/r3e-network/neo-devpack-solidity:dev
 ```
 
 ---
@@ -227,10 +227,10 @@ The workflow pipeline ensures:
 ✅ **Documentation Quality**: Automated documentation validation  
 ✅ **Professional Releases**: Automated with proper versioning and artifacts  
 
-**The Neo Solidity Compiler maintains enterprise-grade quality standards through comprehensive automation.**
+**The Neo DevPack for Solidity maintains enterprise-grade quality standards through comprehensive automation.**
 
 ---
 
 **Workflow Architecture**: Jimmy <jimmy@r3e.network>  
-**Repository**: https://github.com/r3e-network/neo-solidity  
+**Repository**: https://github.com/r3e-network/neo-devpack-solidity  
 **Status**: ✅ **Production-Grade CI/CD Pipeline**

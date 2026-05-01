@@ -5,7 +5,7 @@ description: "Troubleshooting section index."
 
 # Troubleshooting
 
-Common issues, error patterns, and solutions when working with the Neo Solidity compiler and devpack.
+Common issues, error patterns, and solutions when working with the Neo DevPack for Solidity compiler and devpack.
 
 ## Sections
 

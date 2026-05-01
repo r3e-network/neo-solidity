@@ -7,7 +7,7 @@ In addition, types can interact with each other in expressions containing operat
 The concept of "undefined" or "null" values does not exist in Solidity, but newly declared variables always have a default value dependent on its type. To handle any unexpected values, you should use the revert function to revert the whole transaction, or return a tuple with a second `bool` value denoting success.
 
 ::: tip 💡 NeoVM Difference
-While Solidity types carry specific constraints (e.g., `uint8` vs `uint256`), NeoVM relies heavily on its own fundamental types (`BigInteger`, `ByteArray`, `Boolean`, `Array`, `Map`). The Neo Solidity compiler enforces Solidity's type rules during compilation and automatically lowers them to the appropriate NeoVM representations.
+While Solidity types carry specific constraints (e.g., `uint8` vs `uint256`), NeoVM relies heavily on its own fundamental types (`BigInteger`, `ByteArray`, `Boolean`, `Array`, `Map`). The Neo DevPack for Solidity compiler enforces Solidity's type rules during compilation and automatically lowers them to the appropriate NeoVM representations.
 :::
 
 For a shorter reader guide to the same mapping rules, see
@@ -46,7 +46,7 @@ The operators `||` and `&&` apply the common short-circuiting rules. This means 
 * Arithmetic operators: `+`, `-`, unary `-` (only for signed integers), `*`, `/`, `%` (modulo), `**` (exponentiation)
 
 ::: tip 💡 NeoVM Difference: Checked Fixed-Width Semantics
-NeoVM represents integers as arbitrary-precision `BigInteger` values internally, but Neo Solidity enforces Solidity 0.8 fixed-width arithmetic semantics at the compiler/runtime boundary:
+NeoVM represents integers as arbitrary-precision `BigInteger` values internally, but Neo DevPack for Solidity enforces Solidity 0.8 fixed-width arithmetic semantics at the compiler/runtime boundary:
 
 1. **Checked arithmetic:** Outside `unchecked`, operations such as `uint8(255) + 1` revert with `Panic(0x11)`.
 2. **Unchecked arithmetic:** Inside `unchecked`, supported fixed-width arithmetic suppresses overflow guards and wraps, so `uint8(255) + 1` becomes `0`.
@@ -58,7 +58,7 @@ NeoVM represents integers as arbitrary-precision `BigInteger` values internally,
 `fixed` / `ufixed`: Signed and unsigned fixed point numbers of various sizes.
 
 ::: danger 🚫 Unsupported Feature
-Fixed point numbers are not fully supported by mainline Solidity and are completely **unsupported** by Neo Solidity. Use scaled integer arithmetic instead (e.g., multiply by `10^18`).
+Fixed point numbers are not fully supported by mainline Solidity and are completely **unsupported** by Neo DevPack for Solidity. Use scaled integer arithmetic instead (e.g., multiply by `10^18`).
 :::
 
 ### Address

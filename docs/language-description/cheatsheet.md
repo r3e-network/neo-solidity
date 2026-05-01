@@ -2,7 +2,7 @@
 
 ## Order of Precedence of Operators
 
-Neo Solidity exactly mimics the Solidity operator precedence rules.
+Neo DevPack for Solidity exactly mimics the Solidity operator precedence rules.
 
 ## Global Variables Comparison
 
@@ -39,5 +39,5 @@ For a guided, topic-by-topic version of these mappings, see
 
 1. **Authorization:** Prefer `Runtime.checkWitness(address)` over `msg.sender == address`.
 2. **Wildcards:** Always compile with `--deny-wildcard-contracts` and `--deny-wildcard-methods` for production to restrict the manifest.
-3. **Values:** NeoVM stores integers as `BigInteger`, but Neo Solidity emits Solidity 0.8 fixed-width overflow guards outside `unchecked` blocks. Use `unchecked` only when wraparound is intentional and tested.
+3. **Values:** NeoVM stores integers as `BigInteger`, but Neo DevPack for Solidity emits Solidity 0.8 fixed-width overflow guards outside `unchecked` blocks. Use `unchecked` only when wraparound is intentional and tested.
 4. **Upgrades:** Use `ContractManagement.update()` instead of Ethereum-style proxy contracts. Proxy storage delegates are not supported.

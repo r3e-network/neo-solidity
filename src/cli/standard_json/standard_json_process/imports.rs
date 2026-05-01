@@ -99,7 +99,7 @@ fn build_combined_source_with_import_validation(
 
     fn push_error(errors: &mut Vec<Value>, file: &str, typ: &str, message: String) {
         errors.push(json!({
-            "component": "neo-solidity",
+            "component": "neo-devpack-solidity",
             "severity": "error",
             "type": typ,
             "code": standard_json_manual_code(typ),

@@ -1,5 +1,5 @@
 {
-  "name": "@neo-solidity/integration-tests",
+  "name": "@neo-devpack-solidity/integration-tests",
   "version": "0.14.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,10 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@neo-solidity/abi-router": "^0.14.0",
-    "@neo-solidity/cli-tools": "^0.14.0",
-    "@neo-solidity/neo-foundry": "^0.14.0",
-    "@neo-solidity/templates": "^0.14.0",
+    "@neo-devpack-solidity/abi-router": "^0.14.0",
+    "@neo-devpack-solidity/cli-tools": "^0.14.0",
+    "@neo-devpack-solidity/neo-foundry": "^0.14.0",
+    "@neo-devpack-solidity/templates": "^0.14.0",
     "fs-extra": "^11.3.4"
   },
   "devDependencies": {

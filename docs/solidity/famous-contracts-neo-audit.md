@@ -10,7 +10,7 @@ Primary navigation for original upstream contracts: [Original Famous Contracts (
 
 ## What "Need XXX to Implement" Means
 
-- This report marks each failing contract with the **primary unsupported point** in current `neo-solidity`.
+- This report marks each failing contract with the **primary unsupported point** in current `neo-devpack-solidity`.
 - The "Need on Neo" column states what is required to make that pattern work:
   1) compiler capability expansion, and/or
   2) Solidity source refactor to Neo-native patterns (`Runtime`, `Syscalls`, `NativeCalls`, `onNEP17Payment`, etc.).

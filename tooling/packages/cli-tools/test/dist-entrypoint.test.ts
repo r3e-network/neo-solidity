@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distEntrypoint = path.join(__dirname, "..", "dist", "index.js");
 
-describe("@neo-solidity/cli-tools dist entrypoint", () => {
+describe("@neo-devpack-solidity/cli-tools dist entrypoint", () => {
   it("is importable after build", async () => {
     if (!fs.existsSync(distEntrypoint)) {
       return;

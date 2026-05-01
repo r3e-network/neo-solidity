@@ -9,7 +9,7 @@ import {
   stackItemArrayValue,
 } from "./neo-utils.js";
 
-const debug = Debug("neo-solidity:event-decoder");
+const debug = Debug("neo-devpack-solidity:event-decoder");
 
 /**
  * Event decoder for Neo events to Ethereum format

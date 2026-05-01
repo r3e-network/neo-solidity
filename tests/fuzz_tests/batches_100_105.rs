@@ -412,7 +412,7 @@ pragma solidity ^0.8.19;
 contract C {
     function checkSender() external view returns (bool) {
         // Neo N3 Runtime.checkWitness takes a UInt160 script hash.
-        // msg.sender in neo-solidity is already a 20-byte hash160.
+        // msg.sender in neo-devpack-solidity is already a 20-byte hash160.
         (bool ok, bytes memory ret) = address(0xfe).staticcall(
             abi.encodePacked(msg.sender)
         );

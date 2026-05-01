@@ -2,10 +2,10 @@ import fs from "fs-extra";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { NeoABICompatibilityLayer } from "@neo-solidity/abi-router";
-import { NeoSolidityCLI } from "@neo-solidity/cli-tools";
-import { NeoForge } from "@neo-solidity/neo-foundry";
-import { ProjectScaffolder } from "@neo-solidity/templates";
+import { NeoABICompatibilityLayer } from "@neo-devpack-solidity/abi-router";
+import { NeoSolidityCLI } from "@neo-devpack-solidity/cli-tools";
+import { NeoForge } from "@neo-devpack-solidity/neo-foundry";
+import { ProjectScaffolder } from "@neo-devpack-solidity/templates";
 
 const tempRoots: string[] = [];
 
@@ -26,7 +26,7 @@ async function makeTempDir(prefix: string): Promise<string> {
 
 describe("Integration Test Scenarios", () => {
   it("scaffolds a basic hardhat project with Neo-native tasks", async () => {
-    const root = await makeTempDir("neo-solidity-basic-");
+    const root = await makeTempDir("neo-devpack-solidity-basic-");
     const projectPath = path.join(root, "basic-project");
     const scaffolder = new ProjectScaffolder();
 
@@ -36,8 +36,8 @@ describe("Integration Test Scenarios", () => {
       directory: projectPath,
       context: {
         contractName: "BasicProject",
-        author: "Neo Solidity Team",
-        description: "Basic Neo-Solidity project",
+        author: "Neo DevPack for Solidity Team",
+        description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
         solcVersion: "0.8.34",
       },
@@ -54,8 +54,8 @@ describe("Integration Test Scenarios", () => {
     const packageJson = await fs.readJson(path.join(projectPath, "package.json"));
     expect(packageJson.devDependencies).toMatchObject({
       hardhat: "^2.28.6",
-      "@neo-solidity/hardhat-solc-neo": "^0.14.0",
-      "@neo-solidity/hardhat-neo-deployer": "^0.14.0",
+      "@neo-devpack-solidity/hardhat-solc-neo": "^0.14.0",
+      "@neo-devpack-solidity/hardhat-neo-deployer": "^0.14.0",
       chai: "^4.5.0",
     });
     expect(packageJson.scripts).toMatchObject({
@@ -67,15 +67,15 @@ describe("Integration Test Scenarios", () => {
 
     const hardhatConfig = await fs.readFile(path.join(projectPath, "hardhat.config.js"), "utf8");
     const contractSource = await fs.readFile(path.join(projectPath, "contracts", "BasicProject.sol"), "utf8");
-    expect(hardhatConfig).toContain('@neo-solidity/hardhat-solc-neo');
-    expect(hardhatConfig).toContain('@neo-solidity/hardhat-neo-deployer');
-    expect(hardhatConfig).not.toContain('@neo-solidity/hardhat-plugin');
+    expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-solc-neo');
+    expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-neo-deployer');
+    expect(hardhatConfig).not.toContain('@neo-devpack-solidity/hardhat-plugin');
     expect(hardhatConfig).toContain('version: "0.8.34"');
     expect(contractSource).toContain("pragma solidity ^0.8.34;");
   });
 
   it("scaffolds the ERC20 template without stale OpenZeppelin imports", async () => {
-    const root = await makeTempDir("neo-solidity-erc20-");
+    const root = await makeTempDir("neo-devpack-solidity-erc20-");
     const projectPath = path.join(root, "erc20-project");
     const scaffolder = new ProjectScaffolder();
 
@@ -88,7 +88,7 @@ describe("Integration Test Scenarios", () => {
         tokenName: "MyToken",
         tokenSymbol: "MTK",
         totalSupply: "1000000",
-        author: "Neo Solidity Team",
+        author: "Neo DevPack for Solidity Team",
         description: "ERC20-style starter",
         license: "MIT",
         solcVersion: "0.8.34",
@@ -117,7 +117,7 @@ describe("Integration Test Scenarios", () => {
   });
 
   it("executes registered CLI commands and returns structured failures", async () => {
-    const root = await makeTempDir("neo-solidity-cli-");
+    const root = await makeTempDir("neo-devpack-solidity-cli-");
 
     const successCli = new NeoSolidityCLI({
       defaults: {},
@@ -164,7 +164,7 @@ describe("Integration Test Scenarios", () => {
   });
 
   it("initializes a neo-foundry project and reports scaffold status explicitly", async () => {
-    const root = await makeTempDir("neo-solidity-forge-");
+    const root = await makeTempDir("neo-devpack-solidity-forge-");
     const projectPath = path.join(root, "forge-project");
     const forge = new NeoForge(path.join(projectPath, "neo-foundry.toml"));
 

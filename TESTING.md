@@ -1,8 +1,8 @@
-# Neo Solidity Testing Guide
+# Neo DevPack for Solidity Testing Guide
 
 ## Overview
 
-This document describes the actual testing infrastructure available in the Neo Solidity project.
+This document describes the actual testing infrastructure available in the Neo DevPack for Solidity project.
 
 ## Quick Start
 

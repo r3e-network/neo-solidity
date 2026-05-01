@@ -262,7 +262,7 @@ library NativeCalls {
      * @dev Deploy new contract and pass deployment data to `_deploy(data, false)`
      *
      * The `data` parameter is forwarded to the deployed contract's `_deploy(data, update)` entrypoint
-     * (with `update == false`). For neo-solidity-compiled contracts with parameterised constructors,
+     * (with `update == false`). For neo-devpack-solidity-compiled contracts with parameterised constructors,
      * this is typically a JSON-encoded array (e.g. `[7]`) or StdLib.serialize(...) bytes.
      */
     function deployContract(bytes memory nef, bytes memory manifest, bytes memory data)

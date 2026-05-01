@@ -22,7 +22,7 @@ IR generation errors include additional context fields in JSON output:
 
 ```json
 {
-  "component": "neo-solidity",
+  "component": "neo-devpack-solidity",
   "severity": "error",
   "type": "IrGeneration",
   "message": "unsupported feature: inline assembly",

@@ -1,6 +1,6 @@
 # Production Readiness
 
-This page provides a complete pre-deployment checklist for taking a Neo Solidity contract from development to mainnet. Follow these steps before deploying to Neo N3 TestNet or MainNet.
+This page provides a complete pre-deployment checklist for taking a Neo DevPack for Solidity contract from development to mainnet. Follow these steps before deploying to Neo N3 TestNet or MainNet.
 
 ## Sections
 

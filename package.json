@@ -1,15 +1,15 @@
 {
-  "name": "@r3e-network/neo-solidity",
+  "name": "@r3e-network/neo-devpack-solidity",
   "version": "0.18.0",
   "description": "Production-ready Solidity-to-NeoVM compilation system",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/r3e-network/neo-solidity.git"
+    "url": "https://github.com/r3e-network/neo-devpack-solidity.git"
   },
-  "homepage": "https://github.com/r3e-network/neo-solidity#readme",
+  "homepage": "https://github.com/r3e-network/neo-devpack-solidity#readme",
   "bugs": {
-    "url": "https://github.com/r3e-network/neo-solidity/issues"
+    "url": "https://github.com/r3e-network/neo-devpack-solidity/issues"
   },
   "author": {
     "name": "Jimmy",

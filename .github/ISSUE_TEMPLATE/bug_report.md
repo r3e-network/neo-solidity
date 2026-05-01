@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug or issue with the Neo Solidity Compiler
+about: Report a bug or issue with the Neo DevPack for Solidity
 title: '[BUG] Brief description of the issue'
 labels: ['bug', 'triage']
 assignees: ''
@@ -24,7 +24,7 @@ A clear and concise description of what actually happened.
 ## Environment
 - **OS**: [e.g. Ubuntu 22.04, Windows 11, macOS 13]
 - **Rust Version**: [output of `rustc --version`]
-- **Neo Solidity Version**: [output of `neo-solc --version`]
+- **Neo DevPack for Solidity Version**: [output of `neo-solc --version`]
 - **Node.js Version**: [if using tooling, output of `node --version`]
 - **.NET Version**: [if relevant, output of `dotnet --version`]
 
@@ -47,5 +47,5 @@ Add any other context about the problem here.
 If you have ideas on how to fix the issue, please describe them here.
 
 ---
-**Repository**: https://github.com/r3e-network/neo-solidity
+**Repository**: https://github.com/r3e-network/neo-devpack-solidity
 **Author**: Jimmy <jimmy@r3e.network>

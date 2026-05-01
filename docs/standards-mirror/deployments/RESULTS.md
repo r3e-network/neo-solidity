@@ -147,4 +147,4 @@
 
 ## Full Result Data
 
-The full per-test payload is stored in [`results.json`](https://github.com/r3e-network/neo-solidity/blob/main/docs/standards-mirror/deployments/results.json).
+The full per-test payload is stored in [`results.json`](https://github.com/r3e-network/neo-devpack-solidity/blob/main/docs/standards-mirror/deployments/results.json).

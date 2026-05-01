@@ -9,7 +9,7 @@ const program = new Command();
 
 program
   .name("neo-sol")
-  .description("Neo-Solidity CLI (experimental)")
+  .description("Neo DevPack for Solidity CLI (experimental)")
   .version("0.1.0");
 
 program

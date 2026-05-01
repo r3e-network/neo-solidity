@@ -29,7 +29,7 @@ These map perfectly to NeoVM logic.
 
 ## Block and Transaction Properties
 
-The `neo-solidity` compiler auto-maps EVM globals to approximate Neo equivalents. Auto-mapped features compile successfully but emit a compiler warning when the semantic match is not exact.
+The `neo-devpack-solidity` compiler auto-maps EVM globals to approximate Neo equivalents. Auto-mapped features compile successfully but emit a compiler warning when the semantic match is not exact.
 
 | Solidity / EVM                          | NeoVM / Neo N3              | Notes                                                                      |
 | --------------------------------------- | --------------------------- | -------------------------------------------------------------------------- |

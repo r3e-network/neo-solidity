@@ -551,7 +551,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         require(recipients.length == amounts.length, "CompleteNEP17: array length mismatch");
         require(recipients.length > 0, "CompleteNEP17: empty arrays");
         
-        // Neo Solidity does not support anonymous function literals; batch directly.
+        // Neo DevPack for Solidity does not support anonymous function literals; batch directly.
         for (uint256 i = 0; i < recipients.length; i++) {
             _transfer(msg.sender, recipients[i], amounts[i], "");
         }

@@ -248,7 +248,7 @@ contract C {
 
     /// COMPATIBILITY-BROKEN LAYOUT — v2 RENAMES a state variable.
     ///
-    /// Storage slots in Neo-Solidity are derived as `SHA-256(field_name)`
+    /// Storage slots in Neo DevPack for Solidity are derived as `SHA-256(field_name)`
     /// (see `src/storage_key.rs::compute_state_slot`), NOT by positional
     /// index. As a positive consequence, REORDERING state variables across
     /// an `update` is SAFE — slot derivation tracks the name, so

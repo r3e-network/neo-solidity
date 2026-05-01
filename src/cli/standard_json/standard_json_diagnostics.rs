@@ -12,7 +12,7 @@ pub(crate) fn diagnostic_to_standard_error(
         .unwrap_or_else(|| infer_validation_code(&diagnostic.message, diagnostic.severity));
 
     let mut value = json!({
-        "component": "neo-solidity",
+        "component": "neo-devpack-solidity",
         "severity": severity,
         "type": "Validation",
         "code": code,

@@ -1,10 +1,10 @@
-# Neo Solidity Production Readiness Review Implementation Plan
+# Neo DevPack for Solidity Production Readiness Review Implementation Plan
 
-**Goal:** Restore an honest and reproducible production-readiness baseline for the Neo Solidity compiler by fixing the failing lint gate, adding regression coverage around the touched runtime normalization paths, and correcting any high-signal stale readiness claims uncovered during review.
+**Goal:** Restore an honest and reproducible production-readiness baseline for the Neo DevPack for Solidity compiler by fixing the failing lint gate, adding regression coverage around the touched runtime normalization paths, and correcting any high-signal stale readiness claims uncovered during review.
 
 **Architecture:** Start from evidence, not assumptions: capture current `fmt`, `clippy`, and `test` status; make the smallest runtime refactor needed to satisfy the enforced Clippy profile without weakening compatibility; then update only the highest-value documentation claims that materially misstate readiness or verification commands.
 
-**Tech Stack:** Rust (`cargo test`, `cargo clippy`, `cargo fmt`), markdown docs, Neo Solidity runtime/compiler modules.
+**Tech Stack:** Rust (`cargo test`, `cargo clippy`, `cargo fmt`), markdown docs, Neo DevPack for Solidity runtime/compiler modules.
 
 ## Task 1: Baseline Quality Gate Review
 

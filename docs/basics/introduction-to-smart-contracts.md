@@ -104,7 +104,7 @@ Unlike Ethereum's Proof-of-Stake or Proof-of-Work, dBFT provides **single-block 
 
 ### Overview
 
-The Neo Virtual Machine (NeoVM) is the runtime environment for smart contracts in Neo. It is not a port of the Ethereum Virtual Machine (EVM); it is a completely distinct architecture. While the `neo-solidity` compiler allows you to write standard Solidity, understanding the NeoVM is crucial for writing efficient and secure contracts.
+The Neo Virtual Machine (NeoVM) is the runtime environment for smart contracts in Neo. It is not a port of the Ethereum Virtual Machine (EVM); it is a completely distinct architecture. While the `neo-devpack-solidity` compiler allows you to write standard Solidity, understanding the NeoVM is crucial for writing efficient and secure contracts.
 
 ### Accounts
 

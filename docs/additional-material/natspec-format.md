@@ -2,12 +2,12 @@
 
 Solidity contracts can use a special form of comments to provide rich documentation for functions, return variables and more. This special form is named the Ethereum Natural Language Specification Format (NatSpec).
 
-Neo Solidity fully parses NatSpec comments and embeds standard descriptions into the generated manifest where appropriate.
+Neo DevPack for Solidity fully parses NatSpec comments and embeds standard descriptions into the generated manifest where appropriate.
 
 ## Neo-Specific NatSpec Directives
 
 ::: tip 💡 NeoVM Difference
-In addition to standard documentation tags like `@title`, `@notice`, and `@param`, Neo Solidity uses the `@custom:` prefix to control Neo-specific compilation mechanics, such as manifest permissions.
+In addition to standard documentation tags like `@title`, `@notice`, and `@param`, Neo DevPack for Solidity uses the `@custom:` prefix to control Neo-specific compilation mechanics, such as manifest permissions.
 :::
 
 ### `@custom:neo.manifest.permissions`

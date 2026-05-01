@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for the Neo Solidity Compiler
+about: Suggest a new feature for the Neo DevPack for Solidity
 title: '[FEATURE] Brief description of the feature'
 labels: ['enhancement', 'triage']
 assignees: ''
@@ -61,5 +61,5 @@ Add any other context, screenshots, or examples about the feature request here.
 Link to any related issues or discussions.
 
 ---
-**Repository**: https://github.com/r3e-network/neo-solidity
+**Repository**: https://github.com/r3e-network/neo-devpack-solidity
 **Author**: Jimmy <jimmy@r3e.network>

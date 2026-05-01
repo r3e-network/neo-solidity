@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { ConfigManager } from "./config.js";
 
 /**
- * Neo-Forge - Foundry-like UX for Neo-Solidity projects.
+ * Neo-Forge - Foundry-like UX for Neo DevPack for Solidity projects.
  *
  * This package is intentionally a scaffold: the CLI shows the intended workflow
  * and validates configuration, but does not yet wire into a compiler + test VM.

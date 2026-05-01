@@ -76,7 +76,7 @@ fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
         None
     } else {
         Some(json!({
-            "component": "neo-solidity",
+            "component": "neo-devpack-solidity",
             "severity": "warning",
             "type": "UnsupportedSettings",
             "code": standard_json_manual_code("UnsupportedSettings"),

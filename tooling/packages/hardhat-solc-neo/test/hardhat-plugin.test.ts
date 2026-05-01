@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NeoSolidityCompiler } from "../src/compiler";
-import type { CompilationOutput, NeoHardhatConfig } from "@neo-solidity/types";
+import type { CompilationOutput, NeoHardhatConfig } from "@neo-devpack-solidity/types";
 
 const MINIMAL_CONFIG: NeoHardhatConfig = {
   solidity: {
@@ -28,11 +28,11 @@ const MINIMAL_CONFIG: NeoHardhatConfig = {
   },
 };
 
-describe("@neo-solidity/hardhat-solc-neo", () => {
+describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
   it("extracts versions from neo-solc output", () => {
     const compiler = new NeoSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
     const parsed = (compiler as any).parseVersionOutput(
-      "neo-solidity: 0.9.10\nsolidity: 0.8.34\n"
+      "neo-devpack-solidity: 0.9.10\nsolidity: 0.8.34\n"
     ) as string[];
 
     expect(parsed).toContain("0.9.10");
@@ -62,7 +62,7 @@ describe("@neo-solidity/hardhat-solc-neo", () => {
             neo: {
               nef: {
                 magic: "NEF3",
-                compiler: "neo-solidity",
+                compiler: "neo-devpack-solidity",
                 source: "Counter.sol",
                 tokens: [],
                 script: "aa".repeat(10),

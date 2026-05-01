@@ -7,7 +7,7 @@ import {
   addRequiredStringOption,
   getHardhatSelectedNetworkName,
   setTaskAction,
-} from "@neo-solidity/types";
+} from "@neo-devpack-solidity/types";
 
 const neoDeployTask = task("neo-deploy", "Deploy contracts to Neo blockchain");
 addRequiredStringOption(neoDeployTask, "contract", "Contract name to deploy");

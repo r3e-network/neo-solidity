@@ -1,4 +1,4 @@
-import { isNeoAddress, NeoAccount } from "@neo-solidity/types";
+import { isNeoAddress, NeoAccount } from "@neo-devpack-solidity/types";
 import { HardhatPluginError } from "hardhat/plugins";
 import Debug from "debug";
 import { createAccountFromPrivateKey, decodePrivateKey, NeoSignerAccount } from "./account-primitives";
@@ -181,7 +181,7 @@ export class AccountManager {
       debug(`Imported ${accountsData.length} accounts from ${filePath}`);
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-neo-deployer",
+        "@neo-devpack-solidity/hardhat-neo-deployer",
         `Failed to import accounts: ${error}`
       );
     }
@@ -218,7 +218,7 @@ export class AccountManager {
       debug(`Exported ${this.accounts.length} accounts to ${filePath}`);
     } catch (error) {
       throw new HardhatPluginError(
-        "@neo-solidity/hardhat-neo-deployer",
+        "@neo-devpack-solidity/hardhat-neo-deployer",
         `Failed to export accounts: ${error}`
       );
     }

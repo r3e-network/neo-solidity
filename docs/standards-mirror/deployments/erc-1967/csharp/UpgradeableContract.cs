@@ -9,7 +9,7 @@ using System.Numerics;
 namespace R3E.StandardsMirror;
 
 [DisplayName("UpgradeableContract")]
-[ContractAuthor("R3E Network", "neo-solidity@r3e.network")]
+[ContractAuthor("R3E Network", "neo-devpack-solidity@r3e.network")]
 [ContractDescription("ERC-1967 mirror — uses NEP-22 in-place update on Neo (no proxy needed).")]
 [ContractVersion("1.0.0")]
 [ContractPermission(Permission.Any, Method.Any)]

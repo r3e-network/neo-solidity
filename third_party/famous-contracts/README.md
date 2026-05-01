@@ -1,6 +1,6 @@
 # Famous Solidity Contracts (Vendored Upstream Sources)
 
-This directory stores upstream Solidity contract sources used by the Neo Solidity compatibility audit.
+This directory stores upstream Solidity contract sources used by the Neo DevPack for Solidity compatibility audit.
 
 - Source root: `third_party/famous-contracts/sources/`
 - Target list: `docs/data/famous-contracts-targets.json` (entries with `source: "npm"`)

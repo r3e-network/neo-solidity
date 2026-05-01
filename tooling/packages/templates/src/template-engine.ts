@@ -13,7 +13,7 @@ import {
   ERC721TemplateOptions,
   CustomTemplateOptions,
   PostInstallAction
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import fs from 'fs-extra';
 import * as path from 'path';
 import { EventEmitter } from 'events';
@@ -398,8 +398,8 @@ export class ProjectScaffolder extends EventEmitter {
     const templates = [
       generator.generateBasic({
         name: 'basic',
-        author: 'Neo Solidity Team',
-        description: 'Basic Neo-Solidity project',
+        author: 'Neo DevPack for Solidity Team',
+        description: 'Basic Neo DevPack for Solidity project',
         license: 'MIT',
         solcVersion: '0.8.34',
         includeTests: true,
@@ -408,7 +408,7 @@ export class ProjectScaffolder extends EventEmitter {
       }),
       generator.generateERC20({
         name: 'erc20',
-        author: 'Neo Solidity Team',
+        author: 'Neo DevPack for Solidity Team',
         description: 'ERC20 Token project',
         license: 'MIT',
         solcVersion: '0.8.34',
@@ -554,8 +554,8 @@ export class TemplateGenerator implements ITemplateGenerator {
       dependencies: {},
       devDependencies: {
         'hardhat': '^2.28.6',
-        '@neo-solidity/hardhat-solc-neo': '^0.14.0',
-        '@neo-solidity/hardhat-neo-deployer': '^0.14.0',
+        '@neo-devpack-solidity/hardhat-solc-neo': '^0.14.0',
+        '@neo-devpack-solidity/hardhat-neo-deployer': '^0.14.0',
         'chai': '^4.5.0'
       },
       scripts: {
@@ -710,8 +710,8 @@ contract {{tokenName}} is ERC721, Ownable {
   }
 
   private getHardhatConfigTemplate(): string {
-    return `require("@neo-solidity/hardhat-solc-neo");
-require("@neo-solidity/hardhat-neo-deployer");
+    return `require("@neo-devpack-solidity/hardhat-solc-neo");
+require("@neo-devpack-solidity/hardhat-neo-deployer");
 
 module.exports = {
   solidity: {

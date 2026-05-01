@@ -91,5 +91,5 @@ Runtime.burnGas(1000000); // burn 0.01 GAS
 ```
 
 ::: warning Runtime Intrinsic Coverage
-`Runtime.sol` includes callback-oriented convenience helpers that are not compiler intrinsics in neo-solidity. Calls to `optimizeGasUsage`, `executeIfGasAvailable`, and `tryWithFallback` are currently rejected at compile time because NeoVM does not support first-class internal function callbacks. Use inline logic (`gasLeft` guards and `try/catch`) instead.
+`Runtime.sol` includes callback-oriented convenience helpers that are not compiler intrinsics in neo-devpack-solidity. Calls to `optimizeGasUsage`, `executeIfGasAvailable`, and `tryWithFallback` are currently rejected at compile time because NeoVM does not support first-class internal function callbacks. Use inline logic (`gasLeft` guards and `try/catch`) instead.
 :::

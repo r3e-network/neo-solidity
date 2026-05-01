@@ -1,4 +1,4 @@
-import { NeoRpcProvider, InvokeResult } from "@neo-solidity/types";
+import { NeoRpcProvider, InvokeResult } from "@neo-devpack-solidity/types";
 import Debug from "debug";
 import { id } from "ethers";
 import {
@@ -7,7 +7,7 @@ import {
   strip0x,
 } from "./neo-utils.js";
 
-const debug = Debug("neo-solidity:rpc-adapter");
+const debug = Debug("neo-devpack-solidity:rpc-adapter");
 
 /**
  * RPC adapter that bridges Ethereum-style calls to Neo RPC

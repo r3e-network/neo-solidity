@@ -16,7 +16,7 @@ import {
   VerificationContext,
   BytecodeMetadata,
   SecurityAnalysis
-} from '@neo-solidity/types';
+} from '@neo-devpack-solidity/types';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
@@ -279,7 +279,7 @@ export class NeoContractVerifier extends EventEmitter implements ContractVerifie
       method,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'neo-solidity-verifier/1.0.0'
+        'User-Agent': 'neo-devpack-solidity-verifier/1.0.0'
       }
     };
 
