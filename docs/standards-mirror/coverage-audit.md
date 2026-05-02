@@ -64,7 +64,7 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Eight consecutive priority passes have closed forty meaningful
+Nine consecutive priority passes have closed forty-five meaningful
 Final / Review / Last-Call-status ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
@@ -109,31 +109,35 @@ Final / Review / Last-Call-status ERCs. Included for the audit trail:
 | ERC-6059 | [tokens/erc-6059](./tokens/erc-6059) | Parent-Governed Nestable NFTs |
 | ERC-4519 | [tokens/erc-4519](./tokens/erc-4519) | NFTs Tied to Physical Assets |
 | ERC-5570 | [tokens/erc-5570](./tokens/erc-5570) | Digital Receipt NFT |
+| ERC-6150 | [tokens/erc-6150](./tokens/erc-6150) | Hierarchical NFTs |
+| ERC-6220 | [tokens/erc-6220](./tokens/erc-6220) | Composable NFTs Equippable Parts |
+| ERC-5380 | [tokens/erc-5380](./tokens/erc-5380) | ERC-721 Entitlement Extension |
+| ERC-5489 | [tokens/erc-5489](./tokens/erc-5489) | NFT Hyperlink Extension |
+| ERC-6672 | [tokens/erc-6672](./tokens/erc-6672) | Multi-Redeemable NFTs |
 
 ### High priority (next-up)
 
-Eight batches closed; the remaining "high priority" tilts toward
-NFT composition extensions and the few cross-chain / DID standards
-not yet covered:
+Nine batches closed; the remaining "high priority" set covers a few
+modern NFT mechanics + AI-generated content + AA permission model:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-6150** | Hierarchical NFTs | Final | Lighter alternative to ERC-6059 (no parent-governance accept flow). |
-| **ERC-6220** | Composable NFTs Equippable Parts | Final | Modular NFT assembly on top of nestable / multi-asset. |
-| **ERC-5380** | ERC-721 Entitlement Extension | Final | Permission delegation for NFT actions; fills the gap between ERC-4907 and ERC-7432. |
-| **ERC-5489** | NFT Hyperlink Extension | Final | Embedded URL references in NFT metadata; thin standard but commonly used. |
-| **ERC-7434** | Real Estate Token | Final | Property-specific RWA. Pairs with ERC-3643 / ERC-7943 / ERC-4519 / ERC-3475. |
+| **ERC-7634** | Limited Transfer Count NFT | Final | Scarcity-bound NFTs that cap how many times they can move. |
+| **ERC-7007** | Verifiable AI-Generated Content Token | Final | NFT proving algorithmic provenance — increasingly relevant for AI-art collections. |
+| **ERC-5725** | Transferable Vesting NFT | Final | NFT representing vesting schedules; common in compensation / lockup. |
+| **ERC-6454** | Minimal Transferable NFT detection | Final | Quick "is this transferable" predicate; lighter than ERC-6982 / ERC-7066. |
+| **ERC-7715** | Permission grants for accounts | Draft | AA permission model on top of ERC-4337 / ERC-7579 / ERC-7677. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
-| ERC-7715 | Permission grants for accounts | Draft | Account-abstraction permission model. |
-| ERC-3475 | Already mirrored ✓ | — | — |
-| ERC-6672 | Multi-redeemable NFTs | Final | NFTs supporting multiple redemption events. |
-| ERC-7634 | Limited Transfer Count NFT | Final | NFT with restricted transfer quantity. |
-| ERC-6982 | Already mirrored ✓ | — | — |
-| ERC-7007 | Verifiable AI-Generated Content Token | Final | NFT proving algorithmic provenance. |
+| ERC-5507 | Refundable Tokens | Final | Refund mechanism for both fungible and NFT tokens. |
+| ERC-5521 | Referable NFT | Final | Referral relationships between NFTs. |
+| ERC-5646 | Token State Fingerprint | Final | Verify complete token state at specific block heights. |
+| ERC-7053 | Interoperable Digital Media Indexing | Final | Cross-platform media discovery. |
+| ERC-7405 | Modular Wallet Interface | Draft | Pairs with ERC-7579 mirror. |
+| ERC-7585 | Permitted Authentication Scheme | Draft | Generalised SIWE for non-Ethereum chains. |
 
 ### Watch list (Review / Last Call)
 

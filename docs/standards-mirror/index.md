@@ -21,12 +21,12 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, nestable, multi-asset, physical-bound, receipts</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, hierarchical, equippable, entitlement, redeemable</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4519, 4906, 4907, 4494, 5006, 5023, 5169, 5192, 5375, 5484, 5570, 5615, 5679, 5773, 6059, 6093, 6105, 6909, 6982, 2309, 5114, 6147, 7066, 7144, 7160, 7432, 7528, 7943
+      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4519, 4906, 4907, 4494, 5006, 5023, 5169, 5192, 5375, 5380, 5484, 5489, 5570, 5615, 5679, 5773, 6059, 6093, 6105, 6150, 6220, 6672, 6909, 6982, 2309, 5114, 6147, 7066, 7144, 7160, 7432, 7528, 7943
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">37 standards</span>
+      <span class="cat-pill cat-pill-direct">42 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **94 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **99 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Forty-seven catalog entries are not in the live TestNet pair matrix:
+Fifty-two catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -204,6 +204,11 @@ Forty-seven catalog entries are not in the live TestNet pair matrix:
 - **ERC-6059** (nestable NFTs) — NEP-11 parent-child storage extension; per-collection shape.
 - **ERC-4519** (physical-asset NFTs) — NEP-11 + device-pubkey extension; per-device deploy depending on physical batch.
 - **ERC-5570** (digital receipt NFT) — NEP-11 metadata extension; per-merchant deploy shape.
+- **ERC-6150** (hierarchical NFTs) — NEP-11 storage extension; per-collection shape.
+- **ERC-6220** (composable equippable parts) — NEP-11 + catalog extension; per-collection shape.
+- **ERC-5380** (entitlement extension) — NEP-11 storage extension; per-collection shape.
+- **ERC-5489** (NFT hyperlink) — NEP-11 storage extension; per-collection shape.
+- **ERC-6672** (multi-redeemable NFTs) — NEP-11 storage extension; per-collection / per-operator shape.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 

@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Thirty-seven Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Forty-two Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -51,6 +51,11 @@ is implementable on Neo today.
 | [ERC-6059 — Parent-Governed Nestable NFTs](/standards-mirror/tokens/erc-6059) | NEP-11 + parent-child storage + accept flow | Final | NFT Extension |
 | [ERC-4519 — NFTs Tied to Physical Assets](/standards-mirror/tokens/erc-4519) | NEP-11 + per-token device pubkey + state machine | Final | RWA / NFT Extension |
 | [ERC-5570 — Digital Receipt NFT](/standards-mirror/tokens/erc-5570) | NEP-11 + structured receipt metadata schema | Final | NFT Extension |
+| [ERC-6150 — Hierarchical NFTs](/standards-mirror/tokens/erc-6150) | NEP-11 + parent/children pointer storage | Final | NFT Extension |
+| [ERC-6220 — Composable NFTs Equippable Parts](/standards-mirror/tokens/erc-6220) | NEP-11 + catalog + equip-slot storage | Final | NFT Extension |
+| [ERC-5380 — ERC-721 Entitlement Extension](/standards-mirror/tokens/erc-5380) | NEP-11 + per-(tokenId, action, delegate) storage | Final | NFT Extension |
+| [ERC-5489 — NFT Hyperlink Extension](/standards-mirror/tokens/erc-5489) | NEP-11 + per-(tokenId, slot) URL storage | Final | NFT Extension |
+| [ERC-6672 — Multi-Redeemable NFTs](/standards-mirror/tokens/erc-6672) | NEP-11 + per-(tokenId, operator, redemptionId) state | Final | NFT Extension |
 
 ## Related Pages
 
