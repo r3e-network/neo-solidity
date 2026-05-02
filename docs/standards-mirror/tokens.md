@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Fifty-one Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Fifty-four Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -65,6 +65,9 @@ is implementable on Neo today.
 | [ERC-5521 — Referable NFT](/standards-mirror/tokens/erc-5521) | NEP-11 + per-token referring/referred edges | Final | NFT Extension |
 | [ERC-5646 — Token State Fingerprint](/standards-mirror/tokens/erc-5646) | NEP-11 + per-token state-hash view | Final | NFT Extension |
 | [ERC-5585 — ERC-721 NFT Authorization](/standards-mirror/tokens/erc-5585) | NEP-11 + per-(tokenId, rights, user) storage | Final | NFT Extension |
+| [ERC-6239 — Semantic Soulbound Tokens](/standards-mirror/tokens/erc-6239) | NEP-11 soulbound + RDF triple metadata | Final | NFT Extension |
+| [ERC-7053 — Interoperable Digital Media Indexing](/standards-mirror/tokens/erc-7053) | NEP-11 + media-indexing event emission | Final | NFT Extension |
+| [ERC-6381 — Public NFT Emote Repository](/standards-mirror/tokens/erc-6381) | Standalone repository: (collection, tokenId, emoji, user) | Final | NFT Extension / Social |
 
 ## Related Pages
 
