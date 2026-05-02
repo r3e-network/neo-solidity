@@ -13,7 +13,7 @@
 >
 > **Documented Neo C# port without checked-in fixture** (1): ERC-6909.
 >
-> **Subsumed by a native Neo mechanism** (23): ERC-1363 (NEP-17 callback),
+> **Subsumed by a native Neo mechanism** (78): ERC-1363 (NEP-17 callback),
 > ERC-3009 (witness scopes), ERC-6551 (registry-pattern TBA), ERC-1167
 > (ContractManagement.Deploy), ERC-4361 (SIWE — off-chain server convention),
 > ERC-3668 (native Oracle service), ERC-7528 (well-known native contract hashes),
