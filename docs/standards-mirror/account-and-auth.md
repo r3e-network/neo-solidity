@@ -5,12 +5,13 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Seventeen standards covering ownership (full + light), off-chain signatures,
+Eighteen standards covering ownership (full + light), off-chain signatures,
 smart-contract signature verification, NFT-aware signature validation, stealth-address
 privacy, account abstraction, EOA-as-contract proposals, NFT-bound accounts,
-generalised contract-linked services, and the de-facto web3 sign-in flow. Most of
-these are elaborate workarounds for Ethereum's "EOA can only do ECDSA" limitation;
-Neo's witness model handles the same use cases at the protocol level.
+generalised contract-linked services, paymaster handshakes, and the de-facto web3
+sign-in flow. Most of these are elaborate workarounds for Ethereum's "EOA can only
+do ECDSA" limitation; Neo's witness model handles the same use cases at the protocol
+level.
 
 ## Standards
 
@@ -22,6 +23,7 @@ Neo's witness model handles the same use cases at the protocol level.
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Native witness scopes | Final | Signatures |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Native witness scopes | Final (USDC) / Stagnant (EIP) | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
+| [ERC-7677 — Paymaster Web Service Capability](/standards-mirror/account-and-auth/erc-7677) | Sponsor relayer + signed gas-budget pattern | Review | Smart Accounts |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
 | [ERC-5564 — Stealth Addresses](/standards-mirror/account-and-auth/erc-5564) | secp256r1 ECDH + announcer contract | Final | Privacy |
 | [ERC-6066 — Signature Validation Method for NFTs](/standards-mirror/account-and-auth/erc-6066) | NEP-11 + NEP-30 verify, scoped per tokenId | Final | Signatures |
