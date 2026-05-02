@@ -6,7 +6,7 @@ description: Every mirrored ERC/EIP standard with category, EIP status, Neo mapp
 # Standards Mirror — Coverage Matrix
 
 Generated from `docs/standards-mirror/deployments/results.json` snapshot
-`2026-04-29T02:47:17.306Z`. **79** mirror pages, **47** with live
+`2026-04-29T02:47:17.306Z`. **84** mirror pages, **47** with live
 Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 Use this page to scan every mirrored standard side-by-side: catalog status,
@@ -22,7 +22,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Token Standards
 
-24 mirrored — 13 deployed.
+27 mirrored — 13 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -39,6 +39,8 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-4906 — NFT Metadata Update](/standards-mirror/tokens/erc-4906) | Final | Neo C# port | 1 / 2 | 2 / 2 |
 | [ERC-4907 — Rental NFT (User Role)](/standards-mirror/tokens/erc-4907) | Final | NEP-11 + per-token user/expires | — | — |
 | [ERC-4494 — Permit for ERC-721](/standards-mirror/tokens/erc-4494) | Final | Native witness scopes | 1 / 2 | 2 / 2 |
+| [ERC-5006 — Rental NFT, NFT User Extension](/standards-mirror/tokens/erc-5006) | Final | NEP-11 (divisible) + per-record user/expires | — | — |
+| [ERC-5169 — Client Script URI for Token Contracts](/standards-mirror/tokens/erc-5169) | Final | NEP-11 / NEP-17 + scriptURI() view | — | — |
 | [ERC-5192 — Soulbound NFTs](/standards-mirror/tokens/erc-5192) | Final | Neo C# port | 2 / 3 | 1 / 1 |
 | [ERC-5484 — Consensual Soulbound](/standards-mirror/tokens/erc-5484) | Final | Neo C# port | 1 / 2 | 1 / 1 |
 | [ERC-5679 — Token Minting and Burning](/standards-mirror/tokens/erc-5679) | Final | NEP-17 / NEP-11 mint/burn helper | — | — |
@@ -50,18 +52,21 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-7144 — ERC-20 with Transaction Validation Step](/standards-mirror/tokens/erc-7144) | Review | NEP-17 transfer override + validator | — | — |
 | [ERC-7160 — ERC-721 Multi-Metadata Extension](/standards-mirror/tokens/erc-7160) | Final | NEP-11 + URI list + active-index | — | — |
 | [ERC-7528 — Native Asset Address Convention](/standards-mirror/tokens/erc-7528) | Final | Native NEO / GAS contract hashes | — | — |
+| [ERC-7943 — Universal Real World Asset Interface](/standards-mirror/tokens/erc-7943) | Last Call | NEP-17/NEP-11 + capability flags + compliance | — | — |
 
 ## Account & Authentication
 
-18 mirrored — 9 deployed.
+20 mirrored — 9 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
 | [ERC-173 — Contract Ownership](/standards-mirror/account-and-auth/erc-173) | Final | Owner pattern + NEP-22 | 1 / 2 | 1 / 1 |
+| [ERC-2767 — Contract Ownership Governance](/standards-mirror/account-and-auth/erc-2767) | Final | Governance contract as owner + NEP-22 gate | — | — |
 | [ERC-5313 — Light Contract Ownership](/standards-mirror/account-and-auth/erc-5313) | Final | `getOwner()` view convention | — | — |
 | [ERC-1271 — Smart Contract Signatures](/standards-mirror/account-and-auth/erc-1271) | Final | Native witness model | 1 / 1 | 1 / 1 |
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Final | Native witness scopes | 1 / 2 | 2 / 2 |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Final (USDC) / Stagnant | Native witness scopes | — | — |
+| [ERC-7758 — Transfer With Authorization (modern)](/standards-mirror/account-and-auth/erc-7758) | Review | Native witness scopes | — | — |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Final | Native NEP-30 verify | 1 / 2 | 2 / 2 |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Final | Native witness over domain-bound message | — | — |
 | [ERC-5564 — Stealth Address Scheme](/standards-mirror/account-and-auth/erc-5564) | Final | secp256r1 ECDH + announcer contract | — | — |
@@ -136,9 +141,9 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Aggregate
 
-- **Catalog total:** 79 ERC/EIP pages
+- **Catalog total:** 84 ERC/EIP pages
 - **Deployed pairs:** 47
-- **Catalog-only:** 32 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
+- **Catalog-only:** 37 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
 - **Solidity assertions:** 62 / 94 pass
 - **Neo C# assertions:** 85 / 89 pass
 - **Combined assertion pass-rate:** 147 / 183

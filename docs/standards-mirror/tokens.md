@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Twenty-four Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Twenty-seven Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -38,6 +38,9 @@ is implementable on Neo today.
 | [ERC-7160 — ERC-721 Multi-Metadata Extension](/standards-mirror/tokens/erc-7160) | NEP-11 + URI list + active-index storage | Final | NFT Extension |
 | [ERC-6982 — Default Lockable Tokens](/standards-mirror/tokens/erc-6982) | NEP-11 + lock-state storage | Final | NFT Extension |
 | [ERC-7144 — ERC-20 with Transaction Validation Step](/standards-mirror/tokens/erc-7144) | NEP-17 transfer override + validator contract | Review | Fungible Extension |
+| [ERC-7943 — Universal Real World Asset Interface](/standards-mirror/tokens/erc-7943) | NEP-17/NEP-11 + capability flags + compliance hook | Last Call | RWA |
+| [ERC-5006 — Rental NFT, NFT User Extension](/standards-mirror/tokens/erc-5006) | NEP-11 (divisible) + per-record user/expires | Final | NFT Extension |
+| [ERC-5169 — Client Script URI for Token Contracts](/standards-mirror/tokens/erc-5169) | NEP-11 / NEP-17 + scriptURI() view | Final | Token Metadata |
 
 ## Related Pages
 

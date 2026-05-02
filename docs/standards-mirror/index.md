@@ -21,24 +21,24 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, multi-token, soulbound, rentals, regulated, consumables, lockable</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, soulbound, rentals, regulated, RWA, consumables, scriptable</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4906, 4907, 4494, 5192, 5484, 5679, 6093, 6909, 6982, 2309, 5114, 6147, 7144, 7160, 7528
+      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4906, 4907, 4494, 5006, 5169, 5192, 5484, 5679, 6093, 6909, 6982, 2309, 5114, 6147, 7144, 7160, 7528, 7943
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">24 standards</span>
+      <span class="cat-pill cat-pill-direct">27 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
 
   <a class="mirror-cat" href="./account-and-auth">
     <div class="cat-eyebrow">Account & Authentication</div>
-    <div class="cat-title">Ownership, signatures, smart accounts, SIWE, stealth, NFT sigs, paymasters</div>
+    <div class="cat-title">Ownership (incl. governance), signatures, smart accounts, SIWE, stealth, NFT sigs, paymasters</div>
     <div class="cat-desc">
-      ERC-173, 1271, 2612, 3009, 4337, 4361, 5267, 5313, 5564, 6066, 6492, 6551, 7656, 7677, EIP-712, EIP-191, EIP-7702, EIP-3074
+      ERC-173, 1271, 2612, 2767, 3009, 4337, 4361, 5267, 5313, 5564, 6066, 6492, 6551, 7656, 7677, 7758, EIP-712, EIP-191, EIP-7702, EIP-3074
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">18 standards</span>
+      <span class="cat-pill cat-pill-direct">20 standards</span>
       <span class="cat-pill cat-pill-native">Native witness scopes</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **79 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **84 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Thirty-two catalog entries are not in the live TestNet pair matrix:
+Thirty-seven catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -189,6 +189,11 @@ Thirty-two catalog entries are not in the live TestNet pair matrix:
 - **ERC-6982** (default lockable tokens) — NEP-11 storage extension; covered by per-collection deploy.
 - **ERC-7677** (paymaster web service) — off-chain JSON-RPC convention; on-chain footprint is optional escrow contract.
 - **ERC-7144** (ERC-20 with transaction validation) — NEP-17 transfer override + per-policy validator; per-deployment shape.
+- **ERC-7943** (Universal RWA Interface) — capability-flag + compliance umbrella; per-deployment shape rather than a single fixture.
+- **ERC-5006** (Rental NFT user extension for ERC-1155) — NEP-11 divisible + record storage; per-collection shape.
+- **ERC-2767** (contract ownership governance) — interface convention; satisfied whenever a governance contract owns the governed contract.
+- **ERC-7758** (modern transfer-with-authorization) — same Neo answer as ERC-3009; covered by witness scopes.
+- **ERC-5169** (client script URI) — token-metadata extension; one method addition to any NEP-11 / NEP-17 contract.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 

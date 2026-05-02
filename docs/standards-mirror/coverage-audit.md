@@ -64,8 +64,8 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Five consecutive priority passes have closed twenty-five meaningful
-Final-status (and Review-status) ERCs. Included for the audit trail:
+Six consecutive priority passes have closed thirty meaningful
+Final / Review / Last-Call-status ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
 | --- | --- | --- |
@@ -94,31 +94,35 @@ Final-status (and Review-status) ERCs. Included for the audit trail:
 | ERC-6982 | [tokens/erc-6982](./tokens/erc-6982) | Default lockable tokens (lighter than 5192/6147) |
 | ERC-7677 | [account-and-auth/erc-7677](./account-and-auth/erc-7677) | Paymaster web service capability (AA handshake) |
 | ERC-7144 | [tokens/erc-7144](./tokens/erc-7144) | ERC-20 with transaction validation step (lightweight T-REX) |
+| ERC-7943 | [tokens/erc-7943](./tokens/erc-7943) | Universal Real World Asset Interface (uRWA) |
+| ERC-5006 | [tokens/erc-5006](./tokens/erc-5006) | Rental NFT user extension for ERC-1155 multi-tokens |
+| ERC-2767 | [account-and-auth/erc-2767](./account-and-auth/erc-2767) | Contract Ownership Governance |
+| ERC-7758 | [account-and-auth/erc-7758](./account-and-auth/erc-7758) | Modern Transfer-With-Authorization |
+| ERC-5169 | [tokens/erc-5169](./tokens/erc-5169) | Client Script URI for token contracts |
 
 ### High priority (next-up)
 
-Five batches closed; the remaining "high priority" tilts toward
-recently-promoted RWA / cross-chain standards and a couple of niche
-NFT extensions worth covering for completeness:
+Six batches closed; the remaining "high priority" tilts toward
+NFT-creator standards and identity / DID infrastructure:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-7943** | Universal Real World Asset Interface | Last Call | RWA standardisation. Pairs with the ERC-3643 / ERC-3475 / ERC-7092 mirrors to complete the on-chain real-world-asset story. |
-| **ERC-5006** | Rental NFT, NFT User Extension | Final | Companion to ERC-4907 — adds a per-user role for ERC-1155-style multi-token rentals. |
-| **ERC-2767** | Contract Ownership Governance | Final | DAO-style ownership transfer governance. Pairs with ERC-173 / ERC-5313 ownership mirrors. |
-| **ERC-7758** | Transfer With Authorization (modern) | Review | Successor to ERC-3009 (which we mirror). Add now to track the modern shape. |
-| **ERC-5169** | Client Script URI for Token Contracts | Final | Reference external scripts for token interactions; relevant for wallet-side rich-token rendering. |
+| **ERC-5375** | NFT Author Information and Consent | Final | Provenance + creator attribution metadata. Pairs with ERC-2981 (royalties) for a complete creator-economy story. |
+| **ERC-5023** | Shareable Non-Fungible Token | Final | Multi-holder NFT ownership; useful for collectives, syndicates, club-tokens. |
+| **ERC-7404** | NFT Time-Lock | Final | Time-bounded NFT transfer freeze; complements ERC-6982 lockable but with explicit expiry. |
+| **ERC-7066** | Lockable Extension for ERC-721 | Final | Approval-based lock pattern; pairs with ERC-6982 (default-lock) and ERC-6147 (guard) for a complete locking story. |
+| **ERC-5520** | NFT Embedded Content | Final | Embed arbitrary data (images, scripts) directly in NFTs without external storage. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
 | ERC-7715 | Permission grants for accounts | Draft | Account-abstraction permission model. |
-| ERC-7405 | Modular Wallet Interface | Draft | Pairs with ERC-7579 mirror. |
-| ERC-7656 | Service-bound NFTs (alt design) | Draft | Track for AA + NFT composability. |
-| ERC-3475 | Already mirrored ✓ | — | — |
+| ERC-4519 | NFTs Tied to Physical Assets | Final | RWA — physical-good binding. |
+| ERC-5570 | Digital Receipt NFT | Final | Receipts as NFTs; consumer flows. |
 | ERC-7585 | Permitted Authentication Scheme | Draft | Generalised ERC-4361 for non-Ethereum chains. |
-| ERC-5023 | Shareable NFTs | Final | Multi-holder NFT ownership; niche but useful for some collectives. |
+| ERC-5380 | ERC-721 Entitlement Extension | Final | Permission delegation for NFT actions. |
+| ERC-6105 | No-Intermediary NFT Trading | Final | Direct P2P NFT exchange. |
 
 ### Watch list (Review / Last Call)
 

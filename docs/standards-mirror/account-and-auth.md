@@ -5,13 +5,13 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Eighteen standards covering ownership (full + light), off-chain signatures,
-smart-contract signature verification, NFT-aware signature validation, stealth-address
-privacy, account abstraction, EOA-as-contract proposals, NFT-bound accounts,
-generalised contract-linked services, paymaster handshakes, and the de-facto web3
-sign-in flow. Most of these are elaborate workarounds for Ethereum's "EOA can only
-do ECDSA" limitation; Neo's witness model handles the same use cases at the protocol
-level.
+Twenty standards covering ownership (full / light / governance-mediated), off-chain
+signatures (legacy + modern), smart-contract signature verification, NFT-aware
+signature validation, stealth-address privacy, account abstraction, EOA-as-contract
+proposals, NFT-bound accounts, generalised contract-linked services, paymaster
+handshakes, and the de-facto web3 sign-in flow. Most of these are elaborate workarounds
+for Ethereum's "EOA can only do ECDSA" limitation; Neo's witness model handles the
+same use cases at the protocol level.
 
 ## Standards
 
@@ -19,9 +19,11 @@ level.
 | --- | --- | --- | --- |
 | [ERC-173 — Contract Ownership](/standards-mirror/account-and-auth/erc-173) | Owner pattern + NEP-22 | Final | Ownership |
 | [ERC-5313 — Light Contract Ownership](/standards-mirror/account-and-auth/erc-5313) | `getOwner()` view convention | Final | Ownership |
+| [ERC-2767 — Contract Ownership Governance](/standards-mirror/account-and-auth/erc-2767) | Governance contract as owner + manifest-permission gate | Final | Ownership |
 | [ERC-1271 — Smart Contract Signatures](/standards-mirror/account-and-auth/erc-1271) | Native witness model | Final | Signatures |
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Native witness scopes | Final | Signatures |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Native witness scopes | Final (USDC) / Stagnant (EIP) | Signatures |
+| [ERC-7758 — Transfer With Authorization (modern)](/standards-mirror/account-and-auth/erc-7758) | Native witness scopes (same as ERC-3009) | Review | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
 | [ERC-7677 — Paymaster Web Service Capability](/standards-mirror/account-and-auth/erc-7677) | Sponsor relayer + signed gas-budget pattern | Review | Smart Accounts |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
