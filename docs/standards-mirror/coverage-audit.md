@@ -57,6 +57,21 @@ conventions:
   cross-contract calls (`ownerOf`, `balanceOf`, `properties`,
   `isAuthorised`, etc.); use `CallFlags.All` only when the callee may
   mutate state or fire notifications you depend on.
+- **`[Safe]` on view methods:** every read-only public method should
+  carry `[Safe]` so the manifest advertises it as state-non-mutating
+  (wallets and explorers rely on this for "read vs write" UI gating).
+  The catalog applies it consistently to expression-bodied view methods
+  (`=> Storage.Get(...)`); multi-line view bodies follow the same rule
+  but are easy to miss when adapting samples — add `[Safe]` on the
+  declaration line above any method that doesn't write storage or fire
+  notifications.
+- **Event names:** every `public static event Action<...>` declaration
+  is paired with a `[DisplayName("CanonicalName")]` so the manifest
+  emits the spec-canonical name (`Transfer`, `Approval`, etc.) even
+  when the C# field uses an `OnXxx` alias to avoid clashing with the
+  base class's notification field. Pages inheriting `Nep17Token` /
+  `Nep11Token<T>` never redeclare `Transfer` — they reuse the base
+  class's event field.
 
 Verify against the canonical sources before deploying:
 [Nep17Token.cs](https://github.com/neo-project/neo-devpack-dotnet/blob/master/src/Neo.SmartContract.Framework/Nep17Token.cs),
