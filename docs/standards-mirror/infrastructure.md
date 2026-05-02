@@ -22,6 +22,8 @@ model or its native oracle service.
 | [ERC-5202 — Blueprint Contract Format](/standards-mirror/infrastructure/erc-5202) | NEF blob in Storage + ContractManagement.Deploy | Final | Deployment |
 | [ERC-8042 — Diamond Storage](/standards-mirror/infrastructure/erc-8042) | Storage prefix per facet (idiomatic) | Final | Storage |
 | [ERC-5269 — ERC Detection and Discovery](/standards-mirror/infrastructure/erc-5269) | Native manifest `supportedstandards` | Review | Detection |
+| [ERC-6357 — Single-contract Multi-delegatecall](/standards-mirror/infrastructure/erc-6357) | Native multi-invoke transaction script | Last Call | Pattern |
+| [ERC-7746 — Composable Security Middleware Hooks](/standards-mirror/infrastructure/erc-7746) | Pre/post hook chain on every external method | Last Call | Pattern |
 | [ERC-1820 — Pseudo-introspection Registry](/standards-mirror/infrastructure/erc-1820) | Manifest + native registry | Final | Registry |
 | [ERC-1967 — Standard Proxy Storage Slots](/standards-mirror/infrastructure/erc-1967) | NEP-22 ContractManagement.Update | Final | Upgrade |
 | [ERC-2535 — Diamond Standard](/standards-mirror/infrastructure/erc-2535) | Modular dispatch (port) | Final | Modularity |

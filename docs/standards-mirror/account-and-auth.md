@@ -5,13 +5,14 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Twenty-three standards covering ownership (full / light / governance-mediated), off-chain
-signatures (legacy + modern), smart-contract signature verification, NFT-aware
-signature validation, stealth-address privacy, account abstraction, EOA-as-contract
-proposals, NFT-bound accounts, generalised contract-linked services, paymaster
-handshakes, modular wallet plugins, scoped permission grants, and SIWE (single-chain +
-generalised). Most of these are elaborate workarounds for Ethereum's "EOA can only do
-ECDSA" limitation; Neo's witness model handles the same use cases at the protocol level.
+Twenty-four standards covering ownership (full / light / governance-mediated), off-chain
+signatures (legacy + modern + endorsement), smart-contract signature verification,
+NFT-aware signature validation, stealth-address privacy, account abstraction,
+EOA-as-contract proposals, NFT-bound accounts, generalised contract-linked services,
+paymaster handshakes, modular wallet plugins, scoped permission grants, and SIWE
+(single-chain + generalised). Most of these are elaborate workarounds for Ethereum's
+"EOA can only do ECDSA" limitation; Neo's witness model handles the same use cases at
+the protocol level.
 
 ## Standards
 
@@ -29,6 +30,7 @@ ECDSA" limitation; Neo's witness model handles the same use cases at the protoco
 | [ERC-7715 — Permission Grants for Smart Accounts](/standards-mirror/account-and-auth/erc-7715) | Witness scopes + per-grant allowlist contract | Draft | Smart Accounts |
 | [ERC-7405 — Modular Wallet Interface](/standards-mirror/account-and-auth/erc-7405) | NEP-30 verify + module dispatch (extends ERC-7579) | Draft | Smart Accounts |
 | [ERC-7585 — Permitted Authentication Scheme](/standards-mirror/account-and-auth/erc-7585) | Native witness over scheme-tagged message | Draft | Authentication |
+| [ERC-5453 — Endorsement (Permit for Any Functions)](/standards-mirror/account-and-auth/erc-5453) | Native witness scopes per call | Last Call | Signatures |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
 | [ERC-5564 — Stealth Addresses](/standards-mirror/account-and-auth/erc-5564) | secp256r1 ECDH + announcer contract | Final | Privacy |
 | [ERC-6066 — Signature Validation Method for NFTs](/standards-mirror/account-and-auth/erc-6066) | NEP-11 + NEP-30 verify, scoped per tokenId | Final | Signatures |
