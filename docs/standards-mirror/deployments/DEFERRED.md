@@ -73,12 +73,19 @@
 
 ## Snapshot log
 
+- **Baseline deploys** (the original mirror set, predates this log): ERC-20,
+  ERC-721, ERC-173, ERC-1056, ERC-1155, ERC-1271, ERC-1820, ERC-1967,
+  ERC-2535, ERC-2771, ERC-2981, ERC-3156, ERC-3525, ERC-4626, ERC-5192,
+  ERC-5805, ERC-6372, ERC-7818.
 - Earlier deploy batches added ERC-777, ERC-5267, ERC-5114, ERC-5484,
   ERC-6147, ERC-2470, ERC-2309, ERC-4906, ERC-165, ERC-7201, EIP-1153,
   EIP-3198, ERC-1014, EIP-191, ERC-2612, ERC-4494, ERC-7540, ERC-7575,
   ERC-7579, ERC-4337, ERC-6492, EIP-712, and EIP-2098.
 - The current snapshot also includes live demos for EIP-2718, EIP-2930,
   EIP-3855, EIP-3860, EIP-6780, and EIP-7702.
+- Total: **47 live pairs** in `results.json` (snapshot
+  `2026-04-29T02:47:17.306Z`); 18 baseline + 23 earlier batches + 6 most-recent
+  protocol-EIPs = 47.
 
 ## Compile guardrails (kept for future contract authors)
 
