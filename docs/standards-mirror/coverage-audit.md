@@ -134,8 +134,10 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Eleven consecutive priority passes have closed fifty-five meaningful
-Final / Review / Last-Call / Draft-status ERCs. Included for the audit trail:
+Successive priority passes have closed the application-relevant gaps from
+the [Ethereum EIPs index](https://eips.ethereum.org/erc) — 129 mirror pages
+across the five categories above. The table below is the audit trail of the
+highest-impact additions, grouped by reason:
 
 | Standard | Mirror Page | Why it mattered |
 | --- | --- | --- |
