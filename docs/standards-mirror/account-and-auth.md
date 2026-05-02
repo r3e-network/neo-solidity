@@ -24,11 +24,11 @@ the protocol level.
 | [ERC-1271 — Smart Contract Signatures](/standards-mirror/account-and-auth/erc-1271) | Native witness model | Final | Signatures |
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Native witness scopes | Final | Signatures |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Native witness scopes | Final (USDC) / Stagnant (EIP) | Signatures |
-| [ERC-7758 — Transfer With Authorization (modern)](/standards-mirror/account-and-auth/erc-7758) | Native witness scopes (same as ERC-3009) | Review | Signatures |
+| [ERC-7758 — Transfer With Authorization (modern)](/standards-mirror/account-and-auth/erc-7758) | Native witness scopes (same as [ERC-3009](/standards-mirror/account-and-auth/erc-3009)) | Review | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
 | [ERC-7677 — Paymaster Web Service Capability](/standards-mirror/account-and-auth/erc-7677) | Sponsor relayer + signed gas-budget pattern | Review | Smart Accounts |
 | [ERC-7715 — Permission Grants for Smart Accounts](/standards-mirror/account-and-auth/erc-7715) | Witness scopes + per-grant allowlist contract | Draft | Smart Accounts |
-| [ERC-7405 — Modular Wallet Interface](/standards-mirror/account-and-auth/erc-7405) | NEP-30 verify + module dispatch (extends ERC-7579) | Draft | Smart Accounts |
+| [ERC-7405 — Modular Wallet Interface](/standards-mirror/account-and-auth/erc-7405) | NEP-30 verify + module dispatch (extends [ERC-7579](/standards-mirror/infrastructure/erc-7579)) | Draft | Smart Accounts |
 | [ERC-7585 — Permitted Authentication Scheme](/standards-mirror/account-and-auth/erc-7585) | Native witness over scheme-tagged message | Draft | Authentication |
 | [ERC-5453 — Endorsement (Permit for Any Functions)](/standards-mirror/account-and-auth/erc-5453) | Native witness scopes per call | Last Call | Signatures |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
