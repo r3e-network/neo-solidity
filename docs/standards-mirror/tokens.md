@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Forty-two Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Forty-six Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -56,6 +56,10 @@ is implementable on Neo today.
 | [ERC-5380 — ERC-721 Entitlement Extension](/standards-mirror/tokens/erc-5380) | NEP-11 + per-(tokenId, action, delegate) storage | Final | NFT Extension |
 | [ERC-5489 — NFT Hyperlink Extension](/standards-mirror/tokens/erc-5489) | NEP-11 + per-(tokenId, slot) URL storage | Final | NFT Extension |
 | [ERC-6672 — Multi-Redeemable NFTs](/standards-mirror/tokens/erc-6672) | NEP-11 + per-(tokenId, operator, redemptionId) state | Final | NFT Extension |
+| [ERC-7634 — Limited Transfer Count NFT](/standards-mirror/tokens/erc-7634) | NEP-11 + per-token transfer counter | Final | NFT Extension |
+| [ERC-7007 — Verifiable AI-Generated Content Token](/standards-mirror/tokens/erc-7007) | NEP-11 + (prompt, output, proof) attestation | Final | NFT Extension / AI |
+| [ERC-5725 — Transferable Vesting NFT](/standards-mirror/tokens/erc-5725) | NEP-11 + per-token vesting schedule + claim | Final | NFT Extension / DeFi |
+| [ERC-6454 — Minimal Transferable NFT detection](/standards-mirror/tokens/erc-6454) | NEP-11 + IsTransferable view | Final | NFT Extension |
 
 ## Related Pages
 

@@ -6,7 +6,7 @@ description: Every mirrored ERC/EIP standard with category, EIP status, Neo mapp
 # Standards Mirror — Coverage Matrix
 
 Generated from `docs/standards-mirror/deployments/results.json` snapshot
-`2026-04-29T02:47:17.306Z`. **99** mirror pages, **47** with live
+`2026-04-29T02:47:17.306Z`. **104** mirror pages, **47** with live
 Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 > **Read the columns:**
@@ -17,7 +17,7 @@ Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 ## Token Standards
 
-42 mirrored — 13 deployed.
+46 mirrored — 13 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -46,27 +46,31 @@ Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 | [ERC-5570 — Digital Receipt NFT](/standards-mirror/tokens/erc-5570) | Final | NEP-11 + structured receipt metadata schema | — | — |
 | [ERC-5615 — ERC-1155 Supply Extension](/standards-mirror/tokens/erc-5615) | Final | NEP-11 (divisible) + per-tokenId supply | — | — |
 | [ERC-5679 — Token Minting and Burning](/standards-mirror/tokens/erc-5679) | Final | NEP-17 / NEP-11 mint/burn helper | — | — |
+| [ERC-5725 — Transferable Vesting NFT](/standards-mirror/tokens/erc-5725) | Final | NEP-11 + per-token vesting + claim | — | — |
 | [ERC-5773 — Context-Dependent Multi-Asset Tokens](/standards-mirror/tokens/erc-5773) | Final | NEP-11 + per-token asset list + priority | — | — |
 | [ERC-6059 — Parent-Governed Nestable NFTs](/standards-mirror/tokens/erc-6059) | Final | NEP-11 + parent-child storage + accept flow | — | — |
 | [ERC-6093 — Custom Errors for Common Tokens](/standards-mirror/tokens/erc-6093) | Final | Named exception convention | — | — |
 | [ERC-6105 — No Intermediary NFT Trading Protocol](/standards-mirror/tokens/erc-6105) | Final | NEP-11 with built-in listing + atomic-swap | — | — |
 | [ERC-6150 — Hierarchical NFTs](/standards-mirror/tokens/erc-6150) | Final | NEP-11 + parent/children pointer storage | — | — |
 | [ERC-6220 — Composable NFTs Equippable Parts](/standards-mirror/tokens/erc-6220) | Final | NEP-11 + catalog + equip-slot storage | — | — |
+| [ERC-6454 — Minimal Transferable NFT detection](/standards-mirror/tokens/erc-6454) | Final | NEP-11 + IsTransferable view | — | — |
 | [ERC-6672 — Multi-Redeemable NFTs](/standards-mirror/tokens/erc-6672) | Final | NEP-11 + per-(tokenId, operator, redemptionId) state | — | — |
 | [ERC-6909 — Minimal Multi-Token](/standards-mirror/tokens/erc-6909) | Final | Neo C# port | — | — |
 | [ERC-6982 — Default Lockable Tokens](/standards-mirror/tokens/erc-6982) | Final | NEP-11 + lock-state storage | — | — |
 | [ERC-5114 — Soulbound Badge](/standards-mirror/tokens/erc-5114) | Final | Neo C# port | 1 / 2 | 2 / 2 |
 | [ERC-6147 — NFT Guard](/standards-mirror/tokens/erc-6147) | Final | Neo C# port | 2 / 2 | 2 / 2 |
+| [ERC-7007 — Verifiable AI-Generated Content Token](/standards-mirror/tokens/erc-7007) | Final | NEP-11 + AIGC attestation | — | — |
 | [ERC-7066 — Lockable Extension for ERC-721](/standards-mirror/tokens/erc-7066) | Final | NEP-11 + per-token approval-based lock | — | — |
 | [ERC-7144 — ERC-20 with Transaction Validation Step](/standards-mirror/tokens/erc-7144) | Review | NEP-17 transfer override + validator | — | — |
 | [ERC-7160 — ERC-721 Multi-Metadata Extension](/standards-mirror/tokens/erc-7160) | Final | NEP-11 + URI list + active-index | — | — |
 | [ERC-7432 — Non-Fungible Token Roles](/standards-mirror/tokens/erc-7432) | Final | NEP-11 + (tokenId, role) → grant w/ TTL | — | — |
 | [ERC-7528 — Native Asset Address Convention](/standards-mirror/tokens/erc-7528) | Final | Native NEO / GAS contract hashes | — | — |
+| [ERC-7634 — Limited Transfer Count NFT](/standards-mirror/tokens/erc-7634) | Final | NEP-11 + per-token transfer counter | — | — |
 | [ERC-7943 — Universal Real World Asset Interface](/standards-mirror/tokens/erc-7943) | Last Call | NEP-17/NEP-11 + capability flags + compliance | — | — |
 
 ## Account & Authentication
 
-20 mirrored — 9 deployed.
+21 mirrored — 9 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -88,6 +92,7 @@ Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 | [ERC-6551 — Token Bound Accounts](/standards-mirror/account-and-auth/erc-6551) | Review | Registry + per-NFT contract | — | — |
 | [ERC-7656 — Generalized Contract-Linked Services](/standards-mirror/account-and-auth/erc-7656) | Final | Registry pattern (mode-flagged) | — | — |
 | [ERC-7677 — Paymaster Web Service Capability](/standards-mirror/account-and-auth/erc-7677) | Review | Sponsor relayer + signed gas-budget | — | — |
+| [ERC-7715 — Permission Grants for Smart Accounts](/standards-mirror/account-and-auth/erc-7715) | Draft | Witness scopes + per-grant allowlist | — | — |
 | [EIP-7702 — Set Code for EOAs](/standards-mirror/account-and-auth/eip-7702) | Final (Pectra) | Native (every account is a contract) | 1 / 2 | 2 / 2 |
 | [EIP-3074 — AUTH and AUTHCALL](/standards-mirror/account-and-auth/eip-3074) | Stagnant | Native (witness scopes) | — | — |
 
@@ -151,9 +156,9 @@ Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 ## Aggregate
 
-- **Catalog total:** 99 ERC/EIP pages
+- **Catalog total:** 104 ERC/EIP pages
 - **Deployed pairs:** 47
-- **Catalog-only:** 52 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
+- **Catalog-only:** 57 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
 - **Solidity assertions:** 62 / 94 pass
 - **Neo C# assertions:** 85 / 89 pass
 - **Combined assertion pass-rate:** 147 / 183

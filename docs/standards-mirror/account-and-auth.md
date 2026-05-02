@@ -5,13 +5,13 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Twenty standards covering ownership (full / light / governance-mediated), off-chain
+Twenty-one standards covering ownership (full / light / governance-mediated), off-chain
 signatures (legacy + modern), smart-contract signature verification, NFT-aware
 signature validation, stealth-address privacy, account abstraction, EOA-as-contract
 proposals, NFT-bound accounts, generalised contract-linked services, paymaster
-handshakes, and the de-facto web3 sign-in flow. Most of these are elaborate workarounds
-for Ethereum's "EOA can only do ECDSA" limitation; Neo's witness model handles the
-same use cases at the protocol level.
+handshakes, scoped permission grants, and the de-facto web3 sign-in flow. Most of these
+are elaborate workarounds for Ethereum's "EOA can only do ECDSA" limitation; Neo's
+witness model handles the same use cases at the protocol level.
 
 ## Standards
 
@@ -26,6 +26,7 @@ same use cases at the protocol level.
 | [ERC-7758 — Transfer With Authorization (modern)](/standards-mirror/account-and-auth/erc-7758) | Native witness scopes (same as ERC-3009) | Review | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
 | [ERC-7677 — Paymaster Web Service Capability](/standards-mirror/account-and-auth/erc-7677) | Sponsor relayer + signed gas-budget pattern | Review | Smart Accounts |
+| [ERC-7715 — Permission Grants for Smart Accounts](/standards-mirror/account-and-auth/erc-7715) | Witness scopes + per-grant allowlist contract | Draft | Smart Accounts |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
 | [ERC-5564 — Stealth Addresses](/standards-mirror/account-and-auth/erc-5564) | secp256r1 ECDH + announcer contract | Final | Privacy |
 | [ERC-6066 — Signature Validation Method for NFTs](/standards-mirror/account-and-auth/erc-6066) | NEP-11 + NEP-30 verify, scoped per tokenId | Final | Signatures |

@@ -21,24 +21,24 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, hierarchical, equippable, entitlement, redeemable</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, vesting, AI-generated, transfer-detection</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4519, 4906, 4907, 4494, 5006, 5023, 5169, 5192, 5375, 5380, 5484, 5489, 5570, 5615, 5679, 5773, 6059, 6093, 6105, 6150, 6220, 6672, 6909, 6982, 2309, 5114, 6147, 7066, 7144, 7160, 7432, 7528, 7943
+      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4519, 4906, 4907, 4494, 5006, 5023, 5169, 5192, 5375, 5380, 5484, 5489, 5570, 5615, 5679, 5725, 5773, 6059, 6093, 6105, 6150, 6220, 6454, 6672, 6909, 6982, 2309, 5114, 6147, 7007, 7066, 7144, 7160, 7432, 7528, 7634, 7943
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">42 standards</span>
+      <span class="cat-pill cat-pill-direct">46 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
 
   <a class="mirror-cat" href="./account-and-auth">
     <div class="cat-eyebrow">Account & Authentication</div>
-    <div class="cat-title">Ownership (incl. governance), signatures, smart accounts, SIWE, stealth, NFT sigs, paymasters</div>
+    <div class="cat-title">Ownership, signatures, smart accounts, SIWE, stealth, NFT sigs, paymasters, permissions</div>
     <div class="cat-desc">
-      ERC-173, 1271, 2612, 2767, 3009, 4337, 4361, 5267, 5313, 5564, 6066, 6492, 6551, 7656, 7677, 7758, EIP-712, EIP-191, EIP-7702, EIP-3074
+      ERC-173, 1271, 2612, 2767, 3009, 4337, 4361, 5267, 5313, 5564, 6066, 6492, 6551, 7656, 7677, 7715, 7758, EIP-712, EIP-191, EIP-7702, EIP-3074
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">20 standards</span>
+      <span class="cat-pill cat-pill-direct">21 standards</span>
       <span class="cat-pill cat-pill-native">Native witness scopes</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **99 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **104 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Fifty-two catalog entries are not in the live TestNet pair matrix:
+Fifty-seven catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -209,6 +209,11 @@ Fifty-two catalog entries are not in the live TestNet pair matrix:
 - **ERC-5380** (entitlement extension) — NEP-11 storage extension; per-collection shape.
 - **ERC-5489** (NFT hyperlink) — NEP-11 storage extension; per-collection shape.
 - **ERC-6672** (multi-redeemable NFTs) — NEP-11 storage extension; per-collection / per-operator shape.
+- **ERC-7634** (limited transfer count) — NEP-11 storage extension; per-collection shape.
+- **ERC-7007** (AI-generated content) — NEP-11 attestation extension; per-collection / per-model shape.
+- **ERC-5725** (vesting NFT) — NEP-11 + NEP-17 underlying-token mechanics; per-deployment configuration.
+- **ERC-6454** (transferable detection) — NEP-11 view extension; satisfied by every contract that exposes IsTransferable.
+- **ERC-7715** (AA permission grants) — Witness-scope-based authorisation; per-account permission module deploy.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 
