@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Eighteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Nineteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -32,6 +32,7 @@ is implementable on Neo today.
 | [ERC-5114 — Soulbound Badge](/standards-mirror/tokens/erc-5114) | Neo C# port | Final | NFT Extension |
 | [ERC-6147 — NFT Guard](/standards-mirror/tokens/erc-6147) | Neo C# port | Final | NFT Extension |
 | [ERC-4907 — Rental NFT (User Role)](/standards-mirror/tokens/erc-4907) | NEP-11 + per-token user/expires | Final | NFT Extension |
+| [ERC-3643 — T-REX Regulated Token](/standards-mirror/tokens/erc-3643) | NEP-17 + identity registry + compliance modules | Final | Compliance |
 
 ## Related Pages
 

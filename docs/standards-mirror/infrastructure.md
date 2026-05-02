@@ -5,11 +5,12 @@ description: Proxies, registries, modular contracts, deterministic deployment �
 
 # Infrastructure & Patterns
 
-Fourteen standards covering interface detection, registries, proxy upgrades,
-deterministic deployment, minimal proxies, init-arg meta-proxies, off-chain data
-retrieval, cross-chain messaging gateways, modular smart accounts, and
-meta-transactions. Several of these are straightforward ports; others are subsumed
-by Neo's manifest-driven contract model or its native oracle service.
+Fifteen standards covering interface detection, registries, proxy upgrades,
+deterministic deployment, minimal proxies, init-arg meta-proxies, blueprint
+contract format, off-chain data retrieval, cross-chain messaging gateways,
+modular smart accounts, and meta-transactions. Several of these are straightforward
+ports; others are subsumed by Neo's manifest-driven contract model or its native
+oracle service.
 
 ## Standards
 
@@ -18,6 +19,7 @@ by Neo's manifest-driven contract model or its native oracle service.
 | [ERC-165 — Interface Detection](/standards-mirror/infrastructure/erc-165) | Manifest supportedstandards | Final | Detection |
 | [ERC-1167 — Minimal Proxy (Clones)](/standards-mirror/infrastructure/erc-1167) | ContractManagement.Deploy (parameterised) | Final | Proxy |
 | [ERC-3448 — MetaProxy Standard](/standards-mirror/infrastructure/erc-3448) | ContractManagement.Deploy with constant slots | Final | Proxy |
+| [ERC-5202 — Blueprint Contract Format](/standards-mirror/infrastructure/erc-5202) | NEF blob in Storage + ContractManagement.Deploy | Final | Deployment |
 | [ERC-1820 — Pseudo-introspection Registry](/standards-mirror/infrastructure/erc-1820) | Manifest + native registry | Final | Registry |
 | [ERC-1967 — Standard Proxy Storage Slots](/standards-mirror/infrastructure/erc-1967) | NEP-22 ContractManagement.Update | Final | Upgrade |
 | [ERC-2535 — Diamond Standard](/standards-mirror/infrastructure/erc-2535) | Modular dispatch (port) | Final | Modularity |

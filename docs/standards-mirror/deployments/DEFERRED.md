@@ -4,23 +4,27 @@
 > agent has been retired; future changes should use the normal standards mirror
 > deploy workflow and update `results.json` / `RESULTS.md`.
 >
-> The mirror catalog now exposes **64 ERC/EIP mapping pages**. The TestNet matrix
-> covers **47 deployable standards**. The seventeen catalog entries without a live
-> contract pair fall into three groups:
+> The mirror catalog now exposes **69 ERC/EIP mapping pages**. The TestNet matrix
+> covers **47 deployable standards**. The twenty-two catalog entries without a
+> live contract pair fall into three groups:
 >
 > **Protocol-irrelevant** (3): EIP-1559 (fee-market auction), EIP-4844 (blob
 > transactions), EIP-3074 (superseded by EIP-7702 and covered by witness scopes).
 >
 > **Documented Neo C# port without checked-in fixture** (1): ERC-6909.
 >
-> **Subsumed by a native Neo mechanism** (13): ERC-1363 (NEP-17 callback),
+> **Subsumed by a native Neo mechanism** (18): ERC-1363 (NEP-17 callback),
 > ERC-3009 (witness scopes), ERC-6551 (registry-pattern TBA), ERC-1167
 > (ContractManagement.Deploy), ERC-4361 (SIWE — off-chain server convention),
 > ERC-3668 (native Oracle service), ERC-7528 (well-known native contract hashes),
 > ERC-7656 (registry-pattern TBA generalisation), ERC-3448 (parameterised
 > ContractManagement.Deploy), ERC-7535 (collapses to ERC-4626 + native asset),
-> ERC-4907 (NEP-11 storage extension), ERC-6093 (vocabulary convention, no
-> contract), ERC-7786 (bridge-adapter pattern, per-transport deploy).
+> ERC-4907 (NEP-11 storage extension), ERC-6093 (vocabulary convention),
+> ERC-7786 (bridge-adapter, per-transport deploy), ERC-5313 (view convention,
+> satisfied by every contract with `getOwner`), ERC-5564 (announcer + wallet-SDK
+> dependency), ERC-6066 (NEP-11 per-tokenId verify extension), ERC-3643
+> (multi-contract framework, per-deployment shape), ERC-5202 (Neo's deploy
+> primitive already separates blob storage from execution).
 >
 > A single fixture deploy would not exercise these standards meaningfully — they
 > are catalog explainers, not checked-in TestNet pairs.

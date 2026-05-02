@@ -5,8 +5,9 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Fourteen standards covering ownership, off-chain signatures, smart-contract signature
-verification, account abstraction, EOA-as-contract proposals, NFT-bound accounts,
+Seventeen standards covering ownership (full + light), off-chain signatures,
+smart-contract signature verification, NFT-aware signature validation, stealth-address
+privacy, account abstraction, EOA-as-contract proposals, NFT-bound accounts,
 generalised contract-linked services, and the de-facto web3 sign-in flow. Most of
 these are elaborate workarounds for Ethereum's "EOA can only do ECDSA" limitation;
 Neo's witness model handles the same use cases at the protocol level.
@@ -16,11 +17,14 @@ Neo's witness model handles the same use cases at the protocol level.
 | Standard | Neo Mapping | Status | Category |
 | --- | --- | --- | --- |
 | [ERC-173 — Contract Ownership](/standards-mirror/account-and-auth/erc-173) | Owner pattern + NEP-22 | Final | Ownership |
+| [ERC-5313 — Light Contract Ownership](/standards-mirror/account-and-auth/erc-5313) | `getOwner()` view convention | Final | Ownership |
 | [ERC-1271 — Smart Contract Signatures](/standards-mirror/account-and-auth/erc-1271) | Native witness model | Final | Signatures |
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Native witness scopes | Final | Signatures |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Native witness scopes | Final (USDC) / Stagnant (EIP) | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
 | [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
+| [ERC-5564 — Stealth Addresses](/standards-mirror/account-and-auth/erc-5564) | secp256r1 ECDH + announcer contract | Final | Privacy |
+| [ERC-6066 — Signature Validation Method for NFTs](/standards-mirror/account-and-auth/erc-6066) | NEP-11 + NEP-30 verify, scoped per tokenId | Final | Signatures |
 | [EIP-712 — Typed Structured Data Signing](/standards-mirror/account-and-auth/eip-712) | Native witness model | Final | Signatures |
 | [EIP-191 — Signed Data Prefix](/standards-mirror/account-and-auth/eip-191) | Native witness model | Final | Signatures |
 | [ERC-5267 — EIP-712 Domain Retrieval](/standards-mirror/account-and-auth/erc-5267) | Native | Final | Signatures |
