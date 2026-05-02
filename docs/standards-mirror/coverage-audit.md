@@ -72,6 +72,14 @@ conventions:
   base class's notification field. Pages inheriting `Nep17Token` /
   `Nep11Token<T>` never redeclare `Transfer` — they reuse the base
   class's event field.
+- **Storage key building:** samples build prefixed keys manually with
+  `new byte[] { Prefix_X }.Concat(suffix)` rather than using the
+  `StorageMap` helper. Both produce identical on-chain layouts, but
+  the manual form makes the prefix byte explicit in every method
+  (helpful for porters who want to predict storage keys before reading
+  the helper's source). Production code may prefer
+  `new StorageMap(Storage.CurrentContext, Prefix_X)` for ergonomics —
+  the migration is mechanical and doesn't change semantics.
 
 Verify against the canonical sources before deploying:
 [Nep17Token.cs](https://github.com/neo-project/neo-devpack-dotnet/blob/master/src/Neo.SmartContract.Framework/Nep17Token.cs),
