@@ -156,6 +156,7 @@ public class DemoToken : SmartContract
     [DisplayName("Transfer")]
     public static event Action<UInt160, UInt160, BigInteger> OnTransfer;
 
+    [Safe]
     public static string Symbol()   => "DEMO";
     public static byte   Decimals() => 8;
 
