@@ -23,35 +23,35 @@ deployment results and the Solidity support matrix.
     <div class="cat-eyebrow">Token Standards</div>
     <div class="cat-title">Fungibles, NFTs, multi-token, soulbound</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309, 5114, 6147
+      ERC-20, 721, 777, 1155, 1363, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309, 5114, 6147, 7528
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">15 standards</span>
+      <span class="cat-pill cat-pill-direct">16 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
 
   <a class="mirror-cat" href="./account-and-auth">
     <div class="cat-eyebrow">Account & Authentication</div>
-    <div class="cat-title">Ownership, signatures, smart accounts</div>
+    <div class="cat-title">Ownership, signatures, smart accounts, SIWE</div>
     <div class="cat-desc">
-      ERC-173, 1271, 2612, 3009, 4337, 5267, 6492, 6551, EIP-712, EIP-191, EIP-7702, EIP-3074
+      ERC-173, 1271, 2612, 3009, 4337, 4361, 5267, 6492, 6551, 7656, EIP-712, EIP-191, EIP-7702, EIP-3074
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">12 standards</span>
+      <span class="cat-pill cat-pill-direct">14 standards</span>
       <span class="cat-pill cat-pill-native">Native witness scopes</span>
     </div>
   </a>
 
   <a class="mirror-cat" href="./infrastructure">
     <div class="cat-eyebrow">Infrastructure & Patterns</div>
-    <div class="cat-title">Proxies, registries, modular contracts</div>
+    <div class="cat-title">Proxies, registries, off-chain data, modular contracts</div>
     <div class="cat-desc">
-      ERC-165, 1014, 1056, 1820, 1967, 2470, 2535, 2771, 7201, 7579
+      ERC-165, 1014, 1056, 1167, 1820, 1967, 2470, 2535, 2771, 3668, 7201, 7579
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">10 standards</span>
-      <span class="cat-pill cat-pill-neo">NEP-22 native update</span>
+      <span class="cat-pill cat-pill-direct">12 standards</span>
+      <span class="cat-pill cat-pill-neo">NEP-22 + Oracle native</span>
     </div>
   </a>
 
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **54 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **59 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Seven catalog entries are not in the live TestNet pair matrix:
+Twelve catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -164,6 +164,11 @@ Seven catalog entries are not in the live TestNet pair matrix:
 - **ERC-1363** (payable token) — built into NEP-17's `onNEP17Payment` callback; no standalone deploy needed.
 - **ERC-3009** (transfer with authorization) — subsumed by Neo's witness scopes; no separate contract required.
 - **ERC-6551** (token bound accounts) — registry-pattern catalog entry; deploy targets a per-collection setup rather than a single fixture.
+- **ERC-1167** (minimal proxy clones) — registry-pattern catalog entry; cloning is a deploy-time operation rather than a single fixture.
+- **ERC-4361** (Sign-In with Ethereum) — primarily an off-chain server convention; on-chain verifier is application-specific.
+- **ERC-3668** (CCIP Read) — subsumed by Neo's native Oracle service; no on-chain mirror contract needed.
+- **ERC-7528** (native asset address) — Neo native assets (NEO, GAS) already have well-known contract hashes; nothing to deploy.
+- **ERC-7656** (generalised contract-linked services) — registry-pattern catalog entry, like ERC-6551.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 

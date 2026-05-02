@@ -5,10 +5,11 @@ description: Ethereum signature, ownership, and account-abstraction standards mi
 
 # Account & Authentication
 
-Twelve standards covering ownership, off-chain signatures, smart-contract signature
-verification, account abstraction, EOA-as-contract proposals, and NFT-bound accounts.
-Most of these are elaborate workarounds for Ethereum's "EOA can only do ECDSA"
-limitation; Neo's witness model handles the same use cases at the protocol level.
+Fourteen standards covering ownership, off-chain signatures, smart-contract signature
+verification, account abstraction, EOA-as-contract proposals, NFT-bound accounts,
+generalised contract-linked services, and the de-facto web3 sign-in flow. Most of
+these are elaborate workarounds for Ethereum's "EOA can only do ECDSA" limitation;
+Neo's witness model handles the same use cases at the protocol level.
 
 ## Standards
 
@@ -19,11 +20,13 @@ limitation; Neo's witness model handles the same use cases at the protocol level
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Native witness scopes | Final | Signatures |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Native witness scopes | Final (USDC) / Stagnant (EIP) | Signatures |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Native NEP-30 verify | Final | Smart Accounts |
+| [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Native witness over a domain-bound message | Final | Authentication |
 | [EIP-712 — Typed Structured Data Signing](/standards-mirror/account-and-auth/eip-712) | Native witness model | Final | Signatures |
 | [EIP-191 — Signed Data Prefix](/standards-mirror/account-and-auth/eip-191) | Native witness model | Final | Signatures |
 | [ERC-5267 — EIP-712 Domain Retrieval](/standards-mirror/account-and-auth/erc-5267) | Native | Final | Signatures |
 | [ERC-6492 — Signatures for Pre-deployed Contracts](/standards-mirror/account-and-auth/erc-6492) | Native (no counterfactual deploy) | Final | Signatures |
 | [ERC-6551 — Token Bound Accounts](/standards-mirror/account-and-auth/erc-6551) | Registry + per-NFT contract account | Review | Smart Accounts |
+| [ERC-7656 — Generalized Contract-Linked Services](/standards-mirror/account-and-auth/erc-7656) | Registry pattern (mode-flagged) | Final | Service Discovery |
 | [EIP-7702 — Set Code for EOAs](/standards-mirror/account-and-auth/eip-7702) | Native (every account is a contract) | Final (Pectra) | Smart Accounts |
 | [EIP-3074 — AUTH and AUTHCALL](/standards-mirror/account-and-auth/eip-3074) | Native (witness scopes) | Stagnant (superseded by 7702) | Smart Accounts |
 

@@ -5,18 +5,21 @@ description: Proxies, registries, modular contracts, deterministic deployment �
 
 # Infrastructure & Patterns
 
-Ten standards covering interface detection, registries, proxy upgrades, deterministic
-deployment, modular smart accounts, and meta-transactions. Several of these are
-straightforward ports; others are subsumed by Neo's manifest-driven contract model.
+Twelve standards covering interface detection, registries, proxy upgrades,
+deterministic deployment, minimal proxies, off-chain data retrieval, modular smart
+accounts, and meta-transactions. Several of these are straightforward ports; others
+are subsumed by Neo's manifest-driven contract model or its native oracle service.
 
 ## Standards
 
 | Standard | Neo Mapping | Status | Category |
 | --- | --- | --- | --- |
 | [ERC-165 — Interface Detection](/standards-mirror/infrastructure/erc-165) | Manifest supportedstandards | Final | Detection |
+| [ERC-1167 — Minimal Proxy (Clones)](/standards-mirror/infrastructure/erc-1167) | ContractManagement.Deploy (parameterised) | Final | Proxy |
 | [ERC-1820 — Pseudo-introspection Registry](/standards-mirror/infrastructure/erc-1820) | Manifest + native registry | Final | Registry |
 | [ERC-1967 — Standard Proxy Storage Slots](/standards-mirror/infrastructure/erc-1967) | NEP-22 ContractManagement.Update | Final | Upgrade |
 | [ERC-2535 — Diamond Standard](/standards-mirror/infrastructure/erc-2535) | Modular dispatch (port) | Final | Modularity |
+| [ERC-3668 — CCIP Read (Off-chain Data)](/standards-mirror/infrastructure/erc-3668) | Native Oracle service | Final | Off-chain Data |
 | [ERC-7201 — Namespaced Storage Layout](/standards-mirror/infrastructure/erc-7201) | Storage prefixes (idiomatic) | Final | Storage |
 | [ERC-1014 — Skinny CREATE2](/standards-mirror/infrastructure/erc-1014) | ContractManagement.Deploy | Final | Deployment |
 | [ERC-2470 — Singleton Factory](/standards-mirror/infrastructure/erc-2470) | ContractManagement.Deploy (no factory needed) | Final | Deployment |

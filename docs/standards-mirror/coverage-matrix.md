@@ -6,7 +6,7 @@ description: Every mirrored ERC/EIP standard with category, EIP status, Neo mapp
 # Standards Mirror — Coverage Matrix
 
 Generated from `docs/standards-mirror/deployments/results.json` snapshot
-`2026-04-29T02:47:17.306Z`. **54** mirror pages, **47** with live
+`2026-04-29T02:47:17.306Z`. **59** mirror pages, **47** with live
 Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 Use this page to scan every mirrored standard side-by-side: catalog status,
@@ -22,7 +22,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Token Standards
 
-15 mirrored — 13 deployed.
+16 mirrored — 13 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -41,10 +41,11 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-6909 — Minimal Multi-Token](/standards-mirror/tokens/erc-6909) | Final | Neo C# port | — | — |
 | [ERC-5114 — Soulbound Badge](/standards-mirror/tokens/erc-5114) | Final | Neo C# port | 1 / 2 | 2 / 2 |
 | [ERC-6147 — NFT Guard](/standards-mirror/tokens/erc-6147) | Final | Neo C# port | 2 / 2 | 2 / 2 |
+| [ERC-7528 — Native Asset Address Convention](/standards-mirror/tokens/erc-7528) | Final | Native NEO / GAS contract hashes | — | — |
 
 ## Account & Authentication
 
-12 mirrored — 9 deployed.
+14 mirrored — 9 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -53,28 +54,32 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-2612 — Permit (Gasless Approval)](/standards-mirror/account-and-auth/erc-2612) | Final | Native witness scopes | 1 / 2 | 2 / 2 |
 | [ERC-3009 — Transfer With Authorization](/standards-mirror/account-and-auth/erc-3009) | Final (USDC) / Stagnant | Native witness scopes | — | — |
 | [ERC-4337 — Account Abstraction](/standards-mirror/account-and-auth/erc-4337) | Final | Native NEP-30 verify | 1 / 2 | 2 / 2 |
+| [ERC-4361 — Sign-In with Ethereum (SIWE)](/standards-mirror/account-and-auth/erc-4361) | Final | Native witness over domain-bound message | — | — |
 | [EIP-712 — Typed Structured Data Signing](/standards-mirror/account-and-auth/eip-712) | Final | Native witness model | 0 / 1 | 2 / 2 |
 | [EIP-191 — Signed Data Prefix](/standards-mirror/account-and-auth/eip-191) | Final | Native witness model | 0 / 1 | 1 / 1 |
 | [ERC-5267 — EIP-712 Domain Retrieval](/standards-mirror/account-and-auth/erc-5267) | Final | Native | 2 / 2 | 2 / 2 |
 | [ERC-6492 — Signatures for Pre-deployed Contracts](/standards-mirror/account-and-auth/erc-6492) | Final | Native (no counterfactual) | 1 / 2 | 2 / 2 |
 | [ERC-6551 — Token Bound Accounts](/standards-mirror/account-and-auth/erc-6551) | Review | Registry + per-NFT contract | — | — |
+| [ERC-7656 — Generalized Contract-Linked Services](/standards-mirror/account-and-auth/erc-7656) | Final | Registry pattern (mode-flagged) | — | — |
 | [EIP-7702 — Set Code for EOAs](/standards-mirror/account-and-auth/eip-7702) | Final (Pectra) | Native (every account is a contract) | 1 / 2 | 2 / 2 |
 | [EIP-3074 — AUTH and AUTHCALL](/standards-mirror/account-and-auth/eip-3074) | Stagnant | Native (witness scopes) | — | — |
 
 ## Infrastructure & Patterns
 
-10 mirrored — 10 deployed.
+12 mirrored — 10 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
 | [ERC-165 — Standard Interface Detection](/standards-mirror/infrastructure/erc-165) | Final | Manifest `supportedstandards` | 1 / 1 | 2 / 2 |
 | [ERC-1014 — Deterministic Deploy (CREATE2)](/standards-mirror/infrastructure/erc-1014) | Final | ContractManagement + nonce | 1 / 2 | 2 / 2 |
 | [ERC-1056 — Lightweight DID Registry](/standards-mirror/infrastructure/erc-1056) | Final | Neo C# port | 1 / 1 | 1 / 1 |
+| [ERC-1167 — Minimal Proxy (Clones)](/standards-mirror/infrastructure/erc-1167) | Final | ContractManagement.Deploy (parameterised) | — | — |
 | [ERC-1820 — Pseudo-introspection Registry](/standards-mirror/infrastructure/erc-1820) | Final | Neo C# port | 1 / 1 | 1 / 1 |
 | [ERC-1967 — Proxy Storage Slots](/standards-mirror/infrastructure/erc-1967) | Final | NEP-22 in-place update | 1 / 2 | 2 / 2 |
 | [ERC-2470 — Singleton Factory](/standards-mirror/infrastructure/erc-2470) | Final | ContractManagement deterministic | 1 / 2 | 2 / 2 |
 | [ERC-2535 — Diamond Multi-Facet Proxy](/standards-mirror/infrastructure/erc-2535) | Final | Method-name router pattern | 1 / 2 | 1 / 1 |
 | [ERC-2771 — Trusted Forwarder (Meta-Tx)](/standards-mirror/infrastructure/erc-2771) | Final | Native witness scopes | 1 / 2 | 1 / 1 |
+| [ERC-3668 — CCIP Read (Off-chain Data)](/standards-mirror/infrastructure/erc-3668) | Final | Native Oracle service | — | — |
 | [ERC-7201 — Namespaced Storage Layout](/standards-mirror/infrastructure/erc-7201) | Final | Storage prefix convention | 0 / 1 | 2 / 2 |
 | [ERC-7579 — Modular Smart Account](/standards-mirror/infrastructure/erc-7579) | Final | NEP-30 verify + module dispatch | 1 / 2 | 2 / 2 |
 
@@ -111,9 +116,9 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Aggregate
 
-- **Catalog total:** 54 ERC/EIP pages
+- **Catalog total:** 59 ERC/EIP pages
 - **Deployed pairs:** 47
-- **Catalog-only:** 7 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
+- **Catalog-only:** 12 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
 - **Solidity assertions:** 62 / 94 pass
 - **Neo C# assertions:** 85 / 89 pass
 - **Combined assertion pass-rate:** 147 / 183

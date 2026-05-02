@@ -62,29 +62,43 @@ covers the standards with the highest application-level relevance for Neo
 migration — token primitives, accounts, and infrastructure. The list below
 is the curated set of meaningful gaps, grouped by priority.
 
-### High priority
+### Recently closed (now mirrored)
+
+The previous high-priority gap list has been fully closed in the current
+catalog. Included for the audit trail:
+
+| Standard | Mirror Page | Why it mattered |
+| --- | --- | --- |
+| ERC-1167 | [infrastructure/erc-1167](./infrastructure/erc-1167) | Single most-used proxy pattern; underpins every Ethereum factory |
+| ERC-4361 | [account-and-auth/erc-4361](./account-and-auth/erc-4361) | De-facto web3 sign-in (SIWE) |
+| ERC-3668 | [infrastructure/erc-3668](./infrastructure/erc-3668) | Off-chain data via CCIP Read; mirrors to native Oracle |
+| ERC-7528 | [tokens/erc-7528](./tokens/erc-7528) | Native asset address convention; relevant for any DEX or vault |
+| ERC-7656 | [account-and-auth/erc-7656](./account-and-auth/erc-7656) | Generalisation of ERC-6551 to any contract |
+
+### High priority (next-up)
+
+With the previous high-priority gaps closed, these are now the most
+valuable additions:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-1167** | Minimal Proxy Contract (EIP-1167 Clones) | Final | Single most-used proxy pattern in Ethereum. Underpins TBA registries, factories, deterministic deploys. Neo equivalent: parameterised manifest deploy via `ContractManagement.Deploy`. |
-| **ERC-4361** | Sign-In with Ethereum (SIWE) | Final | The de-facto web3 authentication flow. Maps to Neo signer + tx witness. Worth a dedicated mirror because it's how dApps onboard users. |
-| **ERC-3668** | CCIP Read — Off-chain Data Retrieval | Final | The standard pattern for verifiably reading off-chain data inside contracts. Neo's oracle service is a direct replacement; explainer would clarify the model swap. |
-| **ERC-7528** | ETH (Native Asset) Address Convention | Final | Standardised representation of the native token (`0xEEEE…EEEE`). Neo equivalent: `NativeContract.NEO.Hash` / `NativeContract.GAS.Hash`. Important for any DeFi protocol indexing native vs ERC-20. |
-| **ERC-7656** | Generalized Contract-Linked Services | Final | Generalisation of ERC-6551 — registry for arbitrary services bound to any contract, not just NFTs. Worth mirroring alongside ERC-6551. |
+| **ERC-3448** | MetaProxy Standard | Final | Init-supporting variant of ERC-1167. Pairs cleanly with the new ERC-1167 page; small additional effort, high reuse. |
+| **ERC-7535** | Native Asset ERC-4626 Vault | Final | ETH version of ERC-4626. Pairs cleanly with the existing ERC-4626 page and the new ERC-7528 (native asset address). Triple-link these for any DeFi vault porting story. |
+| **ERC-4907** | Rental NFT (User Role Extension) | Final | NFT temporary delegation; popular in gaming. Pairs well with ERC-6551 (the renter could be the TBA holder). |
+| **ERC-6093** | Custom Errors for Common Tokens | Final | Standardised error definitions across NEP-17 / NEP-11 ports. Improves indexer + wallet UX consistency. |
+| **ERC-7786** | Cross-Chain Messaging Gateway | Final | Cross-chain interop. Worth adding once the Neo bridge story is concrete; currently the most-asked standard from chain-bridge teams. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
-| ERC-3448 | MetaProxy Standard | Final | Init-supporting variant of ERC-1167. Mirror together with ERC-1167. |
 | ERC-3643 | T-REX — Regulated Token | Final | Compliance framework. Niche but important for tokenised securities; growing relevance. |
-| ERC-4907 | Rental NFT (User Role Extension) | Final | NFT temporary delegation; popular in gaming. Pairs well with ERC-6551. |
 | ERC-5202 | Blueprint Contract Format | Final | Pattern for storing contract code as data. Neo equivalent: NEF blob storage + `ContractManagement.Deploy`. |
-| ERC-5313 | Light Contract Ownership | Final | Lighter alternative to ERC-173. |
-| ERC-5564 | Stealth Addresses | Final | Privacy-preserving recipient addresses. Neo has primitives that could mirror; useful for analysts. |
+| ERC-5313 | Light Contract Ownership | Final | Lighter alternative to ERC-173. Mirror could share most of the ERC-173 page. |
+| ERC-5564 | Stealth Addresses | Final | Privacy-preserving recipient addresses. Useful primitive — Neo has the necessary cryptographic helpers. |
 | ERC-6066 | NFT Signature Validation | Final | NFT-aware ERC-1271; used by NFT marketplaces. |
-| ERC-6093 | Custom errors for tokens | Final | Standardised error definitions. |
-| ERC-7535 | Native Asset ERC-4626 Vault | Final | ETH version of ERC-4626. Should be mirrored alongside the existing ERC-4626 page. |
+| ERC-7944 | Async Cancellation for ERC-7540 | Final | Pairs with the existing ERC-7540 mirror; small extension. |
+| ERC-8042 | Diamond Storage | Final | Storage convention for ERC-2535. Pairs with the existing ERC-2535 mirror. |
 
 ### Watch list (Review / Last Call)
 
