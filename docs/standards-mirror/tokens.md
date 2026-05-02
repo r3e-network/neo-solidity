@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Fifty-four Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Fifty-nine Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -68,6 +68,11 @@ is implementable on Neo today.
 | [ERC-6239 — Semantic Soulbound Tokens](/standards-mirror/tokens/erc-6239) | NEP-11 soulbound + RDF triple metadata | Final | NFT Extension |
 | [ERC-7053 — Interoperable Digital Media Indexing](/standards-mirror/tokens/erc-7053) | NEP-11 + media-indexing event emission | Final | NFT Extension |
 | [ERC-6381 — Public NFT Emote Repository](/standards-mirror/tokens/erc-6381) | Standalone repository: (collection, tokenId, emoji, user) | Final | NFT Extension / Social |
+| [ERC-7857 — AI Agents NFT with Private Metadata](/standards-mirror/tokens/erc-7857) | NEP-11 + encrypted-metadata reference + re-encryption | Final | NFT Extension / AI |
+| [ERC-7231 — Identity-aggregated NFT](/standards-mirror/tokens/erc-7231) | NEP-11 + per-token identity-binding storage | Final | NFT Extension / Identity |
+| [ERC-7531 — Staked ERC-721 Ownership Recognition](/standards-mirror/tokens/erc-7531) | Staking contract OriginalOwnerOf view | Review | NFT Extension |
+| [ERC-5216 — ERC-1155 Allowance Extension](/standards-mirror/tokens/erc-5216) | NEP-11 (divisible) + per-(owner, spender, tokenId) allowance | Last Call | Multi-Token Extension |
+| [ERC-5008 — ERC-721 Nonce Extension](/standards-mirror/tokens/erc-5008) | NEP-11 + per-token nonce auto-incremented on transfer | Last Call | NFT Extension |
 
 ## Related Pages
 
