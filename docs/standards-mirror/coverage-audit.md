@@ -64,7 +64,7 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Six consecutive priority passes have closed thirty meaningful
+Eight consecutive priority passes have closed forty meaningful
 Final / Review / Last-Call-status ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
@@ -99,30 +99,41 @@ Final / Review / Last-Call-status ERCs. Included for the audit trail:
 | ERC-2767 | [account-and-auth/erc-2767](./account-and-auth/erc-2767) | Contract Ownership Governance |
 | ERC-7758 | [account-and-auth/erc-7758](./account-and-auth/erc-7758) | Modern Transfer-With-Authorization |
 | ERC-5169 | [tokens/erc-5169](./tokens/erc-5169) | Client Script URI for token contracts |
+| ERC-5375 | [tokens/erc-5375](./tokens/erc-5375) | NFT Author Information and Consent |
+| ERC-5023 | [tokens/erc-5023](./tokens/erc-5023) | Shareable Non-Fungible Token (multi-holder) |
+| ERC-7066 | [tokens/erc-7066](./tokens/erc-7066) | Approval-based NFT Lock Extension |
+| ERC-7432 | [tokens/erc-7432](./tokens/erc-7432) | NFT Roles (time-bounded grants) |
+| ERC-6105 | [tokens/erc-6105](./tokens/erc-6105) | No-Intermediary NFT Trading Protocol |
+| ERC-5615 | [tokens/erc-5615](./tokens/erc-5615) | ERC-1155 Supply Extension |
+| ERC-5773 | [tokens/erc-5773](./tokens/erc-5773) | Context-Dependent Multi-Asset Tokens |
+| ERC-6059 | [tokens/erc-6059](./tokens/erc-6059) | Parent-Governed Nestable NFTs |
+| ERC-4519 | [tokens/erc-4519](./tokens/erc-4519) | NFTs Tied to Physical Assets |
+| ERC-5570 | [tokens/erc-5570](./tokens/erc-5570) | Digital Receipt NFT |
 
 ### High priority (next-up)
 
-Six batches closed; the remaining "high priority" tilts toward
-NFT-creator standards and identity / DID infrastructure:
+Eight batches closed; the remaining "high priority" tilts toward
+NFT composition extensions and the few cross-chain / DID standards
+not yet covered:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-5375** | NFT Author Information and Consent | Final | Provenance + creator attribution metadata. Pairs with ERC-2981 (royalties) for a complete creator-economy story. |
-| **ERC-5023** | Shareable Non-Fungible Token | Final | Multi-holder NFT ownership; useful for collectives, syndicates, club-tokens. |
-| **ERC-7404** | NFT Time-Lock | Final | Time-bounded NFT transfer freeze; complements ERC-6982 lockable but with explicit expiry. |
-| **ERC-7066** | Lockable Extension for ERC-721 | Final | Approval-based lock pattern; pairs with ERC-6982 (default-lock) and ERC-6147 (guard) for a complete locking story. |
-| **ERC-5520** | NFT Embedded Content | Final | Embed arbitrary data (images, scripts) directly in NFTs without external storage. |
+| **ERC-6150** | Hierarchical NFTs | Final | Lighter alternative to ERC-6059 (no parent-governance accept flow). |
+| **ERC-6220** | Composable NFTs Equippable Parts | Final | Modular NFT assembly on top of nestable / multi-asset. |
+| **ERC-5380** | ERC-721 Entitlement Extension | Final | Permission delegation for NFT actions; fills the gap between ERC-4907 and ERC-7432. |
+| **ERC-5489** | NFT Hyperlink Extension | Final | Embedded URL references in NFT metadata; thin standard but commonly used. |
+| **ERC-7434** | Real Estate Token | Final | Property-specific RWA. Pairs with ERC-3643 / ERC-7943 / ERC-4519 / ERC-3475. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
 | ERC-7715 | Permission grants for accounts | Draft | Account-abstraction permission model. |
-| ERC-4519 | NFTs Tied to Physical Assets | Final | RWA — physical-good binding. |
-| ERC-5570 | Digital Receipt NFT | Final | Receipts as NFTs; consumer flows. |
-| ERC-7585 | Permitted Authentication Scheme | Draft | Generalised ERC-4361 for non-Ethereum chains. |
-| ERC-5380 | ERC-721 Entitlement Extension | Final | Permission delegation for NFT actions. |
-| ERC-6105 | No-Intermediary NFT Trading | Final | Direct P2P NFT exchange. |
+| ERC-3475 | Already mirrored ✓ | — | — |
+| ERC-6672 | Multi-redeemable NFTs | Final | NFTs supporting multiple redemption events. |
+| ERC-7634 | Limited Transfer Count NFT | Final | NFT with restricted transfer quantity. |
+| ERC-6982 | Already mirrored ✓ | — | — |
+| ERC-7007 | Verifiable AI-Generated Content Token | Final | NFT proving algorithmic provenance. |
 
 ### Watch list (Review / Last Call)
 

@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Twenty-seven Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Thirty-seven Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -41,6 +41,16 @@ is implementable on Neo today.
 | [ERC-7943 — Universal Real World Asset Interface](/standards-mirror/tokens/erc-7943) | NEP-17/NEP-11 + capability flags + compliance hook | Last Call | RWA |
 | [ERC-5006 — Rental NFT, NFT User Extension](/standards-mirror/tokens/erc-5006) | NEP-11 (divisible) + per-record user/expires | Final | NFT Extension |
 | [ERC-5169 — Client Script URI for Token Contracts](/standards-mirror/tokens/erc-5169) | NEP-11 / NEP-17 + scriptURI() view | Final | Token Metadata |
+| [ERC-5375 — NFT Author Information and Consent](/standards-mirror/tokens/erc-5375) | NEP-11 + author/consent metadata fields | Final | NFT Extension |
+| [ERC-5023 — Shareable Non-Fungible Token](/standards-mirror/tokens/erc-5023) | NEP-11 with multi-holder share extension | Final | NFT Extension |
+| [ERC-7066 — Lockable Extension for ERC-721](/standards-mirror/tokens/erc-7066) | NEP-11 + per-token approval-based lock | Final | NFT Extension |
+| [ERC-7432 — Non-Fungible Token Roles](/standards-mirror/tokens/erc-7432) | NEP-11 + (tokenId, role) → grant storage with TTL | Final | NFT Extension |
+| [ERC-6105 — No Intermediary NFT Trading Protocol](/standards-mirror/tokens/erc-6105) | NEP-11 with built-in listing + atomic-swap surface | Final | NFT Extension |
+| [ERC-5615 — ERC-1155 Supply Extension](/standards-mirror/tokens/erc-5615) | NEP-11 (divisible) + per-tokenId supply tracking | Final | Multi-Token Extension |
+| [ERC-5773 — Context-Dependent Multi-Asset Tokens](/standards-mirror/tokens/erc-5773) | NEP-11 + per-token asset list + priority | Final | NFT Extension |
+| [ERC-6059 — Parent-Governed Nestable NFTs](/standards-mirror/tokens/erc-6059) | NEP-11 + parent-child storage + accept flow | Final | NFT Extension |
+| [ERC-4519 — NFTs Tied to Physical Assets](/standards-mirror/tokens/erc-4519) | NEP-11 + per-token device pubkey + state machine | Final | RWA / NFT Extension |
+| [ERC-5570 — Digital Receipt NFT](/standards-mirror/tokens/erc-5570) | NEP-11 + structured receipt metadata schema | Final | NFT Extension |
 
 ## Related Pages
 
