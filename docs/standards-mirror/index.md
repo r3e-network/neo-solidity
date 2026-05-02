@@ -23,10 +23,10 @@ deployment results and the Solidity support matrix.
     <div class="cat-eyebrow">Token Standards</div>
     <div class="cat-title">Fungibles, NFTs, multi-token, soulbound</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309, 5114, 6147
+      ERC-20, 721, 777, 1155, 1363, 2981, 3525, 4906, 4494, 5192, 5484, 6909, 2309, 5114, 6147
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">14 standards</span>
+      <span class="cat-pill cat-pill-direct">15 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
@@ -35,10 +35,10 @@ deployment results and the Solidity support matrix.
     <div class="cat-eyebrow">Account & Authentication</div>
     <div class="cat-title">Ownership, signatures, smart accounts</div>
     <div class="cat-desc">
-      ERC-173, 1271, 2612, 4337, 5267, 6492, EIP-712, EIP-191, EIP-7702, EIP-3074
+      ERC-173, 1271, 2612, 3009, 4337, 5267, 6492, 6551, EIP-712, EIP-191, EIP-7702, EIP-3074
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">10 standards</span>
+      <span class="cat-pill cat-pill-direct">12 standards</span>
       <span class="cat-pill cat-pill-native">Native witness scopes</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **51 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **54 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,12 +155,15 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Four catalog entries are not in the live TestNet pair matrix:
+Seven catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
 - **EIP-3074** (AUTH/AUTHCALL) — superseded by EIP-7702 and covered by Neo witness scopes.
 - **ERC-6909** (minimal multi-token) — documented as a direct Neo C# port but not part of the checked-in deployment snapshot.
+- **ERC-1363** (payable token) — built into NEP-17's `onNEP17Payment` callback; no standalone deploy needed.
+- **ERC-3009** (transfer with authorization) — subsumed by Neo's witness scopes; no separate contract required.
+- **ERC-6551** (token bound accounts) — registry-pattern catalog entry; deploy targets a per-collection setup rather than a single fixture.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 

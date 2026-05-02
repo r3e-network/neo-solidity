@@ -4,12 +4,15 @@
 > agent has been retired; future changes should use the normal standards mirror
 > deploy workflow and update `results.json` / `RESULTS.md`.
 >
-> The mirror catalog now exposes **51 ERC/EIP mapping pages**. The TestNet matrix
-> covers **47 deployable standards**. The four catalog entries without a live
+> The mirror catalog now exposes **54 ERC/EIP mapping pages**. The TestNet matrix
+> covers **47 deployable standards**. The seven catalog entries without a live
 > contract pair are EIP-1559 (fee-market auction), EIP-4844 (blob transactions),
-> EIP-3074 (superseded by EIP-7702 and covered by witness scopes), and ERC-6909
+> EIP-3074 (superseded by EIP-7702 and covered by witness scopes), ERC-6909
 > (documented as a direct Neo C# port but not part of the checked-in deployment
-> snapshot).
+> snapshot), and the three catalog-only additions ERC-1363, ERC-3009, and
+> ERC-6551 (each subsumed by a native Neo mechanism — NEP-17 callback, witness
+> scopes, and registry-pattern TBA respectively — so a single fixture deploy
+> would not exercise the standard meaningfully).
 
 ## Snapshot log
 

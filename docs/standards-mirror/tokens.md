@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Fourteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Fifteen Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -18,6 +18,7 @@ is implementable on Neo today.
 | [ERC-721 — Non-Fungible Token](/standards-mirror/tokens/erc-721) | NEP-11 | Final | NFT |
 | [ERC-777 — Token w/ Hooks](/standards-mirror/tokens/erc-777) | NEP-17 + NEP-27 callback | Final | Fungible |
 | [ERC-1155 — Multi-Token](/standards-mirror/tokens/erc-1155) | NEP-11 (divisible) + NEP-17 | Final | Multi-Token |
+| [ERC-1363 — Payable Token](/standards-mirror/tokens/erc-1363) | NEP-17 (`onNEP17Payment`) | Final | Fungible Extension |
 | [ERC-2981 — NFT Royalty Standard](/standards-mirror/tokens/erc-2981) | NEP-24 | Final | NFT Extension |
 | [ERC-3525 — Semi-Fungible Token](/standards-mirror/tokens/erc-3525) | Neo C# port | Final | Hybrid |
 | [ERC-2309 — Consecutive NFT Mints](/standards-mirror/tokens/erc-2309) | Neo C# port | Final | NFT Extension |

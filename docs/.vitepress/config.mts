@@ -409,6 +409,8 @@ export default defineConfig({
         collapsed: false,
         items: [
           page('Overview', '/standards-mirror/'),
+          page('Coverage Matrix', '/standards-mirror/coverage-matrix'),
+          page('Coverage Audit & Gaps', '/standards-mirror/coverage-audit'),
           standardsIndex('Token Standards', 'tokens'),
           standardsIndex('Account & Authentication', 'account-and-auth'),
           standardsIndex('Infrastructure & Patterns', 'infrastructure'),
