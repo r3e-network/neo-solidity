@@ -4,8 +4,8 @@
 > agent has been retired; future changes should use the normal standards mirror
 > deploy workflow and update `results.json` / `RESULTS.md`.
 >
-> The mirror catalog now exposes **119 ERC/EIP mapping pages**. The TestNet matrix
-> covers **47 deployable standards**. The seventy-two catalog entries without a
+> The mirror catalog now exposes **124 ERC/EIP mapping pages**. The TestNet matrix
+> covers **47 deployable standards**. The seventy-seven catalog entries without a
 > live contract pair fall into three groups:
 >
 > **Protocol-irrelevant** (3): EIP-1559 (fee-market auction), EIP-4844 (blob
@@ -57,7 +57,12 @@
 > (standalone emote repository singleton), ERC-7857 (NEP-11
 > encrypted-metadata extension), ERC-7231 (NEP-11 identity-Merkle
 > extension), ERC-7531 (staking-contract view), ERC-5216 (NEP-11
-> divisible allowance extension), ERC-5008 (NEP-11 nonce extension).
+> divisible allowance extension), ERC-5008 (NEP-11 nonce extension),
+> ERC-4910 (NEP-11/NEP-24 royalty escrow extension), ERC-5732
+> (standalone commit-reveal contract), ERC-4400 (NEP-11 consumer-slot
+> extension), ERC-5750 (NEP-style trailing-data convention, satisfied
+> by every NEP-17/NEP-11 contract), ERC-5269 (manifest
+> `supportedstandards` already provides this natively).
 >
 > A single fixture deploy would not exercise these standards meaningfully — they
 > are catalog explainers, not checked-in TestNet pairs.

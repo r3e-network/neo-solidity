@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Fifty-nine Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Sixty-three Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -73,6 +73,10 @@ is implementable on Neo today.
 | [ERC-7531 — Staked ERC-721 Ownership Recognition](/standards-mirror/tokens/erc-7531) | Staking contract OriginalOwnerOf view | Review | NFT Extension |
 | [ERC-5216 — ERC-1155 Allowance Extension](/standards-mirror/tokens/erc-5216) | NEP-11 (divisible) + per-(owner, spender, tokenId) allowance | Last Call | Multi-Token Extension |
 | [ERC-5008 — ERC-721 Nonce Extension](/standards-mirror/tokens/erc-5008) | NEP-11 + per-token nonce auto-incremented on transfer | Last Call | NFT Extension |
+| [ERC-4910 — Royalty Bearing NFTs](/standards-mirror/tokens/erc-4910) | NEP-11 + NEP-24 + escrow + claim flow | Final | NFT Extension |
+| [ERC-5732 — Commit Interface](/standards-mirror/tokens/erc-5732) | Standalone commit-reveal contract | Final | Pattern |
+| [ERC-4400 — EIP-721 Consumable Extension](/standards-mirror/tokens/erc-4400) | NEP-11 + per-token consumer slot | Final | NFT Extension |
+| [ERC-5750 — General Extensibility for Method Behaviors](/standards-mirror/tokens/erc-5750) | NEP-style trailing-data parameter convention | Final | Pattern |
 
 ## Related Pages
 

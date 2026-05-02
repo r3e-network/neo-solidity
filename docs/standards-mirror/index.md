@@ -21,12 +21,12 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, AI agents, identity, staking, allowance</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, RWA, royalties, commit-reveal, extensibility</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4519, 4906, 4907, 4494, 5006, 5008, 5023, 5169, 5192, 5216, 5375, 5380, 5484, 5489, 5507, 5521, 5528, 5570, 5585, 5615, 5646, 5679, 5725, 5773, 6059, 6093, 6105, 6150, 6220, 6239, 6381, 6454, 6672, 6909, 6982, 2309, 5114, 6147, 7007, 7053, 7066, 7144, 7160, 7231, 7432, 7528, 7531, 7634, 7857, 7943
+      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4400, 4519, 4906, 4907, 4494, 4910, 5006, 5008, 5023, 5169, 5192, 5216, 5375, 5380, 5484, 5489, 5507, 5521, 5528, 5570, 5585, 5615, 5646, 5679, 5725, 5732, 5750, 5773, 6059, 6093, 6105, 6150, 6220, 6239, 6381, 6454, 6672, 6909, 6982, 2309, 5114, 6147, 7007, 7053, 7066, 7144, 7160, 7231, 7432, 7528, 7531, 7634, 7857, 7943
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">59 standards</span>
+      <span class="cat-pill cat-pill-direct">63 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
@@ -47,10 +47,10 @@ deployment results and the Solidity support matrix.
     <div class="cat-eyebrow">Infrastructure & Patterns</div>
     <div class="cat-title">Proxies, blueprints, diamond storage, registries, off-chain data, cross-chain</div>
     <div class="cat-desc">
-      ERC-165, 1014, 1056, 1167, 1820, 1967, 2470, 2535, 2771, 3448, 3668, 5202, 7201, 7579, 7786, 8042
+      ERC-165, 1014, 1056, 1167, 1820, 1967, 2470, 2535, 2771, 3448, 3668, 5202, 5269, 7201, 7579, 7786, 8042
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">16 standards</span>
+      <span class="cat-pill cat-pill-direct">17 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-22 + Oracle native</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **119 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **124 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Seventy-two catalog entries are not in the live TestNet pair matrix:
+Seventy-seven catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -229,6 +229,11 @@ Seventy-two catalog entries are not in the live TestNet pair matrix:
 - **ERC-7531** (staked NFT recognition) — staking-contract view; per-staking-contract deploy.
 - **ERC-5216** (ERC-1155 allowance) — NEP-11 divisible storage extension; per-collection shape.
 - **ERC-5008** (NFT nonce) — NEP-11 storage extension; per-collection shape.
+- **ERC-4910** (royalty-bearing NFTs) — NEP-11 + NEP-24 escrow extension; per-collection shape.
+- **ERC-5732** (commit interface) — standalone commit-reveal contract; one global deploy serves any consumer.
+- **ERC-4400** (NFT consumable, lite) — NEP-11 storage extension; per-collection shape.
+- **ERC-5750** (method extensibility) — convention satisfied by every NEP-17 / NEP-11 (already four-parameter shape).
+- **ERC-5269** (ERC detection) — manifest `supportedstandards` already provides this natively.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 
