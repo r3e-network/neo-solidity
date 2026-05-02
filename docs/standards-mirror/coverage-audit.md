@@ -64,7 +64,7 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Ten consecutive priority passes have closed fifty meaningful
+Eleven consecutive priority passes have closed fifty-five meaningful
 Final / Review / Last-Call / Draft-status ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
@@ -119,31 +119,36 @@ Final / Review / Last-Call / Draft-status ERCs. Included for the audit trail:
 | ERC-5725 | [tokens/erc-5725](./tokens/erc-5725) | Transferable Vesting NFT |
 | ERC-6454 | [tokens/erc-6454](./tokens/erc-6454) | Minimal Transferable NFT detection |
 | ERC-7715 | [account-and-auth/erc-7715](./account-and-auth/erc-7715) | Permission Grants for Smart Accounts (AA) |
+| ERC-5507 | [tokens/erc-5507](./tokens/erc-5507) | Refundable Tokens |
+| ERC-5528 | [tokens/erc-5528](./tokens/erc-5528) | Refundable Fungible Token |
+| ERC-5521 | [tokens/erc-5521](./tokens/erc-5521) | Referable NFT |
+| ERC-5646 | [tokens/erc-5646](./tokens/erc-5646) | Token State Fingerprint |
+| ERC-5585 | [tokens/erc-5585](./tokens/erc-5585) | ERC-721 NFT Authorization |
 
 ### High priority (next-up)
 
-Ten batches closed; the remaining "high priority" set covers refunds,
-state-fingerprinting, signed-claim attestations, and a few NFT
-extensions that round out the catalog:
+Eleven batches closed. Remaining high-priority covers physical-asset
+binding, semantic soulbound, NFT discoverability, modular wallet, and
+SIWE generalisation:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-5507** | Refundable Tokens | Final | Refund mechanism for both fungible and NFT tokens; consumer-protection primitive. |
-| **ERC-5646** | Token State Fingerprint | Final | Verify complete token state at specific block heights; useful for indexers / auditors. |
-| **ERC-5521** | Referable NFT | Final | Referral relationships between NFTs; growing relevance for influencer / referral economies. |
-| **ERC-5528** | Refundable Fungible Token | Final | ERC-20 supporting asset recovery and refunds; complements ERC-5507. |
-| **ERC-7437** | Multi-redeemable NFT discounts | Final | Per-merchant discount stacking, complements ERC-6672. |
+| **ERC-6239** | Semantic Soulbound Tokens | Final | RDF-tagged soulbound credentials; pairs with ERC-5192/5484 for richer credential metadata. |
+| **ERC-7053** | Interoperable Digital Media Indexing | Final | Cross-platform media discovery; closes the indexer-side story for ERC-5169 / ERC-5489. |
+| **ERC-7405** | Modular Wallet Interface | Draft | Pairs with ERC-7579 / ERC-7677 / ERC-7715 to complete the AA stack. |
+| **ERC-7585** | Permitted Authentication Scheme | Draft | Generalised ERC-4361 (SIWE) for any chain; formalises the cross-chain auth story. |
+| **ERC-6381** | Public NFT Emote Repository | Final | Reaction system for NFTs; thin but commonly-requested social primitive. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
-| ERC-7053 | Interoperable Digital Media Indexing | Final | Cross-platform media discovery. |
-| ERC-7405 | Modular Wallet Interface | Draft | Pairs with ERC-7579 mirror. |
-| ERC-7585 | Permitted Authentication Scheme | Draft | Generalised SIWE for non-Ethereum chains. |
+| ERC-7857 | AI Agents NFT with Private Metadata | Final | Pairs with ERC-7007 for AI-agent NFTs. |
+| ERC-7231 | Identity-aggregated NFT | Final | Identity-bound NFTs aggregating multiple credentials. |
+| ERC-7531 | Staked ERC-721 Ownership Recognition | Review | Acknowledge staked NFTs as ownership equivalents for snapshots. |
+| ERC-6982 | Already mirrored ✓ | — | — |
 | ERC-6093 | Already mirrored ✓ | — | — |
-| ERC-7144 | Already mirrored ✓ | — | — |
-| ERC-7758 | Already mirrored ✓ | — | — |
+| ERC-7160 | Already mirrored ✓ | — | — |
 
 ### Watch list (Review / Last Call)
 

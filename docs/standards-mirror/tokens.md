@@ -5,7 +5,7 @@ description: Every Ethereum token standard mirrored to its Neo N3 implementation
 
 # Standards Mirror Token Standards
 
-Forty-six Ethereum token standards, each shown with the Solidity reference and an idiomatic
+Fifty-one Ethereum token standards, each shown with the Solidity reference and an idiomatic
 Neo C# implementation. Where a NEP exists (NEP-17, NEP-11, NEP-24), the C# tab uses
 that. Where no NEP exists, the C# tab shows a clean Neo port — proof that the standard
 is implementable on Neo today.
@@ -60,6 +60,11 @@ is implementable on Neo today.
 | [ERC-7007 — Verifiable AI-Generated Content Token](/standards-mirror/tokens/erc-7007) | NEP-11 + (prompt, output, proof) attestation | Final | NFT Extension / AI |
 | [ERC-5725 — Transferable Vesting NFT](/standards-mirror/tokens/erc-5725) | NEP-11 + per-token vesting schedule + claim | Final | NFT Extension / DeFi |
 | [ERC-6454 — Minimal Transferable NFT detection](/standards-mirror/tokens/erc-6454) | NEP-11 + IsTransferable view | Final | NFT Extension |
+| [ERC-5507 — Refundable Tokens](/standards-mirror/tokens/erc-5507) | NEP-11 + per-token refund window + escrow | Final | NFT Extension |
+| [ERC-5528 — Refundable Fungible Token](/standards-mirror/tokens/erc-5528) | NEP-17 + per-buyer refund window + escrow | Final | Fungible Extension |
+| [ERC-5521 — Referable NFT](/standards-mirror/tokens/erc-5521) | NEP-11 + per-token referring/referred edges | Final | NFT Extension |
+| [ERC-5646 — Token State Fingerprint](/standards-mirror/tokens/erc-5646) | NEP-11 + per-token state-hash view | Final | NFT Extension |
+| [ERC-5585 — ERC-721 NFT Authorization](/standards-mirror/tokens/erc-5585) | NEP-11 + per-(tokenId, rights, user) storage | Final | NFT Extension |
 
 ## Related Pages
 
