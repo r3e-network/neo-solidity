@@ -42,6 +42,21 @@ conventions:
   `Contract.CreateStandardAccount(pubKey)` — never cast
   `pubKey.EncodePoint(true)` to `UInt160` (33-byte compressed encoding ≠
   20-byte script hash).
+- **NEP-11 "divisible" base:** several mirror pages (ERC-1155, ERC-5006,
+  ERC-5216, ERC-5615, ERC-6909) describe the Neo mapping as
+  "NEP-11 (divisible)". The framework only ships
+  `Nep11Token<TokenState>` (non-divisible — every tokenId has a single
+  owner). Divisible-style multi-balance NEP-11 (per
+  [NEP-11 spec](https://github.com/neo-project/proposals/blob/master/nep-11.mediawiki))
+  must be implemented manually with a `(owner, tokenId) → balance`
+  storage map and custom `transfer(from, to, amount, tokenId, data)` /
+  `balanceOf(owner, tokenId)` methods. The samples that inherit
+  `Nep11Token<T>` for divisible semantics are showing the storage layout
+  and method shape, not a turnkey base class.
+- **`CallFlags`:** prefer `CallFlags.ReadOnly` for view-only
+  cross-contract calls (`ownerOf`, `balanceOf`, `properties`,
+  `isAuthorised`, etc.); use `CallFlags.All` only when the callee may
+  mutate state or fire notifications you depend on.
 
 Verify against the canonical sources before deploying:
 [Nep17Token.cs](https://github.com/neo-project/neo-devpack-dotnet/blob/master/src/Neo.SmartContract.Framework/Nep17Token.cs),
