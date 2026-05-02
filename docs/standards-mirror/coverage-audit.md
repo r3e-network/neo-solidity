@@ -64,41 +64,45 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-The previous high-priority gap list has been fully closed in the current
-catalog. Included for the audit trail:
+Two consecutive priority passes have closed ten meaningful Final-status
+ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
 | --- | --- | --- |
 | ERC-1167 | [infrastructure/erc-1167](./infrastructure/erc-1167) | Single most-used proxy pattern; underpins every Ethereum factory |
-| ERC-4361 | [account-and-auth/erc-4361](./account-and-auth/erc-4361) | De-facto web3 sign-in (SIWE) |
+| ERC-3448 | [infrastructure/erc-3448](./infrastructure/erc-3448) | Init-supporting MetaProxy variant of ERC-1167 |
 | ERC-3668 | [infrastructure/erc-3668](./infrastructure/erc-3668) | Off-chain data via CCIP Read; mirrors to native Oracle |
+| ERC-4361 | [account-and-auth/erc-4361](./account-and-auth/erc-4361) | De-facto web3 sign-in (SIWE) |
+| ERC-4907 | [tokens/erc-4907](./tokens/erc-4907) | Rental NFT user-role extension; gaming + scholarship use cases |
+| ERC-6093 | [tokens/erc-6093](./tokens/erc-6093) | Standardised error vocabulary for NEP-17 / NEP-11 ports |
 | ERC-7528 | [tokens/erc-7528](./tokens/erc-7528) | Native asset address convention; relevant for any DEX or vault |
+| ERC-7535 | [defi/erc-7535](./defi/erc-7535) | Native asset version of ERC-4626 vaults |
 | ERC-7656 | [account-and-auth/erc-7656](./account-and-auth/erc-7656) | Generalisation of ERC-6551 to any contract |
+| ERC-7786 | [infrastructure/erc-7786](./infrastructure/erc-7786) | Cross-chain messaging gateway interface |
 
 ### High priority (next-up)
 
-With the previous high-priority gaps closed, these are now the most
-valuable additions:
+With the previous two batches closed, these are now the most valuable
+additions:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-3448** | MetaProxy Standard | Final | Init-supporting variant of ERC-1167. Pairs cleanly with the new ERC-1167 page; small additional effort, high reuse. |
-| **ERC-7535** | Native Asset ERC-4626 Vault | Final | ETH version of ERC-4626. Pairs cleanly with the existing ERC-4626 page and the new ERC-7528 (native asset address). Triple-link these for any DeFi vault porting story. |
-| **ERC-4907** | Rental NFT (User Role Extension) | Final | NFT temporary delegation; popular in gaming. Pairs well with ERC-6551 (the renter could be the TBA holder). |
-| **ERC-6093** | Custom Errors for Common Tokens | Final | Standardised error definitions across NEP-17 / NEP-11 ports. Improves indexer + wallet UX consistency. |
-| **ERC-7786** | Cross-Chain Messaging Gateway | Final | Cross-chain interop. Worth adding once the Neo bridge story is concrete; currently the most-asked standard from chain-bridge teams. |
+| **ERC-5313** | Light Contract Ownership | Final | Lighter alternative to ERC-173. Pairs with the existing ERC-173 mirror; small additional effort, captures the OZ `Ownable2Step` pattern variant. |
+| **ERC-5564** | Stealth Addresses | Final | Privacy-preserving recipient addresses. Neo has the cryptographic primitives needed (secp256r1 ECDH); useful for analytics + private DeFi flows. |
+| **ERC-6066** | NFT Signature Validation | Final | NFT-aware ERC-1271; widely used by NFT marketplaces and gating contracts. |
+| **ERC-3643** | T-REX — Regulated Token | Final | Compliance framework for tokenised securities. Growing relevance with RWA momentum. |
+| **ERC-5202** | Blueprint Contract Format | Final | Pattern for storing contract code as data. Pairs with the new ERC-1167 / ERC-3448 / ERC-7656 family — completes the "deploy from data" story. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
-| ERC-3643 | T-REX — Regulated Token | Final | Compliance framework. Niche but important for tokenised securities; growing relevance. |
-| ERC-5202 | Blueprint Contract Format | Final | Pattern for storing contract code as data. Neo equivalent: NEF blob storage + `ContractManagement.Deploy`. |
-| ERC-5313 | Light Contract Ownership | Final | Lighter alternative to ERC-173. Mirror could share most of the ERC-173 page. |
-| ERC-5564 | Stealth Addresses | Final | Privacy-preserving recipient addresses. Useful primitive — Neo has the necessary cryptographic helpers. |
-| ERC-6066 | NFT Signature Validation | Final | NFT-aware ERC-1271; used by NFT marketplaces. |
 | ERC-7944 | Async Cancellation for ERC-7540 | Final | Pairs with the existing ERC-7540 mirror; small extension. |
 | ERC-8042 | Diamond Storage | Final | Storage convention for ERC-2535. Pairs with the existing ERC-2535 mirror. |
+| ERC-2135 | Consumable Interface (tickets, permits) | Final | Redeemable token pattern. |
+| ERC-5679 | Token Minting and Burning | Final | Standardised mint/burn surface; could become the recommended NEP-17 / NEP-11 mint helper. |
+| ERC-6982 | Default Lockable Tokens | Final | Lighter cousin of ERC-5192 / ERC-6147. |
+| ERC-7160 | ERC-721 Multi-Metadata Extension | Final | Multiple metadata URIs per NFT. |
 
 ### Watch list (Review / Last Call)
 

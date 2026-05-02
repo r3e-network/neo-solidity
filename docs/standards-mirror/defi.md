@@ -5,8 +5,9 @@ description: Vaults, flash loans, governance — Ethereum DeFi standards mirrore
 
 # DeFi Building Blocks
 
-Seven DeFi standards covering yield-bearing vaults, flash loans, governance voting,
-and protocol clocks. Each one is a clean port to Neo C#.
+Eight DeFi standards covering yield-bearing vaults (including a native-asset
+variant), flash loans, governance voting, and protocol clocks. Each one is a
+clean port to Neo C#.
 
 ## Standards
 
@@ -14,6 +15,7 @@ and protocol clocks. Each one is a clean port to Neo C#.
 | --- | --- | --- | --- |
 | [ERC-4626 — Tokenized Vault](/standards-mirror/defi/erc-4626) | NEP-17 vault pattern | Final | Vaults |
 | [ERC-3156 — Flash Loans](/standards-mirror/defi/erc-3156) | Neo C# port | Final | Flash Loans |
+| [ERC-7535 — Native Asset Vault](/standards-mirror/defi/erc-7535) | NEP-17 vault with NEO/GAS as asset | Final | Vaults |
 | [ERC-7540 — Asynchronous Vaults](/standards-mirror/defi/erc-7540) | Neo C# port | Final | Vaults |
 | [ERC-7575 — Multi-Asset Vault](/standards-mirror/defi/erc-7575) | Neo C# port | Final | Vaults |
 | [ERC-5805 — Voting With Delegation](/standards-mirror/defi/erc-5805) | Neo C# port | Final | Governance |
