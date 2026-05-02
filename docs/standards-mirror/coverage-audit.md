@@ -64,7 +64,7 @@ is the curated set of meaningful gaps, grouped by priority.
 
 ### Recently closed (now mirrored)
 
-Three consecutive priority passes have closed fifteen meaningful
+Four consecutive priority passes have closed twenty meaningful
 Final-status ERCs. Included for the audit trail:
 
 | Standard | Mirror Page | Why it mattered |
@@ -84,31 +84,35 @@ Final-status ERCs. Included for the audit trail:
 | ERC-7535 | [defi/erc-7535](./defi/erc-7535) | Native asset version of ERC-4626 vaults |
 | ERC-7656 | [account-and-auth/erc-7656](./account-and-auth/erc-7656) | Generalisation of ERC-6551 to any contract |
 | ERC-7786 | [infrastructure/erc-7786](./infrastructure/erc-7786) | Cross-chain messaging gateway interface |
+| ERC-7944 | [defi/erc-7944](./defi/erc-7944) | Async cancellation for ERC-7540 vaults |
+| ERC-8042 | [infrastructure/erc-8042](./infrastructure/erc-8042) | Diamond storage convention for ERC-2535 |
+| ERC-5679 | [tokens/erc-5679](./tokens/erc-5679) | Standardised mint/burn surface across token types |
+| ERC-2135 | [tokens/erc-2135](./tokens/erc-2135) | Consumable interface (tickets, permits, vouchers) |
+| ERC-7160 | [tokens/erc-7160](./tokens/erc-7160) | ERC-721 multi-metadata extension |
 
 ### High priority (next-up)
 
-With three batches closed, the catalog now covers the highest-value
-gaps. The remaining "high priority" set tilts toward NFT extensions
-and ERC-2535 / ERC-7540 companion standards:
+Four batches closed; the remaining "high priority" set is RWA-adjacent
+plus account-abstraction extensions:
 
 | Standard | Title | Status | Why it matters |
 | --- | --- | --- | --- |
-| **ERC-7944** | Async Cancellation for ERC-7540 | Final | Pairs with the existing ERC-7540 mirror; closes a known UX gap (users can cancel pending vault requests). Small page, high downstream value. |
-| **ERC-8042** | Diamond Storage | Final | Storage convention for ERC-2535. Pairs with the existing ERC-2535 mirror; explains the canonical layout for facet-isolated storage. |
-| **ERC-5679** | Token Minting and Burning | Final | Standardised mint/burn surface across ERC-20 / ERC-721 / ERC-1155. Could become the recommended NEP-17 / NEP-11 mint helper convention. |
-| **ERC-2135** | Consumable Interface (tickets, permits) | Final | Redeemable-token pattern (event tickets, permits, vouchers). Fits a category not yet covered by the mirror. |
-| **ERC-7160** | ERC-721 Multi-Metadata Extension | Final | Multiple metadata URIs per NFT. Used by emerging "evolving NFT" projects. |
+| **ERC-3475** | Abstract Storage Bonds | Final | Specification for tokenised bond instruments. Pairs with the new ERC-3643 (T-REX) mirror to cover the "regulated debt" portion of the RWA stack. |
+| **ERC-7092** | Financial Bonds | Final | Broader bond standard than ERC-3475. Together they cover most of the tokenised-credit landscape. |
+| **ERC-6982** | Default Lockable Tokens | Final | Lighter cousin of ERC-5192 / ERC-6147; common pattern in NFT escrow flows. |
+| **ERC-7677** | Paymaster Web Service Capability | Review | Gas payment delegation. Pairs with the existing ERC-4337 mirror; closes the bundler/paymaster handshake. |
+| **ERC-7144** | ERC-20 with transaction validation step | Review | Pre-transfer hook usable as a lighter-weight T-REX compliance gate. |
 
 ### Medium priority
 
 | Standard | Title | Status | Notes |
 | --- | --- | --- | --- |
-| ERC-6982 | Default Lockable Tokens | Final | Lighter cousin of ERC-5192 / ERC-6147. |
-| ERC-7144 | ERC-20 with transaction validation step | Review | Pre-transfer validation hook; combined with the ERC-3643 mirror could express most compliance gates. |
-| ERC-7677 | Paymaster Web Service Capability | Review | Gas payment delegation; pairs with ERC-4337 mirror. |
 | ERC-7758 | Transfer With Authorization (modern) | Review | Successor to ERC-3009 (which we mirror). Add when promoted to Final. |
-| ERC-3475 | Abstract Storage Bonds | Final | Specification for tokenised bond instruments. |
-| ERC-7092 | Financial Bonds | Final | Tokenised debt instruments; broader than ERC-3475. |
+| ERC-7715 | Permission grants for accounts | Draft | Account-abstraction permission model. |
+| ERC-7943 | Universal Real World Asset Interface | Last Call | RWA standardisation. |
+| ERC-2767 | Contract Ownership Governance | Final | DAO-style ownership transfer governance. |
+| ERC-5006 | Rental NFT, NFT User Extension | Final | Pairs with the existing ERC-4907 mirror. |
+| ERC-5169 | Client Script URI for Token Contracts | Final | Reference external scripts for token interactions. |
 
 ### Watch list (Review / Last Call)
 

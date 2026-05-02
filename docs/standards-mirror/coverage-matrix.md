@@ -6,7 +6,7 @@ description: Every mirrored ERC/EIP standard with category, EIP status, Neo mapp
 # Standards Mirror — Coverage Matrix
 
 Generated from `docs/standards-mirror/deployments/results.json` snapshot
-`2026-04-29T02:47:17.306Z`. **69** mirror pages, **47** with live
+`2026-04-29T02:47:17.306Z`. **74** mirror pages, **47** with live
 Solidity + Neo C# pairs on TestNet (network magic `894710606`).
 
 Use this page to scan every mirrored standard side-by-side: catalog status,
@@ -22,7 +22,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Token Standards
 
-19 mirrored — 13 deployed.
+22 mirrored — 13 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -31,6 +31,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-777 — Token w/ Hooks](/standards-mirror/tokens/erc-777) | Final | NEP-17 + NEP-27 | 1 / 3 | 3 / 3 |
 | [ERC-1155 — Multi-Token](/standards-mirror/tokens/erc-1155) | Final | NEP-11 (divisible) + NEP-17 | 0 / 1 | 1 / 1 |
 | [ERC-1363 — Payable Token](/standards-mirror/tokens/erc-1363) | Final | NEP-17 callback | — | — |
+| [ERC-2135 — Consumable Interface](/standards-mirror/tokens/erc-2135) | Final | NEP-11 + per-token consumed flag | — | — |
 | [ERC-2981 — NFT Royalty Standard](/standards-mirror/tokens/erc-2981) | Final | NEP-24 | 3 / 3 | 2 / 3 |
 | [ERC-3525 — Semi-Fungible Token](/standards-mirror/tokens/erc-3525) | Final | Neo C# port | 4 / 4 | 3 / 3 |
 | [ERC-3643 — T-REX Regulated Token](/standards-mirror/tokens/erc-3643) | Final | NEP-17 + identity registry + compliance modules | — | — |
@@ -40,10 +41,12 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-4494 — Permit for ERC-721](/standards-mirror/tokens/erc-4494) | Final | Native witness scopes | 1 / 2 | 2 / 2 |
 | [ERC-5192 — Soulbound NFTs](/standards-mirror/tokens/erc-5192) | Final | Neo C# port | 2 / 3 | 1 / 1 |
 | [ERC-5484 — Consensual Soulbound](/standards-mirror/tokens/erc-5484) | Final | Neo C# port | 1 / 2 | 1 / 1 |
+| [ERC-5679 — Token Minting and Burning](/standards-mirror/tokens/erc-5679) | Final | NEP-17 / NEP-11 mint/burn helper | — | — |
 | [ERC-6093 — Custom Errors for Common Tokens](/standards-mirror/tokens/erc-6093) | Final | Named exception convention | — | — |
 | [ERC-6909 — Minimal Multi-Token](/standards-mirror/tokens/erc-6909) | Final | Neo C# port | — | — |
 | [ERC-5114 — Soulbound Badge](/standards-mirror/tokens/erc-5114) | Final | Neo C# port | 1 / 2 | 2 / 2 |
 | [ERC-6147 — NFT Guard](/standards-mirror/tokens/erc-6147) | Final | Neo C# port | 2 / 2 | 2 / 2 |
+| [ERC-7160 — ERC-721 Multi-Metadata Extension](/standards-mirror/tokens/erc-7160) | Final | NEP-11 + URI list + active-index | — | — |
 | [ERC-7528 — Native Asset Address Convention](/standards-mirror/tokens/erc-7528) | Final | Native NEO / GAS contract hashes | — | — |
 
 ## Account & Authentication
@@ -72,7 +75,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Infrastructure & Patterns
 
-15 mirrored — 10 deployed.
+16 mirrored — 10 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -91,10 +94,11 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-7201 — Namespaced Storage Layout](/standards-mirror/infrastructure/erc-7201) | Final | Storage prefix convention | 0 / 1 | 2 / 2 |
 | [ERC-7579 — Modular Smart Account](/standards-mirror/infrastructure/erc-7579) | Final | NEP-30 verify + module dispatch | 1 / 2 | 2 / 2 |
 | [ERC-7786 — Cross-Chain Messaging Gateway](/standards-mirror/infrastructure/erc-7786) | Final | Bridge-adapter pattern | — | — |
+| [ERC-8042 — Diamond Storage](/standards-mirror/infrastructure/erc-8042) | Final | Storage prefix per facet | — | — |
 
 ## DeFi Building Blocks
 
-8 mirrored — 7 deployed.
+9 mirrored — 7 deployed.
 
 | Standard | EIP Status | Neo Mapping | Solidity | Neo C# |
 | --- | --- | --- | --- | --- |
@@ -106,6 +110,7 @@ snapshot. Per-pair contract addresses and per-test detail live in
 | [ERC-7540 — Asynchronous ERC-4626 Vaults](/standards-mirror/defi/erc-7540) | Final | Request/claim queue pattern | 2 / 3 | 3 / 3 |
 | [ERC-7575 — Multi-Asset ERC-4626 Vaults](/standards-mirror/defi/erc-7575) | Final | Multi-NEP-17 vault | 1 / 2 | 2 / 2 |
 | [ERC-7818 — Expirable ERC-20](/standards-mirror/defi/erc-7818) | Final | Neo C# port (timestamp expiry) | 1 / 1 | 1 / 1 |
+| [ERC-7944 — Async Cancellation for ERC-7540](/standards-mirror/defi/erc-7944) | Final | Cancel-by-id on the request queue | — | — |
 
 ## Protocol-Level EIPs
 
@@ -126,9 +131,9 @@ snapshot. Per-pair contract addresses and per-test detail live in
 
 ## Aggregate
 
-- **Catalog total:** 69 ERC/EIP pages
+- **Catalog total:** 74 ERC/EIP pages
 - **Deployed pairs:** 47
-- **Catalog-only:** 22 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
+- **Catalog-only:** 27 (deliberate; see [DEFERRED.md](./deployments/DEFERRED))
 - **Solidity assertions:** 62 / 94 pass
 - **Neo C# assertions:** 85 / 89 pass
 - **Combined assertion pass-rate:** 147 / 183

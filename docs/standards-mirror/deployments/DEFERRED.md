@@ -4,8 +4,8 @@
 > agent has been retired; future changes should use the normal standards mirror
 > deploy workflow and update `results.json` / `RESULTS.md`.
 >
-> The mirror catalog now exposes **69 ERC/EIP mapping pages**. The TestNet matrix
-> covers **47 deployable standards**. The twenty-two catalog entries without a
+> The mirror catalog now exposes **74 ERC/EIP mapping pages**. The TestNet matrix
+> covers **47 deployable standards**. The twenty-seven catalog entries without a
 > live contract pair fall into three groups:
 >
 > **Protocol-irrelevant** (3): EIP-1559 (fee-market auction), EIP-4844 (blob
@@ -13,7 +13,7 @@
 >
 > **Documented Neo C# port without checked-in fixture** (1): ERC-6909.
 >
-> **Subsumed by a native Neo mechanism** (18): ERC-1363 (NEP-17 callback),
+> **Subsumed by a native Neo mechanism** (23): ERC-1363 (NEP-17 callback),
 > ERC-3009 (witness scopes), ERC-6551 (registry-pattern TBA), ERC-1167
 > (ContractManagement.Deploy), ERC-4361 (SIWE — off-chain server convention),
 > ERC-3668 (native Oracle service), ERC-7528 (well-known native contract hashes),
@@ -24,7 +24,10 @@
 > satisfied by every contract with `getOwner`), ERC-5564 (announcer + wallet-SDK
 > dependency), ERC-6066 (NEP-11 per-tokenId verify extension), ERC-3643
 > (multi-contract framework, per-deployment shape), ERC-5202 (Neo's deploy
-> primitive already separates blob storage from execution).
+> primitive already separates blob storage from execution), ERC-7944
+> (extension of existing ERC-7540 deployment), ERC-8042 (storage convention
+> for existing ERC-2535 deployment), ERC-5679 (selector convention),
+> ERC-2135 (NEP-11 storage extension), ERC-7160 (NEP-11 storage extension).
 >
 > A single fixture deploy would not exercise these standards meaningfully — they
 > are catalog explainers, not checked-in TestNet pairs.

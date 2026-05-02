@@ -21,12 +21,12 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./tokens">
     <div class="cat-eyebrow">Token Standards</div>
-    <div class="cat-title">Fungibles, NFTs, multi-token, soulbound, rentals, regulated</div>
+    <div class="cat-title">Fungibles, NFTs, multi-token, soulbound, rentals, regulated, consumables</div>
     <div class="cat-desc">
-      ERC-20, 721, 777, 1155, 1363, 2981, 3525, 3643, 4906, 4907, 4494, 5192, 5484, 6093, 6909, 2309, 5114, 6147, 7528
+      ERC-20, 721, 777, 1155, 1363, 2135, 2981, 3525, 3643, 4906, 4907, 4494, 5192, 5484, 5679, 6093, 6909, 2309, 5114, 6147, 7160, 7528
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">19 standards</span>
+      <span class="cat-pill cat-pill-direct">22 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-11 / NEP-17 / NEP-24</span>
     </div>
   </a>
@@ -45,24 +45,24 @@ deployment results and the Solidity support matrix.
 
   <a class="mirror-cat" href="./infrastructure">
     <div class="cat-eyebrow">Infrastructure & Patterns</div>
-    <div class="cat-title">Proxies, blueprints, registries, off-chain data, cross-chain</div>
+    <div class="cat-title">Proxies, blueprints, diamond storage, registries, off-chain data, cross-chain</div>
     <div class="cat-desc">
-      ERC-165, 1014, 1056, 1167, 1820, 1967, 2470, 2535, 2771, 3448, 3668, 5202, 7201, 7579, 7786
+      ERC-165, 1014, 1056, 1167, 1820, 1967, 2470, 2535, 2771, 3448, 3668, 5202, 7201, 7579, 7786, 8042
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">15 standards</span>
+      <span class="cat-pill cat-pill-direct">16 standards</span>
       <span class="cat-pill cat-pill-neo">NEP-22 + Oracle native</span>
     </div>
   </a>
 
   <a class="mirror-cat" href="./defi">
     <div class="cat-eyebrow">DeFi Building Blocks</div>
-    <div class="cat-title">Vaults, flash loans, governance</div>
+    <div class="cat-title">Vaults (sync, async, cancellable), flash loans, governance</div>
     <div class="cat-desc">
-      ERC-4626, 7535, 3156, 7540, 7575, 5805, 6372, 7818
+      ERC-4626, 7535, 3156, 7540, 7575, 7944, 5805, 6372, 7818
     </div>
     <div class="cat-pill-row">
-      <span class="cat-pill cat-pill-direct">8 standards</span>
+      <span class="cat-pill cat-pill-direct">9 standards</span>
       <span class="cat-pill cat-pill-pattern">Composition patterns</span>
     </div>
   </a>
@@ -83,7 +83,7 @@ deployment results and the Solidity support matrix.
 
 ## Live on TestNet
 
-The frontend catalog currently exposes **69 ERC/EIP mapping pages** across the five
+The frontend catalog currently exposes **74 ERC/EIP mapping pages** across the five
 categories above. **Forty-seven standards** in this mirror have Solidity and Neo C# contract pairs
 deployed on Neo N3 TestNet (network magic `894710606`). The same invocation matrix
 runs against the Solidity (compiled with `neo-solc`) and the Neo C# (compiled with
@@ -155,7 +155,7 @@ assertion check fails.
 
 The checked-in catalog includes deployable demos for most entries. A small set remains outside the live TestNet pair matrix because the Ethereum mechanism is either protocol-specific, superseded by another EIP, or not yet part of the deployment snapshot.
 
-Twenty-two catalog entries are not in the live TestNet pair matrix:
+Twenty-seven catalog entries are not in the live TestNet pair matrix:
 
 - **EIP-1559** (fee-market base-fee auction) — Neo doesn't auction fees.
 - **EIP-4844** (blob transactions) — Neo doesn't have blobs.
@@ -179,6 +179,11 @@ Twenty-two catalog entries are not in the live TestNet pair matrix:
 - **ERC-6066** (NFT signature validation) — NEP-11 storage extension scoped per tokenId; no separate fixture beyond an example NFT.
 - **ERC-3643** (T-REX regulated token) — multi-contract framework (token + identity registry + compliance modules); per-deployment shape rather than a single fixture.
 - **ERC-5202** (blueprint contract format) — Neo's deploy primitive already separates blob storage from execution; no magic-prefix container needed.
+- **ERC-7944** (async cancellation for ERC-7540) — extension of ERC-7540's request queue; covered by the existing ERC-7540 deployment plus the additional cancel flow.
+- **ERC-8042** (diamond storage) — storage convention for ERC-2535; covered by the existing ERC-2535 deployment plus storage-prefix discipline.
+- **ERC-5679** (token mint/burn) — selector convention; satisfied by every NEP-17 / NEP-11 contract that exposes a `Mint` wrapper.
+- **ERC-2135** (consumable interface) — NEP-11 storage extension; no separate fixture needed.
+- **ERC-7160** (multi-metadata NFT) — NEP-11 storage extension; no separate fixture needed.
 
 The other protocol entries in the table have live demos exposing their Neo counterparts, such as transaction version, witness scopes, PUSH0, NEF size, ContractManagement.Destroy, and NEP-30 verify.
 
