@@ -146,7 +146,7 @@ namespace R3E.Examples;
 
 [DisplayName("DemoToken")]
 [ContractPermission("*", "*")]
-[SupportedStandards("NEP-17")]
+[SupportedStandards(NepStandard.Nep17)]
 public class DemoToken : SmartContract
 {
     private const byte Prefix_TotalSupply = 0x00;
