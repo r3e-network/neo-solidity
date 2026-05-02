@@ -16,6 +16,38 @@ This page answers the two recurring questions about the mirror:
 For the live deploy state of every mirrored standard, see the
 [Coverage Matrix](./coverage-matrix).
 
+::: tip Code samples are illustrative
+Each mirror page's **Neo C#** tab shows a representative implementation
+sketch, not a copy-paste-ready production contract. The samples target the
+shapes exposed by [`Neo.SmartContract.Framework`](https://github.com/neo-project/neo-devpack-dotnet/tree/master/src/Neo.SmartContract.Framework)
+(`Nep17Token`, `Nep11Token<TokenState>`, etc.) and follow these
+conventions:
+
+- **Mint / Burn:** the canonical NEP-17 base exposes
+  `protected static void Mint(UInt160 account, BigInteger amount)` and
+  `protected static void Burn(UInt160 account, BigInteger amount)` —
+  two-arg only. NEP-11 base exposes
+  `protected static void Mint(ByteString tokenId, TokenState token)`. The
+  samples wrap these from public methods that perform per-extension setup.
+- **Custom hooks:** the base classes do **not** expose `OnMint` / `OnBurn`
+  / `OnBeforeTransfer` virtual hooks. Samples that show such overrides are
+  illustrative — in production, perform the custom logic in your own
+  public mint / burn / transfer wrappers and then call the base
+  helpers, or reimplement `Transfer` with `public new static`.
+- **Storage casts:** `(UInt160)Storage.Get(...)` and `(string)Storage.Get(...)`
+  rely on the implicit `ByteString` ↔ scalar conversions provided by the
+  framework — these compile and run correctly when the stored value
+  matches the expected length / shape.
+- **Account derivation from a public key:** use
+  `Contract.CreateStandardAccount(pubKey)` — never cast
+  `pubKey.EncodePoint(true)` to `UInt160` (33-byte compressed encoding ≠
+  20-byte script hash).
+
+Verify against the canonical sources before deploying:
+[Nep17Token.cs](https://github.com/neo-project/neo-devpack-dotnet/blob/master/src/Neo.SmartContract.Framework/Nep17Token.cs),
+[Nep11Token.cs](https://github.com/neo-project/neo-devpack-dotnet/blob/master/src/Neo.SmartContract.Framework/Nep11Token.cs).
+:::
+
 ## 1. STANDARDS_MAPPING.md Audit
 
 The devpack mapping doc references the following ERCs / EIPs in its quick
