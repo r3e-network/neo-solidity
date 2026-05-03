@@ -122,12 +122,14 @@ function pageSections(link: string): SidebarItem[] {
 
 function page(text: string, link: string): SidebarItem {
   const sections = pageSections(link);
-  return sections.length > 0 ? { text, link, collapsed: true, items: sections } : { text, link };
+  // Show h2/h3 sections of every page in the sidebar so the left bar is a
+  // navigable table of contents, not just a list of document names.
+  return sections.length > 0 ? { text, link, collapsed: false, items: sections } : { text, link };
 }
 
 function pageWithChildren(text: string, link: string, children: SidebarItem[]): SidebarItem {
   const items = [...pageSections(link), ...children];
-  return items.length > 0 ? { text, link, items } : { text, link };
+  return items.length > 0 ? { text, link, collapsed: false, items } : { text, link };
 }
 
 function orderedChildSlugs(indexContent: string, base: string): string[] {
@@ -684,7 +686,7 @@ export default defineConfig({
     search: {
       provider: 'local'
     },
-    outline: false,
+    outline: { level: [2, 3], label: 'On this page' },
     editLink: {
       pattern: 'https://github.com/r3e-network/neo-devpack-solidity/edit/main/docs/:path',
       text: 'Edit this page on GitHub'
