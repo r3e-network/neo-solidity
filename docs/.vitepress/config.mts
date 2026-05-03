@@ -122,14 +122,14 @@ function pageSections(link: string): SidebarItem[] {
 
 function page(text: string, link: string): SidebarItem {
   const sections = pageSections(link);
-  // Show h2/h3 sections of every page in the sidebar so the left bar is a
-  // navigable table of contents, not just a list of document names.
-  return sections.length > 0 ? { text, link, collapsed: false, items: sections } : { text, link };
+  // Sub-sections (h2/h3) are present so the sidebar is a real content table,
+  // but folded by default — clicking the entry expands its TOC.
+  return sections.length > 0 ? { text, link, collapsed: true, items: sections } : { text, link };
 }
 
 function pageWithChildren(text: string, link: string, children: SidebarItem[]): SidebarItem {
   const items = [...pageSections(link), ...children];
-  return items.length > 0 ? { text, link, collapsed: false, items } : { text, link };
+  return items.length > 0 ? { text, link, collapsed: true, items } : { text, link };
 }
 
 function orderedChildSlugs(indexContent: string, base: string): string[] {
