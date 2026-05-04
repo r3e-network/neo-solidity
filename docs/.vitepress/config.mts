@@ -318,7 +318,8 @@ export default defineConfig({
       { text: 'NeoVM',           link: '/internals/architecture',                  activeMatch: '^/internals/' },
       { text: 'Manifest',        link: '/manifest/',                               activeMatch: '^/manifest/' },
       { text: 'Devpack',         link: '/additional-material/neo-devpack/usage',   activeMatch: '^/additional-material/' },
-      { text: 'Reference',       link: '/reference/',                              activeMatch: '^/(reference|standards-mirror|advisory-content|resources|compiler|use-cases)' },
+      { text: 'ERC ↔ Neo',       link: '/standards-mirror/',                       activeMatch: '^/standards-mirror/' },
+      { text: 'Reference',       link: '/reference/',                              activeMatch: '^/(reference|advisory-content|resources|compiler|use-cases)' },
       { text: 'Forum',           link: 'https://github.com/r3e-network/neo-devpack-solidity/discussions' }
     ],
     sidebar: {
