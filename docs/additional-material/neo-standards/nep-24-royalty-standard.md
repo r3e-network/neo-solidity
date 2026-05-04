@@ -36,11 +36,17 @@ interface INEP24Royalty {
 | **Return type**         | Single `(address, uint256)`     | Array of `[recipient, amount]` pairs      |
 | **Multiple recipients** | No — single recipient only      | Yes — split royalties natively            |
 | **Royalty token**       | Implied (same as sale token)    | Explicit `royaltyToken` parameter         |
-| **Basis points**        | `10000 = 100%`                  | `10000 = 100%`                            |
+| **Returned amount**     | Absolute amount for `salePrice` | Absolute amount for `salePrice`           |
 | **Interface detection** | `supportsInterface(0x2a55205a)` | Manifest `supportedstandards: ["NEP-24"]` |
 
 ::: info Royalty Token Parameter
 The `royaltyToken` parameter specifies which token royalties should be paid in (e.g., GAS, a specific NEP-17 token). This is reserved for future use in the devpack's minimal implementation but enables token-specific royalty rules.
+:::
+
+::: tip Basis points are internal configuration
+The NEP-24 interface returns royalty amounts, not percentages. The devpack mixin
+stores royalty rules as basis points (`10000 = 100%`) and computes the final
+`royaltyAmount` for each `salePrice` before returning from `royaltyInfo`.
 :::
 
 ## Implementation Example

@@ -8,11 +8,11 @@
 | Ethereum (EIP)    | Neo (NEP) | Status       | Key Differences                                                         |
 | ----------------- | --------- | ------------ | ----------------------------------------------------------------------- |
 | ERC-20            | NEP-17    | ✅ Full      | 4-param `transfer`, `onNEP17Payment` callback, `Any` data type          |
-| ERC-721           | NEP-11    | ✅ Full      | `bytes32` tokenId, `tokensOf`/`properties` required, `onNEP11Payment`   |
-| ERC-2981          | NEP-24    | ✅ Full      | Array return for multiple royalty recipients                            |
-| ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; use NEP-11 divisible mode                         |
+| ERC-721           | NEP-11    | ✅ Full      | ByteString token IDs (`bytes32` in devpack examples), required `tokensOf`, optional `properties`, `onNEP11Payment` |
+| ERC-2981          | NEP-24    | ✅ Full      | Array return for multiple royalty recipients and computed royalty amounts |
+| ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; split into NEP-17/NEP-11 or implement NEP-11-divisible-style storage manually |
 | EIP-165           | Manifest  | 🔄 Different | Neo uses manifest `supportedstandards` instead of `supportsInterface()` |
-| EIP-2612 (Permit) | —         | 🔄 Different | Neo uses `Runtime.checkWitness()` instead of off-chain signatures       |
+| EIP-2612 (Permit) | —         | 🔄 Different | Prefer witness-scoped transactions; signed-message ports still need replay controls |
 | EIP-1967 (Proxy)  | NEP-22/29/31 | 🔄 Different | Neo upgrades in-place via `update`, uses `_deploy` callback, optional `destroy` |
 | ERC-721 Receiver  | NEP-26    | 🔄 Different | Neo uses explicit `onNEP11Payment` callback                             |
 | ERC-677 / ERC-1363 style hooks | NEP-27 | 🔄 Different | Neo uses explicit `onNEP17Payment` callback                             |
@@ -65,7 +65,7 @@ function transfer(address from, address to, uint256 amount, Any calldata data)
 }
 
 // ✅ NEP-17 payment callback (replaces Solidity receive())
-function onNEP17Payment(address from, uint256 amount, bytes memory data) external {
+function onNEP17Payment(address from, uint256 amount, Any calldata data) external {
     // Handle incoming token payment
 }
 ```
@@ -79,7 +79,9 @@ function onNEP17Payment(address from, uint256 amount, bytes memory data) externa
 
 ### Compiler Behavior
 
-- The compiler auto-detects NEP-17 when all 5 required methods are present and `ownerOf` is absent.
+- The compiler auto-detects NEP-17 when all 5 required method names are present and `ownerOf` is absent.
+- Canonical NEP-17 compliance still requires the 4-parameter `transfer`, Boolean return,
+  and 3-parameter `Transfer` event. Wrong transfer/event arity is reported as a diagnostic.
 - Solidity `receive()` is automatically remapped to `onNEP17Payment` unless an explicit
   `onNEP17Payment` function already exists.
 - The manifest `supportedstandards` array will include `"NEP-17"`.
@@ -98,7 +100,7 @@ function onNEP17Payment(address from, uint256 amount, bytes memory data) externa
 | `symbol() → string`                                  | `symbol() → String`                                           | Identical                   |
 | `totalSupply() → uint256`                            | `totalSupply() → Integer`                                     | Identical semantics         |
 | `balanceOf(address) → uint256`                       | `balanceOf(Hash160) → Integer`                                | Identical semantics         |
-| `ownerOf(uint256 tokenId) → address`                 | `ownerOf(ByteArray tokenId) → Hash160`                        | **`uint256` → `bytes32`**   |
+| `ownerOf(uint256 tokenId) → address`                 | `ownerOf(ByteArray tokenId) → Hash160`                        | **`uint256` → ByteString**; devpack examples commonly use `bytes32` |
 | `transferFrom(address, address, uint256)`            | `transfer(Hash160 to, ByteArray tokenId, Any data) → Boolean` | **3 params, witness-based** |
 | `safeTransferFrom(address, address, uint256, bytes)` | `transfer(Hash160 to, ByteArray tokenId, Any data) → Boolean` | Merged into single transfer |
 | `approve(address, uint256)`                          | —                                                             | Not in NEP-11 spec          |
@@ -107,13 +109,14 @@ function onNEP17Payment(address from, uint256 amount, bytes memory data) externa
 | `isApprovedForAll(address, address) → bool`          | —                                                             | Not in NEP-11 spec          |
 | —                                                    | `decimals() → Integer`                                        | **Required**: returns 0     |
 | —                                                    | `tokensOf(Hash160 owner) → Iterator`                          | **Neo-only**: enumerate     |
-| —                                                    | `properties(ByteArray tokenId) → Map`                         | **Neo-only**: metadata      |
+| —                                                    | `properties(ByteArray tokenId) → Map`                         | **Neo-only**: optional metadata; included by devpack full interface |
 | —                                                    | `onNEP11Payment(Hash160, Integer, ByteArray, Any)`            | **Neo-only callback**       |
 
 ### Key Differences
 
-1. **Token ID type**: ERC-721 uses `uint256`. NEP-11 uses `ByteArray` (mapped from
-   Solidity `bytes32`). The compiler maps `bytes32` → Neo `Hash256`/`ByteArray`.
+1. **Token ID type**: ERC-721 uses `uint256`. NEP-11 uses `ByteString` token IDs
+   with a length of no more than 64 bytes. The devpack examples commonly use
+   Solidity `bytes32`, which compiles to a 32-byte Neo value.
 2. **Transfer signature**: NEP-11 `transfer(to, tokenId, data)` takes 3 parameters.
    Authorization is via `Runtime.checkWitness(owner)`, not `msg.sender`.
 3. **No approval mechanism**: NEP-11 spec does not define `approve`/`getApproved`.
@@ -122,8 +125,9 @@ function onNEP17Payment(address from, uint256 amount, bytes memory data) externa
    supports divisible NFTs where `decimals() > 0`.
 5. **Required `tokensOf()`**: Returns an iterator over token IDs owned by an address.
    No ERC-721 equivalent (ERC-721 Enumerable is optional).
-6. **Required `properties()`**: Returns a serialized map of token metadata.
-   Replaces ERC-721's `tokenURI()` approach.
+6. **Optional `properties()`**: Returns a map of token metadata. It is optional
+   in NEP-11, but the devpack's full NFT interface includes it so ERC-721
+   `tokenURI()` metadata can be represented on Neo.
 
 ### Solidity Migration Pattern
 
@@ -147,7 +151,7 @@ function decimals() public pure returns (uint8) { return 0; }
 // ✅ NEP-11 required: enumerate tokens owned by address
 function tokensOf(address owner) public view returns (bytes32[] memory) { ... }
 
-// ✅ NEP-11 required: return token properties as serialized map
+// ✅ NEP-11 metadata extension: return token properties as a serialized/map value
 function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
 ```
 
@@ -165,9 +169,12 @@ function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
 ### Compiler Behavior
 
 - Auto-detects NEP-11 when `balanceOf` + `ownerOf` are present, plus at least one of
-  `transfer`, `transferFrom`, or `tokensOf`.
+  `transfer`, `transferFrom`, or `tokensOf`. This is a detection heuristic; full
+  compliance should still be checked against the canonical NEP-11 common methods,
+  event shape, and receiver-callback semantics.
 - The manifest `supportedstandards` array will include `"NEP-11"`.
-- `bytes32` parameters compile to Neo ABI type `Hash256` (functionally equivalent to `ByteArray`).
+- `bytes32` parameters compile to a 32-byte Neo ABI value suitable for devpack
+  token IDs; NEP-11 itself allows ByteString token IDs up to 64 bytes.
 
 ---
 
@@ -188,11 +195,15 @@ function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
    NEP-24 returns an **array** of `[recipient, amount]` pairs, supporting split royalties.
 2. **Royalty token parameter**: NEP-24 adds a `royaltyToken` parameter (Hash160) specifying
    which token the royalty should be paid in (e.g., GAS, a NEP-17 token).
-3. **Basis points**: Both use basis points. NEP-24 convention: `10000 = 100%`.
+3. **Computed amounts**: ERC-2981 and NEP-24 both return royalty amounts for the
+   supplied `salePrice`. Implementations may store royalty rules as basis points
+   internally (`10000 = 100%`), but the public return value is an amount, not a
+   percentage.
 
 ### Compiler Behavior
 
-- Auto-detects NEP-24 when `tokenURI` or `royaltyInfo` method is present.
+- Auto-detects NEP-24 when `royaltyInfo` is present, and currently also treats
+  `tokenURI`/`tokenUri` as a metadata signal for compatibility.
 - The manifest `supportedstandards` array will include `"NEP-24"`.
 
 ---
@@ -205,10 +216,11 @@ not have a dedicated multi-token standard. Migration strategies:
 | ERC-1155 Feature        | Neo Approach                                         |
 | ----------------------- | ---------------------------------------------------- |
 | Fungible token IDs      | Deploy a separate NEP-17 contract per token type     |
-| Non-fungible token IDs  | Use NEP-11 with divisible mode (`decimals() > 0`)    |
+| Non-fungible token IDs  | Use NEP-11 indivisible tokens                        |
+| Fractional token IDs    | Implement NEP-11 divisible-style storage and methods |
 | `balanceOfBatch`        | Implement as contract extension; not in any NEP spec |
 | `safeBatchTransferFrom` | Implement batch logic in a wrapper contract          |
-| `uri(uint256 id)`       | Use NEP-11 `properties()` or NEP-24 `tokenURI()`     |
+| `uri(uint256 id)`       | Use NEP-11 `properties()` with a `tokenURI` property or a custom metadata view |
 
 > **Recommendation:** For contracts that mix fungible and non-fungible assets, deploy
 > separate NEP-17 and NEP-11 contracts and coordinate them via cross-contract calls
@@ -242,16 +254,19 @@ Neo's transaction model makes this unnecessary.
 
 | EIP-2612 (Ethereum)                                | Neo Equivalent                                |
 | -------------------------------------------------- | --------------------------------------------- |
-| `permit(owner, spender, value, deadline, v, r, s)` | Not needed — use `Runtime.checkWitness()`     |
-| Off-chain EIP-712 signature                        | Transaction witness (built into Neo protocol) |
-| `nonces(address) → uint256`                        | Not needed — replay protection is native      |
-| `DOMAIN_SEPARATOR() → bytes32`                     | Not needed                                    |
+| `permit(owner, spender, value, deadline, v, r, s)` | Usually replaced by `Runtime.checkWitness()` and witness scopes |
+| Off-chain EIP-712 signature                        | Transaction witness for normal Neo flows      |
+| `nonces(address) → uint256`                        | Not needed for witness-scoped transactions; still required if accepting reusable off-chain signatures |
+| `DOMAIN_SEPARATOR() → bytes32`                     | Not needed for witness-scoped transactions    |
 
 ### Why Permit Is Unnecessary on Neo
 
 Neo transactions include **witness scopes** that cryptographically prove the caller
 controls an address. `Runtime.checkWitness(address)` verifies this at the VM level.
-There is no need for off-chain signature schemes or nonce tracking.
+For this transaction-witness flow there is no token-level off-chain signature
+scheme or nonce table. If you intentionally port an Ethereum-style signed-message
+permit, keep explicit nonces and deadlines because those messages are reusable
+unless the contract rejects replays.
 
 ---
 
@@ -322,11 +337,11 @@ When porting an Ethereum contract to Neo N3 via `neo-devpack-solidity`:
 
 ### ERC-721 → NEP-11
 
-- [ ] Change token ID type from `uint256` to `bytes32`
+- [ ] Change token ID type from `uint256` to a ByteString-compatible type (`bytes32` in devpack examples)
 - [ ] Change `transferFrom(from, to, tokenId)` to `transfer(to, tokenId, data)` with 3 params
 - [ ] Add `decimals()` returning `0` for indivisible NFTs
 - [ ] Add `tokensOf(owner)` returning token ID array/iterator
-- [ ] Add `properties(tokenId)` returning serialized metadata
+- [ ] Add `properties(tokenId)` when the NFT needs on-chain metadata beyond the core NEP-11 methods
 - [ ] Add `onNEP11Payment(from, amount, tokenId, data)` callback
 - [ ] Remove `safeTransferFrom` (merged into `transfer`)
 

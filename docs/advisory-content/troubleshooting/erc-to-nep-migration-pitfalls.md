@@ -12,7 +12,7 @@ description: "ERC to NEP Migration Pitfalls from Troubleshooting."
 1. **Keeping 2-parameter transfer:**
 
    ```solidity
-   // ❌ ERC-20 style — won't be detected as NEP-17
+   // ❌ ERC-20 style — detected as a near miss and warned, not canonical NEP-17
    function transfer(address to, uint256 amount) public returns (bool) { ... }
 
    // ✅ NEP-17 style — 4 parameters
@@ -53,7 +53,7 @@ description: "ERC to NEP Migration Pitfalls from Troubleshooting."
 
 1. **Using uint256 token IDs instead of bytes32**
 2. **Keeping transferFrom instead of 3-param transfer**
-3. **Missing required `tokensOf()` and `properties()` methods**
+3. **Missing `tokensOf()` or metadata strategy**
 4. **Missing `decimals()` returning 0 for indivisible NFTs**
 
 ---

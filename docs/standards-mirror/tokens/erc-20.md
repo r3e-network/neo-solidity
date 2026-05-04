@@ -63,10 +63,9 @@ Both implementations are deployed on Neo N3 TestNet (network magic `894710606`).
 | **Solidity** (`neo-solc`) | `NZbQsZAbH3eBdZZYShj6CgG1ZkVEbjZhwF` | `0xd76434af829dc4c936c12648aa77932fa94c0f96` | [`0x37897c9d…85be43e`](https://dora.coz.io/transaction/neo3/testnet/0x37897c9d8b04c7d87baf2e256621d9980145fa2ee8891c9b477c9783985be43e) |
 | **Neo C#** (`nccs`) | `NRGNZQRrb5TuDo4fA5KPiqZQB29Uybp1zJ` | `0x1f3a9b414de1c60434543dd8a05ac5e08b75b43a` | (re-used from earlier deploy) |
 
-Cross-implementation invocations match: `symbol`, `decimals`, `totalSupply`,
-`balanceOf`, plus a write op (`faucet` for Solidity / `_deploy` initial mint for
-C#) — same values on both. Source pairs and assertion runner under
-[`docs/standards-mirror/deployments/erc-20/`](https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-20).
+Checked-in snapshot: Solidity 3 / 5 assertions pass; Neo C# 4 / 4 assertions pass. This is a validation snapshot, not an all-green parity certification; see [TestNet Results](/standards-mirror/deployments/RESULTS) for failure details.
+
+Source pairs: [`docs/standards-mirror/deployments/erc-20/`](https://github.com/r3e-network/neo-devpack-solidity/tree/main/docs/standards-mirror/deployments/erc-20).
 :::
 
 </template>

@@ -24,7 +24,7 @@ devpack/
 │   └── Runtime.sol          # Runtime services and utilities (695 lines)
 ├── standards/               # NEP token standard implementations
 │   ├── NEP17.sol            # Fungible token (NEP-17)
-│   ├── NEP11.sol            # Non-fungible token (NEP-11, divisible + indivisible)
+│   ├── NEP11.sol            # Non-fungible token (NEP-11 indivisible implementation + divisible interface)
 │   └── NEP24.sol            # Royalty standard (NEP-24)
 ├── examples/                # Production-oriented usage examples
 │   ├── CompleteNEP17Token.sol

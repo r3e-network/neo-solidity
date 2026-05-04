@@ -30,7 +30,9 @@ Key features:
 
 ## NEP11.sol — Non-Fungible Tokens
 
-Complete NEP-11 implementation supporting both indivisible and divisible NFTs:
+Complete NEP-11 implementation for indivisible NFTs, plus an interface that
+documents the divisible NEP-11 shape for contracts that implement fractional
+ownership manually:
 
 ```solidity
 interface INEP11 {
@@ -51,6 +53,10 @@ interface INEP11Divisible is INEP11 {
 }
 ```
 
+The checked-in `NEP11` contract implements the indivisible owner model. For
+divisible NFTs, implement the extra `(owner, tokenId) -> balance` storage and
+5-parameter fractional `transfer` surface explicitly.
+
 ## NEP24.sol — Royalty Standard
 
 Minimal NEP-24 royalty mixin for NEP-11 NFTs:
@@ -66,6 +72,7 @@ interface INEP24Royalty {
 }
 ```
 
-- Per-token and default royalty rules (basis points: 10000 = 100%)
+- Per-token and default royalty rules stored as basis points internally
 - `_setDefaultRoyalty()`, `_setTokenRoyalty()`, `_clearTokenRoyalty()`
 - Returns empty array when no royalty is configured
+- `royaltyInfo` returns final royalty amounts for the provided sale price, not percentages

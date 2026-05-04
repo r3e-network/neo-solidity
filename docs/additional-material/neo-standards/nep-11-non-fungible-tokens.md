@@ -7,7 +7,11 @@ description: "NEP-11: Non-Fungible Tokens from Standards and Contracts."
 
 [Back to Standards and Contracts](/additional-material/neo-standards)
 
-NEP-11 is Neo's non-fungible token standard. Compared to ERC-721, it requires `tokensOf()` and `properties()` methods, uses `bytes32` token IDs, and supports both indivisible and divisible (fractional ownership) NFTs in a single standard.
+NEP-11 is Neo's non-fungible token standard. Compared to ERC-721, it requires
+`tokensOf()`, uses ByteString-compatible token IDs (`bytes32` in the devpack
+examples), and supports both indivisible and divisible (fractional ownership)
+NFTs in a single standard. `properties(tokenId)` is optional in the NEP-11 spec
+but included in the devpack's full NFT interface for metadata-rich contracts.
 
 **Spec:** [NEP-11 Proposal](https://github.com/neo-project/proposals/blob/master/nep-11.mediawiki)
 
@@ -22,7 +26,7 @@ NEP-11 is Neo's non-fungible token standard. Compared to ERC-721, it requires `t
 | `ownerOf`     | `ByteArray tokenId`                       | `Hash160`  | Yes  | Token owner                             |
 | `transfer`    | `Hash160 to, ByteArray tokenId, Any data` | `Boolean`  | No   | Transfer NFT                            |
 | `tokensOf`    | `Hash160 owner`                           | `Iterator` | Yes  | Enumerate owner's tokens                |
-| `properties`  | `ByteArray tokenId`                       | `Map`      | Yes  | Token metadata                          |
+| `properties`  | `ByteArray tokenId`                       | `Map`      | Yes  | Optional token metadata extension       |
 
 Required event:
 
@@ -45,7 +49,10 @@ NEP-11 supports two modes in a single standard:
 | `transfer`         | `transfer(to, tokenId, data)` | `transfer(from, to, amount, tokenId, data)` |
 | Use case           | Unique collectibles, art      | Fractional real estate, shared assets       |
 
-The devpack provides the `INEP11Divisible` interface for divisible NFTs:
+The checked-in `NEP11` contract implements the indivisible owner model. The
+devpack also provides the `INEP11Divisible` interface so fractional contracts
+can expose the correct method shape while implementing their own
+`(owner, tokenId) -> balance` storage:
 
 ```solidity
 interface INEP11Divisible is INEP11 {
@@ -60,7 +67,7 @@ interface INEP11Divisible is INEP11 {
 
 |                  | ERC-721 (Ethereum)         | NEP-11 (Neo)                                  |
 | ---------------- | -------------------------- | --------------------------------------------- |
-| **Type**         | `uint256`                  | `ByteArray` (mapped to `bytes32` in Solidity) |
+| **Type**         | `uint256`                  | `ByteString` / `ByteArray` (`bytes32` in devpack examples) |
 | **Neo ABI type** | —                          | `Hash256` / `ByteArray`                       |
 | **Generation**   | Sequential counter or hash | Sequential counter, hash, or arbitrary bytes  |
 
@@ -122,7 +129,7 @@ contract MyNFT is NEP11 {
         return super.tokensOf(owner);
     }
 
-    /// @dev Required: return token metadata
+    /// @dev Optional metadata extension: return token metadata
     function properties(bytes32 tokenId) public view override returns (bytes memory) {
         return super.properties(tokenId);
     }
@@ -141,11 +148,11 @@ contract MyNFT is NEP11 {
 
 ## ERC-721 Migration Checklist
 
-1. Replace `uint256 tokenId` with `bytes32`
+1. Replace `uint256 tokenId` with a ByteString-compatible type (`bytes32` in devpack examples)
 2. Replace `transferFrom(from, to, tokenId)` with `transfer(to, tokenId, data)` (3 params)
 3. Remove `approve()`, `setApprovalForAll()`, `getApproved()` — use witness model
 4. Add required `tokensOf(owner)` method returning token ID array
-5. Add required `properties(tokenId)` method returning serialized metadata
+5. Add `properties(tokenId)` when the NFT needs on-chain metadata
 6. Add `decimals()` returning `0` for indivisible NFTs
 7. Add `onNEP11Payment(from, amount, tokenId, data)` callback for receiving NFTs
 8. Verify manifest shows `supportedstandards: ["NEP-11"]`
