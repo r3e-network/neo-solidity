@@ -160,35 +160,60 @@
    ============================================================ */
 :root {
   /* Widen the overall layout cap so wide screens get a usable content column. */
-  --vp-layout-max-width: 1760px;
+  --vp-layout-max-width: 1920px !important;
+  --vp-sidebar-width: 272px;
 }
 
-@media (min-width: 1440px) {
-  /* On large screens, give the doc body more horizontal room. */
-  .VPDoc.has-sidebar .content {
-    max-width: calc(100% - 64px);
-  }
-  .VPDoc .container {
-    max-width: 1280px;
-  }
-  .vp-doc {
-    max-width: none;
-  }
-  .VPDoc .content-container {
-    max-width: 1100px;
-  }
+/* Force the content area to use the available width on every breakpoint —
+   VitePress defaults to a narrow ~688px prose column which wastes the entire
+   right half of a 1440px+ screen. Override aggressively (!important) so the
+   theme's media queries don't shrink us back. */
+.VPDoc .container {
+  max-width: 1880px !important;
 }
 
-@media (min-width: 1280px) {
-  .VPDoc .content-container {
-    max-width: 960px;
-  }
+.VPDoc.has-sidebar .container {
+  max-width: 1880px !important;
 }
 
-/* Tables in standards-mirror pages are wide — let them use full width. */
+.VPDoc .content-container {
+  max-width: 100% !important;
+}
+
+.VPDoc .content {
+  max-width: 100% !important;
+  padding-right: 32px !important;
+}
+
+.vp-doc {
+  max-width: none !important;
+}
+
+/* The doc prose / paragraph column itself — VitePress uses 688px by default.
+   Bump to 1440px so headings, paragraphs, and especially code blocks get
+   ~1.5x more horizontal space. Code blocks remain horizontally scrollable
+   inside this wider column when individual lines exceed it. */
+.vp-doc > div,
+.vp-doc > h1,
+.vp-doc > h2,
+.vp-doc > h3,
+.vp-doc > h4,
+.vp-doc > p,
+.vp-doc > ul,
+.vp-doc > ol,
+.vp-doc > blockquote,
+.vp-doc > table,
+.vp-doc > div[class*='language-'],
+.vp-doc > pre {
+  max-width: 1440px;
+}
+
+/* Tables — full width so wide comparison tables in standards-mirror pages
+   don't horizontally scroll when they don't have to. */
 .vp-doc table {
   display: table;
   width: 100%;
+  max-width: 100%;
 }
 
 /* ============================================================
