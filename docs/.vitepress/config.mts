@@ -687,7 +687,7 @@ export default defineConfig({
     search: {
       provider: 'local'
     },
-    outline: { level: [2, 3], label: 'On this page' },
+    outline: false,
     editLink: {
       pattern: 'https://github.com/r3e-network/neo-devpack-solidity/edit/main/docs/:path',
       text: 'Edit this page on GitHub'

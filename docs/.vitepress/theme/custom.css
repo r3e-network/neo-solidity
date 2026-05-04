@@ -156,6 +156,42 @@
 }
 
 /* ============================================================
+   Layout — wider content area
+   ============================================================ */
+:root {
+  /* Widen the overall layout cap so wide screens get a usable content column. */
+  --vp-layout-max-width: 1760px;
+}
+
+@media (min-width: 1440px) {
+  /* On large screens, give the doc body more horizontal room. */
+  .VPDoc.has-sidebar .content {
+    max-width: calc(100% - 64px);
+  }
+  .VPDoc .container {
+    max-width: 1280px;
+  }
+  .vp-doc {
+    max-width: none;
+  }
+  .VPDoc .content-container {
+    max-width: 1100px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .VPDoc .content-container {
+    max-width: 960px;
+  }
+}
+
+/* Tables in standards-mirror pages are wide — let them use full width. */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+/* ============================================================
    Sidebar
    ============================================================ */
 .VPSidebar .group .title {
@@ -175,7 +211,7 @@
    Home page -- custom markdown sections below the fold
    ============================================================ */
 .vp-doc .home-section {
-  max-width: 960px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
 }
