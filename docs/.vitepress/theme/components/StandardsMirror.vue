@@ -117,9 +117,9 @@ watch(
 </script>
 
 <template>
-  <div class="standards-mirror">
+  <div class="standards-mirror" :class="{ 'sm-single': entries.length <= 1 }">
     <div class="sm-shell">
-      <aside class="sm-list" v-if="entries.length">
+      <aside class="sm-list" v-if="entries.length > 1">
         <header class="sm-list-header">
           <span class="sm-list-title">Ethereum Standards</span>
           <span class="sm-list-count">{{ entries.length }}</span>
@@ -203,14 +203,20 @@ watch(
 }
 
 .sm-shell {
-  display: grid;
-  grid-template-columns: minmax(240px, 300px) 1fr;
-  gap: 1.25rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
   border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 16%, transparent);
   border-radius: 14px;
   padding: 1rem;
   background: color-mix(in srgb, var(--vp-c-brand-1) 3%, var(--vp-c-bg-soft));
+}
+
+/* Single-entry pages (every individual ERC page): the side list is hidden,
+   so the detail panel takes the full content width. No 2-column squeeze. */
+.standards-mirror.sm-single .sm-detail {
+  width: 100%;
 }
 
 .sm-list {
