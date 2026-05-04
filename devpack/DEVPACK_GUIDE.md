@@ -19,13 +19,16 @@ The Neo N3 Devpack provides Solidity-facing interfaces for Neo N3 features suppo
 
 ```bash
 # Install via npm
-npm install --save-dev @neo-devpack-solidity/contracts hardhat @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
+npm install --save-dev @neo-devpack-solidity/contracts hardhat@^2.28.6 @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 
 # Or clone and build
 git clone https://github.com/r3e-network/neo-devpack-solidity.git
 cd neo-devpack-solidity/devpack
 npm install
 ```
+
+The current Hardhat plugins target Hardhat 2.28.x. Hardhat 3 uses a different plugin/runtime model
+and needs a dedicated migration before it can be supported.
 
 ### Basic Usage
 
@@ -538,6 +541,10 @@ contract GasOptimized is Framework {
 ## 🎯 Deployment Guide
 
 ### Hardhat Configuration
+
+Use Hardhat 2.28.x with the Neo plugins shown below. Hardhat 3 is intentionally outside the current
+peer dependency range because its plugin API and network configuration model are incompatible with
+these packages today.
 
 ```javascript
 // hardhat.config.js

@@ -24,8 +24,8 @@ The manifest is a JSON file containing all metadata the Neo N3 runtime needs to 
     "extra": {
         "Author": "Jimmy <jimmy@r3e.network>",
         "Description": "Solidity contract 'ContractName' compiled to NeoVM",
-        "Version": "0.18.0.0",
-        "Compiler": "neo-devpack-solidity-0.18.0"
+        "Version": "0.18.1.0",
+        "Compiler": "neo-devpack-solidity-0.18.1"
     }
 }
 ```
@@ -193,6 +193,6 @@ Arbitrary metadata attached to the contract. The compiler populates baseline fie
 | `Author`      | Compiler author identifier                       |
 | `Description` | `"Solidity contract '<Name>' compiled to NeoVM"` |
 | `Version`     | Compiler version in `major.minor.patch.0` format |
-| `Compiler`    | Compiler ID string (e.g. `neo-devpack-solidity-0.18.0`)  |
+| `Compiler`    | Compiler ID string (e.g. `neo-devpack-solidity-0.18.1`)  |
 
 Add custom fields via NatSpec `@custom:neo.manifest.extra.*` tags. Values are parsed as JSON when valid, otherwise stored as plain strings.

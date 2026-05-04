@@ -13,7 +13,9 @@
 #![allow(clippy::partialeq_to_none)]
 
 use super::common::*;
-use neo_devpack_solidity::cli::{compile_contracts, compile_contracts_with_options, CompileOptions};
+use neo_devpack_solidity::cli::{
+    compile_contracts, compile_contracts_with_options, CompileOptions,
+};
 use neo_devpack_solidity::runtime::{NeoRuntime, RuntimeConfig};
 use proptest::prelude::*;
 

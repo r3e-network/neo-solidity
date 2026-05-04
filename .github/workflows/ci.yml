@@ -38,9 +38,10 @@ jobs:
             \  owner,\n  repo,\n  workflow_id,\n  per_page: 100\n});\n\nconst runsToday\
             \ = data.workflow_runs.filter((run) => {\n  if (run.id === context.runId)\
             \ return false;\n  const createdAt = new Date(run.created_at);\n  return\
-            \ createdAt >= startOfUtcDay;\n});\n\nconst shouldRun = runsToday.length\
-            \ === 0;\ncore.info(`Found ${runsToday.length} existing CI run(s) today\
-            \ (UTC).`);\ncore.setOutput('should_run', shouldRun ? 'true' : 'false');\n"
+            \ createdAt >= startOfUtcDay;\n});\n\nconst shouldRun = context.eventName\
+            \ !== 'schedule' || runsToday.length === 0;\ncore.info(`Event: ${context.eventName}.\
+            \ Found ${runsToday.length} existing CI run(s) today (UTC).`);\ncore.setOutput('should_run',\
+            \ shouldRun ? 'true' : 'false');\n"
     timeout-minutes: 15
   core:
     name: Core CI

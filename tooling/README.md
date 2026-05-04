@@ -5,6 +5,7 @@ A complete toolchain under active development for Neo DevPack for Solidity. Some
 > ⚠️ **Current Status**  
 > - `@neo-devpack-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
 > - `@neo-devpack-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
+> - The Hardhat plugins currently target Hardhat 2.28.x. Hardhat 3 uses a different plugin/runtime model and needs a dedicated migration before it can be supported.
 > - `@neo-devpack-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real; build/test/deploy flows remain scaffolding.  
 > - `@neo-devpack-solidity/abi-router`, `@neo-devpack-solidity/cli-tools`: usable for ABI/CLI composition, but still not full end-to-end deployment frameworks.
 > - `@neo-devpack-solidity/templates`, `@neo-devpack-solidity/integration-tests`: now wired into the workspace and covered by the tooling test/lint/typecheck pipeline.
@@ -35,6 +36,7 @@ Neo DevPack for Solidity Tooling Ecosystem
 ### 1. Hardhat Setup (compile + deploy)
 
 ```bash
+npm install --save-dev hardhat@^2.28.6
 npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo
 npm install --save-dev @neo-devpack-solidity/hardhat-neo-deployer
 

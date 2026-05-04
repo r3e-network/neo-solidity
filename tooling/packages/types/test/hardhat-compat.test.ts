@@ -26,7 +26,14 @@ describe("hardhat task compatibility helpers", () => {
 
     expect(builder.addParam).toHaveBeenCalledWith("contract", "Contract name");
     expect(builder.addOptionalParam).toHaveBeenCalledWith("args", "Constructor arguments", "[]");
-    expect(builder.addOptionalParam).toHaveBeenCalledWith("waitBlocks", "Blocks to wait", 5, "INT");
+    const waitBlocksCall = builder.addOptionalParam.mock.calls.find(
+      ([name]) => name === "waitBlocks",
+    );
+    expect(waitBlocksCall).toBeDefined();
+    expect(waitBlocksCall?.slice(0, 3)).toEqual(["waitBlocks", "Blocks to wait", 5]);
+    expect(
+      waitBlocksCall?.[3] === "INT" || waitBlocksCall?.[3]?.name === "int",
+    ).toBe(true);
     expect(builder.addFlag).toHaveBeenCalledWith("verify", "Verify after deploy");
     expect(builder.setAction).toHaveBeenCalledWith(action);
   });

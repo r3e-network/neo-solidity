@@ -9,10 +9,11 @@ Neo DevPack for Solidity versions follow semantic versioning. We recommend alway
 Use `npm` for a convenient and portable way to install `neo-devpack-solidity` locally into your JavaScript/TypeScript project. This is highly recommended if you are using Hardhat or other Node.js-based tooling.
 
 ```bash
-npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo
+npm install --save-dev hardhat@^2.28.6 @neo-devpack-solidity/hardhat-solc-neo
 ```
 
-The Hardhat plugin will automatically manage the underlying compiler binary for your system.
+The Hardhat plugin will automatically manage the underlying compiler binary for your system. The
+current plugin line targets Hardhat 2.28.x; Hardhat 3 requires a separate plugin/runtime migration.
 
 ## Docker
 
@@ -49,7 +50,7 @@ If you want the absolute latest features or are contributing to the compiler, bu
 | ------------------ | --------------- | ---------------------------------------------------- |
 | **Rust toolchain** | 1.88+ (stable)  | The core compiler is written in Rust                 |
 | **Git**            | 2.x             | To clone the repository                              |
-| **Node.js**        | 20.19+ or 22.12+ | (Optional) For TypeScript tooling and VitePress docs |
+| **Node.js**        | Active LTS: 20.19+, 22.12+, or 24.x | (Optional) For TypeScript tooling, VitePress docs, and Hardhat workflows |
 
 If Rust is not installed, install it via [rustup](https://rustup.rs/):
 
@@ -89,7 +90,7 @@ neo-solc --version
 ```
 
 Output format:
-`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.18.0`).
+`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.18.1`).
 
 When debugging or reporting issues on GitHub, please always include the exact version string produced by this command.
 

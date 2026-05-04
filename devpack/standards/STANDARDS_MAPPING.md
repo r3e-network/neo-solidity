@@ -348,7 +348,7 @@ When porting an Ethereum contract to Neo N3 via `neo-devpack-solidity`:
 ### General
 
 - [ ] Replace `{value: ...}` with `NativeCalls.gasTransfer()` / `NativeCalls.neoTransfer()`
-- [ ] Replace `receive()` / `fallback()` with `onNEP17Payment()`
+- [ ] Replace `receive()` / `fallback()` with `onNEP17Payment()` or `contracts/compat` adapters
 - [ ] Use parameterless constructor (Neo deploy constraint)
 - [ ] Import devpack via `-I devpack` compiler flag
 - [ ] No inline assembly — use library functions

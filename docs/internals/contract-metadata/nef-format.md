@@ -14,7 +14,7 @@ The Neo Executable Format (NEF) is the binary container for NeoVM bytecode. The 
 | Field         | Size     | Description                                                     |
 | ------------- | -------- | --------------------------------------------------------------- |
 | Magic         | 4 bytes  | `NEF3` — identifies the file as a Neo N3 executable             |
-| Compiler ID   | 64 bytes | UTF-8 string, zero-padded (e.g. `neo-devpack-solidity-0.18.0`)          |
+| Compiler ID   | 64 bytes | UTF-8 string, zero-padded (e.g. `neo-devpack-solidity-0.18.1`)          |
 | Source URL    | variable | Length-prefixed string, max 256 bytes. Set via `--nef-source`   |
 | Reserved      | 1 byte   | Must be `0x00`                                                  |
 | Method Tokens | variable | Varint count + up to 128 token entries for `CALLT` optimization |

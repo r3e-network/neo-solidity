@@ -1,6 +1,6 @@
 {
   "name": "@neo-devpack-solidity/abi-router",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "ABI-compatible caller routing for Neo DevPack for Solidity contracts",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,7 +34,7 @@
     "rpc"
   ],
   "dependencies": {
-    "@neo-devpack-solidity/types": "^0.14.0",
+    "@neo-devpack-solidity/types": "^0.14.1",
     "ethers": "^6.16.0",
     "axios": "^1.13.6",
     "debug": "^4.3.4"

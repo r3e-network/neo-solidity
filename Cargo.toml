@@ -1,9 +1,9 @@
 [package]
 name = "neo-devpack-solidity"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2021"
 rust-version = "1.88"
-description = "Production-ready Solidity-to-NeoVM compilation system"
+description = "Production-focused Solidity-to-NeoVM compilation system"
 license = "MIT"
 repository = "https://github.com/r3e-network/neo-devpack-solidity"
 homepage = "https://github.com/r3e-network/neo-devpack-solidity"

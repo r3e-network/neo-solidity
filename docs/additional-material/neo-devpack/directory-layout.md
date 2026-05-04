@@ -12,6 +12,7 @@ description: "Directory Layout from Devpack Overview."
 ```
 devpack/
 ├── contracts/               # Syscall/native-call wrappers and framework contracts
+│   ├── compat/              # EVM migration adapters for payable/fallback/factory flows
 │   ├── FrameworkBase.sol    # Base framework with ownership, storage, gas management
 │   ├── Framework.sol        # Extended framework (strict-manifest mode)
 │   ├── Syscalls.sol         # Supported Neo N3 syscall/native-call wrappers (1,325 lines)

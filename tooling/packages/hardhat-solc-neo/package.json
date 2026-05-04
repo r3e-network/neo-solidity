@@ -1,6 +1,6 @@
 {
   "name": "@neo-devpack-solidity/hardhat-solc-neo",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "Hardhat plugin for compiling Solidity contracts to NeoVM bytecode",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -35,7 +35,7 @@
     "neovm"
   ],
   "dependencies": {
-    "@neo-devpack-solidity/types": "^0.14.0",
+    "@neo-devpack-solidity/types": "^0.14.1",
     "ethers": "^6.16.0",
     "fs-extra": "^11.3.4",
     "chalk": "^5.3.0",
@@ -54,7 +54,7 @@
     "eslint": "^8.57.1"
   },
   "peerDependencies": {
-    "hardhat": "^2.0.0 || ^3.0.0"
+    "hardhat": ">=2.28.6 <3"
   },
   "publishConfig": {
     "access": "public"

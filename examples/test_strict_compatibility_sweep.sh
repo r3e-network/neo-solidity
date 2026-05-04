@@ -73,6 +73,7 @@ ALLOWED_WARNING_FIXTURES=(
   "examples/new/EvmCompatBlockErrors.sol"
   "examples/new/EvmCompatBlockhashError.sol"
   "examples/new/EvmCompatEncodeCalldata.sol"
+  "examples/new/EVMCompatibilityShowcase.sol"
   "examples/new/EvmCompatMsgData.sol"
   "examples/new/EvmCompatMsgSig.sol"
   "examples/new/EvmCompatSelfdestructError.sol"

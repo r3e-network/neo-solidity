@@ -3,7 +3,7 @@
   "rpcAddress": "http://seed1t5.neo.org:20332",
   "networkMagic": 894710606,
   "neoSolcVersion": "neo-solc 0.12.0",
-  "reportScope": "historical snapshot; current repo compiler line is 0.18.0",
+  "reportScope": "historical snapshot; current repo compiler line is 0.18.1",
   "deployerAddress": "NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX",
   "deployerScriptHash": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
   "gasBefore": "3308892238902",

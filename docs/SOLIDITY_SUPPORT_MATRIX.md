@@ -1,6 +1,6 @@
 # Solidity 0.8.x Support Matrix
 
-> **Compiler**: neo-devpack-solidity v0.18.0
+> **Compiler**: neo-devpack-solidity v0.18.1
 > **Parser**: foundry-solang-parser 0.3.9
 > **Target**: NeoVM (Neo N3)
 > **Audit date**: 2026-04-30
@@ -234,7 +234,7 @@ Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callb
 - If the contract **already declares** an explicit `onNEP17Payment`, `receive()` keeps the name `receive` in the manifest (no remap), and diagnostic `W105` flags it as having no effect on Neo N3.
 - `fallback()` is never remapped and keeps its Solidity name in the manifest; there is no Neo equivalent to EVM fallback dispatch, so diagnostic `W105` suggests `onNEP17Payment` instead.
 
-**Migration guidance for Ethereum developers**: if your contract needs to accept tokens, prefer declaring `onNEP17Payment(address from, uint256 amount, bytes data)` directly — it surfaces the sender, amount, and attached data that Neo's NEP-17 transfer provides. Use `receive()` only if you are porting EVM source and accept that tooling will see the entrypoint under the Neo NEP-17 name.
+**Migration guidance for Ethereum developers**: if your contract needs to accept tokens, prefer declaring `onNEP17Payment(address from, uint256 amount, Any data)` directly or inherit the devpack [EVM Compatibility Layer](/additional-material/neo-devpack/evm-compatibility-layer). It surfaces the sender, amount, token contract, and attached data that Neo's NEP-17 transfer provides. Use `receive()` only if you are porting EVM source and accept that tooling will see the entrypoint under the Neo NEP-17 name.
 
 ---
 

@@ -10,14 +10,14 @@
 [![Rust Version](https://img.shields.io/badge/rust-1.88+-blue.svg)](https://rustup.rs)
 [![Neo Version](https://img.shields.io/badge/neo-N3%203.0+-green.svg)](https://neo.org)
 
-**Fast, standards-compliant Solidity-to-NeoVM compiler for Neo N3.**
+**Fast, standards-oriented Solidity-to-NeoVM compiler for Neo N3.**
 
-> **Status:** 🟢 Production-Ready · Actively Fuzzed · Neo N3 Focused
+> **Status:** Production-focused · Actively fuzzed · Neo N3 focused
 
 ## 🎯 At a Glance
 
 - **Solidity → NeoVM**: Compile Solidity 0.8.x to Neo N3 (`.nef` + `.manifest.json`).
-- **Primary Implementation**: Rust-based compiler (production-ready) with archived Go reference implementation.
+- **Primary Implementation**: Rust-based compiler (production-focused) with archived Go reference implementation.
 - **EVM semantics**: ABI-compatible selectors and metadata; NEP standard detection (NEP-11/17/24).
 - **Optimized output**: Multi-level optimizer, Neo-specific lowering, manifest generation.
 - **Tooling friendly**: CLI first, with active Hardhat/Foundry-adjacent workspace packages for compilation, deployment, scaffolding, and cross-package smoke coverage.
@@ -459,6 +459,8 @@ neo-solc contracts/*.sol -O3 -o build/
 #### Hardhat Integration
 
 Hardhat integration is primarily useful for **compilation + artifact management**.
+Use Hardhat 2.28.x with the current Neo plugins; Hardhat 3 needs a separate
+plugin/runtime migration before it is supported.
 
 ```ts
 // hardhat.config.ts
@@ -922,15 +924,15 @@ git push origin vX.Y.Z
 
 | Component           | Status              | Test Coverage                 | Documentation | Notes                       |
 | ------------------- | ------------------- | ----------------------------- | ------------- | --------------------------- |
-| **Compiler Core**   | 🟢 Production-Ready | Unit + integration suites     | Complete      | Ready for production use    |
-| **Runtime Library** | 🟢 Production-Ready | Runtime and property suites   | Complete      | Deterministic embedded runtime; validate final behavior on Neo-Express/TestNet |
+| **Compiler Core**   | 🟢 Production-focused | Unit + integration suites     | Complete      | Validate target contracts with the production gate and Neo-Express/TestNet |
+| **Runtime Library** | 🟢 Production-focused | Runtime and property suites   | Complete      | Deterministic embedded runtime; validate final behavior on Neo-Express/TestNet |
 | **Developer Tools** | 🟢 Stable           | Smoke Tests                   | Good          | CLI fully functional        |
 | **Testing Suite**   | 🟢 Comprehensive    | Rust + fuzz + E2E + conformance | Good        | 40-vector conformance gate requires at least 95.0% |
 | **Documentation**   | 🟢 Good             | Docs structure check          | Good          | Comprehensive guides        |
 
 ### **⚠️ Known Limitations**
 
-While the compiler is production-ready for most use cases, please note:
+The compiler is intended for production-oriented use, but please note:
 
 | Area                     | Status  | Notes                                                                           |
 | ------------------------ | ------- | ------------------------------------------------------------------------------- |
@@ -981,7 +983,7 @@ for tooling ergonomics; the compiler lowers supported members directly to Neo sy
 
 ### **Real-World Contracts**
 
-We've included complete, production-ready implementations of popular contract patterns:
+We've included production-oriented implementations of popular contract patterns:
 
 #### **🪙 [ERC20 Token](./examples/ERC20Token.sol)** (420 lines)
 

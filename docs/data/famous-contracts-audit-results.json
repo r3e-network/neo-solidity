@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-02-15T08:56:34.043Z",
   "compiler": "neo-solc 0.12.0",
-  "reportScope": "historical snapshot; current repo compiler line is 0.18.0",
+  "reportScope": "historical snapshot; current repo compiler line is 0.18.1",
   "root": ".",
   "auditDir": "/tmp/neo-famous-contracts-audit",
   "buildDir": "/tmp/neo-famous-contracts-build",

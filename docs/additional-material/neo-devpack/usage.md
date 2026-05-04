@@ -19,6 +19,7 @@ neo-solc MyContract.sol -I devpack -O2 -o build/MyContract
 
 ```solidity
 import "contracts/NativeCalls.sol";
+import "contracts/compat/EVMNativeAssetAdapter.sol";
 import "libraries/Storage.sol";
 import "standards/NEP17.sol";
 ```

@@ -150,8 +150,9 @@ fn callt_executes_neo_hash_helpers_through_cryptolib() {
         assert_eq!(artifacts.len(), 1);
 
         let artifact = &artifacts[0];
-        let cryptolib_hash =
-            super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::CryptoLib);
+        let cryptolib_hash = super::bytecode::native_contract_hash(
+            neo_devpack_solidity::ir::NativeContract::CryptoLib,
+        );
         assert!(
             artifact.tokens.iter().any(|token| {
                 token.hash == cryptolib_hash

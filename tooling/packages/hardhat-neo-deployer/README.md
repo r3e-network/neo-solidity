@@ -7,8 +7,11 @@ This plugin is designed to work with build artifacts produced by `@neo-devpack-s
 ## Installation
 
 ```bash
-npm install --save-dev @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
+npm install --save-dev hardhat@^2.28.6 @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 ```
+
+This plugin currently supports Hardhat 2.28.x. Hardhat 3 requires a separate plugin/runtime
+migration before this package can support it.
 
 Enable the plugins:
 

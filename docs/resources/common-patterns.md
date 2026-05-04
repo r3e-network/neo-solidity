@@ -41,13 +41,18 @@ Ethereum contracts use `receive() external payable` or `fallback() external paya
 :::
 
 ```solidity
+import "contracts/NativeCalls.sol";
+import "contracts/Syscalls.sol";
+
 contract Treasury {
     uint256 public totalDeposits;
 
     /// @notice Equivalent to `receive() external payable`
-    function onNEP17Payment(address from, uint256 amount, bytes memory data) external {
+    function onNEP17Payment(address from, uint256 amount, Any calldata data) external {
+        from;
+        data;
         // Only accept GAS
-        require(msg.sender == NativeContracts.GAS, "Only GAS accepted");
+        require(Syscalls.getCallingScriptHash() == NativeCalls.GAS_CONTRACT, "Only GAS accepted");
         
         totalDeposits += amount;
     }

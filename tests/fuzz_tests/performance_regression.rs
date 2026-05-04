@@ -387,7 +387,10 @@ const THRESHOLD_LARGE_RUNTIME_US: u128 = 1_000_000; // 1 s total
 /// Time `compile_contracts(src, false, 2)`. Panics if compilation fails —
 /// these contracts are baked-in known-good source; a compile failure is a
 /// frontend regression, not a perf regression.
-fn time_compile(label: &str, src: &str) -> (u128, Vec<neo_devpack_solidity::cli::CompilationArtifacts>) {
+fn time_compile(
+    label: &str,
+    src: &str,
+) -> (u128, Vec<neo_devpack_solidity::cli::CompilationArtifacts>) {
     let t0 = Instant::now();
     let arts = compile_contracts(src, false, 2).unwrap_or_else(|e| {
         panic!(

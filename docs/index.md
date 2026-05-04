@@ -30,8 +30,8 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo DevPack for Solidity v0.18.0</h3>
-    <p>Version 0.18.0 is the current compiler line reflected by the checked-in Rust package metadata. It continues the stability work with expanded runtime/property coverage, stricter manifest and permission handling, Standard JSON support, and clearer diagnostics for Neo-specific behavior such as blocked <code>delegatecall</code>/<code>callcode</code> and source-compatible <code>new Contract(...)</code> lowering. See the support matrix and fuzz guide for the current validation surface.</p>
+    <h3>Neo DevPack for Solidity v0.18.1</h3>
+    <p>Version 0.18.1 is the current compiler line reflected by the checked-in Rust package metadata. It continues the stability work with expanded runtime/property coverage, stricter manifest and permission handling, Standard JSON support, and clearer diagnostics for Neo-specific behavior such as blocked <code>delegatecall</code>/<code>callcode</code> and source-compatible <code>new Contract(...)</code> lowering. See the support matrix and fuzz guide for the current validation surface.</p>
     <a href="https://github.com/r3e-network/neo-devpack-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
@@ -169,7 +169,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.18.0<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.18.1<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.18.1] - 2026-05-05
+
+Compatibility and release-readiness follow-up to v0.18.0. This patch release
+adds explicit devpack adapters for the most common EVM-only migration gaps,
+tightens Hardhat/devpack support metadata, and refreshes validation gates so
+Solidity contracts can be compiled, deployed, and exercised on Neo N3 with
+clearer guidance.
+
+### Added
+
+- **EVM compatibility adapters** in `devpack/contracts/compat/`:
+  - `EVMNativeAssetAdapter` maps payable / `msg.value`-style flows to
+    NEP-17 `onNEP17Payment(address,uint256,Any)` callbacks.
+  - `EVMFallbackDispatcher` exposes explicit `dispatch(bytes4,bytes)`
+    selector routing for contracts that previously relied on EVM fallback
+    dispatch.
+  - `EVMContractFactory` wraps Neo ContractManagement deploy/update/destroy
+    paths for CREATE/CREATE2/selfdestruct-style lifecycle migrations.
+- **Neo-Express compatibility smoke test**:
+  `examples/test_neoxp_evm_compat_smoke.sh` compiles, deploys, transfers GAS
+  into the adapter contract, reads the recorded payment amount, and invokes
+  public fallback dispatch on a local Neo-Express chain.
+- **EVM Compatibility Layer documentation** under
+  `docs/additional-material/neo-devpack/evm-compatibility-layer.md`, including
+  supported workarounds and features that intentionally remain Neo-specific.
+- **Showcase contract**: `examples/new/EVMCompatibilityShowcase.sol`.
+
+### Changed
+
+- Hardhat plugin peer ranges and install docs now explicitly target Hardhat
+  `>=2.28.6 <3`; Hardhat 3 remains a separate migration because of ESM,
+  task API, and network schema changes.
+- Node engine ranges are aligned across packages to current LTS lines
+  (`^20.19.0 || ^22.12.0 || ^24.0.0`).
+- Devpack docs now use `Syscalls.getCallingScriptHash()` as the reliable
+  NEP-17 callback token source instead of `msg.sender`.
+- Security and CI wording now treat high-severity audit findings as release
+  blockers while leaving low/moderate Hardhat 2 legacy advisories documented.
+
+### Fixed
+
+- `devpack/hardhat.config.js` now uses Solidity `0.8.34`, matching the
+  compiler/devpack examples and avoiding stale `0.8.28` integration failures.
+- Hardhat deployer tests no longer import undeclared `@cityofzion/neon-js`
+  helpers for basic hash/primitive assertions.
+
+### Validation
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --all-targets --all-features -- -D warnings`
+- `cargo test --workspace --all-features`
+- `cargo build --release`
+- `dotnet test tests/Neo.Sol.Runtime.Tests/Neo.Sol.Runtime.Tests.csproj --configuration Release`
+- `npm --prefix tooling run build && npm --prefix tooling run lint && npm --prefix tooling run typecheck && npm --prefix tooling test`
+- `npm --prefix devpack test`
+- `npm --prefix devpack run test:integration`
+- `NEO_SOLC="$PWD/target/release/neo-solc" make test-deploy-evm-compat-smoke`
+- `NEO_SOLC="$PWD/target/release/neo-solc" STRICT_SWEEP_FAIL_ON_UNEXPECTED_WARNINGS=1 bash examples/test_strict_compatibility_sweep.sh`
+- `npm run docs:check`
+- `npm run docs:build`
+- `npm run docs:check:links`
+
 ## [v0.18.0] - 2026-04-25
 
 Fuzz-system maturation follow-up to v0.17.0. Every deferred bug from the
@@ -926,7 +988,8 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.1...HEAD
+[v0.18.1]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...v0.18.1
 [v0.18.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.15.0...v0.16.0

@@ -36,8 +36,9 @@ jobs:
         \ Security Audit ===\" >> ../security_report.md\necho \"\" >> ../security_report.md\n\
         \nif npm audit --audit-level high --json > npm_audit.json 2>&1; then\n  echo\
         \ \"✅ No high-severity vulnerabilities in Node.js dependencies\" >> ../security_report.md\n\
-        else\n  echo \"⚠️ npm audit skipped due to workspace dependency issues\" >>\
-        \ ../security_report.md\nfi\necho \"\" >> ../security_report.md\n"
+        else\n  echo \"⚠️ npm audit reported high-severity vulnerabilities or dependency\
+        \ resolution issues:\" >> ../security_report.md\n  cat npm_audit.json >> ../security_report.md\nfi\n\
+        echo \"\" >> ../security_report.md\n"
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
@@ -213,7 +214,7 @@ jobs:
 
         echo "" >> SECURITY_SUMMARY.md
 
-        echo "**Status**: Production Ready with Security Validation ✅" >> SECURITY_SUMMARY.md
+        echo "**Status**: Review individual scan sections before release; high-severity findings are release blockers." >> SECURITY_SUMMARY.md
 
         '
     - name: Upload comprehensive security summary

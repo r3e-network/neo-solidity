@@ -38,6 +38,7 @@ The compiler includes built-in diagnostics to help migrate Ethereum contracts to
 - **approve/allowance**: Warns that these are not part of NEP-17 (Neo uses `Runtime.checkWitness()`)
 - **receive()/fallback()**: Suggests `onNEP17Payment()` callback instead
 - **supportsInterface()**: Notes that Neo uses manifest `supportedstandards` (auto-populated by compiler)
+- **EVM compatibility adapters**: `contracts/compat/*` provides explicit payable, fallback dispatch, and factory lifecycle migration helpers
 
 See [`standards/STANDARDS_MAPPING.md`](standards/STANDARDS_MAPPING.md) for the complete EIP↔NEP mapping
 with method signatures, event mappings, migration checklists, and code examples.
@@ -66,9 +67,12 @@ git clone https://github.com/r3e-network/neo-devpack-solidity.git
 cd neo-devpack-solidity
 make install
 
-# Or add the devpack to an existing Hardhat project
-npm install --save-dev @neo-devpack-solidity/contracts hardhat @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
+# Or add the devpack to an existing Hardhat 2 project
+npm install --save-dev @neo-devpack-solidity/contracts hardhat@^2.28.6 @neo-devpack-solidity/hardhat-solc-neo @neo-devpack-solidity/hardhat-neo-deployer
 ```
+
+The Hardhat plugins in this repository currently support Hardhat 2.28.x. Hardhat 3 requires a
+separate plugin/runtime migration and is intentionally outside the supported peer range.
 
 ### Basic Usage
 
@@ -204,6 +208,14 @@ Note: values are listed in Neo RPC big-endian form.
 | **Policy**             | `getGasPrice`, `getStoragePrice`, `getFeePerByte`, `isBlocked`       |
 | **Oracle**             | `requestOracleData` (callback-based)                                 |
 | **RoleManagement**     | `getDesignatedByRole`                                                |
+
+#### EVM Compatibility Adapters (`devpack/contracts/compat/`)
+
+| Adapter                     | Purpose                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| `EVMNativeAssetAdapter`     | Bridges payable/msg.value-style deposits to `onNEP17Payment` callbacks       |
+| `EVMFallbackDispatcher`     | Exposes explicit selector routing instead of implicit EVM fallback dispatch   |
+| `EVMContractFactory`        | Wraps ContractManagement deploy/update/destroy for CREATE-style lifecycles    |
 
 #### NEP Standards (`devpack/standards/`)
 

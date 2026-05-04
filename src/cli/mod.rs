@@ -28,7 +28,9 @@
 use clap::{Arg, ArgAction, Command};
 use neo_devpack_solidity::frontend::VisibilityKind;
 use neo_devpack_solidity::ir;
-use neo_devpack_solidity::neo::{build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES};
+use neo_devpack_solidity::neo::{
+    build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES,
+};
 use neo_devpack_solidity::semantic_model::build_semantic_model;
 use neo_devpack_solidity::solidity::{
     analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, EventMetadata,

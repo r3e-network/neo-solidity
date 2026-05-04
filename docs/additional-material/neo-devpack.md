@@ -22,6 +22,7 @@ These libraries are primarily compiler intrinsics surfaces — the `neo-solc` co
 | [Usage](/additional-material/neo-devpack/usage) |
 | [Core Contracts](/additional-material/neo-devpack/core-contracts) |
 | [Libraries](/additional-material/neo-devpack/libraries) |
+| [EVM Compatibility Layer](/additional-material/neo-devpack/evm-compatibility-layer) |
 | [Token Standards](/additional-material/neo-devpack/token-standards) |
 | [Compiler Intrinsics](/additional-material/neo-devpack/compiler-intrinsics) |
 | [Permission-Conscious Development](/additional-material/neo-devpack/permission-conscious-development) |
