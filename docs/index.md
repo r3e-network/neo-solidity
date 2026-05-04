@@ -48,6 +48,49 @@ Our release cycle prioritizes both stability for production and rapid innovation
 
 <hr class="solidity-hr" />
 
+<h2 class="solidity-section-header">ERC ↔ NEO STANDARDS MIRROR</h2>
+
+Every meaningful Ethereum standard, mapped to its Neo N3 counterpart. **129 mirror pages** across five categories with side-by-side Solidity and Neo C# implementations; **47 ERC ↔ Neo pairs deployed live on TestNet** with assertion results.
+
+<div class="contribute-grid">
+  <div class="contribute-card">
+    <h4>Token Standards</h4>
+    <p>NEP-17 / NEP-11 / NEP-24 — fungible, non-fungible, multi-token, royalty, RWA, SBT, multi-privilege.</p>
+    <a href="/standards-mirror/tokens">Explore tokens &rarr;</a>
+  </div>
+  <div class="contribute-card">
+    <h4>Account & Authentication</h4>
+    <p>EIP-712, ERC-1271, ERC-2612 (permit), ERC-4337 (account abstraction), SIWE, paymasters.</p>
+    <a href="/standards-mirror/account-and-auth">Explore auth &rarr;</a>
+  </div>
+  <div class="contribute-card">
+    <h4>Infrastructure & Patterns</h4>
+    <p>EIP-165, ERC-1167 (clones), ERC-1967 (proxies), ERC-2535 (diamond), ERC-2771 (meta-tx), multicall.</p>
+    <a href="/standards-mirror/infrastructure">Explore infra &rarr;</a>
+  </div>
+  <div class="contribute-card">
+    <h4>DeFi Building Blocks</h4>
+    <p>ERC-4626 vaults (sync, async, cancellable), ERC-3156 flash loans, ERC-5805 governance, bonds.</p>
+    <a href="/standards-mirror/defi">Explore DeFi &rarr;</a>
+  </div>
+  <div class="contribute-card">
+    <h4>Protocol-Level EIPs</h4>
+    <p>EIP-1559, EIP-4844, transaction-format EIPs, opcode-only EIPs — what Neo already does natively.</p>
+    <a href="/standards-mirror/protocol-eips">Explore protocol &rarr;</a>
+  </div>
+  <div class="contribute-card">
+    <h4>Coverage Matrix & Audit</h4>
+    <p>Live deploy status, EIP status, Neo mapping, and gap report for every catalog entry.</p>
+    <a href="/standards-mirror/coverage-matrix">View matrix &rarr;</a>
+  </div>
+</div>
+
+<div style="margin-top: 1.5rem; text-align: center;">
+  <a href="/standards-mirror/" class="cta-button">Open the standards mirror</a>
+</div>
+
+<hr class="solidity-hr" />
+
 <h2 class="solidity-section-header">CONTRIBUTE TO NEO DEVPACK FOR SOLIDITY</h2>
 
 Neo DevPack for Solidity is an open-source project. We welcome developers, auditors, and technical writers to shape the future of smart contract development on Neo N3.
