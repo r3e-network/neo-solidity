@@ -37,8 +37,19 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
         match part {
             SourceUnitPart::PragmaDirective(pragma) => {
                 if let Some(min) = enforce_supported_pragma(&pragma)? {
+                    // The combined source unit's effective minimum compiler
+                    // version is the *intersection* of every file's pragma
+                    // range. Since each file's pragma gives a lower bound on
+                    // the version that file accepts, the chosen compiler
+                    // version must be `>= max(file_mins)`. Earlier versions
+                    // tracked the MIN here, which incorrectly lowered the
+                    // effective version when one imported file declared
+                    // `>=0.4.16` (a broad lower bound used by ENS / Aave / some
+                    // OZ utility files); that caused legitimate uses of
+                    // `string.concat` / `bytes.concat` in the entry contract
+                    // to fail the feature-version gate.
                     pragma_min_version = match pragma_min_version {
-                        Some(existing) if existing <= min => Some(existing),
+                        Some(existing) if existing >= min => Some(existing),
                         _ => Some(min),
                     };
                 }

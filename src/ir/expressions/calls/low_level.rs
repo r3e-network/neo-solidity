@@ -610,10 +610,28 @@ fn try_lower_low_level_address_call(
             } else {
                 "callcode"
             };
-            ctx.record_error_with_suggestion(
+            // Neo N3 has no semantic equivalent for delegatecall — you cannot
+            // execute another contract's code against the caller's storage.
+            // Previously the compiler rejected this at compile time, which
+            // is correct *if* the user is actually trying to use delegatecall
+            // semantics. But many real-world contracts only include
+            // delegatecall through dead inheritance paths (every contract
+            // that imports OZ Address.sol gets `functionDelegateCall` in its
+            // function table even if it never calls it). Reject at runtime
+            // instead, via ABORTMSG — the contract compiles, deploys, and
+            // only fails if execution actually reaches the delegatecall.
+            //
+            // Compile-time guards are still emitted as warnings so users
+            // know they need to rewrite proxy/upgrade patterns. Note that
+            // this still doesn't silently miscompile to a wrong-storage
+            // System.Contract.Call (which was the original Task #101 bug);
+            // it's a hard runtime trap.
+            ctx.record_warning_with_suggestion(
                 format!(
-                    "{which} is not supported on Neo N3; use ContractManagement.update \
-					 for upgradeability or inherit the target contract instead. (Task #101)"
+                    "{which} is not supported on Neo N3; the compiler emitted \
+                     a runtime trap at this call site — invoking this code \
+                     path will revert. Use ContractManagement.update for \
+                     upgradeability or inherit the target contract instead."
                 ),
                 "Neo N3 has no semantic equivalent for delegatecall/callcode: there \
 				 is no way to execute another contract's code against the caller's \
@@ -621,7 +639,20 @@ fn try_lower_low_level_address_call(
 				 or replace delegation with inheritance (library calls / abstract \
 				 contracts) or explicit cross-contract calls via address.call().",
             );
-            return Some(false);
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                format!("{which} is not supported on Neo N3").into_bytes(),
+            )));
+            instructions.push(Instruction::AbortMsg);
+            // Push a `(bool, bytes)` tuple shape so downstream stack
+            // consumers see a well-typed value. The abort traps before
+            // these literals are observed at runtime.
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(2u8),
+            )));
+            instructions.push(Instruction::NewArray {
+                element_type: ValueType::Any,
+            });
+            return Some(true);
         }
         if (member_name == "call" || is_staticcall) && args.len() == 1 {
             if ctx.is_safe && member_name == "call" {
@@ -937,23 +968,55 @@ fn try_lower_low_level_address_call(
                 return Some(true);
             }
 
-            // Task #17: Opaque `bytes memory` payloads prevent permission inference.
-            // `analyze_contract_calls` in cli_manifest/permissions/ only discovers
-            // `System.Contract.Call` instructions that are actually emitted. Since
-            // there is not enough information to lower a real Neo contract call, reject
-            // the construct instead of silently returning `(true, bytes(""))`.
-            ctx.record_error_with_suggestion(
-				format!(
-					"address.{member_name}(<opaque bytes>) cannot be lowered to a Neo N3 \
-					 contract call because the method name is not statically known; the \
-					 compiler no longer emits a fake `(true, bytes(\"\"))` result for \
-					 opaque low-level payloads",
-				),
-				"rewrite the payload as a literal `abi.encodeWithSignature(\"method(T1,T2)\", a, b)` \
-				 or `abi.encodeCall(Iface.method, (a, b))` at the call site so the compiler can \
-				 lower a real System.Contract.Call and emit the correct permission entry.",
-			);
-            return Some(false);
+            // Opaque `bytes memory` payloads prevent static method-name
+            // inference. We can't emit a real `System.Contract.Call`, but we
+            // also don't want to refuse compilation outright — many real-world
+            // contracts (every OZ contract that imports `Address.sol`, every
+            // Safe handler that relays generic calldata) just transitively
+            // include opaque-call helpers as dead code that's never reached
+            // from the entry points the user actually deploys.
+            //
+            // Compromise: emit a warning at compile time, then lower the call
+            // to a runtime trap (`ABORTMSG`) that surfaces a clear diagnostic
+            // if execution ever reaches this point. The contract compiles,
+            // unrelated functions work, and only the specific opaque-call
+            // path fails — at runtime, not at compile time. Manifest
+            // permission analysis won't see a `System.Contract.Call` here,
+            // which is fine because no call is actually emitted.
+            ctx.record_warning_with_suggestion(
+                format!(
+                    "address.{member_name}(<opaque bytes>) cannot be statically \
+                     lowered to a Neo N3 contract call because the method name \
+                     is not known at compile time. The compiler emitted a \
+                     runtime trap at this call site — invoking it will revert.",
+                ),
+                "rewrite the payload as a literal `abi.encodeWithSignature(\"method(T1,T2)\", a, b)` \
+                 or `abi.encodeCall(Iface.method, (a, b))` at the call site so the compiler can \
+                 lower a real System.Contract.Call and emit the correct permission entry.",
+            );
+            // Push a static error message and ABORTMSG. ABORTMSG halts the
+            // current invocation with that message — equivalent to an EVM
+            // revert with reason.
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                format!(
+                    "opaque address.{member_name}(<bytes>) is not lowerable on Neo N3"
+                )
+                .into_bytes(),
+            )));
+            instructions.push(Instruction::AbortMsg);
+            // Per the (bool success, bytes returndata) shape that callers
+            // expect, push a default tuple so any pending stack consumers see
+            // a well-typed value before the abort traps execution. The
+            // abort happens BEFORE these literals would actually be read,
+            // but the IR-level type checker (and any downstream peephole
+            // optimizer that walks past the abort) wants a typed result.
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(2u8),
+            )));
+            instructions.push(Instruction::NewArray {
+                element_type: ValueType::Any,
+            });
+            return Some(true);
         }
     }
 

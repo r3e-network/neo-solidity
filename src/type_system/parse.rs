@@ -17,7 +17,8 @@ impl NeoType {
         enums: &[EnumTypeMetadata],
         contract_types: &[String],
     ) -> Result<Self, TypeParseError> {
-        Self::from_solidity_bounded(ty, structs, enums, contract_types, 0)
+        let empty: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        Self::from_solidity_bounded(ty, structs, enums, contract_types, &empty, 0)
     }
 
     fn from_solidity_bounded(
@@ -25,6 +26,7 @@ impl NeoType {
         structs: &[StructTypeMetadata],
         enums: &[EnumTypeMetadata],
         contract_types: &[String],
+        type_aliases: &std::collections::HashMap<String, String>,
         depth: u32,
     ) -> Result<Self, TypeParseError> {
         if depth >= MAX_STRUCT_RESOLUTION_DEPTH {
@@ -37,6 +39,21 @@ impl NeoType {
             return Ok(NeoType::Any);
         }
         let ty = strip_data_location(ty);
+        // Resolve user-defined value-type aliases before recursing. A field
+        // declared as `Slot0 slot0` (where `type Slot0 is bytes32;`) should
+        // recurse with `"bytes32"` so the inner parse hits the built-in
+        // `bytes32` branch. Doing this here — not only at the
+        // `from_solidity_with_aliases` top entry — covers field/array
+        // element/mapping value positions where the alias appears nested
+        // inside another type expression.
+        let resolved = type_aliases
+            .iter()
+            .find(|(alias, _)| alias.as_str() == ty)
+            .map(|(_, underlying)| underlying.clone());
+        let ty: &str = match resolved.as_deref() {
+            Some(underlying) => underlying,
+            None => ty,
+        };
         let lower = ty.to_ascii_lowercase();
 
         // Arrays must be detected before scalar prefixes like `uint`/`int`.
@@ -48,6 +65,7 @@ impl NeoType {
                 structs,
                 enums,
                 contract_types,
+                type_aliases,
                 depth + 1,
             )?;
             return Ok(NeoType::Array(Box::new(element)));
@@ -63,6 +81,7 @@ impl NeoType {
                             structs,
                             enums,
                             contract_types,
+                            type_aliases,
                             depth + 1,
                         )?;
                         return Ok(NeoType::Array(Box::new(element)));
@@ -150,6 +169,7 @@ impl NeoType {
                 structs,
                 enums,
                 contract_types,
+                type_aliases,
                 depth + 1,
             );
         }
@@ -162,6 +182,7 @@ impl NeoType {
                     structs,
                     enums,
                     contract_types,
+                    type_aliases,
                     depth + 1,
                 )
                 .unwrap_or(NeoType::Any);
@@ -220,6 +241,9 @@ impl NeoType {
     ///
     /// If `ty` matches a key in `type_aliases`, the underlying type is used instead.
     /// This makes `type Price is uint256` transparent to the type system.
+    /// Aliases are also threaded into the recursive `from_solidity_bounded`
+    /// walk so they get resolved when the alias appears as a struct field,
+    /// array element, or mapping value (not just at the top level).
     pub fn from_solidity_with_aliases(
         ty: &str,
         structs: &[StructTypeMetadata],
@@ -227,11 +251,7 @@ impl NeoType {
         contract_types: &[String],
         type_aliases: &std::collections::HashMap<String, String>,
     ) -> Result<Self, TypeParseError> {
-        let stripped = strip_data_location(ty);
-        if let Some(underlying) = type_aliases.get(stripped) {
-            return Self::from_solidity(underlying, structs, enums, contract_types);
-        }
-        Self::from_solidity(ty, structs, enums, contract_types)
+        Self::from_solidity_bounded(ty, structs, enums, contract_types, type_aliases, 0)
     }
 }
 
@@ -249,18 +269,42 @@ fn lookup_struct<'a>(
     ty: &str,
     structs: &'a [StructTypeMetadata],
 ) -> Option<&'a StructTypeMetadata> {
-    fn normalize(raw: &str) -> &str {
-        let mut candidate = raw.trim_start_matches("struct ").trim();
+    fn strip_qualifier(raw: &str) -> &str {
+        let candidate = raw.trim_start_matches("struct ").trim();
         if let Some((_, last)) = candidate.rsplit_once('.') {
-            candidate = last.trim();
+            last.trim()
+        } else {
+            candidate
         }
-        candidate
+    }
+    fn strip_struct_keyword(raw: &str) -> &str {
+        raw.trim_start_matches("struct ").trim()
     }
 
-    let name = normalize(ty);
+    let qualified_name = strip_struct_keyword(ty);
+    let short_name = strip_qualifier(ty);
+
+    // Phase 1: exact (qualified) match. When two structs share the same short
+    // name but live in different scopes (V4 PoolOperation.SwapParams vs
+    // Pool.SwapParams), a qualified reference like "Pool.SwapParams" must
+    // resolve to its exact namesake. We qualify nested struct names in
+    // `frontend_convert::convert_contract`, so internal references inside the
+    // owning library/contract have already been rewritten to the qualified
+    // form before they reach this lookup.
+    if let Some(found) = structs
+        .iter()
+        .find(|s| s.name.eq_ignore_ascii_case(qualified_name))
+    {
+        return Some(found);
+    }
+
+    // Phase 2: short-name fallback. Used for legacy references and for any
+    // unqualified spelling that survives the rewrite pass. If multiple
+    // structs share the short name, the first one wins — matches the
+    // historical behaviour.
     structs
         .iter()
-        .find(|s| normalize(&s.name).eq_ignore_ascii_case(name))
+        .find(|s| strip_qualifier(&s.name).eq_ignore_ascii_case(short_name))
 }
 
 fn lookup_enum<'a>(ty: &str, enums: &'a [EnumTypeMetadata]) -> Option<&'a EnumTypeMetadata> {
@@ -283,6 +327,7 @@ fn parse_mapping_type_bounded(
     structs: &[StructTypeMetadata],
     enums: &[EnumTypeMetadata],
     contract_types: &[String],
+    type_aliases: &std::collections::HashMap<String, String>,
     depth: u32,
 ) -> Result<NeoType, TypeParseError> {
     // Expect "mapping(<key> => <value>)"
@@ -353,7 +398,14 @@ fn parse_mapping_type_bounded(
         return Err(TypeParseError::Unsupported(ty.to_string()));
     }
 
-    let key = parse_mapping_component_bounded(key_str, structs, enums, contract_types, depth)?;
+    let key = parse_mapping_component_bounded(
+        key_str,
+        structs,
+        enums,
+        contract_types,
+        type_aliases,
+        depth,
+    )?;
 
     // Solidity requires mapping keys to be elementary types (integers, bool,
     // address, string, bytes, enums, contract types). Arrays, structs, and
@@ -367,8 +419,14 @@ fn parse_mapping_type_bounded(
         _ => {}
     }
 
-    let value =
-        parse_mapping_component_bounded(value_str, structs, enums, contract_types, depth)?;
+    let value = parse_mapping_component_bounded(
+        value_str,
+        structs,
+        enums,
+        contract_types,
+        type_aliases,
+        depth,
+    )?;
 
     Ok(NeoType::Mapping {
         key: Box::new(key),
@@ -381,6 +439,7 @@ fn parse_mapping_component_bounded(
     structs: &[StructTypeMetadata],
     enums: &[EnumTypeMetadata],
     contract_types: &[String],
+    type_aliases: &std::collections::HashMap<String, String>,
     depth: u32,
 ) -> Result<NeoType, TypeParseError> {
     let trimmed = raw.trim();
@@ -390,6 +449,7 @@ fn parse_mapping_component_bounded(
         structs,
         enums,
         contract_types,
+        type_aliases,
         depth,
     ) {
         return Ok(parsed);
@@ -401,6 +461,7 @@ fn parse_mapping_component_bounded(
             structs,
             enums,
             contract_types,
+            type_aliases,
             depth,
         ) {
             return Ok(parsed);

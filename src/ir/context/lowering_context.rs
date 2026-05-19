@@ -83,11 +83,16 @@ struct LoweringContext<'a> {
     selector_registry: &'a SelectorRegistry,
     function_names: &'a HashSet<String>,
     function_overloads: &'a HashMap<(String, usize), String>,
-    /// First parameter type for each overload key (name, arg_count).
+    /// Every observed first-parameter type for each overload key
+    /// (name, arg_count).
     ///
     /// Used to enforce Solidity-style receiver compatibility for `using for`
-    /// member calls (`x.f(...)` lowers to `f(x, ...)`).
-    function_first_param_types: &'a HashMap<(String, usize), ValueType>,
+    /// member calls (`x.f(...)` lowers to `f(x, ...)`). Solidity allows
+    /// overloading by parameter type — `toInt128(int256)` and
+    /// `toInt128(uint256)` share the same `(name, arity)` key — so the
+    /// bucket stores ALL observed first-parameter types and the receiver
+    /// check accepts a match against ANY of them.
+    function_first_param_types: &'a HashMap<(String, usize), Vec<ValueType>>,
     /// Task #191 — first return-parameter type for each overload key
     /// (name, arg_count). Used by `infer_type_from_expression` to resolve
     /// member access on a FunctionCall result (e.g. `makeCounter().value`
@@ -223,7 +228,7 @@ impl<'a> LoweringContext<'a> {
         selector_registry: &'a SelectorRegistry,
         function_names: &'a HashSet<String>,
         function_overloads: &'a HashMap<(String, usize), String>,
-        function_first_param_types: &'a HashMap<(String, usize), ValueType>,
+        function_first_param_types: &'a HashMap<(String, usize), Vec<ValueType>>,
         function_return_types: &'a HashMap<(String, usize), ValueType>,
         using_target_types: &'a [Option<String>],
         using_function_list_targets: &'a HashMap<String, Vec<Option<String>>>,
@@ -592,7 +597,27 @@ impl<'a> LoweringContext<'a> {
             return true;
         }
 
-        self.function_name == "constructor" || self.function_name == "_deploy"
+        // Sibling-merge (Task #198 in solidity_analyse.rs) renames sibling
+        // constructors to `__ctor__<SiblingName>` and re-types them as
+        // `FunctionTy::Function` so the host's `_deploy` prologue doesn't
+        // accidentally re-run them. The body still semantically runs as
+        // construction code (it's invoked from the host's `new Sibling(...)`
+        // lowering), so it must remain allowed to assign to immutable
+        // state vars — same as a regular constructor.
+        //
+        // Inheritance flattening additionally preserves a base constructor
+        // body under `__super_<original>` / `__super2_<original>` etc. when
+        // a derived contract overrides the constructor's name. Those super-
+        // bodies also run as construction code from the derived constructor,
+        // so they need the same exemption. Concrete repro: Chainlink
+        // AutomationRegistry2_3 inherits from AutomationForwarder whose
+        // constructor writes to `immutable i_target`; the flattener stores
+        // the base body as `__super___ctor__AutomationForwarder` and the
+        // immutable-write check rejected it without this clause.
+        self.function_name == "constructor"
+            || self.function_name == "_deploy"
+            || self.function_name.starts_with("__ctor__")
+            || self.function_name.contains("__ctor__")
     }
 
     fn ensure_state_writable(&mut self, state_index: usize) -> bool {
@@ -730,12 +755,21 @@ impl<'a> LoweringContext<'a> {
         receiver_type: &ValueType,
     ) -> bool {
         let key = (function_name.to_string(), arg_count);
-        let Some(expected_receiver_type) = self.function_first_param_types.get(&key) else {
+        let Some(expected_types) = self.function_first_param_types.get(&key) else {
             // Without type metadata, don't over-constrain existing behavior.
             return true;
         };
-
-        is_implicitly_convertible(receiver_type, expected_receiver_type)
+        // A library `using` directive resolves the receiver against ANY
+        // overload of the named function — Solidity's overload resolution
+        // picks the first one whose parameter types are implicitly
+        // convertible from the actuals. We mirror that here: accept the call
+        // if any registered overload's first parameter accepts the receiver.
+        // This fixes Uniswap V4 `int256.toInt128()` after we taught the IR
+        // builder to keep BOTH `toInt128(int256)` and `toInt128(uint256)`
+        // entries in the same bucket.
+        expected_types
+            .iter()
+            .any(|expected| is_implicitly_convertible(receiver_type, expected))
     }
 
     /// Returns the ordered parameter names for a function overload, if known.

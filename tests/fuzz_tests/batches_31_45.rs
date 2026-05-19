@@ -1196,12 +1196,13 @@ contract C { using L for L.Data; L.Data private d;
             hex::encode(&g.return_data));
     }
 
-    // K2 — Proxy forward compile-shape GREEN.
-    // K2 — Proxy forward compile-shape GREEN, updated for Task #101.
-    // Neo N3 has no delegatecall; since the fix, the compiler hard-errors on
-    // `.delegatecall`. The Logic half of the pair still compiles and runs, so we
-    // keep the Logic sanity probe and flip the Proxy half to expect a diagnostic
-    // referencing "delegatecall" + "not supported".
+    // K2 — Proxy forward compile-shape. Originally (Task #101) the
+    // compiler hard-rejected delegatecall; v0.19.0 softened that to a
+    // compile-time warning + runtime ABORTMSG so contracts that include
+    // delegatecall in dead-code paths (every OZ-based proxy chain) still
+    // deploy. The Proxy half now compiles with a warning, but invoking
+    // the actual delegatecall path would trap at runtime. The Logic half
+    // is unchanged.
     #[test]
     fn batch36_k2_proxy_delegatecall_forward_shape(value in 1u64..=10_000u64) {
         use neo_devpack_solidity::runtime::types::StackItem;
@@ -1211,12 +1212,19 @@ contract Proxy {{ address public impl; constructor(address _i) {{ impl = _i; }}
     function forward(bytes calldata data) external returns (bytes memory) {{
         (bool ok, bytes memory r) = impl.delegatecall(data);
         require(ok, "P: forward fail"); return r; }} }}"#);
-        let err = compile_contracts(&proxy_src, false, 2)
-            .expect_err("K2 delegatecall-based proxy must be rejected (Task #101)");
-        let rendered = format!("{:?}", err);
+        let proxy_arts = compile_contracts(&proxy_src, false, 2)
+            .expect("K2 delegatecall-based proxy compiles with warning + runtime trap (v0.19.0)");
+        let warnings: Vec<String> = proxy_arts
+            .iter()
+            .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+            .collect();
+        let combined = warnings.join("\n").to_lowercase();
         prop_assert!(
-            rendered.contains("delegatecall") && rendered.contains("not supported"),
-            "K2 expected delegatecall rejection diagnostic; got: {}", rendered);
+            combined.contains("delegatecall") && combined.contains("not supported"),
+            "K2 expected delegatecall warning; got: {:?}", warnings);
+        prop_assert!(
+            proxy_arts.iter().any(|a| a.bytecode.contains(&0xE0)),
+            "K2 proxy bytecode should contain ABORTMSG (0xE0) at the delegatecall site");
 
         // Logic half still compiles and is the runtime target users are nudged
         // toward (via ContractManagement.update or inheritance). Sanity-probe it.
@@ -2414,20 +2422,22 @@ contract C {
     }
 }
 
-// Q1 — `address.delegatecall(bytes)` now HARD-REJECTED at compile time (Task #101 FIXED).
-// Ethereum delegatecall runs callee's code in caller's storage context. Neo N3 has no
-// equivalent: previously src/ir/expressions/calls/low_level.rs emitted only a WARNING
-// and silently lowered delegatecall to System.Contract.Call, which uses the CALLEE's
-// storage — the inverse of EVM semantics. Any delegatecall-based proxy pattern
-// (EIP-1967, OpenZeppelin TransparentProxy/UUPS/Beacon, upgradable storage slots,
-// library-linked logic contracts) SILENTLY broke. Task #101 closes the gap by
-// rejecting `.delegatecall` and `.callcode` at IR lowering with a hard diagnostic,
-// steering users to ContractManagement.update or inheritance. This test pins the
-// new behavior: compile of a delegatecall-using source MUST fail with a diagnostic
-// message that mentions "delegatecall" AND "not supported".
+// Q1 — `address.delegatecall(bytes)`: warning + runtime trap (v0.19.0).
+// Ethereum delegatecall runs callee's code in caller's storage context. Neo
+// N3 has no equivalent. Originally (pre-Task #101) the compiler emitted a
+// WARNING and silently lowered delegatecall to System.Contract.Call, which
+// uses the CALLEE's storage — the inverse of EVM semantics, silently
+// breaking every delegatecall-based proxy (EIP-1967, OZ TransparentProxy /
+// UUPS / Beacon). Task #101 hardened that to a compile-time REJECTION,
+// which was correct in spirit but broke every contract that transitively
+// included delegatecall in dead code paths (every OZ-Address-importing
+// contract). v0.19.0 settles on a third behavior: emit a compile-time
+// warning AND inject an `ABORTMSG` instruction at the call site, so the
+// contract compiles and deploys but the specific delegatecall path traps
+// if execution ever reaches it. This is the same shape as the opaque
+// `address.call(<bytes>)` handling.
 #[test]
 fn batch41_q1_delegatecall_rejects_at_compile_time_task_101_fixed() {
-    use neo_devpack_solidity::cli::CompileError;
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract A {
@@ -2441,30 +2451,32 @@ contract C {
         return (ok, r);
     }
 }"#;
-    let err = compile_contracts(src, false, 2)
-        .expect_err("Q1 delegatecall must be rejected at compile time (Task #101)");
-    // Confirm the error carries the "delegatecall" + "not supported" phrasing so
-    // downstream tooling (IDEs, CI linters) can hook the diagnostic by substring.
-    let rendered = format!("{:?}", err);
+    let artifacts = compile_contracts(src, false, 2)
+        .expect("Q1 delegatecall should compile with warning + runtime trap (v0.19.0)");
+    // Confirm the warning mentions delegatecall and non-support.
+    let warnings: Vec<String> = artifacts
+        .iter()
+        .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+        .collect();
+    let combined = warnings.join("\n").to_lowercase();
     assert!(
-        rendered.contains("delegatecall") && rendered.contains("not supported"),
-        "Q1 error must reference delegatecall and non-support; got: {}",
-        rendered
+        combined.contains("delegatecall") && combined.contains("not supported"),
+        "Q1 warning must reference delegatecall and non-support; got: {:?}",
+        warnings
     );
-    // Also verify it's an Ir-category diagnostic (the lowering error path).
-    match err {
-        CompileError::Ir(messages) => {
-            assert!(
-                messages
-                    .iter()
-                    .any(|m| m.message.contains("delegatecall")
-                        && m.message.contains("not supported")),
-                "Q1 Ir diagnostics must contain the Task #101 message; got {:?}",
-                messages
-            );
-        }
-        other => panic!("Q1 expected CompileError::Ir(...); got {:?}", other),
-    }
+    // Confirm ABORTMSG (0xE0) is present in the bytecode where C.f's
+    // delegatecall site would otherwise be — the runtime trap. C is the
+    // second artifact (A is the simple contract); the delegatecall-using
+    // body lives in C.
+    let c_art = artifacts
+        .iter()
+        .find(|a| a.metadata.name == "C")
+        .expect("Q1 expected an artifact named C");
+    assert!(
+        c_art.bytecode.contains(&0xE0),
+        "Q1 C.f bytecode must contain ABORTMSG (0xE0); got bytecode_hex={}",
+        hex::encode(&c_art.bytecode)
+    );
 }
 
 // Q2 — Modifier with `_;` twice runs the function body twice.

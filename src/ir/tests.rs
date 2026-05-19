@@ -13,7 +13,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let selector_registry = SelectorRegistry::default();
     let function_names = HashSet::new();
     let function_overloads: HashMap<(String, usize), String> = HashMap::new();
-    let function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
+    let function_first_param_types: HashMap<(String, usize), Vec<ValueType>> = HashMap::new();
     let function_return_types: HashMap<(String, usize), ValueType> = HashMap::new();
     let using_target_types: Vec<Option<String>> = Vec::new();
     let using_function_list_targets: HashMap<String, Vec<Option<String>>> = HashMap::new();

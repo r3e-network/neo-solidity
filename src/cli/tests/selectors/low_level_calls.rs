@@ -698,6 +698,12 @@ fn low_level_call_rejects_signature_without_function_name() {
 
 #[test]
 fn opaque_dynamic_low_level_call_payload_fails_instead_of_fake_success() {
+    // v0.19.0 changed the contract: opaque payloads are a compile-time
+    // warning + a runtime ABORTMSG, not a hard compile error. The test
+    // name is preserved for historical continuity but now pins the new
+    // shape — the warning surfaces the migration path, and the bytecode
+    // contains ABORTMSG (0xE0) so any execution that reaches the opaque
+    // call site reverts cleanly.
     let source = r#"
     pragma solidity ^0.8.20;
 
@@ -708,7 +714,21 @@ fn opaque_dynamic_low_level_call_payload_fails_instead_of_fake_success() {
     }
     "#;
 
-    assert_low_level_ir_error_contains(source, "opaque bytes");
+    let artifacts = compile_contracts(source, false, 2)
+        .expect("opaque payload should compile with warning + runtime trap (v0.19.0)");
+    let warnings: Vec<String> = artifacts
+        .iter()
+        .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+        .collect();
+    let combined = warnings.join("\n").to_lowercase();
+    assert!(
+        combined.contains("opaque") && combined.contains("runtime trap"),
+        "expected opaque-call warning surface; got warnings: {warnings:?}"
+    );
+    assert!(
+        artifacts.iter().any(|a| a.bytecode.contains(&0xE0)),
+        "expected ABORTMSG (0xE0) at the opaque-call site"
+    );
 }
 
 #[test]

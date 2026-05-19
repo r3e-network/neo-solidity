@@ -100,7 +100,16 @@ impl Module {
             .collect();
 
         let mut function_overloads = HashMap::new();
-        let mut function_first_param_types: HashMap<(String, usize), ValueType> = HashMap::new();
+        // Map `(name, arity)` → every observed first-parameter type. Solidity
+        // allows overloading by parameter types, so two `toInt128(int256)` /
+        // `toInt128(uint256)` declarations share the same `(name, arity)`
+        // bucket. We need to keep both so that `receiver_matches_function_overload`
+        // can match against ANY overload — previously the second insert
+        // overwrote the first and call sites like `int256.toInt128()` failed
+        // when the surviving entry was the `uint256` overload (Uniswap V4
+        // BalanceDelta.sol et al.).
+        let mut function_first_param_types: HashMap<(String, usize), Vec<ValueType>> =
+            HashMap::new();
         // Task #191 — first return-parameter type per overload. Populated
         // alongside `function_first_param_types` so that call-site type
         // inference (e.g. `c.inc().value`) can resolve the struct field index.
@@ -110,8 +119,11 @@ impl Module {
             let key = (method.name.clone(), method.parameters.len());
             function_overloads.insert(key.clone(), method.neo_name.clone());
             if let Some(first_param) = method.parameters.first() {
-                function_first_param_types
-                    .insert(key.clone(), ValueType::from_parameter(first_param));
+                let ty = ValueType::from_parameter(first_param);
+                let bucket = function_first_param_types.entry(key.clone()).or_default();
+                if !bucket.iter().any(|existing| existing == &ty) {
+                    bucket.push(ty);
+                }
             }
             if let Some(first_return) = method.return_parameters.first() {
                 function_return_types
@@ -154,6 +166,7 @@ impl Module {
             &metadata.structs,
             &metadata.enums,
             &metadata.contract_types,
+            &metadata.type_aliases,
         );
 
         // Task #91 — collect inlinable bodies for methods whose first

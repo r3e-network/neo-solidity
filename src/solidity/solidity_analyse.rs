@@ -105,9 +105,51 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     // Validate user libraries before merging. Convert each library to metadata
     // and run the standard validation pipeline to catch library-specific errors
     // (state variables, constructors, external functions) early.
+    //
+    // Cross-library struct references — e.g. `function executeInitReserve(
+    // ConfiguratorInputTypes.InitReserveInput calldata input)` declared in
+    // library `ConfiguratorLogic` and referencing a struct from library
+    // `ConfiguratorInputTypes` (both shipped in @aave/core-v3) — require that
+    // each library's validation pass see the structs declared in its peers.
+    // Otherwise `NeoType::from_solidity` can't resolve the qualified type,
+    // `param.neo_type` stays `None`, and the external-function check fires a
+    // spurious "uses unsupported type" error.
+    //
+    // We solve this by pre-merging every other library's structs (and enums,
+    // for symmetry) into each library's struct table before running its
+    // validation. Doing the merge here (instead of at flatten time) keeps the
+    // mutation scoped to a clone and means downstream stages still see the
+    // original, un-merged library tree.
+    let library_struct_pool: Vec<StructIR> = raw_libraries
+        .iter()
+        .flat_map(|lib| lib.structs.iter().cloned())
+        .collect();
+    let library_enum_pool: Vec<EnumIR> = raw_libraries
+        .iter()
+        .flat_map(|lib| lib.enums.iter().cloned())
+        .collect();
     for lib in &raw_libraries {
+        let mut lib_with_peers = lib.clone();
+        for s in &library_struct_pool {
+            if !lib_with_peers.structs.iter().any(|own| own.name == s.name) {
+                lib_with_peers.structs.push(s.clone());
+            }
+        }
+        for e in &library_enum_pool {
+            if !lib_with_peers.enums.iter().any(|own| own.name == e.name) {
+                lib_with_peers.enums.push(e.clone());
+            }
+        }
+        // Run normalize first so the validation sees the post-merge
+        // semantics — library external functions get converted to internal
+        // BEFORE validate enforces "no storage parameter on external
+        // functions". Otherwise the validator rejects legitimate library
+        // patterns like `EModeLogic.executeSetUserEMode(mapping storage, ...)`
+        // (Aave) where the function is `external` in source but operates as
+        // an internal helper on Neo (libraries inline into their callers).
+        let normalized_lib = normalize_library_for_neo(lib_with_peers);
         let lib_metadata = convert_contract(
-            lib.clone(),
+            normalized_lib,
             &[],
             &contract_types,
             std::sync::Arc::new(SelectorRegistry::default()),
@@ -153,6 +195,22 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                     c.functions
                         .iter()
                         .filter(|f| {
+                            // Include abstract internal function declarations
+                            // (body = None) alongside concrete externals.
+                            // When sibling-merge pulls in an external body
+                            // like `rawFulfillRandomWords` whose body calls
+                            // an abstract sibling-internal function (e.g.
+                            // VRFConsumerBaseV2's `fulfillRandomWords(uint256,
+                            // uint256[])`), the host's IR-lowering pass would
+                            // otherwise fail the overload lookup with
+                            // "no overload of 'fulfillRandomWords' with 2
+                            // argument(s)". Importing the abstract declaration
+                            // satisfies the lookup; at runtime the call lands
+                            // on an empty stub (RET-only) which is acceptable
+                            // for the dead-code paths that typically include
+                            // such helpers transitively.
+                            let is_abstract_internal = matches!(f.ty, FunctionTy::Function)
+                                && f.body.is_none();
                             // Task #126 — include Fallback (and Receive) alongside
                             // ordinary external/public named functions so that a
                             // primary contract whose only entrypoint is
@@ -177,11 +235,75 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                                 f.ty,
                                 FunctionTy::Fallback | FunctionTy::Receive
                             );
+                            // (We deliberately do NOT include
+                            // `is_abstract_internal` here. Including abstract
+                            // internal declarations would let merged bodies
+                            // reference them, but it also fails the "all
+                            // abstract methods implemented" validation since
+                            // those functions don't have a body in the host.
+                            // We handle the missing-overload case at
+                            // IR-lowering time by emitting a runtime trap
+                            // instead of a compile error.)
+                            let _ = is_abstract_internal;
                             is_named_external || is_fallback_like
                         })
                         .cloned()
                         .collect::<Vec<_>>(),
                 )
+            })
+            .collect();
+        // Companion map: every sibling's modifier definitions — INCLUDING
+        // modifiers reachable through the sibling's inheritance chain. When
+        // sibling functions are merged into a host below, any modifier they
+        // apply (`function upgrade(...) public payable virtual onlyOwner`)
+        // must still resolve in the host. The host's local `modifier_defs`
+        // only sees ITS OWN modifier declarations — so without a parallel
+        // merge pass, merged `upgrade`'s `onlyOwner` lookup fails with
+        // "unresolved modifier 'onlyOwner' with 0 argument(s)". Repro: OZ
+        // TransparentUpgradeableProxy / ProxyAdmin import cycle, where
+        // ProxyAdmin's `onlyOwner` lives in its base contract Ownable.
+        //
+        // Because the sibling's own inheritance flattening hasn't happened
+        // yet at this point in the pipeline, we walk each sibling's
+        // linearized base chain ourselves and union their modifier
+        // definitions per sibling, keyed by (name, arity), preferring
+        // bodied modifiers over abstract declarations.
+        let sibling_modifier_map: std::collections::HashMap<String, Vec<FunctionIR>> = primary
+            .iter()
+            .map(|c| {
+                let mut seen: std::collections::HashMap<(String, usize), FunctionIR> =
+                    std::collections::HashMap::new();
+                let mut visit = |contract: &ContractIR| {
+                    for f in &contract.functions {
+                        if !matches!(f.ty, FunctionTy::Modifier) {
+                            continue;
+                        }
+                        let key = (f.name.clone(), f.parameters.len());
+                        match seen.get(&key) {
+                            Some(existing) if existing.body.is_some() => {}
+                            _ => {
+                                seen.insert(key, f.clone());
+                            }
+                        }
+                    }
+                };
+                visit(c);
+                // Try to walk the linearization. If it fails (shouldn't —
+                // we already ran it during pre-merge analysis to detect
+                // cycles), fall back to direct base inspection.
+                if let Ok(chain) =
+                    contract_linearization_base_to_derived(&c.name, &pre_merge_contract_map)
+                {
+                    for ancestor_name in &chain {
+                        if ancestor_name == &c.name {
+                            continue;
+                        }
+                        if let Some(ancestor) = pre_merge_contract_map.get(ancestor_name) {
+                            visit(ancestor);
+                        }
+                    }
+                }
+                (c.name.clone(), seen.into_values().collect::<Vec<_>>())
             })
             .collect();
         // Task #197 — parallel state-variable map. When a sibling's external
@@ -502,6 +624,55 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                         contract.functions.push(sibling_fn.clone());
                     }
                 }
+                // Pull in the sibling's modifier definitions so the merged
+                // external bodies can still resolve their `onlyOwner` /
+                // `onlyRole` / etc. references when the host's modifier-
+                // expansion pass runs. Modifiers don't conflict on plain
+                // function-signature equality (different `ty`), so we track
+                // them in a small local set keyed on (name, arity).
+                if let Some(sibling_modifiers) = sibling_modifier_map.get(sibling_name) {
+                    for sibling_mod in sibling_modifiers {
+                        let already_present = contract.functions.iter().any(|existing| {
+                            matches!(existing.ty, FunctionTy::Modifier)
+                                && existing.name == sibling_mod.name
+                                && existing.parameters.len() == sibling_mod.parameters.len()
+                        });
+                        if !already_present {
+                            contract.functions.push(sibling_mod.clone());
+                        }
+                    }
+                }
+                // Also pull in the sibling's `using` directives. Merged
+                // external bodies may rely on contract-scope `using L for T;`
+                // declarations declared in the sibling — e.g. Gnosis Safe
+                // declares `using SafeMath for uint256;` and its
+                // `execTransaction` body calls `gas.max(other)`. When
+                // CompatibilityFallbackHandler triggers a sibling-merge of
+                // Safe's external methods, the `execTransaction` body needs
+                // its `using SafeMath` directive to remain in scope or the
+                // IR-lowering pass reports "member-style call '...' requires
+                // an explicit `using` directive". We dedup on
+                // (target_type, function_names) so reinjected duplicates
+                // don't grow the table.
+                if let Some(sibling_contract) = pre_merge_contract_map.get(sibling_name) {
+                    for directive in &sibling_contract.using_directives {
+                        if !contract.using_directives.iter().any(|existing| {
+                            existing.target_type == directive.target_type
+                                && existing.function_names == directive.function_names
+                        }) {
+                            contract.using_directives.push(directive.clone());
+                        }
+                    }
+                    for lib_name in &sibling_contract.using_for_libraries {
+                        if !contract.using_for_libraries.contains(lib_name) {
+                            contract.using_for_libraries.push(lib_name.clone());
+                        }
+                    }
+                    contract.has_using_for_star =
+                        contract.has_using_for_star || sibling_contract.has_using_for_star;
+                    contract.has_using_function_list = contract.has_using_function_list
+                        || sibling_contract.has_using_function_list;
+                }
             }
 
             // Task #197 — merge sibling state variables after their external
@@ -736,6 +907,33 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 flattened.state_variables.extend(lib.state_variables.clone());
                 flattened.structs.extend(lib.structs.clone());
                 flattened.enums.extend(lib.enums.clone());
+                // Merge the library's own `using` directives into the host.
+                // Library function bodies are inlined verbatim above, so any
+                // member-style call resolved by a library-scope `using` (e.g.
+                // OZ Strings.sol declares `using SafeCast for *;` then calls
+                // `someBool.toUint()` inside its own helpers) must continue to
+                // resolve after the body lives inside the host contract.
+                // Without this, the IR-lowering pass at
+                // `src/ir/expressions/calls/member_calls.rs:432` reports
+                // "member-style call '...' requires an explicit `using`
+                // directive" for the inlined library code.
+                for directive in &lib.using_directives {
+                    if !flattened.using_directives.iter().any(|existing| {
+                        existing.target_type == directive.target_type
+                            && existing.function_names == directive.function_names
+                    }) {
+                        flattened.using_directives.push(directive.clone());
+                    }
+                }
+                for lib_name in &lib.using_for_libraries {
+                    if !flattened.using_for_libraries.contains(lib_name) {
+                        flattened.using_for_libraries.push(lib_name.clone());
+                    }
+                }
+                flattened.has_using_for_star =
+                    flattened.has_using_for_star || lib.has_using_for_star;
+                flattened.has_using_function_list =
+                    flattened.has_using_function_list || lib.has_using_function_list;
             }
         }
         apply_modifiers_and_base_constructors(&mut flattened, &contract_map)?;

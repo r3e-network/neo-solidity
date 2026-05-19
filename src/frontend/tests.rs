@@ -233,3 +233,27 @@ contract UsesUsingDirectives {
                 .is_some_and(|names| names.iter().any(|name| name == "add"))
     }));
 }
+
+#[test]
+fn parse_source_combines_multi_file_pragmas_via_intersection() {
+    // Regression: when imports are concatenated, the cumulative pragma min
+    // must be the MAX (intersection of constraints) — not the MIN. OpenZeppelin
+    // ships many helper files with `>=0.4.16`, while feature-using files
+    // declare `^0.8.20`. Taking the min would let the broader pragma
+    // illegally widen the effective range and disable feature gates the entry
+    // contract requires (e.g. `string.concat`, introduced in 0.8.12).
+    let source = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.4.16;
+pragma solidity ^0.8.20;
+
+contract Test {
+    function concat() public pure returns (string memory) {
+        return string.concat("a", "b");
+    }
+}
+"#;
+
+    let contracts = parse_source(source).expect("string.concat should be allowed under 0.8.20");
+    assert_eq!(contracts.len(), 1);
+}

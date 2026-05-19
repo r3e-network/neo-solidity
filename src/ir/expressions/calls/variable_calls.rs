@@ -211,12 +211,48 @@ fn try_lower_variable_call(
                         arg_count: args.len(),
                     });
                 } else {
-                    ctx.record_error(format!(
-                        "no overload of '{}' with {} argument(s)",
-                        identifier.name,
-                        args.len()
-                    ));
-                    success = false;
+                    // The function name is in scope (`ctx.function_names`)
+                    // but no overload with this arity exists in the host's
+                    // function table. This typically happens for abstract
+                    // declarations imported via sibling-merge: e.g. when
+                    // VRFCoordinatorV2_5 sibling-merges VRFConsumerBaseV2's
+                    // `rawFulfillRandomWords`, the body calls
+                    // `fulfillRandomWords(uint256, uint256[])` — an abstract
+                    // declaration whose body lives in a different contract
+                    // we don't compile alongside.
+                    //
+                    // Instead of failing compilation outright (which
+                    // forbids deploying ANY part of the contract), emit a
+                    // runtime ABORTMSG so the well-formed pieces still
+                    // deploy and only the unimplemented path traps. Drop
+                    // the already-lowered args first so the stack ends up
+                    // in a sensible state for downstream consumers.
+                    ctx.record_warning_with_suggestion(
+                        format!(
+                            "no overload of '{}' with {} argument(s) is reachable; emitting runtime trap at this call site",
+                            identifier.name,
+                            args.len()
+                        ),
+                        "this often comes from a sibling-merged body referencing an abstract function defined in another contract; provide a concrete override or remove the call path",
+                    );
+                    for _ in 0..args.len() {
+                        instructions.push(Instruction::Drop(ValueType::Any));
+                    }
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        format!(
+                            "'{}'/{} has no compiled body",
+                            identifier.name,
+                            args.len()
+                        )
+                        .into_bytes(),
+                    )));
+                    instructions.push(Instruction::AbortMsg);
+                    // Push a default return value so any caller that expects
+                    // a value sees something well-typed. The abort traps
+                    // before this is read at runtime.
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        num_bigint::BigInt::zero(),
+                    )));
                 }
             }
 

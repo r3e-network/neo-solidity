@@ -1115,14 +1115,25 @@ contract OpaqueCall {
     }
 }"#;
 
-        let err = compile_contracts(source, false, 2)
-            .expect_err("opaque-bytes call must be rejected instead of fake-success lowered");
-        let msg = format!("{err:?}").to_lowercase();
+        // v0.19.0 changed behavior: opaque `addr.call(<bytes>)` is no longer
+        // a hard compile error — it now compiles to a runtime ABORTMSG with a
+        // compile-time warning explaining how to rewrite the payload. This
+        // lets every contract that transitively imports OZ `Address.sol`
+        // (every transparent proxy, Multicall, VestingWallet …) deploy
+        // normally, with only the specific opaque-call path trapping at
+        // runtime. The test now pins the warning surface area.
+        let artifacts = compile_contracts(source, false, 2)
+            .expect("opaque-bytes call should compile with a warning + runtime trap");
+        let warnings: Vec<String> = artifacts
+            .iter()
+            .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+            .collect();
+        let combined = warnings.join("\n").to_lowercase();
         prop_assert!(
-            msg.contains("opaque")
-                && msg.contains("method name is not statically known")
-                && msg.contains("abi.encodewithsignature"),
-            "opaque `bytes memory` call must explain how to rewrite the payload; got {err:?}"
+            combined.contains("opaque")
+                && combined.contains("not known at compile time")
+                && combined.contains("runtime trap"),
+            "opaque `bytes memory` call must surface a runtime-trap warning; got warnings: {warnings:?}"
         );
     }
 
@@ -1844,14 +1855,18 @@ contract {c} {{ using {lib} for uint256; function run(uint256 n) external pure r
             methods.iter().map(|m| m.get("name").cloned()).collect::<Vec<_>>());
     }
 
-    // Invariant (Task #101, FIXED): `target.delegatecall(data)` is HARD-REJECTED at
-    // compile time. Previously the compiler lowered it to System.Contract.Call with a
-    // silent warning — a catastrophic miscompile for EIP-1967/UUPS/Beacon proxies
-    // because the callee's (not caller's) storage was used. The wrapper-manifest
-    // shape check (fn returns `(bool, bytes)` → ABI Array) no longer applies because
-    // the source never reaches codegen. We now pin the rejection surface: any
-    // function name (fuzzed) carrying `.delegatecall` must yield a compile error
-    // whose diagnostic references "delegatecall" and "not supported".
+    // Invariant: `target.delegatecall(data)` produces a compile-time
+    // WARNING + a runtime `ABORTMSG` trap (v0.19.0 behavior). Originally
+    // (Task #101) the compiler lowered delegatecall to System.Contract.Call
+    // — a catastrophic miscompile for EIP-1967/UUPS proxies because the
+    // callee's storage was used instead of the caller's. The first fix was
+    // a hard compile-time rejection, but that blocked every contract that
+    // transitively included OZ Address.sol (transparent proxies, Multicall,
+    // VestingWallet, TimelockController, …) even when the delegatecall
+    // path was dead code. The current behavior is: warn at compile time,
+    // emit an ABORTMSG at the call site, let the contract deploy. Tests
+    // pin both halves: a WARNING surface AND that the bytecode contains
+    // the trap (ABORTMSG = 0xE0).
     #[test]
     fn delegatecall_hard_rejected_at_compile_time(
         fn_name in identifier_strategy(),
@@ -1867,13 +1882,27 @@ contract C {{
             f = fn_name
         );
 
-        let err = compile_contracts(&source, false, 2)
-            .expect_err("delegatecall must be rejected (Task #101)");
-        let rendered = format!("{:?}", err);
+        let artifacts = compile_contracts(&source, false, 2)
+            .expect("delegatecall should compile with warning + runtime trap (v0.19.0)");
+        let warnings: Vec<String> = artifacts
+            .iter()
+            .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+            .collect();
+        let combined = warnings.join("\n").to_lowercase();
         prop_assert!(
-            rendered.contains("delegatecall") && rendered.contains("not supported"),
-            "expected delegatecall-not-supported diagnostic for fn '{}'; got: {}",
-            fn_name, rendered
+            combined.contains("delegatecall") && combined.contains("not supported"),
+            "expected delegatecall warning for fn '{}'; got warnings: {:?}",
+            fn_name, warnings
+        );
+        // Verify the runtime trap is actually present in the bytecode.
+        // ABORTMSG = opcode 0xE0.
+        let bytecode_contains_abortmsg = artifacts
+            .iter()
+            .any(|a| a.bytecode.contains(&0xE0));
+        prop_assert!(
+            bytecode_contains_abortmsg,
+            "delegatecall should lower to ABORTMSG (0xE0) at the trap site for fn '{}'",
+            fn_name
         );
     }
 

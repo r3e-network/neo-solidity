@@ -7,6 +7,172 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.19.0] - 2026-05-19
+
+Compatibility-focused release: this is the "any existing Solidity contract
+should compile to NeoVM" pass. Three rounds of refactoring across the import
+resolver, type system, inheritance/merge pipeline, and IR lowering. Before
+this release, only 7 of the 40 OpenZeppelin contracts in the famous-contracts
+corpus compiled even with a full npm install — most blocked by a pragma
+combinator bug, missing `using`-directive propagation, opaque `address.call`
+hard-rejection, and qualified-struct name collisions. After this release,
+**40/40 OpenZeppelin contracts compile** and the full famous-contracts
+corpus (OZ + Uniswap V2/V4 + Safe + Aave + Chainlink + solmate) reaches
+**88/88 unique contracts compiling end-to-end** to valid Neo N3 NEF3 +
+manifest. No regressions in the 67 internal examples or 1248 integration
+tests.
+
+### Added
+
+- **Foundry-style import remapping** with full Foundry-equivalent semantics:
+  - `--remap PREFIX=PATH` CLI flag (repeatable).
+  - `--remappings FILE` CLI flag to load Foundry's `remappings.txt` format.
+  - Auto-discovery of `remappings.txt` from every ancestor of the entry
+    file AND from every package inside reachable `node_modules/`
+    directories. Uniswap V4 periphery's `permit2/=lib/permit2/`,
+    `forge-std/=lib/forge-std/src/`, etc. now register automatically.
+  - Auto-registration of `<pkg>/lib/<dep>/=lib/<dep>/` mappings for any
+    package shipping a Foundry-style vendored layout — covers Uniswap V4
+    and every forge-installed contract suite without manual configuration.
+  - Foundry inline-version-pin syntax (`@openzeppelin/contracts@4.8.3/...`)
+    now resolves with three fallbacks in order: dash-form
+    (`contracts-4.8.3`), then unpinned (`contracts`), then the original
+    pinned spelling. Matches both Foundry's pinning syntax and the npm
+    aliased-package convention used by Chainlink.
+  - String-prefix substitution (was `Path::join`, which silently broke
+    remappings whose suffix begins with `/`).
+- **node_modules auto-discovery** from every entry file AND every
+  `--include-path`. Walks up to 16 ancestors looking for `node_modules/`
+  and adds each discovered directory as an implicit include path. Mirrors
+  solc / hardhat / foundry's npm-style import resolution.
+- **Cross-package virtual-path resolution** for relative imports. When a
+  vendored file at `vendor/@openzeppelin/contracts/token/ERC20/ERC20.sol`
+  does `import "./IERC20.sol"` and `IERC20.sol` isn't vendored alongside,
+  the resolver now finds the equivalent file under any include path that
+  exposes a parallel package layout.
+- **Qualified-struct-name tracking** through the IR. A struct defined
+  inside `library Pool { struct SwapParams { … } }` now keeps its scope
+  qualifier (`Pool.SwapParams`) all the way through library merging and
+  IR lowering, so it can coexist with a same-named file-level
+  `struct SwapParams` from a different scope (Uniswap V4 PoolOperation
+  ships exactly that pair). `from_solidity` does qualified-exact match
+  first, falls back to short-name suffix match. Internal references
+  inside the owning scope are auto-qualified during frontend conversion.
+- **Foundry-compatible regression test**: `tests/famous_contracts_compile.rs`
+  enforces two compile-pass floors — a hermetic vendor-only floor (5)
+  and a strict OZ-install floor (35, currently hitting 40/40). Picks up
+  `NEO_SOL_OZ_INSTALL_DIR` env var or any ancestor `node_modules/` to
+  decide whether to run the install-required pass.
+
+### Changed
+
+- **Opaque `address.call(<bytes>)` and `delegatecall` are now runtime
+  traps, not compile errors.** Previously the compiler hard-rejected any
+  contract whose compiled methods transitively included these patterns,
+  which made every contract that imports OZ `Address.sol` (every
+  transparent proxy, Multicall, VestingWallet, TimelockController, …)
+  fail compilation even when the offending paths were dead code reached
+  through inheritance. The compiler now emits a warning at compile time
+  and an `ABORTMSG` instruction at the call site — contracts deploy
+  normally, and only the specific opaque/delegate-call code path traps if
+  execution ever reaches it. Manifest permission analysis is correct
+  (no `System.Contract.Call` instruction is emitted, so no spurious
+  wildcard permissions are claimed).
+- **Multi-file pragma combinator now uses MAX (intersection) instead of
+  MIN.** When the compiled source unit contains multiple `pragma solidity`
+  directives — typical of import chains — the effective compiler version
+  must satisfy every file's constraint. Taking the MIN (the old behaviour)
+  incorrectly lowered the effective version below feature gates, causing
+  legitimate uses of `string.concat` / `bytes.concat` in the entry
+  contract to fail when one transitively imported file declared a broad
+  `>=0.4.16` pragma (used by many OZ utility files).
+- **Sibling-merge no longer clobbers bodied overrides with bodyless
+  declarations.** When a derived contract's inheritance MRO places an
+  abstract-interface declaration AFTER a concrete abstract-contract
+  override (Chainlink FunctionsCoordinator: OCR2Base implements
+  `latestConfigDetails` with body, IFunctionsCoordinator declares it
+  bodyless, both are inherited), the flattener now keeps the bodied
+  version.
+- **Unresolved-overload internal call** (typical of sibling-merged bodies
+  referencing abstract functions in the original scope) is now a warning
+  + runtime trap rather than a hard error.
+- Library `external`→`internal` visibility normalization now runs BEFORE
+  validation, so Aave's `EModeLogic.executeSetUserEMode(mapping storage,
+  ...)` no longer trips the "external function may not use storage" check.
+
+### Fixed
+
+- **Library `using` directive merge.** When a library is inlined into a
+  host contract, its own `using L for T;` directives now merge too. OZ
+  Strings.sol declares `using SafeCast for *;` then calls
+  `someBool.toUint()` inside helpers; the inlined helper now resolves
+  correctly inside the consuming contract.
+- **Ancestor `using` directive merge.** Inheritance flattening now pulls
+  ancestor `using` directives into the descendant's scope. Repro: Aave
+  AToken inheriting from IncentivizedERC20 — the parent's
+  `using SafeCast for uint256;` is what makes the inherited `transfer`
+  body's `amount.toUint128()` typecheck.
+- **Sibling `using` directive merge.** Sibling-merged external bodies
+  now carry their owning contract's `using` directives — e.g. Gnosis
+  Safe's `using SafeMath for uint256;` is in scope when
+  CompatibilityFallbackHandler triggers a sibling merge.
+- **Sibling modifier definition merge.** Sibling-merge now pulls in
+  modifier definitions from the original contract AND from its base
+  classes. Repro: OZ TransparentUpgradeableProxy ↔ ProxyAdmin cycle,
+  where ProxyAdmin's `onlyOwner` is inherited from Ownable.
+- **Private state-variable shadowing across inheritance.** Solidity
+  allows a derived contract to redeclare a private state variable with
+  the same name as an ancestor (typical of OZ Governor's
+  `string private _name` shadowing EIP712's `ShortString private
+  immutable _name`). The flattener now renames the ancestor's slot to
+  `__<Ancestor>__<name>` and rewrites identifier references in the
+  ancestor's own function bodies. Each scope keeps its own storage.
+- **`function_first_param_types` keeps every overload's first-param
+  type.** Solidity allows overloading by parameter type; the previous
+  single-entry map collapsed `toInt128(int256)` and `toInt128(uint256)`
+  (Uniswap V4 SafeCast) so receiver-type matching against
+  `using SafeCast for int256;` failed for the wrong-arity surviving
+  entry.
+- **Type alias resolution in directives.** Library-form `using L for
+  Currency;` (with `type Currency is address;`) now resolves the alias
+  to its underlying type for receiver matching, so the directive applies
+  to address-typed values. Function-list form `using {add as +} for
+  BalanceDelta;` deliberately does NOT resolve (operator-overload scope
+  is restricted to the alias only — broadening it would over-capture
+  every same-underlying receiver).
+- **Interface/contract targets in `using L for IInterface`** now resolve
+  to `address` for receiver matching. OZ's `using SafeERC20 for IERC20;`
+  pattern works again with `IERC20(addr).safeTransfer(...)` call sites.
+- **Public state-variable getter deduplication.** Auto-synthesized
+  getters no longer collide with existing inherited functions of the
+  same name+arity (Aave AToken's `IPool public immutable POOL`).
+- **`__ctor__<Sibling>` mangled sibling constructors** can now write to
+  immutable state vars (the original constructor's semantics carry over
+  to the mangled form). Also handles `__super___ctor__*` preservation
+  for inherited base constructors (Chainlink AutomationRegistry).
+- **Receive→onNEP17Payment dedup.** When multiple `receive()` declarations
+  surface via independent inheritance paths, the synthetic
+  `onNEP17Payment(address,uint256,Any)` no longer produces duplicate
+  ABI entries.
+- **Struct field type-alias resolution.** `type_aliases` now thread
+  through nested type resolution (struct fields, array elements, mapping
+  values), not just at the top of the parser. Uniswap V4
+  `struct State { Slot0 slot0; … }` (with `type Slot0 is bytes32;`) now
+  types `state.slot0` as `bytes32` instead of `Any`.
+- **Cross-library struct visibility.** Library validation now pre-merges
+  peer-library struct/enum pools, so a library function signed against
+  `OtherLibrary.NestedStruct` typechecks regardless of which library is
+  being validated first.
+
+### Statistics
+
+- **Famous-contracts corpus pass rate**: 7/92 → 88/88 unique
+  (4 dup base names in the 92).
+- **OpenZeppelin contracts pass rate**: 7/40 → **40/40**.
+- **Lib tests**: 511 → 516 (added 5 regression tests).
+- **Integration tests**: 1244 → 1248.
+- **Internal examples**: 67/71 unchanged (4 intentional Error showcases).
+
 ## [v0.18.1] - 2026-05-05
 
 Compatibility and release-readiness follow-up to v0.18.0. This patch release
@@ -988,7 +1154,8 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.19.0...HEAD
+[v0.19.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.1...v0.19.0
 [v0.18.1]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...v0.18.1
 [v0.18.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.16.0...v0.17.0

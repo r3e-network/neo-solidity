@@ -34,6 +34,61 @@ fn flatten_contract_inheritance(
     let mut super_method_map: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
+    // Resolve private-state-variable shadowing. Solidity allows a derived
+    // contract to redeclare a `private` state variable with the SAME NAME as
+    // an ancestor (typically a different type) — each contract scope keeps
+    // its own storage slot and inherited methods continue to read the
+    // ancestor's slot. Our flattener collapses both into a single
+    // `state_variables` list, which would then look up `_name` by name and
+    // pick whichever entry the index map keeps last. The OZ Governor / EIP712
+    // pair triggers this exact pattern: Governor's `string private _name`
+    // shadows EIP712's `ShortString private immutable _name`, and EIP712's
+    // inherited `_EIP712Name` body then reads Governor's String `_name`
+    // instead of its own bytes32 one — surfacing as
+    // "cannot bind receiver type 'String' to the library function first
+    // parameter" for `_name.toStringWithFallback(...)`.
+    //
+    // Fix: build a per-ancestor rename map for state vars that conflict with
+    // a later (more-derived) declaration, rename the ancestor's storage slot
+    // to `<Ancestor>__<name>`, and rewrite identifier references inside the
+    // ancestor's own functions to match. The derived contract's own state
+    // variable keeps the original name, so the derived's bodies continue to
+    // read the right slot.
+    //
+    // We compute the rename plan upfront by walking the linearization in
+    // derived-first order (reverse of base-first emission order) and marking
+    // any ancestor's state var whose name is already claimed by a more-
+    // derived ancestor as needing a rename.
+    let mut state_var_renames: std::collections::HashMap<String, std::collections::HashMap<String, String>> =
+        std::collections::HashMap::new();
+    {
+        let mut claimed_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        // Walk derived-first so the *most-derived* declaration wins on
+        // collisions. The contract being flattened is the leaf, so its own
+        // state vars never get renamed.
+        for ancestor_name in order.iter().rev() {
+            let Some(ancestor) = contract_map.get(ancestor_name) else {
+                continue;
+            };
+            let mut renames: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            for sv in &ancestor.state_variables {
+                let Some(name) = sv.name.as_ref() else {
+                    continue;
+                };
+                if claimed_names.contains(name) {
+                    let renamed = format!("__{ancestor_name}__{name}");
+                    renames.insert(name.clone(), renamed);
+                } else {
+                    claimed_names.insert(name.clone());
+                }
+            }
+            if !renames.is_empty() {
+                state_var_renames.insert(ancestor_name.clone(), renames);
+            }
+        }
+    }
+
     for ancestor_name in &order {
         let Some(ancestor) = contract_map.get(ancestor_name) else {
             continue;
@@ -42,7 +97,21 @@ fn flatten_contract_inheritance(
         let ancestor_is_interface = matches!(ancestor.kind, ContractKind::Interface);
 
         // Preserve Solidity storage layout order: base state variables first, then derived.
-        state_variables.extend(ancestor.state_variables.clone());
+        let ancestor_renames = state_var_renames.get(ancestor_name);
+        if let Some(renames) = ancestor_renames {
+            // Rename ancestor's state vars per the rename plan.
+            for sv in &ancestor.state_variables {
+                let mut sv_clone = sv.clone();
+                if let Some(name) = sv_clone.name.as_ref() {
+                    if let Some(new_name) = renames.get(name) {
+                        sv_clone.name = Some(new_name.clone());
+                    }
+                }
+                state_variables.push(sv_clone);
+            }
+        } else {
+            state_variables.extend(ancestor.state_variables.clone());
+        }
 
         // Merge user-defined value type aliases (base-first, derived wins on conflict).
         for (alias_name, underlying) in &ancestor.type_aliases {
@@ -72,6 +141,41 @@ fn flatten_contract_inheritance(
         // Events are additive in Solidity; duplicates are later de-duplicated by manifest builder.
         events.extend(ancestor.events.clone());
 
+        // Build a substitution map for state-var rewrites in this ancestor's
+        // function bodies. The map renames identifier references like
+        // `_name` to the renamed slot (`__EIP712___name`) so the inherited
+        // bodies still read THEIR original storage when flattened into a
+        // derived contract that shadowed the same name. Empty when no
+        // collisions occurred for this ancestor.
+        let renames_for_this_ancestor = ancestor_renames.cloned().unwrap_or_default();
+        let body_subs: std::collections::HashMap<String, Expression> = renames_for_this_ancestor
+            .iter()
+            .map(|(orig, renamed)| {
+                (
+                    orig.clone(),
+                    Expression::Variable(Identifier {
+                        loc: Loc::Implicit,
+                        name: renamed.clone(),
+                    }),
+                )
+            })
+            .collect();
+
+        // Helper: clone a function and rewrite its body to apply ancestor
+        // state-var renames. The rewrite is identifier-substitution at the
+        // Expression level — `rewrite_expression` (from the modifier-
+        // expansion subsystem) does exactly what we need.
+        let rewrite_func = |f: &FunctionIR| -> FunctionIR {
+            if body_subs.is_empty() {
+                return f.clone();
+            }
+            let mut cloned = f.clone();
+            if let Some(body) = cloned.body.as_ref() {
+                cloned.body = Some(rewrite_statement(body, &body_subs, None));
+            }
+            cloned
+        };
+
         for func in &ancestor.functions {
             // When flattening, keep only the most-derived constructor to avoid name collisions.
             if matches!(func.ty, FunctionTy::Constructor) && ancestor.name != contract.name {
@@ -90,7 +194,7 @@ fn flatten_contract_inheritance(
                 Some((origin, _)) if origin == &ancestor.name => {
                     // Duplicate definition within the same contract; preserve it so validation can
                     // emit a proper DUPLICATE_SIGNATURE diagnostic.
-                    functions.push(func.clone());
+                    functions.push(rewrite_func(func));
                 }
                 Some((base_origin, idx)) => {
                     let idx = *idx;
@@ -199,12 +303,25 @@ fn flatten_contract_inheritance(
                         super_method_map.insert(func.name.clone(), super_name);
                     }
 
-                    functions[idx] = func.clone();
+                    // Don't clobber a bodied override with a bodyless one.
+                    // The linearization can put an interface declaration
+                    // (bodyless) AFTER an abstract-contract override (with
+                    // body) — e.g. Chainlink FunctionsCoordinator inherits
+                    // OCR2Base (body) AND IFunctionsCoordinator (interface,
+                    // bodyless) where the interface position comes later in
+                    // the MRO. A blind replacement here loses the OCR2Base
+                    // body and surfaces as "declares a return type but has
+                    // no implementation".
+                    if func.body.is_none() && base_func_has_body {
+                        function_index.insert(key, (ancestor.name.clone(), idx));
+                        continue;
+                    }
+                    functions[idx] = rewrite_func(func);
                     function_index.insert(key, (ancestor.name.clone(), idx));
                 }
                 None => {
                     let idx = functions.len();
-                    functions.push(func.clone());
+                    functions.push(rewrite_func(func));
                     function_index.insert(key, (ancestor.name.clone(), idx));
                 }
             }
@@ -239,6 +356,49 @@ fn flatten_contract_inheritance(
         }
     }
 
+    // Merge ancestor `using` directives. Inherited function bodies are
+    // already in `functions` above, and those bodies may rely on
+    // member-style call resolution that depends on a base-class-scope
+    // `using` directive — e.g. Aave IncentivizedERC20 declares
+    // `using SafeCast for uint256;` then calls `amount.toUint128()` inside
+    // a `transfer` body inherited by AToken. Without this merge, the
+    // descendant's `using_directives` table is missing the ancestor's
+    // entries and the IR lowering pass reports "member-style call '...'
+    // requires an explicit `using` directive".
+    //
+    // Base-first walk preserves derived-wins-on-conflict (we already added
+    // the derived's own directives last when we cloned the snapshot above —
+    // the dedup check below ensures we don't add a duplicate from a base
+    // that already matches one of derived's own).
+    let mut merged_using_directives = contract.using_directives.clone();
+    let mut merged_using_for_libraries = contract.using_for_libraries.clone();
+    let mut merged_has_using_for_star = contract.has_using_for_star;
+    let mut merged_has_using_function_list = contract.has_using_function_list;
+    for ancestor_name in &order {
+        if ancestor_name == &contract.name {
+            continue;
+        }
+        let Some(ancestor) = contract_map.get(ancestor_name) else {
+            continue;
+        };
+        for directive in &ancestor.using_directives {
+            if !merged_using_directives.iter().any(|existing| {
+                existing.target_type == directive.target_type
+                    && existing.function_names == directive.function_names
+            }) {
+                merged_using_directives.push(directive.clone());
+            }
+        }
+        for lib_name in &ancestor.using_for_libraries {
+            if !merged_using_for_libraries.contains(lib_name) {
+                merged_using_for_libraries.push(lib_name.clone());
+            }
+        }
+        merged_has_using_for_star = merged_has_using_for_star || ancestor.has_using_for_star;
+        merged_has_using_function_list =
+            merged_has_using_function_list || ancestor.has_using_function_list;
+    }
+
     Ok((ContractIR {
         name: contract.name,
         kind: contract.kind,
@@ -249,10 +409,10 @@ fn flatten_contract_inheritance(
         structs,
         enums,
         doc: contract.doc,
-        has_using_for_star: contract.has_using_for_star,
-        has_using_function_list: contract.has_using_function_list,
-        using_for_libraries: contract.using_for_libraries,
-        using_directives: contract.using_directives,
+        has_using_for_star: merged_has_using_for_star,
+        has_using_function_list: merged_has_using_function_list,
+        using_for_libraries: merged_using_for_libraries,
+        using_directives: merged_using_directives,
         has_type_definitions: contract.has_type_definitions,
         type_aliases,
         super_method_map,

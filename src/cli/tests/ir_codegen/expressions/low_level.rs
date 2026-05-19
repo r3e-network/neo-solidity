@@ -59,6 +59,11 @@ fn low_level_call_serializes_exception_into_return_data() {
 
 #[test]
 fn opaque_dynamic_low_level_call_is_rejected_before_ir_codegen() {
+    // v0.19.0 changed the contract: opaque `address.call(<bytes>)` no
+    // longer aborts compilation. The compiler emits a compile-time warning
+    // explaining the constraint and lowers the call site to a runtime
+    // `ABORTMSG` trap, so the well-formed parts of the contract still
+    // deploy and only the specific opaque-call path fails if reached.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -69,18 +74,19 @@ fn opaque_dynamic_low_level_call_is_rejected_before_ir_codegen() {
     }
     "#;
 
-    let err = compile_contracts(source, false, 2)
-        .expect_err("opaque low-level call payload must fail instead of faking success");
-    match err {
-        CompileError::Ir(diags) => {
-            assert!(
-                diags.iter().any(|diag| {
-                    diag.message.contains("opaque bytes")
-                        && diag.message.contains("fake `(true, bytes(\"\"))` result")
-                }),
-                "expected opaque payload diagnostic, got: {diags:?}"
-            );
-        }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    let artifacts = compile_contracts(source, false, 2)
+        .expect("opaque low-level call should compile with warning + runtime trap (v0.19.0)");
+    let warnings: Vec<String> = artifacts
+        .iter()
+        .flat_map(|a| a.warnings.iter().map(|w| w.message.clone()))
+        .collect();
+    let combined = warnings.join("\n").to_lowercase();
+    assert!(
+        combined.contains("opaque") && combined.contains("runtime trap"),
+        "expected opaque-call warning surface; got warnings: {warnings:?}"
+    );
+    assert!(
+        artifacts.iter().any(|a| a.bytecode.contains(&0xE0)),
+        "expected ABORTMSG (0xE0) at the opaque-call site"
+    );
 }

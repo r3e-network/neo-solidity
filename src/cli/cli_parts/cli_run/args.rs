@@ -145,6 +145,25 @@ fn build_cli_command() -> Command {
                 .action(ArgAction::Append),
         )
         .arg(
+            Arg::new("remap")
+                .long("remap")
+                .value_name("PREFIX=PATH")
+                .help(
+                    "Import remapping (Foundry/solc style; repeatable). Examples: `--remap @openzeppelin/=node_modules/@openzeppelin/` or `--remap forge-std/=lib/forge-std/src/`",
+                )
+                .num_args(1)
+                .action(ArgAction::Append),
+        )
+        .arg(
+            Arg::new("remappings-file")
+                .long("remappings")
+                .value_name("FILE")
+                .help(
+                    "Read remappings from a file (one `prefix=path` per line; `#` starts a comment). Equivalent to Foundry's remappings.txt.",
+                )
+                .num_args(1),
+        )
+        .arg(
             Arg::new("json-errors")
                 .long("json-errors")
                 .help("Emit compiler errors as JSON lines on stderr")

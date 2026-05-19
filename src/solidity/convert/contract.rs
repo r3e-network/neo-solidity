@@ -43,6 +43,48 @@ fn convert_contract(
         })
         .collect();
 
+    // Dedup ONLY the synthetic `onNEP17Payment(address,uint256,Any)`
+    // entries produced by `convert_function`'s receive→onNEP17Payment
+    // remap. The flatten + sibling-merge passes can surface multiple
+    // `receive()` declarations from independent inheritance paths
+    // (concrete repro: OZ GovernorTimelockControlUpgradeable inheriting
+    // both GovernorUpgradeable and a separate interface that also exposes
+    // a payment receiver) — each one converts to the same synthetic
+    // entry and the duplicate-signature validation then rejects the
+    // contract.
+    //
+    // We deliberately do NOT do a general dedup here. Real user errors
+    // like `function foo(uint256) public {} function foo(uint256) public {}`
+    // must still hit the `validate_contract` "duplicate function signature"
+    // path so the user sees the error. The receive-conversion path is
+    // identifiable by the exact parameter signature `(address, uint256, Any)`
+    // and the payable mutability that `convert_function` sets — neither
+    // is what a user-written `onNEP17Payment` typically looks like at
+    // both declaration sites simultaneously.
+    {
+        let mut seen_synthetic_payment = false;
+        methods.retain(|m| {
+            if m.neo_name != "onNEP17Payment" {
+                return true;
+            }
+            // Match the exact synthetic shape `convert_function` emits.
+            let is_synthetic_signature = m.parameters.len() == 3
+                && m.parameters
+                    .iter()
+                    .map(|p| p.ty.as_str())
+                    .eq(["address", "uint256", "Any"]);
+            if !is_synthetic_signature {
+                return true;
+            }
+            if seen_synthetic_payment {
+                false
+            } else {
+                seen_synthetic_payment = true;
+                true
+            }
+        });
+    }
+
     // Mangle Neo entrypoint names for overloaded Solidity functions.
     // Neo ABI dispatches by method name and parameter count, so overloaded
     // functions must have unique Neo-visible names to avoid collisions during
@@ -129,9 +171,64 @@ fn convert_contract(
         using_directives: contract
             .using_directives
             .iter()
-            .map(|directive| UsingDirectiveMetadata {
-                target_type: directive.target_type.clone(),
-                function_names: directive.function_names.clone(),
+            .map(|directive| {
+                // Resolve user-defined value-type aliases at directive-recording
+                // time. The IR-lowering pass renders the receiver as its
+                // underlying type (`type Currency is address;` → "address"),
+                // so a library-form `using CurrencyLibrary for Currency global;`
+                // would otherwise have an unmatched target "currency" while
+                // every receiver is "address" — `currency.balanceOf(addr)`
+                // would then fail with "not available for receiver type
+                // 'Address' under the current `using` directives".
+                //
+                // BUT: function-list-form directives like
+                // `using {add as +, sub as -} for BalanceDelta global;` MUST
+                // keep the alias target. The function list scope-restricts
+                // the directive to *alias-typed* values only — it should not
+                // capture every `int256` receiver, which is what would happen
+                // if we resolved `BalanceDelta` → `int256` here. (Repro:
+                // Uniswap V4 BalanceDelta.sol — `using {add, sub}` for
+                // BalanceDelta would otherwise capture every `int256.toInt128()`
+                // call inside `add()`'s own body and reject it because
+                // `toInt128` isn't in the operator list.)
+                //
+                // Library form gets the resolution; function-list form does
+                // not. `frontend_convert::normalize_using_target_type` already
+                // lowercased the target string and the alias map is keyed on
+                // the source spelling, so we look up case-insensitively.
+                let resolved_target = directive.target_type.as_ref().map(|t| {
+                    if directive.function_names.is_some() {
+                        return t.clone();
+                    }
+                    let stripped = t.trim();
+                    // (a) User-defined value type alias: `type Currency is address;`
+                    //     resolves `using L for Currency;` to `using L for address;`.
+                    if let Some(underlying) = contract
+                        .type_aliases
+                        .iter()
+                        .find(|(alias, _)| alias.eq_ignore_ascii_case(stripped))
+                        .map(|(_, underlying)| underlying.clone())
+                    {
+                        return underlying;
+                    }
+                    // (b) Interface or contract type: `using GPv2SafeERC20 for IERC20;`
+                    //     The IR-lowering pass treats every interface/contract
+                    //     handle as `address`, so the directive's effective
+                    //     receiver type is `address` too. Without this
+                    //     resolution, OZ-style code in Aave AToken
+                    //     (`IERC20(_underlyingAsset).safeTransfer(to, amt)`)
+                    //     fails with "member-style call '...' is not available
+                    //     for receiver type 'Address' under the current
+                    //     `using` directives".
+                    if contract_types.iter().any(|name| name.eq_ignore_ascii_case(stripped)) {
+                        return "address".to_string();
+                    }
+                    t.clone()
+                });
+                UsingDirectiveMetadata {
+                    target_type: resolved_target,
+                    function_names: directive.function_names.clone(),
+                }
             })
             .collect(),
         has_type_definitions: contract.has_type_definitions,
@@ -145,6 +242,40 @@ fn synthesize_public_getters(
     methods: &mut Vec<FunctionMetadata>,
     state_variables: &[StateVariableMetadata],
 ) {
+    // Pre-compute the (name, arity) signatures that the host already
+    // exposes via a real function declaration. After inheritance flattening,
+    // a derived contract may have inherited a state variable AND an
+    // interface that declares the same getter as `function POOL() external view returns (IPool);`
+    // — synthesizing another getter on top would produce a duplicate ABI
+    // entry which `validate_contract` then rejects with
+    // "duplicate function signature 'POOL()'". This dedup is keyed on
+    // (name, arity) instead of full canonical signature because Solidity's
+    // auto-generated getter has a fixed parameter shape that depends only
+    // on the state variable's type, and the manifest layer treats name as
+    // the primary identity anyway. Library state variables (still tracked
+    // as `internal` after `normalize_library_for_neo`) never produce a
+    // synthesized getter, so they don't enter the existing-signature set.
+    let mut existing_signatures: std::collections::HashSet<(String, usize)> = methods
+        .iter()
+        .filter(|m| {
+            matches!(m.kind, FunctionKind::Regular)
+                && matches!(
+                    m.visibility,
+                    VisibilityKind::External | VisibilityKind::Public
+                )
+        })
+        .map(|m| (m.name.clone(), m.parameters.len()))
+        .collect();
+
+    // Also dedup against state variables we've already synthesized a getter
+    // for. Diamond inheritance can surface the same `public` state var via
+    // multiple paths through `flatten_contract_inheritance` — the
+    // `state_variables.extend(ancestor.state_variables.clone())` loop is
+    // not deduped — so without this guard each path's clone produces its
+    // own getter and the duplicate-signature check fires.
+    let mut emitted_getters: std::collections::HashSet<(String, usize)> =
+        std::collections::HashSet::new();
+
     for state in state_variables {
         if state
             .visibility
@@ -166,6 +297,11 @@ fn synthesize_public_getters(
         };
 
         let (parameters, return_parameters, expr) = getter_signature_from_neotype(&name, &neotype);
+        let arity = parameters.len();
+        let dedup_key = (name.clone(), arity);
+        if existing_signatures.contains(&dedup_key) || !emitted_getters.insert(dedup_key.clone()) {
+            continue;
+        }
         let param_signatures: Vec<String> = parameters
             .iter()
             .map(|param| canonical_param_type(&param.ty))
@@ -188,6 +324,7 @@ fn synthesize_public_getters(
             documentation: NatspecDoc::default(),
             had_modifier_epilogue: false,
         });
+        existing_signatures.insert(dedup_key);
     }
 }
 

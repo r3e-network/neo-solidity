@@ -61,6 +61,32 @@ fn run_single_file(matches: &clap::ArgMatches) {
         .get_many::<String>("include-path")
         .map(|vals| vals.map(std::path::PathBuf::from).collect())
         .unwrap_or_default();
+    // Collect Foundry-style `--remap PREFIX=PATH` and `--remappings FILE`
+    // entries into a single ordered list. File entries are appended after
+    // CLI entries so explicit CLI remappings win on prefix collisions —
+    // matches solc / foundry semantics where the more-specific source
+    // takes precedence.
+    let mut remappings: Vec<ImportRemapping> = Vec::new();
+    if let Some(vals) = matches.get_many::<String>("remap") {
+        for spec in vals {
+            match parse_remapping(spec) {
+                Ok(remap) => remappings.push(remap),
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+    if let Some(path) = matches.get_one::<String>("remappings-file") {
+        match load_remappings_file(std::path::Path::new(path)) {
+            Ok(loaded) => remappings.extend(loaded),
+            Err(err) => {
+                eprintln!("error: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
     let contract_filters: Vec<String> = matches
         .get_many::<String>("contract")
         .map(|vals| vals.cloned().collect())
@@ -228,7 +254,11 @@ fn run_single_file(matches: &clap::ArgMatches) {
         }
 
         let resolved =
-            match resolve_solidity_sources_with_imports(Path::new(input_file), &include_paths) {
+            match resolve_solidity_sources_with_options(
+                Path::new(input_file),
+                &include_paths,
+                &remappings,
+            ) {
                 Ok(resolved) => resolved,
                 Err(err) => {
                     eprintln!("Error resolving imports: {err}");

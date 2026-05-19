@@ -186,6 +186,45 @@ fn convert_contract(
         }
     }
 
+    // Qualify nested struct names with the containing contract / library so
+    // they survive flattening when two different scopes both define a struct
+    // with the same short name (e.g. Uniswap V4 declares both a file-level
+    // `SwapParams` in PoolOperation.sol AND a `Pool.SwapParams` inside the
+    // Pool library — these share the same suffix and would otherwise collide
+    // in the structs list after library merge). The qualifier mirrors the
+    // way Solidity callers reference these structs from outside the scope
+    // (`Pool.SwapParams memory ...`), so external references continue to
+    // resolve. Inside the contract / library itself, we rewrite bare
+    // references to qualified form so the IR-side type lookup is unambiguous.
+    let nested_struct_short_names: Vec<String> =
+        structs.iter().map(|s| s.name.clone()).collect();
+    if !nested_struct_short_names.is_empty() {
+        // 1. Qualify the struct definitions.
+        for s in &mut structs {
+            s.name = format!("{}.{}", name, s.name);
+            // Also rewrite intra-struct field references that point at
+            // sibling structs (e.g. `struct A { B b; }` inside a library that
+            // also defines `struct B`).
+            for f in &mut s.fields {
+                f.ty = rewrite_struct_type_references(&f.ty, &name, &nested_struct_short_names);
+            }
+        }
+        // 2. Rewrite references in functions (parameters, returns, body
+        //    variable definitions, function-pointer types) and state
+        //    variables.
+        for f in &mut functions {
+            for p in &mut f.parameters {
+                p.ty = rewrite_struct_type_references(&p.ty, &name, &nested_struct_short_names);
+            }
+            for p in &mut f.returns {
+                p.ty = rewrite_struct_type_references(&p.ty, &name, &nested_struct_short_names);
+            }
+        }
+        for sv in &mut state_variables {
+            sv.ty = rewrite_struct_type_references(&sv.ty, &name, &nested_struct_short_names);
+        }
+    }
+
     ContractIR {
         name,
         kind,
@@ -204,6 +243,54 @@ fn convert_contract(
         type_aliases,
         super_method_map: std::collections::HashMap::new(),
     }
+}
+
+/// Rewrite bare references to `nested` struct names inside a type string,
+/// qualifying each match with `<owner>.<name>` so the IR-side struct lookup
+/// can disambiguate from a same-suffixed struct defined in a different scope.
+///
+/// Heuristic: split on identifier boundaries (anything that's not
+/// `[A-Za-z0-9_]`), then for each identifier component that matches a name in
+/// `nested` AND isn't already preceded by a `.`, swap it for the qualified
+/// form. Storage modifiers (`memory`, `calldata`, `storage`) and structural
+/// punctuation (`[]`, `mapping(...)=>`) pass through unchanged.
+fn rewrite_struct_type_references(ty: &str, owner: &str, nested: &[String]) -> String {
+    if nested.is_empty() {
+        return ty.to_string();
+    }
+    let bytes = ty.as_bytes();
+    let mut out = String::with_capacity(ty.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c.is_ascii_alphabetic() || c == '_' {
+            // Read the full identifier.
+            let start = i;
+            while i < bytes.len() {
+                let cc = bytes[i] as char;
+                if cc.is_ascii_alphanumeric() || cc == '_' {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            let ident = &ty[start..i];
+            // Is this identifier already qualified (preceded by `.`)? If so,
+            // it's already pointing at a different scope — leave it alone.
+            let already_qualified = start > 0 && ty.as_bytes()[start - 1] == b'.';
+            if !already_qualified && nested.iter().any(|n| n == ident) {
+                out.push_str(owner);
+                out.push('.');
+                out.push_str(ident);
+            } else {
+                out.push_str(ident);
+            }
+        } else {
+            out.push(c);
+            i += 1;
+        }
+    }
+    out
 }
 
 fn convert_function(
