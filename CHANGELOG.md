@@ -5,7 +5,14 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.20.0] - 2026-06-11
+
+Correctness-and-conformance release: a full adversarial review pass (26
+verified findings fixed), ecosystem conformance for tokens (native NEP
+Transfer notifications, NEP-11 iterators/ByteString token IDs), devpack
+surface honesty (uncallable/unfaithful APIs removed), and large structural
+cleanups (dead Yul frontend deleted, `src/runtime` modularized). Everything
+below is verified by 1,758 tests plus 23 neo-express on-chain smoke tests.
 
 ### Added
 
