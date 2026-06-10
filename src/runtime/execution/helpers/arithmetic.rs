@@ -1,5 +1,7 @@
-include!("arithmetic/basic_ops.rs");
-include!("arithmetic/unary_ops.rs");
-include!("arithmetic/pow_sqrt.rs");
-include!("arithmetic/modular.rs");
-include!("arithmetic/range.rs");
+use super::*;
+
+mod basic_ops;
+mod modular;
+mod pow_sqrt;
+mod range;
+mod unary_ops;

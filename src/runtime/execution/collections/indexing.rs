@@ -1,19 +1,24 @@
+use super::*;
+
 impl ExecutionContext {
-    fn pick_item(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pick_item(&mut self) -> Result<(), RuntimeError> {
         let key = self.pop_stack()?;
         let collection = self.pop_stack()?;
         let value = Self::pick_from_collection(collection, key)?;
         self.push_stack(value)
     }
 
-    fn set_item(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn set_item(&mut self) -> Result<(), RuntimeError> {
         let value = self.pop_stack()?;
         let key = self.pop_stack()?;
         let collection = self.pop_stack()?;
         Self::set_in_collection(collection, key, value)
     }
 
-    fn pick_from_collection(collection: StackItem, key: StackItem) -> Result<StackItem, RuntimeError> {
+    fn pick_from_collection(
+        collection: StackItem,
+        key: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         match collection {
             StackItem::Array(items) => {
                 let index = match key {
@@ -143,7 +148,11 @@ impl ExecutionContext {
         }
     }
 
-    fn index_from_key(&self, key: &StackItem, opname: &str) -> Result<usize, RuntimeError> {
+    pub(crate) fn index_from_key(
+        &self,
+        key: &StackItem,
+        opname: &str,
+    ) -> Result<usize, RuntimeError> {
         match key {
             StackItem::Integer(i) if *i >= 0 => Ok(*i as usize),
             StackItem::UnsignedInteger(u) => Ok(*u as usize),

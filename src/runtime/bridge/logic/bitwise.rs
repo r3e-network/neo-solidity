@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_and(
+    pub(crate) fn handle_and(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -31,7 +33,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_or(
+    pub(crate) fn handle_or(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -63,7 +65,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_xor(
+    pub(crate) fn handle_xor(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -95,7 +97,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_shl(
+    pub(crate) fn handle_shl(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -127,7 +129,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_shr(
+    pub(crate) fn handle_shr(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -159,4 +161,3 @@ impl VMBridge {
         Ok(())
     }
 }
-

@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_contract_call(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn handle_contract_call(&mut self) -> Result<(), RuntimeError> {
         // Neo N3 syscall convention: the first argument is at the top of the stack.
         // For System.Contract.Call(hash, method, flags, args), the evaluation stack
         // order is: [args, flags, method, hash].

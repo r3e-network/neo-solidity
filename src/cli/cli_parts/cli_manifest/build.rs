@@ -146,10 +146,96 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
     }
 }
 
+/// Compute the manifest-visible ABI name for each exposed (public/external,
+/// non-constructor) method.
+///
+/// Neo N3 resolves calls by `(name, parameter count)`, so overloads that
+/// differ in arity may legally share their Solidity name in the manifest.
+/// Methods whose `(name, arity)` pair is unique among `exposed` therefore
+/// keep `method.name`; only true same-arity collisions fall back to the
+/// mangled `neo_name` (one deterministic "primary" per collision group —
+/// smallest `neo_name` — keeps the original name).
+///
+/// Shared by manifest emission (`build_manifest`) and the standard-json
+/// `methodMap` (`build_neo_method_map`) so both report the same callable
+/// names.
+fn manifest_abi_method_name_fn<'a>(
+    exposed: impl Iterator<Item = &'a FunctionMetadata>,
+) -> impl Fn(&FunctionMetadata) -> String {
+    let mut groups: HashMap<(String, usize), Vec<String>> = HashMap::new();
+    for method in exposed {
+        groups
+            .entry((method.name.clone(), method.parameters.len()))
+            .or_default()
+            .push(method.neo_name.clone());
+    }
+
+    let mut same_arity_primary: HashMap<(String, usize), String> = HashMap::new();
+    for (key, neo_names) in groups {
+        if neo_names.len() > 1 {
+            let primary = neo_names
+                .into_iter()
+                .min()
+                .expect("collision group is non-empty");
+            same_arity_primary.insert(key, primary);
+        }
+    }
+
+    move |method: &FunctionMetadata| {
+        let key = (method.name.clone(), method.parameters.len());
+        match same_arity_primary.get(&key) {
+            Some(primary) if *primary != method.neo_name => method.neo_name.clone(),
+            _ => method.name.clone(),
+        }
+    }
+}
+
 fn build_manifest(
     metadata: &ContractMetadata,
     ir_module: &ir::Module,
 ) -> Result<serde_json::Value, CompileError> {
+    /// True for NeoTypes whose EVM ABI encoding is a single static 32-byte
+    /// slot — the member shapes `lower_static_abi_slots_for_expr` supports.
+    fn neotype_is_static_abi_scalar(neotype: &NeoType) -> bool {
+        matches!(
+            neotype,
+            NeoType::Integer { .. }
+                | NeoType::Boolean
+                | NeoType::Address
+                | NeoType::ByteArray { fixed_len: Some(_) }
+        )
+    }
+
+    /// Mirrors the IR return-lowering's encode support
+    /// (`lower_abi_encode_args_direct` and friends): a multi-value return is
+    /// ABI-encoded into a single ByteString iff every member is a static
+    /// slot type, a supported dynamic (string / bytes / static-element
+    /// array), or an all-static struct. Members that defeat the encoder
+    /// (mappings, structs with non-scalar fields) keep the legacy
+    /// `StackItem::Array` return shape.
+    fn neotype_member_is_abi_encodable(neotype: &NeoType) -> bool {
+        match neotype {
+            NeoType::Integer { .. }
+            | NeoType::Boolean
+            | NeoType::Address
+            | NeoType::String
+            | NeoType::ByteArray { .. } => true,
+            NeoType::Array(inner) => {
+                neotype_is_static_abi_scalar(inner)
+                    || matches!(
+                        inner.as_ref(),
+                        NeoType::Struct { fields, .. }
+                            if !fields.is_empty()
+                                && fields.iter().all(|f| neotype_is_static_abi_scalar(&f.ty))
+                    )
+            }
+            NeoType::Struct { fields, .. } => {
+                !fields.is_empty() && fields.iter().all(|f| neotype_is_static_abi_scalar(&f.ty))
+            }
+            NeoType::Mapping { .. } | NeoType::Any => false,
+        }
+    }
+
     fn neotype_to_manifest_type(neotype: Option<&NeoType>, solidity_type: &str) -> &'static str {
         match neotype {
             Some(NeoType::Integer { .. }) => "Integer",
@@ -179,60 +265,21 @@ fn build_manifest(
         })
         .collect();
 
-    // Neo N3 dispatches methods by `name` and does not provide Solidity-style overload
-    // resolution. To keep manifests compatible with NEP tooling while still supporting
-    // overloaded functions, we emit:
-    // - the Solidity-visible `name` for a single "primary" overload (picked by max arity)
-    // - the mangled `neo_name` for all other overloads
-    //
-    // This guarantees unique manifest ABI names and preserves canonical names for common
-    // standards (e.g., NEP-17 `transfer(from,to,amount,data)` vs a convenience overload).
-    let mut overload_groups: HashMap<&str, Vec<&FunctionMetadata>> = HashMap::new();
-    for method in &abi_methods {
-        overload_groups
-            .entry(method.name.as_str())
-            .or_default()
-            .push(*method);
-    }
-
-    let mut primary_overload: HashMap<&str, &FunctionMetadata> = HashMap::new();
-    for (name, group) in &overload_groups {
-        if group.len() <= 1 {
-            continue;
-        }
-
-        let mut best = group[0];
-        for candidate in group.iter().skip(1) {
-            let best_params = best.parameters.len();
-            let cand_params = candidate.parameters.len();
-            if cand_params > best_params {
-                best = candidate;
-                continue;
-            }
-            if cand_params == best_params && candidate.neo_name < best.neo_name {
-                best = candidate;
-            }
-        }
-        primary_overload.insert(*name, best);
-    }
+    // Neo N3 dispatches methods by `(name, parameter count)` — distinct-arity
+    // overloads sharing one name are legal (native ContractManagement ships
+    // `deploy` with 2 and 3 parameters). So every method whose `(name, arity)`
+    // pair is unique among the exposed methods keeps its original Solidity
+    // name in the manifest; the mangled `neo_name` (e.g. `foo(uint256)`) is
+    // used only for true same-arity collisions, where Neo cannot otherwise
+    // disambiguate. Within a same-arity collision group one "primary" keeps
+    // the original name (picked by lexicographically-smallest `neo_name` for
+    // determinism) and the rest fall back to `neo_name`.
+    let abi_method_name = manifest_abi_method_name_fn(abi_methods.iter().copied());
 
     let methods_json: Vec<_> = abi_methods
         .iter()
         .map(|method| {
-            let is_overloaded = overload_groups
-                .get(method.name.as_str())
-                .is_some_and(|group| group.len() > 1);
-
-            let is_primary_overload = primary_overload
-                .get(method.name.as_str())
-                .is_some_and(|primary| primary.neo_name == method.neo_name)
-                && is_overloaded;
-
-            let abi_name = if !is_overloaded || is_primary_overload {
-                method.name.clone()
-            } else {
-                method.neo_name.clone()
-            };
+            let abi_name = abi_method_name(method);
 
             let params_json: Vec<_> = method
                 .parameters
@@ -253,13 +300,37 @@ fn build_manifest(
                 "name": abi_name,
                 "offset": method.offset,
                 "parameters": params_json,
+                // Task #64 lowering note: externally-callable multi-value
+                // returns are ABI-encoded into a single ByteString
+                // (BytesConcat / AbiEncode in `lower_return_statement`) when
+                // every member is encodable, and single Solidity ARRAY
+                // returns (`T[]` / `T[N]`) are wrapped the same way (Tasks
+                // #137/#185). The on-chain stack item is therefore bytes,
+                // not a NeoVM Array — report "ByteArray" so typed Neo SDK
+                // clients parse the result instead of failing. Multi-returns
+                // with non-encodable members (e.g. struct-with-mapping
+                // auto-getters) fall back to the legacy StackItem::Array
+                // shape and keep "Array"; single struct returns stay "Array"
+                // too (see `return_revert.rs` Task #64 comment).
                 "returntype": if method.return_parameters.len() > 1 {
-                    "Array"
+                    let all_encodable = method.return_parameters.iter().all(|param| {
+                        param
+                            .neo_type
+                            .as_ref()
+                            .is_some_and(neotype_member_is_abi_encodable)
+                    });
+                    if all_encodable { "ByteArray" } else { "Array" }
                 } else {
                     method
                         .return_parameters
                         .first()
-                        .map(|param| neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty))
+                        .map(|param| {
+                            if matches!(param.neo_type.as_ref(), Some(NeoType::Array(_))) {
+                                "ByteArray"
+                            } else {
+                                neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty)
+                            }
+                        })
                         .unwrap_or("Void")
                 },
                 "safe": method.state_mutability.is_safe(),
@@ -267,24 +338,45 @@ fn build_manifest(
         })
         .collect();
 
+    // The emit lowering (src/ir/statements/events.rs) sends
+    // `System.Runtime.Notify` the EVM-canonical state array
+    //   [topic0, indexed..., data]   (non-anonymous events)
+    //   [indexed..., data]           (anonymous events)
+    // — NOT the Solidity-declared parameter list. Neo N3 nodes since 3.6
+    // (HF_Basilisk) validate every notification against the manifest ABI
+    // (state item count + per-item type), so the manifest must declare the
+    // payload that is actually notified or every `emit` FAULTs on-chain.
+    // Every state item is a ByteString (the 32-byte topic slots / keccak
+    // hashes and the `abi.encode` data blob), hence `ByteArray` throughout.
+    // The declared parameter names are preserved for the indexed slots so
+    // indexers can still associate topics with the Solidity declaration.
     let events_json: Vec<_> = metadata
         .events
         .iter()
         .map(|event| {
-            let params: Vec<_> = event
-                .parameters
-                .iter()
-                .enumerate()
-                .map(|(idx, param)| {
-                    json!({
-                        "name": param
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| format!("param{idx}")),
-                        "type": neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty),
-                    })
-                })
-                .collect();
+            let mut params: Vec<Value> = Vec::new();
+            if !event.anonymous {
+                params.push(json!({
+                    "name": "topic0",
+                    "type": "ByteArray",
+                }));
+            }
+            for (idx, param) in event.parameters.iter().enumerate() {
+                if !param.indexed {
+                    continue;
+                }
+                params.push(json!({
+                    "name": param
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("param{idx}")),
+                    "type": "ByteArray",
+                }));
+            }
+            params.push(json!({
+                "name": "data",
+                "type": "ByteArray",
+            }));
 
             json!({
                 "name": event.name,

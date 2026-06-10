@@ -70,11 +70,7 @@ neo-devpack-solidity/
 │   │   ├── context/            # IR lowering context
 │   │   ├── expressions/        # Expression lowering
 │   │   └── statements/         # Statement lowering
-│   ├── codegen.rs              # Code generation utilities
-│   ├── lexer.rs                # Yul lexer
-│   ├── parser.rs               # Yul parser
-│   ├── optimizer.rs            # Optimization passes
-│   ├── semantic.rs             # Semantic analysis
+│   ├── interop.rs              # Syscall interop-ID hashing
 │   ├── runtime/                # NeoVM runtime emulation
 │   │   ├── execution/          # NeoVM execution engine and syscall/native dispatch
 │   │   ├── bridge/             # EVM-to-NeoVM compatibility bridge helpers

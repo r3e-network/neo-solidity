@@ -20,6 +20,7 @@ use thiserror::Error;
 include!("frontend/frontend_errors.rs");
 include!("frontend/frontend_ir.rs");
 include!("frontend/frontend_diagnostics.rs");
+include!("frontend/frontend_guarded_parse.rs");
 include!("frontend/frontend_parse.rs");
 include!("frontend/frontend_convert.rs");
 

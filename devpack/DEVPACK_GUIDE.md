@@ -345,7 +345,11 @@ See [`examples/CompleteNEP17Token.sol`](./examples/CompleteNEP17Token.sol) for:
 
 See [`examples/CompleteNEP11NFT.sol`](./examples/CompleteNEP11NFT.sol) for:
 
-- ✅ Full NEP-11 compliance
+- ✅ NEP-11 method/event surface (note: manifest types deviate from the
+  canonical NEP-11 spec — `bytes32` token IDs emit as `Hash256`, `tokensOf`
+  returns an `Array` instead of an iterator, `properties` returns `ByteArray`
+  instead of `Map`; see `standards/STANDARDS_MAPPING.md` → "Manifest Type
+  Deviations")
 - ✅ Royalty system
 - ✅ Marketplace integration
 - ✅ Oracle metadata updates
@@ -666,8 +670,8 @@ the generic EVM `hardhat verify` flow is not used here.
 | ----------------- | ---------------------- | -------- |
 | `put(key, value)` | Store value            | Medium   |
 | `get(key)`        | Retrieve value         | Low      |
+| `remove(key)`     | Delete value           | Low      |
 | `find(prefix)`    | Find keys with prefix  | High     |
-| `batchPut()`      | Batch store operations | Medium   |
 
 ### Runtime Methods
 

@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_modmul(
+    pub(crate) fn handle_modmul(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -36,7 +38,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_modpow(
+    pub(crate) fn handle_modpow(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -73,4 +75,3 @@ impl VMBridge {
         Ok(())
     }
 }
-

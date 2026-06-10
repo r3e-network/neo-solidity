@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn size_of(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn size_of(&mut self) -> Result<(), RuntimeError> {
         let item = self.pop_stack()?;
         let size = match item {
             StackItem::Array(items) => items.borrow().len(),
@@ -17,7 +19,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::Integer(size as i64))
     }
 
-    fn haskey(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn haskey(&mut self) -> Result<(), RuntimeError> {
         let key = self.pop_stack()?;
         let collection = self.pop_stack()?;
         let exists = match collection {
@@ -40,7 +42,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::Boolean(exists))
     }
 
-    fn keys(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn keys(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         let keys = match collection {
             StackItem::Map(map) => StackItem::array(
@@ -59,7 +61,7 @@ impl ExecutionContext {
         self.push_stack(keys)
     }
 
-    fn values(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn values(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         let values = match collection {
             StackItem::Map(map) => StackItem::array(map.borrow().values().cloned().collect()),
@@ -80,7 +82,7 @@ impl ExecutionContext {
         self.push_stack(values)
     }
 
-    fn unpack(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn unpack(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         let items = match collection {
             StackItem::Array(items) => items.borrow().clone(),

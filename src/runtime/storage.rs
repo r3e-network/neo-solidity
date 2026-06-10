@@ -6,8 +6,10 @@ use super::{RuntimeConfig, RuntimeError};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-include!("storage/storage_types.rs");
-include!("storage/storage_impl.rs");
+mod storage_impl;
+mod storage_types;
+
+pub use storage_types::*;
 
 #[cfg(test)]
 mod tests;

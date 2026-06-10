@@ -4,14 +4,14 @@
 //! NeoVM bytecode execution, including the evaluation stack, local variables,
 //! memory, call stack, and storage.
 
+use super::frame::{CallFrame, TryFrame};
+use super::stack::StackItem;
+use super::state::{
+    ContractState, IteratorState, LedgerBlock, LedgerTransaction, NotaryDeposit, OracleRequest,
+    OverlayEntry, WhitelistedFeeContract,
+};
 use crate::neo::MethodToken;
 use crate::runtime::{storage, LogEntry};
-use super::stack::StackItem;
-use super::frame::{CallFrame, TryFrame};
-use super::state::{
-    IteratorState, ContractState, OverlayEntry,
-    WhitelistedFeeContract, OracleRequest, LedgerBlock, LedgerTransaction, NotaryDeposit,
-};
 use std::collections::{HashMap, HashSet};
 use std::ptr::NonNull;
 

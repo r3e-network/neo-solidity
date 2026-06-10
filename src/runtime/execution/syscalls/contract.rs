@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_contract_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
+    pub(crate) fn handle_contract_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {
             "System.Contract.Call" => {
                 self.handle_contract_call()?;
@@ -29,7 +31,8 @@ impl ExecutionContext {
                 }
                 script.extend_from_slice(&pubkey);
                 script.push(0x41); // SYSCALL
-                script.extend_from_slice(&crate::codegen::interop_id_bytes("System.Crypto.CheckSig"));
+                script
+                    .extend_from_slice(&crate::interop::interop_id_bytes("System.Crypto.CheckSig"));
 
                 // UInt160 = RIPEMD160(SHA256(script))
                 let sha = Sha256::digest(&script);

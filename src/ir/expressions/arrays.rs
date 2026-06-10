@@ -43,6 +43,17 @@ fn lower_array_subscript_expression(
         emit_storage_load(&reference, ctx, instructions)
     } else if let Some(reference) = resolve_storage_reference(expr, ctx) {
         // Task #82: nested mapping-in-struct reads such as `slots[k].balances[a]`.
+        //
+        // Storage-soundness fix — when the TERMINAL subscript traverses an
+        // Array reached through a struct field (`s.arr[i]`, `m[k].arr[i]`),
+        // emit the same Panic(0x32) bounds guard the direct state-var path
+        // gets from Task #199 above. Without it the read goes straight to
+        // `System.Storage.Get`: out-of-range indices return zero defaults
+        // and data "deleted" via `delete s` (which only zeroes the length
+        // field slot, never the element slots) is silently resurrected.
+        if !emit_struct_field_array_bounds_guard(array, index, ctx, instructions) {
+            return false;
+        }
         emit_storage_load(&reference, ctx, instructions)
     } else if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions) {
         // Task #107 — emit an explicit bounds guard so array-index-OOB
@@ -389,6 +400,115 @@ fn emit_storage_array_subscript_with_bounds(
     // routing inside this helper.
     let reference = mapping.to_storage_reference();
     emit_storage_load(&reference, ctx, instructions)
+}
+
+/// Storage-soundness fix — Panic(0x32) bounds guard for array subscripts
+/// that reach storage through a struct field: `s.arr[i]`, `m[k].arr[i]`,
+/// `s.inner.arr[i]`. These shapes bypass `resolve_mapping_access` (it bails
+/// on any MemberAccess hop), so Task #199's guard never fired for them and
+/// reads went straight to `System.Storage.Get` — out-of-range indices
+/// silently returned zero defaults and `delete s` data (length field slot
+/// zeroed, element slots intact) stayed fully readable.
+///
+/// `array` is the collection expression of the subscript (`s.arr`), `index`
+/// is the subscript expression. Returns:
+///   * `true` after emitting the guard when the shape matches a struct-field
+///     array subscript (the array length comes from the same
+///     `LoadStructField` slot that `s.arr.length` / `push` / `pop` use, or
+///     the compile-time `N` for a fixed-size `T[N]` field which maintains no
+///     length slot);
+///   * `true` WITHOUT emitting anything for non-matching shapes (mapping
+///     fields, `bytes`/`string` fields, nested `T[][]` chains, storage
+///     pointer aliases) so those keep their pre-fix behaviour;
+///   * `false` only when lowering the index expression fails.
+///
+/// The index expression is evaluated once here for the guard and again
+/// inside `emit_storage_load`'s trailing-key evaluation — the same
+/// double-evaluation compromise documented in
+/// `emit_storage_array_subscript_with_bounds` above.
+fn emit_struct_field_array_bounds_guard(
+    array: &Expression,
+    index: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    // Shape: the collection must be a direct struct-field access.
+    let Expression::MemberAccess(_, struct_expr, field_ident) = array else {
+        return true;
+    };
+    let Some(collection) = resolve_storage_reference(array, ctx) else {
+        return true;
+    };
+    // The guard only applies when the terminal subscript traverses an Array
+    // (`bytes`/`string` fields are ValueType::ByteArray and keep byte-index
+    // semantics; Mapping fields have no bounds concept) reached through a
+    // struct field whose own subscript chain is empty.
+    if !matches!(collection.value_type, ValueType::Array(_))
+        || collection.field_path.is_empty()
+        || !collection.trailing_key_expressions.is_empty()
+    {
+        return true;
+    }
+    // Fixed-size `T[N]` struct fields maintain no length slot — a naive
+    // length load would read 0 and panic on every in-range access. Look up
+    // the declared bound via the owning struct's metadata; dynamic fields
+    // load the runtime length from the field slot instead.
+    let struct_name = match resolve_storage_reference(struct_expr, ctx)
+        .map(|base| base.value_type)
+        .or_else(|| infer_type_from_expression(struct_expr, ctx))
+    {
+        Some(ValueType::Struct { name, .. }) => name,
+        _ => return true,
+    };
+    let fixed_bound = ctx.struct_fixed_array_bound(&struct_name, &field_ident.name);
+
+    let tmp_id = ctx.next_label();
+    let idx_local = ctx.allocate_local(
+        format!("__struct_aidx_{tmp_id}"),
+        Some(ValueType::Integer {
+            signed: false,
+            bits: 256,
+        }),
+    );
+    if !lower_expression(index, ctx, instructions) {
+        return false;
+    }
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    // Guard 1: index < 0 → Panic(0x32).
+    let after_neg_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    instructions.push(Instruction::JumpIf {
+        target: after_neg_label,
+    });
+    emit_panic(0x32, instructions);
+    instructions.push(Instruction::Label(after_neg_label));
+
+    // Guard 2: index >= length → Panic(0x32).
+    let ok_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(idx_local));
+    match fixed_bound {
+        Some(bound) => {
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                bound,
+            ))));
+        }
+        None => {
+            // Dynamic field — the length lives at the struct-field slot,
+            // loaded through the same machinery `s.arr.length` uses (see
+            // the Task #161 branch in `try_lower_length_property`).
+            if !emit_storage_load(&collection, ctx, instructions) {
+                return false;
+            }
+        }
+    }
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
+    instructions.push(Instruction::JumpIf { target: ok_label });
+    emit_panic(0x32, instructions);
+    instructions.push(Instruction::Label(ok_label));
+    true
 }
 
 fn lower_array_slice_expression(

@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Push value onto stack
     pub fn push_stack(&mut self, item: StackItem) -> Result<(), RuntimeError> {
@@ -30,4 +32,3 @@ impl ExecutionContext {
         self.stack.len()
     }
 }
-

@@ -1,5 +1,10 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_flow_jumps_conditional(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_jumps_conditional(
+        &mut self,
+        opcode: u8,
+    ) -> Result<bool, RuntimeError> {
         match opcode {
             0x24 => {
                 // JMPIF
@@ -19,11 +24,8 @@ impl ExecutionContext {
                 let condition = self.pop_stack()?;
                 let offset = self.read_i32_offset("JMPIF_L")?;
                 if condition.is_truthy() {
-                    let target = self.compute_offset_target(
-                        "JMPIF_L",
-                        self.instruction_pointer,
-                        offset,
-                    )?;
+                    let target =
+                        self.compute_offset_target("JMPIF_L", self.instruction_pointer, offset)?;
                     self.instruction_pointer = target;
                 } else {
                     self.instruction_pointer += 5;
@@ -35,11 +37,8 @@ impl ExecutionContext {
                 let condition = self.pop_stack()?;
                 let offset = self.read_i8_offset("JMPIFNOT")? as i32;
                 if !condition.is_truthy() {
-                    let target = self.compute_offset_target(
-                        "JMPIFNOT",
-                        self.instruction_pointer,
-                        offset,
-                    )?;
+                    let target =
+                        self.compute_offset_target("JMPIFNOT", self.instruction_pointer, offset)?;
                     self.instruction_pointer = target;
                 } else {
                     self.instruction_pointer += 2;
@@ -51,11 +50,8 @@ impl ExecutionContext {
                 let condition = self.pop_stack()?;
                 let offset = self.read_i32_offset("JMPIFNOT_L")?;
                 if !condition.is_truthy() {
-                    let target = self.compute_offset_target(
-                        "JMPIFNOT_L",
-                        self.instruction_pointer,
-                        offset,
-                    )?;
+                    let target =
+                        self.compute_offset_target("JMPIFNOT_L", self.instruction_pointer, offset)?;
                     self.instruction_pointer = target;
                 } else {
                     self.instruction_pointer += 5;

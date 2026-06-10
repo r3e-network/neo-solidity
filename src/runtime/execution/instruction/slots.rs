@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_slots_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_slots_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x57 => {
                 // INITSLOT locals, args
@@ -161,4 +163,3 @@ impl ExecutionContext {
         Ok(true)
     }
 }
-

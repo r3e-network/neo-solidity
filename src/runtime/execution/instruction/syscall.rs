@@ -1,3 +1,5 @@
+use super::*;
+
 /// Wave-#14 Finding #2 — per-byte gas surcharge for `Storage.Put`.
 ///
 /// Neo N3 charges roughly `100_000 * (key_len + value_len)` for storage
@@ -23,7 +25,8 @@ const CHECKMULTISIG_PER_VERIFY_GAS: u64 = 1_000;
 /// `HASH_PER_BYTE_GAS` (the per-byte rate) lives in
 /// `instruction/flow/calls.rs` next to the CALLT dispatch — both
 /// dispatch sites share the same rate.
-const CRYPTOLIB_CONTRACT_HASH: [u8; 20] = *b"\x1b\xf5\x75\xab\x11\x89\x68\x84\x13\x61\x0a\x35\xa1\x28\x86\xcd\xe0\xb6\x6c\x72";
+const CRYPTOLIB_CONTRACT_HASH: [u8; 20] =
+    *b"\x1b\xf5\x75\xab\x11\x89\x68\x84\x13\x61\x0a\x35\xa1\x28\x86\xcd\xe0\xb6\x6c\x72";
 
 impl ExecutionContext {
     /// Compute extra gas owed by a syscall whose handler does work
@@ -126,11 +129,9 @@ impl ExecutionContext {
                 // (data, seed) — only the data byte-length matters
                 // for cost.
                 let input_bytes = match args_item {
-                    StackItem::Array(items) => items
-                        .borrow()
-                        .first()
-                        .map(stack_item_byte_len)
-                        .unwrap_or(0),
+                    StackItem::Array(items) => {
+                        items.borrow().first().map(stack_item_byte_len).unwrap_or(0)
+                    }
                     other => stack_item_byte_len(other),
                 };
                 (input_bytes as u64).saturating_mul(HASH_PER_BYTE_GAS)
@@ -139,7 +140,7 @@ impl ExecutionContext {
         }
     }
 
-    fn execute_syscall_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_syscall_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         if opcode != 0x41 {
             return Ok(false);
         }
@@ -152,7 +153,8 @@ impl ExecutionContext {
 
         let mut syscall_id = [0u8; 4];
         syscall_id.copy_from_slice(
-            &self.bytecode[self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 5],
+            &self.bytecode
+                [self.instruction_pointer as usize + 1..self.instruction_pointer as usize + 5],
         );
         // Consume syscall-specific gas if known
         // NOTE: This is ADDITIONAL gas on top of the base opcode cost (already charged

@@ -82,6 +82,31 @@ impl Module {
             })
             .collect();
 
+        // Declared custom-error signatures, keyed by error name. Revert-site
+        // lowering resolves the EVM selector from these DECLARED parameter
+        // types instead of inferring types from the argument expressions.
+        let error_signature_map: HashMap<String, ErrorAbiSignature> = metadata
+            .errors
+            .iter()
+            .map(|error| {
+                (
+                    error.name.clone(),
+                    ErrorAbiSignature {
+                        param_names: error
+                            .parameters
+                            .iter()
+                            .map(|param| param.name.clone())
+                            .collect(),
+                        param_types: error
+                            .parameters
+                            .iter()
+                            .map(|param| param.ty.clone())
+                            .collect(),
+                    },
+                )
+            })
+            .collect();
+
         let enum_variant_map = build_enum_variant_map(&metadata.enums);
         let contract_types: HashSet<String> = metadata.contract_types.iter().cloned().collect();
         let selector_registry = metadata.selector_registry.as_ref();
@@ -168,6 +193,26 @@ impl Module {
             &metadata.contract_types,
             &metadata.type_aliases,
         );
+
+        // Storage-soundness — record the compile-time bound `N` for every
+        // fixed-size array struct field (`uint256[3] arr;`). The IR-level
+        // `ValueType::Array` collapses `T[N]` and `T[]`, but fixed-size
+        // fields never maintain a length slot, so the struct-field array
+        // bounds guard must use the declared `N` instead of a length load.
+        let struct_fixed_array_bounds: HashMap<(String, String), u64> = metadata
+            .structs
+            .iter()
+            .flat_map(|struct_meta| {
+                struct_meta.fields.iter().filter_map(|field| {
+                    extract_fixed_array_bound_at_depth(&field.ty, 0).map(|bound| {
+                        (
+                            (struct_meta.name.clone(), field.name.clone()),
+                            bound,
+                        )
+                    })
+                })
+            })
+            .collect();
 
         // Task #91 — collect inlinable bodies for methods whose first
         // parameter is `T storage` (a Solidity storage pointer). These are
@@ -282,9 +327,11 @@ impl Module {
                 &state_index_map,
                 &state_types,
                 &defined_struct_types,
+                &struct_fixed_array_bounds,
                 &event_index_map,
                 &event_signature_map,
                 &event_params_map,
+                &error_signature_map,
                 &enum_variant_map,
                 &contract_types,
                 selector_registry,
@@ -326,9 +373,11 @@ impl Module {
                 &state_index_map,
                 &state_types,
                 &defined_struct_types,
+                &struct_fixed_array_bounds,
                 &event_index_map,
                 &event_signature_map,
                 &event_params_map,
+                &error_signature_map,
                 &enum_variant_map,
                 &contract_types,
                 selector_registry,

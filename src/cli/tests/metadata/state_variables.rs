@@ -6,6 +6,7 @@ fn contract_with_state_variables(state_variables: Vec<StateVariableMetadata>) ->
         is_library: false,
         methods: vec![],
         events: vec![],
+        errors: vec![],
         uses_storage: state_variables.iter().any(|state| !state.is_constant),
         state_variables,
         structs: vec![],

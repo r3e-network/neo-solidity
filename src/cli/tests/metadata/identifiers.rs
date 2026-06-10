@@ -39,6 +39,7 @@ fn method_identifiers_include_selectors() {
             had_modifier_epilogue: false,
         }],
         events: vec![],
+        errors: vec![],
         uses_storage: false,
         state_variables: vec![],
         structs: vec![],

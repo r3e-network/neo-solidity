@@ -1,3 +1,5 @@
+use super::*;
+
 // Syscall registry – the names are authoritative; IDs are derived via SHA-256.
 //
 // IMPORTANT: This list is aligned to Neo N3 `ApplicationEngine.Register(...)` syscall names.

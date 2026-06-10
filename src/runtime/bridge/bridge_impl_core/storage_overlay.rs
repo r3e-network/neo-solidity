@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn apply_storage_overlay(
+    pub(crate) fn apply_storage_overlay(
         &self,
         context: &mut execution::ExecutionContext,
         storage: &mut storage::StorageManager,

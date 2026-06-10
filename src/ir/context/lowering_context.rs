@@ -75,9 +75,23 @@ struct LoweringContext<'a> {
     /// This enables resolving user-defined structs even when they are only used
     /// in local variables (i.e., not present in state/param/return types).
     defined_struct_types: &'a [ValueType],
+    /// Compile-time bound `N` for every fixed-size array struct field
+    /// (`struct S { uint256[3] arr; }`), keyed by `(struct_name, field_name)`.
+    ///
+    /// `ValueType::Array` collapses `T[N]` and `T[]` into one variant, but the
+    /// storage layout differs: fixed-size fields never maintain a length slot,
+    /// so the struct-field array bounds guard (storage-soundness fix, see
+    /// `lower_array_subscript_expression`) must use the declared `N` instead
+    /// of loading a length that would always read 0.
+    struct_fixed_array_bounds: &'a HashMap<(String, String), u64>,
     event_index_map: &'a HashMap<String, usize>,
     event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
     event_params_map: &'a HashMap<String, EventSignature>,
+    /// Declared custom `error` signatures keyed by error name. Used by the
+    /// revert/require lowering to compute EVM custom-error selectors from
+    /// the DECLARED parameter types and to reorder named arguments into
+    /// declaration order.
+    error_signature_map: &'a HashMap<String, ErrorAbiSignature>,
     enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
     contract_types: &'a HashSet<String>,
     selector_registry: &'a SelectorRegistry,
@@ -220,9 +234,11 @@ impl<'a> LoweringContext<'a> {
         state_index_map: &'a HashMap<String, usize>,
         state_types: &'a [ValueType],
         defined_struct_types: &'a [ValueType],
+        struct_fixed_array_bounds: &'a HashMap<(String, String), u64>,
         event_index_map: &'a HashMap<String, usize>,
         event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
         event_params_map: &'a HashMap<String, EventSignature>,
+        error_signature_map: &'a HashMap<String, ErrorAbiSignature>,
         enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
         contract_types: &'a HashSet<String>,
         selector_registry: &'a SelectorRegistry,
@@ -254,9 +270,11 @@ impl<'a> LoweringContext<'a> {
             state_index_map,
             state_types,
             defined_struct_types,
+            struct_fixed_array_bounds,
             event_index_map,
             event_signature_map,
             event_params_map,
+            error_signature_map,
             enum_variant_map,
             contract_types,
             selector_registry,
@@ -588,6 +606,15 @@ impl<'a> LoweringContext<'a> {
         self.state_variables.get(index)
     }
 
+    /// Compile-time bound `N` when `struct_name.field_name` is declared as a
+    /// fixed-size array (`T[N]`), `None` for dynamic (`T[]`) or non-array
+    /// fields. See `struct_fixed_array_bounds`.
+    fn struct_fixed_array_bound(&self, struct_name: &str, field_name: &str) -> Option<u64> {
+        self.struct_fixed_array_bounds
+            .get(&(struct_name.to_string(), field_name.to_string()))
+            .copied()
+    }
+
     fn can_write_state(&self, state_index: usize) -> bool {
         let Some(meta) = self.state_metadata(state_index) else {
             return true;
@@ -817,6 +844,14 @@ impl<'a> LoweringContext<'a> {
 
     fn event_evm_signature(&self, event_name: &str) -> Option<&EventSignature> {
         self.event_params_map.get(event_name)
+    }
+
+    /// Declared signature for a custom `error`, or `None` when the name was
+    /// never declared in (or inherited by / file-level-merged into) the
+    /// current contract — callers then fall back to inferring canonical
+    /// types from the revert-site argument expressions.
+    fn error_signature(&self, error_name: &str) -> Option<&ErrorAbiSignature> {
+        self.error_signature_map.get(error_name)
     }
 
     fn allocate_local(&mut self, name: String, value_type: Option<ValueType>) -> usize {

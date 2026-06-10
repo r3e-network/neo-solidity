@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Convert a single ABI element into a 32-byte big-endian slot, matching
     /// the EVM ABI layout for `abi.encode` (non-packed).
@@ -316,7 +318,7 @@ impl ExecutionContext {
         }
     }
 
-    fn invoke_native_stdlib(method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_stdlib(method: &str, params: StackItem) -> StackItem {
         match method {
             "serialize" => {
                 if let StackItem::Array(args) = params {
@@ -401,8 +403,7 @@ impl ExecutionContext {
                     } else {
                         borrowed.clone()
                     };
-                    let is_dynamic: Vec<bool> =
-                        inner.iter().map(Self::abi_is_dynamic).collect();
+                    let is_dynamic: Vec<bool> = inner.iter().map(Self::abi_is_dynamic).collect();
                     if !is_dynamic.iter().any(|b| *b) {
                         // Fast path: static-only encoding (Task #44 shape).
                         let mut out = Vec::with_capacity(inner.len() * 32);
@@ -420,8 +421,7 @@ impl ExecutionContext {
                         if is_dynamic[i] {
                             let tail = Self::abi_dynamic_tail_bytes(item);
                             let mut offset_slot = [0u8; 32];
-                            offset_slot[24..]
-                                .copy_from_slice(&running_offset.to_be_bytes());
+                            offset_slot[24..].copy_from_slice(&running_offset.to_be_bytes());
                             head.extend_from_slice(&offset_slot);
                             running_offset += tail.len() as u64;
                             tails.push(tail);
@@ -501,20 +501,19 @@ impl ExecutionContext {
                     // match the simple offset=32 + single-length signature
                     // and stay on the scalar-slot path.
                     if bytes.len() >= 64 {
-                        let first_is_offset_20 =
-                            bytes[..24].iter().all(|b| *b == 0) && {
-                                let mut buf = [0u8; 8];
-                                buf.copy_from_slice(&bytes[24..32]);
-                                u64::from_be_bytes(buf) == 32
-                            };
+                        let first_is_offset_20 = bytes[..24].iter().all(|b| *b == 0) && {
+                            let mut buf = [0u8; 8];
+                            buf.copy_from_slice(&bytes[24..32]);
+                            u64::from_be_bytes(buf) == 32
+                        };
                         let declared_len = {
                             let mut buf = [0u8; 8];
                             buf.copy_from_slice(&bytes[56..64]);
                             u64::from_be_bytes(buf)
                         };
                         let len_high_zero = bytes[32..56].iter().all(|b| *b == 0);
-                        let payload_matches = len_high_zero
-                            && (64 + declared_len as usize * 32) == bytes.len();
+                        let payload_matches =
+                            len_high_zero && (64 + declared_len as usize * 32) == bytes.len();
                         if first_is_offset_20 && payload_matches {
                             return StackItem::byte_array(bytes);
                         }

@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_ret(
+    pub(crate) fn handle_ret(
         _bridge: &mut VMBridge,
         _context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -10,7 +12,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_jmp(
+    pub(crate) fn handle_jmp(
         _bridge: &mut VMBridge,
         _context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -21,7 +23,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_jmpif(
+    pub(crate) fn handle_jmpif(
         _bridge: &mut VMBridge,
         _context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -32,7 +34,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_jmpifnot(
+    pub(crate) fn handle_jmpifnot(
         _bridge: &mut VMBridge,
         _context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -43,4 +45,3 @@ impl VMBridge {
         Ok(())
     }
 }
-

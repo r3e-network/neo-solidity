@@ -1,5 +1,10 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_arithmetic_numeric_unary(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_arithmetic_numeric_unary(
+        &mut self,
+        opcode: u8,
+    ) -> Result<bool, RuntimeError> {
         match opcode {
             0x99 => {
                 // SIGN

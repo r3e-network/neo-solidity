@@ -1,14 +1,16 @@
+use super::*;
+
 /// VM Bridge for EVM-to-NeoVM translation
 #[derive(Debug)]
 pub struct VMBridge {
-    config: RuntimeConfig,
-    instruction_mapping: HashMap<u8, InstructionHandler>,
-    system_calls: HashMap<String, SystemCall>,
-    contract_account: String,
+    pub(crate) config: RuntimeConfig,
+    pub(crate) instruction_mapping: HashMap<u8, InstructionHandler>,
+    pub(crate) system_calls: HashMap<String, SystemCall>,
+    pub(crate) contract_account: String,
 }
 
 /// Instruction handler function type
-type InstructionHandler = fn(
+pub(crate) type InstructionHandler = fn(
     &mut VMBridge,
     &mut execution::ExecutionContext,
     &mut state::StateManager,
@@ -17,7 +19,8 @@ type InstructionHandler = fn(
 ) -> Result<(), VMBridgeError>;
 
 /// System call function type
-type SystemCall = fn(&mut VMBridge, &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError>;
+pub(crate) type SystemCall =
+    fn(&mut VMBridge, &[StackItem]) -> Result<Vec<StackItem>, VMBridgeError>;
 
 /// VM Bridge errors
 #[derive(Debug, Error)]
@@ -46,4 +49,3 @@ pub enum VMBridgeError {
     #[error("Invalid argument count: expected {expected}, got {got}")]
     InvalidArguments { expected: usize, got: usize },
 }
-

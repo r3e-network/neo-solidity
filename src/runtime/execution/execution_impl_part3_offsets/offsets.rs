@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn read_u32_offset(&self, opcode_label: &str) -> Result<u32, RuntimeError> {
+    pub(crate) fn read_u32_offset(&self, opcode_label: &str) -> Result<u32, RuntimeError> {
         let start = self.instruction_pointer as usize + 1;
         let end = start + 4;
         if end > self.bytecode.len() {
@@ -13,7 +15,7 @@ impl ExecutionContext {
         Ok(u32::from_le_bytes(buf))
     }
 
-    fn read_i8_offset(&self, opcode_label: &str) -> Result<i8, RuntimeError> {
+    pub(crate) fn read_i8_offset(&self, opcode_label: &str) -> Result<i8, RuntimeError> {
         let idx = self.instruction_pointer as usize + 1;
         if idx >= self.bytecode.len() {
             return Err(RuntimeError::ExecutionError {
@@ -23,7 +25,7 @@ impl ExecutionContext {
         Ok(self.bytecode[idx] as i8)
     }
 
-    fn read_i32_offset(&self, opcode_label: &str) -> Result<i32, RuntimeError> {
+    pub(crate) fn read_i32_offset(&self, opcode_label: &str) -> Result<i32, RuntimeError> {
         let start = self.instruction_pointer as usize + 1;
         let end = start + 4;
         if end > self.bytecode.len() {
@@ -37,17 +39,17 @@ impl ExecutionContext {
         Ok(i32::from_le_bytes(buf))
     }
 
-    fn compute_offset_target(
+    pub(crate) fn compute_offset_target(
         &self,
         opcode_label: &str,
         base: u32,
         offset: i32,
     ) -> Result<u32, RuntimeError> {
-        let target = (base as i64)
-            .checked_add(offset as i64)
-            .ok_or_else(|| RuntimeError::ExecutionError {
+        let target = (base as i64).checked_add(offset as i64).ok_or_else(|| {
+            RuntimeError::ExecutionError {
                 message: format!("{opcode_label}: jump target out of bounds"),
-            })?;
+            }
+        })?;
 
         if target < 0 || target as usize >= self.bytecode.len() {
             return Err(RuntimeError::ExecutionError {
@@ -58,4 +60,3 @@ impl ExecutionContext {
         Ok(target as u32)
     }
 }
-

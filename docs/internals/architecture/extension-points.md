@@ -19,7 +19,7 @@ description: "Extension Points from Architecture."
 1. Add the syscall name to the registry in `src/runtime/spec/syscalls.rs`
 2. Add the gas cost entry in `src/runtime/spec/gas.rs`
 3. Implement the syscall handler in `src/runtime/execution/`
-4. Update `src/codegen.rs` if the syscall needs a new interop ID computation
+4. Update `src/interop.rs` if the syscall needs a new interop ID computation
 
 ## Adding a New Native Contract
 
@@ -29,7 +29,7 @@ description: "Extension Points from Architecture."
 
 ## Adding a New Optimization Pass
 
-1. Create a new file in `src/optimizer/` implementing the pass
-2. Add the pass to `OptimizationPasses` in `src/optimizer/types.rs`
-3. Wire it into the dispatch logic in `src/optimizer/dispatch.rs`
-4. Assign it to the appropriate optimization level in `OptimizationPasses::for_level()`
+1. Create a new file in `src/cli/ir_optimize/` implementing the pass
+2. Include it from `src/cli/ir_optimize.rs`
+3. Wire it into `optimize_ir()` in `src/cli/ir_optimize/optimize.rs`, gated on
+   the appropriate optimization level

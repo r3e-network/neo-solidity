@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_flow_jumps(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_jumps(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         if self.execute_flow_jumps_unconditional(opcode)? {
             return Ok(true);
         }

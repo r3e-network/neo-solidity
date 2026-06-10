@@ -26,6 +26,11 @@ pub struct ContractIR {
     pub bases: Vec<Base>,
     pub functions: Vec<FunctionIR>,
     pub events: Vec<EventIR>,
+    /// Declared custom `error` definitions (contract-level plus file-level
+    /// merged in by `parse_source`). Used to resolve EVM custom-error
+    /// selectors from the DECLARED parameter types rather than the types
+    /// inferred from `revert`-site argument expressions.
+    pub errors: Vec<ErrorIR>,
     pub state_variables: Vec<StateVariableIR>,
     pub structs: Vec<StructIR>,
     pub enums: Vec<EnumIR>,
@@ -154,6 +159,15 @@ pub struct EventParameterIR {
     pub name: Option<String>,
     pub ty: String,
     pub indexed: bool,
+}
+
+/// Representation of a Solidity custom `error` declaration.
+#[derive(Debug, Clone)]
+pub struct ErrorIR {
+    pub name: String,
+    /// Declared parameters in declaration order (`storage` is always `None`
+    /// — error parameters cannot carry a data location).
+    pub parameters: Vec<ParameterIR>,
 }
 
 /// Representation of a state variable.

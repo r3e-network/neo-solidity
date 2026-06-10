@@ -1,12 +1,14 @@
-type StorageEntries = Vec<(Vec<u8>, Vec<u8>)>;
+use super::*;
+
+pub(crate) type StorageEntries = Vec<(Vec<u8>, Vec<u8>)>;
 
 /// Storage manager for contract storage
 #[derive(Debug)]
 pub struct StorageManager {
-    storage: HashMap<String, AccountStorage>,
-    read_count: u64,
-    write_count: u64,
-    gas_costs: StorageGasCosts,
+    pub(crate) storage: HashMap<String, AccountStorage>,
+    pub(crate) read_count: u64,
+    pub(crate) write_count: u64,
+    pub(crate) gas_costs: StorageGasCosts,
 }
 
 /// Account-specific storage
@@ -30,7 +32,10 @@ pub struct StorageChange {
 impl StorageChange {
     /// Check if this is a write operation
     pub fn is_write(&self) -> bool {
-        matches!(self.change_type, StorageChangeType::Create | StorageChangeType::Update)
+        matches!(
+            self.change_type,
+            StorageChangeType::Create | StorageChangeType::Update
+        )
     }
 
     /// Get the key as hex string
@@ -126,4 +131,3 @@ impl StorageStatistics {
         self.read_operations as f64 / self.write_operations as f64
     }
 }
-

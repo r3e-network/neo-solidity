@@ -35,10 +35,9 @@ fn lower_require(
         // cross-contract and self-call paths).
         if let Expression::FunctionCall(_, callee, error_args) = &args[1] {
             if let Expression::Variable(error_ident) = callee.as_ref() {
-                let arg_types: Vec<String> = error_args
-                    .iter()
-                    .map(|arg| revert_arg_canonical_type(arg, ctx))
-                    .collect();
+                // Resolve the selector from the DECLARED `error` signature
+                // when available (same policy as `lower_revert_statement`).
+                let arg_types = revert_error_arg_types(&error_ident.name, error_args, ctx);
                 let selector = revert_error_selector(&error_ident.name, &arg_types);
 
                 let direct_static_path = error_args
@@ -164,6 +163,21 @@ fn lower_require(
                 error_string_literal_envelope(&string_literal_bytes(parts)),
             )));
             instructions.push(Instruction::Throw);
+            instructions.push(Instruction::Label(ok_label));
+            return;
+        }
+
+        // Task #131 follow-up — NON-LITERAL string messages (a string
+        // variable, `string.concat(...)`, a propagated constant, ...) must
+        // get the same `Error(string)` envelope as the literal case above
+        // and as `revert(msg)`. Previously they fell through to the bare
+        // `Throw` below, so `catch Error(string)` selector guards missed
+        // them and EVM tooling could not decode the revert reason. The
+        // helper is shared with `lower_revert_statement` to keep both
+        // payload shapes identical.
+        if revert_message_arg_is_string(&args[1], ctx)
+            && emit_error_string_envelope_throw(&args[1], ctx, instructions)
+        {
             instructions.push(Instruction::Label(ok_label));
             return;
         }

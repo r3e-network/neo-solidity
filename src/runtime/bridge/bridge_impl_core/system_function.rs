@@ -1,3 +1,5 @@
+use super::*;
+
 impl VMBridge {
     /// Call system function
     pub fn call_system_function(

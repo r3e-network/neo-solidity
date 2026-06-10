@@ -1,5 +1,11 @@
+use super::*;
+
 impl ExecutionContext {
-    fn min_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn min_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         let lt = self.less_than(&a, &b)?;
         if lt {
             Ok(a)
@@ -8,7 +14,11 @@ impl ExecutionContext {
         }
     }
 
-    fn max_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn max_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         let gt = self.greater_than(&a, &b)?;
         if gt {
             Ok(a)
@@ -17,7 +27,7 @@ impl ExecutionContext {
         }
     }
 
-    fn within_stack_items(
+    pub(crate) fn within_stack_items(
         &self,
         value: StackItem,
         min_item: StackItem,
@@ -28,4 +38,3 @@ impl ExecutionContext {
         Ok(ge_min && lt_max)
     }
 }
-

@@ -9,6 +9,7 @@ fn flatten_contract_inheritance(
         std::collections::HashMap::new();
 
     let mut events: Vec<EventIR> = Vec::new();
+    let mut errors: Vec<ErrorIR> = Vec::new();
     let mut state_variables: Vec<StateVariableIR> = Vec::new();
 
     let mut structs: Vec<StructIR> = Vec::new();
@@ -140,6 +141,16 @@ fn flatten_contract_inheritance(
 
         // Events are additive in Solidity; duplicates are later de-duplicated by manifest builder.
         events.extend(ancestor.events.clone());
+
+        // Custom errors are inherited too; later (more-derived) declarations
+        // shadow same-named base declarations.
+        for err in &ancestor.errors {
+            if let Some(existing) = errors.iter_mut().find(|e| e.name == err.name) {
+                *existing = err.clone();
+            } else {
+                errors.push(err.clone());
+            }
+        }
 
         // Build a substitution map for state-var rewrites in this ancestor's
         // function bodies. The map renames identifier references like
@@ -405,6 +416,7 @@ fn flatten_contract_inheritance(
         bases: contract.bases,
         functions,
         events,
+        errors,
         state_variables,
         structs,
         enums,

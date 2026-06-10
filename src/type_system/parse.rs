@@ -39,6 +39,23 @@ impl NeoType {
             return Ok(NeoType::Any);
         }
         let ty = strip_data_location(ty);
+        // NEP `Any` placeholder: the devpack declares `type Any is bytes;`
+        // purely so Solidity sources can spell the NEP-17/NEP-11 `data`
+        // parameter, but the manifest must expose it as `Any` per the NEP
+        // specs. Resolve it BEFORE user-defined-value-type alias expansion so
+        // the `bytes` desugaring does not demote it to ByteArray. The special
+        // case is scoped to an underlying type of exactly `bytes` (or no
+        // alias at all), so an unrelated `type Any is bytes32;` keeps its
+        // alias semantics.
+        if ty.eq_ignore_ascii_case("any") {
+            match type_aliases.iter().find(|(alias, _)| alias.as_str() == ty) {
+                None => return Ok(NeoType::Any),
+                Some((_, underlying)) if underlying.trim() == "bytes" => {
+                    return Ok(NeoType::Any);
+                }
+                Some(_) => {}
+            }
+        }
         // Resolve user-defined value-type aliases before recursing. A field
         // declared as `Slot0 slot0` (where `type Slot0 is bytes32;`) should
         // recurse with `"bytes32"` so the inner parse hits the built-in

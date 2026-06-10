@@ -1,5 +1,11 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_role_management(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_role_management(
+        &mut self,
+        method: &str,
+        params: StackItem,
+    ) -> StackItem {
         match method {
             "designateasrole" => {
                 if let StackItem::Array(args) = &params {
@@ -22,11 +28,12 @@ impl ExecutionContext {
             }
             "getdesignatedbyrole" => {
                 let role = Self::extract_first_int(&params) as u8;
-                let keys = self.role_designations.get(&role).cloned().unwrap_or_default();
-                let items: Vec<StackItem> = keys
-                    .into_iter()
-                    .map(StackItem::byte_array)
-                    .collect();
+                let keys = self
+                    .role_designations
+                    .get(&role)
+                    .cloned()
+                    .unwrap_or_default();
+                let items: Vec<StackItem> = keys.into_iter().map(StackItem::byte_array).collect();
                 StackItem::array(items)
             }
             _ => StackItem::Null,

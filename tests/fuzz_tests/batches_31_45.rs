@@ -2930,13 +2930,16 @@ contract C {
     );
 }
 
-// R5 — Overloaded `foo(uint)`, `foo(string)`, `foo(uint, uint)`. Per
-// src/solidity/convert/contract.rs:58-73, each non-primary overload's
-// `neo_name` gets rewritten to `"foo(<canonical-param-types>)"`; per
-// src/cli/cli_parts/cli_manifest/build.rs:199-229 the primary overload is
-// the max-arity member (ties alphabetical by neo_name). Here `foo(uint,uint)`
-// has arity 2 > 1, so it wins `foo` in the manifest; `foo(uint)` appears as
-// `foo(uint256)` and `foo(string)` appears as `foo(string)`.
+// R5 — Overloaded `foo(uint)`, `foo(string)`, `foo(uint, uint)`. Neo N3
+// dispatches methods by `(name, parameter count)`, so distinct-arity
+// overloads legally share the original Solidity name in the manifest
+// (mirroring native ContractManagement's 2- and 3-param `deploy`). Only
+// true same-arity collisions are mangled to `"foo(<canonical-param-types>)"`
+// (one deterministic primary — smallest neo_name — keeps the clean name).
+// Here `foo(uint,uint)` is unique at arity 2 → "foo"; `foo(uint)` and
+// `foo(string)` collide at arity 1: `foo(string)` < `foo(uint256)`
+// lexicographically, so the string overload keeps "foo" and the uint
+// overload appears as `foo(uint256)`.
 #[test]
 fn batch42_r5_overloaded_function_resolution_three_arities() {
     use neo_devpack_solidity::runtime::types::StackItem;
@@ -2963,26 +2966,39 @@ contract C {
         .filter_map(|m| m.get("name").and_then(serde_json::Value::as_str))
         .collect();
 
-    // Primary (max arity, foo(uint,uint)) keeps clean name "foo".
+    // Distinct-arity `foo(uint,uint)` keeps the clean name "foo" (arity 2),
+    // and the same-arity collision group keeps one primary under "foo"
+    // (arity 1, the string overload) — two "foo" entries with distinct
+    // arities, which Neo dispatch (name + parameter count) handles natively.
     assert!(
         names.contains(&"foo"),
-        "R5 primary overload 'foo' (arity 2) must appear in manifest; got {:?}",
+        "R5 overload 'foo' must appear in manifest; got {:?}",
         names
     );
-    // Non-primary overloads carry mangled neo_names.
+    // The losing member of the same-arity collision carries its mangled
+    // neo_name.
     assert!(
         names.contains(&"foo(uint256)"),
         "R5 mangled overload 'foo(uint256)' must appear in manifest; got {:?}",
         names
     );
-    assert!(
-        names.contains(&"foo(string)"),
-        "R5 mangled overload 'foo(string)' must appear in manifest; got {:?}",
-        names
-    );
 
-    // The three entries must have distinct names (no collisions).
-    let foo_entries: Vec<&&str> = names.iter().filter(|n| n.starts_with("foo")).collect();
+    // All three overloads are present and no `(name, arity)` pair collides.
+    let foo_entries: Vec<(&str, usize)> = methods
+        .iter()
+        .filter_map(|m| {
+            let name = m.get("name").and_then(serde_json::Value::as_str)?;
+            if !name.starts_with("foo") {
+                return None;
+            }
+            let arity = m
+                .get("parameters")
+                .and_then(serde_json::Value::as_array)
+                .map(|p| p.len())
+                .unwrap_or(0);
+            Some((name, arity))
+        })
+        .collect();
     assert_eq!(
         foo_entries.len(),
         3,
@@ -2993,7 +3009,7 @@ contract C {
     assert_eq!(
         uniq.len(),
         3,
-        "R5 all 3 overloads must have distinct manifest names; got {:?}",
+        "R5 all 3 overloads must have distinct (name, arity) pairs; got {:?}",
         foo_entries
     );
 
@@ -3043,19 +3059,21 @@ contract C {
         hex::encode(&r_uint.return_data)
     );
 
-    // Invoke `foo(string)` (mangled string overload) with "hi" → expect "hi".
+    // Invoke the string overload — it won the same-arity collision so it is
+    // callable as `foo` with 1 argument (the harness resolves by name +
+    // parameter count, like real Neo nodes).
     let r_str = rt
         .call_method(
             &art.bytecode,
             &art.tokens,
             &art.manifest,
-            "foo(string)",
+            "foo",
             &[StackItem::byte_array(b"hi".to_vec())],
         )
-        .expect("R5 foo(string)");
+        .expect("R5 foo (string overload)");
     assert!(
         r_str.success,
-        "R5 foo(string)(\"hi\") must succeed; exc={:?}",
+        "R5 foo(\"hi\") must succeed; exc={:?}",
         r_str.exception.as_ref().map(|e| &e.message)
     );
     // Shape: return_data should contain the UTF-8 bytes of "hi" (possibly

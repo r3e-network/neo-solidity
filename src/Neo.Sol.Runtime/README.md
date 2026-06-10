@@ -1,5 +1,14 @@
 # Neo.Sol.Runtime
 
+> [!IMPORTANT]
+> **Standalone experimental library — not part of the `neo-solc` compiler pipeline.**
+> Neo.Sol.Runtime is a standalone, experimental EVM-emulation library. It is **not used by
+> `neo-solc`**, is **not shipped in releases** (no NuGet package is published), and its storage
+> layout (EVM keccak-style slot mapping) is **intentionally different** from the layout used by
+> compiler-emitted contracts, which use `SHA256(variable_name)` base slots plus
+> `keccak256(serialize(key) || slot)` for mapping elements. Contracts produced by `neo-solc`
+> cannot read or write storage written through this library, and vice versa.
+
 A comprehensive runtime library providing EVM semantic emulation on NeoVM. This library enables Solidity-style smart contract development on the Neo blockchain by providing EVM-compatible memory management, storage layouts, ABI encoding/decoding, cryptographic functions, event systems, and cross-contract interaction patterns.
 
 ## Features

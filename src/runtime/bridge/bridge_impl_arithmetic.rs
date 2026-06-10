@@ -1,3 +1,4 @@
-include!("bridge_impl_arithmetic/basic.rs");
-include!("bridge_impl_arithmetic/modular.rs");
+use super::*;
 
+mod basic;
+mod modular;

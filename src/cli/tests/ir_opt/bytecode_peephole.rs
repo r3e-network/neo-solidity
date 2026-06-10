@@ -22,6 +22,7 @@ fn bytecode_peephole_reduces_size_at_o3() {
             had_modifier_epilogue: false,
         }],
         events: vec![],
+        errors: vec![],
         uses_storage: false,
         state_variables: vec![],
         structs: vec![],

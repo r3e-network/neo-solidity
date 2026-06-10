@@ -1,4 +1,6 @@
-fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
+use super::*;
+
+pub(crate) fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
     Ok(match item {
         StackItem::ByteArray(bytes) => bytes.borrow().clone(),
         StackItem::UnsignedInteger(value) => value.to_be_bytes().to_vec(),
@@ -25,7 +27,7 @@ fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
     })
 }
 
-fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
+pub(crate) fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
     Ok(match item {
         StackItem::UnsignedInteger(value) => *value as u128,
         StackItem::Integer(value) => {

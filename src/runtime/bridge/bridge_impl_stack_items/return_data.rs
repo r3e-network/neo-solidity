@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn extract_return_data(
+    pub(crate) fn extract_return_data(
         &self,
         context: &execution::ExecutionContext,
     ) -> Result<Vec<u8>, RuntimeError> {

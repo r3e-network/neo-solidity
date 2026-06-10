@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-include!("runtime_parts/runtime_types.rs");
-include!("runtime_parts/runtime_impl.rs");
+mod runtime_parts;
+
+pub use runtime_parts::*;
 
 #[cfg(test)]
 mod tests;

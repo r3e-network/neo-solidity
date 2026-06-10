@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn lt_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn lt_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         let result = match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => x < y,
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => x < y,
@@ -8,7 +10,7 @@ impl VMBridge {
         Ok(StackItem::Boolean(result))
     }
 
-    fn gt_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn gt_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         let result = match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => x > y,
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => x > y,
@@ -17,7 +19,7 @@ impl VMBridge {
         Ok(StackItem::Boolean(result))
     }
 
-    fn eq_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn eq_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         let result = match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => x == y,
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => x == y,

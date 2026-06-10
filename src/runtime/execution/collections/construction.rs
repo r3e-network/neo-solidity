@@ -1,17 +1,19 @@
+use super::*;
+
 impl ExecutionContext {
-    fn new_array0(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_array0(&mut self) -> Result<(), RuntimeError> {
         self.push_stack(StackItem::array(Vec::new()))
     }
 
-    fn new_struct0(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_struct0(&mut self) -> Result<(), RuntimeError> {
         self.push_stack(StackItem::array(Vec::new()))
     }
 
-    fn new_struct(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_struct(&mut self) -> Result<(), RuntimeError> {
         self.new_array()
     }
 
-    fn new_array(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_array(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("NEWARRAY")?;
         // Bound user-supplied count against memory_limit. Without this check,
         // a malicious PUSHINT + NEWARRAY/NEWSTRUCT/NEWARRAY_T sequence can
@@ -31,7 +33,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::array(items))
     }
 
-    fn new_map(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_map(&mut self) -> Result<(), RuntimeError> {
         self.push_stack(StackItem::map(std::collections::HashMap::new()))
     }
 }

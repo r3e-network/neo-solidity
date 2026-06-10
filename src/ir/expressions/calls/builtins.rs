@@ -85,6 +85,18 @@ fn try_lower_type_concat(
             builtin: BuiltinCall::BytesConcat,
             arg_count: args.len(),
         });
+        // On real NeoVM, CAT yields a Buffer (0x30) while ABI parameters,
+        // hex literals, keccak256 results, and storage reads are ByteStrings
+        // (0x28). StdLib.serialize embeds the stack-item type byte, so an
+        // un-canonicalized concat result used as a mapping key would derive
+        // a different storage slot than the same bytes presented as a
+        // ByteString. Coerce to ByteString so equality / mapping-key /
+        // ABI-return layers all see a canonical contiguous bytes value
+        // (mirrors the SUBSTR slice coercion in
+        // `src/ir/expressions/arrays.rs`).
+        instructions.push(Instruction::Convert {
+            target: ConvertTarget::ByteArray,
+        });
     }
 
     Some(success)

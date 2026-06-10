@@ -295,6 +295,14 @@ graph TB
     R --> V[Debug Tools]
 ```
 
+> [!NOTE]
+> **Neo-Sol Runtime (C#) is standalone and experimental.** The `src/Neo.Sol.Runtime` C#
+> library shown above is a separate EVM-emulation experiment: it is **not used by the
+> `neo-solc` compiler**, is **not shipped in releases**, and uses an EVM keccak-style storage
+> layout that is intentionally different from compiler-emitted contracts (which use
+> `SHA256(variable_name)` base slots plus `keccak256(serialize(key) || slot)` for mapping
+> elements). The two storage layouts are not interoperable.
+
 ### **🔧 Installation & Setup**
 
 #### **System Requirements**
@@ -844,9 +852,7 @@ git push origin vX.Y.Z
 
 #### **Core Compiler**
 
-- ✅ Yul lexer with all tokens and built-ins
-- ✅ AST parser supporting Yul constructs
-- ✅ Semantic analyzer with type checking
+- ✅ Solidity frontend (solang-based parser) with semantic validation
 - ✅ Multi-level optimizer (4 levels: 0-3)
 - ✅ NeoVM code generator
 - ✅ Solidity-style public state variable getters

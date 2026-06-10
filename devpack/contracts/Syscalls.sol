@@ -358,60 +358,14 @@ library Syscalls {
         return abi.decode(result, (Iterator));
     }
 
-    /**
-     * @dev Storage get (local context)
-     */
-    function storageGetLocal(bytes memory key)
-        internal
-        view
-        returns (bytes memory)
-    {
-        bytes memory data = abi.encode(key);
-        return _syscallBytes("System.Storage.Local.Get", data);
-    }
+    // NOTE: The former `storageGetLocal`/`storagePutLocal`/`storageDeleteLocal`/
+    // `storageFindLocal` wrappers were removed. They mapped to fictional
+    // `System.Storage.Local.*` syscalls that do not exist in Neo N3's interop
+    // table, so any contract using them faulted the moment it ran on a real
+    // node. Use the context-based `storageGet/storagePut/storageDelete/
+    // storageFind` wrappers instead — Neo N3 storage contexts are always
+    // private to the owning contract.
 
-    /**
-     * @dev Storage put (local context)
-     */
-    function storagePutLocal(bytes memory key, bytes memory value) internal {
-        bytes memory data = abi.encode(key, value);
-        _syscallVoid("System.Storage.Local.Put", data);
-    }
-
-    /**
-     * @dev Storage delete (local context)
-     */
-    function storageDeleteLocal(bytes memory key) internal {
-        bytes memory data = abi.encode(key);
-        _syscallVoid("System.Storage.Local.Delete", data);
-    }
-
-    /**
-     * @dev Storage find (local context)
-     */
-    function storageFindLocal(bytes memory prefix)
-        internal
-        view
-        returns (Iterator memory)
-    {
-        bytes memory data = abi.encode(prefix, uint8(0));
-        bytes memory result = _syscallBytes("System.Storage.Local.Find", data);
-        return abi.decode(result, (Iterator));
-    }
-
-    /**
-     * @dev Storage find (local context) with options
-     */
-    function storageFindLocal(bytes memory prefix, uint8 options)
-        internal
-        view
-        returns (Iterator memory)
-    {
-        bytes memory data = abi.encode(prefix, options);
-        bytes memory result = _syscallBytes("System.Storage.Local.Find", data);
-        return abi.decode(result, (Iterator));
-    }
-    
     // ========== Runtime System Calls ==========
     
     /**

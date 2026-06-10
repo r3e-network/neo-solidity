@@ -1,5 +1,11 @@
+use super::*;
+
 impl ExecutionContext {
-    fn convert_item(&self, item: StackItem, target_code: u8) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn convert_item(
+        &self,
+        item: StackItem,
+        target_code: u8,
+    ) -> Result<StackItem, RuntimeError> {
         match target_code {
             0x00 => Ok(item), // Any/no-op
             0x20 => Ok(StackItem::Boolean(item.is_truthy())),
@@ -80,11 +86,10 @@ impl ExecutionContext {
         }
     }
 
-    fn is_iterator_token(&self, item: &StackItem) -> bool {
+    pub(crate) fn is_iterator_token(&self, item: &StackItem) -> bool {
         if let Some(id) = Self::iterator_id_from_item(item) {
             return self.iterators.contains_key(&id);
         }
         false
     }
-
 }

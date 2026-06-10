@@ -10,7 +10,7 @@
 //! - `ir` - Intermediate representation for code generation
 //! - `runtime` - NeoVM execution environment
 //! - `neo` - Neo-specific utilities (NEF, manifest)
-//! - `codegen`, `lexer`, `parser`, `optimizer`, `semantic` - Yul language support
+//! - `interop` - Neo N3 interop service identifiers (syscall IDs)
 //!
 //! Author: Jimmy <jimmy@r3e.network>
 
@@ -24,12 +24,8 @@ pub mod solidity;
 // Public CLI APIs (standard-json, NEF/manifest output, etc.)
 pub mod cli;
 
-// Yul language support modules
-pub mod codegen;
-pub mod lexer;
-pub mod optimizer;
-pub mod parser;
-pub mod semantic;
+// Neo N3 interop service identifiers
+pub mod interop;
 
 // Runtime and execution
 pub mod runtime;

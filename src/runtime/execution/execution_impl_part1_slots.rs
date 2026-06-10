@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn get_local(&self, index: usize) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn get_local(&self, index: usize) -> Result<StackItem, RuntimeError> {
         self.locals
             .get(index)
             .cloned()
@@ -8,7 +10,7 @@ impl ExecutionContext {
             })
     }
 
-    fn set_local(&mut self, index: usize, value: StackItem) -> Result<(), RuntimeError> {
+    pub(crate) fn set_local(&mut self, index: usize, value: StackItem) -> Result<(), RuntimeError> {
         if let Some(slot) = self.locals.get_mut(index) {
             *slot = value;
             Ok(())
@@ -19,7 +21,7 @@ impl ExecutionContext {
         }
     }
 
-    fn get_arg(&self, index: usize) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn get_arg(&self, index: usize) -> Result<StackItem, RuntimeError> {
         self.args
             .get(index)
             .cloned()
@@ -28,7 +30,7 @@ impl ExecutionContext {
             })
     }
 
-    fn set_arg(&mut self, index: usize, value: StackItem) -> Result<(), RuntimeError> {
+    pub(crate) fn set_arg(&mut self, index: usize, value: StackItem) -> Result<(), RuntimeError> {
         if let Some(slot) = self.args.get_mut(index) {
             *slot = value;
             Ok(())
@@ -39,7 +41,7 @@ impl ExecutionContext {
         }
     }
 
-    fn get_static(&self, index: usize) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn get_static(&self, index: usize) -> Result<StackItem, RuntimeError> {
         self.static_fields
             .get(index)
             .cloned()
@@ -48,7 +50,11 @@ impl ExecutionContext {
             })
     }
 
-    fn set_static(&mut self, index: usize, value: StackItem) -> Result<(), RuntimeError> {
+    pub(crate) fn set_static(
+        &mut self,
+        index: usize,
+        value: StackItem,
+    ) -> Result<(), RuntimeError> {
         if let Some(slot) = self.static_fields.get_mut(index) {
             *slot = value;
             Ok(())
@@ -59,4 +65,3 @@ impl ExecutionContext {
         }
     }
 }
-

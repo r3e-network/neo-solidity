@@ -8089,46 +8089,29 @@ contract C {
          (no range check, unlike implicit conversions).",
         r.exception.as_ref().map(|e| &e.message)
     );
-    // int256(type(uint256).max) bit-pattern is 0xff...ff (32 bytes).
-    // This is simultaneously the unsigned value 2^256 - 1 AND the
-    // signed value -1 under two's complement. We pin the BIT PATTERN
-    // (all bytes = 0xff) rather than decoding as signed, because the
-    // runtime's LE scalar return is the raw 32-byte slot.
-    assert_eq!(
-        r.return_data.len(),
-        32,
-        "BBB4 toInt() must return 32 bytes (the full int256 slot); got \
-         {} bytes rd_hex={}. If shorter, the return was truncated to \
-         minimum-width LE form but type(uint256).max requires all 32 \
-         bytes set — the truncation path collapsed 0xff...ff to a \
-         shorter form incorrectly.",
-        r.return_data.len(),
-        hex::encode(&r.return_data)
-    );
+    // int256(type(uint256).max) is -1 under two's complement. The runtime
+    // returns scalar values as variable-width signed-LE bytes; with the
+    // positive uint256 value model (values >= 2^255 carry a 0x00 sign
+    // byte), the reinterpret cast's signed wrap produces a genuine -1
+    // item, whose minimal LE form is all-0xff bytes of i64 width (8) —
+    // previously the 32-byte all-0xff shape was an artifact of the wrap
+    // landing on a sign-truncated 32-byte item. Pin the VALUE (-1 under
+    // signed-LE decode) plus the all-ones pattern, not a fixed width.
     assert!(
-        r.return_data.iter().all(|b| *b == 0xff),
-        "BBB4 toInt() must return 32 bytes of 0xff (= type(uint256).max \
-         bit-pattern = int256(-1) under two's complement); got rd_hex={}. \
-         If any byte is 0x00, the reinterpret cast masked off high bits \
-         (e.g., narrowed to a smaller signed type). If leading bytes \
-         are 0xff but trailing bytes are 0x00, the endianness of the \
-         storage read diverged from the LE-serialized return shape.",
+        !r.return_data.is_empty() && r.return_data.iter().all(|b| *b == 0xff),
+        "BBB4 toInt() must return all-0xff bytes (= int256(-1) in \
+         signed-LE form); got rd_hex={}. If any byte is 0x00, the \
+         reinterpret cast masked off high bits or lost the sign.",
         hex::encode(&r.return_data)
     );
-    // Supplementary invariant: under decode_uint_le, 0xff...ff = 2^256 - 1.
-    let v = decode_uint_le(&r.return_data);
-    let expected: num_bigint::BigUint =
-        (num_bigint::BigUint::from(1u8) << 256usize) - num_bigint::BigUint::from(1u8);
+    let v = num_bigint::BigInt::from_signed_bytes_le(&r.return_data);
     assert_eq!(
-        v.clone(),
-        expected.clone(),
-        "BBB4 decode_uint_le(return_data) must equal 2^256 - 1 (the \
-         unsigned view of int256(-1) = type(uint256).max); got {} \
-         (expected {}). This is the unsigned-interpretation sibling \
-         of the byte-pattern check: proves the 32 bytes are all-ones \
-         top-to-bottom, not just the leading-byte check.",
         v,
-        expected
+        num_bigint::BigInt::from(-1),
+        "BBB4 signed-LE decode of return_data must equal -1; got {} \
+         (rd_hex={}).",
+        v,
+        hex::encode(&r.return_data)
     );
 }
 

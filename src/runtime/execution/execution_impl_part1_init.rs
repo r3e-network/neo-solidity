@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Create new execution context
     pub fn new(config: &RuntimeConfig) -> Result<Self, RuntimeError> {

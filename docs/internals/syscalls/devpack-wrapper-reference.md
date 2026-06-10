@@ -28,14 +28,14 @@ Key features:
 | `Runtime` | `devpack/libraries/Runtime.sol` | `System.Runtime.*` syscalls                |
 | `Neo`     | `devpack/libraries/Neo.sol`     | Multiple syscall categories + native calls |
 
-The `Storage` library adds batch operations, typed accessors (`putUint256`, `getAddress`, `putBool`), iterator helpers (`findKeys`, `findValues`, `count`), key derivation for mappings and arrays, and storage patterns like expiration and checksummed writes.
+These libraries are compiler intrinsics: only the members the compiler can lower faithfully are exposed. The `Storage` library wraps context handling around `put`/`get`/`remove`/`find` (plus `putContractMetadata`); higher-level patterns such as batch operations, typed accessors, or prefix utilities should be implemented in contract code on top of these primitives.
 
 ```solidity
 // Low-level: direct syscall
 Syscalls.StorageContext memory ctx = Syscalls.getStorageContext();
 Syscalls.storagePut(ctx, "key", abi.encode(42));
 
-// High-level: ergonomic wrapper
-Storage.putUint256("key", 42);
-uint256 value = Storage.getUint256("key");
+// High-level: ergonomic wrapper (context handled for you)
+Storage.put("key", abi.encode(42));
+bytes memory value = Storage.get("key");
 ```

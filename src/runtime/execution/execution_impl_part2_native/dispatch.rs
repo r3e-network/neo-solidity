@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_contract(
+    pub(crate) fn invoke_native_contract(
         &mut self,
         hash: &[u8; 20],
         method: &str,

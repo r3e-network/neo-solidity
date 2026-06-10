@@ -1,3 +1,5 @@
+use super::*;
+
 impl GasTracker {
     /// Create new gas tracker
     pub fn new(limit: u64) -> Self {
@@ -85,4 +87,3 @@ impl GasTracker {
         (self.used as f64 / self.limit as f64) * 100.0
     }
 }
-

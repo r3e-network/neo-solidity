@@ -6,19 +6,6 @@
 // - External member calls with read-only flags
 // - Syscalls.contractCall in view functions
 
-fn assert_low_level_ir_error_contains(source: &str, expected: &str) {
-    let err = compile_contracts(source, false, 2).expect_err("expected low-level call failure");
-    match err {
-        CompileError::Ir(diags) => {
-            assert!(
-                diags.iter().any(|diag| diag.message.contains(expected)),
-                "expected IR diagnostic containing {expected:?}, got: {diags:?}"
-            );
-        }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
-}
-
 #[test]
 fn encode_with_selector_recovers_method_name_for_low_level_calls() {
     let source = r#"

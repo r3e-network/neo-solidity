@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_stack_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_stack_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             // Stack operations (0x39-0x4F)
             0x43 => {
@@ -98,4 +100,3 @@ impl ExecutionContext {
         Ok(true)
     }
 }
-

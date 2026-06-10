@@ -1,3 +1,5 @@
+use super::*;
+
 // Standard trait implementations
 
 impl std::fmt::Display for Address {
@@ -89,4 +91,3 @@ impl From<Timestamp> for u64 {
         timestamp.0
     }
 }
-

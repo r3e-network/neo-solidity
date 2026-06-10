@@ -117,7 +117,12 @@ fn build_combined_source_with_import_validation(
 
     let mut deps: HashMap<String, Vec<String>> = HashMap::new();
     for (file_name, content, _) in sources {
-        let (unit, _comments) = match solang_parser::parse(content, 0) {
+        // Guarded parse: runs on a worker thread with a large bounded stack
+        // so deeply nested input becomes a diagnostic, not a stack-overflow
+        // abort. Keep ALL solang_parser::parse calls behind this helper.
+        let (unit, _comments) = match neo_devpack_solidity::frontend::parse_solidity_guarded(
+            content,
+        ) {
             Ok(parsed) => parsed,
             Err(diags) => {
                 let summary = diags

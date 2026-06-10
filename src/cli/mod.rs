@@ -45,7 +45,7 @@ use std::path::Path;
 
 mod bytecode;
 #[cfg(test)]
-pub(crate) use crate::codegen::interop_id_bytes;
+pub(crate) use crate::interop::interop_id_bytes;
 pub(crate) use bytecode::generate_contract_bytecode;
 // Public re-export of the NeoVM bytecode disassembler so external tooling
 // (fuzz targets, debugging consumers) can call it without touching

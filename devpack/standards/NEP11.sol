@@ -3,15 +3,35 @@ pragma solidity ^0.8.19;
 
 /**
  * @title NEP-11 Non-Fungible Token Standard
- * @dev Complete implementation of Neo N3 NEP-11 standard for Solidity
+ * @dev NEP-11-style implementation of Neo N3 non-fungible tokens for Solidity
  * @author Jimmy <jimmy@r3e.network>
- * 
+ *
  * NEP-11 is Neo's enhanced non-fungible token standard, providing:
  * - Standard ERC-721 compatibility
  * - Neo-specific features (onNEP11Payment callback)
  * - Divisible and indivisible NFT support
  * - Advanced metadata capabilities
  * - Integration with Neo native features
+ *
+ * KNOWN DEVIATIONS FROM THE CANONICAL NEP-11 MANIFEST TYPES
+ * (see devpack/standards/STANDARDS_MAPPING.md, "Manifest Type Deviations"):
+ * - Token IDs are `bytes32`, which the compiler emits as manifest type
+ *   `Hash256`. The NEP-11 spec mandates `ByteString` (manifest `ByteArray`)
+ *   token IDs of up to 64 bytes. Strict checkers (e.g. neo-go
+ *   `standard.Check`) reject `Hash256` token IDs, and SDKs deriving call
+ *   encodings from the manifest may byte-reverse them as `UInt256`.
+ * - `tokensOf` (and the `tokens` extension) return `bytes32[]`, emitted as
+ *   manifest `Array`. The spec mandates an iterator (`InteropInterface`),
+ *   which wallets/indexers traverse via session iterators.
+ * - `properties` returns `bytes`, emitted as manifest `ByteArray`. The spec
+ *   mandates a `Map` of token metadata.
+ * - `transfer`'s `data` parameter is `bytes` (manifest `ByteArray`); the
+ *   spec types it as `Any`.
+ * On-chain deployment is NOT blocked by these deviations, and notification
+ * trackers reading raw stack items still work, but the manifest will not
+ * pass strict third-party NEP-11 standard validation. If you need strict
+ * compliance, declare the affected methods yourself with `bytes` token IDs
+ * instead of inheriting this base.
  */
 
 import "../contracts/FrameworkBase.sol";

@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn stack_item_to_bytes(item: StackItem) -> Vec<u8> {
+    pub(crate) fn stack_item_to_bytes(item: StackItem) -> Vec<u8> {
         match item {
             StackItem::ByteArray(bytes) => bytes.borrow().clone(),
             StackItem::Integer(value) => value.to_le_bytes().to_vec(),
@@ -13,7 +15,7 @@ impl ExecutionContext {
     }
 
     /// Convert a StackItem to an integer value.
-    fn stack_item_to_int(item: StackItem) -> i64 {
+    pub(crate) fn stack_item_to_int(item: StackItem) -> i64 {
         match item {
             StackItem::Integer(v) => v,
             StackItem::UnsignedInteger(v) => v as i64,
@@ -31,7 +33,7 @@ impl ExecutionContext {
     }
 
     /// Extract the first integer argument from a params StackItem (Array wrapper).
-    fn extract_first_int(params: &StackItem) -> u64 {
+    pub(crate) fn extract_first_int(params: &StackItem) -> u64 {
         if let StackItem::Array(args) = params {
             let borrowed = args.borrow();
             if let Some(item) = borrowed.first() {
@@ -54,7 +56,7 @@ impl ExecutionContext {
     }
 
     /// Extract the first byte-array argument from a params StackItem (Array wrapper).
-    fn extract_first_bytes(params: &StackItem) -> Vec<u8> {
+    pub(crate) fn extract_first_bytes(params: &StackItem) -> Vec<u8> {
         if let StackItem::Array(args) = params {
             let borrowed = args.borrow();
             if let Some(item) = borrowed.first() {
@@ -71,7 +73,7 @@ impl ExecutionContext {
             .unwrap_or(value)
     }
 
-    fn normalize_account(account: &str) -> Result<String, RuntimeError> {
+    pub(crate) fn normalize_account(account: &str) -> Result<String, RuntimeError> {
         let trimmed = account.trim();
         let without_prefix = Self::strip_hex_prefix(trimmed);
         if !without_prefix.len().is_multiple_of(2) {
@@ -91,7 +93,7 @@ impl ExecutionContext {
         Ok(format!("0x{lower}"))
     }
 
-    fn account_string_to_bytes(account: &str) -> Result<Vec<u8>, RuntimeError> {
+    pub(crate) fn account_string_to_bytes(account: &str) -> Result<Vec<u8>, RuntimeError> {
         let normalized = Self::normalize_account(account)?;
         let le = crate::neo::parse_uint160_hex_be(&normalized).map_err(|msg| {
             RuntimeError::ConfigurationError {

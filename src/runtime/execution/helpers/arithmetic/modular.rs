@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn modmul_stack_items(
+    pub(crate) fn modmul_stack_items(
         &self,
         a: StackItem,
         b: StackItem,
@@ -37,7 +39,7 @@ impl ExecutionContext {
         }
     }
 
-    fn modpow_stack_items(
+    pub(crate) fn modpow_stack_items(
         &self,
         base: StackItem,
         exponent: StackItem,
@@ -96,4 +98,3 @@ impl ExecutionContext {
         }
     }
 }
-

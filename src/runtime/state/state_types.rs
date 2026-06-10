@@ -1,10 +1,12 @@
+use super::*;
+
 /// State manager for account and contract states
 #[derive(Debug, Clone, Default)]
 pub struct StateManager {
-    accounts: HashMap<String, AccountState>,
-    snapshots: Vec<StateSnapshot>,
-    change_log: Vec<StateChange>,
-    change_count: u64,
+    pub(crate) accounts: HashMap<String, AccountState>,
+    pub(crate) snapshots: Vec<StateSnapshot>,
+    pub(crate) change_log: Vec<StateChange>,
+    pub(crate) change_count: u64,
 }
 
 /// Account state information
@@ -88,4 +90,3 @@ pub struct StateStatistics {
     pub total_changes: u64,
     pub snapshots_count: usize,
 }
-

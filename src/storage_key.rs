@@ -1,99 +1,32 @@
 //! Storage Key Computation Module
 //!
-//! Computes deterministic storage keys for Neo N3 smart contract state variables.
-//! This module implements the storage slot derivation algorithm compatible with
-//! Neo N3's storage model.
+//! Computes deterministic storage keys for Neo N3 smart contract state
+//! variables, matching the layout actually emitted by the compiler's
+//! bytecode (see `src/cli/bytecode/bytecode_helpers/storage/mapping.rs`).
 //!
-//! # Key Derivation
+//! # Key Derivation (production scheme)
 //!
-//! Storage keys are derived using SHA-256 hashing:
-//! - Simple variables: `SHA256(variable_name)`
-//! - Mappings: `SHA256(base_slot || encoded_key1 || encoded_key2 || ...)`
+//! - Base slot of a state variable: `SHA256(variable_name)` —
+//!   [`compute_state_slot`]. Struct fields use the same hash over the
+//!   qualified `"Struct::field"` name (see `src/ir/build/inference.rs`).
+//! - Mapping entry / dynamic-array element: derived ITERATIVELY per nesting
+//!   level on-chain as `slot = keccak256(StdLib.serialize(key) || slot)`,
+//!   where `serialize` is Neo's StdLib binary serializer applied to the
+//!   canonicalized key stack item and the current slot is appended LAST.
+//!   Dynamic arrays store their length at the base slot and element `i` at
+//!   `keccak256(serialize(i) || slot)`.
+//! - Struct field inside a mapping value: `keccak256(field_key || slot)`
+//!   where `field_key = SHA256("Struct::field")`.
 //!
-//! # Key Types
-//!
-//! - [`KeyFragment`] - Represents a single mapping key (integer, address, bytes, etc.)
-//! - [`compute_state_slot`] - Computes base slot for a state variable
-//! - [`derive_mapping_slot`] - Derives slot for nested mapping access
+//! The mapping-entry derivation depends on Neo's StdLib `serialize` native
+//! call (the serialized form embeds the stack-item type byte), so it cannot
+//! be reproduced faithfully off-chain without replicating Neo's
+//! BinarySerializer byte-for-byte. A previous `derive_mapping_slot` /
+//! `KeyFragment` API in this module implemented a DIFFERENT, untyped
+//! SHA-256-based scheme that matched nothing the compiler emits; it has been
+//! removed so off-chain consumers cannot silently compute wrong keys.
 
-use num_bigint::BigInt;
-use num_traits::Signed;
 use sha2::{Digest, Sha256};
-
-/// Represents a single mapping key fragment used to derive a storage slot.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum KeyFragment {
-    Integer {
-        value: BigInt,
-        bits: u16,
-        signed: bool,
-    },
-    Boolean(bool),
-    Address(Vec<u8>),
-    Bytes(Vec<u8>),
-    String(String),
-}
-
-impl KeyFragment {
-    /// Create an integer key fragment
-    pub fn integer(value: BigInt, bits: u16, signed: bool) -> Self {
-        Self::Integer {
-            value,
-            bits,
-            signed,
-        }
-    }
-
-    /// Create a boolean key fragment
-    pub fn boolean(value: bool) -> Self {
-        Self::Boolean(value)
-    }
-
-    /// Create an address key fragment (20 bytes)
-    pub fn address(bytes: impl Into<Vec<u8>>) -> Self {
-        Self::Address(bytes.into())
-    }
-
-    /// Create a bytes key fragment
-    pub fn bytes(bytes: impl Into<Vec<u8>>) -> Self {
-        Self::Bytes(bytes.into())
-    }
-
-    /// Create a string key fragment
-    pub fn string(value: impl Into<String>) -> Self {
-        Self::String(value.into())
-    }
-
-    /// Create a uint256 key fragment
-    pub fn uint256(value: BigInt) -> Self {
-        Self::Integer {
-            value,
-            bits: 256,
-            signed: false,
-        }
-    }
-
-    /// Create an int256 key fragment
-    pub fn int256(value: BigInt) -> Self {
-        Self::Integer {
-            value,
-            bits: 256,
-            signed: true,
-        }
-    }
-
-    /// Get the type name of this fragment
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            Self::Integer { signed: true, .. } => "int",
-            Self::Integer { signed: false, .. } => "uint",
-            Self::Boolean(_) => "bool",
-            Self::Address(_) => "address",
-            Self::Bytes(_) => "bytes",
-            Self::String(_) => "string",
-        }
-    }
-}
 
 /// Compute the canonical storage slot hash for a state variable name.
 ///
@@ -105,63 +38,6 @@ pub fn compute_state_slot(name: &str) -> [u8; 32] {
     let mut out = [0u8; 32];
     out.copy_from_slice(&digest);
     out
-}
-
-/// Derive the storage slot for a mapping entry given the base slot and key fragments.
-///
-/// Each key fragment is serialised with a 4-byte little-endian length prefix to avoid
-/// ambiguity between `{a, bc}` and `{ab, c}` style encodings.
-pub fn derive_mapping_slot(base_slot: &[u8], fragments: &[KeyFragment]) -> [u8; 32] {
-    let mut buffer = Vec::new();
-    for fragment in fragments {
-        let encoded = encode_fragment(fragment);
-        buffer.extend_from_slice(&(encoded.len() as u32).to_le_bytes());
-        buffer.extend_from_slice(&encoded);
-    }
-    buffer.extend_from_slice(base_slot);
-
-    let digest = Sha256::digest(buffer);
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&digest);
-    out
-}
-
-fn encode_fragment(fragment: &KeyFragment) -> Vec<u8> {
-    match fragment {
-        KeyFragment::Integer {
-            value,
-            bits,
-            signed,
-        } => encode_integer(value, *bits, *signed),
-        KeyFragment::Boolean(value) => vec![if *value { 1 } else { 0 }],
-        KeyFragment::Address(bytes) => bytes.clone(),
-        KeyFragment::Bytes(bytes) => bytes.clone(),
-        KeyFragment::String(value) => value.as_bytes().to_vec(),
-    }
-}
-
-fn encode_integer(value: &BigInt, bits: u16, signed: bool) -> Vec<u8> {
-    let min_bytes = (bits.max(8) as usize).div_ceil(8);
-    if signed {
-        let mut raw = value.to_signed_bytes_be();
-        let needs_negative_padding = value.is_negative();
-        let pad_byte = if needs_negative_padding { 0xFF } else { 0x00 };
-        if raw.len() < min_bytes {
-            let mut padded = vec![pad_byte; min_bytes];
-            padded[min_bytes - raw.len()..].copy_from_slice(&raw);
-            raw = padded;
-        }
-        raw
-    } else {
-        let (_, mut raw) = value.to_bytes_be();
-        let pad_byte = 0x00;
-        if raw.len() < min_bytes {
-            let mut padded = vec![pad_byte; min_bytes];
-            padded[min_bytes - raw.len()..].copy_from_slice(&raw);
-            raw = padded;
-        }
-        raw
-    }
 }
 
 #[cfg(test)]

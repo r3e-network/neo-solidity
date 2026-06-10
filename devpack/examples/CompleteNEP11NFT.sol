@@ -7,7 +7,9 @@ pragma solidity ^0.8.19;
  * @author Jimmy <jimmy@r3e.network>
  * 
  * Features:
- * - Full NEP-11 compliance with Neo N3 integration
+ * - NEP-11 method/event surface with Neo N3 integration (manifest types
+ *   deviate from the canonical NEP-11 spec; see the deviation notes in
+ *   ../standards/NEP11.sol and ../standards/STANDARDS_MAPPING.md)
  * - Royalty system with automatic distribution
  * - Oracle integration for dynamic metadata
  * - Marketplace integration with escrow

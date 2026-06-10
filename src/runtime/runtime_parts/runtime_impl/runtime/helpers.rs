@@ -1,5 +1,7 @@
+use super::*;
+
 impl NeoRuntime {
-    fn prepare_function_call(
+    pub(crate) fn prepare_function_call(
         &self,
         function_name: &str,
         args: &[types::StackItem],
@@ -19,7 +21,10 @@ impl NeoRuntime {
         Ok(call_data)
     }
 
-    fn calculate_function_selector(&self, function_name: &str) -> Result<[u8; 4], RuntimeError> {
+    pub(crate) fn calculate_function_selector(
+        &self,
+        function_name: &str,
+    ) -> Result<[u8; 4], RuntimeError> {
         // Calculate keccak256 hash and take first 4 bytes
         use sha3::{Digest, Keccak256};
 
@@ -29,4 +34,3 @@ impl NeoRuntime {
         Ok(selector)
     }
 }
-

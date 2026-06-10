@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn append_item(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn append_item(&mut self) -> Result<(), RuntimeError> {
         let value = self.pop_stack()?;
         let collection = self.pop_stack()?;
         match collection {
@@ -18,7 +20,7 @@ impl ExecutionContext {
         }
     }
 
-    fn remove_item(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn remove_item(&mut self) -> Result<(), RuntimeError> {
         let key = self.pop_stack()?;
         let collection = self.pop_stack()?;
         match collection {
@@ -55,7 +57,7 @@ impl ExecutionContext {
         }
     }
 
-    fn clear_items(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn clear_items(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         match collection {
             StackItem::Array(items) => {
@@ -76,19 +78,25 @@ impl ExecutionContext {
         }
     }
 
-    fn pop_item_from_collection(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pop_item_from_collection(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         match collection {
             StackItem::Array(items) => {
-                let value = items.borrow_mut().pop().ok_or(RuntimeError::ExecutionError {
-                    message: "POPITEM: array is empty".to_string(),
-                })?;
+                let value = items
+                    .borrow_mut()
+                    .pop()
+                    .ok_or(RuntimeError::ExecutionError {
+                        message: "POPITEM: array is empty".to_string(),
+                    })?;
                 self.push_stack(value)
             }
             StackItem::ByteArray(bytes) => {
-                let value = bytes.borrow_mut().pop().ok_or(RuntimeError::ExecutionError {
-                    message: "POPITEM: buffer is empty".to_string(),
-                })?;
+                let value = bytes
+                    .borrow_mut()
+                    .pop()
+                    .ok_or(RuntimeError::ExecutionError {
+                        message: "POPITEM: buffer is empty".to_string(),
+                    })?;
                 self.push_stack(StackItem::byte_array(vec![value]))
             }
             StackItem::Map(_) => Err(RuntimeError::ExecutionError {
@@ -100,7 +108,7 @@ impl ExecutionContext {
         }
     }
 
-    fn reverse_items(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn reverse_items(&mut self) -> Result<(), RuntimeError> {
         let collection = self.pop_stack()?;
         match collection {
             StackItem::Array(items) => {

@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_drop(
+    pub(crate) fn handle_drop(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -20,7 +22,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_dup(
+    pub(crate) fn handle_dup(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -48,7 +50,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_swap(
+    pub(crate) fn handle_swap(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -85,4 +87,3 @@ impl VMBridge {
         Ok(())
     }
 }
-

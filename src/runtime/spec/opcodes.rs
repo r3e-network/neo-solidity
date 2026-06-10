@@ -1,3 +1,5 @@
+use super::*;
+
 macro_rules! op {
     ($code:expr, $name:expr, $gas:expr) => {
         OpcodeSpec {
@@ -234,4 +236,3 @@ pub fn opcode_name(code: u8) -> Option<&'static str> {
 pub fn opcode_gas(code: u8) -> Option<u64> {
     OPCODES.get(&code).map(|op| op.gas)
 }
-

@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn murmur3_32(data: &[u8], seed: u32) -> u32 {
+    pub(crate) fn murmur3_32(data: &[u8], seed: u32) -> u32 {
         const C1: u32 = 0xcc9e2d51;
         const C2: u32 = 0x1b873593;
         let mut h1: u32 = seed;
@@ -52,7 +54,11 @@ impl ExecutionContext {
     ///
     /// # Returns
     /// `true` if the signature is valid, `false` otherwise
-    fn verify_secp256k1_with_message(message: &[u8], pubkey: &[u8], signature: &[u8]) -> bool {
+    pub(crate) fn verify_secp256k1_with_message(
+        message: &[u8],
+        pubkey: &[u8],
+        signature: &[u8],
+    ) -> bool {
         // Validate input lengths
         if message.len() != 32 {
             return false;
@@ -95,7 +101,7 @@ impl ExecutionContext {
     /// Returns a deterministic hash derived from the execution context
     /// (bytecode hash + storage account + invocation counter).
     /// Note: When connected to Neo N3 node, this returns the actual transaction hash.
-    fn get_current_message_hash(&self) -> [u8; 32] {
+    pub(crate) fn get_current_message_hash(&self) -> [u8; 32] {
         // Create a deterministic message hash from execution context
         // This includes: bytecode hash + current account + invocation counter
         let mut hasher_input = Vec::new();

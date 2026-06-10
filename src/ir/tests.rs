@@ -8,6 +8,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let event_index_map = HashMap::new();
     let event_signature_map: HashMap<String, Vec<ManifestType>> = HashMap::new();
     let event_params_map: HashMap<String, EventSignature> = HashMap::new();
+    let error_signature_map: HashMap<String, ErrorAbiSignature> = HashMap::new();
     let enum_variant_map: HashMap<String, HashMap<String, u64>> = HashMap::new();
     let contract_types = HashSet::new();
     let selector_registry = SelectorRegistry::default();
@@ -22,6 +23,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let void_functions = HashSet::new();
     let state_types: Vec<ValueType> = Vec::new();
     let defined_struct_types: Vec<ValueType> = Vec::new();
+    let struct_fixed_array_bounds: HashMap<(String, String), u64> = HashMap::new();
     let super_method_map: HashMap<String, String> = HashMap::new();
     let library_storage_bodies: HashMap<(String, usize), LibraryStorageBody> = HashMap::new();
     let storage_pointer_returning_fns: HashMap<String, String> = HashMap::new();
@@ -38,9 +40,11 @@ fn lower_emit_pushes_event_name_before_args() {
         &state_index_map,
         &state_types,
         &defined_struct_types,
+        &struct_fixed_array_bounds,
         &event_index_map,
         &event_signature_map,
         &event_params_map,
+        &error_signature_map,
         &enum_variant_map,
         &contract_types,
         &selector_registry,

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Address type for account identification
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Address(pub String);

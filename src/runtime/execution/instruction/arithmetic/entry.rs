@@ -1,5 +1,10 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_arithmetic_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_arithmetic_instruction(
+        &mut self,
+        opcode: u8,
+    ) -> Result<bool, RuntimeError> {
         if self.execute_arithmetic_bitwise(opcode)? {
             return Ok(true);
         }

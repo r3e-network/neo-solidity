@@ -6,8 +6,10 @@ use super::{RuntimeConfig, RuntimeError, StateChange, StateChangeType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-include!("state/state_types.rs");
-include!("state/state_impl.rs");
+mod state_impl;
+mod state_types;
+
+pub use state_types::*;
 
 #[cfg(test)]
 mod tests;

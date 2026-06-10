@@ -203,9 +203,11 @@ fn standard_json_exposes_neo_method_map_for_overloads() {
         serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
             .expect("output json");
 
+    // Distinct-arity overloads are legal in Neo manifests (dispatch is keyed
+    // on name + parameter count), so both keep the original Solidity name.
     let method_map = &output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["methodMap"];
-    assert_eq!(method_map["foo(uint256)"], "foo(uint256)");
-    assert_eq!(method_map["foo(uint256,uint256)"], "foo(uint256,uint256)");
+    assert_eq!(method_map["foo(uint256)"], "foo");
+    assert_eq!(method_map["foo(uint256,uint256)"], "foo");
 }
 
 #[test]
@@ -261,9 +263,13 @@ fn standard_json_exposes_neo_method_map_for_same_arity_overloads() {
         serde_json::from_str(&fs::read_to_string(&output_path).expect("read output"))
             .expect("output json");
 
+    // Same-arity collision: Neo cannot disambiguate by parameter count, so
+    // one deterministic primary (smallest neo_name) keeps the original name
+    // and the other keeps the mangled name. The methodMap reports the
+    // manifest-visible (callable) name in both cases.
     let method_map = &output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["methodMap"];
     assert_eq!(method_map["foo(uint256)"], "foo(uint256)");
-    assert_eq!(method_map["foo(address)"], "foo(address)");
+    assert_eq!(method_map["foo(address)"], "foo");
 
     let methods = output["contracts"]["OverloadedApi.sol"]["OverloadedApi"]["neo"]["manifest"]
         ["abi"]["methods"]

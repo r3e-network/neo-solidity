@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_mload(
+    pub(crate) fn handle_mload(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -46,7 +48,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_mstore(
+    pub(crate) fn handle_mstore(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -92,7 +94,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_mstore8(
+    pub(crate) fn handle_mstore8(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,

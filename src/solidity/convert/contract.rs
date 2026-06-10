@@ -134,6 +134,26 @@ fn convert_contract(
         event_map.insert(event.normalized_name.clone(), event);
     }
     let events: Vec<EventMetadata> = event_map.into_values().collect();
+
+    // Carry declared custom errors through to metadata so IR lowering can
+    // resolve revert selectors from the DECLARED signature (not the types
+    // inferred from revert-site argument expressions).
+    let errors: Vec<ErrorMetadata> = contract
+        .errors
+        .iter()
+        .map(|err| ErrorMetadata {
+            name: err.name.clone(),
+            parameters: err
+                .parameters
+                .iter()
+                .map(|param| ErrorParameterMetadata {
+                    name: param.name.clone(),
+                    ty: param.ty.clone(),
+                })
+                .collect(),
+        })
+        .collect();
+
     let state_variables: Vec<StateVariableMetadata> = contract
         .state_variables
         .into_iter()
@@ -158,6 +178,7 @@ fn convert_contract(
         is_library: matches!(contract.kind, ContractKind::Library),
         methods,
         events,
+        errors,
         uses_storage: state_variables.iter().any(|state| !state.is_constant),
         state_variables,
         structs,

@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionResult {
     /// Check if execution was successful
     pub fn is_success(&self) -> bool {
@@ -49,4 +51,3 @@ impl ExecutionResult {
         self.logs.len()
     }
 }
-

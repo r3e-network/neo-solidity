@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_instruction(&mut self, opcode: u8) -> Result<(), RuntimeError> {
+    pub(crate) fn execute_instruction(&mut self, opcode: u8) -> Result<(), RuntimeError> {
         // Check and charge gas before execution (single charge point)
         let gas_cost = self.get_instruction_gas_cost(opcode);
         let projected_gas = self.gas_used.saturating_add(gas_cost);

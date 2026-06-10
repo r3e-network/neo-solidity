@@ -703,6 +703,35 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                     if let Some(name) = sibling_state.name.as_ref() {
                         if existing_state_names.insert(name.clone()) {
                             contract.state_variables.push(sibling_state.clone());
+                        } else if let Some(existing) = contract
+                            .state_variables
+                            .iter()
+                            .find(|s| s.name.as_deref() == Some(name.as_str()))
+                        {
+                            // Storage-soundness guard — slots are derived
+                            // from the BARE variable name (`sha256(name)`,
+                            // see `storage_key::compute_state_slot`), so a
+                            // host/sibling pair declaring the same name with
+                            // DIFFERENT types would silently collapse two
+                            // semantically distinct lvalues onto one slot
+                            // (e.g. a sibling's `mapping(address=>uint256)
+                            // _bal` aliasing the host's scalar `uint256
+                            // _bal`), miscompiling both. Same-name SAME-type
+                            // sharing stays allowed: that is the documented
+                            // Task #197 design (merged sibling bodies must
+                            // hit the same name-keyed slot).
+                            if normalize_state_type_for_merge(&existing.ty)
+                                != normalize_state_type_for_merge(&sibling_state.ty)
+                            {
+                                return Err(SolidityError::analysis(format!(
+                                    "state variable '{name}' is declared with conflicting types \
+                                     across merged contracts: '{}' in '{}' vs '{}' in '{sibling_name}'. \
+                                     Storage slots are derived from the bare variable name, so both \
+                                     declarations would silently alias the same storage entry; \
+                                     rename one of the variables.",
+                                    existing.ty, contract.name, sibling_state.ty
+                                )));
+                            }
                         }
                     }
                 }
@@ -1739,4 +1768,37 @@ fn collect_direct_sibling_contract_refs(
 
     referenced.remove(&contract.name);
     referenced
+}
+
+/// Normalize a state-variable type string for the sibling-merge collision
+/// check so that equivalent spellings compare equal: whitespace is dropped
+/// and the bare `uint`/`int` aliases expand to their canonical 256-bit
+/// forms (`uint256[3]` == `uint [3]` == `uint256 [ 3 ]`,
+/// `mapping(address=>uint)` == `mapping(address => uint256)`).
+fn normalize_state_type_for_merge(ty: &str) -> String {
+    let mut out = String::with_capacity(ty.len());
+    let mut word = String::new();
+    let flush = |word: &mut String, out: &mut String| {
+        if word.is_empty() {
+            return;
+        }
+        match word.as_str() {
+            "uint" => out.push_str("uint256"),
+            "int" => out.push_str("int256"),
+            other => out.push_str(other),
+        }
+        word.clear();
+    };
+    for ch in ty.chars() {
+        if ch.is_alphanumeric() || ch == '_' || ch == '$' {
+            word.push(ch);
+        } else {
+            flush(&mut word, &mut out);
+            if !ch.is_whitespace() {
+                out.push(ch);
+            }
+        }
+    }
+    flush(&mut word, &mut out);
+    out
 }

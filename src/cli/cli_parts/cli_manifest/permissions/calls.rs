@@ -196,6 +196,25 @@ fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Ve
                     successors.push(index + 1);
                 }
             }
+            ir::Instruction::Try { catch_target } => {
+                if index + 1 < instructions.len() {
+                    successors.push(index + 1);
+                }
+                // Exception edge into the catch handler. The eval stack at
+                // catch entry is NOT the stack at TRY time: NeoVM unwinds the
+                // eval stack and pushes only the exception value. Seed the
+                // catch state with the locals as of TRY entry (locals persist
+                // across the unwind) and a single Unknown stack slot for the
+                // exception object, so contract calls inside catch bodies are
+                // analysed instead of being silently skipped (which dropped
+                // their manifest permissions and FAULTed on-chain).
+                if let Some(position) = label_positions.get(catch_target) {
+                    let mut catch_state = state_out.clone();
+                    catch_state.stack.clear();
+                    catch_state.stack.push(AbstractValue::Unknown);
+                    enqueue_state(&mut states, &mut worklist, *position, catch_state);
+                }
+            }
             ir::Instruction::EndTry { target } => {
                 if let Some(position) = label_positions.get(target) {
                     successors.push(*position);
@@ -216,6 +235,30 @@ fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Ve
 
         for successor in successors {
             enqueue_state(&mut states, &mut worklist, successor, state_out.clone());
+        }
+    }
+
+    // Defense in depth: if any contract-call site was never reached by the
+    // dataflow walk (e.g. control flow this analysis does not model yet),
+    // degrade to an explicit wildcard requirement rather than silently
+    // omitting the permission — under-permission FAULTs on-chain, while
+    // over-permission is merely broad.
+    for (index, instr) in instructions.iter().enumerate() {
+        if !states[index].is_empty() {
+            continue;
+        }
+        if let ir::Instruction::CallBuiltin { builtin, .. } = instr {
+            let is_contract_call = match builtin {
+                ir::BuiltinCall::ContractCall | ir::BuiltinCall::ContractCallWithFlags => true,
+                ir::BuiltinCall::Syscall(name) if name == "System.Contract.Call" => true,
+                _ => false,
+            };
+            if is_contract_call {
+                requirements.push(ContractCallRequirement {
+                    contract: None,
+                    method: None,
+                });
+            }
         }
     }
 

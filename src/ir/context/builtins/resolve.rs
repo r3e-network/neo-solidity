@@ -100,33 +100,24 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "encodeWithSelector",
             "decode",
         ]),
+        // Only members with faithful Neo N3 lowerings are listed here. The
+        // former `*Local` family lowered to fictional `System.Storage.Local.*`
+        // syscalls that do not exist in Neo N3's interop table (instant FAULT
+        // on real nodes), and convenience helpers such as `batchPut`,
+        // `batchGet`, `batchDelete`, `count`, `findValues`, `findKeys`,
+        // `clearPrefix`, `exists`, `isValidKey`, and `getUsage` silently
+        // miscompiled to single raw syscalls with the wrong arity/semantics.
+        // All of them now fail compilation with a loud diagnostic instead.
         "Storage" => Some(&[
             "find",
             "put",
             "get",
             "remove",
-            "findLocal",
-            "putLocal",
-            "getLocal",
-            "removeLocal",
             "asReadOnly",
             "initializeContext",
             "getContext",
             "getReadOnlyContext",
-            "getUsage",
             "putContractMetadata",
-            "batchPut",
-            "batchGet",
-            "batchDelete",
-            "count",
-            "countLocal",
-            "findValues",
-            "findLocalValues",
-            "findKeys",
-            "findLocalKeys",
-            "clearPrefix",
-            "exists",
-            "isValidKey",
         ]),
         "Syscalls" => Some(&[
             "contractCall",
@@ -158,10 +149,6 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "storagePut",
             "storageDelete",
             "storageFind",
-            "storageGetLocal",
-            "storagePutLocal",
-            "storageDeleteLocal",
-            "storageFindLocal",
             "checkWitness",
             "getTime",
             "gasLeft",
@@ -365,7 +352,6 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "getRandom",
             "getBlockHeight",
             "getCurrentBlock",
-            "getCurrentBlock",
             "getBlockByIndex",
             "getBlockTime",
             "getTransaction",
@@ -375,6 +361,13 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
             "verifyWithWitness",
             "sha256Hash",
             "ripemd160Hash",
+            // `transferNeo`/`transferGas` are lowered by
+            // `try_lower_value_transfer_helpers` (value_transfer.rs) to the
+            // NEO/GAS native `transfer` methods rather than via
+            // `resolve_neo_member`, but they are part of the supported
+            // devpack surface and belong in this diagnostic list.
+            "transferNeo",
+            "transferGas",
         ]),
         _ => None,
     }
@@ -440,19 +433,19 @@ fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
 }
 
 fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
+    // Note: every mapping here must target a syscall that exists in Neo N3's
+    // ApplicationEngine interop table. The former `*Local` family lowered to
+    // fictional `System.Storage.Local.*` names (sha256-hashed interop IDs that
+    // no real node registers → unknown-syscall FAULT at runtime), and helpers
+    // like `batchPut`/`count`/`exists`/`clearPrefix` were lowered to a single
+    // raw syscall with the wrong arity and semantics. They were removed so
+    // calls fail at compile time via the "unsupported builtin library call"
+    // diagnostic instead of corrupting state or faulting on-chain.
     match member {
         "find" => Some(BuiltinCall::StorageFind),
         "put" => Some(BuiltinCall::StoragePut),
         "get" => Some(BuiltinCall::StorageGet),
         "remove" => Some(BuiltinCall::StorageDelete),
-        "findLocal" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Find".to_string(),
-        )),
-        "putLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Put".to_string())),
-        "getLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Get".to_string())),
-        "removeLocal" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Delete".to_string(),
-        )),
         "initializeContext" => Some(BuiltinCall::Syscall(
             "System.Storage.GetContext".to_string(),
         )),
@@ -465,25 +458,6 @@ fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
         "asReadOnly" => Some(BuiltinCall::Syscall(
             "System.Storage.AsReadOnly".to_string(),
         )),
-        "getUsage" => Some(BuiltinCall::Syscall("System.Storage.GetUsage".to_string())),
-        "batchPut" => Some(BuiltinCall::Syscall("System.Storage.Put".to_string())),
-        "batchGet" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
-        "batchDelete" => Some(BuiltinCall::Syscall("System.Storage.Delete".to_string())),
-        "count" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
-        "countLocal" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Find".to_string(),
-        )),
-        "findValues" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
-        "findLocalValues" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Find".to_string(),
-        )),
-        "findKeys" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
-        "findLocalKeys" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Find".to_string(),
-        )),
-        "clearPrefix" => Some(BuiltinCall::Syscall("System.Storage.Delete".to_string())),
-        "exists" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
-        "isValidKey" => Some(BuiltinCall::Syscall("System.Storage.Get".to_string())),
         _ => None,
     }
 }
@@ -604,5 +578,312 @@ fn resolve_cryptolib_member(member: &str) -> Option<BuiltinCall> {
             })
         }
         _ => None,
+    }
+}
+
+/// CI probe (devpack agent): the devpack `Runtime`/`Storage`/`Neo` libraries
+/// are compiler intrinsics whose Solidity bodies are never compiled, so every
+/// non-private function they declare MUST have an intrinsic lowering —
+/// otherwise the shipped sources advertise an API that hard-fails at compile
+/// time (or worse, used to silently miscompile, e.g. the fictional
+/// `System.Storage.Local.*` syscall family). These tests keep the `.sol`
+/// surface, the `builtin_library_supported_members` diagnostic whitelist, and
+/// the actual lowerings in sync.
+#[cfg(test)]
+mod devpack_intrinsic_surface_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// Members lowered by dedicated expansion handlers rather than
+    /// `resolve_*_member`:
+    /// - Runtime: `try_lower_runtime_member_builtin`
+    ///   (src/ir/expressions/calls/builtins/member_runtime.rs)
+    /// - Storage: `try_lower_storage_member_builtin`
+    ///   (src/ir/expressions/calls/builtins/member_storage.rs)
+    /// - Neo: `try_lower_neo_member_builtin`
+    ///   (src/ir/expressions/calls/builtins/member_neo.rs) and
+    ///   `try_lower_value_transfer_helpers`
+    ///   (src/ir/expressions/calls/value_transfer.rs for
+    ///   `transferGas`/`transferNeo`)
+    fn special_case_lowerings(base: &str) -> &'static [&'static str] {
+        match base {
+            "Runtime" => &[
+                "initializeServices",
+                "notifyIndexed",
+                "notify",
+                "requireWitness",
+                "checkAnyWitness",
+                "checkAllWitnesses",
+                "checkMultiSigWitness",
+            ],
+            "Storage" => &["putContractMetadata"],
+            "Neo" => &[
+                "isCommittee",
+                "getCommittee",
+                "getValidators",
+                "isValidator",
+                "transferGas",
+                "transferNeo",
+            ],
+            _ => &[],
+        }
+    }
+
+    fn has_lowering(base: &str, member: &str) -> bool {
+        let resolved = match base {
+            "Runtime" => resolve_runtime_member(member).is_some(),
+            "Storage" => resolve_storage_member(member).is_some(),
+            "Neo" => resolve_neo_member(member).is_some(),
+            other => panic!("unexpected library base '{other}'"),
+        };
+        resolved || special_case_lowerings(base).contains(&member)
+    }
+
+    fn devpack_library_path(base: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("devpack")
+            .join("libraries")
+            .join(format!("{base}.sol"))
+    }
+
+    /// Extract the names of all non-private function declarations from a
+    /// devpack library source. Private helpers (declared `private` or named
+    /// with a leading underscore) are not part of the public surface.
+    fn declared_public_functions(source: &str) -> Vec<String> {
+        let mut names = Vec::new();
+        for line in source.lines() {
+            let trimmed = line.trim_start();
+            let Some(rest) = trimmed.strip_prefix("function ") else {
+                continue;
+            };
+            let Some(name) = rest.split('(').next() else {
+                continue;
+            };
+            let name = name.trim();
+            if name.is_empty() || name.starts_with('_') {
+                continue;
+            }
+            // The visibility keyword may appear on the declaration line or a
+            // follow-up line; devpack sources keep `private` on the same line.
+            if trimmed.contains(" private ") || trimmed.ends_with(" private") {
+                continue;
+            }
+            names.push(name.to_string());
+        }
+        names
+    }
+
+    #[test]
+    fn every_declared_devpack_library_function_has_an_intrinsic_lowering() {
+        for base in ["Runtime", "Storage", "Neo"] {
+            let path = devpack_library_path(base);
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+            let declared = declared_public_functions(&source);
+            assert!(
+                !declared.is_empty(),
+                "no function declarations found in {} — extraction regressed?",
+                path.display()
+            );
+
+            let missing: Vec<&String> = declared
+                .iter()
+                .filter(|name| !has_lowering(base, name))
+                .collect();
+            assert!(
+                missing.is_empty(),
+                "devpack/libraries/{base}.sol declares functions with no compiler \
+                 lowering (calls would hard-fail; prune them or add a lowering): {missing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_declared_devpack_library_function_is_whitelisted() {
+        // The "supported intrinsics" diagnostic emitted for unsupported
+        // members lists `builtin_library_supported_members`; everything the
+        // shipped sources declare should appear there.
+        for base in ["Runtime", "Storage", "Neo"] {
+            let path = devpack_library_path(base);
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+            let whitelist =
+                builtin_library_supported_members(base).expect("builtin library whitelist");
+            let missing: Vec<String> = declared_public_functions(&source)
+                .into_iter()
+                .filter(|name| !whitelist.contains(&name.as_str()))
+                .collect();
+            assert!(
+                missing.is_empty(),
+                "devpack/libraries/{base}.sol declares functions missing from \
+                 builtin_library_supported_members: {missing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_whitelisted_member_has_an_intrinsic_lowering() {
+        // The converse direction: the whitelist is what the compiler prints
+        // as "supported intrinsics", so a whitelisted member without a
+        // lowering would advertise an API that still hard-fails.
+        for base in ["Runtime", "Storage", "Neo"] {
+            let whitelist =
+                builtin_library_supported_members(base).expect("builtin library whitelist");
+            let missing: Vec<&&str> = whitelist
+                .iter()
+                .filter(|member| !has_lowering(base, member))
+                .collect();
+            assert!(
+                missing.is_empty(),
+                "builtin_library_supported_members(\"{base}\") lists members \
+                 with no compiler lowering: {missing:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fictional_local_storage_syscalls_are_not_resolvable() {
+        // Regression: `Storage.putLocal`/`getLocal`/`removeLocal`/`findLocal`
+        // and the matching `Syscalls.storage*Local` wrappers lowered to
+        // `System.Storage.Local.*` — syscalls that do not exist in Neo N3's
+        // interop table, so compiled contracts faulted on real nodes. They
+        // must stay unresolvable (callers now get the loud "unsupported
+        // builtin library call" diagnostic).
+        for member in ["putLocal", "getLocal", "removeLocal", "findLocal"] {
+            assert!(
+                resolve_storage_member(member).is_none(),
+                "Storage.{member} must not resolve to an intrinsic"
+            );
+            assert!(
+                !builtin_library_supported_members("Storage")
+                    .expect("Storage whitelist")
+                    .contains(&member),
+                "Storage.{member} must not be whitelisted"
+            );
+        }
+        for member in [
+            "storageGetLocal",
+            "storagePutLocal",
+            "storageDeleteLocal",
+            "storageFindLocal",
+        ] {
+            assert!(
+                resolve_syscalls_member(member).is_none(),
+                "Syscalls.{member} must not resolve to an intrinsic"
+            );
+            assert!(
+                !builtin_library_supported_members("Syscalls")
+                    .expect("Syscalls whitelist")
+                    .contains(&member),
+                "Syscalls.{member} must not be whitelisted"
+            );
+        }
+    }
+
+    #[test]
+    fn miscompiling_storage_helpers_are_not_resolvable() {
+        // Regression: these documented helpers used to lower to a single raw
+        // syscall with the wrong arity/semantics (e.g. `count` returned an
+        // iterator handle, `batchPut` issued one put with the arrays as
+        // key/value, `getUsage` was a hardcoded PUSH0 stub). They must stay
+        // unresolvable until faithful expansions exist.
+        for member in [
+            "batchPut",
+            "batchGet",
+            "batchDelete",
+            "count",
+            "countLocal",
+            "findValues",
+            "findLocalValues",
+            "findKeys",
+            "findLocalKeys",
+            "clearPrefix",
+            "exists",
+            "isValidKey",
+            "getUsage",
+        ] {
+            assert!(
+                resolve_storage_member(member).is_none(),
+                "Storage.{member} must not resolve to an intrinsic"
+            );
+            assert!(
+                !builtin_library_supported_members("Storage")
+                    .expect("Storage whitelist")
+                    .contains(&member),
+                "Storage.{member} must not be whitelisted"
+            );
+        }
+    }
+
+    #[test]
+    fn no_resolver_emits_syscalls_outside_the_neo_n3_interop_table() {
+        // Every BuiltinCall::Syscall name produced by the resolvers must be a
+        // real Neo N3 ApplicationEngine interop. Guards against reintroducing
+        // fictional names like System.Storage.Local.* or
+        // System.Storage.GetUsage (interop IDs are sha256-derived, so an
+        // unknown name compiles fine and FAULTs on real nodes).
+        const CANONICAL: &[&str] = &[
+            "System.Contract.Call",
+            "System.Contract.CallNative",
+            "System.Contract.CreateMultisigAccount",
+            "System.Contract.CreateStandardAccount",
+            "System.Contract.GetCallFlags",
+            "System.Contract.NativeOnPersist",
+            "System.Contract.NativePostPersist",
+            "System.Crypto.CheckMultisig",
+            "System.Crypto.CheckSig",
+            "System.Iterator.Next",
+            "System.Iterator.Value",
+            "System.Runtime.BurnGas",
+            "System.Runtime.CheckWitness",
+            "System.Runtime.CurrentSigners",
+            "System.Runtime.GasLeft",
+            "System.Runtime.GetAddressVersion",
+            "System.Runtime.GetCallingScriptHash",
+            "System.Runtime.GetEntryScriptHash",
+            "System.Runtime.GetExecutingScriptHash",
+            "System.Runtime.GetInvocationCounter",
+            "System.Runtime.GetNetwork",
+            "System.Runtime.GetNotifications",
+            "System.Runtime.GetRandom",
+            "System.Runtime.GetScriptContainer",
+            "System.Runtime.GetTime",
+            "System.Runtime.GetTrigger",
+            "System.Runtime.LoadScript",
+            "System.Runtime.Log",
+            "System.Runtime.Notify",
+            "System.Runtime.Platform",
+            "System.Storage.AsReadOnly",
+            "System.Storage.Delete",
+            "System.Storage.Find",
+            "System.Storage.Get",
+            "System.Storage.GetContext",
+            "System.Storage.GetReadOnlyContext",
+            "System.Storage.Put",
+        ];
+
+        let probe = |label: &str, builtin: Option<BuiltinCall>| {
+            if let Some(BuiltinCall::Syscall(name)) = builtin {
+                assert!(
+                    CANONICAL.contains(&name.as_str()),
+                    "{label} lowers to syscall '{name}' which is not in the \
+                     Neo N3 interop table"
+                );
+            }
+        };
+
+        for base in ["Runtime", "Storage", "Syscalls", "Neo"] {
+            let members = builtin_library_supported_members(base).expect("whitelist");
+            for member in members {
+                let builtin = match base {
+                    "Runtime" => resolve_runtime_member(member),
+                    "Storage" => resolve_storage_member(member),
+                    "Syscalls" => resolve_syscalls_member(member),
+                    "Neo" => resolve_neo_member(member),
+                    _ => unreachable!(),
+                };
+                probe(&format!("{base}.{member}"), builtin);
+            }
+        }
     }
 }

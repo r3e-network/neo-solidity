@@ -1,8 +1,10 @@
+use super::*;
+
 /// Wave-#14 Finding #5 — per-byte gas surcharge for CryptoLib hash
 /// methods invoked via `CALLT`. Neo's native hash ops charge roughly
 /// `byte_len * 50` so an 800KB input costs ~40M gas instead of a flat
 /// 512. Matches the rate used by `System.Crypto.*` syscalls.
-const HASH_PER_BYTE_GAS: u64 = 50;
+pub(crate) const HASH_PER_BYTE_GAS: u64 = 50;
 
 /// Known CryptoLib hash methods that take a single byte-array argument
 /// and run in time linear in input length.
@@ -14,7 +16,7 @@ fn cryptolib_hash_method_per_byte_charge(method: &str) -> bool {
 }
 
 impl ExecutionContext {
-    fn execute_flow_calls(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_calls(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x34 => {
                 // CALL (1-byte signed relative offset from instruction start)
@@ -35,9 +37,10 @@ impl ExecutionContext {
             0x36 => {
                 // CALLA (absolute address from stack)
                 let target_usize = self.pop_usize("CALLA")?;
-                let target = u32::try_from(target_usize).map_err(|_| RuntimeError::ExecutionError {
-                    message: "CALLA: target out of bounds".to_string(),
-                })?;
+                let target =
+                    u32::try_from(target_usize).map_err(|_| RuntimeError::ExecutionError {
+                        message: "CALLA: target out of bounds".to_string(),
+                    })?;
                 if target as usize >= self.bytecode.len() {
                     return Err(RuntimeError::ExecutionError {
                         message: "CALLA: target out of bounds".to_string(),
@@ -93,10 +96,8 @@ impl ExecutionContext {
                 if spec::native_contract_name(&token.hash) == Some("CryptoLib")
                     && cryptolib_hash_method_per_byte_charge(&token.method)
                 {
-                    let input_bytes = args
-                        .first()
-                        .map(stack_item_byte_len_for_hash)
-                        .unwrap_or(0) as u64;
+                    let input_bytes =
+                        args.first().map(stack_item_byte_len_for_hash).unwrap_or(0) as u64;
                     let extra = input_bytes.saturating_mul(HASH_PER_BYTE_GAS);
                     let projected = match self.gas_used.checked_add(extra) {
                         Some(p) => p,
@@ -130,7 +131,7 @@ impl ExecutionContext {
         Ok(true)
     }
 
-    fn push_call_frame(&mut self, return_address: u32) -> Result<(), RuntimeError> {
+    pub(crate) fn push_call_frame(&mut self, return_address: u32) -> Result<(), RuntimeError> {
         if self.call_stack.len() as u32 >= self.call_stack_limit {
             return Err(RuntimeError::ExecutionError {
                 message: "Call stack overflow".to_string(),
@@ -167,4 +168,3 @@ fn stack_item_byte_len_for_hash(item: &StackItem) -> usize {
         StackItem::Map(map) => map.borrow().len().max(32),
     }
 }
-

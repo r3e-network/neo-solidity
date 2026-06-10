@@ -8,6 +8,7 @@ fn build_test_contract(name: &str, methods: Vec<FunctionMetadata>) -> ContractMe
         is_library: false,
         methods,
         events: vec![],
+        errors: vec![],
         uses_storage: false,
         state_variables: vec![],
         structs: vec![],

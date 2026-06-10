@@ -21,7 +21,7 @@
 //! ```
 
 use crate::frontend::{
-    parse_source, ContractIR, ContractKind, EnumIR, EventIR, FunctionIR, MutabilityKind,
+    parse_source, ContractIR, ContractKind, EnumIR, ErrorIR, EventIR, FunctionIR, MutabilityKind,
     NatspecDocIR, ParameterIR, StateVariableIR, StructIR, VisibilityKind,
 };
 use crate::type_system::{

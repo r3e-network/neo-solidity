@@ -240,10 +240,13 @@ fn enum_array_showcase_compiles_and_returns_array() {
         .find(|m| m.get("name").and_then(Value::as_str) == Some("statesForReview"))
         .expect("statesForReview method");
 
+    // Externally-callable array returns are abi-encoded into a single
+    // ByteString (offset || length || elements) by the return lowering,
+    // so the manifest advertises ByteArray (verified at runtime).
     assert_eq!(
         method.get("returntype").and_then(Value::as_str),
-        Some("Array"),
-        "enum array return should map to Neo ABI Array"
+        Some("ByteArray"),
+        "enum array return is abi-encoded bytes in the manifest"
     );
 }
 
@@ -258,6 +261,8 @@ fn nep17_is_detected_when_core_methods_are_public_getters() {
         uint256 public totalSupply = 100;
         mapping(address => uint256) public balanceOf;
 
+        event Transfer(address indexed from, address indexed to, uint256 amount);
+
         constructor() {
             balanceOf[msg.sender] = totalSupply;
         }
@@ -269,6 +274,7 @@ fn nep17_is_detected_when_core_methods_are_public_getters() {
             require(balanceOf[from] >= amount, "insufficient");
             balanceOf[from] -= amount;
             balanceOf[to] += amount;
+            emit Transfer(from, to, amount);
             return true;
         }
     }

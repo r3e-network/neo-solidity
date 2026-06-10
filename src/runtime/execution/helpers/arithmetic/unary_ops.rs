@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn sign_stack_item(&self, value: StackItem) -> Result<i64, RuntimeError> {
+    pub(crate) fn sign_stack_item(&self, value: StackItem) -> Result<i64, RuntimeError> {
         match value {
             StackItem::Integer(v) => Ok(v.signum()),
             StackItem::UnsignedInteger(v) => Ok(if v == 0 { 0 } else { 1 }),
@@ -10,7 +12,7 @@ impl ExecutionContext {
         }
     }
 
-    fn abs_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn abs_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
             StackItem::Integer(v) => {
                 v.checked_abs()
@@ -26,7 +28,7 @@ impl ExecutionContext {
         }
     }
 
-    fn negate_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn negate_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
             StackItem::Integer(v) => {
                 v.checked_neg()
@@ -50,7 +52,7 @@ impl ExecutionContext {
         }
     }
 
-    fn inc_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn inc_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
             StackItem::Integer(v) => {
                 if self.strict_arithmetic {
@@ -65,11 +67,11 @@ impl ExecutionContext {
             }
             StackItem::UnsignedInteger(v) => {
                 if self.strict_arithmetic {
-                    v.checked_add(1)
-                        .map(StackItem::UnsignedInteger)
-                        .ok_or(RuntimeError::ExecutionError {
+                    v.checked_add(1).map(StackItem::UnsignedInteger).ok_or(
+                        RuntimeError::ExecutionError {
                             message: format!("Unsigned integer overflow in INC: {v}"),
-                        })
+                        },
+                    )
                 } else {
                     Ok(StackItem::UnsignedInteger(v.wrapping_add(1)))
                 }
@@ -80,7 +82,7 @@ impl ExecutionContext {
         }
     }
 
-    fn dec_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn dec_stack_item(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         match value {
             StackItem::Integer(v) => {
                 if self.strict_arithmetic {
@@ -95,11 +97,11 @@ impl ExecutionContext {
             }
             StackItem::UnsignedInteger(v) => {
                 if self.strict_arithmetic {
-                    v.checked_sub(1)
-                        .map(StackItem::UnsignedInteger)
-                        .ok_or(RuntimeError::ExecutionError {
+                    v.checked_sub(1).map(StackItem::UnsignedInteger).ok_or(
+                        RuntimeError::ExecutionError {
                             message: format!("Unsigned integer underflow in DEC: {v}"),
-                        })
+                        },
+                    )
                 } else {
                     Ok(StackItem::UnsignedInteger(v.wrapping_sub(1)))
                 }
@@ -110,4 +112,3 @@ impl ExecutionContext {
         }
     }
 }
-

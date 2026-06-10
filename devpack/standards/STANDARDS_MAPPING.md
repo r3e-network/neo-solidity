@@ -8,7 +8,7 @@
 | Ethereum (EIP)    | Neo (NEP) | Status       | Key Differences                                                         |
 | ----------------- | --------- | ------------ | ----------------------------------------------------------------------- |
 | ERC-20            | NEP-17    | ✅ Full      | 4-param `transfer`, `onNEP17Payment` callback, `Any` data type          |
-| ERC-721           | NEP-11    | ✅ Full      | ByteString token IDs (`bytes32` in devpack examples), required `tokensOf`, optional `properties`, `onNEP11Payment` |
+| ERC-721           | NEP-11    | ⚠️ Partial   | ByteString token IDs (`bytes32` in devpack examples), required `tokensOf`, optional `properties`, `onNEP11Payment`. Manifest types deviate from the NEP-11 spec — see "Manifest Type Deviations" below |
 | ERC-2981          | NEP-24    | ✅ Full      | Array return for multiple royalty recipients and computed royalty amounts |
 | ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; split into NEP-17/NEP-11 or implement NEP-11-divisible-style storage manually |
 | EIP-165           | Manifest  | 🔄 Different | Neo uses manifest `supportedstandards` instead of `supportsInterface()` |
@@ -176,6 +176,27 @@ function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
 - `bytes32` parameters compile to a 32-byte Neo ABI value suitable for devpack
   token IDs; NEP-11 itself allows ByteString token IDs up to 64 bytes.
 
+### Manifest Type Deviations (devpack `NEP11.sol`)
+
+The devpack NEP-11 base produces a manifest whose types deviate from the
+canonical NEP-11 spec. Strict manifest validators (e.g. neo-go's
+`standard.Check`) and SDKs/wallets that derive call encodings from manifest
+types will treat these contracts as non-conforming, even though the manifest
+declares `"NEP-11"` in `supportedstandards`:
+
+| Member               | NEP-11 spec manifest type           | Devpack manifest type | Impact                                                                  |
+| -------------------- | ----------------------------------- | --------------------- | ----------------------------------------------------------------------- |
+| `tokenId` parameters | `ByteArray` (ByteString, ≤64 bytes) | `Hash256` (`bytes32`) | SDKs may apply UInt256 endianness reversal; only 32-byte IDs supported  |
+| `tokensOf` / `tokens` return | `InteropInterface` (iterator) | `Array`               | Iterator/session-based traversal (wallets, indexers) does not work      |
+| `properties` return  | `Map`                               | `ByteArray` (`bytes`) | Metadata consumers expecting a Map (e.g. marketplaces) cannot decode    |
+| `transfer` `data`    | `Any`                               | `ByteArray` (`bytes`) | Strict type checkers report a mismatch                                  |
+
+On-chain deployment is not blocked (Neo nodes do not enforce standard
+compliance at deploy time), and notification trackers that read raw stack
+items still work (a `bytes32` tokenId is a 32-byte ByteString on the stack).
+If you need strict NEP-11 manifest compliance today, declare your own
+methods with `bytes` token IDs instead of inheriting the `bytes32`-typed base.
+
 ---
 
 ## 3. ERC-2981 ↔ NEP-24 (Royalty Standard)
@@ -202,8 +223,9 @@ function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
 
 ### Compiler Behavior
 
-- Auto-detects NEP-24 when `royaltyInfo` is present, and currently also treats
-  `tokenURI`/`tokenUri` as a metadata signal for compatibility.
+- Auto-detects NEP-24 only when a 3-parameter
+  `royaltyInfo(tokenId, royaltyToken, salePrice)` is present.
+  `tokenURI`/`tokenUri` is ERC-721 metadata and does not trigger NEP-24.
 - The manifest `supportedstandards` array will include `"NEP-24"`.
 
 ---
@@ -361,7 +383,7 @@ When porting an Ethereum contract to Neo N3 via `neo-devpack-solidity`:
 | File                                | Standard | Description                         |
 | ----------------------------------- | -------- | ----------------------------------- |
 | `devpack/standards/NEP17.sol`       | NEP-17   | Full fungible token with extensions |
-| `devpack/standards/NEP11.sol`       | NEP-11   | Full NFT with enumeration           |
+| `devpack/standards/NEP11.sol`       | NEP-11   | NFT with enumeration (manifest types deviate from spec — see "Manifest Type Deviations") |
 | `devpack/standards/NEP24.sol`       | NEP-24   | Royalty standard                    |
 | `devpack/standards/NEP22.sol`       | NEP-22   | Update method interface             |
 | `devpack/standards/NEP26.sol`       | NEP-26   | NEP-11 receiver callback interface  |

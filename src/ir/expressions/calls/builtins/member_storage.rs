@@ -10,22 +10,11 @@ fn try_lower_storage_member_builtin(
     }
 
     match member.name.as_str() {
-        "getUsage" => {
-            if !args.is_empty() {
-                ctx.record_error(format!(
-                    "Storage.getUsage requires 0 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
-
-            // The compiler does not track byte-level storage usage on Neo N3.
-            // Return a stable default to keep diagnostics-style helpers working.
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::zero(),
-            )));
-            Some(true)
-        }
+        // NOTE: `getUsage` used to be special-cased here as a hardcoded
+        // PUSH0 stub. Neo N3 has no `System.Storage.GetUsage` syscall and the
+        // compiler does not track byte-level storage usage, so the stub
+        // silently returned 0 for every contract. It was removed so calls
+        // fail compilation loudly instead of miscompiling.
         "putContractMetadata" => {
             if args.len() != 4 {
                 ctx.record_error(format!(

@@ -958,8 +958,9 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(30))]
 
     // Invariant: abi.encode/abi.decode wrapper compiles and both pack/unpack methods
-    // appear in the manifest with the expected returntypes (ByteArray for pack; Array
-    // for multi-return unpack).
+    // appear in the manifest with the expected returntypes (ByteArray for pack AND for
+    // the multi-return unpack — externally-callable multi-returns are abi-encoded
+    // into a single ByteString by the return lowering, Task #64).
     #[test]
     fn abi_encode_decode_roundtrip_compile(
         contract_name in identifier_strategy()
@@ -1006,10 +1007,12 @@ contract {name} {{
         prop_assert_eq!(pack_ret, Some("ByteArray"),
             "pack returntype should be ByteArray, got {:?}", pack_ret);
 
-        // `unpack` returns a 3-tuple → manifest "Array".
+        // `unpack` returns a 3-tuple → BE-packed bytes on the stack (the
+        // runtime shape is pinned by `abi_decode_returns_correct_values_or_documents_gap`),
+        // so the manifest must advertise ByteArray.
         let unpack_ret = unpack.unwrap().get("returntype").and_then(serde_json::Value::as_str);
-        prop_assert_eq!(unpack_ret, Some("Array"),
-            "unpack returntype should be Array for multi-return, got {:?}", unpack_ret);
+        prop_assert_eq!(unpack_ret, Some("ByteArray"),
+            "unpack returntype should be ByteArray for abi-encoded multi-return, got {:?}", unpack_ret);
     }
 
     // Invariant: a contract performing `address.call{value:v}(abi.encodeWithSignature(...))`
@@ -1250,7 +1253,7 @@ contract EcrecoverShowcase {{
         // `System.Contract.CreateStandardAccount` (Neo script hash).
         // Pin both directions so a regression cannot silently revert.
         let create_standard_account_id =
-            neo_devpack_solidity::codegen::interop_id_bytes("System.Contract.CreateStandardAccount");
+            neo_devpack_solidity::interop::interop_id_bytes("System.Contract.CreateStandardAccount");
         let bytecode = &artifacts[0].bytecode;
         let has_create_account = bytecode
             .windows(4)

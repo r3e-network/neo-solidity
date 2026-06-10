@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_push_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_push_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             // Push operations (0x00-0x4F)
             0x05 => {

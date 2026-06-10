@@ -1,3 +1,5 @@
+use super::*;
+
 impl StackItem {
     /// Convert to bytes
     pub fn to_bytes(&self) -> Vec<u8> {

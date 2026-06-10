@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Return the length of the calldata buffer
     pub fn input_size(&self) -> usize {
@@ -25,9 +27,11 @@ impl ExecutionContext {
             return Ok(buffer);
         }
 
-        let end = offset.checked_add(length).ok_or(RuntimeError::ExecutionError {
-            message: "calldata read range overflow".to_string(),
-        })?;
+        let end = offset
+            .checked_add(length)
+            .ok_or(RuntimeError::ExecutionError {
+                message: "calldata read range overflow".to_string(),
+            })?;
         let available = end.min(self.input_data.len());
         let copy_len = available.saturating_sub(offset);
         buffer[..copy_len].copy_from_slice(&self.input_data[offset..offset + copy_len]);
@@ -80,4 +84,3 @@ impl ExecutionContext {
         self.write_memory(memory_offset, &data)
     }
 }
-

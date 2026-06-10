@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_arithmetic_shifts(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_arithmetic_shifts(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0xA8 => {
                 // SHL

@@ -3186,8 +3186,11 @@ contract C {
             proofs["parameters"][0]);
         prop_assert_eq!(proofs["returntype"].as_str(), Some("Integer"),
             "H1 proofs returntype should be Integer");
-        prop_assert_eq!(build["returntype"].as_str(), Some("Array"),
-            "H1 uint256[][] return must lower to Array in manifest; got {:?}",
+        // Externally-callable array returns are ABI-encoded into a single
+        // ByteString by `lower_return_statement` (Task #64/#137), so the
+        // manifest must advertise ByteArray, not Array.
+        prop_assert_eq!(build["returntype"].as_str(), Some("ByteArray"),
+            "H1 uint256[][] return is abi-encoded bytes; manifest must say ByteArray; got {:?}",
             build["returntype"]);
     }
 
@@ -3212,9 +3215,12 @@ contract C {
             .expect("H2 abi.methods array");
         let o_getter = methods.iter().find(|m| m["name"] == "o")
             .expect("H2 auto-getter 'o' missing");
-        // Nested struct collapses to single Array in Neo manifest.
-        prop_assert_eq!(o_getter["returntype"].as_str(), Some("Array"),
-            "H2 nested-struct auto-getter returntype must be Array; got {:?}",
+        // The auto-getter returns the struct fields as a multi-value tuple,
+        // which the externally-callable return lowering ABI-encodes into a
+        // single ByteString (verified at runtime: 64 BE-packed bytes), so
+        // the manifest must advertise ByteArray.
+        prop_assert_eq!(o_getter["returntype"].as_str(), Some("ByteArray"),
+            "H2 nested-struct auto-getter returns abi-encoded bytes; got {:?}",
             o_getter["returntype"]);
         prop_assert_eq!(o_getter["parameters"].as_array().map(|p| p.len()), Some(0),
             "H2 auto-getter for storage struct takes zero parameters");
@@ -3248,8 +3254,10 @@ contract C {{
         // Getter with single Hash160 param (for address key) and Array return.
         let getter = methods.iter().find(|m| m["name"] == "positions")
             .expect("H3 auto-getter 'positions' missing");
-        prop_assert_eq!(getter["returntype"].as_str(), Some("Array"),
-            "H3 map-of-struct getter returntype must be Array; got {:?}",
+        // Multi-field tuple getter → abi-encoded bytes on the stack
+        // (Task #64), so the manifest advertises ByteArray.
+        prop_assert_eq!(getter["returntype"].as_str(), Some("ByteArray"),
+            "H3 map-of-struct getter returns abi-encoded bytes; got {:?}",
             getter["returntype"]);
         prop_assert_eq!(getter["parameters"][0]["type"].as_str(), Some("Hash160"),
             "H3 map key param must be Hash160; got {:?}", getter["parameters"][0]);

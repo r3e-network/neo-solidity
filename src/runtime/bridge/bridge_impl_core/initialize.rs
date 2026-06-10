@@ -1,7 +1,9 @@
+use super::*;
+
 impl VMBridge {
     // Private helper methods
 
-    fn initialize_instruction_mapping(&mut self) {
+    pub(crate) fn initialize_instruction_mapping(&mut self) {
         // Arithmetic instructions (aligned to spec)
         self.instruction_mapping.insert(0x9E, Self::handle_add);
         self.instruction_mapping.insert(0x9F, Self::handle_sub);
@@ -50,7 +52,7 @@ impl VMBridge {
         self.instruction_mapping.insert(0x55, Self::handle_sstore);
     }
 
-    fn initialize_system_calls(&mut self) {
+    pub(crate) fn initialize_system_calls(&mut self) {
         self.system_calls
             .insert("keccak256".to_string(), Self::syscall_keccak256);
         self.system_calls

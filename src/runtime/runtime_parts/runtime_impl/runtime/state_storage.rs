@@ -1,3 +1,5 @@
+use super::*;
+
 type StorageKeyValues = Vec<(Vec<u8>, Vec<u8>)>;
 
 impl NeoRuntime {

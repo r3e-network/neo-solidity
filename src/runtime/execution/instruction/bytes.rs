@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_bytes_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_bytes_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x88 => {
                 // NEWBUFFER
@@ -37,4 +39,3 @@ impl ExecutionContext {
         Ok(true)
     }
 }
-

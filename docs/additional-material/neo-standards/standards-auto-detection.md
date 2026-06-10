@@ -10,10 +10,10 @@ description: "Standards Auto-Detection from Standards and Contracts."
 The `neo-solc` compiler analyzes your contract's public methods and events to automatically detect which NEP standards it implements. Detection results populate the manifest's `supportedstandards` array.
 
 ::: warning Detection is not full compliance
-Auto-detection is intentionally permissive. It identifies likely standard
-surfaces and emits diagnostics for near misses, wrong transfer arity, or missing
-events. A production contract should still be checked against the canonical NEP
-ABI, event shape, authorization rules, and receiver-callback behavior.
+Auto-detection checks method names plus the `transfer` signature and
+`Transfer` event shape, and emits diagnostics for near misses. A production
+contract should still be checked against the canonical NEP ABI, parameter
+types, authorization rules, and receiver-callback behavior.
 :::
 
 ## NEP-17 Detection
@@ -27,8 +27,11 @@ symbol, decimals, totalSupply, balanceOf, transfer
 Additional rules:
 
 - `ownerOf` must **not** be present (its presence signals NEP-11 instead)
-- A `Transfer` event with 3 parameters is expected
-- The `transfer` method should have 4 parameters `(from, to, amount, data)`
+- A `Transfer` event with 3 parameters must be declared
+- A `transfer` overload with 4 parameters `(from, to, amount, data)` must exist
+- **Conformance warning**: if all 5 names are present but the `transfer`
+  signature or `Transfer` event does not conform, the standard is NOT
+  advertised and a warning explains what to fix
 - **Near-miss warning**: if 3+ of 5 methods are present but not all, the compiler emits a warning listing the missing methods
 
 For strict NEP-17 compliance, the `transfer` method returns `bool`, the `data`
@@ -38,21 +41,23 @@ contract.
 
 ## NEP-11 Detection
 
-Core requirement:
+All 7 mandatory NEP-11 methods must be present as public/external functions:
 
-- `balanceOf` **and** `ownerOf` must both be present
+```
+symbol, decimals, totalSupply, balanceOf, tokensOf, ownerOf, transfer
+```
 
-Plus at least one of:
+Additional rules:
 
-- `transfer`
-- `transferFrom`
-- `tokensOf`
-
-Additional checks:
-
-- A `Transfer` event with 4 parameters is expected
-- The `transfer` method should have 3 parameters `(to, tokenId, data)`
-- **Near-miss warnings**: `ownerOf` without a transfer mechanism, or `ownerOf` + transfer without `balanceOf`
+- A `Transfer` event with 4 parameters must be declared
+- A `transfer` overload with 3 parameters `(to, tokenId, data)` must exist
+- **Conformance warning**: if all names are present but the `transfer`
+  signature or `Transfer` event does not conform, the standard is NOT
+  advertised and a warning explains what to fix
+- **Near-miss warning**: `ownerOf` (a strong NFT signal) with an incomplete
+  method set emits a warning listing the missing methods. Note that
+  `transferFrom` is an ERC-721 method with no NEP-11 significance — an
+  ERC-721-shaped contract is not advertised as NEP-11
 
 For strict NEP-11 compliance, also check the common methods (`symbol`,
 `decimals`, `totalSupply`, `balanceOf`, `tokensOf`, `transfer`), the
@@ -62,10 +67,15 @@ included in the devpack's full NFT interface for metadata-rich tokens.
 
 ## NEP-24 Detection
 
-Either of these methods triggers detection:
+Detection requires the standard's single mandatory method with its
+3-parameter signature (method matching is case-insensitive):
 
-- `tokenURI` / `tokenUri` (method matching is case-insensitive)
-- `royaltyInfo`
+- `royaltyInfo(tokenId, royaltyToken, salePrice)`
+
+A `royaltyInfo` with a different arity produces an informational diagnostic
+instead of a detection. `tokenURI` / `tokenUri` is ERC-721 metadata and does
+NOT trigger NEP-24 — advertising the royalty standard without `royaltyInfo`
+would make marketplaces call a nonexistent method.
 
 For strict NEP-24 compliance, `royaltyInfo(tokenId, royaltyToken, salePrice)`
 returns an array of `[royaltyRecipient, royaltyAmount]` pairs. The

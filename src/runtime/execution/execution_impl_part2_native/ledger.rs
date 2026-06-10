@@ -1,13 +1,13 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_ledger(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_ledger(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             "currentindex" => {
                 let height = *self.block_height.get_or_insert(self.default_block_height);
                 StackItem::UnsignedInteger(height)
             }
-            "currenthash" => {
-                StackItem::byte_array(self.ledger_current_hash.to_vec())
-            }
+            "currenthash" => StackItem::byte_array(self.ledger_current_hash.to_vec()),
             "getblock" => {
                 let index = Self::extract_first_int(&params);
                 let height = *self.block_height.get_or_insert(self.default_block_height);

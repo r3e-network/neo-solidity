@@ -1,3 +1,5 @@
+use super::*;
+
 /// Storage syscall implementations for Neo N3 VM compatibility.
 ///
 /// This module implements the System.Storage.* syscall interface, providing persistent
@@ -74,7 +76,7 @@
 /// SYSCALL System.Iterator.Value
 /// ```
 impl ExecutionContext {
-    fn handle_storage_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
+    pub(crate) fn handle_storage_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {
             "System.Storage.GetContext" | "System.Storage.GetReadOnlyContext" => {
                 self.push_stack(StackItem::byte_array(Vec::new()))?;
@@ -122,13 +124,13 @@ impl ExecutionContext {
 
                 self.enforce_storage_limit(&key, &value)?;
 
-                let entry = self
-                    .storage_overlay
-                    .entry(key.clone())
-                    .or_insert_with(|| OverlayEntry {
-                        value: None,
-                        dirty: false,
-                    });
+                let entry =
+                    self.storage_overlay
+                        .entry(key.clone())
+                        .or_insert_with(|| OverlayEntry {
+                            value: None,
+                            dirty: false,
+                        });
                 entry.value = if value.is_empty() { None } else { Some(value) };
                 entry.dirty = true;
                 Ok(true)
@@ -182,13 +184,13 @@ impl ExecutionContext {
 
                 self.enforce_storage_limit(&key, &value)?;
 
-                let entry = self
-                    .storage_overlay
-                    .entry(key.clone())
-                    .or_insert_with(|| OverlayEntry {
-                        value: None,
-                        dirty: false,
-                    });
+                let entry =
+                    self.storage_overlay
+                        .entry(key.clone())
+                        .or_insert_with(|| OverlayEntry {
+                            value: None,
+                            dirty: false,
+                        });
                 entry.value = if value.is_empty() { None } else { Some(value) };
                 entry.dirty = true;
                 Ok(true)

@@ -119,24 +119,32 @@ pub(crate) fn build_method_identifiers(metadata: &ContractMetadata) -> Map<Strin
 pub(crate) fn build_neo_method_map(metadata: &ContractMetadata) -> Map<String, Value> {
     let mut map = Map::new();
 
-    for method in &metadata.methods {
-        if matches!(method.kind, FunctionKind::Constructor) {
-            continue;
-        }
-        if !matches!(
-            method.visibility,
-            VisibilityKind::Public | VisibilityKind::External
-        ) {
-            continue;
-        }
+    let exposed: Vec<_> = metadata
+        .methods
+        .iter()
+        .filter(|method| {
+            !matches!(method.kind, FunctionKind::Constructor)
+                && matches!(
+                    method.visibility,
+                    VisibilityKind::Public | VisibilityKind::External
+                )
+        })
+        .collect();
 
+    // Report the MANIFEST-visible name, not the raw internal `neo_name`:
+    // distinct-arity overloads keep their original Solidity name in the
+    // manifest, so the methodMap must point callers at the name that is
+    // actually invokable on-chain.
+    let abi_name = super::manifest_abi_method_name_fn(exposed.iter().copied());
+
+    for method in &exposed {
         let param_signature: Vec<String> = method
             .parameters
             .iter()
             .map(|param| canonical_param_type(&param.ty))
             .collect();
         let signature = format!("{}({})", method.name, param_signature.join(","));
-        map.insert(signature, Value::String(method.neo_name.clone()));
+        map.insert(signature, Value::String(abi_name(method)));
     }
 
     map

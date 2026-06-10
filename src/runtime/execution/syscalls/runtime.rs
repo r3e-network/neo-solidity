@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_runtime_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
+    pub(crate) fn handle_runtime_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {
             "System.Runtime.GetNetwork" => {
                 self.push_stack(StackItem::UnsignedInteger(self.network_magic as u64))?;
@@ -118,9 +120,11 @@ impl ExecutionContext {
                     self.random_seed = Some(seed);
                 }
                 // Hash seed || counter for each call
-                let seed = self.random_seed.ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Random seed not initialized".to_string(),
-                })?;
+                let seed = self
+                    .random_seed
+                    .ok_or_else(|| RuntimeError::ExecutionError {
+                        message: "Random seed not initialized".to_string(),
+                    })?;
                 let mut input = seed.to_vec();
                 input.extend_from_slice(&self.random_counter.to_le_bytes());
                 self.random_counter += 1;
@@ -225,8 +229,7 @@ impl ExecutionContext {
                             .iter()
                             .map(|item| Self::stack_item_to_bytes(item.clone()))
                             .collect();
-                        let data =
-                            Self::stack_item_to_bytes(tail_slice[0].clone());
+                        let data = Self::stack_item_to_bytes(tail_slice[0].clone());
                         (topics, data)
                     };
 

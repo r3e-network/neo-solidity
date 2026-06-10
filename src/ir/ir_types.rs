@@ -113,6 +113,24 @@ pub struct EventSignature {
     pub is_anonymous: bool,
 }
 
+/// Declared custom `error` signature, keyed by error name in the lowering
+/// context's `error_signature_map`.
+///
+/// Revert-site lowering uses the DECLARED parameter types (not the types
+/// inferred from argument expressions) to compute the EVM-canonical 4-byte
+/// selector `keccak256("Name(t1,t2,...)")[..4]`, and the declared parameter
+/// names to reorder `revert E({b: .., a: ..})` named arguments into
+/// declaration order before encoding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErrorAbiSignature {
+    /// Declared parameter names in declaration order (`None` if unnamed).
+    pub param_names: Vec<Option<String>>,
+    /// Declared parameter Solidity type strings in declaration order (raw
+    /// source form; canonicalized against enums/structs in scope at
+    /// lowering time).
+    pub param_types: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicBlock {
     pub instructions: Vec<Instruction>,

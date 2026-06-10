@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Compute the Keccak-256 hash over a memory slice
     pub fn keccak_memory_slice(
@@ -16,4 +18,3 @@ impl ExecutionContext {
         Ok(out)
     }
 }
-

@@ -96,25 +96,29 @@ fn resolve_solidity_sources_with_options(
             (line, column)
         }
 
-        let (unit, _comments) = solang_parser::parse(source, 0).map_err(|diags| {
-            let summary = diags
-                .iter()
-                .map(|diag| {
-                    if let solang_parser::pt::Loc::File(_, start, _) = diag.loc {
-                        let (line, column) = offset_to_line_column(source, start);
-                        format!("{}:{}: {}", line, column, diag.message)
-                    } else {
-                        diag.message.clone()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            format!(
-                "failed to parse '{}' while resolving imports:\n{}",
-                file.display(),
-                summary
-            )
-        })?;
+        // Guarded parse: runs on a worker thread with a large bounded stack
+        // so deeply nested input becomes a diagnostic, not a stack-overflow
+        // abort. Keep ALL solang_parser::parse calls behind this helper.
+        let (unit, _comments) = neo_devpack_solidity::frontend::parse_solidity_guarded(source)
+            .map_err(|diags| {
+                let summary = diags
+                    .iter()
+                    .map(|diag| {
+                        if let solang_parser::pt::Loc::File(_, start, _) = diag.loc {
+                            let (line, column) = offset_to_line_column(source, start);
+                            format!("{}:{}: {}", line, column, diag.message)
+                        } else {
+                            diag.message.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                format!(
+                    "failed to parse '{}' while resolving imports:\n{}",
+                    file.display(),
+                    summary
+                )
+            })?;
 
         let mut imports = Vec::new();
         for part in unit.0.iter() {

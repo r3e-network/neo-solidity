@@ -1,3 +1,5 @@
+use super::*;
+
 impl VMBridge {
     /// Handle EVM instruction in NeoVM context
     pub fn handle_instruction(

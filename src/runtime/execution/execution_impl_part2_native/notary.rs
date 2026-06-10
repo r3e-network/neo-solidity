@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_notary(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_notary(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             "verify" => StackItem::Boolean(true),
 
@@ -27,9 +29,8 @@ impl ExecutionContext {
                 let account = Self::extract_first_bytes(&params);
                 let till = if let StackItem::Array(args) = &params {
                     let borrowed = args.borrow();
-                    Self::stack_item_to_int(
-                        borrowed.get(1).cloned().unwrap_or(StackItem::Null),
-                    ) as u32
+                    Self::stack_item_to_int(borrowed.get(1).cloned().unwrap_or(StackItem::Null))
+                        as u32
                 } else {
                     0
                 };
@@ -56,8 +57,7 @@ impl ExecutionContext {
             }
 
             "setmaxnotvalidbeforedelta" => {
-                self.notary_max_not_valid_before_delta =
-                    Self::extract_first_int(&params) as u32;
+                self.notary_max_not_valid_before_delta = Self::extract_first_int(&params) as u32;
                 StackItem::Null
             }
 
@@ -75,14 +75,14 @@ impl ExecutionContext {
                         borrowed.get(2).cloned().unwrap_or(StackItem::Null),
                     ) as u32;
 
-                    let deposit = self
-                        .notary_deposits
-                        .entry(from.clone())
-                        .or_insert_with(|| NotaryDeposit {
-                            account: from,
-                            amount: 0,
-                            till: 0,
-                        });
+                    let deposit =
+                        self.notary_deposits
+                            .entry(from.clone())
+                            .or_insert_with(|| NotaryDeposit {
+                                account: from,
+                                amount: 0,
+                                till: 0,
+                            });
                     deposit.amount += amount;
                     if till > deposit.till {
                         deposit.till = till;

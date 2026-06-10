@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_gas(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_gas(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             "symbol" => StackItem::byte_array(b"GAS".to_vec()),
             "decimals" => StackItem::UnsignedInteger(8),

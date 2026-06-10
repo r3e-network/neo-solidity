@@ -7,43 +7,37 @@ description: "Libraries from Devpack Overview."
 
 [Back to Devpack Overview](/additional-material/neo-devpack)
 
-## Neo.sol (542 lines)
+## Neo.sol
 
 High-level blockchain integration library. Wraps `Syscalls` and `NativeCalls` into a convenient API:
 
 | Category        | Functions                                                                      |
 | --------------- | ------------------------------------------------------------------------------ |
 | Block info      | `getCurrentBlock()`, `getBlockByIndex()`, `getBlockHeight()`, `getBlockTime()` |
-| Transactions    | `getTransaction()`, `getTransactionHeight()`                                   |
-| Account/balance | NEO and GAS balance queries via NativeCalls                                    |
-| Cryptographic   | Signature verification, hash functions (delegates to Syscalls CryptoLib)       |
-| Contract mgmt   | Call, deploy, query contracts                                                  |
-| Network         | Governance, committee, validators                                              |
-| Gas             | Fee calculations, gas management utilities                                     |
+| Transactions    | `getTransaction()`, `getTransactionHeight()`, `transactionExists()`            |
+| Account/balance | `getNeoBalance()`, `getGasBalance()`, `transferNeo()`, `transferGas()`         |
+| Cryptographic   | `verifyWithWitness()`, `verifySignature()`, `sha256Hash()`, `ripemd160Hash()`, `getRandom()` |
+| Contract mgmt   | `callContract()`, `deployContract()`                                           |
+| Network/policy  | `getNetworkMagic()`, `getGasPrice()`, `getStoragePrice()`                      |
+| Governance      | `isCommittee()`, `getCommittee()`, `getValidators()`, `isValidator()`          |
 
 ```solidity
 using Neo for *;
 
-(uint256 index, bytes32 hash, uint256 timestamp, bytes32 merkle) = Neo.getCurrentBlock();
 uint256 height = Neo.getBlockHeight();
+uint256 gasBalance = Neo.getGasBalance(msg.sender);
 ```
 
-## Storage.sol (852 lines)
+## Storage.sol
 
-Advanced storage operations built on top of `Syscalls` storage syscalls:
+Storage operations built on top of `Syscalls` storage syscalls:
 
-| Category        | Functions                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| Context         | `getContext()`, `getReadOnlyContext()`, `asReadOnly()`                                        |
-| Basic CRUD      | `put()`, `get()`, `remove()`, `exists()`                                                      |
-| Local storage   | `putLocal()`, `getLocal()`, `removeLocal()`                                                   |
-| Iterators       | `find()`, `findLocal()`, `findValues()`, `findKeys()`, `findLocalValues()`, `findLocalKeys()` |
-| Counting        | `count()` — count entries matching a prefix                                                   |
-| Batch ops       | Batch put/remove (max 100 per batch)                                                          |
-| Key derivation  | Mapping keys, array keys, nested keys                                                         |
-| Typed accessors | `uint256`, `address`, `string`, `bool` typed get/put                                          |
-| Secure storage  | Checksum validation                                                                           |
-| Expiration      | TTL-based storage entries                                                                     |
+| Category   | Functions                                              |
+| ---------- | ------------------------------------------------------ |
+| Context    | `getContext()`, `getReadOnlyContext()`, `asReadOnly()` |
+| Basic CRUD | `put()`, `get()`, `remove()`                           |
+| Iterators  | `find()` — prefix scan via `System.Storage.Find`       |
+| Metadata   | `putContractMetadata()`                                |
 
 ```solidity
 using Storage for *;
@@ -51,21 +45,21 @@ using Storage for *;
 // Basic operations
 Storage.put("owner", abi.encode(msg.sender));
 bytes memory data = Storage.get("owner");
-bool hasKey = Storage.exists("owner");
-
-// Iterator-based prefix scan
-bytes[] memory allValues = Storage.findValues("token:");
-bytes[] memory allKeys = Storage.findKeys("token:");
-
-// Local storage (contract-private, not visible to other contracts)
-Storage.putLocal("internal_state", abi.encode(42));
+bool hasKey = data.length > 0;
 ```
 
-::: info Local vs Global Storage
-`put()`/`get()` use the contract's global storage context. `putLocal()`/`getLocal()` use a local context that is private to the contract and cannot be read by other contracts via `System.Storage.GetReadOnlyContext`.
+::: info Storage Contexts Are Contract-Private
+Neo N3 storage contexts are always private to the owning contract — other
+contracts cannot read or write your storage. A former `putLocal()`/`getLocal()`
+"local storage" API was removed: it lowered to `System.Storage.Local.*`
+syscalls that do not exist on Neo N3 (calls would FAULT on a real node), and
+the privacy it promised is already provided by regular `put()`/`get()`.
+Higher-level helpers (batch operations, prefix counting/clearing, typed
+accessors, TTL wrappers) were also removed; implement them in contract code
+using `put`/`get`/`remove`/`find`.
 :::
 
-## Runtime.sol (695 lines)
+## Runtime.sol
 
 Runtime services and utilities (currently supported as compiler intrinsics):
 
@@ -91,5 +85,5 @@ Runtime.burnGas(1000000); // burn 0.01 GAS
 ```
 
 ::: warning Runtime Intrinsic Coverage
-`Runtime.sol` includes callback-oriented convenience helpers that are not compiler intrinsics in neo-devpack-solidity. Calls to `optimizeGasUsage`, `executeIfGasAvailable`, and `tryWithFallback` are currently rejected at compile time because NeoVM does not support first-class internal function callbacks. Use inline logic (`gasLeft` guards and `try/catch`) instead.
+`Runtime`, `Storage`, and `Neo` are compiler intrinsics: only the members listed above are lowered by neo-devpack-solidity, and their Solidity bodies are never compiled. Calling any other member fails compilation with a diagnostic listing the supported intrinsics. Former callback-oriented helpers (e.g. `optimizeGasUsage`, `tryWithFallback`) were removed because NeoVM does not support first-class internal function callbacks — use inline logic (`gasLeft` guards and `try/catch`) instead.
 :::

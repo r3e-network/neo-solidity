@@ -317,11 +317,15 @@ fn test_bitwise_not_uint256_zero_returns_all_ones() {
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime.execute(&bytecode, &[]).expect("host ok");
     assert!(result.success, "exec failed: {:?}", result.exception);
-    // `~0` = 2^256 - 1 → 32 bytes of 0xFF.
-    assert_eq!(result.return_data.len(), 32);
-    assert!(
-        result.return_data.iter().all(|&b| b == 0xFF),
-        "expected 32 bytes of 0xFF, got {:?}",
+    // `~0` = 2^256 - 1. With the positive uint256 value model the wide
+    // result carries a trailing 0x00 sign byte (33-byte signed-LE form,
+    // matching the `type(uint256).max` literal in `ops_and_literals.rs`),
+    // so assert the decoded VALUE rather than a fixed 32-byte width.
+    let v = num_bigint::BigInt::from_signed_bytes_le(&result.return_data);
+    let expected = (num_bigint::BigInt::from(1) << 256u32) - num_bigint::BigInt::from(1);
+    assert_eq!(
+        v, expected,
+        "expected signed-LE decode of ~0 to equal 2^256 - 1, got {:?}",
         result.return_data
     );
 }

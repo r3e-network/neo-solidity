@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_oracle(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_oracle(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             "request" => {
                 // Extract parameters: url, filter, callback_contract, callback_method, user_data, gas_for_response
@@ -22,11 +24,21 @@ impl ExecutionContext {
                             borrowed.get(4).cloned().unwrap_or(StackItem::Null),
                         );
                         let gas = Self::extract_first_int(
-                            &borrowed.get(5).cloned().unwrap_or(StackItem::UnsignedInteger(0)),
+                            &borrowed
+                                .get(5)
+                                .cloned()
+                                .unwrap_or(StackItem::UnsignedInteger(0)),
                         );
                         (url, filter, cb_contract, cb_method, user_data, gas)
                     } else {
-                        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), 0)
+                        (
+                            Vec::new(),
+                            Vec::new(),
+                            Vec::new(),
+                            Vec::new(),
+                            Vec::new(),
+                            0,
+                        )
                     };
 
                 let id = self.oracle_next_request_id;

@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn syscall_keccak256(
+    pub(crate) fn syscall_keccak256(
         bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {
@@ -16,7 +18,7 @@ impl VMBridge {
         Ok(vec![StackItem::byte_array(hash.to_vec())])
     }
 
-    fn syscall_sha256(
+    pub(crate) fn syscall_sha256(
         _bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {
@@ -35,7 +37,7 @@ impl VMBridge {
         Ok(vec![StackItem::byte_array(hash.to_vec())])
     }
 
-    fn syscall_ecrecover(
+    pub(crate) fn syscall_ecrecover(
         bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {
@@ -109,7 +111,7 @@ impl VMBridge {
         Ok(vec![StackItem::byte_array(address)])
     }
 
-    fn syscall_verify(
+    pub(crate) fn syscall_verify(
         _bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {
@@ -164,7 +166,7 @@ impl VMBridge {
         Ok(vec![StackItem::Boolean(verification_result)])
     }
 
-    fn syscall_blake2f(
+    pub(crate) fn syscall_blake2f(
         _bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {
@@ -183,7 +185,7 @@ impl VMBridge {
         Ok(vec![StackItem::byte_array(hash[..].to_vec())])
     }
 
-    fn syscall_modexp(
+    pub(crate) fn syscall_modexp(
         _bridge: &mut VMBridge,
         args: &[StackItem],
     ) -> Result<Vec<StackItem>, VMBridgeError> {

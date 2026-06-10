@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn pop_usize(&mut self, opname: &str) -> Result<usize, RuntimeError> {
+    pub(crate) fn pop_usize(&mut self, opname: &str) -> Result<usize, RuntimeError> {
         let item = self.pop_stack()?;
         let as_usize = match item {
             StackItem::Integer(i) if i >= 0 => i as usize,
@@ -13,11 +15,11 @@ impl ExecutionContext {
         Ok(as_usize)
     }
 
-    fn clear_stack(&mut self) {
+    pub(crate) fn clear_stack(&mut self) {
         self.stack.clear();
     }
 
-    fn nip(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn nip(&mut self) -> Result<(), RuntimeError> {
         if self.stack.len() < 2 {
             return Err(RuntimeError::ExecutionError {
                 message: "NIP: insufficient stack items".to_string(),
@@ -29,7 +31,7 @@ impl ExecutionContext {
         Ok(())
     }
 
-    fn xdrop(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn xdrop(&mut self) -> Result<(), RuntimeError> {
         let index = self.pop_usize("XDROP")?;
         if index >= self.stack.len() {
             return Err(RuntimeError::ExecutionError {
@@ -41,7 +43,7 @@ impl ExecutionContext {
         Ok(())
     }
 
-    fn over(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn over(&mut self) -> Result<(), RuntimeError> {
         if self.stack.len() < 2 {
             return Err(RuntimeError::ExecutionError {
                 message: "OVER: insufficient stack items".to_string(),
@@ -51,7 +53,7 @@ impl ExecutionContext {
         self.push_stack(second)
     }
 
-    fn pick_n(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pick_n(&mut self) -> Result<(), RuntimeError> {
         let index = self.pop_usize("PICK")?;
         if index >= self.stack.len() {
             return Err(RuntimeError::ExecutionError {
@@ -63,7 +65,7 @@ impl ExecutionContext {
         self.push_stack(item)
     }
 
-    fn tuck(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn tuck(&mut self) -> Result<(), RuntimeError> {
         if self.stack.len() < 2 {
             return Err(RuntimeError::ExecutionError {
                 message: "TUCK: insufficient stack items".to_string(),
@@ -78,7 +80,7 @@ impl ExecutionContext {
         Ok(())
     }
 
-    fn roll(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn roll(&mut self) -> Result<(), RuntimeError> {
         let index = self.pop_usize("ROLL")?;
         if index >= self.stack.len() {
             return Err(RuntimeError::ExecutionError {
@@ -90,7 +92,7 @@ impl ExecutionContext {
         self.push_stack(item)
     }
 
-    fn reverse_top_n(&mut self, n: usize) -> Result<(), RuntimeError> {
+    pub(crate) fn reverse_top_n(&mut self, n: usize) -> Result<(), RuntimeError> {
         if n > self.stack.len() {
             return Err(RuntimeError::ExecutionError {
                 message: format!("REVERSEN: need {n} items"),
@@ -103,4 +105,3 @@ impl ExecutionContext {
         Ok(())
     }
 }
-

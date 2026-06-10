@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`abi.decode` of multi-slot static types (structs, arrays of structs) now
+  decodes canonical ABI bytes** instead of silently falling back to
+  `StdLib.deserialize`, which faulted at runtime on real ABI payloads.
+- **`abi.decode` of `uint256` values `>= 2^255` no longer reinterprets them
+  as negative.** The decoder appends a sign byte when the high bit is set,
+  and the bundled runtime's wide bitwise/shift results follow the same
+  value model.
+- **Custom error selectors are computed from the declared `error`
+  signature**, not from inferred argument-expression types. Named arguments
+  are reordered into declaration order before encoding.
+- **`require(cond, msg)` with a non-literal message now throws the canonical
+  `Error(string)` envelope**, matching `revert(msg)` so `catch Error(string)`
+  works on both paths.
+- **`abi.encodePacked` sign-extends negative signed integers** instead of
+  zero-padding them.
+- **Mapping keys are canonicalized (`CONVERT`) before serialization**, so
+  `Buffer` vs `ByteString` representations of the same value (e.g. a
+  `bytes.concat` result vs an ABI parameter) derive the same storage slot on
+  real Neo N3.
+- **`delete` on storage arrays clears every element.** Fixed-size arrays
+  zero all element slots; dynamic arrays clear elements and length. Struct
+  field array subscripts now get the same `Panic(0x32)` bounds guard as
+  top-level arrays, so deleted data is no longer silently readable.
+- **`delete` on a struct containing a mapping member no longer emits a
+  `Storage.Put` with a Null value** (which faults on real Neo N3); mapping
+  members are skipped per Solidity semantics.
+- **Sibling-contract merge rejects same-named state variables with
+  conflicting types** instead of silently aliasing one storage slot.
+- **The optimizer no longer aborts the process on huge literal shifts or
+  multiplies** (`1 << 2**64-1` previously OOM-aborted at the default `-O2`);
+  oversized folds now fall through to runtime ops, bounded by
+  `MAX_FOLDED_LITERAL_BITS`.
+- **Deeply nested expressions no longer overflow the parser stack.** All
+  `solang_parser::parse` entry points run on a worker thread with a large
+  bounded stack and report failures as ordinary diagnostics.
+- **Devpack APIs that could never work on Neo N3 are now hard compile
+  errors instead of silent miscompiles or on-chain FAULTs**: the
+  `Storage.*Local` family lowered to fictional `System.Storage.Local.*`
+  syscalls, and `Storage.batchPut/batchGet/batchDelete/count/exists/
+  clearPrefix/findValues/findKeys/getUsage` lowered to single raw syscalls
+  that dropped arguments. `devpack/libraries/{Runtime,Storage,Neo}.sol` are
+  pruned to the intrinsic surface the compiler actually lowers (111
+  documented-but-uncallable functions removed), with a probe test keeping
+  the libraries and the intrinsic whitelist in lockstep.
+- **Manifest permissions now cover contract calls inside `catch` blocks.**
+  Permission inference previously never modeled the `Try → catch` exception
+  edge, so a contract call performed in a catch handler shipped without a
+  manifest permission and FAULTed on-chain when the error-recovery path ran.
+  Any contract-call site left unreached by the dataflow walk now degrades to
+  an explicit wildcard permission instead of silent under-permission.
+- **Manifest event declarations now describe the actual `System.Runtime.Notify`
+  payload** (`topic0` + one `ByteArray` per indexed parameter + `data`)
+  instead of the Solidity-declared parameter list. Neo N3 nodes since 3.6
+  (HF_Basilisk) validate every notification against the manifest ABI by
+  state-item count and type, so the previous declarations made every
+  non-anonymous `emit` fault on real networks.
+- **`view`/`pure` validation now follows function-pointer calls.** Taking a
+  function's address adds a call-graph edge, so a `view` method that writes
+  storage through an indirect call is rejected at compile time instead of
+  being advertised `"safe": true` in the manifest.
+- **The devpack `Any` user-defined value type (`type Any is bytes;`) now
+  reaches the manifest as `Any`** (e.g. the NEP-17 `transfer` `data`
+  parameter), matching the NEP specs and external standard validators. The
+  special case is scoped to aliases whose underlying type is exactly
+  `bytes`; `type Any is bytes32;` keeps its alias semantics.
+
+### Changed
+
+- **Standards auto-detection requires conformance before claiming a NEP.**
+  NEP-17 needs the five methods plus a 4-parameter `transfer` and a
+  3-parameter `Transfer` event; NEP-11 needs the full mandatory method set
+  (`symbol`, `decimals`, `totalSupply`, `balanceOf`, `tokensOf`, `ownerOf`,
+  `transfer`) plus a 3-parameter `transfer` and 4-parameter `Transfer`
+  event; NEP-24 is only detected for a 3-parameter `royaltyInfo` (`tokenURI`
+  no longer triggers it). Near-misses emit warnings instead of false
+  manifest claims. Explicitly declared NEP-17/NEP-11 standards additionally
+  hard-require the spec `transfer` arity.
+- **Distinct-arity overloads keep their original Solidity name in the
+  manifest** (Neo dispatches on name + parameter count, like native
+  `ContractManagement.deploy`). Only true same-arity collisions fall back to
+  the mangled `name(type,...)` form, with one deterministic primary keeping
+  the clean name. The standard-json `methodMap` now reports the
+  manifest-visible (callable) names.
+
+### Removed
+
+- **Dead Yul frontend** (`src/lexer`, `src/parser`, `src/semantic`,
+  `src/optimizer`, AST codegen): these implemented a Yul pipeline that the
+  real solang-based compile path never invoked. The live `interop_id_bytes`
+  helper moved to `src/interop.rs`. Public modules
+  `neo_devpack_solidity::{lexer,parser,semantic,optimizer,codegen}` no
+  longer exist.
+- `.dead_modules/` (15 parked, never-integrated analysis passes).
+- The unused `storage_key::derive_mapping_slot`/`KeyFragment` API, which
+  documented a mapping-slot scheme the compiler does not emit; module docs
+  now describe the production scheme.
+
+### Internal
+
+- **`src/runtime` is real Rust modules now**: all 156 `include!()` fragments
+  converted to `mod`/`pub use` with explicit visibility; keyword `impl/`
+  directories renamed; no behavior change, public API paths preserved.
+- The C# `src/Neo.Sol.Runtime` README and root README now state explicitly
+  that the C# library is a standalone experimental EVM-emulation layer, not
+  used by `neo-solc` and not shipped in releases.
+
 ## [v0.19.0] - 2026-05-19
 
 Compatibility-focused release: this is the "any existing Solidity contract

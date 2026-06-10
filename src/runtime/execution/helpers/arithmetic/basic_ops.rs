@@ -1,3 +1,5 @@
+use super::*;
+
 /// Arithmetic operation helpers with overflow/underflow checking.
 ///
 /// All arithmetic operations follow the same pattern:
@@ -21,16 +23,20 @@
 macro_rules! arithmetic_op {
     ($fn_name:ident, $op_name:literal, $op_sym:literal, $checked:ident, $wrapping:ident, $error_kind:literal) => {
         fn $fn_name(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-            let use_unsigned =
-                matches!(a, StackItem::UnsignedInteger(_)) || matches!(b, StackItem::UnsignedInteger(_));
+            let use_unsigned = matches!(a, StackItem::UnsignedInteger(_))
+                || matches!(b, StackItem::UnsignedInteger(_));
 
             if use_unsigned {
-                let x = self.coerce_item_to_u64(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
-                let y = self.coerce_item_to_u64(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
+                let x =
+                    self.coerce_item_to_u64(&a)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
+                let y =
+                    self.coerce_item_to_u64(&b)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
                 if self.strict_arithmetic {
                     x.$checked(y)
                         .map(StackItem::UnsignedInteger)
@@ -44,21 +50,25 @@ macro_rules! arithmetic_op {
                     Ok(StackItem::UnsignedInteger(x.$wrapping(y)))
                 }
             } else {
-                let x = self.coerce_item_to_i64(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
-                let y = self.coerce_item_to_i64(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
-                if self.strict_arithmetic {
-                    x.$checked(y)
-                        .map(StackItem::Integer)
+                let x =
+                    self.coerce_item_to_i64(&a)
                         .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
+                let y =
+                    self.coerce_item_to_i64(&b)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
+                if self.strict_arithmetic {
+                    x.$checked(y).map(StackItem::Integer).ok_or_else(|| {
+                        RuntimeError::ExecutionError {
                             message: format!(
                                 "Integer {} in {}: {} {} {}",
                                 $error_kind, $op_name, x, $op_sym, y
                             ),
-                        })
+                        }
+                    })
                 } else {
                     Ok(StackItem::Integer(x.$wrapping(y)))
                 }
@@ -74,16 +84,20 @@ macro_rules! arithmetic_op {
 macro_rules! divmod_op {
     ($fn_name:ident, $op_name:literal, $checked_fn:ident, $error_msg:literal) => {
         fn $fn_name(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-            let use_unsigned =
-                matches!(a, StackItem::UnsignedInteger(_)) || matches!(b, StackItem::UnsignedInteger(_));
+            let use_unsigned = matches!(a, StackItem::UnsignedInteger(_))
+                || matches!(b, StackItem::UnsignedInteger(_));
 
             if use_unsigned {
-                let x = self.coerce_item_to_u64(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
-                let y = self.coerce_item_to_u64(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
+                let x =
+                    self.coerce_item_to_u64(&a)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
+                let y =
+                    self.coerce_item_to_u64(&b)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
                 if y == 0 {
                     return Err(RuntimeError::ExecutionError {
                         message: $error_msg.to_string(),
@@ -98,25 +112,26 @@ macro_rules! divmod_op {
                         ),
                     })
             } else {
-                let x = self.coerce_item_to_i64(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
-                let y = self.coerce_item_to_i64(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: concat!("Invalid operands for ", $op_name).to_string(),
-                })?;
+                let x =
+                    self.coerce_item_to_i64(&a)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
+                let y =
+                    self.coerce_item_to_i64(&b)
+                        .ok_or_else(|| RuntimeError::ExecutionError {
+                            message: concat!("Invalid operands for ", $op_name).to_string(),
+                        })?;
                 if y == 0 {
                     return Err(RuntimeError::ExecutionError {
                         message: $error_msg.to_string(),
                     });
                 }
-                x.$checked_fn(y)
-                    .map(StackItem::Integer)
-                    .ok_or_else(|| RuntimeError::ExecutionError {
-                        message: format!(
-                            "Signed integer overflow in {}: {} / -1",
-                            $op_name, x
-                        ),
-                    })
+                x.$checked_fn(y).map(StackItem::Integer).ok_or_else(|| {
+                    RuntimeError::ExecutionError {
+                        message: format!("Signed integer overflow in {}: {} / -1", $op_name, x),
+                    }
+                })
             }
         }
     };
@@ -163,7 +178,7 @@ impl ExecutionContext {
         is_wide(a) || is_wide(b)
     }
 
-    fn coerce_item_to_i64(&self, item: &StackItem) -> Option<i64> {
+    pub(crate) fn coerce_item_to_i64(&self, item: &StackItem) -> Option<i64> {
         match item {
             StackItem::Integer(value) => Some(*value),
             StackItem::UnsignedInteger(value) => i64::try_from(*value).ok(),
@@ -187,7 +202,7 @@ impl ExecutionContext {
         }
     }
 
-    fn coerce_item_to_u64(&self, item: &StackItem) -> Option<u64> {
+    pub(crate) fn coerce_item_to_u64(&self, item: &StackItem) -> Option<u64> {
         match item {
             StackItem::UnsignedInteger(value) => Some(*value),
             StackItem::Integer(value) => {
@@ -216,10 +231,36 @@ impl ExecutionContext {
     }
 
     // Generate all arithmetic operations using the macros (narrow i64/u64 paths).
-    arithmetic_op!(add_stack_items_narrow, "ADD", "+", checked_add, wrapping_add, "overflow");
-    arithmetic_op!(sub_stack_items_narrow, "SUB", "-", checked_sub, wrapping_sub, "underflow");
-    arithmetic_op!(mul_stack_items_narrow, "MUL", "*", checked_mul, wrapping_mul, "overflow");
-    divmod_op!(div_stack_items_narrow, "DIV", checked_div, "Division by zero");
+    arithmetic_op!(
+        add_stack_items_narrow,
+        "ADD",
+        "+",
+        checked_add,
+        wrapping_add,
+        "overflow"
+    );
+    arithmetic_op!(
+        sub_stack_items_narrow,
+        "SUB",
+        "-",
+        checked_sub,
+        wrapping_sub,
+        "underflow"
+    );
+    arithmetic_op!(
+        mul_stack_items_narrow,
+        "MUL",
+        "*",
+        checked_mul,
+        wrapping_mul,
+        "overflow"
+    );
+    divmod_op!(
+        div_stack_items_narrow,
+        "DIV",
+        checked_div,
+        "Division by zero"
+    );
     divmod_op!(mod_stack_items_narrow, "MOD", checked_rem, "Modulo by zero");
 
     /// Encode a `BigInt` back as a `StackItem`, preserving signed-BigInt shape
@@ -255,32 +296,44 @@ impl ExecutionContext {
     /// guard (when applicable) panics before the caller observes an
     /// out-of-range value. `unchecked { }` blocks see the raw result shape.
     fn add_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for ADD".to_string(),
-        })?;
-        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for ADD".to_string(),
-        })?;
+        let x = self
+            .coerce_item_to_bigint(&a)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for ADD".to_string(),
+            })?;
+        let y = self
+            .coerce_item_to_bigint(&b)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for ADD".to_string(),
+            })?;
         Ok(Self::bigint_to_stack_item(x + y))
     }
 
     fn sub_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for SUB".to_string(),
-        })?;
-        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for SUB".to_string(),
-        })?;
+        let x = self
+            .coerce_item_to_bigint(&a)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for SUB".to_string(),
+            })?;
+        let y = self
+            .coerce_item_to_bigint(&b)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for SUB".to_string(),
+            })?;
         Ok(Self::bigint_to_stack_item(x - y))
     }
 
     fn mul_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for MUL".to_string(),
-        })?;
-        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for MUL".to_string(),
-        })?;
+        let x = self
+            .coerce_item_to_bigint(&a)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for MUL".to_string(),
+            })?;
+        let y = self
+            .coerce_item_to_bigint(&b)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for MUL".to_string(),
+            })?;
         Ok(Self::bigint_to_stack_item(x * y))
     }
 
@@ -289,12 +342,16 @@ impl ExecutionContext {
         a: StackItem,
         b: StackItem,
     ) -> Result<StackItem, RuntimeError> {
-        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for DIV".to_string(),
-        })?;
-        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for DIV".to_string(),
-        })?;
+        let x = self
+            .coerce_item_to_bigint(&a)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for DIV".to_string(),
+            })?;
+        let y = self
+            .coerce_item_to_bigint(&b)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for DIV".to_string(),
+            })?;
         if y == num_bigint::BigInt::from(0) {
             return Err(RuntimeError::ExecutionError {
                 message: "Division by zero".to_string(),
@@ -338,12 +395,16 @@ impl ExecutionContext {
     }
 
     fn mod_stack_items_wide(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
-        let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for MOD".to_string(),
-        })?;
-        let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-            message: "Invalid operands for MOD".to_string(),
-        })?;
+        let x = self
+            .coerce_item_to_bigint(&a)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for MOD".to_string(),
+            })?;
+        let y = self
+            .coerce_item_to_bigint(&b)
+            .ok_or_else(|| RuntimeError::ExecutionError {
+                message: "Invalid operands for MOD".to_string(),
+            })?;
         if y == num_bigint::BigInt::from(0) {
             return Err(RuntimeError::ExecutionError {
                 message: "Modulo by zero".to_string(),
@@ -354,7 +415,11 @@ impl ExecutionContext {
 
     /// Dispatch: if either operand is a wide ByteArray, take the BigInt path;
     /// otherwise preserve the existing narrow-i64 semantics.
-    fn add_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn add_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.add_stack_items_wide(a, b)
         } else {
@@ -362,7 +427,11 @@ impl ExecutionContext {
         }
     }
 
-    fn sub_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn sub_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.sub_stack_items_wide(a, b)
         } else {
@@ -370,7 +439,11 @@ impl ExecutionContext {
         }
     }
 
-    fn mul_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn mul_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.mul_stack_items_wide(a, b)
         } else {
@@ -378,7 +451,11 @@ impl ExecutionContext {
         }
     }
 
-    fn div_stack_items(&mut self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn div_stack_items(
+        &mut self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.div_stack_items_wide(a, b)
         } else {
@@ -390,7 +467,11 @@ impl ExecutionContext {
         }
     }
 
-    fn mod_stack_items(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn mod_stack_items(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.mod_stack_items_wide(a, b)
         } else {

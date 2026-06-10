@@ -1,3 +1,5 @@
+use super::*;
+
 impl NeoRuntime {
     /// Deploy contract and return address
     pub fn deploy_contract(

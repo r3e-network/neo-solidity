@@ -101,9 +101,14 @@ fn try_lower_resolved_builtin_call(
         let narrow_widths: Option<Vec<usize>> = args
             .iter()
             .map(|arg| match infer_type_from_expression(arg, ctx) {
-                Some(ValueType::Integer { bits, .. }) if matches!(bits, 8 | 16 | 32 | 64 | 128) => {
-                    Some(bits as usize)
-                }
+                // Bug #23 (packed variant): only UNSIGNED widths may take the
+                // zero-filling `coerce_to_fixed_bytes` fast path. Negative
+                // signed values need 0xff sign-extension, which the direct
+                // path's `emit_abi_fixed_buffer_signed` handles.
+                Some(ValueType::Integer {
+                    bits,
+                    signed: false,
+                }) if matches!(bits, 8 | 16 | 32 | 64 | 128) => Some(bits as usize),
                 _ => None,
             })
             .collect();

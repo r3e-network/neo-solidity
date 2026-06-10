@@ -1,9 +1,40 @@
+/// Canonical NeoVM stack-item type for a mapping-key value of the given
+/// Solidity type, or `None` when no canonicalization applies.
+///
+/// Real Neo N3's `StdLib.serialize` (BinarySerializer) embeds the stack-item
+/// type byte in the serialized form (`Buffer` = 0x30 vs `ByteString` = 0x28,
+/// `Integer` = 0x21, `Boolean` = 0x20), so two representations of the SAME
+/// Solidity value — e.g. a `bytes.concat(..)` result, which CAT leaves as a
+/// Buffer, vs an ABI `bytes` parameter, which is a ByteString — would derive
+/// DIFFERENT `keccak256(serialize(key) || slot)` storage slots: a write via
+/// one shape silently misses a read via the other. Mirror the SUBSTR slice
+/// fix (`src/ir/expressions/arrays.rs`, Task #95) and CONVERT every key to
+/// its canonical stack-item type before serializing.
+fn canonical_key_convert_target(key_type: &ValueType) -> Option<ir::ConvertTarget> {
+    match key_type {
+        ValueType::Integer { .. } => Some(ir::ConvertTarget::Integer),
+        ValueType::Boolean => Some(ir::ConvertTarget::Boolean),
+        ValueType::Address | ValueType::String | ValueType::ByteArray { .. } => {
+            Some(ir::ConvertTarget::ByteArray)
+        }
+        // Aggregates have no scalar canonical form and `Any` carries no type
+        // information — leave those untouched (pre-fix behaviour).
+        ValueType::Array(_)
+        | ValueType::Mapping { .. }
+        | ValueType::Struct { .. }
+        | ValueType::Any => None,
+    }
+}
+
 fn emit_serialize_key(
     bytecode: &mut Vec<u8>,
-    _key_type: &ValueType,
+    key_type: &ValueType,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
+    if let Some(target) = canonical_key_convert_target(key_type) {
+        emit_convert(bytecode, target);
+    }
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,

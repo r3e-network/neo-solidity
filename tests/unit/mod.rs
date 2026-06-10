@@ -5,7 +5,6 @@
 //! - parser_tests: Parsing and AST construction
 //! - semantic_tests: Semantic analysis and validation
 //! - codegen_tests: Code generation and bytecode emission
-//! - optimizer_tests: Optimization passes and transformations
 //! - runtime_tests: Runtime execution and memory management
 //! - integration_tests: End-to-end compilation workflows
 //! - ir_tests: IR (Intermediate Representation) lowering and analysis
@@ -15,7 +14,6 @@ pub mod codegen_tests;
 pub mod integration_tests;
 pub mod ir_tests;
 pub mod lexer_tests;
-pub mod optimizer_tests;
 pub mod parser_tests;
 pub mod runtime_tests;
 pub mod semantic_tests;

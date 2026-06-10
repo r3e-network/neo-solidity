@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn new_buffer(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn new_buffer(&mut self) -> Result<(), RuntimeError> {
         let len = self.pop_usize("NEWBUFFER")?;
         // Bound user-supplied length against memory_limit to prevent OOM DoS
         // from attacker-supplied bytecode (PUSHINT + NEWBUFFER). Mirrors the
@@ -15,7 +17,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::byte_array(vec![0u8; len]))
     }
 
-    fn memcpy_bytes(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn memcpy_bytes(&mut self) -> Result<(), RuntimeError> {
         // NeoVM MEMCPY stack order: [dst, dst_offset, src, src_offset, count]
         // (top-of-stack is `count`).
         let count = self.pop_usize("MEMCPY count")?;
@@ -62,14 +64,14 @@ impl ExecutionContext {
         }
     }
 
-    fn concat_bytes(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn concat_bytes(&mut self) -> Result<(), RuntimeError> {
         let b = Self::stack_item_to_bytes(self.pop_stack()?);
         let mut a = Self::stack_item_to_bytes(self.pop_stack()?);
         a.extend_from_slice(&b);
         self.push_stack(StackItem::byte_array(a))
     }
 
-    fn substr_bytes(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn substr_bytes(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("SUBSTR")?;
         let index = self.pop_usize("SUBSTR")?;
         let data = Self::stack_item_to_bytes(self.pop_stack()?);
@@ -81,7 +83,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::byte_array(data[index..index + count].to_vec()))
     }
 
-    fn left_bytes(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn left_bytes(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("LEFT")?;
         let data = Self::stack_item_to_bytes(self.pop_stack()?);
         if count > data.len() {
@@ -92,7 +94,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::byte_array(data[..count].to_vec()))
     }
 
-    fn right_bytes(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn right_bytes(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("RIGHT")?;
         let data = Self::stack_item_to_bytes(self.pop_stack()?);
         if count > data.len() {
@@ -102,5 +104,4 @@ impl ExecutionContext {
         }
         self.push_stack(StackItem::byte_array(data[data.len() - count..].to_vec()))
     }
-
 }

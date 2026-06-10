@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Task #50: mask a BigInt bitwise result to 256 bits and encode as a
     /// fixed-width (up to 32-byte) little-endian ByteArray. Returns narrow
@@ -25,18 +27,23 @@ impl ExecutionContext {
         // bytes and append a `0x00` sign-extension byte iff the MSB has its
         // high bit set, so `from_signed_bytes_le` decodes it as the positive
         // magnitude rather than a sign-extended negative. Task #118.
+        //
+        // The append must fire for 32-byte magnitudes too (values >= 2^255,
+        // e.g. `uint256(1) << 255`): the previous `bytes.len() < 32` guard
+        // skipped the sign byte exactly there, flipping such values negative
+        // and breaking `y == x` round-trips against the (positive) literal
+        // value model (`type(uint256).max` is a 33-byte positive item — see
+        // `ops_and_literals.rs`). The mask bounds the magnitude at 32 bytes,
+        // so the result is at most 33 bytes, matching the literal form.
         let (sign, mut bytes) = masked.to_bytes_le();
         debug_assert!(sign != Sign::Minus, "mask produced non-negative value");
-        if bytes.last().is_some_and(|b| b & 0x80 != 0) && bytes.len() < 32 {
+        if bytes.last().is_some_and(|b| b & 0x80 != 0) {
             bytes.push(0x00);
-        }
-        if bytes.len() > 32 {
-            bytes.truncate(32);
         }
         StackItem::byte_array(bytes)
     }
 
-    fn bitwise_not(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn bitwise_not(&self, value: StackItem) -> Result<StackItem, RuntimeError> {
         // Task #50: narrow scalars preserve existing i64/u64 semantics; wide
         // ByteArray operands route through BigInt and mask to 256 bits so
         // `~uint256(x)` returns `u256::MAX - x` instead of `!(x as u64)`.
@@ -57,17 +64,25 @@ impl ExecutionContext {
         }
     }
 
-    fn bitwise_and(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn bitwise_and(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         // Task #50: wide ByteArray pair routes through BigInt; other cases
         // keep their pre-existing narrow semantics for compat with the 137
         // passing fuzz tests.
         if self.cmp_needs_bigint_path(&a, &b) {
-            let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise AND".to_string(),
-            })?;
-            let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise AND".to_string(),
-            })?;
+            let x = self
+                .coerce_item_to_bigint(&a)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise AND".to_string(),
+                })?;
+            let y = self
+                .coerce_item_to_bigint(&b)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise AND".to_string(),
+                })?;
             return Ok(Self::u256_bigint_to_stack_item(x & y));
         }
         match (a, b) {
@@ -90,9 +105,7 @@ impl ExecutionContext {
                 Ok(StackItem::UnsignedInteger((x as u64) & y))
             }
             // Handle Boolean types - convert to integers for bitwise operations
-            (StackItem::Boolean(x), StackItem::Boolean(y)) => {
-                Ok(StackItem::Boolean(x && y))
-            }
+            (StackItem::Boolean(x), StackItem::Boolean(y)) => Ok(StackItem::Boolean(x && y)),
             (StackItem::Boolean(x), StackItem::Integer(y)) => {
                 let x_int = if x { 1i64 } else { 0i64 };
                 Ok(StackItem::Integer(x_int & y))
@@ -156,16 +169,20 @@ impl ExecutionContext {
         }
     }
 
-    fn bitwise_or(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn bitwise_or(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         // Task #50: accept ByteArray operands by routing through BigInt with a
         // 256-bit mask, so `uint256(2^63) | uint256(1)` no longer panics.
         if matches!(a, StackItem::ByteArray(_)) || matches!(b, StackItem::ByteArray(_)) {
-            let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise OR".to_string(),
-            })?;
-            let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise OR".to_string(),
-            })?;
+            let x = self
+                .coerce_item_to_bigint(&a)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise OR".to_string(),
+                })?;
+            let y = self
+                .coerce_item_to_bigint(&b)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise OR".to_string(),
+                })?;
             return Ok(Self::u256_bigint_to_stack_item(x | y));
         }
         match (a, b) {
@@ -179,16 +196,24 @@ impl ExecutionContext {
         }
     }
 
-    fn bitwise_xor(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn bitwise_xor(
+        &self,
+        a: StackItem,
+        b: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         // Task #50: accept ByteArray operands via the BigInt path with a
         // 256-bit mask, matching the new OR/NOT semantics.
         if matches!(a, StackItem::ByteArray(_)) || matches!(b, StackItem::ByteArray(_)) {
-            let x = self.coerce_item_to_bigint(&a).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise XOR".to_string(),
-            })?;
-            let y = self.coerce_item_to_bigint(&b).ok_or_else(|| RuntimeError::ExecutionError {
-                message: "Invalid operands for bitwise XOR".to_string(),
-            })?;
+            let x = self
+                .coerce_item_to_bigint(&a)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise XOR".to_string(),
+                })?;
+            let y = self
+                .coerce_item_to_bigint(&b)
+                .ok_or_else(|| RuntimeError::ExecutionError {
+                    message: "Invalid operands for bitwise XOR".to_string(),
+                })?;
             return Ok(Self::u256_bigint_to_stack_item(x ^ y));
         }
         match (a, b) {
@@ -208,7 +233,11 @@ impl ExecutionContext {
         matches!(item, StackItem::ByteArray(bytes) if bytes.borrow().len() > 8)
     }
 
-    fn shift_left(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn shift_left(
+        &self,
+        value: StackItem,
+        shift: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         let amount = self.extract_shift_amount(shift)?;
         // Task #H4: route through BigInt when either (a) LHS is a wide
         // ByteArray (would truncate to low 8 bytes), or (b) amount >= 64
@@ -222,9 +251,10 @@ impl ExecutionContext {
         }
         if Self::shift_lhs_is_wide(&value) || amount >= 64 {
             let x =
-                self.coerce_item_to_bigint(&value).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for shift left".to_string(),
-                })?;
+                self.coerce_item_to_bigint(&value)
+                    .ok_or_else(|| RuntimeError::ExecutionError {
+                        message: "Invalid operands for shift left".to_string(),
+                    })?;
             return Ok(Self::u256_bigint_to_stack_item(x << amount));
         }
         match value {
@@ -236,7 +266,11 @@ impl ExecutionContext {
         }
     }
 
-    fn shift_right(&self, value: StackItem, shift: StackItem) -> Result<StackItem, RuntimeError> {
+    pub(crate) fn shift_right(
+        &self,
+        value: StackItem,
+        shift: StackItem,
+    ) -> Result<StackItem, RuntimeError> {
         let amount = self.extract_shift_amount(shift)?;
         // Task #H4: route through BigInt when LHS is a wide ByteArray so
         // `uint256 x = (1 << 65) - 1; x >> 64` produces 1 instead of
@@ -247,9 +281,10 @@ impl ExecutionContext {
         }
         if Self::shift_lhs_is_wide(&value) {
             let x =
-                self.coerce_item_to_bigint(&value).ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for shift right".to_string(),
-                })?;
+                self.coerce_item_to_bigint(&value)
+                    .ok_or_else(|| RuntimeError::ExecutionError {
+                        message: "Invalid operands for shift right".to_string(),
+                    })?;
             return Ok(Self::u256_bigint_to_stack_item(x >> amount));
         }
         if amount >= 64 {

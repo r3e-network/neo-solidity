@@ -1,9 +1,13 @@
 //! Storage Key Tests
 //!
-//! Tests for storage key computation and derivation.
+//! Tests for storage key computation. The state-variable base slot is
+//! `SHA256(name)`; mapping-entry slots are derived on-chain per nesting
+//! level as `keccak256(StdLib.serialize(key) || slot)` and are therefore
+//! exercised end-to-end by the runtime/integration suites rather than here
+//! (the old `derive_mapping_slot`/`KeyFragment` off-chain API implemented a
+//! different scheme than the emitted bytecode and was removed).
 
-use neo_devpack_solidity::storage_key::{compute_state_slot, derive_mapping_slot, KeyFragment};
-use num_bigint::BigInt;
+use neo_devpack_solidity::storage_key::compute_state_slot;
 
 #[test]
 fn test_compute_state_slot_basic() {
@@ -29,52 +33,12 @@ fn test_compute_state_slot_different_names() {
 }
 
 #[test]
-fn test_derive_mapping_slot_basic() {
-    let base = compute_state_slot("balances");
-    let key = KeyFragment::address(vec![1u8; 20]);
-    let slot = derive_mapping_slot(&base, &[key]);
-    assert_eq!(slot.len(), 32);
-}
-
-#[test]
-fn test_derive_mapping_slot_different_keys() {
-    let base = compute_state_slot("balances");
-    let key1 = KeyFragment::address(vec![1u8; 20]);
-    let key2 = KeyFragment::address(vec![2u8; 20]);
-    let slot1 = derive_mapping_slot(&base, &[key1]);
-    let slot2 = derive_mapping_slot(&base, &[key2]);
-    assert_ne!(slot1, slot2);
-}
-
-#[test]
-fn test_derive_mapping_slot_nested() {
-    let base = compute_state_slot("allowances");
-    let owner = KeyFragment::address(vec![1u8; 20]);
-    let spender = KeyFragment::address(vec![2u8; 20]);
-    let slot = derive_mapping_slot(&base, &[owner, spender]);
-    assert_eq!(slot.len(), 32);
-}
-
-#[test]
-fn test_key_fragment_integer() {
-    let base = compute_state_slot("data");
-    let key = KeyFragment::uint256(BigInt::from(42));
-    let slot = derive_mapping_slot(&base, &[key]);
-    assert_eq!(slot.len(), 32);
-}
-
-#[test]
-fn test_key_fragment_boolean() {
-    let base = compute_state_slot("flags");
-    let key = KeyFragment::boolean(true);
-    let slot = derive_mapping_slot(&base, &[key]);
-    assert_eq!(slot.len(), 32);
-}
-
-#[test]
-fn test_key_fragment_string() {
-    let base = compute_state_slot("names");
-    let key = KeyFragment::string("alice");
-    let slot = derive_mapping_slot(&base, &[key]);
-    assert_eq!(slot.len(), 32);
+fn test_compute_state_slot_known_digest() {
+    // SHA-256("balances") — pins the production base-slot derivation so an
+    // accidental hash/scheme change is caught at unit level.
+    let slot = compute_state_slot("balances");
+    assert_eq!(
+        hex::encode(slot),
+        "ca75286f2c7875b8b5d80d59c8bce4a640ce976b4e5e0b35116b682a029d5c33"
+    );
 }

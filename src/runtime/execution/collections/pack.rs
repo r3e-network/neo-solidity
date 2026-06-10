@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn pack_items(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pack_items(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("PACK")?;
         if count > self.stack.len() {
             return Err(RuntimeError::ExecutionError {
@@ -13,7 +15,7 @@ impl ExecutionContext {
         self.push_stack(StackItem::array(items))
     }
 
-    fn pack_map(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pack_map(&mut self) -> Result<(), RuntimeError> {
         let count = self.pop_usize("PACKMAP")?;
         if count.saturating_mul(2) > self.stack.len() {
             return Err(RuntimeError::ExecutionError {

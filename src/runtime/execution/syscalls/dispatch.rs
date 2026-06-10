@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_syscall(&mut self, id: [u8; 4]) -> Result<(), RuntimeError> {
+    pub(crate) fn handle_syscall(&mut self, id: [u8; 4]) -> Result<(), RuntimeError> {
         let name = match spec::SYSCALLS.get(&id) {
             Some(spec) => spec.name,
             None => {
@@ -33,4 +35,3 @@ impl ExecutionContext {
         })
     }
 }
-

@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_flow_exceptions(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_exceptions(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x38 => {
                 // ABORT

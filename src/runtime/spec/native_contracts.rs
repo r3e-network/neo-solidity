@@ -1,3 +1,5 @@
+use super::*;
+
 /// Known native contract hashes as pushed onto the VM stack (UInt160 internal
 /// little-endian byte order).
 pub static NATIVE_CONTRACTS: Lazy<HashMap<[u8; 20], NativeContractSpec>> = Lazy::new(|| {

@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Size of the last return buffer
     pub fn returndatasize(&self) -> usize {
@@ -58,4 +60,3 @@ impl ExecutionContext {
         &self.revert_payload
     }
 }
-

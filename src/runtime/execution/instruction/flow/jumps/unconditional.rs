@@ -1,5 +1,10 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_flow_jumps_unconditional(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_jumps_unconditional(
+        &mut self,
+        opcode: u8,
+    ) -> Result<bool, RuntimeError> {
         match opcode {
             0x21 => {
                 // NOP

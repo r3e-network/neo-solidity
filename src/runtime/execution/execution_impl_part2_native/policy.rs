@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_policy(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_policy(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             // ── Getters ──
             "getfeeperbyte" => StackItem::UnsignedInteger(self.policy_fee_per_byte),
@@ -19,7 +21,11 @@ impl ExecutionContext {
             }
             "getattributefee" => {
                 let attr_type = Self::extract_first_int(&params) as u8;
-                let fee = self.policy_attribute_fees.get(&attr_type).copied().unwrap_or(0);
+                let fee = self
+                    .policy_attribute_fees
+                    .get(&attr_type)
+                    .copied()
+                    .unwrap_or(0);
                 StackItem::UnsignedInteger(fee)
             }
 
@@ -100,10 +106,11 @@ impl ExecutionContext {
                     let fee = Self::stack_item_to_int(
                         borrowed.get(1).cloned().unwrap_or(StackItem::Null),
                     ) as u64;
-                    self.policy_whitelisted_fee_contracts.push(WhitelistedFeeContract {
-                        contract_hash: hash,
-                        max_fee: fee,
-                    });
+                    self.policy_whitelisted_fee_contracts
+                        .push(WhitelistedFeeContract {
+                            contract_hash: hash,
+                            max_fee: fee,
+                        });
                 }
                 StackItem::Null
             }

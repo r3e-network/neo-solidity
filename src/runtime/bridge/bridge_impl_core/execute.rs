@@ -1,3 +1,5 @@
+use super::*;
+
 impl VMBridge {
     /// Execute bytecode through the bridge
     pub fn execute(
@@ -48,7 +50,7 @@ impl VMBridge {
                             let changes = storage.commit(&account)?;
                             for change in changes {
                                 state_changes.push(StateChange {
-                                    change_type: super::StateChangeType::StorageChange,
+                                    change_type: crate::runtime::StateChangeType::StorageChange,
                                     account: account.clone(),
                                     key: Some(change.key),
                                     old_value: change.old_value,

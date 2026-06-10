@@ -1069,12 +1069,17 @@ contract Token {
     uint256 private _totalSupply;
     mapping(address => uint256) private _balances;
 
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+
     function totalSupply() external view returns (uint256) { return _totalSupply; }
     function balanceOf(address account) external view returns (uint256) { return _balances[account]; }
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(_balances[msg.sender] >= amount, "insufficient balance");
-        _balances[msg.sender] -= amount;
+    function transfer(address from, address to, uint256 amount, bytes calldata data) external returns (bool) {
+        data;
+        require(from == msg.sender, "bad from");
+        require(_balances[from] >= amount, "insufficient balance");
+        _balances[from] -= amount;
         _balances[to] += amount;
+        emit Transfer(from, to, amount);
         return true;
     }
     function mint(address to, uint256 amount) external {

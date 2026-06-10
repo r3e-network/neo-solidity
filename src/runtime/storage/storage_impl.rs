@@ -1,4 +1,6 @@
-include!("impl/manager.rs");
-include!("impl/helpers.rs");
-include!("impl/gas_costs.rs");
-include!("impl/query.rs");
+use super::*;
+
+mod gas_costs;
+mod helpers;
+mod manager;
+mod query;

@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_crypto_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
+    pub(crate) fn handle_crypto_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {
             "System.Crypto.CheckSig" => {
                 let sig_item = self.pop_stack()?;
@@ -67,4 +69,3 @@ impl ExecutionContext {
         }
     }
 }
-

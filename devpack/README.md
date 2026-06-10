@@ -130,7 +130,7 @@ devpack/
 │   └── Runtime.sol    # Runtime services
 └── examples/           # Complete contract examples
     ├── CompleteNEP17Token.sol # Full NEP-17 token (strict-manifest compatible)
-    ├── CompleteNEP11NFT.sol   # Full NEP-11 NFT (strict-manifest compatible)
+    ├── CompleteNEP11NFT.sol   # NEP-11 NFT (strict-manifest compatible; see STANDARDS_MAPPING.md for manifest-type deviations)
     └── VaultPattern.sol       # ERC-4626-style vault adapted for Neo N3
 ```
 
@@ -165,16 +165,24 @@ All are designed to compile with strict manifest flags (`--deny-wildcard-permiss
 
 #### Storage (`devpack/libraries/Storage.sol`)
 
-| Method              | Neo Syscall             | Description            |
-| ------------------- | ----------------------- | ---------------------- |
-| `get(bytes)`        | `System.Storage.Get`    | Read value by key      |
-| `put(bytes, bytes)` | `System.Storage.Put`    | Write key-value pair   |
-| `remove(bytes)`     | `System.Storage.Delete` | Delete key             |
-| `find(bytes)`       | `System.Storage.Find`   | Iterate keys by prefix |
+| Method                                          | Neo Syscall                          | Description               |
+| ----------------------------------------------- | ------------------------------------ | ------------------------- |
+| `get(bytes)`                                    | `System.Storage.Get`                 | Read value by key         |
+| `put(bytes, bytes)`                             | `System.Storage.Put`                 | Write key-value pair      |
+| `remove(bytes)`                                 | `System.Storage.Delete`              | Delete key                |
+| `find(bytes)`                                   | `System.Storage.Find`                | Iterate keys by prefix    |
+| `getContext()` / `getReadOnlyContext()`         | `System.Storage.Get[ReadOnly]Context`| Storage context handles   |
+| `asReadOnly(context)`                           | `System.Storage.AsReadOnly`          | Read-only context         |
+| `putContractMetadata(name, version, author, extra)` | `System.Storage.Put`            | Store contract metadata   |
 
-Additional helpers: `putUint256`, `getUint256`, `putAddress`, `getAddress`, `putString`,
-`getString`, `putBool`, `getBool`, `batchPut`, `batchGet`, `batchDelete`, `putSecure`,
-`getSecure`, `putWithExpiration`, `getWithExpiration`.
+These are the only supported `Storage` members. Earlier devpack revisions also
+documented typed helpers (`putUint256`, `getString`, ...), batch operations
+(`batchPut`, `batchGet`, `batchDelete`), prefix utilities (`count`,
+`findValues`, `findKeys`, `clearPrefix`, `exists`), and a `putLocal`/`getLocal`
+"local storage" API. None of these had faithful Neo N3 lowerings (the `*Local`
+family mapped to syscalls that do not exist on Neo N3), so they were removed
+and now fail compilation. Implement such helpers in contract code on top of
+`put`/`get`/`remove`/`find`; note Neo N3 storage is already contract-private.
 
 #### Syscalls (`devpack/contracts/Syscalls.sol`)
 

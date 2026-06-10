@@ -1,5 +1,10 @@
+use super::*;
+
 impl VMBridge {
-    fn shift_left_value(value: StackItem, shift: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn shift_left_value(
+        value: StackItem,
+        shift: StackItem,
+    ) -> Result<StackItem, VMBridgeError> {
         let amount = Self::extract_shift_amount(shift)?;
         match value {
             StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shl(amount))),
@@ -10,7 +15,10 @@ impl VMBridge {
         }
     }
 
-    fn shift_right_value(value: StackItem, shift: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn shift_right_value(
+        value: StackItem,
+        shift: StackItem,
+    ) -> Result<StackItem, VMBridgeError> {
         let amount = Self::extract_shift_amount(shift)?;
         match value {
             StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shr(amount))),

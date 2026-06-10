@@ -10,11 +10,14 @@ use super::{
 use std::collections::HashMap;
 use thiserror::Error;
 
-include!("bridge/bridge_types.rs");
-include!("bridge/bridge_impl_core.rs");
-include!("bridge/bridge_impl_arithmetic.rs");
-include!("bridge/bridge_impl_logic.rs");
-include!("bridge/bridge_impl_stack.rs");
-include!("bridge/bridge_impl_syscalls.rs");
-include!("bridge/bridge_impl_stack_items.rs");
-include!("bridge/bridge_helpers.rs");
+mod bridge_helpers;
+mod bridge_impl_arithmetic;
+mod bridge_impl_core;
+mod bridge_impl_stack_items;
+mod bridge_impl_syscalls;
+mod bridge_types;
+mod logic;
+mod stack;
+
+pub(crate) use bridge_helpers::*;
+pub use bridge_types::*;

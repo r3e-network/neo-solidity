@@ -266,5 +266,5 @@ fn native_method_has_return_value(contract: ir::NativeContract, method: &str) ->
 
 fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
     bytecode.push(0x41);
-    bytecode.extend_from_slice(&crate::codegen::interop_id_bytes(name));
+    bytecode.extend_from_slice(&crate::interop::interop_id_bytes(name));
 }

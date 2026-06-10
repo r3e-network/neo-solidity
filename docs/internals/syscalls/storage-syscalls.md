@@ -20,14 +20,15 @@ Storage syscalls provide persistent key-value state for contracts. Each contract
 | `System.Storage.Put`                |    1,000 | Write key-value pair              | `Syscalls.storagePut(ctx, key, val)`   |
 | `System.Storage.Delete`             |      100 | Delete key                        | `Syscalls.storageDelete(ctx, key)`     |
 | `System.Storage.Find`               |      100 | Find by prefix (returns iterator) | `Syscalls.storageFind(ctx, prefix)`    |
-| `System.Storage.Local.Get`          |      100 | Read from local context           | `Syscalls.storageGetLocal(key)`        |
-| `System.Storage.Local.Put`          |    1,000 | Write to local context            | `Syscalls.storagePutLocal(key, val)`   |
-| `System.Storage.Local.Delete`       |      100 | Delete from local context         | `Syscalls.storageDeleteLocal(key)`     |
-| `System.Storage.Local.Find`         |      100 | Find in local context             | `Syscalls.storageFindLocal(prefix)`    |
 
-## Local Storage
-
-Local storage (`System.Storage.Local.*`) is contract-private and cannot be read by other contracts even through `System.Storage.GetReadOnlyContext`. Use it for internal bookkeeping that should never be externally visible.
+::: warning No "Local" Storage Family
+Neo N3 registers only the seven `System.Storage.*` syscalls above. A previous
+devpack revision exposed `Syscalls.storage{Get,Put,Delete,Find}Local` wrappers
+mapped to fictional `System.Storage.Local.*` syscalls; those names are absent
+from Neo N3's interop table, so calls faulted on real nodes. The wrappers have
+been removed. Neo N3 storage contexts are already private to the owning
+contract, so the context-based wrappers provide the same isolation.
+:::
 
 ## Example Usage
 
@@ -57,5 +58,5 @@ contract TokenVault {
 ## Cost Guidance
 
 ::: tip Storage Cost Awareness
-`System.Storage.Put` costs 1,000 GAS units — 10x more expensive than `Get` or `Delete` (100 each). Minimize writes by batching updates and avoiding redundant puts. The `Storage.sol` library provides `batchPut()` for multi-key writes, but each individual put still incurs the full syscall cost.
+`System.Storage.Put` costs 1,000 GAS units — 10x more expensive than `Get` or `Delete` (100 each). Minimize writes by batching updates in contract logic and avoiding redundant puts; each individual put incurs the full syscall cost.
 :::

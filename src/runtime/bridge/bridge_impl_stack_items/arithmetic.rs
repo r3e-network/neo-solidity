@@ -1,7 +1,9 @@
+use super::*;
+
 impl VMBridge {
     // Arithmetic operations on stack items
 
-    fn add_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn add_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_add(y)))
@@ -21,7 +23,7 @@ impl VMBridge {
         }
     }
 
-    fn sub_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn sub_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_sub(y)))
@@ -35,7 +37,7 @@ impl VMBridge {
         }
     }
 
-    fn mul_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn mul_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 Ok(StackItem::Integer(x.wrapping_mul(y)))
@@ -49,7 +51,7 @@ impl VMBridge {
         }
     }
 
-    fn div_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn div_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 if y == 0 {
@@ -57,11 +59,11 @@ impl VMBridge {
                         message: "Division by zero".to_string(),
                     });
                 }
-                x.checked_div(y)
-                    .map(StackItem::Integer)
-                    .ok_or_else(|| VMBridgeError::StackOperationFailed {
+                x.checked_div(y).map(StackItem::Integer).ok_or_else(|| {
+                    VMBridgeError::StackOperationFailed {
                         message: format!("Signed integer overflow in DIV: {x} / {y}"),
-                    })
+                    }
+                })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
@@ -77,7 +79,7 @@ impl VMBridge {
         }
     }
 
-    fn mod_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
+    pub(crate) fn mod_stack_items(a: StackItem, b: StackItem) -> Result<StackItem, VMBridgeError> {
         match (a, b) {
             (StackItem::Integer(x), StackItem::Integer(y)) => {
                 if y == 0 {
@@ -85,11 +87,11 @@ impl VMBridge {
                         message: "Modulo by zero".to_string(),
                     });
                 }
-                x.checked_rem(y)
-                    .map(StackItem::Integer)
-                    .ok_or_else(|| VMBridgeError::StackOperationFailed {
+                x.checked_rem(y).map(StackItem::Integer).ok_or_else(|| {
+                    VMBridgeError::StackOperationFailed {
                         message: format!("Signed integer overflow in MOD: {x} % {y}"),
-                    })
+                    }
+                })
             }
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => {
                 if y == 0 {
@@ -105,7 +107,7 @@ impl VMBridge {
         }
     }
 
-    fn modmul_stack_items(
+    pub(crate) fn modmul_stack_items(
         a: StackItem,
         b: StackItem,
         modulus: StackItem,
@@ -140,7 +142,7 @@ impl VMBridge {
         Ok(StackItem::UnsignedInteger(result as u64))
     }
 
-    fn modpow_stack_items(
+    pub(crate) fn modpow_stack_items(
         base: StackItem,
         exponent: StackItem,
         modulus: StackItem,

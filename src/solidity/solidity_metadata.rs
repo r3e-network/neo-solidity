@@ -21,6 +21,10 @@ pub struct ContractMetadata {
     pub is_library: bool,
     pub methods: Vec<FunctionMetadata>,
     pub events: Vec<EventMetadata>,
+    /// Declared custom `error` definitions (contract-level, file-level, and
+    /// inherited). Consumed by IR lowering to compute EVM custom-error
+    /// selectors from the DECLARED parameter types.
+    pub errors: Vec<ErrorMetadata>,
     pub uses_storage: bool,
     pub state_variables: Vec<StateVariableMetadata>,
     pub structs: Vec<StructMetadata>,
@@ -126,6 +130,23 @@ pub struct EventParameter {
     pub ty: String,
     pub indexed: bool,
     pub neo_type: Option<NeoType>,
+}
+
+/// Declared custom `error` definition.
+#[derive(Debug, Clone)]
+pub struct ErrorMetadata {
+    pub name: String,
+    /// Declared parameters in declaration order.
+    pub parameters: Vec<ErrorParameterMetadata>,
+}
+
+/// One declared parameter of a custom `error`.
+#[derive(Debug, Clone)]
+pub struct ErrorParameterMetadata {
+    pub name: Option<String>,
+    /// Raw Solidity type string as written in the declaration (canonicalized
+    /// against enums/structs in scope at IR-lowering time).
+    pub ty: String,
 }
 
 #[derive(Debug, Clone)]

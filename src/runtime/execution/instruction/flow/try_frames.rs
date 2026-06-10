@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn dispatch_exception(&mut self, message: String) -> Result<(), RuntimeError> {
+    pub(crate) fn dispatch_exception(&mut self, message: String) -> Result<(), RuntimeError> {
         self.uncaught_exception = Some(message.clone());
 
         loop {
@@ -73,7 +75,7 @@ impl ExecutionContext {
         }
     }
 
-    fn execute_flow_try_frames(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_try_frames(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x3B => {
                 // TRY CatchOffset(sbyte) FinallyOffset(sbyte)
@@ -231,11 +233,8 @@ impl ExecutionContext {
                 }
 
                 let end_offset = self.read_i32_offset("ENDTRY_L")?;
-                let end_target = self.compute_offset_target(
-                    "ENDTRY_L",
-                    self.instruction_pointer,
-                    end_offset,
-                )?;
+                let end_target =
+                    self.compute_offset_target("ENDTRY_L", self.instruction_pointer, end_offset)?;
 
                 let finally_target = self.try_stack.last().and_then(|frame| frame.finally_target);
 
@@ -267,9 +266,10 @@ impl ExecutionContext {
 
                     self.instruction_pointer = end_target;
                 } else {
-                    let message = self.uncaught_exception.clone().unwrap_or_else(|| {
-                        "Unhandled exception".to_string()
-                    });
+                    let message = self
+                        .uncaught_exception
+                        .clone()
+                        .unwrap_or_else(|| "Unhandled exception".to_string());
                     self.dispatch_exception(message)?;
                 }
             }

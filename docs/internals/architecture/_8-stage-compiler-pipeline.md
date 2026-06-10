@@ -76,7 +76,7 @@ This metadata drives manifest generation (ABI, supported standards) and informs 
 
 ## Stage 3: Semantic Analysis
 
-**Module:** `src/semantic.rs`
+**Module:** `src/solidity/validate/`
 
 Performs type checking and validation on the parsed AST using the extracted metadata.
 
@@ -134,44 +134,39 @@ Errors at this stage produce `E3xxx` codegen error codes (specifically `E3001 Un
 
 ## Stage 6: Optimizer
 
-**Module:** `src/optimizer.rs`, `src/optimizer/`
+**Module:** `src/cli/ir_optimize.rs`, `src/cli/ir_optimize/`
 
 A multi-level optimization pipeline that transforms the IR to reduce bytecode size and improve execution efficiency.
 
 ### Optimization Levels
 
-| Level | Passes                                                                                       | Description                                                  |
-| ----- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `-O0` | None                                                                                         | No optimization. IR is emitted directly. Best for debugging. |
-| `-O1` | Constant folding                                                                             | Evaluate constant expressions at compile time.               |
-| `-O2` | Constant folding, dead code elimination                                                      | Also remove unreachable code after returns. Default level.   |
-| `-O3` | Constant folding, dead code elimination, function inlining, common subexpression elimination | Maximum optimization. Smallest bytecode.                     |
+| Level | Passes                                                                       | Description                                                  |
+| ----- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `-O0` | None                                                                         | No optimization. IR is emitted directly. Best for debugging. |
+| `-O1` | Unreachable-tail pruning                                                     | Drop instructions after a terminal return/jump.              |
+| `-O2` | `-O1` + constant folding                                                     | Also fold constant binary ops and constant branches. Default level. |
+| `-O3` | `-O2` + NeoVM peephole, label dedup, trivial-jump removal, identity simplification | Maximum optimization. Smallest bytecode.                     |
 
 ### Optimization Passes
 
-**Constant Folding** (`src/optimizer/constant_folding.rs`)
+**Unreachable-Tail Pruning** (`src/cli/ir_optimize/optimize.rs`)
 
-Evaluates expressions with known constant operands at compile time. For example, `2 + 3` becomes `5` in the IR, eliminating runtime computation.
+Removes instructions that appear after a terminal `return`/unconditional jump
+in a basic block, re-running label-reachability analysis so newly
+unreferenced targets are also elided.
 
-**Dead Code Elimination** (`src/optimizer/dead_code.rs`)
+**Constant Folding** (`src/cli/ir_optimize/constant_folding.rs`)
 
-Removes unreachable code paths:
+Evaluates expressions with known constant operands at compile time (`2 + 3`
+becomes `5`) and folds `PushLit(const); JumpIf` into an unconditional jump or
+a no-op so dead branches disappear. Folds whose result would exceed
+`MAX_FOLDED_LITERAL_BITS` are left for the runtime to evaluate.
 
-- Code after unconditional `return` statements
-- Branches that can never be taken (when the condition is a compile-time constant)
-- Unused internal functions (when no call site exists)
+**NeoVM Peephole Suite** (`src/cli/ir_optimize/neovm.rs`, `labels.rs`)
 
-**Function Inlining** (`src/optimizer/inlining.rs`)
-
-Replaces function call sites with the function body for small functions. The inline threshold is 50 AST nodes by default. Inlining eliminates `CALL`/`RET` overhead (512 gas per call) at the cost of larger bytecode.
-
-**Common Subexpression Elimination** (`src/optimizer/cse.rs`)
-
-Identifies repeated computations and replaces them with a single computation stored in a local variable.
-
-::: info
-Additional passes exist in the optimizer directory (`strength.rs`, `loops.rs`, `gas.rs`) for strength reduction, loop optimizations, and gas-aware transformations. These are wired into the dispatch logic at appropriate optimization levels.
-:::
+At `-O3`: NeoVM-specific peephole rewrites, identity-operation
+simplification (`x + 0`, `x * 1`, `x ^ x`), boolean simplifications, label
+deduplication, trivial-jump removal, and jump retargeting.
 
 ### Optimization Statistics
 

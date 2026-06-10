@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_neo(&mut self, method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_neo(&mut self, method: &str, params: StackItem) -> StackItem {
         match method {
             "symbol" => StackItem::byte_array(b"NEO".to_vec()),
             "decimals" => StackItem::UnsignedInteger(0),
@@ -45,8 +47,7 @@ impl ExecutionContext {
                         if let Some(balance) =
                             self.neo_balances.get(acc.borrow().as_slice()).copied()
                         {
-                            let height =
-                                self.block_height.unwrap_or(self.default_block_height);
+                            let height = self.block_height.unwrap_or(self.default_block_height);
                             return StackItem::array(vec![
                                 StackItem::UnsignedInteger(balance),
                                 StackItem::UnsignedInteger(height),

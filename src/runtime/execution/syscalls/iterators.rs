@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_iterator_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
+    pub(crate) fn handle_iterator_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
         match name {
             "System.Iterator.Next" => {
                 let token = self.pop_stack()?;
@@ -36,4 +38,3 @@ impl ExecutionContext {
         }
     }
 }
-

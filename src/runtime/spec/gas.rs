@@ -1,3 +1,5 @@
+use super::*;
+
 /// Syscall gas cost table based on Neo N3 fee schedule.
 /// Note: Some syscalls use approximate costs; see Neo N3 documentation for exact values.
 pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
@@ -43,9 +45,7 @@ pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
             "System.Crypto.CheckSig" | "System.Crypto.CheckMultisig" => 1_000,
             // Contract / native calls
             "System.Contract.Call" | "System.Contract.GetCallFlags" => 10,
-            "System.Contract.CreateStandardAccount" | "System.Contract.CreateMultisigAccount" => {
-                10
-            }
+            "System.Contract.CreateStandardAccount" | "System.Contract.CreateMultisigAccount" => 10,
             _ => 1,
         };
         m.insert(spec.id, gas);

@@ -1,6 +1,6 @@
 /// Parse Solidity source into [`ContractIR`] values.
 pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
-    let (source_unit, comments) = parse(source, 0)
+    let (source_unit, comments) = parse_solidity_guarded(source)
         .map_err(|diags| FrontendError::Parse(format_diagnostics(source, &diags)))?;
 
     // Build a map of end positions to preceding doc comments
@@ -12,6 +12,10 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
         std::collections::HashMap::new();
     let mut file_level_structs: Vec<StructIR> = Vec::new();
     let mut file_level_enums: Vec<EnumIR> = Vec::new();
+    // File-scope custom `error` declarations (Solidity 0.8.4+). Merged into
+    // every contract so revert-site lowering can resolve the declared
+    // signature regardless of where the error was declared.
+    let mut file_level_errors: Vec<ErrorIR> = Vec::new();
     // Task #187 — collect file-scope free functions (Solidity 0.7+). A free
     // function like `function helper(uint a, uint b) pure returns (uint) { ... }`
     // declared outside any contract is conceptually internal to every contract
@@ -66,6 +70,9 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
             }
             SourceUnitPart::EnumDefinition(def) => {
                 file_level_enums.push(convert_enum(*def));
+            }
+            SourceUnitPart::ErrorDefinition(def) => {
+                file_level_errors.push(convert_error(*def));
             }
             SourceUnitPart::FunctionDefinition(def) => {
                 // Task #187 — file-scope free function. Free functions are
@@ -128,6 +135,22 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                     .any(|existing| existing.name == file_enum.name)
                 {
                     contract.enums.push(file_enum.clone());
+                }
+            }
+        }
+    }
+
+    // Inject file-level custom errors into every contract in the file.
+    // Contract-scope declarations shadow same-named file-scope ones.
+    if !file_level_errors.is_empty() {
+        for contract in &mut contracts {
+            for file_error in &file_level_errors {
+                if !contract
+                    .errors
+                    .iter()
+                    .any(|existing| existing.name == file_error.name)
+                {
+                    contract.errors.push(file_error.clone());
                 }
             }
         }

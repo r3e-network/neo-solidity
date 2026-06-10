@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Read from memory, expanding zero-initialized regions as needed
     pub fn read_memory(&mut self, address: usize, length: usize) -> Result<&[u8], RuntimeError> {
@@ -62,4 +64,3 @@ impl ExecutionContext {
         self.memory.len()
     }
 }
-

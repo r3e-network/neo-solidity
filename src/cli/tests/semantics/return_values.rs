@@ -208,13 +208,15 @@ fn named_return_array_defaults_to_empty_array() {
     let result = execute_bytecode(&artifacts[0].bytecode);
     assert!(result.is_success(), "expected execution to succeed");
 
-    let json: Value =
-        serde_json::from_slice(&result.return_data).expect("expected JSON-encoded StackItem");
-    assert_eq!(json["type"], "Array");
+    // Externally-callable array returns are abi-encoded into canonical
+    // bytes (`offset=0x20 || length=0`) — the implicit named-return path
+    // now matches the explicit `return out;` shape instead of leaking the
+    // raw StackItem::Array as serde_json.
+    let mut expected = vec![0u8; 64];
+    expected[31] = 0x20;
     assert_eq!(
-        json["value"].as_array().map(|v| v.len()),
-        Some(0),
-        "expected default-initialized dynamic array to be empty"
+        result.return_data, expected,
+        "expected abi-encoded empty dynamic array (offset || length=0)"
     );
 }
 
@@ -282,12 +284,16 @@ fn enum_dynamic_array_allocation_is_supported() {
     let result = execute_bytecode(&artifact.bytecode);
     assert!(result.is_success(), "expected execution to succeed");
 
-    let json: Value =
-        serde_json::from_slice(&result.return_data).expect("expected JSON-encoded StackItem");
-    assert_eq!(json["type"], "Array");
-    assert_eq!(json["value"].as_array().map(|v| v.len()), Some(2));
-    assert_eq!(json["value"][0]["type"], "Integer");
-    assert_eq!(json["value"][0]["value"].as_i64(), Some(0));
-    assert_eq!(json["value"][1]["type"], "Integer");
-    assert_eq!(json["value"][1]["value"].as_i64(), Some(2));
+    // Externally-callable array returns are abi-encoded into canonical
+    // bytes: `offset=0x20 || length=2 || 0 || 2` (the implicit named-return
+    // path now matches the explicit `return out;` shape).
+    let mut expected = vec![0u8; 128];
+    expected[31] = 0x20;
+    expected[63] = 2;
+    expected[95] = 0; // Stage.Pending
+    expected[127] = 2; // Stage.Closed
+    assert_eq!(
+        result.return_data, expected,
+        "expected abi-encoded Stage[] (offset || length || elements)"
+    );
 }

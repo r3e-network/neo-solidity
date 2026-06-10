@@ -1,6 +1,10 @@
-include!("flow/dispatch.rs");
-include!("flow/jumps.rs");
-include!("flow/calls.rs");
-include!("flow/exceptions.rs");
-include!("flow/try_frames.rs");
-include!("flow/returns.rs");
+use super::*;
+
+mod calls;
+mod dispatch;
+mod exceptions;
+mod jumps;
+mod returns;
+mod try_frames;
+
+pub(crate) use calls::*;

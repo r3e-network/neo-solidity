@@ -186,8 +186,19 @@ fn build_call_graph(functions: &[Function]) -> HashMap<String, Vec<String>> {
             .iter()
             .flat_map(|block| block.instructions.iter())
         {
-            if let Instruction::CallFunction { name, .. } = instr {
-                callees.push(name.clone());
+            match instr {
+                Instruction::CallFunction { name, .. } => callees.push(name.clone()),
+                // Task #186 function pointers: taking a function's address
+                // (`PushFunctionOffset`) makes it invocable through
+                // `CallIndirect` (CALLA), which carries no static callee.
+                // Conservatively treat the address-taken function as a callee
+                // of the function that takes its address so its hazards
+                // (storage writes, notifications, unsafe contract calls)
+                // propagate transitively — otherwise a `view` method calling
+                // a stateful function through a pointer is marked safe in the
+                // manifest while mutating storage at runtime.
+                Instruction::PushFunctionOffset { name } => callees.push(name.clone()),
+                _ => {}
             }
         }
         graph.insert(function.name.clone(), callees);

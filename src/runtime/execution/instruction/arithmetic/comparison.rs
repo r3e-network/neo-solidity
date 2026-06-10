@@ -1,5 +1,10 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_arithmetic_comparison(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_arithmetic_comparison(
+        &mut self,
+        opcode: u8,
+    ) -> Result<bool, RuntimeError> {
         match opcode {
             0xB3 => {
                 // NUMEQUAL

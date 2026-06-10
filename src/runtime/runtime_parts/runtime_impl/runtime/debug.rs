@@ -1,3 +1,5 @@
+use super::*;
+
 impl NeoRuntime {
     /// Enable debugging mode
     pub fn enable_debugging(&mut self) {
@@ -29,4 +31,3 @@ impl NeoRuntime {
             })
     }
 }
-

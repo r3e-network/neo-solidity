@@ -369,7 +369,41 @@ fn lower_return_statement(
             // `abi_encodePacked_small_width_matches_spec`) pin the raw-bytes
             // shape, so re-wrapping them would regress. Struct / mapping
             // single-value returns are out of scope until a harness exists.
-            if ctx.is_externally_callable() {
+            if !wrap_external_single_array_return_value(ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::Return);
+            return true;
+        }
+    } else {
+        let return_types = ctx.return_types().to_vec();
+        let return_slots = ctx.return_slots().to_vec();
+
+        if return_types.is_empty() {
+            instructions.push(Instruction::ReturnVoid);
+            return true;
+        }
+        return lower_implicit_return(&return_types, &return_slots, ctx, instructions);
+    }
+    false
+}
+
+/// Task #64/#137/#185 — wrap a single externally-callable ARRAY return
+/// value (already on the stack) into its EVM-canonical byte encoding.
+///
+/// Shared by the explicit `return expr;` path and the implicit named-return
+/// path so both produce the same on-stack shape for identical signatures
+/// (previously `returns (T[] memory x)` with an implicit return leaked the
+/// raw `StackItem::Array` while `return x;` emitted canonical bytes).
+///
+/// No-op (returns `true`) for internal functions and non-array /
+/// multi-value returns. Returns `false` only on a fatal lowering error
+/// (already recorded on `ctx`).
+fn wrap_external_single_array_return_value(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if ctx.is_externally_callable() {
                 let return_types = ctx.return_types().to_vec();
                 if return_types.len() == 1
                     && matches!(return_types.first(), Some(ValueType::Array(_)))
@@ -466,7 +500,6 @@ fn lower_return_statement(
                                         builtin: BuiltinCall::BytesConcat,
                                         arg_count: total_leaves,
                                     });
-                                    instructions.push(Instruction::Return);
                                     return true;
                                 }
                             }
@@ -485,19 +518,20 @@ fn lower_return_statement(
                         });
                     }
                 }
-            }
-            instructions.push(Instruction::Return);
-            return true;
-        }
-    } else {
-        let return_types = ctx.return_types().to_vec();
-        let return_slots = ctx.return_slots().to_vec();
+    }
+    true
+}
 
-        if return_types.is_empty() {
-            instructions.push(Instruction::ReturnVoid);
-            return true;
-        }
-
+/// Implicit `return;` (and the fall-off-end epilogue) for functions with
+/// named return variables: load each declared return slot and emit the
+/// shape matching the explicit-return path for the same signature.
+fn lower_implicit_return(
+    return_types: &[ValueType],
+    return_slots: &[Option<usize>],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    {
         if return_slots.iter().any(|slot| slot.is_none()) {
             ctx.record_error_with_suggestion(
                 "return without value requires named return variables for this function",
@@ -515,6 +549,12 @@ fn lower_return_statement(
                         instructions.push(Instruction::PushLiteral(LiteralValue::Null));
                     }
                 }
+            }
+            // Keep the implicit named-return shape identical to the
+            // explicit `return x;` shape: externally-callable array
+            // returns are abi-encoded into canonical bytes.
+            if !wrap_external_single_array_return_value(ctx, instructions) {
+                return false;
             }
             instructions.push(Instruction::Return);
             return true;
@@ -589,9 +629,8 @@ fn lower_return_statement(
 
         instructions.push(Instruction::LoadLocal(tuple_local));
         instructions.push(Instruction::Return);
-        return true;
+        true
     }
-    false
 }
 
 /// Task #116 — true iff `expr` is `abi.decode(buf, types)` (with 2 args)
@@ -1145,6 +1184,83 @@ fn lower_and_flatten_revert_arg(
     1
 }
 
+/// Canonicalize a DECLARED error-parameter Solidity type string into its
+/// EVM-canonical ABI signature form, resolving enums (→ `uint8`) and
+/// struct names (→ tuple form) against the lowering context.
+///
+/// This is the declared-signature counterpart of
+/// `revert_arg_canonical_type`: where that function INFERS a type from a
+/// revert-site argument expression, this one normalizes the type string
+/// written in the `error Name(t1 a, t2 b);` declaration — which is what
+/// Solidity actually hashes for the selector
+/// (`keccak256("Name(uint8)")`, not `keccak256("Name(uint256)")`, for
+/// `error Name(uint8 code); revert Name(1);`).
+fn declared_error_param_canonical(raw: &str, ctx: &LoweringContext) -> String {
+    let cleaned = raw
+        .replace(" memory", "")
+        .replace(" calldata", "")
+        .replace(" storage", "")
+        .replace(" payable", "");
+    let compact: String = cleaned
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .collect();
+    // Canonicalize the base type and keep any array suffix verbatim
+    // (`uint[]` → `uint256[]`, `uint[3]` → `uint256[3]`).
+    if let Some(idx) = compact.find('[') {
+        let base = declared_error_param_canonical(&compact[..idx], ctx);
+        return format!("{}{}", base, &compact[idx..]);
+    }
+    match compact.as_str() {
+        "uint" => "uint256".to_string(),
+        "int" => "int256".to_string(),
+        "byte" => "bytes1".to_string(),
+        "payable" => "address".to_string(),
+        other => {
+            // Enums hash as uint8 per the Solidity ABI spec.
+            if ctx.enum_variant_map.contains_key(other) {
+                return "uint8".to_string();
+            }
+            // Struct params expand to their canonical tuple form
+            // `(t1,t2,...)` — same policy as the Task #181 inference path.
+            let name = other.rsplit('.').next().unwrap_or(other);
+            if let Some(struct_ty) = resolve_struct_type_by_name(ctx, name) {
+                return value_type_canonical_abi(&struct_ty);
+            }
+            other.to_string()
+        }
+    }
+}
+
+/// Resolve the canonical ABI argument-type list for a custom-error
+/// revert/require site.
+///
+/// Prefers the DECLARED `error` signature recorded in the lowering
+/// context's registry (matching what solc hashes); falls back to
+/// expression-type inference only when the error name was never declared
+/// (e.g. a qualified `Lib.Error` whose library declaration is not merged)
+/// or the argument count differs from the declaration.
+fn revert_error_arg_types(
+    error_name: &str,
+    args: &[Expression],
+    ctx: &LoweringContext,
+) -> Vec<String> {
+    let declared: Option<Vec<String>> = ctx
+        .error_signature(error_name)
+        .filter(|sig| sig.param_types.len() == args.len())
+        .map(|sig| sig.param_types.clone());
+    match declared {
+        Some(declared_types) => declared_types
+            .iter()
+            .map(|ty| declared_error_param_canonical(ty, ctx))
+            .collect(),
+        None => args
+            .iter()
+            .map(|arg| revert_arg_canonical_type(arg, ctx))
+            .collect(),
+    }
+}
+
 /// Compute the 4-byte keccak selector for a custom error signature.
 ///
 /// Signature form: `Name(t1,t2,...)` per Solidity's ABI spec.
@@ -1185,6 +1301,86 @@ fn error_string_literal_envelope(literal_bytes: &[u8]) -> Vec<u8> {
     out
 }
 
+/// True when a revert/require MESSAGE argument is string-typed: an inferred
+/// `string` expression, a string literal, or a `string.concat(...)` call.
+/// Shared predicate between `lower_revert_statement` and `lower_require`
+/// so both wrap dynamic string messages in the same `Error(string)`
+/// envelope.
+fn revert_message_arg_is_string(arg: &Expression, ctx: &LoweringContext) -> bool {
+    matches!(
+        infer_type_from_expression(arg, ctx),
+        Some(ValueType::String)
+    ) || matches!(arg, Expression::StringLiteral(_))
+        || matches!(
+            arg,
+            Expression::FunctionCall(_, func, _)
+                if matches!(
+                    func.as_ref(),
+                    Expression::MemberAccess(_, inner, member)
+                        if member.name == "concat"
+                            && matches!(
+                                inner.as_ref(),
+                                Expression::Type(_, solang_parser::pt::Type::String)
+                            )
+                )
+        )
+}
+
+/// Emit the EVM-canonical `Error(string)` revert envelope
+/// `keccak256("Error(string)")[..4] || abi.encode(msg)` for a DYNAMIC
+/// (non-literal) string message expression, followed by `Throw`.
+///
+/// Shared by `revert(msg)` and `require(cond, msg)` (Task #131 follow-up)
+/// so both produce the payload shape that `catch Error(string)` selector
+/// guards and Ethereum tooling expect — previously `require` with a
+/// non-literal message threw the bare string bytes, so
+/// `try this.f() catch Error(string)` silently missed it.
+///
+/// Returns `false` (leaving `instructions` unchanged) when the message
+/// expression cannot be lowered; callers fall back to their legacy paths.
+fn emit_error_string_envelope_throw(
+    arg: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let selector = revert_error_selector("Error", &["string".to_string()]);
+    let pre_len = instructions.len();
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+        selector.to_vec(),
+    )));
+    if let Some(ok) = lower_abi_encode_args_direct_from_slice(std::slice::from_ref(arg), ctx, instructions) {
+        if ok {
+            instructions.push(Instruction::CallBuiltin {
+                builtin: BuiltinCall::BytesConcat,
+                arg_count: 2,
+            });
+            instructions.push(Instruction::Throw);
+            return true;
+        }
+    }
+    instructions.truncate(pre_len);
+
+    if lower_expression(arg, ctx, instructions) {
+        let mut arg_instrs = instructions.split_off(pre_len);
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+            selector.to_vec(),
+        )));
+        instructions.append(&mut arg_instrs);
+        instructions.push(Instruction::CallBuiltin {
+            builtin: BuiltinCall::AbiEncode,
+            arg_count: 1,
+        });
+        instructions.push(Instruction::CallBuiltin {
+            builtin: BuiltinCall::BytesConcat,
+            arg_count: 2,
+        });
+        instructions.push(Instruction::Throw);
+        return true;
+    }
+    instructions.truncate(pre_len);
+    false
+}
+
 fn lower_revert_statement(
     ident: Option<&solang_parser::pt::IdentifierPath>,
     args: &[Expression],
@@ -1204,10 +1400,12 @@ fn lower_revert_statement(
         // `THROW` captures this byte string verbatim into
         // `ExecutionResult.return_data`, giving callers the same surface
         // Ethereum tooling expects for `revert Name(args...)`.
-        let arg_types: Vec<String> = args
-            .iter()
-            .map(|arg| revert_arg_canonical_type(arg, ctx))
-            .collect();
+        //
+        // The selector is computed from the DECLARED `error` signature when
+        // available (see `revert_error_arg_types`) — inferring from the
+        // argument expressions yielded e.g. `keccak("E(uint256)")` for
+        // `error E(uint8); revert E(1);`.
+        let arg_types = revert_error_arg_types(&name, args, ctx);
         let selector = revert_error_selector(&name, &arg_types);
 
         let direct_static_path = args.iter().all(|arg| is_direct_static_revert_arg(arg, ctx));
@@ -1326,61 +1524,10 @@ fn lower_revert_statement(
             instructions.push(Instruction::Throw);
             return true;
         }
-        let arg_is_string = matches!(
-            infer_type_from_expression(&args[0], ctx),
-            Some(ValueType::String)
-        ) || matches!(&args[0], Expression::StringLiteral(_))
-            || matches!(
-                &args[0],
-                Expression::FunctionCall(_, func, _)
-                    if matches!(
-                        func.as_ref(),
-                        Expression::MemberAccess(_, inner, member)
-                            if member.name == "concat"
-                                && matches!(
-                                    inner.as_ref(),
-                                    Expression::Type(_, solang_parser::pt::Type::String)
-                                )
-                    )
-            );
-        if arg_is_string {
-            let selector = revert_error_selector("Error", &["string".to_string()]);
-            let pre_len = instructions.len();
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                selector.to_vec(),
-            )));
-            if let Some(ok) =
-                lower_abi_encode_args_direct_from_slice(&[args[0].clone()], ctx, instructions)
-            {
-                if ok {
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::BytesConcat,
-                        arg_count: 2,
-                    });
-                    instructions.push(Instruction::Throw);
-                    return true;
-                }
-            }
-            instructions.truncate(pre_len);
-
-            if lower_expression(&args[0], ctx, instructions) {
-                let mut arg_instrs = instructions.split_off(pre_len);
-                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                    selector.to_vec(),
-                )));
-                instructions.append(&mut arg_instrs);
-                instructions.push(Instruction::CallBuiltin {
-                    builtin: BuiltinCall::AbiEncode,
-                    arg_count: 1,
-                });
-                instructions.push(Instruction::CallBuiltin {
-                    builtin: BuiltinCall::BytesConcat,
-                    arg_count: 2,
-                });
-                instructions.push(Instruction::Throw);
-                return true;
-            }
-            instructions.truncate(pre_len);
+        if revert_message_arg_is_string(&args[0], ctx)
+            && emit_error_string_envelope_throw(&args[0], ctx, instructions)
+        {
+            return true;
         }
         if lower_expression(&args[0], ctx, instructions) {
             instructions.push(Instruction::Throw);
@@ -1413,19 +1560,54 @@ fn lower_revert_named_args(
             .unwrap_or_default();
 
         // Task #27 (compiler slice) — named-args form mirrors the positional
-        // custom-error path: `selector(4) || abi.encode(args)`. Named args
-        // come in declaration order in the AST already, so we lower them
-        // left-to-right and let AbiEncode pack them identically to the
-        // positional form.
-        let arg_types: Vec<String> = args
-            .iter()
-            .map(|arg| revert_arg_canonical_type(&arg.expr, ctx))
-            .collect();
+        // custom-error path: `selector(4) || abi.encode(args)`.
+        //
+        // solang preserves SOURCE order for named arguments, so
+        // `revert E2({b: 2, a: 1})` arrives as [b, a] — the ABI encoding
+        // (and the hashed signature) must instead follow DECLARATION order.
+        // When the declared `error` signature is known, map each named
+        // argument to its declared parameter slot and lower in that order;
+        // otherwise keep the legacy source-order behavior. NOTE: reordering
+        // also reorders evaluation of the argument expressions — acceptable
+        // on a revert path, where the frame is unwinding anyway.
+        let mut ordered_args: Vec<solang_parser::pt::NamedArgument> = args.to_vec();
+        let mut declared_types: Option<Vec<String>> = None;
+        if let Some(sig) = ctx.error_signature(&name).cloned() {
+            if sig.param_names.len() == args.len()
+                && sig.param_names.iter().all(|param| param.is_some())
+            {
+                let mut reordered = Vec::with_capacity(args.len());
+                for param_name in sig.param_names.iter().flatten() {
+                    match args.iter().find(|arg| &arg.name.name == param_name) {
+                        Some(arg) => reordered.push(arg.clone()),
+                        None => {
+                            reordered.clear();
+                            break;
+                        }
+                    }
+                }
+                if reordered.len() == args.len() {
+                    ordered_args = reordered;
+                    declared_types = Some(sig.param_types.clone());
+                }
+            }
+        }
+        let arg_types: Vec<String> = match &declared_types {
+            Some(declared) => declared
+                .iter()
+                .map(|ty| declared_error_param_canonical(ty, ctx))
+                .collect(),
+            None => ordered_args
+                .iter()
+                .map(|arg| revert_arg_canonical_type(&arg.expr, ctx))
+                .collect(),
+        };
         let selector = revert_error_selector(&name, &arg_types);
 
         // Task #181 — named-args mirror of the positional custom-error
         // flatten. See `lower_revert_statement` for rationale.
-        let direct_args: Vec<Expression> = args.iter().map(|arg| arg.expr.clone()).collect();
+        let direct_args: Vec<Expression> =
+            ordered_args.iter().map(|arg| arg.expr.clone()).collect();
         let direct_pre_len = instructions.len();
         instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
             selector.to_vec(),
@@ -1457,7 +1639,7 @@ fn lower_revert_named_args(
         let pre_len = instructions.len();
         let mut flat_count = 0usize;
         let mut success = true;
-        for arg in args {
+        for arg in &ordered_args {
             let pushed = lower_and_flatten_revert_arg(&arg.expr, ctx, instructions);
             if pushed == 0 {
                 success = false;

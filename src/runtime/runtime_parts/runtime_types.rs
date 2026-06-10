@@ -1,11 +1,13 @@
+use super::*;
+
 /// Neo runtime for executing compiled Yul contracts
 #[derive(Debug)]
 pub struct NeoRuntime {
-    execution_context: execution::ExecutionContext,
-    state_manager: state::StateManager,
-    storage_manager: storage::StorageManager,
-    vm_bridge: bridge::VMBridge,
-    gas_tracker: execution::GasTracker,
+    pub(crate) execution_context: execution::ExecutionContext,
+    pub(crate) state_manager: state::StateManager,
+    pub(crate) storage_manager: storage::StorageManager,
+    pub(crate) vm_bridge: bridge::VMBridge,
+    pub(crate) gas_tracker: execution::GasTracker,
     /// Task #19: tracks whether `_deploy(null, false)` has been invoked
     /// on this runtime instance. `call_method` runs the deploy prologue
     /// exactly once so state-variable initializers populate storage
@@ -272,12 +274,16 @@ pub enum RuntimeError {
 impl RuntimeError {
     /// Create an execution error
     pub fn execution(msg: impl Into<String>) -> Self {
-        Self::ExecutionError { message: msg.into() }
+        Self::ExecutionError {
+            message: msg.into(),
+        }
     }
 
     /// Create a storage error
     pub fn storage(msg: impl Into<String>) -> Self {
-        Self::StorageError { message: msg.into() }
+        Self::StorageError {
+            message: msg.into(),
+        }
     }
 
     /// Check if this is a gas-related error
@@ -321,4 +327,3 @@ impl RuntimeStatistics {
         self.state_changes += other.state_changes;
     }
 }
-

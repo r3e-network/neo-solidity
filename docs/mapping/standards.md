@@ -29,14 +29,15 @@ ERC-like and compile successfully without being a canonical NEP implementation.
 ## Manifest Detection
 
 The compiler inspects public/external methods and events and populates
-`supportedstandards` in the manifest. Detection is intentionally permissive so
-that ERC-shaped contracts can be flagged and diagnosed:
+`supportedstandards` in the manifest. Detection requires the standard's
+method set plus a conformant `transfer` signature and `Transfer` event;
+ERC-shaped near-misses are flagged with diagnostics instead of advertised:
 
 | Standard | Current Auto-Detection Signal | Compliance Notes |
 | --- | --- | --- |
-| NEP-17 | `symbol`, `decimals`, `totalSupply`, `balanceOf`, `transfer`, and no `ownerOf` | Canonical NEP-17 still requires a 4-parameter transfer, Boolean return, and a 3-parameter `Transfer` event. Wrong arity is reported as a diagnostic. |
-| NEP-11 | `balanceOf`, `ownerOf`, plus one of `transfer`, `transferFrom`, or `tokensOf` | Full NEP-11 requires the common methods, `tokensOf`, the appropriate indivisible/divisible ownership surface, and a 4-parameter `Transfer` event. `properties` is optional in the NEP but included by the devpack full interface. |
-| NEP-24 | `royaltyInfo`; current compiler also treats `tokenURI` / `tokenUri` as metadata signals | `royaltyInfo(tokenId, royaltyToken, salePrice)` must return final royalty amounts. Devpack helpers may store basis points internally. |
+| NEP-17 | `symbol`, `decimals`, `totalSupply`, `balanceOf`, a 4-parameter `transfer(from, to, amount, data)`, a 3-parameter `Transfer` event, and no `ownerOf` | Canonical NEP-17 also requires a Boolean `transfer` return. A 2-parameter ERC-20 `transfer` produces a warning instead of a claim. |
+| NEP-11 | `symbol`, `decimals`, `totalSupply`, `balanceOf`, `tokensOf`, `ownerOf`, a 3-parameter `transfer(to, tokenId, data)`, and a 4-parameter `Transfer` event | `transferFrom` is ERC-721, not NEP-11 — ERC-721-shaped contracts are not advertised. `properties` is optional in the NEP but included by the devpack full interface. |
+| NEP-24 | A 3-parameter `royaltyInfo(tokenId, royaltyToken, salePrice)` | `tokenURI` / `tokenUri` is ERC-721 metadata and does not trigger NEP-24. `royaltyInfo` must return final royalty amounts; devpack helpers may store basis points internally. |
 | NEP-22 / 26 / 27 / 29 / 30 / 31 | Signature-based lifecycle/callback methods | These are additive. A token contract can advertise both a token standard and receiver/lifecycle standards. |
 
 ## Deployed ERC/EIP Mirror

@@ -3,29 +3,38 @@ pragma solidity ^0.8.19;
 
 /**
  * @title Neo N3 Storage Library
- * @dev Advanced storage operations for Neo N3 blockchain
+ * @dev Storage operations for Neo N3 blockchain
  * @author Jimmy <jimmy@r3e.network>
- * 
- * This library provides enhanced storage capabilities:
- * - Context-aware storage operations
- * - Iterator support for range queries
- * - Batch operations for efficiency
- * - Storage usage tracking
- * - Advanced key management
+ *
+ * `Storage` is a compiler intrinsic: the `neo-devpack-solidity` compiler
+ * lowers the members below directly to `System.Storage.*` syscalls. The
+ * Solidity bodies in this file exist for editor tooling (signatures/docs)
+ * and are never compiled. Only the members listed here are supported;
+ * calling anything else fails compilation with a diagnostic.
+ *
+ * Supported members:
+ * - getContext() / getReadOnlyContext() / asReadOnly(context)
+ * - put(key, value) / get(key) / remove(key) / find(prefix)
+ * - putContractMetadata(name, version, author, extra)
+ *
+ * Notes:
+ * - Neo N3 storage contexts are always private to the owning contract, so a
+ *   separate "local" storage API is unnecessary (the former `*Local` members
+ *   mapped to syscalls that do not exist on Neo N3 and were removed).
+ * - Higher-level helpers (batch operations, prefix counting/clearing, typed
+ *   put/get wrappers, ...) were removed because the compiler cannot lower
+ *   their loop bodies as intrinsics; implement them in contract code using
+ *   `put`/`get`/`remove`/`find` and iterator `next()`/`value()`.
  */
 
 import "../contracts/Syscalls.sol";
-import "../contracts/NativeCalls.sol";
-import "./Runtime.sol";
 
 library Storage {
     using Syscalls for *;
-    
+
     // Events for storage operations
-    event StorageInitialized(address indexed contract_);
     event StorageOperation(string indexed operation, bytes key, uint256 size);
-    event BatchStorageOperation(uint256 operations, uint256 totalSize);
-    
+
     // ========== Context ==========
 
     /**
@@ -34,7 +43,7 @@ library Storage {
     function getContext() internal view returns (Syscalls.StorageContext memory) {
         return Syscalls.getStorageContext();
     }
-    
+
     /**
      * @dev Get read-only storage context
      */
@@ -52,9 +61,9 @@ library Storage {
     {
         return Syscalls.storageAsReadOnly(context);
     }
-    
+
     // ========== Basic Storage Operations ==========
-    
+
     /**
      * @dev Store value by key
      */
@@ -64,7 +73,7 @@ library Storage {
 
         emit StorageOperation("PUT", key, value.length);
     }
-    
+
     /**
      * @dev Get value by key
      */
@@ -72,7 +81,7 @@ library Storage {
         Syscalls.StorageContext memory context = getReadOnlyContext();
         return Syscalls.storageGet(context, key);
     }
-    
+
     /**
      * @dev Remove value by key
      */
@@ -82,44 +91,9 @@ library Storage {
 
         emit StorageOperation("DELETE", key, 0);
     }
-    
-    /**
-     * @dev Check if key exists
-     */
-    function exists(bytes memory key) internal view returns (bool) {
-        bytes memory value = get(key);
-        return value.length > 0;
-    }
 
-    // ========== Local Storage Operations ==========
-
-    /**
-     * @dev Store value by key (local context)
-     */
-    function putLocal(bytes memory key, bytes memory value) internal {
-        Syscalls.storagePutLocal(key, value);
-
-        emit StorageOperation("PUT_LOCAL", key, value.length);
-    }
-
-    /**
-     * @dev Get value by key (local context)
-     */
-    function getLocal(bytes memory key) internal view returns (bytes memory) {
-        return Syscalls.storageGetLocal(key);
-    }
-
-    /**
-     * @dev Remove value by key (local context)
-     */
-    function removeLocal(bytes memory key) internal {
-        Syscalls.storageDeleteLocal(key);
-
-        emit StorageOperation("DELETE_LOCAL", key, 0);
-    }
-    
     // ========== Iterator Operations ==========
-    
+
     /**
      * @dev Find all keys with prefix
      */
@@ -128,692 +102,8 @@ library Storage {
         return Syscalls.storageFind(context, prefix);
     }
 
-    /**
-     * @dev Find all keys with prefix (local context)
-     */
-    function findLocal(bytes memory prefix) internal view returns (Iterator memory) {
-        return Syscalls.storageFindLocal(prefix);
-    }
-    
-    /**
-     * @dev Get all values with prefix
-     */
-    function findValues(bytes memory prefix) internal view returns (bytes[] memory values) {
-        Iterator memory iterator = find(prefix);
-        bytes[] memory temp = new bytes[](1000);
-        uint256 count = 0;
-
-        while (iterator.next() && count < 1000) {
-            temp[count] = iterator.value();
-            count++;
-        }
-
-        values = new bytes[](count);
-        for (uint256 i = 0; i < count; i++) {
-            values[i] = temp[i];
-        }
-    }
-
-    /**
-     * @dev Get all values with prefix (local context)
-     */
-    function findLocalValues(bytes memory prefix) internal view returns (bytes[] memory values) {
-        Iterator memory iterator = findLocal(prefix);
-        bytes[] memory temp = new bytes[](1000);
-        uint256 count = 0;
-
-        while (iterator.next() && count < 1000) {
-            temp[count] = iterator.value();
-            count++;
-        }
-
-        values = new bytes[](count);
-        for (uint256 i = 0; i < count; i++) {
-            values[i] = temp[i];
-        }
-    }
-    
-    /**
-     * @dev Get all keys with prefix
-     */
-    function findKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
-        Iterator memory iterator = find(prefix);
-        bytes[] memory temp = new bytes[](1000);
-        uint256 count = 0;
-
-        while (iterator.next() && count < 1000) {
-            temp[count] = iterator.currentKey;
-            count++;
-        }
-
-        keys = new bytes[](count);
-        for (uint256 i = 0; i < count; i++) {
-            keys[i] = temp[i];
-        }
-    }
-
-    /**
-     * @dev Get all keys with prefix (local context)
-     */
-    function findLocalKeys(bytes memory prefix) internal view returns (bytes[] memory keys) {
-        Iterator memory iterator = findLocal(prefix);
-        bytes[] memory temp = new bytes[](1000);
-        uint256 count = 0;
-
-        while (iterator.next() && count < 1000) {
-            temp[count] = iterator.currentKey;
-            count++;
-        }
-
-        keys = new bytes[](count);
-        for (uint256 i = 0; i < count; i++) {
-            keys[i] = temp[i];
-        }
-    }
-    
-    /**
-     * @dev Count entries with prefix
-     */
-    function count(bytes memory prefix) internal view returns (uint256) {
-        Iterator memory iterator = find(prefix);
-        uint256 total = 0;
-        
-        while (iterator.next()) {
-            total++;
-        }
-        
-        return total;
-    }
-
-    /**
-     * @dev Count entries with prefix (local context)
-     */
-    function countLocal(bytes memory prefix) internal view returns (uint256) {
-        Iterator memory iterator = findLocal(prefix);
-        uint256 total = 0;
-
-        while (iterator.next()) {
-            total++;
-        }
-
-        return total;
-    }
-    
-    // ========== Batch Operations ==========
-    
-    /**
-     * @dev Batch put operations
-     */
-    function batchPut(bytes[] memory keys, bytes[] memory values) internal {
-        require(keys.length == values.length, "Storage: array length mismatch");
-        require(keys.length > 0, "Storage: empty arrays");
-        require(keys.length <= 100, "Storage: too many operations");
-        
-        uint256 totalSize = 0;
-        
-        for (uint256 i = 0; i < keys.length; i++) {
-            put(keys[i], values[i]);
-            totalSize += values[i].length;
-        }
-        
-        emit BatchStorageOperation(keys.length, totalSize);
-    }
-    
-    /**
-     * @dev Batch get operations
-     */
-    function batchGet(bytes[] memory keys) internal view returns (bytes[] memory values) {
-        require(keys.length > 0, "Storage: empty array");
-        require(keys.length <= 100, "Storage: too many operations");
-        
-        values = new bytes[](keys.length);
-        
-        for (uint256 i = 0; i < keys.length; i++) {
-            values[i] = get(keys[i]);
-        }
-    }
-    
-    /**
-     * @dev Batch delete operations
-     */
-    function batchDelete(bytes[] memory keys) internal {
-        require(keys.length > 0, "Storage: empty array");
-        require(keys.length <= 100, "Storage: too many operations");
-        
-        for (uint256 i = 0; i < keys.length; i++) {
-            remove(keys[i]);
-        }
-        
-        emit BatchStorageOperation(keys.length, 0);
-    }
-    
-    // ========== Advanced Key Management ==========
-    
-    /**
-     * @dev Generate Solidity-compatible mapping key
-     */
-    function generateMappingKey(bytes memory slot, bytes memory key) internal pure returns (bytes memory) {
-        return abi.encode(keccak256(abi.encode(key, slot)));
-    }
-    
-    /**
-     * @dev Generate array element key
-     */
-    function generateArrayKey(bytes memory slot, uint256 index) internal pure returns (bytes memory) {
-        bytes32 baseSlot = keccak256(slot);
-        return abi.encode(bytes32(uint256(baseSlot) + index));
-    }
-    
-    /**
-     * @dev Generate nested mapping key
-     */
-    function generateNestedMappingKey(
-        bytes memory slot,
-        bytes memory key1,
-        bytes memory key2
-    ) internal pure returns (bytes memory) {
-        bytes32 innerSlot = keccak256(abi.encode(key1, slot));
-        return abi.encode(keccak256(abi.encode(key2, innerSlot)));
-    }
-    
-    /**
-     * @dev Generate prefixed key
-     */
-    function prefixKey(string memory prefix, bytes memory key) internal pure returns (bytes memory) {
-        return abi.encodePacked(prefix, key);
-    }
-    
-    // ========== Storage Patterns ==========
-    
-    /**
-     * @dev Store mapping value (Solidity mapping compatibility)
-     */
-    function setMapping(
-        bytes memory slot,
-        bytes memory key,
-        bytes memory value
-    ) internal {
-        bytes memory storageKey = generateMappingKey(slot, key);
-        put(storageKey, value);
-    }
-    
-    /**
-     * @dev Get mapping value
-     */
-    function getMapping(bytes memory slot, bytes memory key) internal view returns (bytes memory) {
-        bytes memory storageKey = generateMappingKey(slot, key);
-        return get(storageKey);
-    }
-    
-    /**
-     * @dev Store array element
-     */
-    function setArrayElement(
-        bytes memory slot,
-        uint256 index,
-        bytes memory value
-    ) internal {
-        bytes memory storageKey = generateArrayKey(slot, index);
-        put(storageKey, value);
-    }
-    
-    /**
-     * @dev Get array element
-     */
-    function getArrayElement(bytes memory slot, uint256 index) internal view returns (bytes memory) {
-        bytes memory storageKey = generateArrayKey(slot, index);
-        return get(storageKey);
-    }
-    
-    /**
-     * @dev Store array length
-     */
-    function setArrayLength(bytes memory slot, uint256 length) internal {
-        put(slot, abi.encode(length));
-    }
-    
-    /**
-     * @dev Get array length
-     */
-    function getArrayLength(bytes memory slot) internal view returns (uint256) {
-        bytes memory data = get(slot);
-        if (data.length == 0) return 0;
-        return abi.decode(data, (uint256));
-    }
-    
-    // ========== Storage Analytics ==========
-
-    /**
-     * @dev Estimate storage cost for operation
-     */
-    function estimateCost(uint256 dataSize) internal view returns (uint256) {
-        uint256 storagePrice = NativeCalls.getStoragePrice();
-        return dataSize * storagePrice;
-    }
-    
-    // ========== Utility Functions ==========
-    
-    /**
-     * @dev Clear all storage with prefix (expensive operation)
-     */
-    function clearPrefix(bytes memory prefix) internal {
-        bytes[] memory keys = findKeys(prefix);
-        uint256 i = 0;
-        while (i < keys.length) {
-            // Calculate batch size (max 100)
-            uint256 batchSize = keys.length - i;
-            if (batchSize > 100) {
-                batchSize = 100;
-            }
-            // Create batch
-            bytes[] memory batch = new bytes[](batchSize);
-            for (uint256 j = 0; j < batchSize; j++) {
-                batch[j] = keys[i + j];
-            }
-            batchDelete(batch);
-            i += batchSize;
-        }
-    }
-    
-    /**
-     * @dev Copy storage range
-     */
-    function copyRange(
-        bytes memory sourcePrefix,
-        bytes memory targetPrefix
-    ) internal {
-        bytes[] memory keys = findKeys(sourcePrefix);
-        bytes[] memory values = findValues(sourcePrefix);
-        
-        require(keys.length == values.length, "Storage: data corruption");
-        
-        bytes[] memory newKeys = new bytes[](keys.length);
-        
-        for (uint256 i = 0; i < keys.length; i++) {
-            // Replace prefix
-            newKeys[i] = abi.encodePacked(targetPrefix, keys[i][sourcePrefix.length:]);
-        }
-        
-        batchPut(newKeys, values);
-    }
-    
-    /**
-     * @dev Validate storage key format
-     */
-    function isValidKey(bytes memory key) internal pure returns (bool) {
-        return key.length > 0 && key.length <= 64; // Neo storage key limit
-    }
-    
-    /**
-     * @dev Compress storage value using RLE compression
-     *
-     * Encoding scheme (round-trip safe):
-     *   - Literal 0xFF byte  -> 0xFF 0xFF
-     *   - Run of N identical bytes B (N >= 4, or B == 0x00) -> 0xFF <N-1> B
-     *     (N-1 is stored so a single-byte run is never encoded as RLE by accident;
-     *      max representable run = 256 when the stored count byte is 0xFF, i.e. 255+1)
-     *   - All other bytes     -> emitted literally
-     */
-    function compress(bytes memory data) internal pure returns (bytes memory) {
-        if (data.length < 4) {
-            return data; // Too small to compress effectively
-        }
-
-        // Worst case: every byte is 0xFF -> doubles in size
-        bytes memory compressed = new bytes(data.length * 2);
-        uint256 compressedIndex = 0;
-        uint256 i = 0;
-
-        while (i < data.length) {
-            bytes1 currentByte = data[i];
-            uint256 runLength = 1;
-
-            // Count consecutive identical bytes (max 256 per RLE sequence)
-            while (i + runLength < data.length && data[i + runLength] == currentByte && runLength < 256) {
-                runLength++;
-            }
-
-            if (currentByte == 0xFF) {
-                // 0xFF bytes must always be escaped to avoid ambiguity during decompression.
-                // Emit each 0xFF as the two-byte escape sequence 0xFF 0xFF.
-                for (uint256 j = 0; j < runLength; j++) {
-                    compressed[compressedIndex++] = 0xFF;
-                    compressed[compressedIndex++] = 0xFF;
-                }
-            } else if (runLength >= 4 || currentByte == 0x00) {
-                // Use RLE for runs of 4+ or for 0x00 (common zero-padding)
-                compressed[compressedIndex++] = 0xFF; // Escape byte
-                compressed[compressedIndex++] = bytes1(uint8(runLength - 1)); // count - 1
-                compressed[compressedIndex++] = currentByte;
-            } else {
-                // Store literal bytes
-                for (uint256 j = 0; j < runLength; j++) {
-                    compressed[compressedIndex++] = currentByte;
-                }
-            }
-
-            i += runLength;
-        }
-
-        // Resize to actual compressed size
-        bytes memory result = new bytes(compressedIndex);
-        for (uint256 k = 0; k < compressedIndex; k++) {
-            result[k] = compressed[k];
-        }
-
-        return result;
-    }
-
-    /**
-     * @dev Decompress RLE-compressed storage value
-     *
-     * Decoding scheme (inverse of compress):
-     *   - 0xFF 0xFF         -> literal 0xFF byte
-     *   - 0xFF <count> <B>  -> (count+1) copies of byte B  (where B != 0xFF)
-     *   - any other byte    -> literal
-     */
-    function decompress(bytes memory compressedData) internal pure returns (bytes memory) {
-        if (compressedData.length == 0) {
-            return compressedData;
-        }
-
-        // Estimate maximum decompressed size
-        bytes memory decompressed = new bytes(compressedData.length * 256); // Worst case
-        uint256 decompressedIndex = 0;
-        uint256 i = 0;
-
-        while (i < compressedData.length) {
-            if (compressedData[i] == 0xFF && i + 1 < compressedData.length) {
-                if (compressedData[i + 1] == 0xFF) {
-                    // Escaped literal 0xFF
-                    decompressed[decompressedIndex++] = 0xFF;
-                    i += 2;
-                } else {
-                    // RLE sequence: 0xFF <count> <byte>
-                    require(i + 2 < compressedData.length, "Storage: truncated RLE sequence");
-                    uint256 runLength = uint256(uint8(compressedData[i + 1])) + 1;
-                    bytes1 value = compressedData[i + 2];
-
-                    for (uint256 j = 0; j < runLength; j++) {
-                        decompressed[decompressedIndex++] = value;
-                    }
-
-                    i += 3;
-                }
-            } else {
-                // Literal byte
-                decompressed[decompressedIndex++] = compressedData[i];
-                i++;
-            }
-        }
-
-        // Resize to actual decompressed size
-        bytes memory result = new bytes(decompressedIndex);
-        for (uint256 k = 0; k < decompressedIndex; k++) {
-            result[k] = decompressed[k];
-        }
-
-        return result;
-    }
-    
-    // ========== Advanced Storage Patterns ==========
-    
-    /**
-     * @dev Atomic storage update
-     */
-    function atomicUpdate(
-        bytes memory /*key*/,
-        function(bytes memory) internal pure returns (bytes memory) /*updateFunction*/
-    ) internal {
-        revert("Storage: atomicUpdate callback unsupported");
-    }
-    
-    /**
-     * @dev Conditional storage update
-     */
-    function conditionalPut(
-        bytes memory /*key*/,
-        bytes memory /*value*/,
-        function(bytes memory) internal pure returns (bool) /*condition*/
-    ) internal returns (bool) {
-        revert("Storage: conditionalPut callback unsupported");
-    }
-    
-    /**
-     * @dev Store with expiration (using block height)
-     */
-    function putWithExpiration(
-        bytes memory key,
-        bytes memory value,
-        uint256 expirationBlock
-    ) internal {
-        bytes memory wrappedValue = abi.encode(value, expirationBlock);
-        put(key, wrappedValue);
-    }
-    
-    /**
-     * @dev Get value with expiration check
-     */
-    function getWithExpiration(bytes memory key) internal view returns (bytes memory) {
-        bytes memory wrappedValue = get(key);
-        if (wrappedValue.length == 0) return "";
-        
-        (bytes memory value, uint256 expirationBlock) = abi.decode(wrappedValue, (bytes, uint256));
-        
-        if (block.number > expirationBlock) {
-            return ""; // Expired
-        }
-        
-        return value;
-    }
-    
-    /**
-     * @dev Clean expired entries
-     */
-    function cleanExpired(bytes memory prefix) internal {
-        Iterator memory iterator = find(prefix);
-        bytes[] memory expiredKeys = new bytes[](100);
-        uint256 expiredCount = 0;
-        
-        while (iterator.next() && expiredCount < 100) {
-            bytes memory value = iterator.value();
-            if (value.length >= 32) {
-                (, uint256 expirationBlock) = abi.decode(value, (bytes, uint256));
-                if (block.number > expirationBlock) {
-                    expiredKeys[expiredCount] = iterator.currentKey;
-                    expiredCount++;
-                }
-            }
-        }
-        
-        if (expiredCount > 0) {
-            bytes[] memory trimmed = new bytes[](expiredCount);
-            for (uint256 i = 0; i < expiredCount; i++) {
-                trimmed[i] = expiredKeys[i];
-            }
-            batchDelete(trimmed);
-        }
-    }
-    
-    // ========== Storage Optimization ==========
-    
-    /**
-     * @dev Pack multiple values into single storage slot
-     */
-    function packValues(bytes[] memory values) internal pure returns (bytes memory) {
-        return abi.encode(values);
-    }
-    
-    /**
-     * @dev Unpack multiple values from single storage slot
-     */
-    function unpackValues(bytes memory packedData) internal pure returns (bytes[] memory) {
-        return abi.decode(packedData, (bytes[]));
-    }
-    
-    /**
-     * @dev Store packed values
-     */
-    function putPacked(bytes memory key, bytes[] memory values) internal {
-        bytes memory packedData = packValues(values);
-        put(key, packedData);
-    }
-    
-    /**
-     * @dev Get unpacked values
-     */
-    function getPacked(bytes memory key) internal view returns (bytes[] memory) {
-        bytes memory packedData = get(key);
-        if (packedData.length == 0) {
-            return new bytes[](0);
-        }
-        return unpackValues(packedData);
-    }
-    
-    // ========== Specialized Storage Types ==========
-    
-    /**
-     * @dev Store uint256 value
-     */
-    function putUint256(bytes memory key, uint256 value) internal {
-        put(key, abi.encode(value));
-    }
-    
-    /**
-     * @dev Get uint256 value
-     */
-    function getUint256(bytes memory key) internal view returns (uint256) {
-        bytes memory data = get(key);
-        if (data.length == 0) return 0;
-        return abi.decode(data, (uint256));
-    }
-    
-    /**
-     * @dev Store address value
-     */
-    function putAddress(bytes memory key, address value) internal {
-        put(key, abi.encode(value));
-    }
-    
-    /**
-     * @dev Get address value
-     */
-    function getAddress(bytes memory key) internal view returns (address) {
-        bytes memory data = get(key);
-        if (data.length == 0) return address(0);
-        return abi.decode(data, (address));
-    }
-    
-    /**
-     * @dev Store string value
-     */
-    function putString(bytes memory key, string memory value) internal {
-        put(key, bytes(value));
-    }
-    
-    /**
-     * @dev Get string value
-     */
-    function getString(bytes memory key) internal view returns (string memory) {
-        bytes memory data = get(key);
-        return string(data);
-    }
-    
-    /**
-     * @dev Store boolean value
-     */
-    function putBool(bytes memory key, bool value) internal {
-        put(key, abi.encode(value));
-    }
-    
-    /**
-     * @dev Get boolean value
-     */
-    function getBool(bytes memory key) internal view returns (bool) {
-        bytes memory data = get(key);
-        if (data.length == 0) return false;
-        return abi.decode(data, (bool));
-    }
-    
-    // ========== Storage Security ==========
-    
-    /**
-     * @dev Secure storage with checksum
-     */
-    function putSecure(bytes memory key, bytes memory value) internal {
-        bytes32 checksum = keccak256(value);
-        bytes memory secureValue = abi.encode(value, checksum);
-        put(key, secureValue);
-    }
-    
-    /**
-     * @dev Get secure storage with validation
-     */
-    function getSecure(bytes memory key) internal view returns (bytes memory) {
-        bytes memory secureValue = get(key);
-        if (secureValue.length == 0) return "";
-        
-        (bytes memory value, bytes32 checksum) = abi.decode(secureValue, (bytes, bytes32));
-        
-        require(keccak256(value) == checksum, "Storage: data corruption detected");
-        return value;
-    }
-    
-    /**
-     * @dev Access control for storage keys
-     */
-    function putWithAccess(
-        bytes memory key,
-        bytes memory value,
-        address requiredSigner
-    ) internal {
-        require(Runtime.checkWitness(requiredSigner), "Storage: unauthorized access");
-        put(key, value);
-    }
-    
-    // ========== Storage Migration ==========
-    
-    /**
-     * @dev Migrate storage from old key format to new
-     */
-    function migrateKeys(
-        bytes memory /*oldPrefix*/,
-        bytes memory /*newPrefix*/,
-        function(bytes memory) internal pure returns (bytes memory) /*keyTransform*/
-    ) internal {
-        revert("Storage: migrateKeys callback unsupported");
-    }
-    
-    /**
-     * @dev Backup storage range
-     */
-    function backup(bytes memory prefix, bytes memory backupPrefix) internal {
-        copyRange(prefix, backupPrefix);
-    }
-    
-    /**
-     * @dev Restore storage from backup
-     */
-    function restore(bytes memory backupPrefix, bytes memory targetPrefix) internal {
-        copyRange(backupPrefix, targetPrefix);
-    }
-    
     // ========== Neo-Specific Extensions ==========
-    
-    /**
-     * @dev Store with Neo-compatible key encoding
-     */
-    function putNeoKey(bytes20 key, bytes memory value) internal {
-        put(abi.encode(key), value);
-    }
-    
-    /**
-     * @dev Get with Neo-compatible key encoding
-     */
-    function getNeoKey(bytes20 key) internal view returns (bytes memory) {
-        return get(abi.encode(key));
-    }
-    
+
     /**
      * @dev Store contract metadata
      */
@@ -825,28 +115,5 @@ library Storage {
     ) internal {
         bytes memory metadata = abi.encode(name, version, author, extra, block.timestamp);
         put("__CONTRACT_METADATA__", metadata);
-    }
-    
-    /**
-     * @dev Get contract metadata
-     */
-    function getContractMetadata() internal view returns (
-        string memory name,
-        string memory version,
-        string memory author,
-        bytes memory extra,
-        uint256 timestamp
-    ) {
-        bytes memory metadata = get("__CONTRACT_METADATA__");
-        if (metadata.length == 0) {
-            name = "";
-            version = "";
-            author = "";
-            extra = new bytes(0);
-            timestamp = 0;
-            return (name, version, author, extra, timestamp);
-        }
-        (name, version, author, extra, timestamp) = abi.decode(metadata, (string, string, string, bytes, uint256));
-        return (name, version, author, extra, timestamp);
     }
 }

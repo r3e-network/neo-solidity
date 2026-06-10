@@ -1,3 +1,5 @@
+use super::*;
+
 impl ExecutionContext {
     /// Get gas limit
     pub fn gas_limit(&self) -> u64 {
@@ -111,10 +113,7 @@ impl ExecutionContext {
     /// `handle_contract_call` uses to route `this.someFn()` self external
     /// calls to compiled method offsets. Populated from `manifest.abi.methods`
     /// by `NeoRuntime::call_method` before each invocation.
-    pub fn set_self_method_table(
-        &mut self,
-        table: Vec<(String, u32, u16)>,
-    ) {
+    pub fn set_self_method_table(&mut self, table: Vec<(String, u32, u16)>) {
         self.self_method_offsets.clear();
         self.self_method_arg_counts.clear();
         for (name, offset, arg_count) in table {
@@ -130,4 +129,3 @@ impl ExecutionContext {
         self.self_method_arg_counts.clear();
     }
 }
-

@@ -3,7 +3,7 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
-use crate::codegen::interop_id_bytes;
+use crate::interop::interop_id_bytes;
 
 /// Opcode metadata (lightweight – only what the runtime needs today).
 #[derive(Debug, Clone, Copy)]
@@ -58,10 +58,15 @@ impl NativeContractSpec {
     }
 }
 
-include!("spec/opcodes.rs");
-include!("spec/syscalls.rs");
-include!("spec/native_contracts.rs");
-include!("spec/gas.rs");
+mod gas;
+mod native_contracts;
+mod opcodes;
+mod syscalls;
+
+pub use gas::*;
+pub use native_contracts::*;
+pub use opcodes::*;
+pub use syscalls::*;
 
 #[cfg(test)]
 mod tests;

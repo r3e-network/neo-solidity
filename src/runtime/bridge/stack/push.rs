@@ -1,5 +1,7 @@
+use super::*;
+
 impl VMBridge {
-    fn handle_push0(
+    pub(crate) fn handle_push0(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -20,7 +22,7 @@ impl VMBridge {
         Ok(())
     }
 
-    fn handle_push1(
+    pub(crate) fn handle_push1(
         _bridge: &mut VMBridge,
         context: &mut execution::ExecutionContext,
         _state: &mut state::StateManager,
@@ -41,4 +43,3 @@ impl VMBridge {
         Ok(())
     }
 }
-

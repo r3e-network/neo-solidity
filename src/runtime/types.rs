@@ -11,9 +11,12 @@ pub use super::{
     RuntimeStatistics, StackFrame, StateChange, StateChangeType,
 };
 
-include!("types/types_value.rs");
-include!("types/types_wrappers.rs");
-include!("types/types_traits.rs");
+mod types_traits;
+mod types_value;
+mod types_wrappers;
+
+pub use types_value::*;
+pub use types_wrappers::*;
 
 #[cfg(test)]
 mod tests;

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Value type for runtime operations
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum RuntimeValue {
@@ -144,15 +146,13 @@ impl RuntimeValue {
             StackItem::Integer(i) => RuntimeValue::Integer(*i),
             StackItem::UnsignedInteger(u) => RuntimeValue::UnsignedInteger(*u),
             StackItem::ByteArray(bytes) => RuntimeValue::ByteString(bytes.borrow().clone()),
-            StackItem::Array(items) => {
-                RuntimeValue::Array(
-                    items
-                        .borrow()
-                        .iter()
-                        .map(RuntimeValue::from_stack_item)
-                        .collect(),
-                )
-            }
+            StackItem::Array(items) => RuntimeValue::Array(
+                items
+                    .borrow()
+                    .iter()
+                    .map(RuntimeValue::from_stack_item)
+                    .collect(),
+            ),
             StackItem::Map(map) => {
                 let mut converted = std::collections::HashMap::new();
                 for (k, v) in map.borrow().iter() {

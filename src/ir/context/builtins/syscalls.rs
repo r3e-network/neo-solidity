@@ -83,14 +83,10 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
         "storagePut" => Some(BuiltinCall::Syscall("System.Storage.Put".to_string())),
         "storageDelete" => Some(BuiltinCall::Syscall("System.Storage.Delete".to_string())),
         "storageFind" => Some(BuiltinCall::Syscall("System.Storage.Find".to_string())),
-        "storageGetLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Get".to_string())),
-        "storagePutLocal" => Some(BuiltinCall::Syscall("System.Storage.Local.Put".to_string())),
-        "storageDeleteLocal" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Delete".to_string(),
-        )),
-        "storageFindLocal" => Some(BuiltinCall::Syscall(
-            "System.Storage.Local.Find".to_string(),
-        )),
+        // `storage*Local` wrappers were removed: they lowered to fictional
+        // `System.Storage.Local.*` syscalls that Neo N3 nodes do not register,
+        // so every call would FAULT on-chain. Use the context-based
+        // `storageGet/Put/Delete/Find` wrappers instead.
         "checkWitness" => Some(BuiltinCall::Syscall(
             "System.Runtime.CheckWitness".to_string(),
         )),

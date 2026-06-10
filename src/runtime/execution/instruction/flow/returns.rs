@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn execute_flow_returns(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+    pub(crate) fn execute_flow_returns(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
         match opcode {
             0x40 => {
                 // RET
@@ -20,4 +22,3 @@ impl ExecutionContext {
         Ok(true)
     }
 }
-

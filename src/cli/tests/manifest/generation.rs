@@ -85,7 +85,12 @@ fn manifest_events_do_not_include_indexed_fields() {
 }
 
 #[test]
-fn manifest_event_struct_parameters_use_neo_array_type() {
+fn manifest_event_parameters_describe_notify_payload() {
+    // The emit lowering notifies the EVM-shape state array
+    // `[topic0, indexed..., data]`, and Neo nodes (>= 3.6 / HF_Basilisk)
+    // validate notifications against the manifest ABI by item count and
+    // type — so the manifest must declare exactly that payload, not the
+    // Solidity-declared parameter list.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -115,12 +120,12 @@ fn manifest_event_struct_parameters_use_neo_array_type() {
     let params = snapshot["parameters"]
         .as_array()
         .expect("event parameters array");
-    assert_eq!(params.len(), 1);
-    assert_eq!(
-        params[0]["type"],
-        Value::String("Array".to_string()),
-        "struct event parameters should map to Neo Array in manifest ABI"
-    );
+    // No indexed parameters: payload is [topic0, data].
+    assert_eq!(params.len(), 2, "expected [topic0, data], got {params:?}");
+    assert_eq!(params[0]["name"], Value::String("topic0".to_string()));
+    assert_eq!(params[0]["type"], Value::String("ByteArray".to_string()));
+    assert_eq!(params[1]["name"], Value::String("data".to_string()));
+    assert_eq!(params[1]["type"], Value::String("ByteArray".to_string()));
 }
 
 #[test]

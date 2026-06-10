@@ -30,7 +30,19 @@ fn supported_standards_flags_nep17() {
         had_modifier_epilogue: false,
     };
 
-    // NEP-17 requires all 5 methods: symbol, decimals, totalSupply, balanceOf, transfer
+    // NEP-17 requires all 5 methods (symbol, decimals, totalSupply,
+    // balanceOf, transfer) PLUS the conformant signatures: a 4-parameter
+    // `transfer(from, to, amount, data)` and a 3-parameter Transfer event.
+    let make_param = |name: &str, ty: &str, neo_type: NeoType| ParameterMetadata {
+        name: Some(name.to_string()),
+        ty: ty.to_string(),
+        neo_type: Some(neo_type),
+        storage: None,
+    };
+    let uint256 = || NeoType::Integer {
+        signed: false,
+        bits: 256,
+    };
     let mut methods = vec![
         build_method("balanceOf"),
         build_method("totalSupply"),
@@ -41,21 +53,10 @@ fn supported_standards_flags_nep17() {
             neo_name: "transfer".to_string(),
             kind: FunctionKind::Regular,
             parameters: vec![
-                ParameterMetadata {
-                    name: Some("to".to_string()),
-                    ty: "address".to_string(),
-                    neo_type: Some(NeoType::Address),
-                    storage: None,
-                },
-                ParameterMetadata {
-                    name: Some("amount".to_string()),
-                    ty: "uint256".to_string(),
-                    neo_type: Some(NeoType::Integer {
-                        signed: false,
-                        bits: 256,
-                    }),
-                    storage: None,
-                },
+                make_param("from", "address", NeoType::Address),
+                make_param("to", "address", NeoType::Address),
+                make_param("amount", "uint256", uint256()),
+                make_param("data", "bytes", NeoType::ByteArray { fixed_len: None }),
             ],
             return_parameters: vec![ParameterMetadata {
                 name: None,
@@ -75,7 +76,33 @@ fn supported_standards_flags_nep17() {
         },
     ];
 
-    let result = detect_supported_standards(&methods, &[]);
+    let events = vec![EventMetadata {
+        name: "Transfer".to_string(),
+        normalized_name: "transfer".to_string(),
+        parameters: vec![
+            EventParameter {
+                name: Some("from".to_string()),
+                ty: "address".to_string(),
+                indexed: true,
+                neo_type: Some(NeoType::Address),
+            },
+            EventParameter {
+                name: Some("to".to_string()),
+                ty: "address".to_string(),
+                indexed: true,
+                neo_type: Some(NeoType::Address),
+            },
+            EventParameter {
+                name: Some("amount".to_string()),
+                ty: "uint256".to_string(),
+                indexed: false,
+                neo_type: Some(uint256()),
+            },
+        ],
+        anonymous: false,
+    }];
+
+    let result = detect_supported_standards(&methods, &events);
     assert!(
         result.standards.iter().any(|s| s == "NEP-17"),
         "expected NEP-17 standard to be detected with all required methods"
@@ -83,10 +110,34 @@ fn supported_standards_flags_nep17() {
 
     // Adding extra methods should not affect detection
     methods.push(build_method("approve"));
-    let result_extra = detect_supported_standards(&methods, &[]);
+    let result_extra = detect_supported_standards(&methods, &events);
     assert!(
         result_extra.standards.iter().any(|s| s == "NEP-17"),
         "NEP-17 should still be detected with extra methods"
+    );
+
+    // A 2-parameter ERC-20 `transfer(to, amount)` must NOT be advertised as
+    // NEP-17 — wallets would invoke the 4-parameter spec signature and fail.
+    let mut erc20_methods = methods.clone();
+    erc20_methods.retain(|m| m.name != "transfer");
+    let mut erc20_transfer = build_method("transfer");
+    erc20_transfer.parameters = vec![
+        make_param("to", "address", NeoType::Address),
+        make_param("amount", "uint256", uint256()),
+    ];
+    erc20_methods.push(erc20_transfer);
+    let result_erc20 = detect_supported_standards(&erc20_methods, &events);
+    assert!(
+        !result_erc20.standards.iter().any(|s| s == "NEP-17"),
+        "2-parameter ERC-20 transfer must not be advertised as NEP-17"
+    );
+    assert!(
+        result_erc20.diagnostics.iter().any(|d| {
+            d.standard == "NEP-17"
+                && d.level == StandardsDiagnosticLevel::Warning
+                && d.message.contains("transfer")
+        }),
+        "expected a conformance warning for the ERC-20-shaped transfer"
     );
 }
 
@@ -109,11 +160,65 @@ fn supported_standards_flags_nep24() {
         had_modifier_epilogue: false,
     };
 
-    let methods = vec![build_method("tokenUri")];
+    // NEP-24's single mandatory method is `royaltyInfo(tokenId,
+    // royaltyToken, salePrice)` — a 3-parameter signature.
+    let mut royalty_info = build_method("royaltyInfo");
+    royalty_info.parameters = vec![
+        ParameterMetadata {
+            name: Some("tokenId".to_string()),
+            ty: "bytes32".to_string(),
+            neo_type: Some(NeoType::ByteArray {
+                fixed_len: Some(32),
+            }),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("royaltyToken".to_string()),
+            ty: "address".to_string(),
+            neo_type: Some(NeoType::Address),
+            storage: None,
+        },
+        ParameterMetadata {
+            name: Some("salePrice".to_string()),
+            ty: "uint256".to_string(),
+            neo_type: Some(NeoType::Integer {
+                signed: false,
+                bits: 256,
+            }),
+            storage: None,
+        },
+    ];
+    let methods = vec![royalty_info];
     let result = detect_supported_standards(&methods, &[]);
     assert!(
         result.standards.iter().any(|s| s == "NEP-24"),
-        "expected NEP-24 standard to be detected"
+        "expected NEP-24 standard to be detected for a 3-parameter royaltyInfo"
+    );
+
+    // `tokenURI` is ERC-721 metadata, NOT a NEP-24 trigger: advertising the
+    // royalty standard without royaltyInfo makes marketplaces call a
+    // nonexistent method.
+    let metadata_only = vec![build_method("tokenUri")];
+    let result_metadata = detect_supported_standards(&metadata_only, &[]);
+    assert!(
+        !result_metadata.standards.iter().any(|s| s == "NEP-24"),
+        "tokenURI alone must not advertise NEP-24"
+    );
+
+    // A royaltyInfo with the wrong arity must not be advertised either, but
+    // should produce an informational diagnostic.
+    let wrong_arity = vec![build_method("royaltyInfo")];
+    let result_wrong = detect_supported_standards(&wrong_arity, &[]);
+    assert!(
+        !result_wrong.standards.iter().any(|s| s == "NEP-24"),
+        "royaltyInfo with wrong arity must not advertise NEP-24"
+    );
+    assert!(
+        result_wrong
+            .diagnostics
+            .iter()
+            .any(|d| d.standard == "NEP-24" && d.message.contains("signature")),
+        "expected signature diagnostic for wrong-arity royaltyInfo"
     );
 }
 
@@ -227,20 +332,22 @@ fn near_miss_nep11_warns_ownerof_without_transfer() {
         had_modifier_epilogue: false,
     };
 
-    // ownerOf present but no transfer mechanism → near-miss
+    // ownerOf present but most of the NEP-11 surface missing → near-miss
+    // warning that lists the missing methods.
     let methods = vec![build_method("balanceOf"), build_method("ownerOf")];
     let result = detect_supported_standards(&methods, &[]);
     assert!(
         result.standards.is_empty(),
-        "should not detect NEP-11 without transfer mechanism"
+        "should not detect NEP-11 with an incomplete method set"
     );
     assert!(
         result.diagnostics.iter().any(|d| {
             d.standard == "NEP-11"
                 && d.level == StandardsDiagnosticLevel::Warning
-                && d.message.contains("transfer mechanism")
+                && d.message.contains("missing")
+                && d.message.contains("transfer")
         }),
-        "expected near-miss warning for NEP-11"
+        "expected near-miss warning for NEP-11 listing missing methods"
     );
 }
 
@@ -590,7 +697,9 @@ fn event_validation_warns_missing_transfer_event() {
         had_modifier_epilogue: false,
     };
 
-    // NEP-17 detected but no Transfer event → warning
+    // All NEP-17 method names present but no Transfer event → NOT detected
+    // (the manifest must never claim a standard the contract cannot fulfil)
+    // and a conformance warning explains what is missing.
     let methods = vec![
         build_method("balanceOf"),
         build_method("totalSupply"),
@@ -600,8 +709,8 @@ fn event_validation_warns_missing_transfer_event() {
     ];
     let result = detect_supported_standards(&methods, &[]);
     assert!(
-        result.standards.iter().any(|s| s == "NEP-17"),
-        "NEP-17 should be detected"
+        !result.standards.iter().any(|s| s == "NEP-17"),
+        "NEP-17 must not be claimed without a conformant Transfer event"
     );
     assert!(
         result.diagnostics.iter().any(|d| {
@@ -632,12 +741,23 @@ fn event_validation_accepts_correct_transfer_event() {
         had_modifier_epilogue: false,
     };
 
+    // Conformant 4-parameter transfer(from, to, amount, data).
+    let mut transfer = build_method("transfer");
+    transfer.parameters = (0..4)
+        .map(|i| ParameterMetadata {
+            name: Some(format!("p{i}")),
+            ty: "bytes".to_string(),
+            neo_type: Some(NeoType::ByteArray { fixed_len: None }),
+            storage: None,
+        })
+        .collect();
+
     let methods = vec![
         build_method("balanceOf"),
         build_method("totalSupply"),
         build_method("symbol"),
         build_method("decimals"),
-        build_method("transfer"),
+        transfer,
     ];
 
     // Correct NEP-17 Transfer event: 3 parameters

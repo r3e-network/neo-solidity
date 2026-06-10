@@ -229,6 +229,16 @@ fn emit_storage_load(
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
                 index as u64,
             ))));
+            // Mapping members have no loadable storage value (their entries
+            // live at per-key derived slots) — keep the struct array at
+            // `fields.len()` entries so PICKITEM field indices stay aligned,
+            // but write a Null placeholder instead of issuing a useless
+            // `Storage.Get` against the mapping's base field slot.
+            if matches!(field.ty, ValueType::Mapping { .. }) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Null));
+                instructions.push(Instruction::ArraySet);
+                continue;
+            }
             push_keys_for_slot(instructions);
             instructions.push(Instruction::LoadStructField {
                 state_index: reference.state_index,
@@ -333,6 +343,16 @@ fn emit_storage_store(
         instructions.push(Instruction::StoreLocal(value_local));
 
         for (index, field) in fields.iter().enumerate() {
+            // Skip Mapping members: Solidity `delete s` / whole-struct
+            // assignment leaves mapping members untouched, and the memory
+            // representation holds Null at the mapping's field index — a
+            // bare `Storage.Put` of a Null value faults on real Neo N3
+            // (NullReferenceException in the C# core, Null.TryBytes() error
+            // in neo-go). Each loop iteration is stack-self-contained, so
+            // skipping is safe.
+            if matches!(field.ty, ValueType::Mapping { .. }) {
+                continue;
+            }
             instructions.push(Instruction::LoadLocal(value_local));
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
                 index as u64,

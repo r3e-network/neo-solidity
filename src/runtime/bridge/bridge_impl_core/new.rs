@@ -1,3 +1,5 @@
+use super::*;
+
 impl VMBridge {
     /// Create new VM bridge
     pub fn new(config: &RuntimeConfig) -> Result<Self, RuntimeError> {

@@ -139,6 +139,7 @@ fn convert_contract(
 
     let mut functions = Vec::new();
     let mut events = Vec::new();
+    let mut contract_errors = Vec::new();
     let mut state_variables = Vec::new();
     let mut structs = Vec::new();
     let mut enums = Vec::new();
@@ -156,6 +157,7 @@ fn convert_contract(
                 functions.push(convert_function(*def, comment_map))
             }
             ContractPart::EventDefinition(def) => events.push(convert_event(*def)),
+            ContractPart::ErrorDefinition(def) => contract_errors.push(convert_error(*def)),
             ContractPart::VariableDefinition(def) => {
                 state_variables.push(convert_state_variable(*def))
             }
@@ -231,6 +233,7 @@ fn convert_contract(
         bases,
         functions,
         events,
+        errors: contract_errors,
         state_variables,
         structs,
         enums,
@@ -417,6 +420,30 @@ fn convert_event(event: EventDefinition) -> EventIR {
         parameters,
         anonymous: event.anonymous,
     }
+}
+
+/// Convert a parsed custom `error` declaration into [`ErrorIR`], preserving
+/// the declared parameter names and Solidity type strings in declaration
+/// order so revert-site lowering can compute the EVM-canonical selector
+/// from the DECLARED signature.
+fn convert_error(def: solang_parser::pt::ErrorDefinition) -> ErrorIR {
+    let name = def
+        .name
+        .as_ref()
+        .map(|id| id.name.clone())
+        .unwrap_or_else(|| "error".to_string());
+
+    let parameters = def
+        .fields
+        .into_iter()
+        .map(|field| ParameterIR {
+            name: field.name.map(|id| id.name),
+            ty: format!("{}", field.ty),
+            storage: None,
+        })
+        .collect();
+
+    ErrorIR { name, parameters }
 }
 
 fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {

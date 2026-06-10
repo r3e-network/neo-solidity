@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn invoke_native_cryptolib(method: &str, params: StackItem) -> StackItem {
+    pub(crate) fn invoke_native_cryptolib(method: &str, params: StackItem) -> StackItem {
         match method {
             "sha256" => {
                 if let StackItem::Array(args) = params {

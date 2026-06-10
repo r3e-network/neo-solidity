@@ -1006,18 +1006,21 @@ contract C {
             )
         });
 
-    // (b) Parameter count matches — 3 params (from, to, amount), not
-    // filtered by `indexed` (Neo manifests don't encode it).
+    // (b) Parameter count matches the NOTIFIED payload: the emit lowering
+    // sends `[topic0, from, to, data]` (EVM shape) to System.Runtime.Notify,
+    // and post-Basilisk Neo nodes validate notifications against the
+    // manifest by state-item count — so the manifest declares 4 parameters
+    // (topic0 + 2 indexed + data), not the 3 Solidity-declared ones.
     let params = transfer_event
         .get("parameters")
         .and_then(|p| p.as_array())
         .expect("FFF2_1 Transfer event must have parameters array");
     assert_eq!(
         params.len(),
-        3,
-        "FFF2_1 Transfer event must have 3 parameters (from, to, amount); \
-         got {} (params={:?}). If fewer, the event-declaration lowering \
-         dropped a parameter.",
+        4,
+        "FFF2_1 Transfer event must declare 4 parameters (topic0, from, to, \
+         data) matching the notified EVM-shape state array; got {} \
+         (params={:?}).",
         params.len(),
         params
     );

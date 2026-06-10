@@ -7,9 +7,11 @@ impl Function {
         state_index_map: &HashMap<String, usize>,
         state_types: &[ValueType],
         defined_struct_types: &[ValueType],
+        struct_fixed_array_bounds: &HashMap<(String, String), u64>,
         event_index_map: &HashMap<String, usize>,
         event_signature_map: &HashMap<String, Vec<ManifestType>>,
         event_params_map: &HashMap<String, EventSignature>,
+        error_signature_map: &HashMap<String, ErrorAbiSignature>,
         enum_variant_map: &HashMap<String, HashMap<String, u64>>,
         contract_types: &HashSet<String>,
         selector_registry: &SelectorRegistry,
@@ -60,9 +62,11 @@ impl Function {
             state_index_map,
             state_types,
             defined_struct_types,
+            struct_fixed_array_bounds,
             event_index_map,
             event_signature_map,
             event_params_map,
+            error_signature_map,
             enum_variant_map,
             contract_types,
             selector_registry,
@@ -184,9 +188,22 @@ impl Function {
                     if returns.len() == 1 {
                         if let Some(index) = return_slots.first().and_then(|slot| *slot) {
                             instructions.push(Instruction::LoadLocal(index));
+                            // Task #64/#137 — keep the fall-off-end shape
+                            // identical to explicit `return x;`: externally-
+                            // callable ARRAY returns are abi-encoded into
+                            // canonical bytes instead of leaking the raw
+                            // StackItem::Array as serde_json.
+                            let _ = wrap_external_single_array_return_value(
+                                &mut ctx,
+                                &mut instructions,
+                            );
                             instructions.push(Instruction::Return);
                         } else if let Some(ret_ty) = returns.first() {
                             push_default_for_value_type(ret_ty, &mut ctx, &mut instructions);
+                            let _ = wrap_external_single_array_return_value(
+                                &mut ctx,
+                                &mut instructions,
+                            );
                             instructions.push(Instruction::Return);
                         } else {
                             instructions.push(Instruction::ReturnVoid);

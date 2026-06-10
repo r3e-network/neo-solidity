@@ -559,40 +559,23 @@ contract TestContract {
 struct ParamType {
     /// Solidity source-level type, e.g. "uint256"
     solidity: &'static str,
-    /// Expected Neo manifest type string, e.g. "Integer"
-    expected_manifest: &'static str,
 }
 
 fn param_type_strategy() -> impl Strategy<Value = ParamType> {
     prop_oneof![
         Just(ParamType {
-            solidity: "uint256",
-            expected_manifest: "Integer"
+            solidity: "uint256"
         }),
+        Just(ParamType { solidity: "int256" }),
         Just(ParamType {
-            solidity: "int256",
-            expected_manifest: "Integer"
+            solidity: "address"
         }),
+        Just(ParamType { solidity: "bool" }),
         Just(ParamType {
-            solidity: "address",
-            expected_manifest: "Hash160"
+            solidity: "bytes32"
         }),
-        Just(ParamType {
-            solidity: "bool",
-            expected_manifest: "Boolean"
-        }),
-        Just(ParamType {
-            solidity: "bytes32",
-            expected_manifest: "Hash256"
-        }),
-        Just(ParamType {
-            solidity: "string",
-            expected_manifest: "String"
-        }),
-        Just(ParamType {
-            solidity: "bytes",
-            expected_manifest: "ByteArray"
-        }),
+        Just(ParamType { solidity: "string" }),
+        Just(ParamType { solidity: "bytes" }),
     ]
 }
 
@@ -672,7 +655,14 @@ contract EvTypes {{
             );
         }
 
-        // 2) Per-event: parameter count + per-parameter Neo manifest type.
+        // 2) Per-event: the manifest must describe the NOTIFIED payload.
+        // The emit lowering sends System.Runtime.Notify the EVM-shape state
+        // array `[topic0, <one slot per indexed param>, data]`, and Neo
+        // nodes since 3.6 (HF_Basilisk) validate notifications against the
+        // manifest by state-item count and per-item type — so the manifest
+        // declares `topic0` + one ByteArray per indexed parameter + `data`,
+        // all typed ByteArray (32-byte topic slots / keccak hashes and the
+        // abi.encode blob are all ByteStrings).
         for (i, params) in events.iter().enumerate() {
             let name = format!("Ev{i}");
             let event_obj = manifest_events
@@ -685,22 +675,36 @@ contract EvTypes {{
                 .and_then(|p| p.as_array())
                 .expect("event parameters must be an array");
 
+            let indexed_count = params.iter().filter(|(_, indexed)| *indexed).count();
+            let expected_len = 1 + indexed_count + 1; // topic0 + indexed + data
             prop_assert_eq!(
-                manifest_params.len(), params.len(),
-                "event '{}' parameter count mismatch: manifest={} source={}",
-                name, manifest_params.len(), params.len()
+                manifest_params.len(), expected_len,
+                "event '{}' parameter count mismatch: manifest={} expected topic0+{} indexed+data={}",
+                name, manifest_params.len(), indexed_count, expected_len
             );
 
-            for (j, (decl_pt, _indexed)) in params.iter().enumerate() {
-                let m_param = &manifest_params[j];
+            prop_assert_eq!(
+                manifest_params[0].get("name").and_then(|n| n.as_str()),
+                Some("topic0"),
+                "event '{}' first manifest param must be topic0",
+                name
+            );
+            prop_assert_eq!(
+                manifest_params[expected_len - 1].get("name").and_then(|n| n.as_str()),
+                Some("data"),
+                "event '{}' last manifest param must be data",
+                name
+            );
+
+            for (j, m_param) in manifest_params.iter().enumerate() {
                 let m_type = m_param
                     .get("type")
                     .and_then(|t| t.as_str())
                     .expect("manifest event parameter must have a 'type' string");
                 prop_assert_eq!(
-                    m_type, decl_pt.expected_manifest,
-                    "event '{}' param[{}] type mismatch: solidity '{}' should map to '{}', got '{}'",
-                    name, j, decl_pt.solidity, decl_pt.expected_manifest, m_type
+                    m_type, "ByteArray",
+                    "event '{}' param[{}] must be ByteArray (notified state items are ByteStrings), got '{}'",
+                    name, j, m_type
                 );
 
                 // Per Neo N3 manifest spec, event params must NOT carry the

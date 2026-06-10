@@ -11,11 +11,27 @@ use std::collections::{HashMap, HashSet};
 
 use std::ptr::NonNull;
 
-include!("execution/execution_types.rs");
-include!("execution/execution_impl_part1.rs");
-include!("execution/execution_impl_part2.rs");
-include!("execution/execution_impl_part3.rs");
-include!("execution/execution_impl_part4.rs");
-include!("execution/execution_impl_part5.rs");
-include!("execution/execution_gas.rs");
-include!("execution/execution_stack_item.rs");
+pub mod types;
+
+mod collections;
+mod execution_gas;
+mod execution_impl_part1_debug;
+mod execution_impl_part1_init;
+mod execution_impl_part1_native;
+mod execution_impl_part1_slots;
+mod execution_impl_part1_stack_api;
+mod execution_impl_part1_stack_ops;
+mod execution_impl_part1_state;
+mod execution_impl_part2_contract_call;
+mod execution_impl_part2_native;
+mod execution_impl_part3_bytes;
+mod execution_impl_part3_conversion;
+mod execution_impl_part3_logical;
+mod execution_impl_part3_offsets;
+mod execution_stack_item;
+mod helpers;
+mod instruction;
+mod syscalls;
+
+// Re-export all types for backward compatibility
+pub use types::*;

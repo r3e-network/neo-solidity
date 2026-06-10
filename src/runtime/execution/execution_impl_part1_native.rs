@@ -1,5 +1,7 @@
+use super::*;
+
 impl ExecutionContext {
-    fn handle_native_transfer(&mut self, is_neo: bool, params: StackItem) -> StackItem {
+    pub(crate) fn handle_native_transfer(&mut self, is_neo: bool, params: StackItem) -> StackItem {
         if let StackItem::Array(args) = params {
             let args = args.borrow();
             if args.len() < 3 {
