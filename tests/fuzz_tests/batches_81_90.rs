@@ -5960,15 +5960,15 @@ contract C {
 //     `fix-196-storage-ptr-return` 50k hunt (on Task #196 from Batch
 //     #88 LLL1) is on an orthogonal surface.
 
-// NNN1 — ERC-20 Transfer event with parametric args.
-// `emit Transfer(msg.sender, to, val)` — two indexed addresses + one
-// non-indexed uint256. Invariants: 3 topics (sig + 2 indexed addrs),
-// 32-byte data section (BE32 of the value).
+// NNN1 — ERC-20/NEP-17 Transfer event with parametric args.
+// `emit Transfer(msg.sender, to, val)` — matches the NEP-17 standard
+// signature, so the emit is NATIVE Neo shape (events-native gap):
+// Notify("Transfer", [from, to, amount]). Invariants: 1 name topic,
+// state = [msg.sender(20B), to(20B), Integer(val)].
 // Single-shot — deterministic args.
 #[test]
 fn batch90_nnn1_transfer_event_two_indexed_addrs_one_data_uint() {
     use neo_devpack_solidity::runtime::types::StackItem;
-    use sha3::{Digest, Keccak256};
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -6029,85 +6029,57 @@ contract C {
     );
     let log = &r.logs[0];
 
-    // (2) topics.len must be 3: topic[0] = sig, topic[1] = from
-    //     (msg.sender), topic[2] = to. The uint256 value is NOT
-    //     indexed, so it doesn't contribute a topic.
+    // events-native gap: `Transfer(address,address,uint256)` matches the
+    // NEP-17 standard signature, so the PARAMETER-SOURCED emit is NATIVE
+    // Neo shape too: Notify("Transfer", [from, to, amount]). The emulator
+    // records it on its legacy path: topics = ["Transfer"], data = the
+    // JSON-encoded state array.
+
+    // (2) One topic: the literal Neo event name.
     assert_eq!(
         log.topics.len(),
-        3,
-        "NNN1 Transfer must emit 3 topics (sig + 2 indexed addrs from, \
-         to); got {} topics. If 2, the sig was dropped OR one indexed \
-         addr was dropped. If 4, the non-indexed uint256 leaked into \
-         the topics section (indexed vs non-indexed conflation). Task \
-         #197+ candidate: ERC-20 Transfer parametric-emit topic count.",
+        1,
+        "NNN1 native NEP-17 Transfer must record exactly 1 topic (the \
+         event name); got {} topics. If 3, the emit regressed to the \
+         EVM topic shape (NEP trackers cannot read that).",
         log.topics.len()
     );
-
-    // (3) topic[0] must equal keccak256("Transfer(address,address,\
-    //     uint256)") — the canonical ERC-20 signature hash.
-    let sig_hash = Keccak256::digest(b"Transfer(address,address,uint256)").to_vec();
     assert_eq!(
         &log.topics[0][..],
-        &sig_hash[..],
-        "NNN1 topics[0] must = keccak256(\"Transfer(address,address,\
-         uint256)\") = 0x{}; got 0x{}. If different, the event-\
-         signature derivation regressed (batches_18_30 H3 / Task #39 \
-         precedent). If the canonical sig is absent, the emit may be \
-         using the UTF-8-name fallback (pre-Task-#39 shape).",
-        hex::encode(&sig_hash),
+        b"Transfer" as &[u8],
+        "NNN1 topics[0] must be the literal event name \"Transfer\"; got 0x{}",
         hex::encode(&log.topics[0])
     );
 
-    // (4) topic[2] must encode the `to` address as a 32-byte BE-
-    //     aligned value. Per batches_18_30 H3 precedent, the address
-    //     is LEFT-PADDED to 32 bytes: [0; 12] || addr_be[..20]. Since
-    //     to_le is all 0x22, to_be is also all 0x22 (palindromic).
-    let mut expected_topic_to = [0u8; 32];
-    expected_topic_to[12..].fill(0x22u8);
+    // (3) State = [from, to, amount]. `from` = msg.sender (runtime-
+    //     injected; assert only that it is a non-null 20-byte value),
+    //     `to` = the 20-byte arg verbatim, amount = Integer(val).
+    let state = decode_native_notification_state(&log.data);
     assert_eq!(
-        &log.topics[2][..],
-        &expected_topic_to[..],
-        "NNN1 topics[2] must be `to` (0x2222...22) left-padded to 32 \
-         bytes; got 0x{}. Expected 0x{}. If the pad is RIGHT-aligned \
-         instead, the indexed-address encoding flipped padding \
-         direction. If the bytes are reversed, the LE/BE conversion \
-         mis-fired.",
-        hex::encode(&log.topics[2]),
-        hex::encode(&expected_topic_to)
+        state.len(),
+        3,
+        "NNN1 native NEP-17 Transfer state must be [from, to, amount]; got {state:?}"
     );
-
-    // (5) data.len must be 32 (abi.encode of the single non-indexed
-    //     uint256 value). topic[1] = from = msg.sender — we don't
-    //     probe its exact value here (varies by runtime default).
-    assert_eq!(
-        log.data.len(),
-        32,
-        "NNN1 log.data must be exactly 32 bytes (abi.encode of the \
-         single non-indexed uint256 value); got {} bytes data=0x{}. \
-         If 0, the value leaked into topics (indexed conflation). If \
-         64, abi.encode emitted TWO 32-byte slots (malformed \
-         multi-arg encoding). If 20 or similar, the value was \
-         encoded as LE bytes (not BE32) — inconsistent with the \
-         ABI-canonical 32-byte shape.",
-        log.data.len(),
-        hex::encode(&log.data)
+    assert!(
+        !native_state_is_null(&state[0]),
+        "NNN1 state[0] (`from` = msg.sender) must not be Null for a \
+         non-zero sender; got {:?}",
+        state[0]
     );
-
-    // (6) data must equal BE32(val) = BE32(1000). 1000 = 0x3e8, so
-    //     the last 2 bytes are 0x03 0xe8 and bytes[0..30] are zero.
-    let mut expected_data = [0u8; 32];
-    expected_data[24..].copy_from_slice(&val.to_be_bytes());
     assert_eq!(
-        &log.data[..],
-        &expected_data[..],
-        "NNN1 log.data must equal BE32({}) = 0x{}; got 0x{}. If the \
-         last 2 bytes differ, the value was corrupted in transit. If \
-         the bytes are in the low positions with zeros in the high \
-         (LE form), the abi.encode emitted LE instead of BE — a \
-         canonical-form regression.",
-        val,
-        hex::encode(&expected_data),
-        hex::encode(&log.data)
+        native_state_bytes(&state[0]).len(),
+        20,
+        "NNN1 state[0] (`from` = msg.sender) must be a 20-byte UInt160"
+    );
+    assert_eq!(
+        native_state_bytes(&state[1]),
+        to_le.to_vec(),
+        "NNN1 state[1] must be the `to` arg verbatim (20-byte LE UInt160)"
+    );
+    assert_eq!(
+        native_state_int(&state[2]),
+        val as i64,
+        "NNN1 state[2] must be the Integer amount {val}"
     );
 }
 

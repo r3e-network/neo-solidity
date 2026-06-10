@@ -3,8 +3,6 @@ fn is_void_syscall(name: &str) -> bool {
         name,
         "System.Storage.Put"
             | "System.Storage.Delete"
-            | "System.Storage.Local.Put"
-            | "System.Storage.Local.Delete"
             | "System.Runtime.Notify"
             | "System.Runtime.Log"
             | "System.Runtime.BurnGas"

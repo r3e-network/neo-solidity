@@ -24,14 +24,8 @@ use super::*;
 /// - `Put(context, key, value)` - Store key-value pair, empty value deletes key
 /// - `Delete(context, key)` - Remove key from storage
 ///
-/// ## Local Operations (context-free)
-/// - `Local.Get(key)` - Get from storage overlay (ephemeral during execution)
-/// - `Local.Put(key, value)` - Put to storage overlay
-/// - `Local.Delete(key)` - Delete from storage overlay
-///
 /// ## Query Operations
 /// - `Find(context, prefix, options)` - Returns iterator for prefix search
-/// - `Local.Find(prefix, options)` - Local version of Find
 ///
 /// # Storage Overlay
 ///
@@ -52,7 +46,6 @@ use super::*;
 /// - Put: 1,000 gas
 /// - Delete: 100 gas
 /// - Find: 100 gas
-/// - Local operations: Same as regular operations
 ///
 /// # Examples
 ///
@@ -150,81 +143,13 @@ impl ExecutionContext {
                 );
                 Ok(true)
             }
-            "System.Storage.Local.Get" => {
-                // Call signature: System.Storage.Local.Get(key)
-                let slot_item = self.pop_stack()?;
-                let key = Self::stack_item_to_bytes(slot_item);
-
-                let value = if let Some(entry) = self.storage_overlay.get(&key) {
-                    entry.value.clone().unwrap_or_default()
-                } else {
-                    let fetched = self.fetch_storage_value(&key)?;
-                    let bytes = fetched.clone().unwrap_or_default();
-                    self.storage_overlay.insert(
-                        key.clone(),
-                        OverlayEntry {
-                            value: fetched,
-                            dirty: false,
-                        },
-                    );
-                    bytes
-                };
-
-                self.push_stack(StackItem::byte_array(value))?;
-                Ok(true)
-            }
-            "System.Storage.Local.Put" => {
-                // Call signature: System.Storage.Local.Put(key, value)
-                // Stack order: [value, key] (top-of-stack is `key`)
-                let key_item = self.pop_stack()?;
-                let value_item = self.pop_stack()?;
-
-                let key = Self::stack_item_to_bytes(key_item);
-                let value = Self::stack_item_to_bytes(value_item);
-
-                self.enforce_storage_limit(&key, &value)?;
-
-                let entry =
-                    self.storage_overlay
-                        .entry(key.clone())
-                        .or_insert_with(|| OverlayEntry {
-                            value: None,
-                            dirty: false,
-                        });
-                entry.value = if value.is_empty() { None } else { Some(value) };
-                entry.dirty = true;
-                Ok(true)
-            }
-            "System.Storage.Local.Delete" => {
-                // Call signature: System.Storage.Local.Delete(key)
-                let slot_item = self.pop_stack()?;
-                let key = Self::stack_item_to_bytes(slot_item);
-                self.storage_overlay.insert(
-                    key,
-                    OverlayEntry {
-                        value: None,
-                        dirty: true,
-                    },
-                );
-                Ok(true)
-            }
             "System.Storage.Find" => {
                 // Call signature: Find(context, prefix, options)
                 let _context = self.pop_stack()?;
                 let prefix = Self::stack_item_to_bytes(self.pop_stack()?);
-                let _options = self.pop_stack()?;
+                let options = Self::stack_item_to_int(self.pop_stack()?);
 
-                let entries = self.build_storage_entries(prefix.clone())?;
-                let token = self.allocate_iterator(entries);
-                self.push_stack(token)?;
-                Ok(true)
-            }
-            "System.Storage.Local.Find" => {
-                // Call signature: Local.Find(prefix, options)
-                let prefix = Self::stack_item_to_bytes(self.pop_stack()?);
-                let _options = self.pop_stack()?;
-
-                let entries = self.build_storage_entries(prefix.clone())?;
+                let entries = self.build_storage_entries(prefix, options)?;
                 let token = self.allocate_iterator(entries);
                 self.push_stack(token)?;
                 Ok(true)

@@ -15,10 +15,6 @@ pub fn syscall_gas_table() -> std::collections::HashMap<[u8; 4], u64> {
             "System.Storage.Put" => 1_000,
             "System.Storage.Delete" => 100,
             "System.Storage.Find" => 100,
-            "System.Storage.Local.Get" => 100,
-            "System.Storage.Local.Put" => 1_000,
-            "System.Storage.Local.Delete" => 100,
-            "System.Storage.Local.Find" => 100,
             // Iterators
             "System.Iterator.Next" | "System.Iterator.Value" => 1,
             // Runtime

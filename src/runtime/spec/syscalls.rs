@@ -13,10 +13,6 @@ pub static SYSCALLS: Lazy<HashMap<[u8; 4], SyscallSpec>> = Lazy::new(|| {
         "System.Storage.Put",
         "System.Storage.Delete",
         "System.Storage.Find",
-        "System.Storage.Local.Get",
-        "System.Storage.Local.Put",
-        "System.Storage.Local.Delete",
-        "System.Storage.Local.Find",
         // Iterator
         "System.Iterator.Next",
         "System.Iterator.Value",

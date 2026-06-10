@@ -185,6 +185,17 @@ pub(crate) fn sanitize_contract_name(name: &str) -> Option<String> {
 pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
     let ty = solidity_type.trim().to_ascii_lowercase();
 
+    // Gap `nep11` — the devpack NeoVM iterator handle (`Syscalls.Iterator`,
+    // also reachable as `Storage.Iterator`). Returning it from a public
+    // method leaves the raw iterator stack item as the NeoVM return value,
+    // so the manifest must declare `InteropInterface` (the NEP-11 spec type
+    // for `tokensOf`/`tokens`). The builtin helper libraries are never
+    // struct-merged into user contracts, so this type always arrives here as
+    // a raw type string with `neo_type == None`.
+    if matches!(ty.as_str(), "iterator" | "syscalls.iterator" | "storage.iterator") {
+        return "InteropInterface";
+    }
+
     // Array types must be checked FIRST (before checking base types)
     // This ensures uint256[] returns "Array" not "Integer"
     if ty.ends_with("[]") {

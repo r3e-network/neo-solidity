@@ -331,7 +331,16 @@ fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::RoleManagement,
             method: "getDesignatedByRole".to_string(),
         }),
-        "hasRole" => None,
+        // NOTE: there is intentionally no `hasRole` intrinsic. Neo N3's native
+        // RoleManagement contract only exposes `getDesignatedByRole(role, index)`
+        // (returning the ECPoint node list designated at a block height) and
+        // `designateAsRole`; neither real Neo N3 nor the official C# devpack
+        // (neo-devpack-dotnet) provides a generic role-membership check. Use
+        // `Syscalls.getDesignatedByRole(...)` and scan the returned list, or
+        // `Runtime.checkWitness(...)` for account authorization. A dead
+        // `"hasRole" => None` arm used to live here; it advertised an intrinsic
+        // that could never lower. Calls now fail with the standard
+        // "unsupported builtin library call" diagnostic.
         "getContractScript" => Some(BuiltinCall::GetContractScript),
         "contractExists" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::ContractManagement,

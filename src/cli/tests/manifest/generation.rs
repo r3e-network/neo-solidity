@@ -85,12 +85,12 @@ fn manifest_events_do_not_include_indexed_fields() {
 }
 
 #[test]
-fn manifest_event_parameters_describe_notify_payload() {
-    // The emit lowering notifies the EVM-shape state array
-    // `[topic0, indexed..., data]`, and Neo nodes (>= 3.6 / HF_Basilisk)
-    // validate notifications against the manifest ABI by item count and
-    // type — so the manifest must declare exactly that payload, not the
-    // Solidity-declared parameter list.
+fn manifest_event_declares_truthful_evm_wire_shape() {
+    // Non-NEP events are emitted in EVM log shape
+    // (`Notify(name, [topic0, indexed..., data])`), and post-Basilisk Neo
+    // nodes fault notifications whose state-item count mismatches the
+    // manifest declaration — so the manifest must declare exactly that
+    // wire shape: `[topic0, <indexed names>..., data]`, all ByteArray.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -120,8 +120,8 @@ fn manifest_event_parameters_describe_notify_payload() {
     let params = snapshot["parameters"]
         .as_array()
         .expect("event parameters array");
-    // No indexed parameters: payload is [topic0, data].
-    assert_eq!(params.len(), 2, "expected [topic0, data], got {params:?}");
+    // One non-indexed struct param => wire shape is [topic0, data].
+    assert_eq!(params.len(), 2, "expected [topic0, data] declaration");
     assert_eq!(params[0]["name"], Value::String("topic0".to_string()));
     assert_eq!(params[0]["type"], Value::String("ByteArray".to_string()));
     assert_eq!(params[1]["name"], Value::String("data".to_string()));

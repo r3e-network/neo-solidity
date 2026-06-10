@@ -95,10 +95,7 @@ fn direct_hazards(function: &Function) -> Hazards {
                     // Disallow syscalls that obviously mutate state or send notifications.
                     if matches!(
                         name.as_str(),
-                        "System.Storage.Put"
-                            | "System.Storage.Delete"
-                            | "System.Storage.Local.Put"
-                            | "System.Storage.Local.Delete"
+                        "System.Storage.Put" | "System.Storage.Delete"
                     ) {
                         hazards.writes_state = true;
                     }
@@ -113,8 +110,6 @@ fn direct_hazards(function: &Function) -> Hazards {
                             | "System.Storage.Find"
                             | "System.Storage.GetContext"
                             | "System.Storage.GetReadOnlyContext"
-                            | "System.Storage.Local.GetContext"
-                            | "System.Storage.Local.GetReadOnlyContext"
                     ) {
                         hazards.reads_state = true;
                     }

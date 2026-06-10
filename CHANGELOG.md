@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **NEP-11 deep conformance** (devpack `NEP11.sol` + `CompleteNEP11NFT.sol`):
+  token IDs are now dynamic `bytes` (NEP-11 ByteString, ≤ 64 bytes,
+  manifest `ByteArray`) instead of `bytes32`/`Hash256`, and
+  `tokensOf`/`tokens` return NeoVM storage iterators (manifest returntype
+  `InteropInterface`, matching the C# devpack) backed by a raw-storage token
+  index scanned with `FindOptions.KeysOnly | RemovePrefix`. Public methods
+  may now declare `Syscalls.Iterator` returns: the raw iterator stack item
+  is the NeoVM return value (no ABI re-encoding) and the manifest type
+  mappers emit `InteropInterface`. The bundled runtime's
+  `System.Storage.Find` now honours Neo N3 `FindOptions`
+  (KeysOnly/RemovePrefix/ValuesOnly/DeserializeValues/PickField0/1/
+  Backwards, with C#-node combination validation) instead of always
+  yielding `[key, value]` structs. The NEP-11 `transfer`/`onNEP11Payment`
+  `data` parameter is now typed with the devpack `Any` alias so the
+  manifest declares `Any` per spec — the devpack NEP-11 base now passes
+  neo-express's strict NEP-11 deploy-time standard check, validated
+  on-chain (deploy + mint + native Transfer notification +
+  `InteropInterface` iterator traversal). Remaining documented deviation:
+  `properties` returns serialized `bytes` (manifest `ByteArray`) — Solidity
+  has no construct that produces a NeoVM Map stack item return
+  (STANDARDS_MAPPING.md).
+- `ir::builtin_intrinsic_surface()` / `ir::BUILTIN_LIBRARY_BASES`:
+  introspection over the builtin-library intrinsic whitelist, plus a
+  regression sweep (`tests/gap_hasrole_tests.rs`) that compiles a probe call
+  for every whitelisted member and fails if any advertised member has no
+  lowering — whitelist-without-lowering intrinsics can no longer reappear.
+
+### Changed
+
+- **Standards auto-detection requires conformance before claiming a NEP.**
+  NEP-17 needs the five methods plus a 4-parameter `transfer` and a
+  3-parameter `Transfer` event; NEP-11 needs the full mandatory method set
+  (`symbol`, `decimals`, `totalSupply`, `balanceOf`, `tokensOf`, `ownerOf`,
+  `transfer`) plus a 3-parameter `transfer` and 4-parameter `Transfer`
+  event; NEP-24 is only detected for a 3-parameter `royaltyInfo` (`tokenURI`
+  no longer triggers it). Near-misses emit warnings instead of false
+  manifest claims. Explicitly declared NEP-17/NEP-11 standards additionally
+  hard-require the spec `transfer` arity.
+- **Distinct-arity overloads keep their original Solidity name in the
+  manifest** (Neo dispatches on name + parameter count, like native
+  `ContractManagement.deploy`). Only true same-arity collisions fall back to
+  the mangled `name(type,...)` form, with one deterministic primary keeping
+  the clean name. The standard-json `methodMap` now reports the
+  manifest-visible (callable) names.
+- **NEP-17 / NEP-11 `Transfer` events are now emitted in NATIVE Neo
+  notification shape.** When an event declaration matches a NEP standard
+  Transfer signature — `Transfer(address, address, uint256)` (NEP-17) or
+  `Transfer(address, address, uint256, bytes32|bytes)` (NEP-11), any
+  indexed-ness — the compiler emits `Notify("Transfer", [from, to,
+  amount(, tokenId)])` with no EVM topic0: `from`/`to` are 20-byte
+  ByteStrings with the zero address mapped to `Null` at runtime (NEP
+  mint/burn convention), `amount` is CONVERTed to Integer. The manifest
+  declares the native shape (`from: Hash160, to: Hash160, amount: Integer
+  (, tokenId)`), so wallets, indexers and NEP trackers can read token
+  transfers. All other events keep the EVM log shape. Detection is shared
+  between the lowering, the manifest builder and the standards checks
+  (`ir::native_transfer_standard`).
+- **Manifests now declare the truthful EVM wire shape for non-NEP
+  events** — `[topic0: ByteArray, <one ByteArray per indexed param>,
+  data: ByteArray]` (anonymous events drop the topic0 slot). Neo nodes
+  >= 3.6 (HF_Basilisk) fault notifications whose state-item count
+  mismatches the manifest declaration, so the previous declared-parameter
+  shape made every `emit` fault on-chain.
+- **Anonymous events Notify under their declared Solidity name** instead
+  of an empty `""` event name (which faults on Neo nodes >= 3.6 because
+  the name is not declared in the manifest). `anonymous` now only
+  suppresses the EVM signature-hash topic0 in the state payload; the
+  Neo-level event name and the manifest declaration use the declaration
+  name.
+- **Standards validation understands native Transfer shape**: explicitly
+  declared NEP-17/NEP-11 (`@custom:neo.manifest.supportedstandards`) now
+  hard-fails when the `Transfer` event's parameter types don't match the
+  standard signature (it would be emitted in EVM shape, unreadable by NEP
+  trackers); auto-detected standards emit a warning instead.
+
 ### Fixed
 
 - **`abi.decode` of multi-slot static types (structs, arrays of structs) now
@@ -74,24 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parameter), matching the NEP specs and external standard validators. The
   special case is scoped to aliases whose underlying type is exactly
   `bytes`; `type Any is bytes32;` keeps its alias semantics.
-
-### Changed
-
-- **Standards auto-detection requires conformance before claiming a NEP.**
-  NEP-17 needs the five methods plus a 4-parameter `transfer` and a
-  3-parameter `Transfer` event; NEP-11 needs the full mandatory method set
-  (`symbol`, `decimals`, `totalSupply`, `balanceOf`, `tokensOf`, `ownerOf`,
-  `transfer`) plus a 3-parameter `transfer` and 4-parameter `Transfer`
-  event; NEP-24 is only detected for a 3-parameter `royaltyInfo` (`tokenURI`
-  no longer triggers it). Near-misses emit warnings instead of false
-  manifest claims. Explicitly declared NEP-17/NEP-11 standards additionally
-  hard-require the spec `transfer` arity.
-- **Distinct-arity overloads keep their original Solidity name in the
-  manifest** (Neo dispatches on name + parameter count, like native
-  `ContractManagement.deploy`). Only true same-arity collisions fall back to
-  the mangled `name(type,...)` form, with one deterministic primary keeping
-  the clean name. The standard-json `methodMap` now reports the
-  manifest-visible (callable) names.
+- Deduplicated `getCurrentBlock` in the `Neo` builtin whitelist (it appeared
+  twice in the "supported intrinsics" diagnostic).
 
 ### Removed
 
@@ -105,6 +166,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The unused `storage_key::derive_mapping_slot`/`KeyFragment` API, which
   documented a mapping-slot scheme the compiler does not emit; module docs
   now describe the production scheme.
+- **`hasRole` pruned from the devpack/intrinsic surface.** Neo N3's native
+  RoleManagement contract only exposes `getDesignatedByRole(role, index)` and
+  `designateAsRole`; neither real Neo N3 nor the official C# devpack provides
+  a generic role-membership check. The dead `"hasRole" => None` arm in
+  `resolve_syscalls_member` (an advertised-but-uncallable intrinsic) was
+  removed, and `devpack/libraries/Runtime.sol` no longer declares `hasRole`
+  — the old helper was uncallable (builtin libraries are compiler intrinsics
+  with no lowering for it) and a security footgun: it silently ignored its
+  `role` argument and degraded to `checkWitness(account)`. Calls to
+  `Syscalls.hasRole` / `Runtime.hasRole` now fail with the standard targeted
+  "unsupported builtin library call" diagnostic; use
+  `Syscalls.getDesignatedByRole(...)` (and scan the returned node list) or
+  `Runtime.checkWitness(...)` instead. User-defined contract-level `hasRole`
+  methods (OpenZeppelin AccessControl pattern) are unaffected.
+- **Fictional `System.Storage.Local.*` syscalls** (`Get`/`Put`/`Delete`/`Find`)
+  removed everywhere — these syscalls never existed on Neo N3. The bundled
+  runtime no longer registers or executes them (a script invoking them now
+  FAULTs as an unknown syscall, matching real-node behavior); the compiler
+  intrinsics (`Syscalls.storage*Local`, `Storage.getLocal`/`putLocal`/
+  `removeLocal`/`findLocal*`/`countLocal`) were removed so such calls are
+  rejected at compile time; the devpack wrappers and the runtime-spec /
+  syscall docs were pruned accordingly.
+- **Silent legacy `emit` fallback removed.** Emitting an event with no
+  resolved declaration, with a mismatched argument count, or whose
+  arguments fail to lower is now a compile error (previously it emitted a
+  raw `Notify(name, args...)` whose shape mismatched the manifest and
+  faulted on post-Basilisk nodes — or silently emitted nothing).
 
 ### Internal
 

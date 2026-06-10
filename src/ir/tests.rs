@@ -7,8 +7,37 @@ fn lower_emit_pushes_event_name_before_args() {
     let state_variables: Vec<StateVariableMetadata> = Vec::new();
     let event_index_map = HashMap::new();
     let event_signature_map: HashMap<String, Vec<ManifestType>> = HashMap::new();
-    let event_params_map: HashMap<String, EventSignature> = HashMap::new();
+    // Register the declaration: `event MyEvent(uint256, uint256)` (both
+    // non-indexed). The emit must lower to the EVM wire shape
+    // `Notify("MyEvent", [topic0, data])`.
+    let mut event_params_map: HashMap<String, EventSignature> = HashMap::new();
     let error_signature_map: HashMap<String, ErrorAbiSignature> = HashMap::new();
+    let canonical = "MyEvent(uint256,uint256)".to_string();
+    let mut hasher = sha3::Keccak256::new();
+    hasher.update(canonical.as_bytes());
+    let digest = hasher.finalize();
+    let mut topic0 = [0u8; 32];
+    topic0.copy_from_slice(&digest);
+    event_params_map.insert(
+        "MyEvent".to_string(),
+        EventSignature {
+            canonical,
+            topic0,
+            params: vec![
+                EventParamInfo {
+                    canonical_type: "uint256".to_string(),
+                    indexed: false,
+                    is_dynamic: false,
+                },
+                EventParamInfo {
+                    canonical_type: "uint256".to_string(),
+                    indexed: false,
+                    is_dynamic: false,
+                },
+            ],
+            is_anonymous: false,
+        },
+    );
     let enum_variant_map: HashMap<String, HashMap<String, u64>> = HashMap::new();
     let contract_types = HashSet::new();
     let selector_registry = SelectorRegistry::default();
@@ -96,6 +125,36 @@ fn lower_emit_pushes_event_name_before_args() {
             Instruction::EmitEventByName { name, arg_count }
                 if name == "MyEvent" && *arg_count == 2
         )),
-        "expected EmitEventByName at the end of lowering"
+        "expected EmitEventByName with the EVM wire count ([topic0, data] = 2)"
+    );
+
+    // Emitting an event with NO registered declaration must record a compile
+    // error (an undeclared notification faults on Neo nodes >= 3.6) and must
+    // not lower any instructions.
+    let undeclared = Expression::FunctionCall(
+        Default::default(),
+        Box::new(Expression::Variable(Identifier {
+            loc: Default::default(),
+            name: "Undeclared".to_string(),
+        })),
+        vec![Expression::NumberLiteral(
+            Default::default(),
+            "1".to_string(),
+            "".to_string(),
+            None,
+        )],
+    );
+    let mut undeclared_instructions = Vec::new();
+    lower_emit(&undeclared, &mut ctx, &mut undeclared_instructions);
+    assert!(
+        undeclared_instructions.is_empty(),
+        "undeclared event emit must not lower instructions, got {undeclared_instructions:?}"
+    );
+    assert!(
+        ctx.errors
+            .iter()
+            .any(|err| err.message.contains("Undeclared")),
+        "expected a compile error for the undeclared event, got {:?}",
+        ctx.errors
     );
 }

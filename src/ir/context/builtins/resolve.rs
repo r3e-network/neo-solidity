@@ -63,6 +63,36 @@ fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
     None
 }
 
+/// The builtin-library base names the compiler lowers as intrinsics
+/// (their devpack Solidity bodies are never compiled).
+pub const BUILTIN_LIBRARY_BASES: &[&str] =
+    &["Runtime", "abi", "Storage", "Syscalls", "NativeCalls", "Neo"];
+
+/// Introspection over the complete builtin intrinsic surface:
+/// `(base, supported members)` for every builtin library base.
+///
+/// INVARIANT (pinned by `tests/gap_hasrole_tests.rs`): every member listed
+/// here MUST actually lower — either via the `resolve_*_member` table in this
+/// file / `syscalls.rs` / `native_calls.rs`, or via a bespoke handler in
+/// `src/ir/expressions/calls/builtins/member_*.rs`. A whitelisted member
+/// without a lowering is an uncallable intrinsic: the diagnostic for
+/// `Base.member(...)` would then claim the member is supported while every
+/// call fails (this happened with `Syscalls.hasRole`, which resolved to
+/// `None` while being advertised). Add new members here only together with
+/// their lowering.
+pub fn builtin_intrinsic_surface() -> Vec<(&'static str, &'static [&'static str])> {
+    BUILTIN_LIBRARY_BASES
+        .iter()
+        .map(|base| {
+            (
+                *base,
+                builtin_library_supported_members(base)
+                    .expect("every builtin library base has a member whitelist"),
+            )
+        })
+        .collect()
+}
+
 fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static str]> {
     match base {
         "Runtime" => Some(&[

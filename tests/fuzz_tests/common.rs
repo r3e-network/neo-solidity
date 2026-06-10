@@ -167,6 +167,66 @@ pub fn decode_uint_le(bytes: &[u8]) -> num_bigint::BigUint {
     }
 }
 
+/// Decode the state array of a NATIVE NEP notification from the bundled
+/// emulator's log record.
+///
+/// NEP-17 / NEP-11 standard `Transfer` events are emitted in NATIVE Neo
+/// shape (`Notify("Transfer", [from, to, amount(, tokenId)])` — no EVM
+/// topic0). The emulator's `System.Runtime.Notify` handler records such
+/// notifications on its legacy path: `topics = [eventName]` and `data` =
+/// the serde-JSON encoding of the state array (tagged `StackItem` form,
+/// e.g. `{"type":"Array","value":[{"type":"ByteArray","value":[...]},
+/// {"type":"Null"},{"type":"Integer","value":100}]}`).
+pub fn decode_native_notification_state(data: &[u8]) -> Vec<serde_json::Value> {
+    let value: serde_json::Value = serde_json::from_slice(data).unwrap_or_else(|e| {
+        panic!(
+            "native notification data must be the emulator's JSON state encoding: {e}; raw=0x{}",
+            hex::encode(data)
+        )
+    });
+    assert_eq!(
+        value.get("type").and_then(|t| t.as_str()),
+        Some("Array"),
+        "native notification state must be an Array, got {value}"
+    );
+    value["value"]
+        .as_array()
+        .expect("native notification state array")
+        .clone()
+}
+
+/// Extract a ByteArray state item's bytes from a decoded native
+/// notification (see `decode_native_notification_state`).
+pub fn native_state_bytes(item: &serde_json::Value) -> Vec<u8> {
+    assert_eq!(
+        item.get("type").and_then(|t| t.as_str()),
+        Some("ByteArray"),
+        "expected ByteArray state item, got {item}"
+    );
+    item["value"]
+        .as_array()
+        .expect("ByteArray value")
+        .iter()
+        .map(|b| b.as_u64().expect("byte") as u8)
+        .collect()
+}
+
+/// Extract an Integer state item's value from a decoded native notification.
+pub fn native_state_int(item: &serde_json::Value) -> i64 {
+    assert_eq!(
+        item.get("type").and_then(|t| t.as_str()),
+        Some("Integer"),
+        "expected Integer state item, got {item}"
+    );
+    item["value"].as_i64().expect("integer value")
+}
+
+/// Whether a decoded native-notification state item is `Null` (the NEP
+/// mint/burn convention: `from == null` for mint, `to == null` for burn).
+pub fn native_state_is_null(item: &serde_json::Value) -> bool {
+    item.get("type").and_then(|t| t.as_str()) == Some("Null")
+}
+
 /// Observed runtime behavior for a single-function arithmetic harness.
 ///
 /// The fourth variant (`FaultOther`) exists because batch #10 harness #8

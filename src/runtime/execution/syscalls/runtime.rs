@@ -156,9 +156,17 @@ impl ExecutionContext {
                 //     indexed topics. Layout is the same as non-anonymous
                 //     except NO topic0 is prepended — `topics` is composed
                 //     solely of the indexed-arg slots from the stateArray.
-                //     The empty event_name is the lowering sentinel (the
-                //     non-anonymous and legacy paths both use non-empty
-                //     names, so it uniquely identifies the anonymous case).
+                //     NOTE (events-native gap): the Solidity lowering no
+                //     longer emits empty event names — Neo nodes >= 3.6
+                //     reject notifications whose name is not declared in
+                //     the manifest, so anonymous events now Notify under
+                //     their DECLARED name with the topic0-less state
+                //     layout. Anonymous events with >= 1 indexed arg are
+                //     therefore classified by the non-anonymous detector
+                //     (their first state item is a 32-byte topic slot),
+                //     which yields the correct `topics` either way. The
+                //     empty-name path is retained for raw / legacy
+                //     `Syscalls.notify("", [...])` payloads.
                 //
                 //   * **Legacy Neo shape** — any other combination. The
                 //     event_name is a short ByteArray (the event's

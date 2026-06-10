@@ -207,6 +207,16 @@ fn convert_parameter(
             ty: NeoType::Any,
             storage: param.storage.clone(),
         }),
+        // Gap `nep11` — the devpack NeoVM iterator handle (`Syscalls.Iterator`).
+        // The builtin helper libraries are never struct-merged into user
+        // contracts, so the type never resolves to a `NeoType::Struct`; treat
+        // the opaque handle as `Any` so NEP-11 `tokensOf`/`tokens` can declare
+        // it (manifest returntype `InteropInterface`).
+        None if is_devpack_iterator_type(&param.ty) => Ok(ParameterSymbol {
+            name: param.name.clone(),
+            ty: NeoType::Any,
+            storage: param.storage.clone(),
+        }),
         None => Err(Diagnostic::error(match side {
             FunctionSide::Parameter => format!(
                 "function '{}' parameter '{}' uses unsupported type '{}'",
@@ -223,6 +233,17 @@ fn convert_parameter(
             ),
         })),
     }
+}
+
+/// Gap `nep11` — true iff `ty` names the devpack NeoVM iterator handle type
+/// (`Syscalls.Iterator` / `Storage.Iterator` / bare `Iterator`). Mirrors
+/// `is_devpack_iterator_type` in `validate/contract/return_types.rs`.
+fn is_devpack_iterator_type(ty: &str) -> bool {
+    let lowered = ty.trim().to_ascii_lowercase();
+    matches!(
+        lowered.as_str(),
+        "iterator" | "syscalls.iterator" | "storage.iterator"
+    )
 }
 
 /// Task #94 — recognise `(T1, T2, ...)` tuple-shaped type strings with all

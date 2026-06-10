@@ -1915,7 +1915,6 @@ contract O {
     #[test]
     fn batch39_n5_explicit_transfer_emit_no_double(_seed in any::<u8>()) {
         use neo_devpack_solidity::runtime::types::StackItem;
-        use sha3::{Digest, Keccak256};
         let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
@@ -1939,15 +1938,30 @@ contract C {
             r.logs.len(),
             r.logs.iter().map(|l| (l.topics.len(), l.data.len())).collect::<Vec<_>>());
         let log = &r.logs[0];
-        // topic0 must be the keccak of the EVM canonical signature, NOT the
-        // NEP-17 "Transfer" Neo name literal.
-        prop_assert_eq!(log.topics.len(), 3,
-            "N5 2 indexed args ⇒ 3 topics (sig + from + to); got {}", log.topics.len());
-        let sig = Keccak256::digest(b"Transfer(address,address,uint256)");
-        prop_assert_eq!(&log.topics[0][..], &sig[..],
-            "N5 topics[0] must = keccak('Transfer(address,address,uint256)'); \
-             got {} (if 7-byte 'Transfer' literal, NEP-17 naming leaked)",
+        // events-native gap: `Transfer(address,address,uint256)` matches the
+        // NEP-17 standard signature, so the emit is NATIVE Neo shape:
+        // Notify("Transfer", [from, to, amount]) — one name topic, no EVM
+        // signature hash. The double-emit invariant (exactly one log) is
+        // the core of this probe and is unchanged.
+        prop_assert_eq!(log.topics.len(), 1,
+            "N5 native NEP-17 Transfer ⇒ 1 topic (the event name); got {}",
+            log.topics.len());
+        prop_assert_eq!(&log.topics[0][..], b"Transfer" as &[u8],
+            "N5 topics[0] must be the literal event name \"Transfer\"; got {}",
             hex::encode(&log.topics[0]));
+        let state = decode_native_notification_state(&log.data);
+        prop_assert_eq!(state.len(), 3,
+            "N5 native NEP-17 Transfer state must be [from, to, amount]; got {:?}", state);
+        let mut from_le = [0u8; 20];
+        from_le[0] = 0xAA;
+        prop_assert_eq!(native_state_bytes(&state[0]), from_le.to_vec(),
+            "N5 state[0] must be address(0xAA) as 20-byte LE UInt160");
+        let mut to_le = [0u8; 20];
+        to_le[0] = 0xBB;
+        prop_assert_eq!(native_state_bytes(&state[1]), to_le.to_vec(),
+            "N5 state[1] must be address(0xBB) as 20-byte LE UInt160");
+        prop_assert_eq!(native_state_int(&state[2]), 777,
+            "N5 state[2] must be the Integer amount 777");
     }
 }
 

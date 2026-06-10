@@ -96,11 +96,15 @@ fn manifest_event_params_match_emitted_notification_payload() {
     pragma solidity ^0.8.19;
 
     contract Token {
-        event Transfer(address indexed from, address indexed to, uint256 amount);
+        // NOTE: deliberately NOT named `Transfer` with the NEP-17 signature —
+        // that exact shape is emitted as a NATIVE NEP transfer notification
+        // (covered by tests/gap_events_native_tests.rs). This test pins the
+        // truthful EVM wire-shape declaration for all OTHER events.
+        event Moved(address indexed from, address indexed to, uint256 amount);
         event Burned(uint256 amount);
 
         function emitIt(address to, uint256 amount) public {
-            emit Transfer(msg.sender, to, amount);
+            emit Moved(msg.sender, to, amount);
             emit Burned(amount);
         }
     }
@@ -113,14 +117,14 @@ fn manifest_event_params_match_emitted_notification_payload() {
         .as_array()
         .expect("events array");
 
-    // Transfer is notified as [topic0, from-slot, to-slot, data] — 4 items,
+    // Moved is notified as [topic0, from-slot, to-slot, data] — 4 items,
     // all ByteStrings — so the manifest must declare exactly that, or every
     // `emit` FAULTs on Neo nodes >= 3.6 (HF_Basilisk notification checks).
-    let transfer = events
+    let moved = events
         .iter()
-        .find(|e| e["name"] == "Transfer")
-        .expect("Transfer event");
-    let params = transfer["parameters"].as_array().expect("parameters");
+        .find(|e| e["name"] == "Moved")
+        .expect("Moved event");
+    let params = moved["parameters"].as_array().expect("parameters");
     let shapes: Vec<(&str, &str)> = params
         .iter()
         .map(|p| {
@@ -138,7 +142,7 @@ fn manifest_event_params_match_emitted_notification_payload() {
             ("to", "ByteArray"),
             ("data", "ByteArray"),
         ],
-        "Transfer manifest params must mirror the notified EVM-shape state array"
+        "Moved manifest params must mirror the notified EVM-shape state array"
     );
 
     // No indexed parameters → [topic0, data].

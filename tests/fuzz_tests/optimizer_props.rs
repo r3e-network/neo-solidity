@@ -533,25 +533,22 @@ contract TestContract {
 }
 
 // ----------------------------------------------------------------------------
-// Manifest event parameter type fidelity
+// Manifest event wire-shape fidelity
 //
 // Generates a contract with N events (N in 1..=4), each with 1..=4 parameters
 // drawn from a small set of Solidity ABI types and a randomized `indexed`
 // flag. Compiles, then asserts that the Neo manifest's `abi.events` array
-// contains each declared event exactly once, with parameter list lengths and
-// per-parameter Neo manifest type strings matching what the Solidity-to-Neo
-// type mapping prescribes.
+// contains each declared event exactly once, declared with the TRUTHFUL EVM
+// wire shape the compiled bytecode hands to System.Runtime.Notify:
 //
-// Expected mapping (based on `neotype_to_manifest_type` /
-// `solidity_to_manifest_type` in src/cli/cli_parts/cli_manifest/build.rs and
-// src/cli/standard_json/standard_json_output.rs):
-//   uint256  -> Integer
-//   int256   -> Integer
-//   address  -> Hash160
-//   bool     -> Boolean
-//   bytes32  -> Hash256
-//   string   -> String
-//   bytes    -> ByteArray
+//   [topic0: ByteArray, <one ByteArray per indexed param>, data: ByteArray]
+//
+// Post-Basilisk Neo nodes fault any notification whose state-item count
+// mismatches the manifest declaration, so the declaration MUST track the
+// wire shape — not the Solidity parameter list. (NEP-17/NEP-11 `Transfer`
+// declarations are the exception: they are emitted natively and keep their
+// declared names/types — none of the generated `EvN` events match that
+// signature; the native declaration is pinned by gap_events_native_tests.)
 // ----------------------------------------------------------------------------
 
 /// One Solidity ABI type the test can sample.
@@ -655,14 +652,10 @@ contract EvTypes {{
             );
         }
 
-        // 2) Per-event: the manifest must describe the NOTIFIED payload.
-        // The emit lowering sends System.Runtime.Notify the EVM-shape state
-        // array `[topic0, <one slot per indexed param>, data]`, and Neo
-        // nodes since 3.6 (HF_Basilisk) validate notifications against the
-        // manifest by state-item count and per-item type — so the manifest
-        // declares `topic0` + one ByteArray per indexed parameter + `data`,
-        // all typed ByteArray (32-byte topic slots / keccak hashes and the
-        // abi.encode blob are all ByteStrings).
+        // 2) Per-event: the declared shape must be the EVM wire shape
+        //    `[topic0, <indexed...>, data]`, all ByteArray. Indexed params
+        //    keep their declared `pJ` names; non-indexed params fold into
+        //    the trailing abi.encoded `data` slot.
         for (i, params) in events.iter().enumerate() {
             let name = format!("Ev{i}");
             let event_obj = manifest_events
@@ -675,36 +668,45 @@ contract EvTypes {{
                 .and_then(|p| p.as_array())
                 .expect("event parameters must be an array");
 
-            let indexed_count = params.iter().filter(|(_, indexed)| *indexed).count();
-            let expected_len = 1 + indexed_count + 1; // topic0 + indexed + data
-            prop_assert_eq!(
-                manifest_params.len(), expected_len,
-                "event '{}' parameter count mismatch: manifest={} expected topic0+{} indexed+data={}",
-                name, manifest_params.len(), indexed_count, expected_len
-            );
+            let indexed_names: Vec<String> = params
+                .iter()
+                .enumerate()
+                .filter(|(_, (_, indexed))| *indexed)
+                .map(|(j, _)| format!("p{j}"))
+                .collect();
+            let expected_names: Vec<String> = std::iter::once("topic0".to_string())
+                .chain(indexed_names)
+                .chain(std::iter::once("data".to_string()))
+                .collect();
 
             prop_assert_eq!(
-                manifest_params[0].get("name").and_then(|n| n.as_str()),
-                Some("topic0"),
-                "event '{}' first manifest param must be topic0",
-                name
-            );
-            prop_assert_eq!(
-                manifest_params[expected_len - 1].get("name").and_then(|n| n.as_str()),
-                Some("data"),
-                "event '{}' last manifest param must be data",
-                name
+                manifest_params.len(), expected_names.len(),
+                "event '{}' must declare the EVM wire shape [topic0, indexed..., data]: \
+                 manifest has {} parameter(s), wire shape has {} \
+                 (source decl: {:?})",
+                name, manifest_params.len(), expected_names.len(), params
             );
 
-            for (j, m_param) in manifest_params.iter().enumerate() {
+            for (j, expected_name) in expected_names.iter().enumerate() {
+                let m_param = &manifest_params[j];
+                let m_name = m_param
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .expect("manifest event parameter must have a 'name' string");
+                prop_assert_eq!(
+                    m_name, expected_name.as_str(),
+                    "event '{}' param[{}] name mismatch: expected '{}', got '{}'",
+                    name, j, expected_name, m_name
+                );
                 let m_type = m_param
                     .get("type")
                     .and_then(|t| t.as_str())
                     .expect("manifest event parameter must have a 'type' string");
                 prop_assert_eq!(
                     m_type, "ByteArray",
-                    "event '{}' param[{}] must be ByteArray (notified state items are ByteStrings), got '{}'",
-                    name, j, m_type
+                    "event '{}' param[{}] ('{}') must be ByteArray (32-byte topic slot / \
+                     keccak hash / abi.encoded data); got '{}'",
+                    name, j, expected_name, m_type
                 );
 
                 // Per Neo N3 manifest spec, event params must NOT carry the

@@ -14,7 +14,7 @@ VM/syscall surface.
 ## Syscalls
 - Registry and IDs are generated via SHA-256(name) (see `src/runtime/spec.rs`).
 - Registered syscall categories:
-  - Storage: GetContext/GetReadOnlyContext/AsReadOnly, Get/Put/Delete, Find, Local.Get/Put/Delete/Find, Iterator.Next/Value.
+  - Storage: GetContext/GetReadOnlyContext/AsReadOnly, Get/Put/Delete, Find, Iterator.Next/Value.
   - Runtime: GetTrigger/Platform/GetScriptContainer/GetNetwork/GetTime/GasLeft/GetInvocationCounter/GetCallingScriptHash/GetEntryScriptHash/GetExecutingScriptHash/CheckWitness/Log/Notify/GetNotifications/BurnGas/CurrentSigners/GetRandom/GetMsgValue.
   - Crypto: CheckSig/CheckMultisig (best-effort secp256k1).
   - Blockchain/Ledger metadata is exposed through native-contract flow, not runtime-callable blockchain syscalls.

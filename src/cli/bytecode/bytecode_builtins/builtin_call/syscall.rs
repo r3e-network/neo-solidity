@@ -3,10 +3,6 @@ fn emit_syscall_builtin(bytecode: &mut Vec<u8>, name: &str, arg_count: usize) {
         // Neo N3 Storage.Find(context, prefix, options)
         bytecode.push(0x10); // FindOptions.None
     }
-    if name == "System.Storage.Local.Find" && arg_count == 1 {
-        // Neo N3 Storage.Local.Find(prefix, options)
-        bytecode.push(0x10); // FindOptions.None
-    }
     emit_syscall(bytecode, name);
     if is_void_syscall(name) {
         bytecode.push(0x11); // PUSH1 for void syscalls

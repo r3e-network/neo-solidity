@@ -2170,19 +2170,21 @@ contract C {
             "H2 post-task-65: trailing 32 bytes must be BE(42). Got {:?}", &rd[4..]);
     }
 
-    // Harness #3 — `emit Transfer(address,address,uint256)` produces the
-    // EVM-canonical log shape:
-    //   * topics[0] = keccak256("Transfer(address,address,uint256)")
-    //               = 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
-    //   * topics[1] = `from` (left-padded to 32 bytes)
-    //   * topics[2] = `to`   (left-padded to 32 bytes)
-    //   * data      = abi.encode(value) (32-byte BE)
+    // Harness #3 — `emit Transfer(address,address,uint256)` matches the
+    // NEP-17 standard Transfer signature, so it is emitted in NATIVE Neo
+    // notification shape (gap `events-native`):
+    //   * eventName = "Transfer" (the emulator's legacy-path log records
+    //     it as the single topic)
+    //   * state     = [from(20-byte LE), to(20-byte LE), amount(Integer)]
+    //     — NO EVM topic0, no abi.encoded data blob — so Neo wallets /
+    //     indexers / NEP-17 trackers can read the transfer natively.
+    //   * the zero address maps to Null (mint/burn convention) — pinned
+    //     by gap_events_native_tests; here both addresses are non-zero.
     //
-    // Status: ACTIVE (post-Task-#39). The compiler lowers `emit` to the
-    // EVM-spec payload; the runtime's `Runtime.Notify` detects the 32-byte
-    // topic[0] and splits the state array into topics + data along EVM
-    // lines. Etherscan / TheGraph / Ethers ERC-20 indexers that subscribe
-    // via keccak256 signature + indexed-address filters now match.
+    // History: post-Task-#39 this event carried the EVM-canonical shape
+    // (topics[0] = keccak256 signature). The events-native gap fix made
+    // NEP-17/NEP-11 `Transfer` declarations native; OTHER events keep the
+    // EVM shape (see `event_with_indexed_and_dynamic_args_lowers` etc.).
     #[test]
     fn event_topic_uses_ethereum_signature_or_not(
         _seed in 0u32..=0u32,
@@ -2199,41 +2201,28 @@ contract C { event Transfer(address indexed from, address indexed to, uint256 va
              got {}", result.logs.len());
         let log = &result.logs[0];
 
-        // Task #39: canonical 3-topic Transfer shape.
-        prop_assert_eq!(log.topics.len(), 3,
-            "H3: `event Transfer(address indexed from, address indexed to, uint256 value)` \
-             must produce 3 topics (signature + 2 indexed addresses); got {}",
+        // Native NEP-17 shape: one topic = the Neo event name.
+        prop_assert_eq!(log.topics.len(), 1,
+            "H3: native NEP-17 Transfer must record 1 topic (the event name); got {}",
             log.topics.len());
+        prop_assert_eq!(&log.topics[0][..], b"Transfer" as &[u8],
+            "H3: topics[0] must be the literal event name \"Transfer\"; got {}",
+            hex::encode(&log.topics[0]));
 
-        // topics[0] = canonical ERC-20 signature hash.
-        let evm_keccak_hex =
-            "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-        let actual_topic0_hex = hex::encode(&log.topics[0]);
-        prop_assert_eq!(actual_topic0_hex, evm_keccak_hex,
-            "H3: topics[0] must be keccak256(\"Transfer(address,address,uint256)\")");
-
-        // topics[1] = `from` = address(0x1) left-padded to 32 bytes.
-        let mut topic_from = [0u8; 32];
-        topic_from[31] = 0x01;
-        prop_assert_eq!(&log.topics[1][..], &topic_from[..],
-            "H3: topics[1] must be address(0x1) left-padded to 32 bytes; got {}",
-            hex::encode(&log.topics[1]));
-
-        // topics[2] = `to` = address(0x2) left-padded to 32 bytes.
-        let mut topic_to = [0u8; 32];
-        topic_to[31] = 0x02;
-        prop_assert_eq!(&log.topics[2][..], &topic_to[..],
-            "H3: topics[2] must be address(0x2) left-padded to 32 bytes; got {}",
-            hex::encode(&log.topics[2]));
-
-        // data = abi.encode(value) = BE32(100).
-        let mut expected_data = [0u8; 32];
-        expected_data[31] = 100;
-        prop_assert_eq!(log.data.len(), 32,
-            "H3: data must be exactly 32 bytes (abi.encode of single uint256); got {}",
-            log.data.len());
-        prop_assert_eq!(&log.data[..], &expected_data[..],
-            "H3: data must be BE32(100); got {}", hex::encode(&log.data));
+        // State = [from, to, amount]: 20-byte LE addresses, Integer amount.
+        let state = decode_native_notification_state(&log.data);
+        prop_assert_eq!(state.len(), 3,
+            "H3: native NEP-17 Transfer state must be [from, to, amount]; got {:?}", state);
+        let mut from_le = [0u8; 20];
+        from_le[0] = 0x01;
+        prop_assert_eq!(native_state_bytes(&state[0]), from_le.to_vec(),
+            "H3: state[0] must be `from` = address(0x1) as a 20-byte LE UInt160");
+        let mut to_le = [0u8; 20];
+        to_le[0] = 0x02;
+        prop_assert_eq!(native_state_bytes(&state[1]), to_le.to_vec(),
+            "H3: state[1] must be `to` = address(0x2) as a 20-byte LE UInt160");
+        prop_assert_eq!(native_state_int(&state[2]), 100,
+            "H3: state[2] must be the Integer amount 100");
     }
 }
 

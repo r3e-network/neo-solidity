@@ -1,10 +1,104 @@
 use super::*;
 
+/// Neo N3 `FindOptions` flags honoured by `System.Storage.Find` /
+/// `System.Storage.Local.Find` (gap `nep11` — previously the bundled runtime
+/// ignored the options argument and always yielded `[key, value]` structs,
+/// diverging from real Neo N3 for `KeysOnly` / `RemovePrefix` / `ValuesOnly`
+/// iterators such as the devpack NEP-11 `tokensOf` / `tokens` index scans).
+mod find_options {
+    // FindOptions.None is the absence of all flags (0x00).
+    pub const KEYS_ONLY: i64 = 0x01;
+    pub const REMOVE_PREFIX: i64 = 0x02;
+    pub const VALUES_ONLY: i64 = 0x04;
+    pub const DESERIALIZE_VALUES: i64 = 0x08;
+    pub const PICK_FIELD_0: i64 = 0x10;
+    pub const PICK_FIELD_1: i64 = 0x20;
+    pub const BACKWARDS: i64 = 0x80;
+    pub const ALL: i64 = KEYS_ONLY
+        | REMOVE_PREFIX
+        | VALUES_ONLY
+        | DESERIALIZE_VALUES
+        | PICK_FIELD_0
+        | PICK_FIELD_1
+        | BACKWARDS;
+}
+
 impl ExecutionContext {
+    /// Validate a `FindOptions` bitmask with the same rules as the C# node
+    /// (`Neo.SmartContract.ApplicationEngine.Storage`): unknown bits fault,
+    /// `KeysOnly` excludes the value-shaping flags, `PickField*` are mutually
+    /// exclusive and require `DeserializeValues`.
+    fn validate_find_options(options: i64) -> Result<(), RuntimeError> {
+        use find_options::*;
+        let fail = |message: String| Err(RuntimeError::ExecutionError { message });
+        if options & !ALL != 0 {
+            return fail(format!(
+                "Storage.Find: invalid FindOptions bits 0x{options:02x}"
+            ));
+        }
+        if options & KEYS_ONLY != 0
+            && options & (VALUES_ONLY | DESERIALIZE_VALUES | PICK_FIELD_0 | PICK_FIELD_1) != 0
+        {
+            return fail("Storage.Find: KeysOnly cannot be combined with value options".into());
+        }
+        if options & VALUES_ONLY != 0 && options & (KEYS_ONLY | REMOVE_PREFIX) != 0 {
+            return fail("Storage.Find: ValuesOnly cannot be combined with key options".into());
+        }
+        if options & PICK_FIELD_0 != 0 && options & PICK_FIELD_1 != 0 {
+            return fail("Storage.Find: PickField0 and PickField1 are mutually exclusive".into());
+        }
+        if options & (PICK_FIELD_0 | PICK_FIELD_1) != 0 && options & DESERIALIZE_VALUES == 0 {
+            return fail("Storage.Find: PickField requires DeserializeValues".into());
+        }
+        Ok(())
+    }
+
+    /// Shape one `(key, value)` storage entry per the validated `options`
+    /// bitmask, mirroring real Neo N3 iterator semantics.
+    fn shape_find_entry(prefix: &[u8], options: i64, key: Vec<u8>, value: Vec<u8>) -> StackItem {
+        use find_options::*;
+        let key = if options & REMOVE_PREFIX != 0 {
+            key[prefix.len().min(key.len())..].to_vec()
+        } else {
+            key
+        };
+        if options & KEYS_ONLY != 0 {
+            return StackItem::byte_array(key);
+        }
+        let mut value_item = StackItem::byte_array(value);
+        if options & DESERIALIZE_VALUES != 0 {
+            let bytes = Self::stack_item_to_bytes(value_item);
+            value_item = serde_json::from_slice::<StackItem>(&bytes).unwrap_or(StackItem::Null);
+            let pick = if options & PICK_FIELD_0 != 0 {
+                Some(0usize)
+            } else if options & PICK_FIELD_1 != 0 {
+                Some(1usize)
+            } else {
+                None
+            };
+            if let Some(index) = pick {
+                value_item = match &value_item {
+                    StackItem::Array(items) => items
+                        .borrow()
+                        .get(index)
+                        .cloned()
+                        .unwrap_or(StackItem::Null),
+                    _ => StackItem::Null,
+                };
+            }
+        }
+        if options & VALUES_ONLY != 0 {
+            return value_item;
+        }
+        StackItem::array(vec![StackItem::byte_array(key), value_item])
+    }
+
     pub(crate) fn build_storage_entries(
         &self,
         prefix: Vec<u8>,
+        options: i64,
     ) -> Result<Vec<StackItem>, RuntimeError> {
+        Self::validate_find_options(options)?;
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         // Bug #18: bound the host-query result set against `storage_limit` so a
         // host with a giant prefix-matching key set can't be weaponised into a
@@ -66,12 +160,12 @@ impl ExecutionContext {
         }
 
         entries.sort_by(|a, b| a.0.cmp(&b.0));
+        if options & find_options::BACKWARDS != 0 {
+            entries.reverse();
+        }
         let mut items = Vec::with_capacity(entries.len());
         for (k, v) in entries {
-            items.push(StackItem::array(vec![
-                StackItem::byte_array(k),
-                StackItem::byte_array(v),
-            ]));
+            items.push(Self::shape_find_entry(&prefix, options, k, v));
         }
         Ok(items)
     }

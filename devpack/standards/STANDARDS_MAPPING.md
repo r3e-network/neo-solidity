@@ -8,7 +8,7 @@
 | Ethereum (EIP)    | Neo (NEP) | Status       | Key Differences                                                         |
 | ----------------- | --------- | ------------ | ----------------------------------------------------------------------- |
 | ERC-20            | NEP-17    | ✅ Full      | 4-param `transfer`, `onNEP17Payment` callback, `Any` data type          |
-| ERC-721           | NEP-11    | ⚠️ Partial   | ByteString token IDs (`bytes32` in devpack examples), required `tokensOf`, optional `properties`, `onNEP11Payment`. Manifest types deviate from the NEP-11 spec — see "Manifest Type Deviations" below |
+| ERC-721           | NEP-11    | ✅ Full      | ByteString token IDs (dynamic `bytes`, ≤ 64 bytes), iterator-returning `tokensOf`/`tokens` (`InteropInterface`), optional `properties`, `onNEP11Payment` |
 | ERC-2981          | NEP-24    | ✅ Full      | Array return for multiple royalty recipients and computed royalty amounts |
 | ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; split into NEP-17/NEP-11 or implement NEP-11-divisible-style storage manually |
 | EIP-165           | Manifest  | 🔄 Different | Neo uses manifest `supportedstandards` instead of `supportsInterface()` |
@@ -100,7 +100,7 @@ function onNEP17Payment(address from, uint256 amount, Any calldata data) externa
 | `symbol() → string`                                  | `symbol() → String`                                           | Identical                   |
 | `totalSupply() → uint256`                            | `totalSupply() → Integer`                                     | Identical semantics         |
 | `balanceOf(address) → uint256`                       | `balanceOf(Hash160) → Integer`                                | Identical semantics         |
-| `ownerOf(uint256 tokenId) → address`                 | `ownerOf(ByteArray tokenId) → Hash160`                        | **`uint256` → ByteString**; devpack examples commonly use `bytes32` |
+| `ownerOf(uint256 tokenId) → address`                 | `ownerOf(ByteArray tokenId) → Hash160`                        | **`uint256` → ByteString**; the devpack uses dynamic `bytes` (≤ 64 bytes) |
 | `transferFrom(address, address, uint256)`            | `transfer(Hash160 to, ByteArray tokenId, Any data) → Boolean` | **3 params, witness-based** |
 | `safeTransferFrom(address, address, uint256, bytes)` | `transfer(Hash160 to, ByteArray tokenId, Any data) → Boolean` | Merged into single transfer |
 | `approve(address, uint256)`                          | —                                                             | Not in NEP-11 spec          |
@@ -108,15 +108,16 @@ function onNEP17Payment(address from, uint256 amount, Any calldata data) externa
 | `getApproved(uint256) → address`                     | —                                                             | Not in NEP-11 spec          |
 | `isApprovedForAll(address, address) → bool`          | —                                                             | Not in NEP-11 spec          |
 | —                                                    | `decimals() → Integer`                                        | **Required**: returns 0     |
-| —                                                    | `tokensOf(Hash160 owner) → Iterator`                          | **Neo-only**: enumerate     |
-| —                                                    | `properties(ByteArray tokenId) → Map`                         | **Neo-only**: optional metadata; included by devpack full interface |
+| —                                                    | `tokensOf(Hash160 owner) → Iterator`                          | **Neo-only**: the devpack returns `Syscalls.Iterator` (manifest `InteropInterface`) |
+| —                                                    | `properties(ByteArray tokenId) → Map`                         | **Neo-only**: optional metadata; **devpack deviation** — returns serialized `bytes` (manifest `ByteArray`) because Solidity cannot construct a NeoVM Map return value |
 | —                                                    | `onNEP11Payment(Hash160, Integer, ByteArray, Any)`            | **Neo-only callback**       |
 
 ### Key Differences
 
 1. **Token ID type**: ERC-721 uses `uint256`. NEP-11 uses `ByteString` token IDs
-   with a length of no more than 64 bytes. The devpack examples commonly use
-   Solidity `bytes32`, which compiles to a 32-byte Neo value.
+   with a length of no more than 64 bytes. The devpack types token IDs as
+   dynamic Solidity `bytes` (manifest type `ByteArray`) and validates the
+   1..64-byte range on mint.
 2. **Transfer signature**: NEP-11 `transfer(to, tokenId, data)` takes 3 parameters.
    Authorization is via `Runtime.checkWitness(owner)`, not `msg.sender`.
 3. **No approval mechanism**: NEP-11 spec does not define `approve`/`getApproved`.
@@ -124,9 +125,15 @@ function onNEP17Payment(address from, uint256 amount, Any calldata data) externa
 4. **Required `decimals()`**: Must return `0` for indivisible NFTs. NEP-11 also
    supports divisible NFTs where `decimals() > 0`.
 5. **Required `tokensOf()`**: Returns an iterator over token IDs owned by an address.
-   No ERC-721 equivalent (ERC-721 Enumerable is optional).
-6. **Optional `properties()`**: Returns a map of token metadata. It is optional
-   in NEP-11, but the devpack's full NFT interface includes it so ERC-721
+   No ERC-721 equivalent (ERC-721 Enumerable is optional). The devpack returns
+   `Syscalls.Iterator` — a NeoVM storage iterator over a raw-storage token
+   index — declared in the manifest as `InteropInterface`, exactly like the
+   official C# devpack.
+6. **Optional `properties()`**: NEP-11 types this as a Map of token metadata.
+   **Known devpack deviation**: Solidity has no construct that produces a NeoVM
+   Map stack item as a return value, so the devpack returns the serialized
+   properties blob as `bytes` (manifest `ByteArray`). It is optional in
+   NEP-11, but the devpack's full NFT interface includes it so ERC-721
    `tokenURI()` metadata can be represented on Neo.
 
 ### Solidity Migration Pattern
@@ -136,7 +143,7 @@ function onNEP17Payment(address from, uint256 amount, Any calldata data) externa
 function transferFrom(address from, address to, uint256 tokenId) public { ... }
 
 // ✅ NEP-11 style
-function transfer(address to, bytes32 tokenId, bytes calldata data)
+function transfer(address to, bytes memory tokenId, bytes calldata data)
     public returns (bool)
 {
     address tokenOwner = ownerOf(tokenId);
@@ -148,11 +155,14 @@ function transfer(address to, bytes32 tokenId, bytes calldata data)
 // ✅ NEP-11 required: decimals must return 0 for indivisible NFTs
 function decimals() public pure returns (uint8) { return 0; }
 
-// ✅ NEP-11 required: enumerate tokens owned by address
-function tokensOf(address owner) public view returns (bytes32[] memory) { ... }
+// ✅ NEP-11 required: iterator over tokens owned by an address
+//    (manifest returntype InteropInterface; back it with a raw-storage
+//    index scanned via Storage.find + FindOptions.KeysOnly|RemovePrefix)
+function tokensOf(address owner) public view returns (Syscalls.Iterator memory) { ... }
 
-// ✅ NEP-11 metadata extension: return token properties as a serialized/map value
-function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
+// ✅ NEP-11 metadata extension: return token properties as a serialized value
+//    (devpack deviation: bytes/ByteArray instead of the spec's Map)
+function properties(bytes memory tokenId) public view returns (bytes memory) { ... }
 ```
 
 ### Event Mapping
@@ -173,8 +183,10 @@ function properties(bytes32 tokenId) public view returns (bytes memory) { ... }
   compliance should still be checked against the canonical NEP-11 common methods,
   event shape, and receiver-callback semantics.
 - The manifest `supportedstandards` array will include `"NEP-11"`.
-- `bytes32` parameters compile to a 32-byte Neo ABI value suitable for devpack
-  token IDs; NEP-11 itself allows ByteString token IDs up to 64 bytes.
+- Dynamic `bytes` token IDs compile to manifest `ByteArray` (NEP-11 ByteString,
+  up to 64 bytes). Functions returning `Syscalls.Iterator` compile to manifest
+  returntype `InteropInterface` and leave the raw NeoVM iterator stack item as
+  the return value (no ABI re-encoding).
 
 ### Manifest Type Deviations (devpack `NEP11.sol`)
 
@@ -322,9 +334,10 @@ Neo N3 defines additional contract behavior standards beyond NEP-11/17/24.
 | `uint8` … `uint128`  | `Integer`     | All integer widths map to `Integer`       |
 | `bool`               | `Boolean`     | Identical semantics                       |
 | `string`             | `String`      | UTF-8 encoded                             |
-| `bytes`              | `ByteArray`   | Dynamic byte array                        |
-| `bytes32`            | `Hash256`     | 32-byte fixed array (used for token IDs)  |
+| `bytes`              | `ByteArray`   | Dynamic byte array (used for token IDs)   |
+| `bytes32`            | `Hash256`     | 32-byte fixed array (hashes)              |
 | `bytes4` … `bytes31` | `ByteArray`   | Fixed-size byte arrays                    |
+| `Syscalls.Iterator`  | `InteropInterface` | NeoVM storage iterator handle (raw return, no re-encoding) |
 | `address[]`          | `Array`       | Array of Hash160                          |
 | `mapping(K => V)`    | Storage       | Compiled to Neo storage prefix operations |
 | `struct`             | `Array`/`Map` | Serialized via `StdLib.serialize()`       |
@@ -359,10 +372,10 @@ When porting an Ethereum contract to Neo N3 via `neo-devpack-solidity`:
 
 ### ERC-721 → NEP-11
 
-- [ ] Change token ID type from `uint256` to a ByteString-compatible type (`bytes32` in devpack examples)
+- [ ] Change token ID type from `uint256` to dynamic `bytes` (NEP-11 ByteString, ≤ 64 bytes)
 - [ ] Change `transferFrom(from, to, tokenId)` to `transfer(to, tokenId, data)` with 3 params
 - [ ] Add `decimals()` returning `0` for indivisible NFTs
-- [ ] Add `tokensOf(owner)` returning token ID array/iterator
+- [ ] Add `tokensOf(owner)` returning a `Syscalls.Iterator` (manifest `InteropInterface`)
 - [ ] Add `properties(tokenId)` when the NFT needs on-chain metadata beyond the core NEP-11 methods
 - [ ] Add `onNEP11Payment(from, amount, tokenId, data)` callback
 - [ ] Remove `safeTransferFrom` (merged into `transfer`)

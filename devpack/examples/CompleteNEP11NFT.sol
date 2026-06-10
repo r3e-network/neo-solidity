@@ -42,12 +42,12 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         bool isSet;
     }
     
-    mapping(bytes32 => RoyaltyInfo) private _tokenRoyalties;
+    mapping(bytes => RoyaltyInfo) private _tokenRoyalties;
     RoyaltyInfo private _defaultRoyalty;
     
     // Marketplace integration
     struct Listing {
-        bytes32 tokenId;
+        bytes tokenId;
         address seller;
         uint256 price;
         uint256 expiry;
@@ -56,14 +56,14 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     }
     
     mapping(bytes32 => Listing) private _listings;
-    mapping(bytes32 => bytes32) private _tokenToListing;
+    mapping(bytes => bytes32) private _tokenToListing;
     bytes32[] private _activeListings;
     
     // Oracle integration for metadata
     address private constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
     bool private _oracleEnabled;
-    mapping(bytes32 => string) private _metadataURLs;
-    mapping(bytes32 => uint256) private _lastMetadataUpdate;
+    mapping(bytes => string) private _metadataURLs;
+    mapping(bytes => uint256) private _lastMetadataUpdate;
     
     // Collection features
     struct Collection {
@@ -88,7 +88,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     struct CurationProposal {
         bytes32 id;
         address proposer;
-        bytes32 tokenId;
+        bytes tokenId;
         string newMetadata;
         uint256 votes;
         uint256 deadline;
@@ -96,35 +96,35 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     }
     
     // Events
-    event RoyaltySet(bytes32 indexed tokenId, address recipient, uint96 percentage);
+    event RoyaltySet(bytes indexed tokenId, address recipient, uint96 percentage);
     event DefaultRoyaltySet(address recipient, uint96 percentage);
-    event TokenMintedWithMetadata(bytes32 indexed tokenId, address indexed to, string metadataURI);
-    event BatchMintWithMetadata(bytes32[] tokenIds, address[] recipients);
-    event TokenListed(bytes32 indexed tokenId, address indexed seller, uint256 price, address currency);
-    event TokenSold(bytes32 indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
-    event ListingCancelled(bytes32 indexed tokenId, address indexed seller);
-    event MetadataUpdated(bytes32 indexed tokenId, string newMetadata);
-    event CurationProposed(bytes32 indexed proposalId, bytes32 indexed tokenId, address indexed proposer);
+    event TokenMintedWithMetadata(bytes indexed tokenId, address indexed to, string metadataURI);
+    event BatchMintWithMetadata(bytes[] tokenIds, address[] recipients);
+    event TokenListed(bytes indexed tokenId, address indexed seller, uint256 price, address currency);
+    event TokenSold(bytes indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
+    event ListingCancelled(bytes indexed tokenId, address indexed seller);
+    event MetadataUpdated(bytes indexed tokenId, string newMetadata);
+    event CurationProposed(bytes32 indexed proposalId, bytes indexed tokenId, address indexed proposer);
     event CurationVote(bytes32 indexed proposalId, address indexed voter);
-    event CurationExecuted(bytes32 indexed proposalId, bytes32 indexed tokenId);
+    event CurationExecuted(bytes32 indexed proposalId, bytes indexed tokenId);
     event TokenFractionalized(
-        bytes32 indexed tokenId,
+        bytes indexed tokenId,
         address indexed owner,
         address shareContract,
         uint256 shareCount,
         string shareName,
         string shareSymbol
     );
-    event TokenCombined(bytes32 indexed tokenId, address indexed owner, address shareContract);
-    event BundleCreated(bytes32 indexed bundleId, bytes32[] tokenIds, string bundleName, uint256 bundlePrice);
+    event TokenCombined(bytes indexed tokenId, address indexed owner, address shareContract);
+    event BundleCreated(bytes32 indexed bundleId, bytes[] tokenIds, string bundleName, uint256 bundlePrice);
     event CollectionUpdated(string description, string externalURL, string imageURL);
     event CuratorAdded(address indexed curator);
     event CuratorRemoved(address indexed curator);
     event FloorPriceUpdated(uint256 newFloorPrice);
     
     // Custom errors
-    error CompleteNEP11NotListed(bytes32 tokenId);
-    error CompleteNEP11ListingExpired(bytes32 tokenId);
+    error CompleteNEP11NotListed(bytes tokenId);
+    error CompleteNEP11ListingExpired(bytes tokenId);
     error CompleteNEP11InsufficientPayment(uint256 provided, uint256 required);
     error CompleteNEP11NotCurator(address caller);
     error CompleteNEP11RoyaltyTooHigh(uint96 percentage);
@@ -142,7 +142,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         _;
     }
     
-    modifier tokenNotListed(bytes32 tokenId) {
+    modifier tokenNotListed(bytes memory tokenId) {
         if (_tokenToListing[tokenId] != bytes32(0)) {
             revert("CompleteNEP11: token already listed");
         }
@@ -194,8 +194,8 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         string memory metadataURI,
         bytes memory properties,
         RoyaltyInfo memory royalty
-    ) public onlyMinter returns (bytes32 tokenId) {
-        tokenId = bytes32(_nextTokenId);
+    ) public onlyMinter returns (bytes memory tokenId) {
+        tokenId = bytes.concat(bytes32(_nextTokenId));
         _nextTokenId++;
         
         // Mint the token
@@ -220,13 +220,13 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         string[] memory metadataURIs,
         bytes[] memory properties,
         RoyaltyInfo[] memory royalties
-    ) public onlyMinter returns (bytes32[] memory tokenIds) {
+    ) public onlyMinter returns (bytes[] memory tokenIds) {
         require(recipients.length == metadataURIs.length, "CompleteNEP11: array length mismatch");
         require(recipients.length == properties.length, "CompleteNEP11: array length mismatch");
         require(recipients.length == royalties.length, "CompleteNEP11: array length mismatch");
         require(recipients.length <= 50, "CompleteNEP11: too many tokens");
         
-        tokenIds = new bytes32[](recipients.length);
+        tokenIds = new bytes[](recipients.length);
         
         for (uint256 i = 0; i < recipients.length; i++) {
             tokenIds[i] = mintWithMetadata(recipients[i], metadataURIs[i], properties[i], royalties[i]);
@@ -241,7 +241,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Set royalty for specific token
      */
     function setTokenRoyalty(
-        bytes32 tokenId,
+        bytes memory tokenId,
         address recipient,
         uint96 percentage
     ) public onlyOwner tokenExists(tokenId) validRoyalty(percentage) {
@@ -278,7 +278,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     /**
      * @dev Get royalty information (EIP-2981 compatible)
      */
-    function royaltyInfo(bytes32 tokenId, uint256 salePrice) 
+    function royaltyInfo(bytes memory tokenId, uint256 salePrice) 
         external 
         view 
         tokenExists(tokenId)
@@ -300,7 +300,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev List token for sale
      */
     function listToken(
-        bytes32 tokenId,
+        bytes memory tokenId,
         uint256 price,
         uint256 duration,
         address currency
@@ -336,7 +336,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     /**
      * @dev Buy listed token
      */
-    function buyToken(bytes32 tokenId) public payable tokenExists(tokenId) {
+    function buyToken(bytes memory tokenId) public payable tokenExists(tokenId) {
         bytes32 listingId = _tokenToListing[tokenId];
         require(listingId != bytes32(0), "CompleteNEP11: token not listed");
         
@@ -397,7 +397,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     /**
      * @dev Cancel listing
      */
-    function cancelListing(bytes32 tokenId) public {
+    function cancelListing(bytes memory tokenId) public {
         bytes32 listingId = _tokenToListing[tokenId];
         require(listingId != bytes32(0), "CompleteNEP11: token not listed");
         
@@ -421,7 +421,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Update metadata via oracle
      */
     function updateMetadataViaOracle(
-        bytes32 tokenId,
+        bytes memory tokenId,
         string memory metadataURL
     ) public onlyCurator tokenExists(tokenId) returns (uint256 requestId) {
         require(_oracleEnabled, "CompleteNEP11: oracle not configured");
@@ -432,7 +432,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
             metadataURL,
             "",
             "onOracleResponse",
-            abi.encode(tokenId),
+            tokenId,
             20_000_000
         );
         requestId = block.timestamp;
@@ -448,7 +448,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         require(msg.sender == ORACLE_CONTRACT, "CompleteNEP11: unauthorized oracle response");
         
         if (code == 0) {
-            bytes32 tokenId = abi.decode(userData, (bytes32));
+            bytes memory tokenId = userData;
             
             // Update token properties with oracle data
             setProperties(tokenId, result);
@@ -485,7 +485,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Propose metadata curation
      */
     function proposeCuration(
-        bytes32 tokenId,
+        bytes memory tokenId,
         string memory newMetadata
     ) public onlyCurator tokenExists(tokenId) returns (bytes32 proposalId) {
         proposalId = keccak256(abi.encode(tokenId, newMetadata, msg.sender, block.timestamp));
@@ -541,7 +541,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Fractionalize NFT (split into fungible shares)
      */
     function fractionalize(
-        bytes32 tokenId,
+        bytes memory tokenId,
         uint256 shareCount,
         string memory shareName,
         string memory shareSymbol
@@ -565,7 +565,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Combine fractionalized shares back to NFT
      */
     function combine(
-        bytes32 /*tokenId*/,
+        bytes memory /*tokenId*/,
         address /*shareContract*/,
         uint256 /*shareCount*/
     ) public pure {
@@ -578,7 +578,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Create token bundle
      */
     function createBundle(
-        bytes32[] memory tokenIds,
+        bytes[] memory tokenIds,
         string memory bundleName,
         uint256 bundlePrice
     ) public returns (bytes32 bundleId) {
@@ -678,7 +678,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
     /**
      * @dev Get token full information
      */
-    function getTokenInfo(bytes32 tokenId) public view tokenExists(tokenId) returns (
+    function getTokenInfo(bytes memory tokenId) public view tokenExists(tokenId) returns (
         address owner,
         bytes memory properties,
         string memory uri,
@@ -707,7 +707,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
      * @dev Get marketplace listings
      */
     function getActiveListings() public view returns (
-        bytes32[] memory tokenIds,
+        bytes[] memory tokenIds,
         uint256[] memory prices,
         address[] memory sellers,
         uint256[] memory expiries
@@ -723,7 +723,7 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         }
         
         // Populate arrays
-        tokenIds = new bytes32[](activeCount);
+        tokenIds = new bytes[](activeCount);
         prices = new uint256[](activeCount);
         sellers = new address[](activeCount);
         expiries = new uint256[](activeCount);

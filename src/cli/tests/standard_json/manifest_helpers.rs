@@ -323,6 +323,18 @@ fn solidity_types_map_to_manifest_types() {
 }
 
 #[test]
+fn devpack_iterator_maps_to_interop_interface() {
+    // Gap `nep11` — the devpack NeoVM iterator handle must surface as the
+    // manifest `InteropInterface` type (NEP-11 `tokensOf`/`tokens`).
+    assert_eq!(solidity_to_manifest_type("Syscalls.Iterator"), "InteropInterface");
+    assert_eq!(solidity_to_manifest_type("Storage.Iterator"), "InteropInterface");
+    assert_eq!(solidity_to_manifest_type("Iterator"), "InteropInterface");
+    // But iterator-ish user types keep their existing mapping.
+    assert_eq!(solidity_to_manifest_type("MyLib.IteratorState"), "Any");
+    assert_eq!(solidity_to_manifest_type("Iterator[]"), "Array");
+}
+
+#[test]
 fn hex_prefixed_is_idempotent() {
     assert_eq!(hex_prefixed("deadbeef"), "0xdeadbeef");
     assert_eq!(hex_prefixed("0xdeadbeef"), "0xdeadbeef");

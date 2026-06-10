@@ -9,7 +9,7 @@
 ///   * enum types (`enum Foo` or a bare name matching a declared enum) ->
 ///     `uint8` per the Solidity ABI spec.
 ///   * unknown user-defined types (structs, contracts) pass through by name.
-fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String {
+pub(crate) fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String {
     let trimmed = raw.trim();
     let without_location = trimmed
         .replace(" memory", "")
@@ -51,6 +51,59 @@ fn event_canonical_param_type(raw: &str, enum_names: &HashSet<String>) -> String
     };
 
     format!("{canonical_base}{suffix}")
+}
+
+/// NEP token standard whose native `Transfer` notification shape an event
+/// declaration matches.
+///
+/// Used by the `emit` lowering (native payload instead of the EVM
+/// `[topic0, indexed..., data]` shape), the manifest builder (declares
+/// `from: Hash160, to: Hash160, amount: Integer(, tokenId)` instead of the
+/// EVM wire shape) and the standards conformance checks. All three MUST
+/// agree, so they share this single predicate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NativeTransferStandard {
+    /// NEP-17 `Transfer(address from, address to, uint256 amount)`.
+    Nep17,
+    /// NEP-11 `Transfer(address from, address to, uint256 amount, tokenId)`
+    /// where `tokenId` is `bytes32` (devpack legacy) or `bytes` (spec
+    /// ByteString).
+    Nep11,
+}
+
+/// Detect whether an event declaration matches a NEP standard `Transfer`
+/// signature and must therefore be emitted in NATIVE Neo notification shape
+/// (state items `[from, to, amount(, tokenId)]`, no EVM topic0, zero address
+/// mapped to `Null` per the NEP-17/NEP-11 mint/burn convention).
+///
+/// Detection is purely signature-based:
+///   * `indexed` annotations are ignored — Neo notifications have no topic
+///     model, the payload is identical either way.
+///   * `anonymous` events never match (they keep the EVM anonymous shape).
+///   * Types are compared on their EVM-canonical spelling (`uint` already
+///     normalized to `uint256` etc. by `event_canonical_param_type`).
+pub(crate) fn native_transfer_standard(
+    event_name: &str,
+    is_anonymous: bool,
+    canonical_param_types: &[String],
+) -> Option<NativeTransferStandard> {
+    if is_anonymous || event_name != "Transfer" {
+        return None;
+    }
+    match canonical_param_types {
+        [from, to, amount] if from == "address" && to == "address" && amount == "uint256" => {
+            Some(NativeTransferStandard::Nep17)
+        }
+        [from, to, amount, token_id]
+            if from == "address"
+                && to == "address"
+                && amount == "uint256"
+                && (token_id == "bytes32" || token_id == "bytes") =>
+        {
+            Some(NativeTransferStandard::Nep11)
+        }
+        _ => None,
+    }
 }
 
 /// Returns whether a canonical Solidity type is dynamic for indexed-event

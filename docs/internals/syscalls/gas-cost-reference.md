@@ -65,9 +65,6 @@ Storage read, delete, and search operations.
 | `System.Storage.Get`          | Storage  |
 | `System.Storage.Delete`       | Storage  |
 | `System.Storage.Find`         | Storage  |
-| `System.Storage.Local.Get`    | Storage  |
-| `System.Storage.Local.Delete` | Storage  |
-| `System.Storage.Local.Find`   | Storage  |
 
 ## Tier 5 — 200 GAS units
 
@@ -82,7 +79,6 @@ Storage writes and cryptographic verification. The most expensive operations.
 | Syscall Name                  | Category |
 | ----------------------------- | -------- |
 | `System.Storage.Put`          | Storage  |
-| `System.Storage.Local.Put`    | Storage  |
 | `System.Crypto.CheckSig`      | Crypto   |
 | `System.Crypto.CheckMultisig` | Crypto   |
 

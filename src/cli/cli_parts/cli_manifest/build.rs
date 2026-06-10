@@ -338,45 +338,88 @@ fn build_manifest(
         })
         .collect();
 
-    // The emit lowering (src/ir/statements/events.rs) sends
-    // `System.Runtime.Notify` the EVM-canonical state array
-    //   [topic0, indexed..., data]   (non-anonymous events)
-    //   [indexed..., data]           (anonymous events)
-    // — NOT the Solidity-declared parameter list. Neo N3 nodes since 3.6
-    // (HF_Basilisk) validate every notification against the manifest ABI
-    // (state item count + per-item type), so the manifest must declare the
-    // payload that is actually notified or every `emit` FAULTs on-chain.
-    // Every state item is a ByteString (the 32-byte topic slots / keccak
-    // hashes and the `abi.encode` data blob), hence `ByteArray` throughout.
-    // The declared parameter names are preserved for the indexed slots so
-    // indexers can still associate topics with the Solidity declaration.
+    // Events: the manifest must declare the EXACT notification shape the
+    // compiled bytecode hands to System.Runtime.Notify — Neo nodes >= 3.6
+    // (HF_Basilisk) fault any notification whose name is undeclared or whose
+    // state-item count mismatches the declared parameter count.
+    //
+    // Two shapes exist (shared predicate: `ir::native_transfer_standard`,
+    // also used by the emit lowering in src/ir/statements/events.rs):
+    //
+    //   * NEP-17 / NEP-11 `Transfer` declarations are emitted NATIVE
+    //     (`[from, to, amount(, tokenId)]`, zero address => Null) and are
+    //     declared with their Solidity parameter names/types
+    //     (`from: Hash160, to: Hash160, amount: Integer(, tokenId)`).
+    //   * Every other event is emitted in EVM log shape and declared
+    //     truthfully as `[topic0,] <indexed...>, data` — all ByteArray
+    //     (topics are 32-byte slots / keccak hashes, data is the
+    //     abi.encoded non-indexed payload). Anonymous events drop topic0.
+    let event_enum_names: HashSet<String> =
+        metadata.enums.iter().map(|e| e.name.clone()).collect();
     let events_json: Vec<_> = metadata
         .events
         .iter()
         .map(|event| {
-            let mut params: Vec<Value> = Vec::new();
-            if !event.anonymous {
-                params.push(json!({
-                    "name": "topic0",
-                    "type": "ByteArray",
-                }));
-            }
-            for (idx, param) in event.parameters.iter().enumerate() {
-                if !param.indexed {
-                    continue;
+            let canonical_types: Vec<String> = event
+                .parameters
+                .iter()
+                .map(|param| ir::event_canonical_param_type(&param.ty, &event_enum_names))
+                .collect();
+            let is_native_transfer =
+                ir::native_transfer_standard(&event.name, event.anonymous, &canonical_types)
+                    .is_some();
+
+            let params: Vec<_> = if is_native_transfer {
+                event
+                    .parameters
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, param)| {
+                        json!({
+                            "name": param
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| format!("param{idx}")),
+                            "type": neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty),
+                        })
+                    })
+                    .collect()
+            } else {
+                // Truthful EVM wire shape. Indexed params keep their declared
+                // names where possible (fallback `topicN`, also used to break
+                // collisions with the reserved `topic0` / `data` slots).
+                let mut used: HashSet<String> = HashSet::new();
+                let mut params: Vec<serde_json::Value> = Vec::new();
+                if !event.anonymous {
+                    used.insert("topic0".to_string());
+                    params.push(json!({ "name": "topic0", "type": "ByteArray" }));
                 }
-                params.push(json!({
-                    "name": param
-                        .name
-                        .clone()
-                        .unwrap_or_else(|| format!("param{idx}")),
-                    "type": "ByteArray",
-                }));
-            }
-            params.push(json!({
-                "name": "data",
-                "type": "ByteArray",
-            }));
+                let topic_base = if event.anonymous { 0usize } else { 1usize };
+                for (nth, param) in event
+                    .parameters
+                    .iter()
+                    .filter(|param| param.indexed)
+                    .enumerate()
+                {
+                    let fallback = format!("topic{}", topic_base + nth);
+                    let name = match &param.name {
+                        Some(declared)
+                            if !declared.is_empty()
+                                && declared != "data"
+                                && used.insert(declared.clone()) =>
+                        {
+                            declared.clone()
+                        }
+                        _ => {
+                            used.insert(fallback.clone());
+                            fallback
+                        }
+                    };
+                    params.push(json!({ "name": name, "type": "ByteArray" }));
+                }
+                params.push(json!({ "name": "data", "type": "ByteArray" }));
+                params
+            };
 
             json!({
                 "name": event.name,

@@ -30,10 +30,6 @@ This is computed at compile time and embedded in the bytecode.
 | `System.Storage.Put`                | Write a key-value pair to storage                     |
 | `System.Storage.Delete`             | Delete a key from storage                             |
 | `System.Storage.Find`               | Find entries by key prefix, returns iterator          |
-| `System.Storage.Local.Get`          | Read from local storage                               |
-| `System.Storage.Local.Put`          | Write to local storage                                |
-| `System.Storage.Local.Delete`       | Delete from local storage                             |
-| `System.Storage.Local.Find`         | Find in local storage by prefix                       |
 
 ## Iterator Syscalls
 

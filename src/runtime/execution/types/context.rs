@@ -34,7 +34,7 @@ pub struct ExecutionContext {
     pub(crate) memory: Vec<u8>,
     pub(crate) memory_limit: usize,
     /// Bug #17: cap on cumulative storage_overlay byte footprint. Wired through
-    /// `enforce_storage_limit` on every `Storage.Put` / `Local.Put`. Before this
+    /// `enforce_storage_limit` on every `Storage.Put`. Before this
     /// was added, the `RuntimeConfig::storage_limit` field had no consumer and
     /// any contract could `Storage.put` arbitrary-length values until the host
     /// process OOM-aborted.

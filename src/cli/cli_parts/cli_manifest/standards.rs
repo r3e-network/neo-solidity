@@ -61,6 +61,9 @@ fn detect_supported_standards(
 
     if nep17_names_match && nep17_transfer_ok && nep17_event_ok {
         standards.push("NEP-17".to_string());
+        // Count-conformant, but warn when the parameter TYPES keep the
+        // compiler from emitting the native NEP-17 Transfer notification.
+        validate_transfer_event(events, "NEP-17", 3, &mut diagnostics);
     } else if nep17_names_match {
         let mut problems: Vec<&str> = Vec::new();
         if !nep17_transfer_ok {
@@ -127,6 +130,9 @@ fn detect_supported_standards(
 
     if nep11_names_match && nep11_transfer_ok && nep11_event_ok {
         standards.push("NEP-11".to_string());
+        // Count-conformant, but warn when the parameter TYPES keep the
+        // compiler from emitting the native NEP-11 Transfer notification.
+        validate_transfer_event(events, "NEP-11", 4, &mut diagnostics);
     } else if nep11_names_match {
         let mut problems: Vec<&str> = Vec::new();
         if !nep11_transfer_ok {
@@ -302,6 +308,77 @@ fn detect_supported_standards(
     }
 }
 
+/// Determine whether an event declaration will be emitted (and declared in
+/// the manifest) in NATIVE NEP `Transfer` shape, and for which standard.
+///
+/// Mirrors the emit lowering / manifest builder by delegating to the shared
+/// `ir::native_transfer_standard` predicate. The enum set passed to the
+/// canonicalizer is empty: enum names can never spell `address` / `uint256`
+/// / `bytes32` / `bytes` (reserved words), so positive matches are identical
+/// with or without enum knowledge.
+fn event_native_transfer_standard(event: &EventMetadata) -> Option<ir::NativeTransferStandard> {
+    let enum_names: HashSet<String> = HashSet::new();
+    let canonical_types: Vec<String> = event
+        .parameters
+        .iter()
+        .map(|param| ir::event_canonical_param_type(&param.ty, &enum_names))
+        .collect();
+    ir::native_transfer_standard(&event.name, event.anonymous, &canonical_types)
+}
+
+/// Check that a `Transfer` event exists with the expected parameter count
+/// AND the parameter types that make the compiler emit it in native NEP
+/// shape (`[from, to, amount(, tokenId)]`, readable by NEP trackers).
+fn validate_transfer_event(
+    events: &[EventMetadata],
+    standard: &'static str,
+    expected_params: usize,
+    diagnostics: &mut Vec<StandardsDiagnostic>,
+) {
+    let expected_kind = if expected_params == 4 {
+        ir::NativeTransferStandard::Nep11
+    } else {
+        ir::NativeTransferStandard::Nep17
+    };
+    let transfer_event = events.iter().find(|e| e.name == "Transfer");
+    match transfer_event {
+        None => {
+            diagnostics.push(StandardsDiagnostic {
+                level: StandardsDiagnosticLevel::Warning,
+                standard,
+                message: format!(
+                    "{standard} detected but contract is missing the required `Transfer` event \
+                     ({expected_params} parameters expected).",
+                ),
+            });
+        }
+        Some(evt) if evt.parameters.len() != expected_params => {
+            diagnostics.push(StandardsDiagnostic {
+                level: StandardsDiagnosticLevel::Info,
+                standard,
+                message: format!(
+                    "{standard} `Transfer` event has {} parameter(s), expected {expected_params}.",
+                    evt.parameters.len(),
+                ),
+            });
+        }
+        Some(evt) if event_native_transfer_standard(evt) != Some(expected_kind) => {
+            diagnostics.push(StandardsDiagnostic {
+                level: StandardsDiagnosticLevel::Warning,
+                standard,
+                message: format!(
+                    "{standard} `Transfer` event parameter types do not match the standard \
+                     signature, so it will be emitted in EVM log shape (unreadable by NEP \
+                     trackers). Declare it as `Transfer(address from, address to, uint256 \
+                     amount{})` for native emission.",
+                    if expected_params == 4 { ", bytes tokenId" } else { "" },
+                ),
+            });
+        }
+        _ => {} // Event present in native NEP shape — all good.
+    }
+}
+
 /// Returns all public/external methods with a given name (case-insensitive).
 fn methods_named<'a>(
     public_methods: &[&'a FunctionMetadata],
@@ -352,26 +429,27 @@ fn validate_declared_standards(
         .iter()
         .map(|m| m.name.to_ascii_lowercase())
         .collect();
-    let transfer_params = events
-        .iter()
-        .find(|e| e.name == "Transfer")
-        .map(|e| e.parameters.len());
+    let transfer_event = events.iter().find(|e| e.name == "Transfer");
 
     for std in declared {
-        // `(required method names, Transfer-event param count, transfer-method param count)`
-        let (required, expected_transfer_params, expected_transfer_method_params): (
+        // `(required method names, Transfer-event param count,
+        // native Transfer-event kind, transfer-method param count)`
+        let (required, expected_transfer_params, expected_kind, expected_transfer_method_params): (
             &[&str],
             usize,
+            ir::NativeTransferStandard,
             usize,
         ) = match std.as_str() {
             "NEP-17" => (
                 &["symbol", "decimals", "totalsupply", "balanceof", "transfer"],
                 3,
+                ir::NativeTransferStandard::Nep17,
                 4,
             ),
             "NEP-11" => (
                 &["symbol", "decimals", "balanceof", "ownerof", "transfer"],
                 4,
+                ir::NativeTransferStandard::Nep11,
                 3,
             ),
             _ => continue,
@@ -399,7 +477,7 @@ fn validate_declared_standards(
                  Fix the `transfer` signature or remove `{std}` from @custom:neo.manifest.supportedstandards."
             ));
         }
-        match transfer_params {
+        match transfer_event {
             None => {
                 return Err(format!(
                     "contract declares `{std}` in supportedstandards but is missing the required `Transfer` event \
@@ -407,11 +485,25 @@ fn validate_declared_standards(
                      from @custom:neo.manifest.supportedstandards."
                 ));
             }
-            Some(n) if n != expected_transfer_params => {
+            Some(evt) if evt.parameters.len() != expected_transfer_params => {
                 return Err(format!(
-                    "contract declares `{std}` in supportedstandards but its `Transfer` event has {n} parameter(s); \
+                    "contract declares `{std}` in supportedstandards but its `Transfer` event has {} parameter(s); \
                      {std} requires {expected_transfer_params}. Fix the event signature or remove `{std}` \
-                     from @custom:neo.manifest.supportedstandards."
+                     from @custom:neo.manifest.supportedstandards.",
+                    evt.parameters.len(),
+                ));
+            }
+            Some(evt) if event_native_transfer_standard(evt) != Some(expected_kind) => {
+                // Right arity but wrong parameter types (or `anonymous`):
+                // the compiler will emit this event in EVM log shape, which
+                // NEP trackers cannot read — the declared standard would be
+                // a lie. Hard error, same policy as a missing event.
+                return Err(format!(
+                    "contract declares `{std}` in supportedstandards but its `Transfer` event does not match the \
+                     {std} signature `Transfer(address from, address to, uint256 amount{})`, so it will not be \
+                     emitted as a native NEP transfer notification. Fix the event parameter types or remove `{std}` \
+                     from @custom:neo.manifest.supportedstandards.",
+                    if expected_transfer_params == 4 { ", bytes-or-bytes32 tokenId" } else { "" },
                 ));
             }
             _ => {}

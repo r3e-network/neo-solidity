@@ -18,11 +18,19 @@ fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diag
                             "use scaled integer arithmetic instead (e.g., multiply by 10^18 for 18 decimal places)"
                         ),
                     );
-                } else if !return_type_supported(&ret_param.ty) {
+                } else if !return_type_supported(&ret_param.ty)
+                    && !is_devpack_iterator_type(&ret_param.ty)
+                {
                     // Task #94 — accept parenthesised tuple return types
                     // (e.g. `((uint256, uint256), uint256)`) when every inner
                     // component is individually supported. `return_type_supported`
                     // handles the recursive walk with paren-depth tracking.
+                    //
+                    // Gap `nep11` — the devpack `Syscalls.Iterator` handle type
+                    // is also accepted: returning it from a public method leaves
+                    // the raw NeoVM iterator stack item as the return value
+                    // (manifest returntype `InteropInterface`), which is how
+                    // NEP-11 `tokensOf`/`tokens` are specified.
                     diagnostics.push(Diagnostic::error(format!(
                         "function '{}' return type '{}' is unsupported",
                         function.name, ret_param.ty
@@ -30,12 +38,13 @@ fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diag
                 }
             }
 
-            let lowered = ret_param.ty.to_ascii_lowercase();
             let supported = match ret_param.neo_type.as_ref() {
                 Some(NeoType::Any) | None => {
+                    let lowered = ret_param.ty.to_ascii_lowercase();
                     return_type_supported(&ret_param.ty)
                         || lowered.starts_with("syscalls.")
                         || lowered.starts_with("storage.iterator")
+                        || is_devpack_iterator_type(&ret_param.ty)
                 }
                 Some(_) => true,
             };
@@ -59,6 +68,19 @@ fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diag
             }
         }
     }
+}
+
+/// Gap `nep11` — true iff `ty` names the devpack NeoVM iterator handle type
+/// (`Syscalls.Iterator` / `Storage.Iterator` / bare `Iterator`). The builtin
+/// helper libraries are never struct-merged into user contracts (see
+/// `is_builtin_library_name` in `solidity_analyse.rs`), so this type always
+/// reaches validation with `neo_type == None` and must be allowed by name.
+fn is_devpack_iterator_type(ty: &str) -> bool {
+    let lowered = ty.trim().to_ascii_lowercase();
+    matches!(
+        lowered.as_str(),
+        "iterator" | "syscalls.iterator" | "storage.iterator"
+    )
 }
 
 /// Task #94 — returns `true` iff `s` looks like a parenthesised tuple type:

@@ -169,6 +169,18 @@ library Runtime {
         return Syscalls.getInvocationCounter();
     }
 
+    // NOTE: there is intentionally no `hasRole` helper. Neo N3's native
+    // RoleManagement contract only exposes getDesignatedByRole(role, index)
+    // (the ECPoint node list designated at a block height) and
+    // designateAsRole; neither real Neo N3 nor the official C# devpack
+    // provides a generic role-membership check. A previous `hasRole`
+    // helper silently ignored its `role` argument and fell back to
+    // checkWitness(account) — a misleading surface for an access-control
+    // primitive (and uncallable anyway: Runtime is a compiler-intrinsic
+    // library and `hasRole` had no intrinsic lowering). For node-role
+    // checks use NativeCalls.getDesignatedByRole() and scan the returned
+    // list; for account authorization use checkWitness/requireWitness.
+
     /**
      * @dev Get current transaction signers
      */

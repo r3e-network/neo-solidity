@@ -26,7 +26,8 @@ Neo N3 registers only the seven `System.Storage.*` syscalls above. A previous
 devpack revision exposed `Syscalls.storage{Get,Put,Delete,Find}Local` wrappers
 mapped to fictional `System.Storage.Local.*` syscalls; those names are absent
 from Neo N3's interop table, so calls faulted on real nodes. The wrappers have
-been removed. Neo N3 storage contexts are already private to the owning
+been removed, and the bundled runtime now treats these syscall names like any
+other unknown syscall (FAULT), matching real-node behavior. Neo N3 storage contexts are already private to the owning
 contract, so the context-based wrappers provide the same isolation.
 :::
 

@@ -1006,23 +1006,34 @@ contract C {
             )
         });
 
-    // (b) Parameter count matches the NOTIFIED payload: the emit lowering
-    // sends `[topic0, from, to, data]` (EVM shape) to System.Runtime.Notify,
-    // and post-Basilisk Neo nodes validate notifications against the
-    // manifest by state-item count — so the manifest declares 4 parameters
-    // (topic0 + 2 indexed + data), not the 3 Solidity-declared ones.
+    // (b) `Transfer(address,address,uint256)` matches the NEP-17 standard
+    // signature, so the emit lowering sends the NATIVE payload
+    // `[from, to, amount]` to System.Runtime.Notify (no topic0/data slots)
+    // and the manifest declares exactly those 3 parameters with native
+    // types — post-Basilisk Neo nodes validate notifications against the
+    // manifest by state-item count, and NEP-17 trackers read this shape.
     let params = transfer_event
         .get("parameters")
         .and_then(|p| p.as_array())
         .expect("FFF2_1 Transfer event must have parameters array");
+    let shapes: Vec<(&str, &str)> = params
+        .iter()
+        .map(|p| {
+            (
+                p["name"].as_str().expect("param name"),
+                p["type"].as_str().expect("param type"),
+            )
+        })
+        .collect();
     assert_eq!(
-        params.len(),
-        4,
-        "FFF2_1 Transfer event must declare 4 parameters (topic0, from, to, \
-         data) matching the notified EVM-shape state array; got {} \
-         (params={:?}).",
-        params.len(),
-        params
+        shapes,
+        vec![
+            ("from", "Hash160"),
+            ("to", "Hash160"),
+            ("amount", "Integer"),
+        ],
+        "FFF2_1 Transfer (NEP-17 signature) must declare the native \
+         notification shape; got {params:?}.",
     );
 
     // Also verify the event emits at runtime without faulting.
@@ -1059,12 +1070,12 @@ contract C {
         r.logs.len()
     );
     let log = &r.logs[0];
-    // The first topic is the event signature hash: keccak256("Transfer(address,address,uint256)").
-    assert!(
-        !log.topics.is_empty(),
-        "FFF2_1 first log entry must have at least 1 topic (event signature); \
-         got {} topics. If 0, the event signature was not hashed into topic 0.",
-        log.topics.len()
+    // Native-shaped Transfer notifications carry the event NAME (not a
+    // keccak signature hash) as the first topic in the emulator's log view.
+    assert_eq!(
+        &log.topics[0][..],
+        b"Transfer" as &[u8],
+        "FFF2_1 native Transfer log must carry the event name as topic[0]."
     );
 }
 

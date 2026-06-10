@@ -40,12 +40,10 @@ impl ExecutionContext {
         };
         match name {
             // Finding #2 — Storage.Put scales with key.len + value.len.
-            // Stack layout differs across the two variants (see
-            // execution/syscalls/storage.rs for the canonical order):
-            //   System.Storage.Put       — stack = [value, key, context]
-            //                               (context on top, then key, then value)
-            //   System.Storage.Local.Put — stack = [value, key]
-            //                               (key on top, then value)
+            // Stack layout (see execution/syscalls/storage.rs for the
+            // canonical order):
+            //   System.Storage.Put — stack = [value, key, context]
+            //                        (context on top, then key, then value)
             "System.Storage.Put" => {
                 let depth = self.stack.len();
                 if depth < 3 {
@@ -53,17 +51,6 @@ impl ExecutionContext {
                 }
                 let key_len = stack_item_byte_len(&self.stack[depth - 2]) as u64;
                 let value_len = stack_item_byte_len(&self.stack[depth - 3]) as u64;
-                key_len
-                    .saturating_add(value_len)
-                    .saturating_mul(STORAGE_PUT_PER_BYTE_GAS)
-            }
-            "System.Storage.Local.Put" => {
-                let depth = self.stack.len();
-                if depth < 2 {
-                    return 0;
-                }
-                let key_len = stack_item_byte_len(&self.stack[depth - 1]) as u64;
-                let value_len = stack_item_byte_len(&self.stack[depth - 2]) as u64;
                 key_len
                     .saturating_add(value_len)
                     .saturating_mul(STORAGE_PUT_PER_BYTE_GAS)

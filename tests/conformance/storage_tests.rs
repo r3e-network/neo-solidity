@@ -368,29 +368,51 @@ fn multiple_storage_contexts() {
     assert!(ctx.return_data().is_empty() || ctx.return_data().len() <= 20);
 }
 
-/// Test Storage.Local operations
+/// The `System.Storage.Local.*` syscalls do not exist on Neo N3. The bundled
+/// runtime used to implement them as a fiction; they were removed, and a
+/// script invoking them must now FAULT gracefully (an error, never a panic),
+/// exactly like any other unknown syscall on a real node.
 #[test]
-fn storage_local_operations() {
-    let local_put_id = syscall_id("System.Storage.Local.Put");
-    let local_get_id = syscall_id("System.Storage.Local.Get");
-    let mut code = vec![];
+fn storage_local_syscalls_fault_as_unknown() {
+    for name in [
+        "System.Storage.Local.Get",
+        "System.Storage.Local.Put",
+        "System.Storage.Local.Delete",
+        "System.Storage.Local.Find",
+    ] {
+        let id = syscall_id(name);
+        let mut code = vec![];
 
-    // === Local.Put ===
-    push_data(&mut code, b"local_value");
-    push_data(&mut code, b"local_key");
-    code.push(0x41);
-    code.extend_from_slice(&local_put_id);
+        // Push two operands so the FAULT cannot be blamed on stack underflow.
+        push_data(&mut code, b"local_value");
+        push_data(&mut code, b"local_key");
+        code.push(0x41); // SYSCALL
+        code.extend_from_slice(&id);
+        code.push(0x40); // RET
 
-    // === Local.Get ===
-    push_data(&mut code, b"local_key");
-    code.push(0x41);
-    code.extend_from_slice(&local_get_id);
-    code.push(0x40); // RET
+        let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
+        ctx.initialize(&code, &[]).expect("init");
 
-    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
-    ctx.initialize(&code, &[]).expect("init");
+        let mut fault = None;
+        loop {
+            match ctx.step() {
+                Ok(state) => {
+                    if state.halted {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    fault = Some(err);
+                    break;
+                }
+            }
+        }
 
-    while !ctx.step().expect("step").halted {}
-
-    assert_eq!(ctx.return_data(), b"local_value");
+        let err = fault.unwrap_or_else(|| panic!("{name} must FAULT as an unknown syscall"));
+        let message = err.to_string();
+        assert!(
+            message.contains("Unsupported syscall"),
+            "{name} should fault as an unknown syscall, got: {message}"
+        );
+    }
 }
