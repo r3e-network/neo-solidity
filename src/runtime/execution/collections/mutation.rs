@@ -16,7 +16,10 @@ impl ExecutionContext {
                     });
                 }
                 items.borrow_mut().push(value);
-                Ok(())
+                // Global backstop: the single-collection check above only sees
+                // THIS array; many separate collections can still blow the
+                // limit collectively.
+                self.enforce_global_stack_limit()
             }
             StackItem::ByteArray(bytes) => {
                 let append = Self::stack_item_to_bytes(value);

@@ -244,6 +244,40 @@ contract C { function f() external pure returns (uint256) {
     assert_eq!(returns_uint_src(ok), BigUint::from(7u8));
 }
 
+#[test]
+fn many_collections_exceed_max_stack_size_globally() {
+    // NeoVM's ReferenceCounter sums EVERY live item across ALL collections, so
+    // many separate arrays — each individually under 2048 — together blow the
+    // limit. 60 inner arrays of 40 = 2400 elements (+ the arrays themselves) >
+    // 2048, yet no single collection exceeds it: only the GLOBAL backstop can
+    // catch this. A real node faults; the simulator must not report success.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f() external pure returns (uint256) {
+    uint256[][] memory a = new uint256[][](60);
+    for (uint256 i = 0; i < 60; i++) {
+        a[i] = new uint256[](40);
+    }
+    return a[0].length;
+} }"#;
+    let r = compile_and_execute(src);
+    assert!(
+        !r.success,
+        "60 arrays x 40 elements (2400 items) must FAULT on the global MaxStackSize limit"
+    );
+    // A comfortably-under-limit version (20 x 40 = 800 items) still succeeds.
+    let ok = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f() external pure returns (uint256) {
+    uint256[][] memory a = new uint256[][](20);
+    for (uint256 i = 0; i < 20; i++) {
+        a[i] = new uint256[](40);
+    }
+    return a[19].length;
+} }"#;
+    assert_eq!(returns_uint_src(ok), BigUint::from(40u8));
+}
+
 fn returns_uint_src(src: &str) -> BigUint {
     match observe(&compile_and_execute(src)) {
         ObservedBehavior::Returned(v) => v,

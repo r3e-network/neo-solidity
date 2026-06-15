@@ -12,7 +12,8 @@ impl ExecutionContext {
         for _ in 0..count {
             items.push(self.pop_stack()?);
         }
-        self.push_stack(StackItem::array(items))
+        self.push_stack(StackItem::array(items))?;
+        self.enforce_global_stack_limit()
     }
 
     pub(crate) fn pack_map(&mut self) -> Result<(), RuntimeError> {
@@ -29,6 +30,7 @@ impl ExecutionContext {
             let key_bytes = Self::stack_item_to_bytes(key);
             map.insert(key_bytes, value);
         }
-        self.push_stack(StackItem::map(map))
+        self.push_stack(StackItem::map(map))?;
+        self.enforce_global_stack_limit()
     }
 }
