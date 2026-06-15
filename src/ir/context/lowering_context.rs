@@ -192,6 +192,15 @@ struct LoweringContext<'a> {
     /// every uint256 arith site in a function can share one pool — avoiding a
     /// per-site allocation that would blow past NeoVM's local-slot limit.
     u256_scratch: Vec<usize>,
+    /// Depth-indexed scratch-local pool for the nested-dynamic ABI
+    /// encoder/decoder (`emit_abi_dynamic_nested_array_tail` /
+    /// `emit_abi_decode_nested_array_tail_runtime`). `abi_nested_scratch[d]`
+    /// holds the reusable locals for nesting depth `d`: distinct depths never
+    /// alias (an inner `string[][]` element is encoded while the outer array's
+    /// locals are live), but every call site at the same depth shares one
+    /// block — so a function with many `abi.encode(string[])` calls does not
+    /// allocate a fresh batch of slots per site and blow NeoVM's 255 limit.
+    abi_nested_scratch: Vec<Vec<usize>>,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
     /// State variable indices currently being inlined (constant resolution).
@@ -306,6 +315,7 @@ impl<'a> LoweringContext<'a> {
             call_data_locals: HashMap::new(),
             local_count: 0,
             u256_scratch: Vec::new(),
+            abi_nested_scratch: Vec::new(),
             label_counter: 0,
             loop_stack: Vec::new(),
             resolving_constants: Vec::new(),
@@ -884,6 +894,22 @@ impl<'a> LoweringContext<'a> {
             self.u256_scratch.push(idx);
         }
         self.u256_scratch[..n].to_vec()
+    }
+
+    /// Return `n` reusable scratch locals for the nested-dynamic ABI
+    /// encoder/decoder at nesting `depth`. Locals are lazily allocated and
+    /// shared across every call site reaching the same depth (see
+    /// [`Self::abi_nested_scratch`]).
+    fn abi_nested_scratch_locals(&mut self, depth: usize, n: usize) -> Vec<usize> {
+        while self.abi_nested_scratch.len() <= depth {
+            self.abi_nested_scratch.push(Vec::new());
+        }
+        while self.abi_nested_scratch[depth].len() < n {
+            let i = self.abi_nested_scratch[depth].len();
+            let idx = self.allocate_local(format!("__abi_nested_{depth}_{i}"), None);
+            self.abi_nested_scratch[depth].push(idx);
+        }
+        self.abi_nested_scratch[depth][..n].to_vec()
     }
 
     fn resolve_local(&self, name: &str) -> Option<usize> {

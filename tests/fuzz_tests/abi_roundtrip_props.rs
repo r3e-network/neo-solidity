@@ -744,3 +744,214 @@ contract Codec {{
         prop_assert!(ok, "address[] round-trip failed for n={}", n);
     }
 }
+
+// ==================== Nested-dynamic arrays ====================
+//
+// `string[]`, `bytes[]`, `T[][]`: each element is itself dynamic, so the
+// array tail is a RECURSIVE head/tail layout — a length word, then `n`
+// 32-byte element offsets (relative to the start of the head section),
+// then the `n` element tails. Implemented by
+// `emit_abi_dynamic_nested_array_tail` (encode) and
+// `emit_abi_decode_nested_array_tail_runtime` (decode) in
+// `src/ir/expressions/calls/builtins/helpers.rs`. Previously these shapes
+// fell back to `StdLib.serialize` (Neo-native, NOT EVM-ABI), so on-chain
+// calldata / return-data for them was non-conformant.
+
+/// Build the canonical EVM ABI encoding of `abi.encode(string[] arr)` in
+/// Rust (independent of the compiler) so a decode test can pin the
+/// compiler's decoder against a known-correct on-chain layout.
+fn evm_encode_string_array(arr: &[&str]) -> Vec<u8> {
+    fn slot_u(v: u64) -> [u8; 32] {
+        let mut s = [0u8; 32];
+        s[24..32].copy_from_slice(&v.to_be_bytes());
+        s
+    }
+    fn elem_tail(s: &[u8]) -> Vec<u8> {
+        let mut out = slot_u(s.len() as u64).to_vec();
+        let padded = (s.len() + 31) / 32 * 32;
+        let mut data = s.to_vec();
+        data.resize(padded, 0);
+        out.extend_from_slice(&data);
+        out
+    }
+    // Array tail: length, head (n offsets), tail (n element encodings).
+    let n = arr.len();
+    let mut heads = Vec::new();
+    let mut tails = Vec::new();
+    let mut off = (n * 32) as u64;
+    for s in arr {
+        heads.extend_from_slice(&slot_u(off));
+        let t = elem_tail(s.as_bytes());
+        off += t.len() as u64;
+        tails.extend_from_slice(&t);
+    }
+    let mut array_tail = slot_u(n as u64).to_vec();
+    array_tail.extend_from_slice(&heads);
+    array_tail.extend_from_slice(&tails);
+    // Top-level `abi.encode(single dynamic)`: a head word holding the tail
+    // offset (0x20), then the array tail.
+    let mut out = slot_u(0x20).to_vec();
+    out.extend_from_slice(&array_tail);
+    out
+}
+
+/// CONFORMANCE: decode a HARDCODED, independently-built EVM `string[]`
+/// encoding and verify the decoded elements. This pins the decoder to the
+/// real on-chain ABI layout (not merely to the compiler's own encoder).
+#[test]
+fn decode_evm_string_array_conformance() {
+    let enc = evm_encode_string_array(&["a", "bb", "ccc"]);
+    // Sanity: 0x20 head + (len + 3 offsets + 3×(len+data)) tail.
+    assert_eq!(enc.len(), 32 + 32 + 3 * 32 + 3 * 64);
+    let hexbuf = hex::encode(&enc);
+    let src = format!(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Codec {{
+    function check() external pure returns (bool) {{
+        bytes memory enc = hex"{hexbuf}";
+        string[] memory b = abi.decode(enc, (string[]));
+        bool eq = b.length == 3;
+        eq = eq && keccak256(bytes(b[0])) == keccak256(bytes("a"));
+        eq = eq && keccak256(bytes(b[1])) == keccak256(bytes("bb"));
+        eq = eq && keccak256(bytes(b[2])) == keccak256(bytes("ccc"));
+        return eq;
+    }}
+}}"#
+    );
+    let ok = run_check_returns_bool(&src)
+        .unwrap_or_else(|e| panic!("EVM string[] decode conformance: {}", e));
+    assert!(ok, "decoded string[] did not match the canonical EVM payload");
+}
+
+/// CONFORMANCE: the compiler's ENCODER must reproduce the canonical EVM
+/// `string[]` bytes. The contract encodes `["a","bb","ccc"]` and compares
+/// `keccak256(enc)` against the hash of the independently-built reference
+/// — a byte-exact equality check that fails on any layout divergence.
+#[test]
+fn encode_evm_string_array_conformance() {
+    use sha3::{Digest, Keccak256};
+    let expected = evm_encode_string_array(&["a", "bb", "ccc"]);
+    let expected_hash = hex::encode(Keccak256::digest(&expected));
+    let src = format!(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Codec {{
+    function check() external pure returns (bool) {{
+        string[] memory a = new string[](3);
+        a[0] = "a";
+        a[1] = "bb";
+        a[2] = "ccc";
+        bytes memory enc = abi.encode(a);
+        return keccak256(enc) == hex"{expected_hash}";
+    }}
+}}"#
+    );
+    let ok = run_check_returns_bool(&src)
+        .unwrap_or_else(|e| panic!("EVM string[] encode conformance: {}", e));
+    assert!(ok, "encoded string[] bytes diverge from the canonical EVM payload");
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(16))]
+
+    /// `string[]` round-trip for arrays of length 0..=6, elements 0..=40
+    /// chars. Exercises the recursive encode→decode path end to end.
+    #[test]
+    fn roundtrip_string_array(
+        strs in prop::collection::vec("[a-zA-Z0-9 ]{0,40}", 0..=6),
+    ) {
+        let n = strs.len();
+        let mut assigns = String::new();
+        for (i, s) in strs.iter().enumerate() {
+            assigns.push_str(&format!("        a[{i}] = \"{s}\";\n"));
+        }
+        let mut compare = String::from("        bool eq = a.length == b.length;\n");
+        for i in 0..n {
+            compare.push_str(&format!(
+                "        eq = eq && keccak256(bytes(a[{i}])) == keccak256(bytes(b[{i}]));\n"
+            ));
+        }
+        let src = format!(r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Codec {{
+    function check() external pure returns (bool) {{
+        string[] memory a = new string[]({n});
+{assigns}        bytes memory enc = abi.encode(a);
+        string[] memory b = abi.decode(enc, (string[]));
+{compare}        return eq;
+    }}
+}}"#);
+        let ok = run_check_returns_bool(&src)
+            .unwrap_or_else(|e| panic!("string[] round-trip n={}: {}", n, e));
+        prop_assert!(ok, "string[] round-trip failed for n={} strs={:?}", n, strs);
+    }
+
+    /// `bytes[]` round-trip — same recursive layout as `string[]`, element
+    /// payloads are arbitrary bytes 0..=40 long.
+    #[test]
+    fn roundtrip_bytes_array(
+        items in prop::collection::vec(prop::collection::vec(any::<u8>(), 0..=40), 0..=6),
+    ) {
+        let n = items.len();
+        let mut assigns = String::new();
+        for (i, b) in items.iter().enumerate() {
+            assigns.push_str(&format!("        a[{i}] = hex\"{}\";\n", hex::encode(b)));
+        }
+        let mut compare = String::from("        bool eq = a.length == b.length;\n");
+        for i in 0..n {
+            compare.push_str(&format!(
+                "        eq = eq && keccak256(a[{i}]) == keccak256(b[{i}]);\n"
+            ));
+        }
+        let src = format!(r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Codec {{
+    function check() external pure returns (bool) {{
+        bytes[] memory a = new bytes[]({n});
+{assigns}        bytes memory enc = abi.encode(a);
+        bytes[] memory b = abi.decode(enc, (bytes[]));
+{compare}        return eq;
+    }}
+}}"#);
+        let ok = run_check_returns_bool(&src)
+            .unwrap_or_else(|e| panic!("bytes[] round-trip n={}: {}", n, e));
+        prop_assert!(ok, "bytes[] round-trip failed for n={}", n);
+    }
+
+    /// `uint256[][]` round-trip — a two-level nested dynamic array, the
+    /// deepest recursion the encoder/decoder exercise in practice.
+    #[test]
+    fn roundtrip_uint256_2d_array(
+        rows in prop::collection::vec(prop::collection::vec(any::<u64>(), 0..=4), 0..=4),
+    ) {
+        let n = rows.len();
+        let mut assigns = String::new();
+        for (i, row) in rows.iter().enumerate() {
+            assigns.push_str(&format!("        a[{i}] = new uint256[]({});\n", row.len()));
+            for (j, v) in row.iter().enumerate() {
+                assigns.push_str(&format!("        a[{i}][{j}] = uint256({v});\n"));
+            }
+        }
+        let mut compare = String::from("        bool eq = a.length == b.length;\n");
+        for (i, row) in rows.iter().enumerate() {
+            compare.push_str(&format!("        eq = eq && a[{i}].length == b[{i}].length;\n"));
+            for j in 0..row.len() {
+                compare.push_str(&format!("        eq = eq && a[{i}][{j}] == b[{i}][{j}];\n"));
+            }
+        }
+        let src = format!(r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Codec {{
+    function check() external pure returns (bool) {{
+        uint256[][] memory a = new uint256[][]({n});
+{assigns}        bytes memory enc = abi.encode(a);
+        uint256[][] memory b = abi.decode(enc, (uint256[][]));
+{compare}        return eq;
+    }}
+}}"#);
+        let ok = run_check_returns_bool(&src)
+            .unwrap_or_else(|e| panic!("uint256[][] round-trip n={}: {}", n, e));
+        prop_assert!(ok, "uint256[][] round-trip failed for n={} rows={:?}", n, rows);
+    }
+}
