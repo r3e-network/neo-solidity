@@ -55,6 +55,30 @@ fn emit_uint256_unsigned_gt(out: &mut Vec<u8>) {
     out.push(0xB7); // GT   -> a^SIGN >s b^SIGN  ==  a >u b
 }
 
+/// Emit unsigned `a <= b` for operands `[.., a, b]`.
+#[allow(dead_code)]
+fn emit_uint256_unsigned_le(out: &mut Vec<u8>) {
+    emit_pushint256_le(out, &SIGN_BIT_LE);
+    out.push(0x93); // XOR
+    out.push(0x50); // SWAP
+    emit_pushint256_le(out, &SIGN_BIT_LE);
+    out.push(0x93); // XOR
+    out.push(0x50); // SWAP -> [a^SIGN, b^SIGN]
+    out.push(0xB6); // LE   -> a^SIGN <=s b^SIGN  ==  a <=u b
+}
+
+/// Emit unsigned `a >= b` for operands `[.., a, b]`.
+#[allow(dead_code)]
+fn emit_uint256_unsigned_ge(out: &mut Vec<u8>) {
+    emit_pushint256_le(out, &SIGN_BIT_LE);
+    out.push(0x93); // XOR
+    out.push(0x50); // SWAP
+    emit_pushint256_le(out, &SIGN_BIT_LE);
+    out.push(0x93); // XOR
+    out.push(0x50); // SWAP -> [a^SIGN, b^SIGN]
+    out.push(0xB8); // GE   -> a^SIGN >=s b^SIGN  ==  a >=u b
+}
+
 #[cfg(test)]
 mod uint256_ops_tests {
     use super::*;
@@ -127,6 +151,20 @@ mod uint256_ops_tests {
                     let x2 = stack.pop().ok_or("gt underflow")?;
                     let x1 = stack.pop().ok_or("gt underflow")?;
                     stack.push(BigInt::from(i32::from(x1 > x2)));
+                    ip += 1;
+                }
+                0xB6 => {
+                    // LE: x1 <= x2
+                    let x2 = stack.pop().ok_or("le underflow")?;
+                    let x1 = stack.pop().ok_or("le underflow")?;
+                    stack.push(BigInt::from(i32::from(x1 <= x2)));
+                    ip += 1;
+                }
+                0xB8 => {
+                    // GE: x1 >= x2
+                    let x2 = stack.pop().ok_or("ge underflow")?;
+                    let x1 = stack.pop().ok_or("ge underflow")?;
+                    stack.push(BigInt::from(i32::from(x1 >= x2)));
                     ip += 1;
                 }
                 0x40 => break, // RET
@@ -207,5 +245,29 @@ mod uint256_ops_tests {
         assert!(!run_gt(&BigInt::from(5), &umax()));
         assert!(run_gt(&pow2(255), &(pow2(255) - 1)));
         assert!(!run_gt(&BigInt::from(7), &BigInt::from(7)));
+    }
+
+    fn run_cmp(emit: fn(&mut Vec<u8>), a: &BigInt, b: &BigInt) -> bool {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        emit(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        st.last().cloned().unwrap_or_else(|| BigInt::from(0)) != BigInt::from(0)
+    }
+
+    #[test]
+    fn unsigned_le_ge_including_large() {
+        // <=
+        assert!(run_cmp(emit_uint256_unsigned_le, &BigInt::from(7), &BigInt::from(7)));
+        assert!(run_cmp(emit_uint256_unsigned_le, &BigInt::from(5), &umax()));
+        assert!(!run_cmp(emit_uint256_unsigned_le, &umax(), &BigInt::from(5)));
+        assert!(run_cmp(emit_uint256_unsigned_le, &umax(), &umax()));
+        // >=
+        assert!(run_cmp(emit_uint256_unsigned_ge, &BigInt::from(7), &BigInt::from(7)));
+        assert!(run_cmp(emit_uint256_unsigned_ge, &umax(), &BigInt::from(5)));
+        assert!(!run_cmp(emit_uint256_unsigned_ge, &BigInt::from(5), &umax()));
+        assert!(run_cmp(emit_uint256_unsigned_ge, &pow2(255), &(pow2(255) - 1)));
     }
 }
