@@ -16,10 +16,14 @@ fn emit_compound_binary_op_for_lhs(
     instructions: &mut Vec<Instruction>,
     op: BinaryOperator,
 ) {
-    // `false`: keep the historical plain-`BinaryOp` (Integer-result) lowering for
-    // unchecked uint256 compound ops. The Bug-#16 widen ends in a 32-byte Buffer
-    // that breaks an l-value reused as an integer index (e.g. `for (...; i++) a[i]`).
-    emit_arith_with_overflow_ladder(lhs, lhs, ctx, instructions, op, false);
+    // `true`: route `unchecked` uint256 compound ops through the software limb
+    // routines so operands >= 2^255 wrap mod 2^256 instead of faulting on a
+    // native 33-byte intermediate. The historical `false` workaround existed
+    // because the OLD widen+truncate path left a 32-byte Buffer that broke an
+    // l-value reused as an integer index (`for (...; i++) a[i]`); the limb
+    // routines now produce a canonical Integer/two's-complement value, so that
+    // concern no longer applies.
+    emit_arith_with_overflow_ladder(lhs, lhs, ctx, instructions, op, true);
 }
 
 /// Task #118: lower the RHS of a compound assignment. Older runtime shims

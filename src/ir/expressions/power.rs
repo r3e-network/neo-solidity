@@ -98,7 +98,26 @@ fn lower_power_expression(
     // fault on NeoVM's integer-size limit inside the loop, so they are not
     // silently wrong.) Constant-folded literal powers are handled above.
     if let Some(ValueType::Integer { signed, bits }) = infer_type_from_expression(left, ctx) {
-        if matches!(bits, 8 | 16 | 32 | 64 | 128) {
+        if bits == 256 && !signed {
+            // uint256 `**`: the square-and-multiply loop above leaves the
+            // un-truncated value. `unchecked` wraps mod 2^256; checked Panics
+            // 0x11 when the true result exceeds 2^256-1. Either way, canonicalize
+            // to the 32-byte two's-complement form via `emit_truncate_u256`.
+            if !ctx.in_unchecked_block() {
+                let two256 = BigInt::one() << 256usize;
+                let ok = ctx.next_label();
+                instructions.push(Instruction::LoadLocal(result_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(two256)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
+                // `JumpIf` jumps when the condition is FALSE (result < 2^256 -> ok).
+                instructions.push(Instruction::JumpIf { target: ok });
+                emit_panic(0x11, instructions);
+                instructions.push(Instruction::Label(ok));
+            }
+            instructions.push(Instruction::LoadLocal(result_local));
+            emit_truncate_u256(instructions);
+            instructions.push(Instruction::StoreLocal(result_local));
+        } else if matches!(bits, 8 | 16 | 32 | 64 | 128) {
             let bits_usize = bits as usize;
             if ctx.in_unchecked_block() {
                 instructions.push(Instruction::LoadLocal(result_local));

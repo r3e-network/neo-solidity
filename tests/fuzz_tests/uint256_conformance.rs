@@ -186,3 +186,22 @@ fn erc20_infinite_approval_check() {
     ));
 }
 
+
+#[test]
+fn unsigned_power_overflow_and_wrap() {
+    // 2^200 and 2^255 fit in uint256.
+    assert_eq!(returns_uint("uint256 b = 2; return b ** 200;"), BigUint::from(1u8) << 200u32);
+    assert_eq!(returns_uint("uint256 b = 2; return b ** 255;"), BigUint::from(1u8) << 255u32);
+    // 2^256 overflows uint256 -> Panic(0x11).
+    assert!(panics("uint256 b = 2; return b ** 256;"));
+    // unchecked wraps mod 2^256: 2^256 -> 0.
+    assert_eq!(returns_uint("uint256 b = 2; unchecked { return b ** 256; }"), BigUint::from(0u8));
+}
+
+#[test]
+fn unchecked_compound_uint256_wraps() {
+    assert_eq!(returns_uint("uint256 x = type(uint256).max; unchecked { x += 5; } return x;"), BigUint::from(4u8));
+    assert_eq!(returns_uint("uint256 x = 0; unchecked { x -= 1; } return x;"), u256_max());
+    // loop counter reused as index still works (the old Buffer-index regression).
+    assert_eq!(returns_uint("uint256[] memory a = new uint256[](3); for (uint256 i = 0; i < 3; i++) { a[i] = i; } return a[2];"), BigUint::from(2u8));
+}
