@@ -122,6 +122,18 @@ pub(crate) fn generate_contract_bytecode(
             format!("internal compiler error: missing IR for method '{method_name}'")
         })?;
 
+        // NeoVM's `INITSLOT` encodes the local-slot count as a single byte, and
+        // LDLOC/STLOC index the same 0..=255 range. A function with more than 255
+        // locals would silently truncate (wrong slot count + wrong indices),
+        // producing miscompiled bytecode — fail loudly instead.
+        if ir_function.local_count > u8::MAX as u16 {
+            return Err(format!(
+                "function '{method_name}' requires {} local slots, exceeding NeoVM's 255-slot limit; \
+                 reduce local variables (e.g. split the function or reuse temporaries)",
+                ir_function.local_count
+            ));
+        }
+
         let instruction_count: usize = ir_function
             .basic_blocks
             .iter()
