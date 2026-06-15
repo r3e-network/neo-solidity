@@ -147,6 +147,99 @@ fn emit_uint256_logical_shr(out: &mut Vec<u8>) {
     out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
 }
 
+/// Emit `a << n mod 2^256` for uint256 operands `[.., a, n]` (`n` in [0, 256]).
+/// Native NeoVM `SHL` does not wrap, so `1 << 255` (= 2^255) would form a 33-byte
+/// positive integer a real node rejects. Work on two 128-bit limbs, and mask
+/// each limb to its low `128-k` bits *before* shifting (`m = M128 >>arith k`),
+/// so no pre-mask intermediate exceeds 128 bits:
+///   k < 128:  lo' = (lo & m) << k                       (m = 2^(128-k)-1)
+///             hi' = ((hi & m) << k) | (lo >> (128-k))
+///   k >= 128: lo' = 0 ; hi' = (lo & (M128 >> (k-128))) << (k-128)
+///   result = sign_ext128(hi') << 128 + lo'
+#[allow(dead_code)]
+fn emit_uint256_shl(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x05); // a(0), n(1), lo(2), hi(3), mask(4)
+    out.push(0x00);
+    out.push(0x71); // STLOC1 (n)
+    out.push(0x70); // STLOC0 (a)
+    // lo = a & M128
+    emit_ldloc(out, 0);
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    emit_stloc(out, 2);
+    // hi = (a >> 128) & M128
+    emit_ldloc(out, 0);
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    emit_stloc(out, 3);
+    // branch: n >= 128 ?
+    emit_ldloc(out, 1);
+    emit_push_u8(out, 128);
+    out.push(0xB8); // GE
+    out.push(0x24); // JMPIF -> big
+    let jmpif_big = out.len();
+    out.push(0x00);
+    // --- n < 128 ---
+    // mask = M128 >> n  (= 2^(128-n)-1)
+    emit_pushint256_le(out, &MASK128_LE);
+    emit_ldloc(out, 1);
+    out.push(0xA9); // SHR
+    emit_stloc(out, 4);
+    // lo' = (lo & mask) << n
+    emit_ldloc(out, 2);
+    emit_ldloc(out, 4);
+    out.push(0x91); // AND
+    emit_ldloc(out, 1);
+    out.push(0xA8); // SHL
+    // hi' = ((hi & mask) << n) | (lo >> (128 - n))
+    emit_ldloc(out, 3);
+    emit_ldloc(out, 4);
+    out.push(0x91); // AND
+    emit_ldloc(out, 1);
+    out.push(0xA8); // SHL
+    emit_ldloc(out, 2);
+    emit_push_u8(out, 128);
+    emit_ldloc(out, 1);
+    out.push(0x9F); // SUB -> 128 - n
+    out.push(0xA9); // SHR -> lo >> (128 - n)
+    out.push(0x92); // OR -> hi'
+    out.push(0x22); // JMP -> build
+    let jmp_build = out.len();
+    out.push(0x00);
+    // --- n >= 128 ---
+    let big_pos = out.len();
+    // mask = M128 >> (n - 128)
+    emit_pushint256_le(out, &MASK128_LE);
+    emit_ldloc(out, 1);
+    emit_push_u8(out, 128);
+    out.push(0x9F); // SUB -> n - 128
+    out.push(0xA9); // SHR
+    emit_stloc(out, 4);
+    out.push(0x10); // PUSH0 -> lo' = 0
+    // hi' = (lo & mask) << (n - 128)
+    emit_ldloc(out, 2);
+    emit_ldloc(out, 4);
+    out.push(0x91); // AND
+    emit_ldloc(out, 1);
+    emit_push_u8(out, 128);
+    out.push(0x9F); // SUB -> n - 128
+    out.push(0xA8); // SHL
+    // --- build: stack [lo', hi'] -> sign_ext128(hi') << 128 + lo' ---
+    let build_pos = out.len();
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x93); // XOR
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x9F); // SUB
+    emit_push_u8(out, 128);
+    out.push(0xA8); // SHL
+    out.push(0x9E); // ADD -> result
+    out[jmpif_big] = ((big_pos as isize) - (jmpif_big as isize - 1)) as i8 as u8;
+    out[jmp_build] = ((build_pos as isize) - (jmp_build as isize - 1)) as i8 as u8;
+}
+
 /// 32-byte LE of `2^64 - 1` (low 64 bits set) — a POSITIVE 256-bit mask used to
 /// extract 64-bit limbs for the software multiply.
 #[allow(dead_code)]
@@ -674,6 +767,13 @@ mod uint256_ops_tests {
                     stack.push(check(a & b)?);
                     ip += 1;
                 }
+                0x92 => {
+                    // OR
+                    let b = stack.pop().ok_or("or underflow")?;
+                    let a = stack.pop().ok_or("or underflow")?;
+                    stack.push(check(a | b)?);
+                    ip += 1;
+                }
                 0x9E => {
                     // ADD
                     let b = stack.pop().ok_or("add underflow")?;
@@ -1032,6 +1132,43 @@ mod uint256_ops_tests {
         let signed = st.last().cloned().expect("result");
         let m = modulus();
         ((signed % &m) + &m) % &m
+    }
+
+    /// Run the shl routine; result as unsigned uint256 in [0, 2^256).
+    fn run_shl(a: &BigInt, n: u32) -> BigInt {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(&BigInt::from(n)));
+        emit_uint256_shl(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        let signed = st.last().cloned().expect("result");
+        let m = modulus();
+        ((signed % &m) + &m) % &m
+    }
+
+    #[test]
+    fn shl_wraps_mod_2_256_including_large() {
+        let m = modulus();
+        let cases: [(BigInt, u32); 13] = [
+            (BigInt::from(1), 0),
+            (BigInt::from(1), 1),
+            (BigInt::from(1), 127),
+            (BigInt::from(1), 128),
+            (BigInt::from(1), 255),        // 2^255 — faults under native SHL today
+            (BigInt::from(3), 255),        // (3<<255) mod 2^256 = 2^255
+            (umax(), 1),                   // 2^256-2
+            (umax(), 128),
+            (umax(), 255),                 // 2^255
+            (pow2(100), 100),              // 2^200
+            (pow2(100), 200),              // 2^300 mod 2^256 = 2^44
+            (big("123456789012345678901234567890"), 64),
+            (pow2(200) + BigInt::from(7), 60),
+        ];
+        for (a, n) in cases {
+            let expect = ((&a << n) % &m + &m) % &m;
+            assert_eq!(run_shl(&a, n), expect, "shl({a}, {n})");
+        }
     }
 
     #[test]
