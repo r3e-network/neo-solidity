@@ -14,7 +14,10 @@ fn solidity_type_from_neotype(neotype: &NeoType) -> String {
             Some(len) => format!("bytes{len}"),
             None => "bytes".to_string(),
         },
-        NeoType::Array(inner) => format!("{}[]", solidity_type_from_neotype(inner.as_ref())),
+        NeoType::Array(inner, Some(n)) => {
+            format!("{}[{}]", solidity_type_from_neotype(inner.as_ref()), n)
+        }
+        NeoType::Array(inner, None) => format!("{}[]", solidity_type_from_neotype(inner.as_ref())),
         NeoType::Mapping { key, value } => format!(
             "mapping({}=>{})",
             solidity_type_from_neotype(key.as_ref()),
@@ -46,7 +49,7 @@ fn getter_signature_from_neotype(
         depth += 1;
     }
 
-    while let NeoType::Array(inner) = cursor {
+    while let NeoType::Array(inner, _) = cursor {
         parameters.push(ParameterMetadata {
             name: Some(format!("arg{depth}")),
             ty: "uint256".to_string(),
@@ -91,7 +94,7 @@ fn getter_signature_from_neotype(
                 // included, matching solc. Without this filter the getter emits
                 // a return type referencing a mapping/array member, producing an
                 // invalid ABI / manifest.
-                if matches!(field_type, NeoType::Mapping { .. } | NeoType::Array(_)) {
+                if matches!(field_type, NeoType::Mapping { .. } | NeoType::Array(..)) {
                     continue;
                 }
                 let field_ty_str = solidity_type_from_neotype(&field_type);

@@ -41,7 +41,7 @@ impl ValueType {
             crate::type_system::NeoType::ByteArray { fixed_len } => ValueType::ByteArray {
                 fixed_len: *fixed_len,
             },
-            crate::type_system::NeoType::Array(element) => {
+            crate::type_system::NeoType::Array(element, _) => {
                 ValueType::Array(Box::new(ValueType::from_neotype(element)))
             }
             crate::type_system::NeoType::Mapping { key, value } => ValueType::Mapping {

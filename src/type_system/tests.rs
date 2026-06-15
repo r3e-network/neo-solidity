@@ -67,7 +67,7 @@ fn parses_arrays_before_scalar_prefixes() {
     let dyn_array = NeoType::from_solidity("uint256[]", &structs, &[], &contract_types)
         .expect("dynamic array type");
     match dyn_array {
-        NeoType::Array(element) => {
+        NeoType::Array(element, _) => {
             assert!(matches!(
                 *element,
                 NeoType::Integer {
@@ -81,8 +81,17 @@ fn parses_arrays_before_scalar_prefixes() {
 
     let fixed_array = NeoType::from_solidity("bool[3]", &structs, &[], &contract_types)
         .expect("fixed array type");
-    match fixed_array {
-        NeoType::Array(element) => assert!(matches!(*element, NeoType::Boolean)),
+    match &fixed_array {
+        NeoType::Array(element, fixed_len) => {
+            assert!(matches!(**element, NeoType::Boolean));
+            assert_eq!(*fixed_len, Some(3), "fixed-array length must be preserved");
+        }
         other => panic!("expected array type, got {other:?}"),
     }
+    // The ABI signature / selector for `bool[3]` must be `bool[3]`, not `bool[]`.
+    assert_eq!(fixed_array.canonical_abi_type(), "bool[3]");
+
+    let dyn_u256 = NeoType::from_solidity("uint256[]", &structs, &[], &contract_types)
+        .expect("dynamic array type");
+    assert_eq!(dyn_u256.canonical_abi_type(), "uint256[]");
 }

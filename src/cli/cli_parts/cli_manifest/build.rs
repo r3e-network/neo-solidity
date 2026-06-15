@@ -220,7 +220,7 @@ fn build_manifest(
             | NeoType::Address
             | NeoType::String
             | NeoType::ByteArray { .. } => true,
-            NeoType::Array(inner) => {
+            NeoType::Array(inner, _) => {
                 neotype_is_static_abi_scalar(inner)
                     || matches!(
                         inner.as_ref(),
@@ -246,7 +246,7 @@ fn build_manifest(
                 fixed_len: Some(32),
             }) => "Hash256",
             Some(NeoType::ByteArray { .. }) => "ByteArray",
-            Some(NeoType::Array(_)) => "Array",
+            Some(NeoType::Array(..)) => "Array",
             Some(NeoType::Mapping { .. }) => "Map",
             Some(NeoType::Struct { .. }) => "Array",
             Some(NeoType::Any) | None => standard_json::solidity_to_manifest_type(solidity_type),
@@ -325,7 +325,7 @@ fn build_manifest(
                         .return_parameters
                         .first()
                         .map(|param| {
-                            if matches!(param.neo_type.as_ref(), Some(NeoType::Array(_))) {
+                            if matches!(param.neo_type.as_ref(), Some(NeoType::Array(..))) {
                                 "ByteArray"
                             } else {
                                 neotype_to_manifest_type(param.neo_type.as_ref(), &param.ty)

@@ -85,7 +85,7 @@ impl NeoType {
                 type_aliases,
                 depth + 1,
             )?;
-            return Ok(NeoType::Array(Box::new(element)));
+            return Ok(NeoType::Array(Box::new(element), None));
         }
 
         if lower.ends_with(']') {
@@ -101,7 +101,10 @@ impl NeoType {
                             type_aliases,
                             depth + 1,
                         )?;
-                        return Ok(NeoType::Array(Box::new(element)));
+                        // Preserve the fixed length so the ABI signature is
+                        // `T[N]` (correct selector) rather than `T[]`.
+                        let fixed_len = size_str.parse::<usize>().ok();
+                        return Ok(NeoType::Array(Box::new(element), fixed_len));
                     }
                 }
             }
@@ -436,7 +439,7 @@ fn parse_mapping_type_bounded(
     // address, string, bytes, enums, contract types). Arrays, structs, and
     // nested mappings are not valid because they lack a deterministic hash.
     match &key {
-        NeoType::Array(_) | NeoType::Struct { .. } | NeoType::Mapping { .. } => {
+        NeoType::Array(..) | NeoType::Struct { .. } | NeoType::Mapping { .. } => {
             return Err(TypeParseError::Unsupported(format!(
                 "invalid mapping key type '{key_str}'; only elementary types are allowed"
             )));

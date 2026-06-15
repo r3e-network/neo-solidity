@@ -102,7 +102,7 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                 fn is_invalid_mapping_key(ty: &NeoType) -> bool {
                     matches!(
                         ty,
-                        NeoType::Array(_)
+                        NeoType::Array(..)
                             | NeoType::Struct { .. }
                             | NeoType::Mapping { .. }
                     )

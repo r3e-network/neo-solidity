@@ -24,7 +24,10 @@ pub enum NeoType {
     String,
     Address,
     ByteArray { fixed_len: Option<u16> },
-    Array(Box<NeoType>),
+    /// A Solidity array. The second field carries the FIXED length for `T[N]`
+    /// (preserved so the ABI signature / selector is `T[N]`, not `T[]`); `None`
+    /// is a dynamic `T[]`.
+    Array(Box<NeoType>, Option<usize>),
     Mapping { key: Box<NeoType>, value: Box<NeoType> },
     Struct { name: String, fields: Vec<StructFieldType> },
     Any,
@@ -58,7 +61,7 @@ impl NeoType {
 
     /// Check if this is a reference type (stored by reference)
     pub fn is_reference_type(&self) -> bool {
-        matches!(self, Self::Array(_) | Self::Mapping { .. } | Self::Struct { .. })
+        matches!(self, Self::Array(..) | Self::Mapping { .. } | Self::Struct { .. })
     }
 
     /// Get the storage size in bytes (for value types)
@@ -82,7 +85,8 @@ impl NeoType {
             Self::Address => "address".to_string(),
             Self::ByteArray { fixed_len: Some(n) } => format!("bytes{n}"),
             Self::ByteArray { fixed_len: None } => "bytes".to_string(),
-            Self::Array(inner) => format!("{}[]", inner.type_name()),
+            Self::Array(inner, Some(n)) => format!("{}[{}]", inner.type_name(), n),
+            Self::Array(inner, None) => format!("{}[]", inner.type_name()),
             Self::Mapping { key, value } => {
                 format!("mapping({} => {})", key.type_name(), value.type_name())
             }
@@ -108,7 +112,8 @@ impl NeoType {
             Self::Address => "address".to_string(),
             Self::ByteArray { fixed_len: Some(n) } => format!("bytes{n}"),
             Self::ByteArray { fixed_len: None } => "bytes".to_string(),
-            Self::Array(inner) => format!("{}[]", inner.canonical_abi_type()),
+            Self::Array(inner, Some(n)) => format!("{}[{}]", inner.canonical_abi_type(), n),
+            Self::Array(inner, None) => format!("{}[]", inner.canonical_abi_type()),
             Self::Struct { fields, .. } => {
                 let parts: Vec<String> =
                     fields.iter().map(|f| f.ty.canonical_abi_type()).collect();
