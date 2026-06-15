@@ -163,13 +163,14 @@ impl NeoType {
             return Ok(NeoType::String);
         }
 
-        if lower == "address"
-            || lower == "address payable"
-            || lower == "hash160"
-            || lower == "bytes20"
-        {
+        if lower == "address" || lower == "address payable" || lower == "hash160" {
             return Ok(NeoType::Address);
         }
+        // NOTE: `bytes20` is NOT an address. Solidity treats `bytes20` and
+        // `address` as distinct types with DIFFERENT ABI selectors (`f(bytes20)`
+        // != `f(address)`); mapping it to `Address` produced the wrong selector /
+        // interfaceId. It falls through to the `bytesN` branch below →
+        // `ByteArray { fixed_len: Some(20) }` → canonical `bytes20`.
 
         if lower == "bytes" {
             return Ok(NeoType::ByteArray { fixed_len: None });
