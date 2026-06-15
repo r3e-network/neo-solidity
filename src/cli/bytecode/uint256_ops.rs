@@ -630,6 +630,142 @@ fn emit_uint256_checked_mul(out: &mut Vec<u8>) {
     out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
 }
 
+/// Patch a 4-byte relative operand (for CALL_L/JMP_L/etc.) at `operand_pos` so
+/// the instruction (opcode at `operand_pos - 1`) targets absolute `target`.
+#[allow(dead_code)]
+fn patch_rel32(out: &mut [u8], operand_pos: usize, target: usize) {
+    let opcode_pos = operand_pos as isize - 1;
+    let off = (target as isize - opcode_pos) as i32;
+    out[operand_pos..operand_pos + 4].copy_from_slice(&off.to_le_bytes());
+}
+
+/// Emit `JMP_L`/`JMPIF_L`/`JMPIFNOT_L`/`CALL_L` (opcode `op`) with a placeholder
+/// 4-byte operand; returns the operand position for later [`patch_rel32`].
+#[allow(dead_code)]
+fn emit_branch_l_placeholder(out: &mut Vec<u8>, op: u8) -> usize {
+    out.push(op);
+    let pos = out.len();
+    out.extend_from_slice(&[0u8; 4]);
+    pos
+}
+
+/// Emit the body of unsigned `divmod`: consumes `[.., a, b]` and leaves
+/// `[.., q, r]` with `q = a / b` and `r = a % b` (unsigned), THROWing a Solidity
+/// panic when `b == 0`. Composes the limb-safe add/sub helpers via `CALL_L`
+/// (native NeoVM DIV/MOD are signed, so they are only used on the reduced,
+/// provably-non-negative operands). Algorithm (Hacker's Delight 9-3, adapted):
+///   b >= 2^255:  q = (a >=u b) ? 1 : 0 ;  r = a - q*b
+///   else:        m = a >>L 1 ;  t = m / b ;  rem = m % b
+///                q0 = 2t ;  r = 2*rem + (a & 1)        (r in [0, 2b))
+///                if r >=u b { q = q0 + 1 ; r = r - b } else q = q0
+/// `2t`, `2*rem` and `r - b` use the helpers so no 33-byte intermediate forms.
+/// Returns the operand positions of the `CALL_L add` and `CALL_L sub` sites so
+/// a linker can point them at the helper functions.
+#[allow(dead_code)]
+fn emit_uint256_divmod_body(out: &mut Vec<u8>) -> (Vec<usize>, Vec<usize>) {
+    let mut add_sites: Vec<usize> = Vec::new();
+    let mut sub_sites: Vec<usize> = Vec::new();
+    // locals: 0=a 1=b 2=q 3=r 4=m 5=t 6=rem
+    out.push(0x57); // INITSLOT
+    out.push(0x07);
+    out.push(0x00);
+    out.push(0x71); // STLOC1 (b)
+    out.push(0x70); // STLOC0 (a)
+    // b == 0 -> THROW (Panic 0x12, division by zero)
+    emit_ldloc(out, 1);
+    let jz = emit_branch_l_placeholder(out, 0x27); // JMPIFNOT_L -> divzero
+                                                    // b >= 2^255  (signed b < 0) -> big-divisor branch
+    emit_ldloc(out, 1);
+    out.push(0x10); // PUSH0
+    out.push(0xB5); // LT  -> (b < 0 signed) == (b >= 2^255 unsigned)
+    let jbig = emit_branch_l_placeholder(out, 0x25); // JMPIF_L -> big_b
+
+    // ---- small divisor: b < 2^255 ----
+    // m = (a >>arith 1) & (2^255-1)   [logical shift right by 1]
+    emit_ldloc(out, 0);
+    out.push(0x11); // PUSH1
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MAX_INT256_LE);
+    out.push(0x91); // AND
+    emit_stloc(out, 4); // m
+    // t = m / b ; rem = m % b   (m, b in [0, 2^255): signed == unsigned)
+    emit_ldloc(out, 4);
+    emit_ldloc(out, 1);
+    out.push(0xA1); // DIV
+    emit_stloc(out, 5); // t
+    emit_ldloc(out, 4);
+    emit_ldloc(out, 1);
+    out.push(0xA2); // MOD
+    emit_stloc(out, 6); // rem
+    // q0 = 2t = add(t, t)
+    emit_ldloc(out, 5);
+    emit_ldloc(out, 5);
+    add_sites.push(emit_branch_l_placeholder(out, 0x35)); // CALL_L add
+    emit_stloc(out, 2); // q = q0
+    // r = 2*rem + (a & 1) = add(rem, rem) then native ADD (safe: 2*rem is even)
+    emit_ldloc(out, 6);
+    emit_ldloc(out, 6);
+    add_sites.push(emit_branch_l_placeholder(out, 0x35)); // CALL_L add
+    emit_ldloc(out, 0);
+    out.push(0x11); // PUSH1
+    out.push(0x91); // AND -> a & 1
+    out.push(0x9E); // ADD
+    emit_stloc(out, 3); // r
+    // if r >=u b: q = q+1 ; r = r - b
+    emit_ldloc(out, 3);
+    emit_ldloc(out, 1);
+    emit_uint256_unsigned_ge(out); // inline (stack-only) -> (r >=u b)
+    let jdone = emit_branch_l_placeholder(out, 0x27); // JMPIFNOT_L -> done
+    emit_ldloc(out, 2);
+    out.push(0x11); // PUSH1
+    out.push(0x9E); // ADD  (q+1; safe: q0 even)
+    emit_stloc(out, 2);
+    emit_ldloc(out, 3);
+    emit_ldloc(out, 1);
+    sub_sites.push(emit_branch_l_placeholder(out, 0x35)); // CALL_L sub
+    emit_stloc(out, 3);
+    // done:
+    let done_pos = out.len();
+    patch_rel32(out, jdone, done_pos);
+    emit_ldloc(out, 2); // q
+    emit_ldloc(out, 3); // r
+    out.push(0x40); // RET
+    let end_small = out.len();
+
+    // ---- big divisor: b >= 2^255 ----
+    let big_pos = out.len();
+    patch_rel32(out, jbig, big_pos);
+    // q = (a >=u b) ? 1 : 0
+    emit_ldloc(out, 0);
+    emit_ldloc(out, 1);
+    emit_uint256_unsigned_ge(out);
+    emit_stloc(out, 2); // q (0 or 1)
+    // r = q == 1 ? a - b : a
+    emit_ldloc(out, 2);
+    let jq0 = emit_branch_l_placeholder(out, 0x27); // JMPIFNOT_L -> q == 0
+    emit_ldloc(out, 0);
+    emit_ldloc(out, 1);
+    sub_sites.push(emit_branch_l_placeholder(out, 0x35)); // CALL_L sub
+    emit_stloc(out, 3); // r = a - b
+    let jbdone = emit_branch_l_placeholder(out, 0x23); // JMP_L -> big_done
+    let q0_pos = out.len();
+    patch_rel32(out, jq0, q0_pos);
+    emit_ldloc(out, 0);
+    emit_stloc(out, 3); // r = a
+    let big_done = out.len();
+    patch_rel32(out, jbdone, big_done);
+    emit_ldloc(out, 2); // q
+    emit_ldloc(out, 3); // r
+    out.push(0x40); // RET
+
+    // divzero:
+    let divzero = out.len();
+    patch_rel32(out, jz, divzero);
+    out.push(0x3A); // THROW
+    let _ = end_small;
+    (add_sites, sub_sites)
+}
+
 #[cfg(test)]
 mod uint256_ops_tests {
     use super::*;
@@ -657,7 +793,11 @@ mod uint256_ops_tests {
     // result (the real VM's MaxIntegerSize fault).
     fn faithful_run(code: &[u8]) -> Result<Vec<BigInt>, String> {
         let mut stack: Vec<BigInt> = Vec::new();
-        let mut locals: Vec<BigInt> = Vec::new();
+        // Local-variable slots are per call frame; the evaluation `stack` is
+        // shared across frames (NeoVM semantics). `frames` always holds the
+        // current (top-level) frame; CALL pushes a new one, RET pops it.
+        let mut frames: Vec<Vec<BigInt>> = vec![Vec::new()];
+        let mut ret_stack: Vec<usize> = Vec::new();
         let mut ip = 0usize;
         let check = |v: BigInt| -> Result<BigInt, String> {
             if v.to_signed_bytes_le().len() > 32 {
@@ -733,31 +873,33 @@ mod uint256_ops_tests {
                 0x57 => {
                     // INITSLOT nlocals nparams
                     let nlocals = code[ip + 1] as usize;
-                    locals = vec![BigInt::from(0); nlocals];
+                    *frames.last_mut().ok_or("no frame")? = vec![BigInt::from(0); nlocals];
                     ip += 3;
                 }
                 0x70..=0x76 => {
                     // STLOC0..STLOC6
                     let i = (op - 0x70) as usize;
-                    locals[i] = stack.pop().ok_or("stloc underflow")?;
+                    let v = stack.pop().ok_or("stloc underflow")?;
+                    frames.last_mut().ok_or("no frame")?[i] = v;
                     ip += 1;
                 }
                 0x77 => {
                     // STLOC (1-byte index)
                     let i = code[ip + 1] as usize;
-                    locals[i] = stack.pop().ok_or("stloc underflow")?;
+                    let v = stack.pop().ok_or("stloc underflow")?;
+                    frames.last_mut().ok_or("no frame")?[i] = v;
                     ip += 2;
                 }
                 0x68..=0x6E => {
                     // LDLOC0..LDLOC6
                     let i = (op - 0x68) as usize;
-                    stack.push(locals[i].clone());
+                    stack.push(frames.last().ok_or("no frame")?[i].clone());
                     ip += 1;
                 }
                 0x6F => {
                     // LDLOC (1-byte index)
                     let i = code[ip + 1] as usize;
-                    stack.push(locals[i].clone());
+                    stack.push(frames.last().ok_or("no frame")?[i].clone());
                     ip += 2;
                 }
                 0x91 => {
@@ -795,6 +937,26 @@ mod uint256_ops_tests {
                     stack.push(check(a * b)?);
                     ip += 1;
                 }
+                0xA1 => {
+                    // DIV (signed, truncating toward zero — Rust BigInt `/` matches)
+                    let b = stack.pop().ok_or("div underflow")?;
+                    let a = stack.pop().ok_or("div underflow")?;
+                    if b == BigInt::from(0) {
+                        return Err("DIV by zero".into());
+                    }
+                    stack.push(check(a / b)?);
+                    ip += 1;
+                }
+                0xA2 => {
+                    // MOD (signed, truncating — Rust BigInt `%` matches)
+                    let b = stack.pop().ok_or("mod underflow")?;
+                    let a = stack.pop().ok_or("mod underflow")?;
+                    if b == BigInt::from(0) {
+                        return Err("MOD by zero".into());
+                    }
+                    stack.push(check(a % b)?);
+                    ip += 1;
+                }
                 0xA8 => {
                     // SHL: value << shift (shift popped first)
                     let shift = stack.pop().ok_or("shl underflow")?;
@@ -827,6 +989,11 @@ mod uint256_ops_tests {
                     let off = code[ip + 1] as i8 as isize;
                     ip = (ip as isize + off) as usize;
                 }
+                0x23 => {
+                    // JMP_L rel32
+                    let off = i32::from_le_bytes(code[ip + 1..ip + 5].try_into().unwrap()) as isize;
+                    ip = (ip as isize + off) as usize;
+                }
                 0x24 => {
                     // JMPIF rel8
                     let off = code[ip + 1] as i8 as isize;
@@ -835,6 +1002,16 @@ mod uint256_ops_tests {
                         ip = (ip as isize + off) as usize;
                     } else {
                         ip += 2;
+                    }
+                }
+                0x25 => {
+                    // JMPIF_L rel32
+                    let off = i32::from_le_bytes(code[ip + 1..ip + 5].try_into().unwrap()) as isize;
+                    let c = stack.pop().ok_or("jmpif underflow")?;
+                    if c != BigInt::from(0) {
+                        ip = (ip as isize + off) as usize;
+                    } else {
+                        ip += 5;
                     }
                 }
                 0x26 => {
@@ -847,11 +1024,44 @@ mod uint256_ops_tests {
                         ip += 2;
                     }
                 }
+                0x27 => {
+                    // JMPIFNOT_L rel32
+                    let off = i32::from_le_bytes(code[ip + 1..ip + 5].try_into().unwrap()) as isize;
+                    let c = stack.pop().ok_or("jmpifnot underflow")?;
+                    if c == BigInt::from(0) {
+                        ip = (ip as isize + off) as usize;
+                    } else {
+                        ip += 5;
+                    }
+                }
+                0x34 => {
+                    // CALL rel8 (push return address + a fresh local frame)
+                    let off = code[ip + 1] as i8 as isize;
+                    ret_stack.push(ip + 2);
+                    frames.push(Vec::new());
+                    ip = (ip as isize + off) as usize;
+                }
+                0x35 => {
+                    // CALL_L rel32
+                    let off = i32::from_le_bytes(code[ip + 1..ip + 5].try_into().unwrap()) as isize;
+                    ret_stack.push(ip + 5);
+                    frames.push(Vec::new());
+                    ip = (ip as isize + off) as usize;
+                }
                 0x3A => {
                     // THROW (used here to signal a Solidity Panic, e.g. overflow)
                     return Err("THROW".into());
                 }
-                0x40 => break, // RET
+                0x40 => {
+                    // RET: return to caller, or end the program at the top frame.
+                    match ret_stack.pop() {
+                        Some(r) => {
+                            frames.pop();
+                            ip = r;
+                        }
+                        None => break,
+                    }
+                }
                 other => return Err(format!("faithful VM: unhandled opcode 0x{other:02x}")),
             }
         }
@@ -1192,6 +1402,77 @@ mod uint256_ops_tests {
             let expect = &a >> n; // a is in [0, 2^256), so this is the unsigned shift
             assert_eq!(run_shr(&a, n), expect, "shr({a}, {n})");
         }
+    }
+
+    /// Assemble a standalone program [main -> divmod -> {add, sub}] and run it.
+    /// Returns `(q, r)` as unsigned uint256, or `Err` on a thrown panic
+    /// (division by zero).
+    fn run_divmod(a: &BigInt, b: &BigInt) -> Result<(BigInt, BigInt), String> {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        let call_divmod = emit_branch_l_placeholder(&mut code, 0x35); // CALL_L divmod
+        code.push(0x40); // RET (program end) -> leaves [q, r]
+        let divmod_off = code.len();
+        let (add_sites, sub_sites) = emit_uint256_divmod_body(&mut code);
+        let add_off = code.len();
+        emit_uint256_unchecked_add(&mut code);
+        code.push(0x40); // RET
+        let sub_off = code.len();
+        emit_uint256_unchecked_sub(&mut code);
+        code.push(0x40); // RET
+        patch_rel32(&mut code, call_divmod, divmod_off);
+        for s in add_sites {
+            patch_rel32(&mut code, s, add_off);
+        }
+        for s in sub_sites {
+            patch_rel32(&mut code, s, sub_off);
+        }
+        let st = faithful_run(&code)?;
+        if st.len() < 2 {
+            return Err("expected [q, r]".into());
+        }
+        let r = st[st.len() - 1].clone();
+        let q = st[st.len() - 2].clone();
+        let m = modulus();
+        let norm = |v: BigInt| ((v % &m) + &m) % &m;
+        Ok((norm(q), norm(r)))
+    }
+
+    #[test]
+    fn unsigned_divmod_including_large() {
+        let cases = [
+            (big("100"), big("7")),
+            (big("5"), big("7")),                 // a < b -> q=0, r=a
+            (umax(), big("1")),                   // /1
+            (umax(), big("2")),
+            (umax(), big("3")),
+            (umax(), big("1000000000000000000")), // large / 1e18 (DeFi)
+            (pow2(255), big("2")),                // 2^254, r 0
+            (pow2(255) + BigInt::from(1), big("2")),
+            (pow2(200), big("13")),
+            (umax(), umax()),                     // 1, 0
+            (umax(), pow2(255)),                  // big divisor: q=1, r=2^255-1
+            (pow2(255), pow2(255)),               // q=1, r=0
+            (pow2(255) - BigInt::from(1), pow2(255)), // a<b: q=0, r=2^255-1
+            (pow2(200), pow2(255) + BigInt::from(99)), // big divisor, a<b
+            (big("0"), umax()),                   // 0 / x = 0
+        ];
+        for (a, b) in cases {
+            let (q, r) = run_divmod(&a, &b).expect("no panic");
+            assert_eq!(q, &a / &b, "div({a}, {b})");
+            assert_eq!(r, &a % &b, "mod({a}, {b})");
+            // Invariant: a == q*b + r and r < b.
+            assert_eq!(&q * &b + &r, a, "q*b+r == a for ({a},{b})");
+            assert!(r < b, "r < b for ({a},{b})");
+        }
+    }
+
+    #[test]
+    fn divmod_by_zero_panics() {
+        assert!(run_divmod(&big("5"), &big("0")).is_err());
+        assert!(run_divmod(&umax(), &big("0")).is_err());
+        assert!(run_divmod(&big("0"), &big("0")).is_err());
     }
 
     #[test]
