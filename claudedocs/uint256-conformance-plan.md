@@ -54,14 +54,25 @@ Values ≥ 2^255 appear negative. This is the only conformant form.
 Overflow detection moves from `GetSize > 32` to the **carry/high-word** signals
 produced by the software add/mul, so it no longer needs a 33-byte intermediate.
 
-## Runtime simulator
+## Runtime simulator — ALSO non-conformant (second empirical finding)
 
-The simulator executes the emitted bytecode. If every emitted op stays ≤32-byte
-(software routines + native byte ops), the simulator already produces correct
-results — **no simulator change required for correctness**. Recommended: add an
-opt-in `enforce_integer_size_limit` mode that rejects >32-byte integers, used in a
-**differential test** to prove the new lowering is conformant (and to catch any
-remaining non-conformant emission paths).
+The simulator does **not** faithfully model NeoVM's two's-complement integers; it
+uses an **unsigned-magnitude** representation. `PUSHINT256` pushes a `ByteArray`,
+and `u256_bigint_to_stack_item` (helpers/bitwise.rs) masks results to
+`value & (2^256-1)` and re-emits them as a **positive** magnitude (appending a
+`0x00` sign byte when the high bit is set). Verified by running a correct
+XOR-trick comparison routine through the VM: `5 XOR 2^255` came back as
+`+（2^255+5)` instead of the two's-complement negative a real node yields, so
+`uint256.max < 5` evaluated to `true`. The routine is correct **on a real Neo
+node** but cannot be validated against this simulator.
+
+Consequence: the conformance work must **also** flip the simulator's uint256
+representation to 32-byte two's-complement (`PUSHINT256` → Integer, XOR/AND/OR/NOT
+and arithmetic dropping the unsigned-magnitude masking), which itself breaks the
+existing uint256 tests that encode today's positive-magnitude behavior. So the
+landing is a **three-way coordinated change** — compiler lowering + simulator
+representation + test migration — not a compiler-only edit. Add an opt-in
+`enforce_integer_size_limit` differential mode once the representation is flipped.
 
 ## Test strategy
 
