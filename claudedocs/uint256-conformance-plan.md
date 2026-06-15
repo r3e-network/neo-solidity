@@ -24,17 +24,44 @@ values ≥ 2^255, limb boundaries, full wrap, and overflow/underflow/÷0 panics.
 `type(uint256).max`, the ERC-20 max-approval pattern, `1<<255` and large-balance
 `/1e18` are all covered by these primitives.
 
-**Phase 2 — wiring + simulator faithfulness: NOT STARTED (the real blocker).**
-The routines are not yet wired into lowering, because the **runtime simulator is
-itself non-conformant** (see section below) and therefore (a) hides the on-chain
-fault from the suite and (b) **cannot validate conformant bytecode** — wiring the
-routines in would turn dozens of currently-green tests red. Making the simulator
-faithful is a rewrite of the entire `StackItem` integer model (every
-arith/bitwise/compare/encode path) plus migration of ~1800 tests that encode the
-present unsigned-magnitude behavior: genuinely multi-session, not landable green
-in one. The honest path is either that rewrite or adding a **neo-go / Neo N3
-testnet** faithful-VM test backend to validate the conformant bytecode, then
-wiring + test migration as one reviewed change.
+**Phase 2 — wiring: NOT DONE. Blast radius MEASURED (was over-estimated).**
+The routines are not yet wired into lowering. An earlier estimate of "~1800 test
+migrations / full StackItem rewrite" was an **assumption and was wrong**. Direct
+measurement (flip `u256_bigint_to_stack_item` in `runtime/.../helpers/bitwise.rs`
+to 32-byte two's-complement, run the whole suite) breaks **exactly 4 tests**:
+`runtime::tests::test_bitwise_not_uint256_zero_returns_all_ones` (the new `~0 =
+-1` all-ones IS what a node computes — test asserted the old model),
+`abi_roundtrip_props::{roundtrip_uint256, roundtrip_tuple_uint_addr}` (the
+`abi.encode` path must read a two's-complement uint256 as **unsigned**, i.e.
+sign-extend to 32 bytes), and `batch57_..._uint256_cast_of_int256` (cast
+reinterpretation). The simulator's **decode** (`coerce_item_to_bigint`) and
+**arithmetic encode** (`bigint_to_stack_item`) are *already* faithful
+two's-complement; only the bitwise/shift encode and a few serialize-to-bytes
+paths assume positive-magnitude. So the model is **reachable**, not a rewrite.
+
+**Why it is still all-or-nothing (the genuine coupling).** NeoVM is *untyped*:
+the simulator (like a real node) cannot know a stack `Integer` is `uint` vs
+`int`, so its wide comparison is **signed**. Flipping the representation to
+two's-complement WITHOUT simultaneously emitting the unsigned-compare routine
+makes `~uint256(0) < 5` evaluate `true` (silent wrong) where it is correctly
+`false` today — and the suite's thin ≥2^255 coverage does not catch it (the
+4-test measurement misses it). Likewise, changing literal emission to
+two's-complement makes `max*2` native-`MUL` wrap to `-2` so the `GetSize>32`
+overflow guard never trips (`arith_scope_uint256_mul_overflow` regresses) —
+checked-overflow detection requires the software high-half. So **literals +
+unsigned comparison + checked arithmetic (software, as CALL helpers) + ABI
+encode/cast must flip together**; a partial flip trades a fail-loud on-chain
+revert for silent miscomputation, which is strictly worse.
+
+**Gating item:** the checked software arithmetic must be emitted as **CALL helper
+functions** (each routine has its own `INITSLOT`, so it cannot be inlined into a
+caller that already has one). That is a codegen feature — emit the helpers once
+per contract, manage their addresses, and route every uint256 arith site through
+`CALL`. That, plus the comparison/literal/ABI flip and adding ≥2^255
+contract-level tests (the suite under-covers them), is the remaining work. It is
+de-risked now (small blast radius, validated routines) but spans multiple
+sessions and cannot be landed green-in-one without shipping a silent regression
+midway.
 
 ## Problem
 
