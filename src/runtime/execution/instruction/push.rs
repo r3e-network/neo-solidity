@@ -98,9 +98,14 @@ impl ExecutionContext {
                 self.instruction_pointer += 9;
             }
             0x0A => {
-                // PUSHA (absolute address)
-                let target = self.read_u32_offset("PUSHA")?;
-                self.push_stack(StackItem::UnsignedInteger(target as u64))?;
+                // PUSHA — push a code Pointer. The operand is a SIGNED offset
+                // relative to this opcode, so the absolute target position is
+                // `instruction_pointer + operand` (mirroring real NeoVM's
+                // `Pointer{ CurrentContext.InstructionPointer + operand }`).
+                // Modeled here as the absolute position later consumed by CALLA.
+                let rel = self.read_i32_offset("PUSHA")?;
+                let target = (self.instruction_pointer as i64 + rel as i64).max(0) as u64;
+                self.push_stack(StackItem::UnsignedInteger(target))?;
                 self.instruction_pointer += 5;
             }
             0x0B => {

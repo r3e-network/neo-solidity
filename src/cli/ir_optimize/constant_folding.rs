@@ -95,10 +95,13 @@ fn try_identity_elimination(
         (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Mul)) if *n == 1.into() => {
             Some(None)
         }
-        // PUSH 0, MUL -> replace with PUSH 0
-        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Mul)) if n.is_zero() => {
-            Some(Some(PushLiteral(Integer(0.into()))))
-        }
+        // PUSH 0, MUL is intentionally NOT folded to `PUSH 0`. The multiplicand
+        // is already on the evaluation stack beneath the literal, and the
+        // single-instruction replacement framework here cannot also drop it, so
+        // rewriting `<x>; PUSH 0; MUL` → `<x>; PUSH 0` would leak `x` on the
+        // stack (corrupting subsequent stack positions and, inside a loop,
+        // eventually faulting on MAXSTACKSIZE). Leave it to normal emission
+        // (`PUSH 0; MUL`), which correctly consumes `x`.
         // PUSH 1, DIV -> no-op
         (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Div)) if *n == 1.into() => {
             Some(None)

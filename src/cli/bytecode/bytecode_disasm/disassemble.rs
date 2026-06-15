@@ -76,9 +76,9 @@ pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
                 }
             }
             0x0A => {
-                // PUSHA (absolute address)
-                if let Some(target) = take_u32(bytecode, &mut pc) {
-                    out.push_str(&format!(" 0x{target:06X}"));
+                // PUSHA — signed offset relative to this opcode (Pointer target).
+                if let Some(raw) = take_u32(bytecode, &mut pc) {
+                    out.push_str(&format!(" {}", raw as i32));
                 } else {
                     out.push_str(" <unexpected EOF>");
                     break;

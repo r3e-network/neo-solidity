@@ -2,6 +2,33 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
     literal_from_expression_with_warning(expr, &mut |_| {})
 }
 
+/// A diagnostic when `value` cannot be encoded as a conformant NeoVM integer.
+///
+/// NeoVM integers are signed and limited to 32 bytes (range
+/// `[-(2^255), 2^255 - 1]`). Solidity `uint256` values in `[2^255, 2^256-1]` —
+/// most notably `type(uint256).max` (max-approval / all-ones masks / sentinels)
+/// — need 33 signed bytes. The bytecode emitter currently falls back to a
+/// 33-byte push (`push_integer_bigint`), which real NeoVM accepts only as a
+/// ByteString and REJECTS the moment the value is coerced into an integer
+/// operation (`x - amount`, `x < y`, …), faulting on-chain. The local runtime
+/// uses unbounded `BigInt` and does not enforce the limit, so this is invisible
+/// to the test suite but breaks on a real node. Surfacing it as a compile-time
+/// warning makes the (currently architectural) limitation visible BEFORE deploy
+/// instead of a silent on-chain fault. See `claudedocs/review-findings.md` (#12).
+fn neovm_integer_limit_warning(value: &BigInt) -> Option<String> {
+    let len = value.to_signed_bytes_le().len();
+    if len > 32 {
+        Some(format!(
+            "integer literal needs {len} bytes and exceeds NeoVM's 32-byte signed-integer limit: \
+             values in [2^255, 2^256-1] (e.g. `type(uint256).max`) currently emit bytecode that \
+             faults on-chain when the value is used in an integer operation. This is a known \
+             representation limitation (full uint256 support requires unsigned-aware lowering)."
+        ))
+    } else {
+        None
+    }
+}
+
 // `stacker::maybe_grow` wrapper — `literal_from_expression_with_warning`
 // recurses on `Parenthesis(_)` (inner), which a pathological source like
 // `1 + (((...(1)...)))` drives into a deep self-call. Stacker lets the
@@ -50,12 +77,18 @@ where
                 value *= unit_multiplier(unit)?;
             }
 
+            if let Some(msg) = neovm_integer_limit_warning(&value) {
+                on_warning(msg);
+            }
             Some(LiteralValue::Integer(value))
         }
         Expression::HexNumberLiteral(_, value, unit) => {
             let mut number = parse_hex_bigint(value)?;
             if let Some(unit) = unit.as_ref() {
                 number *= unit_multiplier(unit)?;
+            }
+            if let Some(msg) = neovm_integer_limit_warning(&number) {
+                on_warning(msg);
             }
             Some(LiteralValue::Integer(number))
         }

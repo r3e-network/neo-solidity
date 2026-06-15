@@ -14,9 +14,13 @@ impl ExecutionContext {
                         message: "MODMUL modulus cannot be zero".to_string(),
                     });
                 }
+                // NeoVM MODMUL is `x1 * x2 % modulus` (C# `%`), the TRUNCATED
+                // remainder whose sign follows the product — not the Euclidean
+                // (always-non-negative) remainder. Use `%` so the signed path
+                // matches real NeoVM for negative products.
                 let modulus = m.abs() as i128;
                 let product = (x as i128).wrapping_mul(y as i128);
-                let result = product.rem_euclid(modulus);
+                let result = product % modulus;
                 Ok(StackItem::Integer(result as i64))
             }
             (
@@ -57,15 +61,18 @@ impl ExecutionContext {
                         message: "MODPOW exponent must be non-negative".to_string(),
                     });
                 }
+                // NeoVM MODPOW mirrors C# `BigInteger.ModPow`, which uses
+                // truncated (`%`) remainders throughout — the result's sign
+                // follows `base^exp`, not the Euclidean non-negative form.
                 let modulus = m.abs() as i128;
                 let mut result: i128 = 1 % modulus;
-                let mut base = (b as i128).rem_euclid(modulus);
+                let mut base = (b as i128) % modulus;
                 let mut exp = e as u128;
                 while exp > 0 {
                     if exp & 1 == 1 {
-                        result = (result * base).rem_euclid(modulus);
+                        result = (result * base) % modulus;
                     }
-                    base = (base * base).rem_euclid(modulus);
+                    base = (base * base) % modulus;
                     exp >>= 1;
                 }
                 Ok(StackItem::Integer(result as i64))

@@ -142,7 +142,15 @@ fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>
     let joined_types: Vec<String> = event
         .parameters
         .iter()
-        .map(|p| event_canonical_param_type(&p.ty, enum_names))
+        .map(|p| match &p.neo_type {
+            // Prefer the RESOLVED type so struct event parameters expand to
+            // `(field0,field1,...)` tuples in the `topic0 = keccak256(signature)`
+            // hash — matching Ethereum tooling and the function-selector path.
+            // The string canonicalizer (which passes structs through by name) is
+            // only a fallback for unresolved types.
+            Some(neo_type) => neo_type.canonical_abi_type(),
+            None => event_canonical_param_type(&p.ty, enum_names),
+        })
         .collect();
     format!("{}({})", event.name, joined_types.join(","))
 }

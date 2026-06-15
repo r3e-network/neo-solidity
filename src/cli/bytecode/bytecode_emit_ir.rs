@@ -245,10 +245,14 @@ fn emit_ir_function(
                     });
                 }
                 ir::Instruction::PushFunctionOffset { name } => {
-                    // Task #186 — push the target function's absolute bytecode
-                    // offset as a 4-byte integer literal (PUSHINT32). Fixed up
-                    // after all methods are emitted.
-                    local.push(0x02); // PUSHINT32
+                    // Task #186 — push the target function as a code POINTER via
+                    // PUSHA (a signed offset relative to the PUSHA opcode, fixed
+                    // up after all methods are emitted), which `CALLA` consumes.
+                    // Real NeoVM `CALLA` requires a `Pointer` produced by `PUSHA`;
+                    // the previous `PUSHINT32` pushed a bare Integer that faults
+                    // on-chain ("not a Pointer"), even though the local runtime —
+                    // which models CALLA as popping an integer position — masked it.
+                    local.push(0x0A); // PUSHA
                     let patch_pos = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     call_patches.push(CallPatch {

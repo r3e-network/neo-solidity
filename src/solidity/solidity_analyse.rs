@@ -854,6 +854,10 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     // Build a shared selector registry so `.selector` expressions can resolve against
     // any contract/interface visible to this compilation unit (including those defined
     // after the primary contract in the same file).
+    // Every visible type name (contract/interface/library) — contract-typed
+    // params resolve to `address` for ABI canonicalization.
+    let registry_contract_types: Vec<String> =
+        contract_map.values().map(|c| c.name.clone()).collect();
     let mut type_method_selectors: std::collections::HashMap<
         String,
         std::collections::HashMap<String, Vec<[u8; 4]>>,
@@ -879,6 +883,36 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         let mut per_type: std::collections::HashMap<String, Vec<[u8; 4]>> =
             std::collections::HashMap::new();
 
+        // Resolve each `.selector` parameter through the SAME canonicalization as
+        // the manifest selector (`FunctionMetadata.selector`, built via
+        // `NeoType::canonical_abi_type` in convert/functions.rs): structs expand to
+        // tuples, enums render as `uint8`, integer widths are explicit. The two
+        // paths must produce identical selectors — both drive on-chain dispatch and
+        // a contract's `this.f.selector` must match what external callers compute.
+        let sel_struct_types: Vec<StructTypeMetadata> = selector_contract
+            .structs
+            .iter()
+            .map(|s| StructTypeMetadata {
+                name: s.name.clone(),
+                fields: s
+                    .fields
+                    .iter()
+                    .map(|f| NeoStructFieldMetadata {
+                        name: f.name.clone(),
+                        ty: f.ty.clone(),
+                    })
+                    .collect(),
+            })
+            .collect();
+        let sel_enum_types: Vec<EnumTypeMetadata> = selector_contract
+            .enums
+            .iter()
+            .map(|e| EnumTypeMetadata {
+                name: e.name.clone(),
+                variants: e.values.len(),
+            })
+            .collect();
+
         for function in &selector_contract.functions {
             if !matches!(function.ty, FunctionTy::Function) {
                 continue;
@@ -895,10 +929,20 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 .parameters
                 .iter()
                 .map(|param| {
-                    crate::utils::canonical_param_type_with_structs(
+                    match NeoType::from_solidity(
                         &param.ty,
-                        &struct_fields_map,
-                    )
+                        &sel_struct_types,
+                        &sel_enum_types,
+                        &registry_contract_types,
+                    ) {
+                        Ok(neo_type) => neo_type.canonical_abi_type(),
+                        // Fall back to the struct-aware string canonicalizer only
+                        // when the type cannot be resolved (keeps prior behavior).
+                        Err(_) => crate::utils::canonical_param_type_with_structs(
+                            &param.ty,
+                            &struct_fields_map,
+                        ),
+                    }
                 })
                 .collect();
             let selector = compute_function_selector(&function.name, &param_signatures);

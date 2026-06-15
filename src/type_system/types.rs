@@ -90,6 +90,40 @@ impl NeoType {
             Self::Any => "any".to_string(),
         }
     }
+
+    /// EVM-ABI canonical type spelling used for function-selector and event
+    /// `topic0` hashing (`keccak256(name(t1,t2,...))`). Differs from
+    /// [`Self::type_name`] in that STRUCTS expand to `(field0,field1,...)`
+    /// tuples and the integer width is always explicit (`uint256`, not `uint`).
+    /// Enums are already resolved to `uint8` (`Integer { bits: 8 }`) during type
+    /// resolution, so they canonicalize correctly here. Using the declared
+    /// struct/enum NAME instead (the old behavior) produced selectors and event
+    /// topics that disagree with Ethereum tooling for struct/enum parameters.
+    pub fn canonical_abi_type(&self) -> String {
+        match self {
+            Self::Integer { signed: true, bits } => format!("int{bits}"),
+            Self::Integer { signed: false, bits } => format!("uint{bits}"),
+            Self::Boolean => "bool".to_string(),
+            Self::String => "string".to_string(),
+            Self::Address => "address".to_string(),
+            Self::ByteArray { fixed_len: Some(n) } => format!("bytes{n}"),
+            Self::ByteArray { fixed_len: None } => "bytes".to_string(),
+            Self::Array(inner) => format!("{}[]", inner.canonical_abi_type()),
+            Self::Struct { fields, .. } => {
+                let parts: Vec<String> =
+                    fields.iter().map(|f| f.ty.canonical_abi_type()).collect();
+                format!("({})", parts.join(","))
+            }
+            // Mappings never appear in a function/event signature; keep a stable
+            // spelling rather than panicking on malformed input.
+            Self::Mapping { key, value } => format!(
+                "mapping({} => {})",
+                key.canonical_abi_type(),
+                value.canonical_abi_type()
+            ),
+            Self::Any => "any".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

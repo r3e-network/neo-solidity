@@ -150,12 +150,20 @@ contract NEP17 is INEP17, FrameworkBase {
         require(bytes(symbol_).length > 0, "NEP17: symbol cannot be empty");
         require(decimals_ <= 18, "NEP17: decimals cannot exceed 18");
         
+        // A non-zero max supply must accommodate the initial mint. `_mint`
+        // (used below) does not enforce the cap — unlike the public `mint()` —
+        // so guard the initial supply here to keep the cap invariant.
+        require(
+            maxSupply_ == 0 || initialSupply <= maxSupply_,
+            "NEP17: initial supply exceeds max supply"
+        );
+
         _name = name_;
         _symbol = symbol_;
         _decimals = decimals_;
         _minter = msg.sender;
         _maxSupply = maxSupply_;
-        
+
         if (initialSupply > 0) {
             _mint(msg.sender, initialSupply);
         }
@@ -237,21 +245,31 @@ contract NEP17 is INEP17, FrameworkBase {
         uint256 amount,
         Any calldata data
     ) public override whenTransfersEnabled validReceiver(to) validAmount(amount) returns (bool) {
-        // Check authorization
+        // Authorization: the owner (acting as the direct sender or via witness)
+        // or a spender holding sufficient allowance. Cache the witness result so
+        // it is consulted once for both the check and the allowance accounting.
+        bool ownerAuthorized = from == msg.sender || Runtime.checkWitness(from);
         require(
-            from == msg.sender || 
-            _allowances[from][msg.sender] >= amount ||
-            Runtime.checkWitness(from),
+            ownerAuthorized || _allowances[from][msg.sender] >= amount,
             "NEP17: unauthorized transfer"
         );
-        
+
         _transfer(from, to, amount, data);
-        
-        // Update allowance if needed
-        if (from != msg.sender && _allowances[from][msg.sender] != type(uint256).max) {
+
+        // Consume allowance ONLY when the transfer was authorized via an
+        // approval (i.e. the spender is acting on the owner's behalf), never when
+        // the owner authorized directly. Decrementing on the owner-authorized
+        // path would compute `_allowances[from][msg.sender] - amount`, which
+        // underflows (Panic 0x11) and reverts when the allowance is below
+        // `amount` — e.g. a witness-authorized transfer with zero allowance.
+        if (!ownerAuthorized && _allowances[from][msg.sender] != type(uint256).max) {
+            require(
+                _allowances[from][msg.sender] >= amount,
+                "NEP17: insufficient allowance"
+            );
             _approve(from, msg.sender, _allowances[from][msg.sender] - amount);
         }
-        
+
         return true;
     }
     

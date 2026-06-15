@@ -447,7 +447,13 @@ fn validate_declared_standards(
                 4,
             ),
             "NEP-11" => (
-                &["symbol", "decimals", "balanceof", "ownerof", "transfer"],
+                // Mandatory NEP-11 method set — must match the auto-detection
+                // list (`nep11_required`) so the explicit-declaration gate is no
+                // weaker than auto-detection. `totalSupply` and `tokensOf` are
+                // mandatory per the NEP-11 spec; omitting them previously let a
+                // contract ship a manifest falsely advertising `supportedstandards:
+                // ["NEP-11"]` while lacking methods wallets/indexers rely on.
+                &["symbol", "decimals", "totalsupply", "balanceof", "tokensof", "ownerof", "transfer"],
                 4,
                 ir::NativeTransferStandard::Nep11,
                 3,

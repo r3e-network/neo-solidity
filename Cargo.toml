@@ -32,6 +32,11 @@ sha3 = "0.10"
 blake2 = "0.10"
 ripemd = "0.1"
 secp256k1 = { version = "0.27", features = ["recovery"] }
+# secp256r1 (NIST P-256) backing the runtime's `CryptoLib.verifyWithECDsa`
+# handler for Neo N3's default NamedCurveHash values (secp256r1SHA256 = 23,
+# secp256r1Keccak256 = 123). secp256k1 (the `secp256k1` crate) covers curves
+# 22/122. See src/runtime/execution/execution_impl_part2_native/crypto.rs.
+p256 = { version = "0.13", features = ["ecdsa"] }
 num-bigint = "0.4"
 num-traits = "0.2"
 solang-parser = { package = "foundry-solang-parser", version = "0.3.9" }
@@ -56,6 +61,10 @@ group = "0.13"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+# Sign secp256r1 (P-256) test vectors to validate the runtime's
+# CryptoLib.verifyWithECDsa handler against genuine ECDSA signatures.
+# See tests/runtime_verify_ecdsa_tests.rs.
+p256 = { version = "0.13", features = ["ecdsa"] }
 proptest = "1.0"
 quickcheck = "1.0"
 tempfile = "3.0"

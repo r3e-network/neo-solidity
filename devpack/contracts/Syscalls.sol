@@ -1232,7 +1232,12 @@ library Syscalls {
      * @dev Convert script hash to address
      */
     function scriptHashToAddress(bytes20 scriptHash) internal pure returns (address) {
-        return address(uint160(uint256(bytes32(scriptHash))));
+        // A Neo script hash IS a 160-bit value; an `address` holds it directly.
+        // The previous `uint160(uint256(bytes32(scriptHash)))` LEFT-aligned the
+        // 20 bytes into a bytes32 (high bytes), then `uint160(...)` kept the LOW
+        // 160 bits — discarding the top 12 bytes of the hash. Convert the 20
+        // bytes straight to uint160 to preserve every byte.
+        return address(uint160(scriptHash));
     }
     
     /**

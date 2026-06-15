@@ -491,11 +491,15 @@ contract M {
                 m.get("name").and_then(|v| v.as_str()) == Some(name)),
                 "K4 manifest missing `{}`", name);
         }
-        // `slots(uint256) -> Array` — inner mapping elided from head tuple.
+        // `slots(uint256) -> uint256` — the struct's mapping member `balances`
+        // is OMITTED from the auto-getter return (Solidity rule), leaving only
+        // the scalar `id` (a single uint256), whose manifest returntype is
+        // "Integer". (Previously the mapping member was wrongly included, making
+        // a non-encodable multi-value tuple that fell back to the "Array" shape.)
         let slots_m = methods.iter().find(|m|
             m.get("name").and_then(|v| v.as_str()) == Some("slots")).unwrap();
-        prop_assert_eq!(slots_m.get("returntype").and_then(|v| v.as_str()), Some("Array"),
-            "K4 slots.returntype must be Array (mapping elided); got {:?}",
+        prop_assert_eq!(slots_m.get("returntype").and_then(|v| v.as_str()), Some("Integer"),
+            "K4 slots.returntype must be Integer (mapping member elided, single uint256 left); got {:?}",
             slots_m.get("returntype"));
         let params = slots_m.get("parameters").and_then(|v| v.as_array()).expect("K4 params");
         prop_assert_eq!(params.len(), 1, "K4 slots takes 1 key; got {}", params.len());

@@ -76,7 +76,76 @@ impl ExecutionContext {
                     StackItem::byte_array(Vec::new())
                 }
             }
-            "verifywithecdsa" => StackItem::Boolean(false),
+            "verifywithecdsa" => {
+                // Neo N3 CryptoLib.verifyWithECDsa(message, pubkey, signature,
+                // NamedCurveHash). The curve byte selects the EC curve AND the
+                // message-hash algorithm: 22 secp256k1+SHA256, 23 secp256r1+SHA256,
+                // 122 secp256k1+Keccak256, 123 secp256r1+Keccak256 (23 is Neo's
+                // default). Neo hashes the message with the chosen algorithm, then
+                // verifies the 64-byte ECDSA signature (r||s, big-endian) over that
+                // 32-byte digest using the SEC1-encoded public key.
+                let StackItem::Array(args) = params else {
+                    return StackItem::Boolean(false);
+                };
+                let borrowed = args.borrow();
+                let message =
+                    Self::stack_item_to_bytes(borrowed.first().cloned().unwrap_or(StackItem::Null));
+                let pubkey =
+                    Self::stack_item_to_bytes(borrowed.get(1).cloned().unwrap_or(StackItem::Null));
+                let signature =
+                    Self::stack_item_to_bytes(borrowed.get(2).cloned().unwrap_or(StackItem::Null));
+                let curve = match borrowed.get(3) {
+                    Some(StackItem::Integer(n)) => *n,
+                    Some(StackItem::UnsignedInteger(n)) => *n as i64,
+                    Some(StackItem::ByteArray(b)) => b.borrow().first().copied().unwrap_or(0) as i64,
+                    _ => 0,
+                };
+                let (is_secp256r1, use_keccak) = match curve {
+                    22 => (false, false),
+                    23 => (true, false),
+                    122 => (false, true),
+                    123 => (true, true),
+                    _ => return StackItem::Boolean(false),
+                };
+                if signature.len() != 64 {
+                    return StackItem::Boolean(false);
+                }
+                let digest: [u8; 32] = if use_keccak {
+                    use sha3::{Digest as _, Keccak256};
+                    Keccak256::digest(&message).into()
+                } else {
+                    Sha256::digest(&message).into()
+                };
+                let ok = if is_secp256r1 {
+                    use p256::ecdsa::signature::hazmat::PrehashVerifier;
+                    use p256::ecdsa::{Signature, VerifyingKey};
+                    match (
+                        VerifyingKey::from_sec1_bytes(&pubkey),
+                        Signature::from_slice(&signature),
+                    ) {
+                        (Ok(vk), Ok(sig)) => vk.verify_prehash(&digest, &sig).is_ok(),
+                        _ => false,
+                    }
+                } else {
+                    use secp256k1::{ecdsa::Signature, Message, PublicKey, Secp256k1};
+                    match (
+                        PublicKey::from_slice(&pubkey),
+                        Message::from_slice(&digest),
+                        Signature::from_compact(&signature),
+                    ) {
+                        (Ok(pk), Ok(msg), Ok(mut sig)) => {
+                            // Accept both high- and low-S forms (Neo verification
+                            // does not require canonical low-S).
+                            sig.normalize_s();
+                            Secp256k1::verification_only()
+                                .verify_ecdsa(&msg, &sig, &pk)
+                                .is_ok()
+                        }
+                        _ => false,
+                    }
+                };
+                StackItem::Boolean(ok)
+            }
             "recoversecp256k1" => {
                 // Neo N3 CryptoLib.RecoverSecp256K1(hash, signature) -> 65-byte
                 // uncompressed pubkey (0x04 || x32 || y32) or Null on failure.

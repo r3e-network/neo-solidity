@@ -92,9 +92,18 @@ fn convert_function(
         .map(|param| convert_parameter(param, struct_types, enum_types, contract_types, type_aliases))
         .collect();
 
+    // Build each parameter's EVM-ABI canonical type for the function selector
+    // `keccak256(name(t1,t2,...))`. Prefer the RESOLVED `NeoType`, which expands
+    // struct parameters to `(field0,field1,...)` tuples, renders enums as `uint8`
+    // and always emits explicit integer widths (`uint256`, not `uint`) — matching
+    // Ethereum tooling. The string-based `canonical_param_type` (which returns the
+    // bare struct/enum name) is only a fallback for the rare unresolved type.
     let param_signatures: Vec<String> = parameters
         .iter()
-        .map(|param| canonical_param_type(&param.ty))
+        .map(|param| match &param.neo_type {
+            Some(neo_type) => neo_type.canonical_abi_type(),
+            None => canonical_param_type(&param.ty),
+        })
         .collect();
 
     let name = function.name;

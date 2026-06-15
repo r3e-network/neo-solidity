@@ -17,6 +17,9 @@ fn try_lower_type_bound_max(
                 let mut value = BigInt::one();
                 value <<= *bits as usize;
                 value -= BigInt::one();
+                if let Some(msg) = neovm_integer_limit_warning(&value) {
+                    ctx.record_warning(msg);
+                }
                 instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
                 return Some(true);
             }
@@ -37,6 +40,9 @@ fn try_lower_type_bound_max(
                 let mut value = BigInt::one();
                 value <<= 256usize;
                 value -= BigInt::one();
+                if let Some(msg) = neovm_integer_limit_warning(&value) {
+                    ctx.record_warning(msg);
+                }
                 instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
                 return Some(true);
             }

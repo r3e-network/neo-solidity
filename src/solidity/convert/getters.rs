@@ -84,6 +84,16 @@ fn getter_signature_from_neotype(
             let mut tuple_entries = Vec::new();
             for field in fields {
                 let field_type = field.ty.as_ref().clone();
+                // Solidity's auto-generated public getter for a struct state
+                // variable OMITS mapping and array members — there is no ABI
+                // representation for returning them as part of the struct tuple.
+                // `bytes`/`string` are NOT `NeoType::Array`, so they remain
+                // included, matching solc. Without this filter the getter emits
+                // a return type referencing a mapping/array member, producing an
+                // invalid ABI / manifest.
+                if matches!(field_type, NeoType::Mapping { .. } | NeoType::Array(_)) {
+                    continue;
+                }
                 let field_ty_str = solidity_type_from_neotype(&field_type);
                 ret_params.push(ParameterMetadata {
                     name: Some(field.name.clone()),

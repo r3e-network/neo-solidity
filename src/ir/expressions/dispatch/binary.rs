@@ -116,6 +116,22 @@ fn is_uint256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
     }
 }
 
+/// True only when `expr` is a *genuinely-typed* `uint256` operand. A bare
+/// integer literal infers as `uint256` by default (see `infer_type_from_expression`
+/// in `src/ir/build/inference.rs`), so it is explicitly excluded here: in
+/// `narrowVar OP literal` the literal adapts to the narrow operand's type and
+/// must NOT count as a real `uint256` that suppresses the narrow guard.
+fn is_typed_uint256(expr: &Expression, ctx: &LoweringContext) -> bool {
+    !is_literal_number(expr)
+        && matches!(
+            infer_type_from_expression(expr, ctx),
+            Some(ValueType::Integer {
+                signed: false,
+                bits: 256,
+            })
+        )
+}
+
 /// Infer whether an operand is `int256` (256-bit signed integer).
 fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
     matches!(
@@ -125,6 +141,23 @@ fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
             bits: 256,
         })
     )
+}
+
+/// True when the arithmetic's RESULT type is a narrow integer (uintN/intN, N<256)
+/// — i.e. a narrow-typed operand is present AND no operand is a genuinely-typed
+/// `uint256`/`int256`. This distinguishes pure-narrow arithmetic (`uint8 + uint8`,
+/// `uint8 + literal`), which the narrow guard / narrow truncation owns, from
+/// MIXED-width arithmetic (`uint256 + uint32`), where Solidity widens the narrow
+/// operand so the result is `uint256` and the 256-bit path must own it. Untyped
+/// literals adapt to the narrow operand's type and never count as wide here.
+fn is_narrow_result(left: &Expression, right: &Expression, ctx: &LoweringContext) -> bool {
+    if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
+        return false;
+    }
+    if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return false;
+    }
+    narrow_unsigned_bits(left, right, ctx).is_some() || narrow_signed_bits(left, right, ctx).is_some()
 }
 
 /// Task #30 slice 2: gate for `uint256` Add/Sub/Mul overflow-guard emission.
@@ -156,6 +189,16 @@ fn should_emit_u256_arith_guard(
     // rules widen the other operand (typically a literal) to `int256`. The
     // int256 guard path owns the lowering in that case.
     if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return false;
+    }
+    // `narrowVar OP literal` (and `uintN OP uintN`) is narrow arithmetic — the
+    // untyped literal adapts to the narrow operand's type. Without this, the
+    // literal's `uint256` default would route `uint8 x; x + 1` through the
+    // 256-bit guard (which only checks `result > 2^256-1` and never trips for a
+    // narrow overflow like 255+1=256), silently skipping the required
+    // Panic(0x11). The narrow guard owns it. NOTE: mixed `uint256 OP uintN` is
+    // NOT narrow (the narrow operand widens to uint256) and stays on this path.
+    if is_narrow_result(left, right, ctx) {
         return false;
     }
     is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx)
@@ -209,8 +252,10 @@ fn should_emit_narrow_u_arith_guard(
     if is_literal_number(left) && is_literal_number(right) {
         return None;
     }
-    // Don't clash with the uint256 or int256 guards.
-    if is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx) {
+    // Don't clash with the uint256 or int256 guards. Use the *typed* uint256
+    // check (not `is_uint256_operand`) so a literal partner — which defaults to
+    // uint256 — to a narrow-typed operand does NOT suppress the narrow guard.
+    if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
         return None;
     }
     if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
@@ -265,8 +310,10 @@ fn should_emit_narrow_i_arith_guard(
     if is_literal_number(left) && is_literal_number(right) {
         return None;
     }
-    // Don't clash with the uint256 or int256 guards.
-    if is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx) {
+    // Don't clash with the uint256 or int256 guards. Use the *typed* uint256
+    // check so a literal partner (uint256 by default) to a narrow-typed operand
+    // doesn't suppress the narrow signed guard.
+    if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
         return None;
     }
     if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
@@ -475,6 +522,15 @@ fn should_widen_unchecked_u256(
         return false;
     }
     if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return false;
+    }
+    // Pure-narrow `unchecked` arithmetic truncates mod 2^N (N<256), not mod
+    // 2^256; the narrow unchecked-truncation path owns it. Without this, the
+    // literal's uint256 default would widen `unchecked { uint8 x; x + 1 }` to
+    // 256-bit and truncate mod 2^256 (yielding 256 instead of the correct 0).
+    // Mixed `uint256 OP uintN` is NOT narrow (the narrow operand widens) and
+    // stays on this 256-bit widen+truncate path.
+    if is_narrow_result(left, right, ctx) {
         return false;
     }
     is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx)
@@ -725,6 +781,261 @@ fn emit_checked_arith_guard(
     instructions.push(Instruction::LoadLocal(result_local));
 }
 
+/// Truncate the top-of-stack integer to `bits` low bits (unsigned): `& (2^bits-1)`.
+/// Used for `unchecked` narrow Add/Sub/Mul and narrow `<<` results, which wrap
+/// mod 2^bits rather than panicking.
+fn emit_truncate_narrow_unsigned(instructions: &mut Vec<Instruction>, bits: u16) {
+    let mask = (BigInt::one() << bits as usize) - BigInt::one();
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(mask)));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+}
+
+/// Truncate the top-of-stack integer to a signed `bits`-wide value: mask to the
+/// low `bits` bits, then two's-complement sign-extend (subtract 2^bits when the
+/// sign bit is set). Mirrors the `intN(..)` cast lowering in
+/// `src/ir/expressions/calls/type_constructors.rs`.
+fn emit_truncate_narrow_signed(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    bits: u16,
+) {
+    let bits = bits as usize;
+    let mask = (BigInt::one() << bits) - BigInt::one();
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(mask)));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+
+    let tmp_id = ctx.next_label();
+    let value_local = ctx.allocate_local(format!("__narrow_trunc_{tmp_id}"), None);
+    instructions.push(Instruction::StoreLocal(value_local));
+
+    let sign_bit = BigInt::one() << (bits.saturating_sub(1));
+    let modulus = BigInt::one() << bits;
+    let positive_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    // if value < sign_bit -> already positive (JumpIf branches when false).
+    instructions.push(Instruction::LoadLocal(value_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(sign_bit)));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
+    instructions.push(Instruction::JumpIf {
+        target: positive_label,
+    });
+
+    // negative: value - 2^bits
+    instructions.push(Instruction::LoadLocal(value_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(modulus)));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
+    instructions.push(Instruction::Jump { target: end_label });
+
+    // positive: value
+    instructions.push(Instruction::Label(positive_label));
+    instructions.push(Instruction::LoadLocal(value_local));
+
+    instructions.push(Instruction::Label(end_label));
+}
+
+/// `unchecked` narrow unsigned (uintN, N<256) Add/Sub/Mul truncation gate. Same
+/// preconditions as the checked narrow guard but for `unchecked` blocks, where
+/// the result wraps mod 2^N instead of panicking. Returns the bit width.
+fn should_truncate_unchecked_narrow_u(
+    left: &Expression,
+    right: &Expression,
+    ctx: &LoweringContext,
+    operator: BinaryOperator,
+) -> Option<u16> {
+    if !ctx.in_unchecked_block() {
+        return None;
+    }
+    if !matches!(
+        operator,
+        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Mul
+    ) {
+        return None;
+    }
+    if is_literal_number(left) && is_literal_number(right) {
+        return None;
+    }
+    if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
+        return None;
+    }
+    if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return None;
+    }
+    narrow_unsigned_bits(left, right, ctx)
+}
+
+/// `unchecked` narrow signed (intN, N<256) Add/Sub/Mul truncation gate.
+fn should_truncate_unchecked_narrow_i(
+    left: &Expression,
+    right: &Expression,
+    ctx: &LoweringContext,
+    operator: BinaryOperator,
+) -> Option<u16> {
+    if !ctx.in_unchecked_block() {
+        return None;
+    }
+    if !matches!(
+        operator,
+        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Mul
+    ) {
+        return None;
+    }
+    if is_literal_number(left) && is_literal_number(right) {
+        return None;
+    }
+    if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
+        return None;
+    }
+    if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
+        return None;
+    }
+    narrow_signed_bits(left, right, ctx)
+}
+
+/// In Solidity the result of `a << b` has the type of the left operand and is
+/// truncated to that width (shift overflow never panics, in checked OR unchecked
+/// mode). The runtime/optimizer don't wrap at narrow widths, so `uint8(200) << 1`
+/// leaves `400` on the stack instead of `144`. Returns `(bits, signed)` of the
+/// left operand when it is a narrow integer (N<256); uint256/int256 are already
+/// clamped to 256 bits by the runtime SHL path.
+fn shl_narrow_truncation(
+    left: &Expression,
+    ctx: &LoweringContext,
+    operator: BinaryOperator,
+) -> Option<(u16, bool)> {
+    if !matches!(operator, BinaryOperator::Shl) {
+        return None;
+    }
+    match infer_type_from_expression(left, ctx) {
+        Some(ValueType::Integer { signed, bits }) if matches!(bits, 8 | 16 | 32 | 64 | 128) => {
+            Some((bits, signed))
+        }
+        _ => None,
+    }
+}
+
+/// Emit `<op>` for two operands already on the stack (`[.., lhs, rhs]`), applying
+/// the full Solidity-0.8 checked-arithmetic / unchecked-truncation ladder:
+/// uint256, int256, narrow uintN, narrow intN overflow guards (checked mode);
+/// mod-2^256 / mod-2^N truncation (`unchecked` mode); narrow `<<` width
+/// truncation; plain op otherwise. Shared by `lower_binary_expr` and the
+/// compound-assignment / ++/-- paths so `x <op>= y`, `x++`, `--x` are
+/// byte-for-byte consistent with `x = x <op> y`. The gate predicates inspect the
+/// operand *expressions* (types), not the stack, so this may run after the
+/// operands have been lowered.
+fn emit_arith_with_overflow_ladder(
+    left: &Expression,
+    right: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    operator: BinaryOperator,
+    // The `unchecked` uint256 widen (Bug #16) ends with `emit_truncate_u256`,
+    // which leaves the result as a 32-byte Buffer (via SUBSTR). That is fine for
+    // a plain `x = x <op> y` value but breaks when the l-value is reused AS AN
+    // INTEGER before the next coercion — e.g. a loop counter `for (uint i; ...;
+    // i++) a[i]` where the post-incremented `i` feeds PICKITEM ("array index
+    // must be non-negative integer"). The compound / ++ / -- path therefore
+    // keeps the historical plain-`BinaryOp` (Integer-result) lowering for
+    // unchecked uint256 by passing `false`; the binary path passes `true`.
+    allow_unchecked_u256_widen: bool,
+) {
+    let emit_guard = should_emit_u256_arith_guard(left, right, ctx, operator);
+    let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(left, right, ctx, operator);
+    let emit_narrow_u_bits = if !emit_guard && !emit_i256_guard {
+        should_emit_narrow_u_arith_guard(left, right, ctx, operator)
+    } else {
+        None
+    };
+    let emit_narrow_i_bits = if !emit_guard && !emit_i256_guard && emit_narrow_u_bits.is_none() {
+        should_emit_narrow_i_arith_guard(left, right, ctx, operator)
+    } else {
+        None
+    };
+    let emit_unchecked_u256_widen = allow_unchecked_u256_widen
+        && !emit_guard
+        && !emit_i256_guard
+        && emit_narrow_u_bits.is_none()
+        && emit_narrow_i_bits.is_none()
+        && should_widen_unchecked_u256(left, right, ctx, operator);
+    // `unchecked` narrow truncation (self-gating on `in_unchecked_block`).
+    let unchecked_narrow_u = should_truncate_unchecked_narrow_u(left, right, ctx, operator);
+    let unchecked_narrow_i = if unchecked_narrow_u.is_none() {
+        should_truncate_unchecked_narrow_i(left, right, ctx, operator)
+    } else {
+        None
+    };
+    // SHL width truncation (operator-gated; mutually exclusive with the
+    // Add/Sub/Mul-only guards above).
+    let shl_trunc = shl_narrow_truncation(left, ctx, operator);
+    // Narrow SIGNED division overflow: `intN.min / -1` is the only division that
+    // overflows (result == 2^(N-1) == intN_max + 1). Unsigned division never
+    // overflows; int256 / i64 min/-1 are caught inside the runtime divmod, so
+    // this covers only the narrow signed widths the runtime leaves un-trapped.
+    let div_narrow_i = if matches!(operator, BinaryOperator::Div) && is_narrow_result(left, right, ctx)
+    {
+        narrow_signed_bits(left, right, ctx)
+    } else {
+        None
+    };
+
+    if emit_guard {
+        // Widen both operands to 32-byte ByteArray so BigInt-based comparisons
+        // in the guard body work at full 256-bit width.
+        emit_widen_both_u256(instructions);
+        emit_checked_arith_guard(ctx, instructions, operator);
+    } else if emit_i256_guard {
+        emit_checked_arith_guard_i256(ctx, instructions, operator);
+    } else if let Some(bits) = emit_narrow_u_bits {
+        emit_checked_arith_guard_narrow_u(ctx, instructions, operator, bits);
+    } else if let Some(bits) = emit_narrow_i_bits {
+        emit_checked_arith_guard_narrow_i(ctx, instructions, operator, bits);
+    } else if emit_unchecked_u256_widen {
+        // Widen to unsigned-magnitude so the wide BigInt path runs at all opt
+        // levels, then truncate mod 2^256 to keep the canonical 32-byte shape.
+        emit_widen_both_u256_unsigned(instructions);
+        instructions.push(Instruction::BinaryOp(operator));
+        emit_truncate_u256(instructions);
+    } else if let Some(bits) = unchecked_narrow_u {
+        // `unchecked { uintN: a <op> b }` wraps mod 2^N.
+        instructions.push(Instruction::BinaryOp(operator));
+        emit_truncate_narrow_unsigned(instructions, bits);
+    } else if let Some(bits) = unchecked_narrow_i {
+        // `unchecked { intN: a <op> b }` wraps mod 2^N (two's complement).
+        instructions.push(Instruction::BinaryOp(operator));
+        emit_truncate_narrow_signed(ctx, instructions, bits);
+    } else if let Some((bits, signed)) = shl_trunc {
+        // `a << b` truncates to the left operand's width (never panics).
+        instructions.push(Instruction::BinaryOp(operator));
+        if signed {
+            emit_truncate_narrow_signed(ctx, instructions, bits);
+        } else {
+            emit_truncate_narrow_unsigned(instructions, bits);
+        }
+    } else if let Some(bits) = div_narrow_i {
+        instructions.push(Instruction::BinaryOp(operator));
+        if ctx.in_unchecked_block() {
+            // `unchecked { intN.min / -1 }` wraps to intN.min (mod 2^N).
+            emit_truncate_narrow_signed(ctx, instructions, bits);
+        } else {
+            // Checked: only `intN.min / -1` exceeds intN_max → Panic(0x11).
+            let int_max = (BigInt::one() << (bits as usize - 1)) - BigInt::one();
+            let tmp_id = ctx.next_label();
+            let result_local = ctx.allocate_local(format!("__divovf_{tmp_id}"), None);
+            instructions.push(Instruction::StoreLocal(result_local));
+            let done = ctx.next_label();
+            instructions.push(Instruction::LoadLocal(result_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int_max)));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
+            instructions.push(Instruction::JumpIf { target: done });
+            emit_panic(0x11, instructions);
+            instructions.push(Instruction::Label(done));
+            instructions.push(Instruction::LoadLocal(result_local));
+        }
+    } else {
+        instructions.push(Instruction::BinaryOp(operator));
+    }
+}
+
 fn lower_binary_expr(
     left: &Expression,
     right: &Expression,
@@ -737,44 +1048,6 @@ fn lower_binary_expr(
     {
         return result;
     }
-
-    // Task #30: decide up-front whether to emit the checked-arithmetic guard so
-    // we can widen operands (slice 3) before lowering to BigInt-safe shapes.
-    let emit_guard = should_emit_u256_arith_guard(left, right, ctx, operator);
-    // Task #67: signed int256 overflow guard (applies only when u256 guard
-    // doesn't — a variable typed int256 cannot also be uint256).
-    let emit_i256_guard =
-        !emit_guard && should_emit_i256_arith_guard(left, right, ctx, operator);
-    // Batch-#30 H1: narrow unsigned (uint8/16/32/64/128) width-aware overflow
-    // guard. Fires only when neither the uint256 nor int256 guards are active.
-    let emit_narrow_u_bits = if !emit_guard && !emit_i256_guard {
-        should_emit_narrow_u_arith_guard(left, right, ctx, operator)
-    } else {
-        None
-    };
-    // Task #154: narrow signed (int8/16/32/64/128) width-aware overflow guard.
-    // Fires only when none of the above guards are active. Mirrors the narrow
-    // unsigned path for the signed domain — Task #67 only threaded the int256
-    // case, so `int128(type(int128).max) + int128(1)` previously silently
-    // wrapped to `INT128_MIN` instead of panicking.
-    let emit_narrow_i_bits = if !emit_guard && !emit_i256_guard && emit_narrow_u_bits.is_none() {
-        should_emit_narrow_i_arith_guard(left, right, ctx, operator)
-    } else {
-        None
-    };
-    // Bug #16: in `unchecked { }` blocks, uint256 Add/Sub/Mul that take the
-    // narrow i64 path fault under strict_arithmetic at O0/O1 while the
-    // optimizer constant-folds at O2/O3 (the canonical optimizer-divergence
-    // surface). Force-widen both operands to a >8-byte unsigned-magnitude
-    // ByteArray so the runtime's wide-BigInt arithmetic path runs at every
-    // opt level. Post-op, truncate the result to mod 2^256 so the canonical
-    // wrap-to-zero return shape (`unchecked { uint256.max + 1 } == 0`) is
-    // preserved. Mutually exclusive with the checked guards above.
-    let emit_unchecked_u256_widen = !emit_guard
-        && !emit_i256_guard
-        && emit_narrow_u_bits.is_none()
-        && emit_narrow_i_bits.is_none()
-        && should_widen_unchecked_u256(left, right, ctx, operator);
 
     // Fixed-width byte/address casts (`bytesN(..)`, `address(..)`) now
     // canonicalize through `coerce_to_fixed_bytes` into a single ByteString
@@ -823,48 +1096,6 @@ fn lower_binary_expr(
         instructions.push(Instruction::LoadLocal(rhs_local));
     }
 
-    if emit_guard {
-        // Slice 3: widen both operands to 32-byte ByteArray so BigInt-based
-        // comparisons in the guard body work at full 256-bit width.
-        emit_widen_both_u256(instructions);
-        emit_checked_arith_guard(ctx, instructions, operator);
-    } else if emit_i256_guard {
-        // Task #67: post-op range check against INT256_MIN/MAX. No pre-op
-        // widening needed — the INT256 bound literals are 32-byte ByteArrays
-        // which force the `less_than`/`greater_than` BigInt comparison path
-        // (see `cmp_needs_bigint_path` in
-        // `src/runtime/execution/helpers/arithmetic/basic_ops.rs`). Narrow
-        // int256 operands are coerced to BigInt via the Integer stack-item
-        // arm of `coerce_item_to_bigint`, so no operand-side widening is
-        // required.
-        emit_checked_arith_guard_i256(ctx, instructions, operator);
-    } else if let Some(bits) = emit_narrow_u_bits {
-        // Batch-#30 H1: post-op range check against `[0, 2^bits - 1]`. The
-        // runtime's i64-backed arithmetic doesn't wrap at narrow widths, so
-        // `uint8(255) + uint8(1)` leaves `256` on the stack — out-of-range
-        // for uint8. Without this guard, a silent overflow returns the
-        // widened result and violates the Solidity 0.8.x checked-arithmetic
-        // invariant. See fuzz test `batch30_h1_narrow_uint8_overflow_at_max`.
-        emit_checked_arith_guard_narrow_u(ctx, instructions, operator, bits);
-    } else if let Some(bits) = emit_narrow_i_bits {
-        // Task #154: post-op range check against `[-(2^(bits-1)), 2^(bits-1) - 1]`.
-        // Bound literals are 32-byte signed-LE ByteArrays so the comparison
-        // routes through the BigInt path regardless of how narrow the result
-        // lands. Without this guard, `int128(type(int128).max) + int128(1)`
-        // silently evaluates to `2^127` (wide BigInt result) instead of
-        // panicking. See fuzz test
-        // `batch65_oo3_int128_checked_arithmetic_endpoints`.
-        emit_checked_arith_guard_narrow_i(ctx, instructions, operator, bits);
-    } else if emit_unchecked_u256_widen {
-        // Bug #16: widen to unsigned-magnitude representation so the wide
-        // BigInt path runs at all optimizer levels (no narrow-path strict
-        // overflow fault, no signed-BigInt sign flip). After the op, mod 2^256
-        // truncate so the result keeps the canonical 32-byte uint256 shape.
-        emit_widen_both_u256_unsigned(instructions);
-        instructions.push(Instruction::BinaryOp(operator));
-        emit_truncate_u256(instructions);
-    } else {
-        instructions.push(Instruction::BinaryOp(operator));
-    }
+    emit_arith_with_overflow_ladder(left, right, ctx, instructions, operator, true);
     true
 }

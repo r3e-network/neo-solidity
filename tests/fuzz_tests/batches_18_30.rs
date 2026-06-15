@@ -1350,10 +1350,14 @@ contract C {
             entry.topics.len());
         use sha3::{Digest, Keccak256};
         let mut hasher = Keccak256::new();
-        hasher.update(b"ItemAdded(Item)");
+        // EVM ABI: a struct event parameter expands to its `(field0,field1,...)`
+        // tuple in the topic0 signature — `ItemAdded((uint256,uint256))`, NOT the
+        // bare struct name `ItemAdded(Item)`. (The bare-name form previously
+        // emitted here disagreed with Ethereum log filters.)
+        hasher.update(b"ItemAdded((uint256,uint256))");
         let expected_topic0 = hasher.finalize();
         prop_assert_eq!(&entry.topics[0][..], &expected_topic0[..],
-            "H5: topics[0] must be keccak256(\"ItemAdded(Item)\") (struct-name canonical form); got {}",
+            "H5: topics[0] must be keccak256(\"ItemAdded((uint256,uint256))\") (struct expanded to tuple); got {}",
             hex::encode(&entry.topics[0]));
 
         // Post Task #121 structural pin: the field values 5 and 7 must

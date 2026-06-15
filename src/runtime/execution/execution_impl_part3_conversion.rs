@@ -10,6 +10,16 @@ impl ExecutionContext {
             0x00 => Ok(item), // Any/no-op
             0x20 => Ok(StackItem::Boolean(item.is_truthy())),
             0x21 | 0x22 => {
+                // NeoVM CONVERT→Integer is only valid from Boolean / Integer /
+                // ByteString / Buffer; a compound (Array/Map) operand throws
+                // ("not supported"). Faulting here matches real NeoVM instead of
+                // silently producing a degenerate integer.
+                if matches!(item, StackItem::Array(_) | StackItem::Map(_)) {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "CONVERT: cannot convert a compound type (Array/Map) to Integer"
+                            .to_string(),
+                    });
+                }
                 // NeoVM CONVERT→Integer: interpret the byte buffer as a signed
                 // little-endian arbitrary-precision integer. Narrow results
                 // (≤ 8 bytes) fit in `StackItem::Integer(i64)`; wider results

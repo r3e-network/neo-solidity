@@ -1,20 +1,6 @@
 use super::*;
 
 impl ExecutionContext {
-    pub(crate) fn read_u32_offset(&self, opcode_label: &str) -> Result<u32, RuntimeError> {
-        let start = self.instruction_pointer as usize + 1;
-        let end = start + 4;
-        if end > self.bytecode.len() {
-            return Err(RuntimeError::ExecutionError {
-                message: format!("{opcode_label}: insufficient bytecode for offset"),
-            });
-        }
-
-        let mut buf = [0u8; 4];
-        buf.copy_from_slice(&self.bytecode[start..end]);
-        Ok(u32::from_le_bytes(buf))
-    }
-
     pub(crate) fn read_i8_offset(&self, opcode_label: &str) -> Result<i8, RuntimeError> {
         let idx = self.instruction_pointer as usize + 1;
         if idx >= self.bytecode.len() {

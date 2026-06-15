@@ -344,41 +344,51 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         require(listing.active, "CompleteNEP11: listing not active");
         require(block.timestamp <= listing.expiry, "CompleteNEP11: listing expired");
         
-        // Check payment
+        // Compute the royalty up-front so the buyer's single payment can be
+        // SPLIT between the seller and the royalty recipient. Paying the royalty
+        // out of the seller's balance (`from = listing.seller`) would require the
+        // SELLER's witness, which is never present in a buyer-initiated purchase,
+        // so that transfer would always fail. Both legs below transfer
+        // `from = msg.sender` (the witnessed buyer) instead.
+        (address royaltyRecipient, uint256 royaltyAmount) = royaltyInfo(tokenId, listing.price);
+        if (royaltyRecipient == listing.seller || royaltyRecipient == address(0)) {
+            royaltyAmount = 0;
+        }
+        require(royaltyAmount <= listing.price, "CompleteNEP11: royalty exceeds price");
+        uint256 sellerProceeds = listing.price - royaltyAmount;
+
         if (listing.currency == NativeCalls.GAS_CONTRACT) {
             require(
                 Neo.getGasBalance(msg.sender) >= listing.price,
                 "CompleteNEP11: insufficient GAS balance"
             );
-            
-            // Transfer payment
             require(
-                Neo.transferGas(msg.sender, listing.seller, listing.price),
+                Neo.transferGas(msg.sender, listing.seller, sellerProceeds),
                 "CompleteNEP11: payment failed"
             );
+            if (royaltyAmount > 0) {
+                require(
+                    Neo.transferGas(msg.sender, royaltyRecipient, royaltyAmount),
+                    "CompleteNEP11: royalty payment failed"
+                );
+            }
         } else if (listing.currency == NativeCalls.NEO_CONTRACT) {
             require(
                 Neo.getNeoBalance(msg.sender) >= listing.price,
                 "CompleteNEP11: insufficient NEO balance"
             );
-            
-            // Transfer payment
             require(
-                Neo.transferNeo(msg.sender, listing.seller, listing.price),
+                Neo.transferNeo(msg.sender, listing.seller, sellerProceeds),
                 "CompleteNEP11: payment failed"
             );
-        }
-        
-        // Calculate and pay royalty
-        (address royaltyRecipient, uint256 royaltyAmount) = royaltyInfo(tokenId, listing.price);
-        if (royaltyAmount > 0 && royaltyRecipient != listing.seller) {
-            if (listing.currency == NativeCalls.GAS_CONTRACT) {
-                Neo.transferGas(listing.seller, royaltyRecipient, royaltyAmount);
-            } else {
-                Neo.transferNeo(listing.seller, royaltyRecipient, royaltyAmount);
+            if (royaltyAmount > 0) {
+                require(
+                    Neo.transferNeo(msg.sender, royaltyRecipient, royaltyAmount),
+                    "CompleteNEP11: royalty payment failed"
+                );
             }
         }
-        
+
         // Transfer token to buyer
         _transfer(address(this), msg.sender, tokenId, "");
         

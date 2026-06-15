@@ -383,10 +383,13 @@ contract ManifestShapes {
 }
 
 #[test]
-fn manifest_returntype_array_for_non_encodable_multi_return() {
-    // A struct-with-mapping auto-getter defeats the tuple byte-encoder and
-    // falls back to the legacy StackItem::Array return shape — the manifest
-    // must keep "Array" for it.
+fn manifest_returntype_omits_mapping_member_from_struct_getter() {
+    // Solidity's auto-generated public getter for a struct state variable OMITS
+    // mapping (and array) members — there is no ABI representation for them. So
+    // `slots(uint256)` returns ONLY the scalar `id` (a single uint256), whose
+    // manifest returntype is "Integer". Previously the mapping member was
+    // wrongly included, producing a non-encodable multi-value tuple that fell
+    // back to the legacy "Array" shape and advertised an invalid getter.
     let source = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract MapStruct {
@@ -404,8 +407,14 @@ contract MapStruct {
         .expect("slots getter missing");
     assert_eq!(
         getter["returntype"].as_str(),
-        Some("Array"),
-        "mapping-member getter keeps the legacy Array shape"
+        Some("Integer"),
+        "mapping member must be omitted, leaving a single uint256 (Integer) return"
+    );
+    // The getter takes the outer mapping key only; no struct-member params leak.
+    assert_eq!(
+        getter["parameters"].as_array().map(|p| p.len()),
+        Some(1),
+        "slots getter takes exactly the outer mapping key"
     );
 }
 

@@ -1,31 +1,25 @@
-/// Task #30 slice 4: dispatch compound-assignment arithmetic through the
-/// same overflow-guard path as regular binary expressions. When the compound
-/// op would require a uint256 checked guard, widen both operands and emit the
-/// checked guard; otherwise emit a plain `BinaryOp` for backwards
-/// compatibility. The LHS/RHS expressions determine the type inference so
-/// `x += 1` where `x: uint256` takes the guarded path.
+/// Dispatch compound-assignment arithmetic (`x <op>= y`, `x++`, `--x`, `x <<= y`)
+/// through the SAME overflow-guard / width-truncation ladder as regular binary
+/// expressions, so `x <op>= y` is byte-for-byte identical to `x = x <op> y`.
+/// Both operands are already on the stack as `[.., lhs_value, rhs_value]`.
+///
+/// The ladder's gate predicates only need the *result type*, which for a
+/// compound op is the LHS's type, so `lhs` is passed as both type operands
+/// (`rhs` adapts to `lhs` in Solidity; passing `lhs` twice cannot be misread as
+/// a both-literal constant-fold since an l-value location is never a literal).
+/// This previously emitted only the uint256/int256 guards, silently skipping the
+/// narrow-width overflow check so `uint8 x; x += 1` / `x++` overflowed instead of
+/// reverting Panic(0x11), and narrow `unchecked`/`<<=` results were not truncated.
 fn emit_compound_binary_op_for_lhs(
     lhs: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     op: BinaryOperator,
 ) {
-    // Construct a synthetic "1" literal for the typing check (compound-assign
-    // post/pre-increment ops always use a literal RHS or an inferred RHS
-    // whose type matches LHS). Use the LHS as the typed operand and a literal
-    // number as the partner so `is_literal_number` on the partner permits
-    // guard emission (partner being literal alone doesn't disable the guard).
-    let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
-    let emit_guard = should_emit_u256_arith_guard(lhs, &one, ctx, op);
-    // Task #67: int256 compound-assign overflow guard.
-    let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(lhs, &one, ctx, op);
-    if emit_guard {
-        emit_checked_arith_guard(ctx, instructions, op);
-    } else if emit_i256_guard {
-        emit_checked_arith_guard_i256(ctx, instructions, op);
-    } else {
-        instructions.push(Instruction::BinaryOp(op));
-    }
+    // `false`: keep the historical plain-`BinaryOp` (Integer-result) lowering for
+    // unchecked uint256 compound ops. The Bug-#16 widen ends in a 32-byte Buffer
+    // that breaks an l-value reused as an integer index (e.g. `for (...; i++) a[i]`).
+    emit_arith_with_overflow_ladder(lhs, lhs, ctx, instructions, op, false);
 }
 
 /// Task #118: lower the RHS of a compound assignment. Older runtime shims

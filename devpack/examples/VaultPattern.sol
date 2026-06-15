@@ -51,7 +51,17 @@ contract VaultPattern is FrameworkBase {
         }
         if (amount == 0) revert ZeroAmount();
 
-        uint256 sharesToMint = _convertToShares(amount);
+        // Mint shares proportional to the deposit relative to the vault's assets
+        // BEFORE this deposit. `totalAssets()` reads the live GAS balance, which
+        // already includes `amount` (the NEP-17 payment lands before this
+        // callback runs), so `_convertToShares(amount)` would divide by the
+        // post-deposit total and dilute the depositor. Use the pre-deposit
+        // balance as the denominator instead.
+        uint256 supply = totalShares;
+        uint256 priorAssets = totalAssets() - amount;
+        uint256 sharesToMint = (supply == 0 || priorAssets == 0)
+            ? amount
+            : (amount * supply) / priorAssets;
         shares[from] += sharesToMint;
         totalShares += sharesToMint;
 

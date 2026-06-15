@@ -176,9 +176,15 @@ pub(crate) fn generate_contract_bytecode(
                     relative.to_le_bytes()
                 }
                 CallPatchKind::AbsoluteOffset => {
-                    // PUSHINT32 operand is the absolute bytecode offset that `CALLA`
-                    // will consume. Task #186.
-                    (*target_offset as i32).to_le_bytes()
+                    // PUSHA operand is a SIGNED offset relative to the PUSHA opcode
+                    // (the byte preceding `position`), matching real NeoVM's
+                    // `Pointer{ instruction_pointer + operand }`. The resulting
+                    // Pointer is consumed by `CALLA`. Task #186.
+                    let opcode_pos = fixup.position.saturating_sub(1) as i32;
+                    let relative = (*target_offset as i32)
+                        .checked_sub(opcode_pos)
+                        .unwrap_or(0);
+                    relative.to_le_bytes()
                 }
             };
             if fixup.position + 4 <= bytecode.len() {
