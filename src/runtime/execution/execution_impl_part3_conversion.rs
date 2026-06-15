@@ -54,7 +54,25 @@ impl ExecutionContext {
                     Ok(StackItem::byte_array(bytes))
                 }
             }
-            0x28 | 0x30 => Ok(StackItem::byte_array(Self::stack_item_to_bytes(item))),
+            0x28 | 0x30 => {
+                // NeoVM CONVERT→ByteString/Buffer of an Integer yields the
+                // MINIMAL two's-complement little-endian encoding (zero ⇒ empty
+                // span), NOT a fixed 8-byte word. Match a real node here so a
+                // contract that converts an integer to bytes (and inspects its
+                // length, hashes it, or concatenates it) sees on-chain widths.
+                match item {
+                    StackItem::Integer(_) | StackItem::UnsignedInteger(_) => {
+                        let n = self.coerce_item_to_bigint(&item).unwrap_or_default();
+                        let bytes = if n.sign() == num_bigint::Sign::NoSign {
+                            Vec::new()
+                        } else {
+                            n.to_signed_bytes_le()
+                        };
+                        Ok(StackItem::byte_array(bytes))
+                    }
+                    _ => Ok(StackItem::byte_array(Self::stack_item_to_bytes(item))),
+                }
+            }
             0x40 | 0x41 => match item {
                 StackItem::Array(items) => Ok(StackItem::Array(items)),
                 StackItem::Map(map) => Ok(StackItem::array(

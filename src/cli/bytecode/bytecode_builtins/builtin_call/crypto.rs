@@ -302,12 +302,23 @@ fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
 
     bytecode.push(0xA6); // MODPOW → [result_int]
 
-    // Encode result into a 32-byte BE slot. Convert to ByteString (LE in
-    // NeoVM), then prepend 31 zeros so the 1-byte result occupies the
-    // rightmost byte (BE presentation).
+    // Encode the result into a stable 32-byte BE slot. A real node's
+    // CONVERT→ByteString yields the MINIMAL two's-complement encoding (1 byte
+    // for a 1-byte operand result, EMPTY for zero) — not a fixed width — so
+    // we cannot assume any particular length. Left-pad to exactly 32 bytes by
+    // prepending 32 zeros and keeping the rightmost 32 bytes; this is correct
+    // for every result width (incl. zero) and matches the EVM 0x05 contract's
+    // 32-byte (`mod_len`-padded) output presentation.
     bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x28); // to ByteString
-    push_data(bytecode, &[0u8; 31]);
-    bytecode.push(0x50); // SWAP
-    bytecode.push(0x8B); // CAT → 32-byte BE result
+    bytecode.push(0x28); // to ByteString  (minimal LE; <=1 byte for 1-byte operands)
+    push_data(bytecode, &[0u8; 32]);
+    bytecode.push(0x50); // SWAP → [zeros32, result_bytes]
+    bytecode.push(0x8B); // CAT → zeros32 || result_bytes  (32 or 33 bytes)
+    // Right-align: take the LAST 32 bytes so the result sits in byte 31.
+    bytecode.push(0x4A); // DUP
+    bytecode.push(0xCA); // SIZE → len
+    push_integer_bigint(bytecode, &BigInt::from(32u8));
+    bytecode.push(0x9F); // SUB → len - 32  (start offset)
+    push_integer_bigint(bytecode, &BigInt::from(32u8));
+    bytecode.push(0x8C); // SUBSTR → last 32 bytes
 }

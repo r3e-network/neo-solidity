@@ -1103,11 +1103,12 @@ contract ModexpPrecompile {{
         let result = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, &fn_name,
             &[StackItem::byte_array(payload)]).expect("call");
         prop_assert!(result.success, "modexp execution failed: {:?}", result.exception);
-        // emit_precompile_modexp converts the MODPOW Integer result to ByteString
-        // (always 8 bytes in LE) and prepends 31 zeros, yielding 39 bytes total.
-        // For 1-byte operands the true result sits in byte 31.
-        prop_assert_eq!(result.return_data.len(), 39,
-            "modexp output length must be 39; got {}", result.return_data.len());
+        // emit_precompile_modexp now produces a conformant 32-byte BE slot: a
+        // real node's CONVERT→ByteString of the MODPOW result is the MINIMAL
+        // encoding (1 byte, or empty for zero), which the precompile left-pads
+        // to 32 bytes. The 1-byte operand result therefore sits in byte 31.
+        prop_assert_eq!(result.return_data.len(), 32,
+            "modexp output must be a 32-byte BE slot; got {}", result.return_data.len());
         let got = BigUint::from(result.return_data[31]);
         prop_assert_eq!(got, expected,
             "modexp output mismatch (base={} exp={} mod={})", base, exp, modulus);
