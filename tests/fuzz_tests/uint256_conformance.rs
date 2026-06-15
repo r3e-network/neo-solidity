@@ -205,3 +205,21 @@ fn unchecked_compound_uint256_wraps() {
     // loop counter reused as index still works (the old Buffer-index regression).
     assert_eq!(returns_uint("uint256[] memory a = new uint256[](3); for (uint256 i = 0; i < 3; i++) { a[i] = i; } return a[2];"), BigUint::from(2u8));
 }
+
+#[test]
+fn post_inc_dec_semantics_and_single_eval() {
+    // Post-increment returns the OLD value; the variable is updated.
+    assert_eq!(returns_uint("uint256 x = 7; uint256 y = x++; return y * 100 + x;"), BigUint::from(708u16));
+    assert_eq!(returns_uint("uint256 x = 7; uint256 y = x--; return y * 100 + x;"), BigUint::from(706u16));
+    // Indexed lvalue: a[i]++ updates a[i] and returns the old element.
+    assert_eq!(
+        returns_uint("uint256[] memory a = new uint256[](2); a[1] = 41; uint256 y = a[1]++; return y * 100 + a[1];"),
+        BigUint::from(4142u32)
+    );
+    // Single evaluation of a side-effecting index: a counter advanced by the
+    // index expression must advance exactly once.
+    assert_eq!(
+        returns_uint("uint256[] memory a = new uint256[](4); uint256 c = 0; a[2] = 9; a[c++]++; return c * 1000 + a[0] + a[2];"),
+        BigUint::from(1010u32)
+    );
+}

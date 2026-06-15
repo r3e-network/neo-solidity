@@ -4,18 +4,16 @@ fn lower_post_inc_dec(
     instructions: &mut Vec<Instruction>,
     increment: bool,
 ) -> bool {
-    // Post-increment/decrement semantics:
-    // 1. Load the original value (this will be the result)
-    // 2. Perform the increment/decrement and store back
-    // 3. The original value remains on the stack as the expression result
-
-    // Step 1: Load original value onto stack (this is the return value)
-    if !lower_expression(expr, ctx, instructions) {
-        return false;
-    }
-
-    // Step 2: Perform compound assignment (x = x + 1 or x = x - 1)
-    // This modifies the variable but we don't need its result on stack
+    // Post-increment/decrement must evaluate the lvalue (and any index/key
+    // sub-expressions) EXACTLY ONCE — Solidity semantics. The previous lowering
+    // lowered `expr` separately to read the old value AND again inside the
+    // compound assignment, so `m[f()]++` / `arr[g()]++` ran the index expression
+    // twice (wrong slot + duplicate side effects).
+    //
+    // Instead: perform the compound (which evaluates the index once, stores
+    // `new = old +/- 1`, and leaves `new` on the stack), then RECOVER the old
+    // value as `old = new -/+ 1`. The compound's checked guard still Panics on
+    // overflow before any recovery runs.
     let one = Expression::NumberLiteral(Default::default(), "1".to_string(), "".to_string(), None);
     let op = if increment {
         BinaryOperator::Add
@@ -27,12 +25,29 @@ fn lower_post_inc_dec(
         return false;
     }
 
-    // lower_compound_assignment leaves the updated value on the stack as the expression result.
-    // For post-inc/dec we must discard it and keep the original value from Step 1.
-    instructions.push(Instruction::Drop(ValueType::Any));
-
-    // The original value loaded in Step 1 is already on the stack as the result
-    // Do NOT load the value again - that was the bug!
+    // Recover `old` from `new` (on the stack). `++` -> old = new - 1; `--` -> new + 1.
+    let is_u256 = matches!(
+        infer_type_from_expression(expr, ctx),
+        Some(ValueType::Integer { signed: false, bits: 256 })
+    );
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    if is_u256 {
+        // Use the limb routine so a uint256 result >= 2^255 (e.g. recovering the
+        // old value of an unchecked `x++` that wrapped) does not fault on a
+        // 33-byte native intermediate.
+        if increment {
+            emit_u256_unchecked_sub_ir(ctx, instructions);
+        } else {
+            emit_u256_unchecked_add_ir(ctx, instructions);
+        }
+    } else {
+        let recover = if increment {
+            BinaryOperator::Sub
+        } else {
+            BinaryOperator::Add
+        };
+        instructions.push(Instruction::BinaryOp(recover));
+    }
     true
 }
 
