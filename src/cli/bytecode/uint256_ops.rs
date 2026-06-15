@@ -100,6 +100,41 @@ const BIAS127_LE: [u8; 32] = {
     b
 };
 
+/// 32-byte LE of `2^64 - 1` (low 64 bits set) — a POSITIVE 256-bit mask used to
+/// extract 64-bit limbs for the software multiply.
+#[allow(dead_code)]
+const MASK64_LE: [u8; 32] = {
+    let mut b = [0u8; 32];
+    let mut i = 0;
+    while i < 8 {
+        b[i] = 0xFF;
+        i += 1;
+    }
+    b
+};
+
+/// Emit `LDLOC i` (short form for `i <= 6`, else the generic 1-byte-operand form).
+#[allow(dead_code)]
+fn emit_ldloc(out: &mut Vec<u8>, i: u8) {
+    if i <= 6 {
+        out.push(0x68 + i); // LDLOC0..LDLOC6
+    } else {
+        out.push(0x6F); // LDLOC
+        out.push(i);
+    }
+}
+
+/// Emit `STLOC i` (short form for `i <= 6`, else the generic 1-byte-operand form).
+#[allow(dead_code)]
+fn emit_stloc(out: &mut Vec<u8>, i: u8) {
+    if i <= 6 {
+        out.push(0x70 + i); // STLOC0..STLOC6
+    } else {
+        out.push(0x77); // STLOC
+        out.push(i);
+    }
+}
+
 /// Push a small non-negative integer (a shift count) as a POSITIVE NeoVM
 /// integer. PUSHINT8 is signed, so values `>= 128` (e.g. a 128-bit shift) must
 /// use PUSHINT16, otherwise `0x80` would decode to `-128`.
@@ -329,6 +364,132 @@ fn emit_uint256_checked_sub(out: &mut Vec<u8>) {
     out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
 }
 
+/// Emit the shared multiply core. Consumes `[.., a, b]`, and using locals
+/// (INITSLOT 15 0 must already be emitted) computes the 64-bit-limb schoolbook
+/// low half: limbs `a0..a3` -> locals 0..3, `b0..b3` -> locals 4..7, result
+/// limbs `r0..r3` -> locals 9..12, and the carry into column 4 -> local 8.
+/// 64-bit limbs keep every partial product `< 2^128` and every column sum
+/// `< 2^131`, so no intermediate exceeds NeoVM's 32-byte integer limit.
+#[allow(dead_code)]
+fn emit_mul_columns(out: &mut Vec<u8>) {
+    const A: u8 = 13; // temp: a
+    const B: u8 = 14; // temp: b
+    emit_stloc(out, B);
+    emit_stloc(out, A);
+    // a_i = (a >> 64*i) & M64  -> local i
+    for i in 0..4u8 {
+        emit_ldloc(out, A);
+        if i > 0 {
+            emit_push_u8(out, 64 * i);
+            out.push(0xA9); // SHR
+        }
+        emit_pushint256_le(out, &MASK64_LE);
+        out.push(0x91); // AND
+        emit_stloc(out, i);
+    }
+    // b_j = (b >> 64*j) & M64  -> local 4+j
+    for j in 0..4u8 {
+        emit_ldloc(out, B);
+        if j > 0 {
+            emit_push_u8(out, 64 * j);
+            out.push(0xA9); // SHR
+        }
+        emit_pushint256_le(out, &MASK64_LE);
+        out.push(0x91); // AND
+        emit_stloc(out, 4 + j);
+    }
+    // acc = 0
+    out.push(0x10); // PUSH0
+    emit_stloc(out, 8);
+    // columns 0..3: colsum = acc + sum_{i+j=k} a_i*b_j ; r_k = colsum&M64 ; acc = colsum>>64
+    for k in 0..4u8 {
+        emit_ldloc(out, 8); // acc
+        for i in 0..=k {
+            let j = k - i;
+            emit_ldloc(out, i); // a_i
+            emit_ldloc(out, 4 + j); // b_j
+            out.push(0xA0); // MUL
+            out.push(0x9E); // ADD
+        }
+        out.push(0x4A); // DUP colsum
+        emit_pushint256_le(out, &MASK64_LE);
+        out.push(0x91); // AND
+        emit_stloc(out, 9 + k); // r_k
+        emit_push_u8(out, 64);
+        out.push(0xA9); // SHR
+        emit_stloc(out, 8); // acc
+    }
+}
+
+/// Emit, from `r0..r3` (locals 9..12), the 32-byte two's-complement result
+/// `sign_ext128(r2 + (r3<<64)) << 128 + (r0 + (r1<<64))`. Reuses local 13.
+#[allow(dead_code)]
+fn emit_mul_build_result(out: &mut Vec<u8>) {
+    // lo128 = r0 + (r1 << 64)  -> local 13
+    emit_ldloc(out, 9);
+    emit_ldloc(out, 10);
+    emit_push_u8(out, 64);
+    out.push(0xA8); // SHL
+    out.push(0x9E); // ADD
+    emit_stloc(out, 13);
+    // hi128 = r2 + (r3 << 64)
+    emit_ldloc(out, 11);
+    emit_ldloc(out, 12);
+    emit_push_u8(out, 64);
+    out.push(0xA8); // SHL
+    out.push(0x9E); // ADD
+    // result = sign_ext128(hi128) << 128 + lo128
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x93); // XOR
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x9F); // SUB
+    emit_push_u8(out, 128);
+    out.push(0xA8); // SHL
+    emit_ldloc(out, 13); // lo128
+    out.push(0x9E); // ADD -> result
+}
+
+/// Emit `a * b mod 2^256` (UNCHECKED) for operands `[.., a, b]`.
+#[allow(dead_code)]
+fn emit_uint256_unchecked_mul(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(15);
+    out.push(0x00);
+    emit_mul_columns(out);
+    emit_mul_build_result(out);
+}
+
+/// Emit `a * b` with an UNSIGNED overflow check: if the product needs more than
+/// 256 bits (any high-column term or the column-3 carry is non-zero), THROW.
+/// All high terms are non-negative, so their sum is zero iff every one is zero.
+#[allow(dead_code)]
+fn emit_uint256_checked_mul(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(15);
+    out.push(0x00);
+    emit_mul_columns(out);
+    // high = acc + a1*b3 + a2*b2 + a3*b1 + a2*b3 + a3*b2 + a3*b3
+    emit_ldloc(out, 8); // acc (carry into column 4)
+    for (i, j) in [(1u8, 3u8), (2, 2), (3, 1), (2, 3), (3, 2), (3, 3)] {
+        emit_ldloc(out, i);
+        emit_ldloc(out, 4 + j);
+        out.push(0xA0); // MUL
+        out.push(0x9E); // ADD
+    }
+    out.push(0x24); // JMPIF -> throw if high != 0
+    let jmpif_operand = out.len();
+    out.push(0x00);
+    emit_mul_build_result(out);
+    out.push(0x22); // JMP -> end
+    let jmp_operand = out.len();
+    out.push(0x00);
+    let throw_pos = out.len();
+    out.push(0x3A); // THROW
+    let end_pos = out.len();
+    out[jmpif_operand] = ((throw_pos as isize) - (jmpif_operand as isize - 1)) as i8 as u8;
+    out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
+}
+
 #[cfg(test)]
 mod uint256_ops_tests {
     use super::*;
@@ -435,17 +596,29 @@ mod uint256_ops_tests {
                     locals = vec![BigInt::from(0); nlocals];
                     ip += 3;
                 }
-                0x70 | 0x71 | 0x72 => {
-                    // STLOC0/1/2
+                0x70..=0x76 => {
+                    // STLOC0..STLOC6
                     let i = (op - 0x70) as usize;
                     locals[i] = stack.pop().ok_or("stloc underflow")?;
                     ip += 1;
                 }
-                0x68 | 0x69 | 0x6A => {
-                    // LDLOC0/1/2
+                0x77 => {
+                    // STLOC (1-byte index)
+                    let i = code[ip + 1] as usize;
+                    locals[i] = stack.pop().ok_or("stloc underflow")?;
+                    ip += 2;
+                }
+                0x68..=0x6E => {
+                    // LDLOC0..LDLOC6
                     let i = (op - 0x68) as usize;
                     stack.push(locals[i].clone());
                     ip += 1;
+                }
+                0x6F => {
+                    // LDLOC (1-byte index)
+                    let i = code[ip + 1] as usize;
+                    stack.push(locals[i].clone());
+                    ip += 2;
                 }
                 0x91 => {
                     // AND
@@ -466,6 +639,13 @@ mod uint256_ops_tests {
                     let b = stack.pop().ok_or("sub underflow")?;
                     let a = stack.pop().ok_or("sub underflow")?;
                     stack.push(check(a - b)?);
+                    ip += 1;
+                }
+                0xA0 => {
+                    // MUL
+                    let b = stack.pop().ok_or("mul underflow")?;
+                    let a = stack.pop().ok_or("mul underflow")?;
+                    stack.push(check(a * b)?);
                     ip += 1;
                 }
                 0xA8 => {
@@ -733,6 +913,65 @@ mod uint256_ops_tests {
         assert!(run_checked(emit_uint256_checked_sub, &big("0"), &big("1")).is_err());
         assert!(run_checked(emit_uint256_checked_sub, &big("0"), &umax()).is_err());
         assert!(run_checked(emit_uint256_checked_sub, &(pow2(255) - 1), &pow2(255)).is_err());
+    }
+
+    /// Run the unchecked-mul routine; result as unsigned uint256 in [0, 2^256).
+    fn run_mul(a: &BigInt, b: &BigInt) -> BigInt {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        emit_uint256_unchecked_mul(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        let signed = st.last().cloned().expect("result");
+        let m = modulus();
+        ((signed % &m) + &m) % &m
+    }
+
+    #[test]
+    fn unchecked_mul_wraps_mod_2_256_including_large() {
+        let m = modulus();
+        let cases = [
+            (BigInt::from(0), umax()),
+            (BigInt::from(1), umax()),
+            (BigInt::from(6), BigInt::from(7)),
+            (pow2(64), pow2(64)),                 // 2^128 (limb boundary)
+            (pow2(128), pow2(128)),               // 2^256 -> 0
+            (pow2(200), pow2(100)),               // 2^300 mod 2^256 = 2^44
+            (umax(), BigInt::from(2)),            // 2^257-2 mod 2^256 = 2^256-2
+            (umax(), umax()),                     // (2^256-1)^2 mod 2^256 = 1
+            (pow2(255), BigInt::from(3)),         // 3*2^255 mod 2^256 = 2^255
+            (big("123456789012345678901234567890"), big("987654321098765432109876543210")),
+            (pow2(130) + 7, pow2(130) + 9),
+        ];
+        for (a, b) in cases {
+            let expect = (&a * &b) % &m;
+            assert_eq!(run_mul(&a, &b), expect, "mul({a}, {b})");
+        }
+    }
+
+    #[test]
+    fn checked_mul_detects_overflow() {
+        // In range (product < 2^256): exact value.
+        assert_eq!(run_checked(emit_uint256_checked_mul, &big("6"), &big("7")), Ok(big("42")));
+        assert_eq!(run_checked(emit_uint256_checked_mul, &umax(), &big("1")), Ok(umax()));
+        assert_eq!(run_checked(emit_uint256_checked_mul, &big("0"), &umax()), Ok(big("0")));
+        assert_eq!(
+            run_checked(emit_uint256_checked_mul, &(pow2(255) - 1), &big("2")),
+            Ok(pow2(256) - 2),
+            "(2^255-1)*2 = 2^256-2 (still fits)"
+        );
+        assert_eq!(
+            run_checked(emit_uint256_checked_mul, &pow2(128), &(pow2(128) - 1)),
+            Ok(pow2(256) - pow2(128)),
+            "2^128 * (2^128-1) = 2^256-2^128 (fits)"
+        );
+        // Overflow: product >= 2^256 must throw.
+        assert!(run_checked(emit_uint256_checked_mul, &pow2(128), &pow2(128)).is_err());
+        assert!(run_checked(emit_uint256_checked_mul, &pow2(255), &big("2")).is_err());
+        assert!(run_checked(emit_uint256_checked_mul, &umax(), &big("2")).is_err());
+        assert!(run_checked(emit_uint256_checked_mul, &umax(), &umax()).is_err());
+        assert!(run_checked(emit_uint256_checked_mul, &(pow2(200)), &(pow2(100))).is_err());
     }
 
     #[test]
