@@ -1,5 +1,13 @@
 use super::*;
 
+/// Shared error for invalid comparison operands (used as a reusable `fn` so it
+/// can be passed to `ok_or_else` multiple times).
+fn cmp_err() -> RuntimeError {
+    RuntimeError::ExecutionError {
+        message: "Invalid operands for comparison".to_string(),
+    }
+}
+
 impl ExecutionContext {
     pub(crate) fn stack_items_equal(
         &self,
@@ -65,34 +73,36 @@ impl ExecutionContext {
             return Ok(x < y);
         }
 
+        if self.cmp_mixed_sign_needs_bigint(a, b) {
+            let x = self.coerce_item_to_bigint(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_bigint(b).ok_or_else(cmp_err)?;
+            return Ok(x < y);
+        }
+
         let use_unsigned = matches!(a, StackItem::UnsignedInteger(_))
             || matches!(b, StackItem::UnsignedInteger(_));
 
         if use_unsigned {
-            let x = self
-                .coerce_item_to_u64(a)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
-            let y = self
-                .coerce_item_to_u64(b)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
+            let x = self.coerce_item_to_u64(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_u64(b).ok_or_else(cmp_err)?;
             Ok(x < y)
         } else {
-            let x = self
-                .coerce_item_to_i64(a)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
-            let y = self
-                .coerce_item_to_i64(b)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
+            let x = self.coerce_item_to_i64(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_i64(b).ok_or_else(cmp_err)?;
             Ok(x < y)
         }
+    }
+
+    /// NeoVM integers are arbitrary-precision with no signed/unsigned tag, so an
+    /// `UnsignedInteger` compared/divided against a NEGATIVE `Integer` must be
+    /// evaluated as BigInt rather than faulting on a u64 coercion (Solidity never
+    /// emits such a mix directly, but the runtime can produce it internally).
+    pub(crate) fn cmp_mixed_sign_needs_bigint(&self, a: &StackItem, b: &StackItem) -> bool {
+        let has_unsigned = matches!(a, StackItem::UnsignedInteger(_))
+            || matches!(b, StackItem::UnsignedInteger(_));
+        let has_negative = matches!(a, StackItem::Integer(v) if *v < 0)
+            || matches!(b, StackItem::Integer(v) if *v < 0);
+        has_unsigned && has_negative
     }
 
     pub(crate) fn greater_than(&self, a: &StackItem, b: &StackItem) -> Result<bool, RuntimeError> {
@@ -111,32 +121,22 @@ impl ExecutionContext {
             return Ok(x > y);
         }
 
+        if self.cmp_mixed_sign_needs_bigint(a, b) {
+            let x = self.coerce_item_to_bigint(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_bigint(b).ok_or_else(cmp_err)?;
+            return Ok(x > y);
+        }
+
         let use_unsigned = matches!(a, StackItem::UnsignedInteger(_))
             || matches!(b, StackItem::UnsignedInteger(_));
 
         if use_unsigned {
-            let x = self
-                .coerce_item_to_u64(a)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
-            let y = self
-                .coerce_item_to_u64(b)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
+            let x = self.coerce_item_to_u64(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_u64(b).ok_or_else(cmp_err)?;
             Ok(x > y)
         } else {
-            let x = self
-                .coerce_item_to_i64(a)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
-            let y = self
-                .coerce_item_to_i64(b)
-                .ok_or_else(|| RuntimeError::ExecutionError {
-                    message: "Invalid operands for comparison".to_string(),
-                })?;
+            let x = self.coerce_item_to_i64(a).ok_or_else(cmp_err)?;
+            let y = self.coerce_item_to_i64(b).ok_or_else(cmp_err)?;
             Ok(x > y)
         }
     }
