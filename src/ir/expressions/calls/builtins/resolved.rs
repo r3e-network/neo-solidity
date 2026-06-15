@@ -167,7 +167,11 @@ fn try_lower_resolved_builtin_call(
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                         BigInt::from(expected_bytes),
                     )));
-                    instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+                    // Solidity's `abi.decode` only requires the buffer to be LONG
+                    // ENOUGH (it ignores trailing bytes); only an UNDER-length
+                    // buffer reverts. Using `<` (not `!=`) accepts over-length
+                    // input, matching ethers/foundry/solc decoding.
+                    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
                     instructions.push(Instruction::JumpIf {
                         target: decode_ok_label,
                     });

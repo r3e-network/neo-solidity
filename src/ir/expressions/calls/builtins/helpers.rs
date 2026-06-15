@@ -675,7 +675,9 @@ fn lower_abi_decode_direct(
         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
             expected_bytes as u64,
         ))));
-        instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+        // Only an UNDER-length buffer reverts; `abi.decode` ignores trailing
+        // bytes (matches solc/ethers). Use `<` rather than `!=`.
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
         instructions.push(Instruction::JumpIf {
             target: decode_ok_label,
         });

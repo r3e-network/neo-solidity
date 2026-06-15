@@ -174,6 +174,14 @@ impl NeoType {
 
         if let Some(hex_suffix) = lower.strip_prefix("bytes") {
             if let Ok(len) = hex_suffix.parse::<u16>() {
+                // Solidity only defines `bytes1`..=`bytes32`; reject `bytes0` and
+                // `bytes33`+ rather than silently accepting an invalid fixed-bytes
+                // type (which would mis-encode/mis-pad downstream).
+                if len == 0 || len > 32 {
+                    return Err(TypeParseError::Unsupported(format!(
+                        "bytesN width must be 1..=32, got {len}"
+                    )));
+                }
                 return Ok(NeoType::ByteArray {
                     fixed_len: Some(len),
                 });

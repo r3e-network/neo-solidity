@@ -252,6 +252,17 @@ pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
                 }
             }
 
+            // CALLT — calls a method token by 2-byte (u16 LE) token index. The
+            // operand MUST be consumed or every following instruction mis-aligns.
+            0x37 => {
+                let Some(idx_bytes) = take(bytecode, &mut pc, 2) else {
+                    out.push_str(" <unexpected EOF>");
+                    break;
+                };
+                let idx = u16::from_le_bytes([idx_bytes[0], idx_bytes[1]]);
+                out.push_str(&format!(" token={idx}"));
+            }
+
             _ => {}
         }
 

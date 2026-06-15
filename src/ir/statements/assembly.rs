@@ -815,7 +815,7 @@ fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::GetSize);
             true
         }
-        "add" | "sub" | "mul" | "div" | "mod" => {
+        "add" | "sub" | "mul" => {
             if call.arguments.len() != 2 {
                 return false;
             }
@@ -829,11 +829,48 @@ fn lower_yul_function_call_as_expression(
                 "add" => BinaryOperator::Add,
                 "sub" => BinaryOperator::Sub,
                 "mul" => BinaryOperator::Mul,
-                "div" => BinaryOperator::Div,
-                "mod" => BinaryOperator::Mod,
                 _ => unreachable!(),
             };
             instructions.push(Instruction::BinaryOp(op));
+            true
+        }
+        "div" | "mod" => {
+            // Yul (EVM) semantics: division/modulo by zero yields 0, NOT a fault.
+            // (Unlike high-level Solidity, which Panics 0x12 — that guard lives in
+            // the binary-expression path, not here.)
+            if call.arguments.len() != 2 {
+                return false;
+            }
+            if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
+                return false;
+            }
+            if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
+                return false;
+            }
+            let op = if name == "div" {
+                BinaryOperator::Div
+            } else {
+                BinaryOperator::Mod
+            };
+            let tmp = ctx.next_label();
+            let b_local = ctx.allocate_local(format!("__yul_div_b_{tmp}"), None);
+            let a_local = ctx.allocate_local(format!("__yul_div_a_{tmp}"), None);
+            instructions.push(Instruction::StoreLocal(b_local)); // divisor (top)
+            instructions.push(Instruction::StoreLocal(a_local)); // dividend
+            let nonzero = ctx.next_label();
+            let done = ctx.next_label();
+            // `JumpIf` jumps when the condition is FALSE: divisor != 0 -> divide.
+            instructions.push(Instruction::LoadLocal(b_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+            instructions.push(Instruction::JumpIf { target: nonzero });
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::Jump { target: done });
+            instructions.push(Instruction::Label(nonzero));
+            instructions.push(Instruction::LoadLocal(a_local));
+            instructions.push(Instruction::LoadLocal(b_local));
+            instructions.push(Instruction::BinaryOp(op));
+            instructions.push(Instruction::Label(done));
             true
         }
         "and" | "or" | "xor" => {
