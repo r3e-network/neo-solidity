@@ -762,6 +762,15 @@ fn abi_dynamic_decode_value_type_is_supported(value_type: &ValueType) -> bool {
             abi_static_slot_count(element_type).is_some()
                 || abi_dynamic_decode_value_type_is_supported(element_type)
         }
+        // Dynamic struct: decodable when every field is static or a supported
+        // dynamic shape (mirrors the encode-side predicate).
+        ValueType::Struct { fields, .. } => {
+            fields.iter().any(|f| abi_value_type_is_dynamic(&f.ty))
+                && fields.iter().all(|f| {
+                    abi_static_slot_count(&f.ty).is_some()
+                        || abi_dynamic_decode_value_type_is_supported(&f.ty)
+                })
+        }
         _ => false,
     }
 }
@@ -853,6 +862,17 @@ fn emit_abi_decode_dynamic_tail_runtime(
                 buffer_local,
                 offset_local,
                 element_type,
+                depth,
+                ctx,
+                instructions,
+            );
+        }
+        // Dynamic struct: walk the tuple head/tail at this offset.
+        ValueType::Struct { fields, .. } => {
+            emit_abi_decode_dynamic_struct_tail_runtime(
+                buffer_local,
+                offset_local,
+                fields,
                 depth,
                 ctx,
                 instructions,
@@ -1114,6 +1134,90 @@ fn emit_abi_decode_nested_array_tail_runtime(
     instructions.push(Instruction::LoadLocal(arr_local));
 }
 
+/// Decode a DYNAMIC struct (≥1 dynamic field) tail at a runtime byte offset
+/// into a fresh `StackItem::Array` of field values — the mirror of
+/// [`emit_abi_dynamic_struct_tail`]. The head section layout is statically
+/// known from the field types (static fields inline, dynamic fields one
+/// offset word each), so the per-field head position is a compile-time
+/// constant; dynamic fields read a relative offset and decode their tail
+/// recursively. Stack on exit: `[Array<field values>]`.
+fn emit_abi_decode_dynamic_struct_tail_runtime(
+    buffer_local: usize,
+    offset_local: usize,
+    fields: &[StructField],
+    depth: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let tmp_id = ctx.next_label();
+    let struct_local = ctx.allocate_local(format!("__abi_dec_dstruct_{tmp_id}"), None);
+    let field_off_local = ctx.allocate_local(format!("__abi_dec_dstruct_foff_{tmp_id}"), None);
+
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        fields.len() as u64,
+    ))));
+    instructions.push(Instruction::NewArray {
+        element_type: ValueType::Any,
+    });
+    instructions.push(Instruction::StoreLocal(struct_local));
+
+    let mut head_byte_offset = 0usize;
+    for (field_index, field) in fields.iter().enumerate() {
+        if abi_value_type_is_dynamic(&field.ty) {
+            // head slot position = offset_local + head_byte_offset.
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                head_byte_offset as u64,
+            ))));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::StoreLocal(field_off_local));
+            // absolute tail offset = offset_local + rel(head slot).
+            instructions.push(Instruction::LoadLocal(offset_local));
+            emit_abi_decode_u256_at_runtime(buffer_local, field_off_local, ctx, instructions);
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::StoreLocal(field_off_local));
+            // arr[field_index] = decode_dynamic_tail(field_off, field.ty)
+            instructions.push(Instruction::LoadLocal(struct_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                field_index as u64,
+            ))));
+            emit_abi_decode_dynamic_tail_runtime(
+                buffer_local,
+                field_off_local,
+                &field.ty,
+                depth + 1,
+                ctx,
+                instructions,
+            );
+            instructions.push(Instruction::ArraySet);
+            head_byte_offset += 32;
+        } else {
+            // static field at offset_local + head_byte_offset.
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                head_byte_offset as u64,
+            ))));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::StoreLocal(field_off_local));
+            instructions.push(Instruction::LoadLocal(struct_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                field_index as u64,
+            ))));
+            emit_abi_decode_static_slot_at_runtime_offset(
+                buffer_local,
+                field_off_local,
+                &field.ty,
+                ctx,
+                instructions,
+            );
+            instructions.push(Instruction::ArraySet);
+            head_byte_offset += abi_static_slot_count(&field.ty).unwrap_or(1) * 32;
+        }
+    }
+
+    instructions.push(Instruction::LoadLocal(struct_local));
+}
+
 /// Convert the little-endian byte Buffer on top of the stack into an
 /// UNSIGNED integer.
 ///
@@ -1353,10 +1457,15 @@ fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
 }
 
 fn abi_value_type_is_dynamic(value_type: &ValueType) -> bool {
-    matches!(
-        value_type,
-        ValueType::ByteArray { fixed_len: None } | ValueType::String | ValueType::Array(_)
-    )
+    match value_type {
+        ValueType::ByteArray { fixed_len: None } | ValueType::String | ValueType::Array(_) => true,
+        // A struct is dynamic iff any field is (recursively) dynamic — solc's
+        // tuple rule. An all-static struct stays static (a flat run of inline
+        // head slots); a struct with a string/bytes/array/dynamic-struct field
+        // needs the head+tail layout.
+        ValueType::Struct { fields, .. } => fields.iter().any(|f| abi_value_type_is_dynamic(&f.ty)),
+        _ => false,
+    }
 }
 
 fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> bool {
@@ -1369,6 +1478,15 @@ fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> bool {
         ValueType::Array(element_type) => {
             abi_static_slot_count(element_type).is_some()
                 || abi_dynamic_value_type_is_supported(element_type)
+        }
+        // Dynamic struct (has ≥1 dynamic field): encodable when EVERY field is
+        // itself encodable (static or supported-dynamic). Encoded as a tuple.
+        ValueType::Struct { fields, .. } => {
+            fields.iter().any(|f| abi_value_type_is_dynamic(&f.ty))
+                && fields.iter().all(|f| {
+                    abi_static_slot_count(&f.ty).is_some()
+                        || abi_dynamic_value_type_is_supported(&f.ty)
+                })
         }
         _ => false,
     }
@@ -1458,6 +1576,12 @@ fn emit_abi_dynamic_tail_for_value_type(
             if abi_dynamic_value_type_is_supported(element_type) =>
         {
             emit_abi_dynamic_nested_array_tail(element_type, depth, ctx, instructions)
+        }
+        // Dynamic struct → encode as a tuple of its fields (head+tail).
+        ValueType::Struct { fields, .. }
+            if abi_dynamic_value_type_is_supported(value_type) =>
+        {
+            emit_abi_dynamic_struct_tail(fields, depth, ctx, instructions)
         }
         _ => None,
     }
@@ -1643,6 +1767,100 @@ fn emit_abi_dynamic_nested_array_tail(
     instructions.push(Instruction::CallBuiltin {
         builtin: BuiltinCall::BytesConcat,
         arg_count: 3,
+    });
+    Some(())
+}
+
+/// Emit the ABI tail for a DYNAMIC struct (one with ≥1 dynamic field).
+/// Consumes the struct value (a NeoVM `Array` of field values) from the top
+/// of the stack and leaves its tuple encoding (a `ByteString`). The layout
+/// is the standard EVM tuple: a head section (static fields inline, dynamic
+/// fields as 32-byte offsets relative to the start of the head) followed by
+/// the dynamic-field tails — identical to `lower_abi_encode_head_tail_direct`
+/// but reading fields from the struct array rather than argument expressions.
+fn emit_abi_dynamic_struct_tail(
+    fields: &[StructField],
+    depth: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> Option<()> {
+    // Head size in 32-byte words: dynamic fields take one offset word; static
+    // fields occupy their inline slot count.
+    let mut head_slot_count = 0usize;
+    for field in fields {
+        if abi_value_type_is_dynamic(&field.ty) {
+            if !abi_dynamic_value_type_is_supported(&field.ty) {
+                return None;
+            }
+            head_slot_count += 1;
+        } else if let Some(slots) = abi_static_slot_count(&field.ty) {
+            head_slot_count += slots;
+        } else {
+            return None;
+        }
+    }
+
+    let tmp_id = ctx.next_label();
+    let struct_local = ctx.allocate_local(format!("__abi_dstruct_{tmp_id}"), None);
+    instructions.push(Instruction::StoreLocal(struct_local));
+
+    let offset_local = ctx.allocate_local(format!("__abi_dstruct_off_{tmp_id}"), None);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+        (head_slot_count * 32) as u64,
+    ))));
+    instructions.push(Instruction::StoreLocal(offset_local));
+
+    let mut tail_locals = Vec::new();
+    let mut part_count = 0usize;
+
+    for (field_index, field) in fields.iter().enumerate() {
+        if abi_value_type_is_dynamic(&field.ty) {
+            // Head: the offset word pointing at this field's tail.
+            instructions.push(Instruction::LoadLocal(offset_local));
+            emit_abi_u256_slot(ctx, instructions);
+            part_count += 1;
+
+            // Compute the field tail and stash it for the tail section.
+            instructions.push(Instruction::LoadLocal(struct_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                field_index as u64,
+            ))));
+            instructions.push(Instruction::ArrayGet);
+            emit_abi_dynamic_tail_for_value_type(&field.ty, depth + 1, ctx, instructions)?;
+            let tail_local =
+                ctx.allocate_local(format!("__abi_dstruct_tail_{tmp_id}_{field_index}"), None);
+            instructions.push(Instruction::StoreLocal(tail_local));
+
+            // offset += len(tail)
+            instructions.push(Instruction::LoadLocal(offset_local));
+            instructions.push(Instruction::LoadLocal(tail_local));
+            instructions.push(Instruction::GetSize);
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+            instructions.push(Instruction::StoreLocal(offset_local));
+            tail_locals.push(tail_local);
+        } else {
+            // Static field: inline its slot(s) into the head section.
+            instructions.push(Instruction::LoadLocal(struct_local));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
+                field_index as u64,
+            ))));
+            instructions.push(Instruction::ArrayGet);
+            let slots = emit_abi_static_slots_for_stack_value(&field.ty, ctx, instructions)?;
+            part_count += slots;
+        }
+    }
+
+    for tail_local in tail_locals {
+        instructions.push(Instruction::LoadLocal(tail_local));
+        part_count += 1;
+    }
+
+    if part_count == 0 {
+        return None;
+    }
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: part_count,
     });
     Some(())
 }

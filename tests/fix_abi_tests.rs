@@ -139,6 +139,78 @@ contract TupleWithStruct {
 }
 
 // ---------------------------------------------------------------------------
+// 1b. Dynamic struct decode (struct with string/bytes/array fields)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn abi_decode_dynamic_struct_roundtrip() {
+    // `struct D { uint256 a; string b; bytes c; }` encodes as a tuple:
+    // head = [a | off_b | off_c] (96 bytes), tail = [b_tail | c_tail]
+    // (64 + 64). The single top-level value adds a 0x20 offset word ⇒ 256.
+    assert_returns_true(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract DynStruct {
+    struct D { uint256 a; string b; bytes c; }
+    function check() public pure returns (bool) {
+        D memory d = D(7, "hi", hex"abcd");
+        bytes memory enc = abi.encode(d);
+        if (enc.length != 256) return false;
+        D memory r = abi.decode(enc, (D));
+        return r.a == 7
+            && keccak256(bytes(r.b)) == keccak256(bytes("hi"))
+            && keccak256(r.c) == keccak256(hex"abcd");
+    }
+}"#,
+    );
+}
+
+#[test]
+fn abi_decode_dynamic_struct_array_roundtrip() {
+    // `D[]` where `D` is dynamic — a nested head/tail array whose elements
+    // are themselves dynamic structs (deepest recursion this exercises).
+    assert_returns_true(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract DynStructArray {
+    struct D { uint256 a; string b; }
+    function check() public pure returns (bool) {
+        D[] memory arr = new D[](2);
+        arr[0] = D(1, "x");
+        arr[1] = D(2, "yz");
+        bytes memory enc = abi.encode(arr);
+        D[] memory r = abi.decode(enc, (D[]));
+        return r.length == 2
+            && r[0].a == 1 && keccak256(bytes(r[0].b)) == keccak256(bytes("x"))
+            && r[1].a == 2 && keccak256(bytes(r[1].b)) == keccak256(bytes("yz"));
+    }
+}"#,
+    );
+}
+
+#[test]
+fn abi_decode_tuple_with_dynamic_struct_member() {
+    // A dynamic struct in a tuple position forces the tuple itself into the
+    // head/tail layout: the struct member is an offset word, trailing
+    // statics stay inline.
+    assert_returns_true(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract TupleDynStruct {
+    struct D { uint256 a; bytes b; }
+    function check() public pure returns (bool) {
+        D memory d = D(5, hex"c0ffee");
+        bytes memory enc = abi.encode(d, uint256(99));
+        (D memory r, uint256 v) = abi.decode(enc, (D, uint256));
+        return r.a == 5
+            && keccak256(r.b) == keccak256(hex"c0ffee")
+            && v == 99;
+    }
+}"#,
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 2. Unsigned decode >= 2^255
 // ---------------------------------------------------------------------------
 
