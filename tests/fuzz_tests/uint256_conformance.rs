@@ -223,3 +223,30 @@ fn post_inc_dec_semantics_and_single_eval() {
         BigUint::from(1010u32)
     );
 }
+
+#[test]
+fn oversized_array_faults_like_neovm() {
+    // NeoVM MaxStackSize (2048) bounds element counts; a 3000-element array
+    // faults on a real node, and the simulator must NOT report success.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f() external pure returns (uint256) {
+    uint256[] memory a = new uint256[](3000); a[0] = 1; return a[0];
+} }"#;
+    let r = compile_and_execute(src);
+    assert!(!r.success, "a 3000-element array must FAULT (exceeds MaxStackSize 2048)");
+    // A valid large array (2000) still works.
+    let ok = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f() external pure returns (uint256) {
+    uint256[] memory a = new uint256[](2000); a[1999] = 7; return a[1999];
+} }"#;
+    assert_eq!(returns_uint_src(ok), BigUint::from(7u8));
+}
+
+fn returns_uint_src(src: &str) -> BigUint {
+    match observe(&compile_and_execute(src)) {
+        ObservedBehavior::Returned(v) => v,
+        other => panic!("expected uint, got {other:?}"),
+    }
+}

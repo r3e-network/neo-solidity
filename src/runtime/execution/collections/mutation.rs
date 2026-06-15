@@ -6,6 +6,15 @@ impl ExecutionContext {
         let collection = self.pop_stack()?;
         match collection {
             StackItem::Array(items) => {
+                // NeoVM MaxStackSize (2048) counts every contained item; an array
+                // that grows past it FAULTs on a real node. Enforce it so the
+                // simulator does not hide an on-chain "MaxStackSize exceeded"
+                // fault by appending without bound.
+                if items.borrow().len() >= 2048 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "APPEND: array exceeds NeoVM MaxStackSize (2048)".to_string(),
+                    });
+                }
                 items.borrow_mut().push(value);
                 Ok(())
             }
