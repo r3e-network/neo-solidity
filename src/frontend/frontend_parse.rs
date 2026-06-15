@@ -328,19 +328,42 @@ fn enforce_feature_version_gates(
 
     let stripped = strip_comments_and_strings(source);
 
-    if min < FEATURE_STRING_CONCAT_MIN && stripped.contains("string.concat(") {
+    if min < FEATURE_STRING_CONCAT_MIN && contains_builtin_call(&stripped, "string.concat(") {
         return Err(FrontendError::Parse(format!(
             "feature `string.concat` requires pragma >= 0.8.12; declared pragma allows {}.{}.{}",
             min.major, min.minor, min.patch
         )));
     }
-    if min < FEATURE_BYTES_CONCAT_MIN && stripped.contains("bytes.concat(") {
+    if min < FEATURE_BYTES_CONCAT_MIN && contains_builtin_call(&stripped, "bytes.concat(") {
         return Err(FrontendError::Parse(format!(
             "feature `bytes.concat` requires pragma >= 0.8.4; declared pragma allows {}.{}.{}",
             min.major, min.minor, min.patch
         )));
     }
     Ok(())
+}
+
+/// True when `needle` (e.g. `"string.concat("`) appears as a real builtin call
+/// rather than as a suffix of a larger identifier — i.e. the character
+/// immediately before it is not part of an identifier (`a-zA-Z0-9_`). Without
+/// this a user variable like `myString.concat(...)` would falsely trip the
+/// pragma-feature gate.
+fn contains_builtin_call(haystack: &str, needle: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    let mut start = 0usize;
+    while let Some(pos) = haystack[start..].find(needle) {
+        let abs = start + pos;
+        let boundary_ok = abs == 0
+            || {
+                let prev = bytes[abs - 1];
+                !(prev.is_ascii_alphanumeric() || prev == b'_')
+            };
+        if boundary_ok {
+            return true;
+        }
+        start = abs + 1;
+    }
+    false
 }
 
 /// Lightweight lexer-aware strip: replaces string-literal and comment bodies
