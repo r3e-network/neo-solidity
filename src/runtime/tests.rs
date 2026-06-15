@@ -317,17 +317,18 @@ fn test_bitwise_not_uint256_zero_returns_all_ones() {
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime.execute(&bytecode, &[]).expect("host ok");
     assert!(result.success, "exec failed: {:?}", result.exception);
-    // `~0` = 2^256 - 1. With the positive uint256 value model the wide
-    // result carries a trailing 0x00 sign byte (33-byte signed-LE form,
-    // matching the `type(uint256).max` literal in `ops_and_literals.rs`),
-    // so assert the decoded VALUE rather than a fixed 32-byte width.
-    let v = num_bigint::BigInt::from_signed_bytes_le(&result.return_data);
-    let expected = (num_bigint::BigInt::from(1) << 256u32) - num_bigint::BigInt::from(1);
+    // `~0` (unsigned 2^256-1) is the all-ones 256-bit value. The conformant
+    // NeoVM representation is the 32-byte TWO'S-COMPLEMENT integer `-1`
+    // (`0xFF` * 32) — exactly what a real node computes for INVERT of 0. Read
+    // as UNSIGNED, that is 2^256 - 1.
     assert_eq!(
-        v, expected,
-        "expected signed-LE decode of ~0 to equal 2^256 - 1, got {:?}",
-        result.return_data
+        result.return_data,
+        vec![0xFFu8; 32],
+        "expected ~0 to be the 32-byte all-ones two's-complement value"
     );
+    let unsigned = num_bigint::BigInt::from_bytes_le(num_bigint::Sign::Plus, &result.return_data);
+    let expected = (num_bigint::BigInt::from(1) << 256u32) - num_bigint::BigInt::from(1);
+    assert_eq!(unsigned, expected, "unsigned value of ~0 must be 2^256 - 1");
 }
 
 #[test]

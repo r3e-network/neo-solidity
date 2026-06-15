@@ -1156,53 +1156,22 @@ fn emit_abi_decode_static_element_array_tail_runtime(
 /// Stack on entry: `[le_bytes_buffer]`.
 /// Stack on exit:  `[unsigned_integer]`.
 fn emit_le_buffer_to_unsigned_integer(
-    ctx: &mut LoweringContext,
+    _ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
-    let tmp_id = ctx.next_label();
-    let le_local = ctx.allocate_local(format!("__abi_dec_ule_{tmp_id}"), None);
-    let nonneg_label = ctx.next_label();
-    let done_label = ctx.next_label();
-
-    instructions.push(Instruction::StoreLocal(le_local));
-
-    // Signed interpretation < 0 ?
-    instructions.push(Instruction::LoadLocal(le_local));
+    // The 32-byte little-endian slot buffer IS the conformant uint256
+    // representation: a 32-byte two's-complement integer. Reading it as a signed
+    // NeoVM integer yields the canonical value — a `uint256 >= 2^255` reads back
+    // as its negative two's-complement, byte-identical to the same value produced
+    // by a literal or by arithmetic, so `abi.decode(abi.encode(x)) == x` holds.
+    //
+    // The previous code appended a `0x00` sign byte to coerce values >= 2^255
+    // into a POSITIVE 33-byte magnitude — the old unsigned-magnitude model, which
+    // is non-conformant (a real node stores two's-complement) and not equal to
+    // the two's-complement form the rest of the runtime uses.
     instructions.push(Instruction::Convert {
         target: ConvertTarget::Integer,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-    // `Instruction::JumpIf` lowers to NeoVM JMPIFNOT (jumps when the
-    // condition is FALSE — same polarity note as
-    // `emit_abi_fixed_buffer_signed`), so fall-through is the negative case.
-    instructions.push(Instruction::JumpIf {
-        target: nonneg_label,
-    });
-
-    // Negative path: append a 0x00 sign byte so the signed-LE reading
-    // recovers the intended positive value.
-    instructions.push(Instruction::LoadLocal(le_local));
-    instructions.push(Instruction::Convert {
-        target: ConvertTarget::ByteArray,
-    });
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0x00])));
-    instructions.push(Instruction::CallBuiltin {
-        builtin: BuiltinCall::BytesConcat,
-        arg_count: 2,
-    });
-    instructions.push(Instruction::Convert {
-        target: ConvertTarget::Integer,
-    });
-    instructions.push(Instruction::Jump { target: done_label });
-
-    // Non-negative path: plain signed convert is already correct.
-    instructions.push(Instruction::Label(nonneg_label));
-    instructions.push(Instruction::LoadLocal(le_local));
-    instructions.push(Instruction::Convert {
-        target: ConvertTarget::Integer,
-    });
-    instructions.push(Instruction::Label(done_label));
 }
 
 /// Decode a single static element at a runtime byte offset inside

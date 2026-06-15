@@ -228,6 +228,17 @@ fn try_lower_type_constructor_call(
                     }
                 }
 
+                // `int256(x)` is a pure bit-reinterpret no-op: every integer is
+                // already stored as a 256-bit two's-complement value, so the
+                // 256-bit signed range coincides with the stored bits. The
+                // truncate + sign-adjust below is only meaningful for NARROW
+                // widths; applying it at 256 bits would double-convert (and the
+                // `value - 2^256` step needs a 33-byte `2^256` literal a real
+                // node rejects).
+                if bits == 256 {
+                    return Some(true);
+                }
+
                 // Solidity signed integer casts:
                 // 1) truncate to `bits` low bits (mod 2^bits)
                 // 2) interpret as signed using two's complement (sign-extend).

@@ -123,7 +123,9 @@ fn push_integer_bigint_handles_special_values() {
 fn push_integer_bigint_coerces_out_of_range_unsigned_literals() {
     use num_traits::One;
 
-    // 2^256 - 1 does not fit in a signed 256-bit integer literal, but is a valid Solidity uint256.
+    // 2^256 - 1 (`type(uint256).max`) is not a positive NeoVM integer, but IS
+    // its conformant 32-byte TWO'S-COMPLEMENT (`-1` => `0xFF` * 32), pushed via
+    // PUSHINT256. A real Neo node rejects the old 33-byte PUSH0+ADD form.
     let mut value = BigInt::one();
     value <<= 256usize;
     value -= BigInt::one();
@@ -131,9 +133,11 @@ fn push_integer_bigint_coerces_out_of_range_unsigned_literals() {
     let mut bytecode = Vec::new();
     push_integer_bigint(&mut bytecode, &value);
 
-    assert!(
-        bytecode.ends_with(&[0x10, 0x9E]),
-        "expected large integer literal lowering to coerce via PUSH0 + ADD"
+    let mut expected = vec![0x05u8]; // PUSHINT256
+    expected.extend_from_slice(&[0xFFu8; 32]); // two's-complement of -1
+    assert_eq!(
+        bytecode, expected,
+        "expected type(uint256).max to lower to PUSHINT256 of the 32-byte two's-complement"
     );
 }
 

@@ -95,10 +95,30 @@ fn push_integer_bigint(bytecode: &mut Vec<u8>, value: &BigInt) {
         return;
     }
 
-    // Fallback: out-of-range literal (bigger than 256-bit signed). NeoVM integer literals are
-    // signed, so we cannot encode values like `2^256-1` (Solidity `uint256.max`) with PUSHINT256
-    // without changing their numeric meaning. Push the signed little-endian bytes and coerce them
-    // into an Integer stack item via `value + 0`.
+    // uint256 value with the high bit set (`[2^255, 2^256-1]`, e.g.
+    // `type(uint256).max`). It is not a positive NeoVM integer (would need 33
+    // bytes, which a real node rejects), but IS representable as its 32-byte
+    // TWO'S-COMPLEMENT (`value - 2^256`, which "looks negative"). That is the
+    // only conformant on-chain form. Any literal in this range must be unsigned
+    // (int256 max is 2^255-1), so the reinterpretation is unambiguous. The
+    // software uint256 routines (`cli/bytecode/uint256_ops.rs`) and the runtime
+    // operate on this representation.
+    {
+        let two256: BigInt = BigInt::from(1) << 256u32;
+        let sign_min: BigInt = BigInt::from(1) << 255u32;
+        if value.is_positive() && *value < two256 && *value >= sign_min {
+            let twos: BigInt = value - &two256; // negative; fits in 32 signed bytes
+            let tb = twos.to_signed_bytes_le();
+            bytecode.push(0x05); // PUSHINT256
+            let mut buf = [0xFFu8; 32]; // sign-extend the negative value
+            buf[..tb.len()].copy_from_slice(&tb);
+            bytecode.extend_from_slice(&buf);
+            return;
+        }
+    }
+
+    // Fallback: genuinely out-of-range literal (magnitude >= 2^256). Push the
+    // signed little-endian bytes and coerce them into an Integer via `value + 0`.
     push_data(bytecode, &bytes);
     bytecode.push(0x10); // PUSH0
     bytecode.push(0x9E); // ADD

@@ -529,7 +529,17 @@ impl ExecutionContext {
                                 buf.copy_from_slice(&chunk[24..]);
                                 StackItem::UnsignedInteger(u64::from_be_bytes(buf))
                             } else {
-                                StackItem::byte_array(chunk.to_vec())
+                                // A 32-byte big-endian integer slot whose high
+                                // bit is set is a uint256 >= 2^255: store it as
+                                // the canonical 32-byte TWO'S-COMPLEMENT (as the
+                                // rest of the runtime does) so it compares equal
+                                // to the same value produced by literals/arith,
+                                // instead of a positive-magnitude 33-byte form.
+                                let v = num_bigint::BigInt::from_bytes_be(
+                                    num_bigint::Sign::Plus,
+                                    chunk,
+                                );
+                                Self::u256_twos_complement_item(v)
                             }
                         })
                         .collect();

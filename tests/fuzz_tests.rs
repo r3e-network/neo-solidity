@@ -28,6 +28,8 @@ mod arithmetic_helpers_props;
 mod arithmetic_props;
 #[path = "fuzz_tests/baseline_tests.rs"]
 mod baseline_tests;
+#[path = "fuzz_tests/uint256_conformance.rs"]
+mod uint256_conformance;
 #[path = "fuzz_tests/batches_100_105.rs"]
 mod batches_100_105;
 #[path = "fuzz_tests/batches_106_110.rs"]

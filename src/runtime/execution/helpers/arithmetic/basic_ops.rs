@@ -268,20 +268,27 @@ impl ExecutionContext {
     /// `Integer` so the existing narrow comparison path keeps working for
     /// legacy tests; wider values return the signed-LE ByteArray directly.
     fn bigint_to_stack_item(value: num_bigint::BigInt) -> StackItem {
-        use num_bigint::BigInt;
+        use num_bigint::{BigInt, Sign};
         if value == BigInt::from(0) {
             return StackItem::Integer(0);
         }
         let bytes = value.to_signed_bytes_le();
+        // NEGATIVE wide-arithmetic results are 256-bit values stored in
+        // two's-complement (a `uint256` >= 2^255 "looks negative"). Emit them as
+        // a fixed 32-byte two's-complement ByteArray — NOT a narrow i64 Integer —
+        // so they stay distinguishable from narrow ints and serialize/return as
+        // the full 256-bit word (the truncated i64 form would decode to the wrong
+        // unsigned value). Out-of-range magnitudes (> 32 bytes) keep their raw
+        // signed-LE shape so the checked-overflow guards can still observe them.
+        if value.sign() == Sign::Minus && bytes.len() <= 32 {
+            let mut buf = vec![0xFFu8; 32];
+            buf[..bytes.len()].copy_from_slice(&bytes);
+            return StackItem::byte_array(buf);
+        }
         if bytes.len() <= 8 {
-            // Fits in i64 — return as narrow Integer for efficient narrow
-            // comparisons (preserves pre-slice-1 behavior at small widths).
+            // Non-negative fits in i64 — return narrow Integer for efficient
+            // narrow comparisons (preserves pre-slice-1 behavior at small widths).
             let mut buf = [0u8; 8];
-            // Sign-extend.
-            let fill = if value < BigInt::from(0) { 0xFF } else { 0x00 };
-            for byte in buf.iter_mut() {
-                *byte = fill;
-            }
             buf[..bytes.len()].copy_from_slice(&bytes);
             StackItem::Integer(i64::from_le_bytes(buf))
         } else {
@@ -423,7 +430,12 @@ impl ExecutionContext {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.add_stack_items_wide(a, b)
         } else {
-            self.add_stack_items_narrow(a, b)
+            // NeoVM integers are arbitrary-precision (up to 32 bytes); an i64
+            // narrow overflow is not a VM fault (Solidity's checked-overflow is
+            // enforced by emitted guard code, not the ADD itself), so promote to
+            // the BigInt path instead of faulting.
+            self.add_stack_items_narrow(a.clone(), b.clone())
+                .or_else(|_| self.add_stack_items_wide(a, b))
         }
     }
 
@@ -435,7 +447,8 @@ impl ExecutionContext {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.sub_stack_items_wide(a, b)
         } else {
-            self.sub_stack_items_narrow(a, b)
+            self.sub_stack_items_narrow(a.clone(), b.clone())
+                .or_else(|_| self.sub_stack_items_wide(a, b))
         }
     }
 
@@ -447,7 +460,8 @@ impl ExecutionContext {
         if self.cmp_needs_bigint_path(&a, &b) {
             self.mul_stack_items_wide(a, b)
         } else {
-            self.mul_stack_items_narrow(a, b)
+            self.mul_stack_items_narrow(a.clone(), b.clone())
+                .or_else(|_| self.mul_stack_items_wide(a, b))
         }
     }
 

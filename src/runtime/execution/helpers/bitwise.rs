@@ -14,31 +14,38 @@ impl ExecutionContext {
     /// when the input byte is `>= 0x80` and the shift places it at bit
     /// position ≡ 7 (mod 8).
     fn u256_bigint_to_stack_item(value: num_bigint::BigInt) -> StackItem {
-        use num_bigint::{BigInt, Sign};
+        Self::u256_twos_complement_item(value)
+    }
+
+    /// Encode a 256-bit value as the conformant NeoVM **32-byte two's-complement**
+    /// Integer (the value mod 2^256, mapped into `[-2^255, 2^255-1]`; bit 255 set
+    /// => negative). This matches what a real Neo node computes for bitwise/shift
+    /// results and lets the software uint256 routines (`cli/bytecode/uint256_ops.rs`)
+    /// execute correctly here as on-chain.
+    pub(crate) fn u256_twos_complement_item(value: num_bigint::BigInt) -> StackItem {
+        use num_bigint::BigInt;
         let one: BigInt = BigInt::from(1);
-        let mask: BigInt = (one << 256u32) - BigInt::from(1);
-        let masked: BigInt = value & mask;
-        // Narrow-path: fits in i64 → return Integer to preserve existing
-        // narrow comparison semantics.
-        if let Ok(n) = i64::try_from(masked.clone()) {
-            return StackItem::Integer(n);
+        let two256: BigInt = &one << 256u32;
+        let mask: BigInt = &two256 - &one;
+        let masked: BigInt = value & &mask; // value mod 2^256, in [0, 2^256)
+        let sign_min: BigInt = &one << 255u32; // 2^255
+        let signed: BigInt = if masked >= sign_min {
+            &masked - &two256
+        } else {
+            masked
+        };
+        // Negative (high bit set) => emit a fixed 32-byte two's-complement
+        // ByteArray so the value stays a distinguishable 256-bit word (see
+        // `bigint_to_stack_item`); non-negative small values collapse to a narrow
+        // Integer.
+        let bytes = signed.to_signed_bytes_le();
+        if signed.sign() == num_bigint::Sign::Minus {
+            let mut buf = vec![0xFFu8; 32];
+            buf[..bytes.len()].copy_from_slice(&bytes);
+            return StackItem::byte_array(buf);
         }
-        // Wide path: `masked` is non-negative after masking. Emit MAGNITUDE
-        // bytes and append a `0x00` sign-extension byte iff the MSB has its
-        // high bit set, so `from_signed_bytes_le` decodes it as the positive
-        // magnitude rather than a sign-extended negative. Task #118.
-        //
-        // The append must fire for 32-byte magnitudes too (values >= 2^255,
-        // e.g. `uint256(1) << 255`): the previous `bytes.len() < 32` guard
-        // skipped the sign byte exactly there, flipping such values negative
-        // and breaking `y == x` round-trips against the (positive) literal
-        // value model (`type(uint256).max` is a 33-byte positive item — see
-        // `ops_and_literals.rs`). The mask bounds the magnitude at 32 bytes,
-        // so the result is at most 33 bytes, matching the literal form.
-        let (sign, mut bytes) = masked.to_bytes_le();
-        debug_assert!(sign != Sign::Minus, "mask produced non-negative value");
-        if bytes.last().is_some_and(|b| b & 0x80 != 0) {
-            bytes.push(0x00);
+        if let Ok(n) = i64::try_from(signed.clone()) {
+            return StackItem::Integer(n);
         }
         StackItem::byte_array(bytes)
     }
@@ -289,7 +296,11 @@ impl ExecutionContext {
         }
         if amount >= 64 {
             return match value {
-                StackItem::Integer(_) => Ok(StackItem::Integer(0)),
+                // Arithmetic shift: a NEGATIVE narrow integer sign-extends to all
+                // ones (-1), not 0. The software uint256 routines rely on this
+                // (`(a >> 128)` must reproduce the high limb of a two's-complement
+                // value even when `a` fits in i64, e.g. `-2`).
+                StackItem::Integer(v) => Ok(StackItem::Integer(if v < 0 { -1 } else { 0 })),
                 StackItem::UnsignedInteger(_) => Ok(StackItem::UnsignedInteger(0)),
                 _ => Err(RuntimeError::ExecutionError {
                     message: "Invalid operands for shift right".to_string(),

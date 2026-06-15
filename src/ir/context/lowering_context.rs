@@ -186,6 +186,12 @@ struct LoweringContext<'a> {
     storage_aliases: HashMap<String, StorageReference>,
     call_data_locals: HashMap<usize, String>,
     local_count: u16,
+    /// Lazily-allocated pool of scratch local slots reused by the inline
+    /// software uint256 routines (add/sub/mul over 128-bit limbs). The routines
+    /// consume their scratch transiently and leave their result on the stack, so
+    /// every uint256 arith site in a function can share one pool — avoiding a
+    /// per-site allocation that would blow past NeoVM's local-slot limit.
+    u256_scratch: Vec<usize>,
     label_counter: usize,
     loop_stack: Vec<LoopLabels>,
     /// State variable indices currently being inlined (constant resolution).
@@ -299,6 +305,7 @@ impl<'a> LoweringContext<'a> {
             storage_aliases: HashMap::new(),
             call_data_locals: HashMap::new(),
             local_count: 0,
+            u256_scratch: Vec::new(),
             label_counter: 0,
             loop_stack: Vec::new(),
             resolving_constants: Vec::new(),
@@ -865,6 +872,18 @@ impl<'a> LoweringContext<'a> {
             self.local_types.insert(index, ty);
         }
         index
+    }
+
+    /// Return `n` shared scratch local slots for the inline uint256 routines,
+    /// allocating (and caching) more on first demand. Reused across every
+    /// uint256 arith site in the current function.
+    fn u256_scratch_locals(&mut self, n: usize) -> Vec<usize> {
+        while self.u256_scratch.len() < n {
+            let i = self.u256_scratch.len();
+            let idx = self.allocate_local(format!("__u256_scratch_{i}"), None);
+            self.u256_scratch.push(idx);
+        }
+        self.u256_scratch[..n].to_vec()
     }
 
     fn resolve_local(&self, name: &str) -> Option<usize> {

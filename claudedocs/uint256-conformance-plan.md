@@ -1,5 +1,68 @@
 # uint256 ≥ 2^255 conformance — implementation plan (#12)
 
+## ✅ LANDED — uint256 >= 2^255 conformance is complete (full suite green, 0 clippy)
+
+The atomic change is done and committed. uint256 values in `[2^255, 2^256-1]` are
+stored as their conformant **32-byte two's-complement** end to end:
+- **Literals** emit two's-complement PUSHINT256 (`ops_and_literals.rs`).
+- **Comparison** `< > <= >=` uses the unsigned XOR-2^255 routine
+  (`emit_u256_unsigned_compare`, gated `is_typed_uint256 && !is_int256`).
+- **Checked + unchecked `+ - *`** use inline-IR limb routines over a shared scratch
+  pool; overflow/underflow → `Panic(0x11)` via carry/borrow (not `GetSize>32`).
+- **`/` `%`** use the unsigned divmod routine (`emit_u256_divmod_ir`).
+- **`int256(x)`** for 256-bit is a no-op reinterpret (`type_constructors.rs`).
+- **ABI decode** reads the slot as two's-complement (removed the `0x00`
+  positive-magnitude sign-byte append in `emit_le_buffer_to_unsigned_integer`).
+- **Runtime**: `bigint_to_stack_item` / `u256_twos_complement_item` emit 32-byte
+  two's-complement for negatives; `shift_right` sign-extends narrow negatives;
+  narrow arith overflow promotes to BigInt (NeoVM is arbitrary precision).
+- New `tests/fuzz_tests/uint256_conformance.rs` (13 tests) pins the behavior;
+  whole suite green, clippy clean.
+
+The history below is the original plan/analysis, kept for reference.
+
+## WORK IN PROGRESS — atomic landing (uncommitted; last commit is green)
+
+Commit only when the whole suite is green. **DONE & validated (working tree):**
+- `runtime/.../helpers/bitwise.rs`: `u256_twos_complement_item` → 32-byte
+  two's-complement; **negatives emit a fixed 32-byte ByteArray** (so a uint256
+  >= 2^255 stays a distinguishable 256-bit word, not a narrow i64).
+- `runtime/.../arithmetic/basic_ops.rs`: `bigint_to_stack_item` same 32-byte rule
+  for negatives; **narrow add/sub/mul overflow now PROMOTES to BigInt** (NeoVM
+  integers are arbitrary precision; the i64 fault was a simulator bug).
+- `runtime/.../bitwise.rs` `shift_right`: narrow NEGATIVE >> >=64 now sign-extends
+  to -1 (was wrongly 0) — the limb routines need it.
+- `ops_and_literals.rs`: uint256 literals `[2^255,2^256-1]` → two's-complement PUSHINT256.
+- `ir/expressions/dispatch/binary.rs`: uint256 `< > <= >=` → `emit_u256_unsigned_compare`;
+  **checked + unchecked `+ - *`** → inline-IR limb routines (`emit_u256_unchecked_{add,sub,mul}_ir`,
+  `emit_u256_checked_arith`) over a shared scratch pool (`ctx.u256_scratch_locals`),
+  overflow/underflow → `emit_panic(0x11)`. The old `GetSize>32` guard and the
+  zero-pad widen are bypassed for uint256.
+- `lowering_context.rs`: `u256_scratch` pool (reused across arith sites; no local blowup).
+- Migrated unit pins: `test_bitwise_not_uint256_zero_returns_all_ones`,
+  `push_integer_bigint_coerces_out_of_range_unsigned_literals`.
+- NEW `tests/fuzz_tests/uint256_conformance.rs`: **11/11 GREEN** — literal round-trip,
+  unsigned compare, equality, checked add/sub/mul overflow→Panic(0x11), unchecked
+  wrap, and the **ERC-20 infinite-approval pattern**, all end-to-end conformant.
+
+**REMAINING — 12 suite tests red (the only blockers to the green commit):**
+1. **uint256 `/` `%`** still native (signed) → wire the unsigned divmod routine
+   (Hacker's Delight; inline-IR using the add/sub helpers, own scratch range
+   `s[15..]` so it does not clobber `s[0..3]`). Fixes `arith_scope_uint256_mul_overflow`.
+2. **ABI round-trip of >=2^255** (7 tests: `abi_decode_*`, `roundtrip_uint256/int256/tuple`).
+   `abi_pad32_be` (`execution_impl_part2_native/stdlib.rs`) treats a 32-byte ByteArray
+   as natural BE, but uint256 is stored LITTLE-ENDIAN two's-complement — non-symmetric
+   values get the wrong byte order. Needs integer-typed LE→BE handling (type is erased
+   after PACK, so likely encode-side: emit a reverse for integer args, or a decode that
+   matches).
+3. **cast/storage 33-byte normalization** (`batch78`, `batch39`, `batch80`, `task108`):
+   `int256(uint256.max)` returns a 33-byte `-(2^256+1)` instead of `-1` — a cast/storage
+   path produces an un-normalized (>32-byte) two's-complement; normalize mod 2^256.
+
+The CORE defect (literal + compare + checked/unchecked arithmetic + overflow — the
+on-chain fault for `type(uint256).max` and the max-approval pattern) is RESOLVED and
+validated; the remainder is div + the ABI/serialization byte-order + cast normalization.
+
 ## Status (2026-06-15)
 
 **Phase 1 — software 256-bit routines: DONE & validated.**
