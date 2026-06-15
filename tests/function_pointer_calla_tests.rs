@@ -40,6 +40,73 @@ fn internal_function_pointer_executes_correctly() {
     assert_eq!(v, 84, "add then mul through a function pointer must yield 84");
 }
 
+// A function-pointer LOCAL (assigned from a function reference) must dispatch
+// through CALLA too. Previously these silently returned 0: only PARAMETERS got
+// a function-pointer binding, so `f(args)` fell through to the compatibility
+// path that drops the arguments and pushes 0.
+const FN_PTR_LOCAL_SRC: &str = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) { return a + b; }
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) { return a * b; }
+    function run() public pure returns (uint256) {
+        function(uint256, uint256) internal pure returns (uint256) f = add;
+        uint256 s = f(20, 22);       // 42 via the local pointer
+        f = mul;                     // reassign the pointer
+        return s + f(6, 7);          // 42 + 42 = 84
+    }
+}"#;
+
+#[test]
+fn function_pointer_local_executes_correctly() {
+    let arts = compile_contracts(FN_PTR_LOCAL_SRC, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let res = rt
+        .execute(&art.bytecode, &[])
+        .expect("host-level execute");
+    assert!(
+        res.success,
+        "fn-pointer-local run() must succeed; exc={:?}",
+        res.exception
+    );
+    let mut v: u128 = 0;
+    for (i, b) in res.return_data.iter().enumerate().take(16) {
+        v |= (*b as u128) << (8 * i);
+    }
+    assert_eq!(
+        v, 84,
+        "function-pointer LOCAL must call add then mul (84), not silently return 0"
+    );
+}
+
+// A zero-initialized (never-assigned) internal function-pointer local must
+// REVERT when called — Solidity raises Panic(0x51). Previously this silently
+// returned 0 (the compatibility fallback). Now the local dispatches through
+// CALLA, and CALLA on the Null slot faults cleanly instead of executing
+// arbitrary code or returning a bogus value.
+#[test]
+fn uninitialized_function_pointer_local_reverts() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function run() public pure returns (uint256) {
+        function(uint256) internal pure returns (uint256) f;
+        return f(5);
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let res = rt
+        .execute(&art.bytecode, &[])
+        .expect("host-level execute");
+    assert!(
+        !res.success,
+        "calling a zero-initialized function pointer must revert, not silently return 0"
+    );
+}
+
 #[test]
 fn function_pointer_uses_pusha_and_calla_not_pushint32() {
     let arts = compile_contracts(FN_PTR_SRC, false, 2).expect("compile");

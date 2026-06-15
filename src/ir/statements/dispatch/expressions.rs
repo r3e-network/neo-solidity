@@ -61,6 +61,23 @@ fn lower_variable_definition_statement(
             }
 
             let slot = ctx.allocate_local(ident.name.clone(), inferred_type.clone());
+
+            // An internal function-pointer local (`function (…) internal … f`)
+            // must dispatch through CALLA like an fp PARAMETER does — otherwise
+            // a later `f(args)` hits the silent compatibility fallback that
+            // drops the arguments and yields 0. Register the binding (arg count
+            // + has-return parsed from the declared type) so
+            // `try_lower_variable_call` emits a `CallIndirect` instead. Mirrors
+            // the parameter path in `ir/build/function.rs`.
+            if let Expression::Type(_, PtType::Function { params, returns, .. }) = &decl.ty {
+                let arg_count = params.len();
+                let has_return = returns
+                    .as_ref()
+                    .map(|(rets, _)| !rets.is_empty())
+                    .unwrap_or(false);
+                ctx.register_function_pointer_binding(&ident.name, arg_count, has_return);
+            }
+
             if let Some(initializer) = init {
                 if is_storage_reference {
                     if let Some(reference) = resolve_storage_reference(initializer, ctx) {
