@@ -1254,13 +1254,14 @@ contract C {
         hex::encode(&log.topics[0])
     );
 
-    // data[0..32] = BE32(msg.value) = BE32(5). (Currently 0 — pending #113.)
-    let mut exp_val = [0u8; 32];
-    exp_val[24..].copy_from_slice(&5u64.to_be_bytes());
+    // data[0..32] = BE32(msg.value). Neo N3 has no EVM-style attached call value,
+    // so `msg.value` lowers to a conformant 0 (value arrives via onNEP17Payment,
+    // not an ambient msg.value); the injected `.with_value(5)` is ignored.
+    let exp_val = [0u8; 32];
     assert_eq!(
         &log.data[..32],
         &exp_val[..],
-        "X2 data head[0] must equal BE32(5) msg.value; got {:02x?}",
+        "X2 data head[0] must equal BE32(0) msg.value (Neo has no attached value); got {:02x?}",
         &log.data[..32]
     );
 

@@ -99,17 +99,14 @@ fn emit_load_runtime_value(
             bytecode[jmp_end_operand..jmp_end_operand + 4].copy_from_slice(&rel_end.to_le_bytes());
         }
         ir::RuntimeValue::MsgValue => {
-            // Task #113 — lower Solidity `msg.value` to a runtime-side
-            // syscall so the host can inject a value via
-            // `NeoRuntime::override_value` /
-            // `ExecutionOverrides::value`. The handler
-            // (`src/runtime/execution/syscalls/runtime.rs`) pushes the
-            // active override (or 0 when none is set), preserving the
-            // previous "no attached value → 0" behaviour for callers
-            // that never set an override while unblocking test harnesses
-            // that need to drive `msg.value` to a specific u64 (e.g.
-            // payable-fallback tests, NEP-17 `onPayment` checks).
-            emit_syscall(bytecode, "System.Runtime.GetMsgValue");
+            // Neo N3 has NO EVM-style attached call value, and no
+            // `System.Runtime.GetMsgValue` interop exists — emitting a SYSCALL for
+            // it FAULTS on a real node (unknown interop service). Value transfer
+            // on Neo arrives as the `amount` argument of `onNEP17Payment` /
+            // `onNEP11Payment`, not as an ambient `msg.value`. So `msg.value`
+            // lowers to the conformant constant 0 (PUSH0); contracts that need a
+            // received amount must read their payment-callback argument.
+            bytecode.push(0x10); // PUSH0
         }
         ir::RuntimeValue::MsgData => {
             // Solidity `msg.data` == the raw calldata bytes the runtime received at
