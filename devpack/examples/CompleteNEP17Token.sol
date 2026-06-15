@@ -257,30 +257,55 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         );
 
         string memory url = string(abi.encodePacked("https://example.com/prices/", symbol()));
+        // Register the NATIVE-signature callback. The Oracle native contract
+        // invokes the callback directly as (string url, bytes userData, int code,
+        // bytes result) — NOT the IOracleServiceReceiver order — so registering
+        // `onOracleResponse` here would mis-decode the response.
         NativeCalls.requestOracleData(
             url,
             "",
-            "onOracleResponse",
+            "onNativeOracleResponse",
             abi.encode(symbol()),
             20_000_000
         );
         requestId = block.timestamp;
     }
-    
+
     /**
-     * @dev Oracle callback (from OracleService)
+     * @dev Native Oracle callback (direct registration). Neo invokes this with
+     * the fixed native signature `(string url, bytes userData, int code, bytes result)`.
+     */
+    function onNativeOracleResponse(
+        string calldata url,
+        bytes calldata userData,
+        uint256 code,
+        bytes calldata result
+    ) external {
+        url;
+        userData;
+        require(msg.sender == ORACLE_CONTRACT, "CompleteNEP17: unauthorized oracle response");
+        _applyPriceResponse(code, result);
+    }
+
+    /**
+     * @dev IOracleServiceReceiver callback — used when the request is routed
+     * through an OracleService wrapper, which forwards in this argument order.
      */
     function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
         external
         override
     {
+        userData;
         require(msg.sender == ORACLE_CONTRACT, "CompleteNEP17: unauthorized oracle response");
-        
+        _applyPriceResponse(code, result);
+    }
+
+    function _applyPriceResponse(uint256 code, bytes calldata result) internal {
         if (code == 0) {
             uint256 newPrice = abi.decode(result, (uint256));
             _config.currentPrice = newPrice;
             _config.lastPriceUpdate = block.timestamp;
-            
+
             emit PriceUpdated(symbol(), newPrice, block.timestamp);
         }
     }
@@ -439,7 +464,12 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     ) public {
         require(signers.length >= 3, "CompleteNEP17: minimum 3 signers required");
         require(signers.length == signatures.length, "CompleteNEP17: array length mismatch");
-        
+
+        // CRITICAL: the account whose tokens are burned must itself authorize the
+        // operation. Without this, any caller with 3 colluding witnesses could
+        // burn a third party's balance.
+        require(Runtime.checkWitness(from), "CompleteNEP17: burn not authorized by holder");
+
         signatures;
         
         uint256 validSignatures = 0;

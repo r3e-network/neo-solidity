@@ -438,32 +438,54 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
 
         _metadataURLs[tokenId] = metadataURL;
 
+        // Register the NATIVE-signature callback: the Oracle native invokes the
+        // callback directly as (string url, bytes userData, int code, bytes result),
+        // not the IOracleServiceReceiver order.
         NativeCalls.requestOracleData(
             metadataURL,
             "",
-            "onOracleResponse",
+            "onNativeOracleResponse",
             tokenId,
             20_000_000
         );
         requestId = block.timestamp;
     }
-    
+
     /**
-     * @dev Oracle callback (from OracleService)
+     * @dev Native Oracle callback (direct registration). Neo invokes this with
+     * the fixed native signature `(string url, bytes userData, int code, bytes result)`.
+     */
+    function onNativeOracleResponse(
+        string calldata url,
+        bytes calldata userData,
+        uint256 code,
+        bytes calldata result
+    ) external {
+        url;
+        require(msg.sender == ORACLE_CONTRACT, "CompleteNEP11: unauthorized oracle response");
+        _applyMetadataResponse(userData, code, result);
+    }
+
+    /**
+     * @dev IOracleServiceReceiver callback — used when routed via an
+     * OracleService wrapper, which forwards in this argument order.
      */
     function onOracleResponse(uint256, uint256 code, bytes calldata result, bytes calldata userData)
         external
         override
     {
         require(msg.sender == ORACLE_CONTRACT, "CompleteNEP11: unauthorized oracle response");
-        
+        _applyMetadataResponse(userData, code, result);
+    }
+
+    function _applyMetadataResponse(bytes calldata userData, uint256 code, bytes calldata result) internal {
         if (code == 0) {
             bytes memory tokenId = userData;
-            
+
             // Update token properties with oracle data
             setProperties(tokenId, result);
             _lastMetadataUpdate[tokenId] = block.timestamp;
-            
+
             emit MetadataUpdated(tokenId, string(result));
         }
     }

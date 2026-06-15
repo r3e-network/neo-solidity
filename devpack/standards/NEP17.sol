@@ -74,7 +74,13 @@ contract NEP17 is INEP17, FrameworkBase {
     address private _minter;
     uint256 private _maxSupply;
     uint256 private _conditionalTransferNonce;
-    
+
+    // Multi-signature authorization: only owner-approved signers may move the
+    // contract's own (escrowed) token pool via multiSigTransfer, and at least
+    // `_multisigThreshold` of them must witness the transaction.
+    mapping(address => bool) private _multisigSigners;
+    uint256 private _multisigThreshold;
+
     // Events (NEP-17 compatible)
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 amount);
@@ -347,6 +353,23 @@ contract NEP17 is INEP17, FrameworkBase {
     // ========== Admin Functions ==========
     
     /**
+     * @dev Owner: authorize/deauthorize a multi-signature signer for the pool.
+     */
+    function setMultisigSigner(address signer, bool allowed) public onlyOwner {
+        require(signer != address(0), "NEP17: invalid signer");
+        _multisigSigners[signer] = allowed;
+    }
+
+    /**
+     * @dev Owner: set the minimum number of authorized witnesses required for
+     * a multiSigTransfer (must be at least 2).
+     */
+    function setMultisigThreshold(uint256 threshold) public onlyOwner {
+        require(threshold >= 2, "NEP17: threshold must be >= 2");
+        _multisigThreshold = threshold;
+    }
+
+    /**
      * @dev Enable transfers
      */
     function enableTransfers() public onlyOwner {
@@ -354,7 +377,7 @@ contract NEP17 is INEP17, FrameworkBase {
         _transfersEnabled = true;
         emit TransfersEnabled();
     }
-    
+
     /**
      * @dev Disable transfers
      */
@@ -625,6 +648,10 @@ contract NEP17 is INEP17, FrameworkBase {
         require(signers.length == signatures.length, "NEP17: array length mismatch");
         require(signers.length >= 2, "NEP17: minimum 2 signers required");
         require(signers.length <= 10, "NEP17: maximum 10 signers allowed");
+        // The threshold must be configured by the owner; an unconfigured (zero)
+        // threshold disables the pool transfer entirely (fail closed).
+        require(_multisigThreshold >= 2, "NEP17: multisig not configured");
+        require(signers.length >= _multisigThreshold, "NEP17: below threshold");
 
         // Off-chain signatures are collected by clients, but on-chain authorization
         // is enforced via Neo witness checks for each declared signer.
@@ -633,6 +660,11 @@ contract NEP17 is INEP17, FrameworkBase {
         for (uint256 i = 0; i < signers.length; i++) {
             address signer = signers[i];
             require(signer != address(0), "NEP17: invalid signer");
+
+            // CRITICAL: the signer must be an OWNER-AUTHORIZED pool signer.
+            // Without this, any caller could supply two arbitrary accounts they
+            // control, witness the tx, and drain the contract's escrowed pool.
+            require(_multisigSigners[signer], "NEP17: signer not authorized");
 
             // Prevent duplicate signers from satisfying quorum multiple times.
             for (uint256 j = 0; j < i; j++) {
@@ -684,13 +716,18 @@ contract NEP17 is INEP17, FrameworkBase {
     /**
      * @dev Oracle callback for conditional transfers
      */
+    // The Neo N3 Oracle native contract invokes the registered callback with the
+    // fixed argument order `(string url, bytes userData, int code, bytes result)`.
+    // The previous declaration had these in the wrong order, so `userData` (which
+    // carries our local request id) was read from the wrong slot and the escrowed
+    // tokens could never be released — permanently locking them.
     function conditionalTransferCallback(
-        uint256 requestId,
+        string calldata url,
+        bytes calldata userData,
         uint256 code,
-        bytes calldata result,
-        bytes calldata userData
+        bytes calldata result
     ) external {
-        requestId; // Oracle-native request id (reserved for diagnostics)
+        url; // oracle request URL (reserved for diagnostics)
         require(msg.sender == ORACLE_NATIVE_CONTRACT, "NEP17: unauthorized callback");
 
         bytes32 localRequestId = abi.decode(userData, (bytes32));
