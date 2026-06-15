@@ -129,47 +129,9 @@ fn emit_uint256_unchecked_add(out: &mut Vec<u8>) {
     out.push(0x57); // INITSLOT
     out.push(0x03); // 3 locals
     out.push(0x00); // 0 params
-    out.push(0x71); // STLOC1  (b)
-    out.push(0x70); // STLOC0  (a)
-    // lo = (a & M128) + (b & M128)
-    out.push(0x68); // LDLOC0
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    out.push(0x69); // LDLOC1
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    out.push(0x9E); // ADD
-    out.push(0x72); // STLOC2  (lo)
-    // hi = (a>>128 & M128) + (b>>128 & M128) + (lo>>128)
-    out.push(0x68); // LDLOC0
-    emit_push_u8(out, 128);
-    out.push(0xA9); // SHR
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    out.push(0x69); // LDLOC1
-    emit_push_u8(out, 128);
-    out.push(0xA9); // SHR
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    out.push(0x9E); // ADD
-    out.push(0x6A); // LDLOC2 (lo)
-    emit_push_u8(out, 128);
-    out.push(0xA9); // SHR  (lo>>128 = carry)
-    out.push(0x9E); // ADD  -> hi
-    // hi_result = hi & M128 ; hi_signed = (hi_result ^ 2^127) - 2^127
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    emit_pushint256_le(out, &BIAS127_LE);
-    out.push(0x93); // XOR
-    emit_pushint256_le(out, &BIAS127_LE);
-    out.push(0x9F); // SUB  -> hi_signed
-    // result = (hi_signed << 128) + (lo & M128)
-    emit_push_u8(out, 128);
-    out.push(0xA8); // SHL
-    out.push(0x6A); // LDLOC2 (lo)
-    emit_pushint256_le(out, &MASK128_LE);
-    out.push(0x91); // AND
-    out.push(0x9E); // ADD  -> result
+    emit_add_limb_prologue(out); // lo = (a&M128)+(b&M128) -> local 2
+    emit_add_full_hi(out); // hi = ah + bh + carry  (full, on stack)
+    emit_add_result_epilogue(out); // sign_ext128(hi & M128) << 128 + (lo & M128)
 }
 
 /// Emit `a - b mod 2^256` (UNCHECKED) for operands `[.., a, b]`. Mirrors the add
@@ -226,6 +188,145 @@ fn emit_uint256_unchecked_sub(out: &mut Vec<u8>) {
     emit_pushint256_le(out, &MASK128_LE);
     out.push(0x91); // AND
     out.push(0x9E); // ADD  -> result
+}
+
+/// Emit the limb prologue shared by the add routines: store `b`,`a` into
+/// locals 1,0 and compute `lo = (a&M128)+(b&M128)` into local 2, leaving the
+/// stack empty. Assumes the caller has already emitted `INITSLOT 3 0`.
+#[allow(dead_code)]
+fn emit_add_limb_prologue(out: &mut Vec<u8>) {
+    out.push(0x71); // STLOC1 (b)
+    out.push(0x70); // STLOC0 (a)
+    out.push(0x68); // LDLOC0
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD
+    out.push(0x72); // STLOC2 (lo)
+}
+
+/// Emit, onto the stack, the FULL (unmasked) high limb
+/// `hi = (a>>128 & M128) + (b>>128 & M128) + (lo>>128)` in `[0, 2^129-1]`.
+/// `hi >> 128` is the carry-out of bit 256 (0 or 1).
+#[allow(dead_code)]
+fn emit_add_full_hi(out: &mut Vec<u8>) {
+    out.push(0x68); // LDLOC0
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR  (carry from lo)
+    out.push(0x9E); // ADD  -> hi (full)
+}
+
+/// Emit the epilogue that turns a FULL high limb `hi` (top of stack) plus the
+/// stored `lo` (local 2) into the 32-byte two's-complement result:
+/// `result = sign_ext128(hi & M128) << 128 + (lo & M128)`.
+#[allow(dead_code)]
+fn emit_add_result_epilogue(out: &mut Vec<u8>) {
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x93); // XOR
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x9F); // SUB  -> sign_ext128(hi & M128)
+    emit_push_u8(out, 128);
+    out.push(0xA8); // SHL
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD  -> result
+}
+
+/// Emit `a + b` with an UNSIGNED overflow check: if `a + b >= 2^256` (carry out
+/// of bit 256), THROW (Solidity Panic 0x11). Operands `[.., a, b]`.
+#[allow(dead_code)]
+fn emit_uint256_checked_add(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x03);
+    out.push(0x00);
+    emit_add_limb_prologue(out);
+    emit_add_full_hi(out); // [hi]
+    out.push(0x4A); // DUP -> [hi, hi]
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR -> [hi, carry_out]  (0 or 1)
+    out.push(0x24); // JMPIF -> throw if carry_out != 0
+    let jmpif_operand = out.len();
+    out.push(0x00); // placeholder offset
+                    // no-overflow path: [hi]
+    emit_add_result_epilogue(out);
+    out.push(0x22); // JMP -> end (over the THROW)
+    let jmp_operand = out.len();
+    out.push(0x00); // placeholder
+    let throw_pos = out.len();
+    out.push(0x3A); // THROW (Panic 0x11 when wired in)
+    let end_pos = out.len();
+    // backpatch (offsets are relative to the jump opcode = operand_index - 1)
+    out[jmpif_operand] = ((throw_pos as isize) - (jmpif_operand as isize - 1)) as i8 as u8;
+    out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
+}
+
+/// Emit `a - b` with an UNSIGNED underflow check: if `a < b` (final borrow),
+/// THROW (Solidity Panic 0x11). Operands `[.., a, b]`.
+#[allow(dead_code)]
+fn emit_uint256_checked_sub(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x03);
+    out.push(0x00);
+    out.push(0x71); // STLOC1 (b)
+    out.push(0x70); // STLOC0 (a)
+    // lo = (a&M128) - (b&M128)
+    out.push(0x68); // LDLOC0
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9F); // SUB
+    out.push(0x72); // STLOC2 (lo)
+    // hi (full) = (a>>128 & M128) - (b>>128 & M128) + (lo>>128) ; in (-2^128, 2^128)
+    out.push(0x68); // LDLOC0
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9F); // SUB
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR  (-borrow)
+    out.push(0x9E); // ADD  -> hi (full)
+    // underflow  <=>  hi < 0
+    out.push(0x4A); // DUP -> [hi, hi]
+    out.push(0x10); // PUSH0 -> [hi, hi, 0]
+    out.push(0xB5); // LT -> [hi, (hi < 0)]
+    out.push(0x24); // JMPIF -> throw if hi < 0
+    let jmpif_operand = out.len();
+    out.push(0x00);
+    // no-underflow path: [hi]
+    emit_add_result_epilogue(out);
+    out.push(0x22); // JMP -> end
+    let jmp_operand = out.len();
+    out.push(0x00);
+    let throw_pos = out.len();
+    out.push(0x3A); // THROW
+    let end_pos = out.len();
+    out[jmpif_operand] = ((throw_pos as isize) - (jmpif_operand as isize - 1)) as i8 as u8;
+    out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
 }
 
 #[cfg(test)]
@@ -382,6 +483,46 @@ mod uint256_ops_tests {
                     let s: u64 = u64::try_from(shift).map_err(|_| "bad shift")?;
                     stack.push(check(value >> s as usize)?);
                     ip += 1;
+                }
+                0x10..=0x20 => {
+                    // PUSH0..PUSH16
+                    stack.push(BigInt::from(op - 0x10));
+                    ip += 1;
+                }
+                0x4A => {
+                    // DUP
+                    let top = stack.last().cloned().ok_or("dup underflow")?;
+                    stack.push(top);
+                    ip += 1;
+                }
+                0x22 => {
+                    // JMP rel8 (relative to the opcode position)
+                    let off = code[ip + 1] as i8 as isize;
+                    ip = (ip as isize + off) as usize;
+                }
+                0x24 => {
+                    // JMPIF rel8
+                    let off = code[ip + 1] as i8 as isize;
+                    let c = stack.pop().ok_or("jmpif underflow")?;
+                    if c != BigInt::from(0) {
+                        ip = (ip as isize + off) as usize;
+                    } else {
+                        ip += 2;
+                    }
+                }
+                0x26 => {
+                    // JMPIFNOT rel8
+                    let off = code[ip + 1] as i8 as isize;
+                    let c = stack.pop().ok_or("jmpifnot underflow")?;
+                    if c == BigInt::from(0) {
+                        ip = (ip as isize + off) as usize;
+                    } else {
+                        ip += 2;
+                    }
+                }
+                0x3A => {
+                    // THROW (used here to signal a Solidity Panic, e.g. overflow)
+                    return Err("THROW".into());
                 }
                 0x40 => break, // RET
                 other => return Err(format!("faithful VM: unhandled opcode 0x{other:02x}")),
@@ -540,6 +681,58 @@ mod uint256_ops_tests {
             let expect = ((&a + &b) % &m + &m) % &m;
             assert_eq!(run_add(&a, &b), expect, "add({a}, {b})");
         }
+    }
+
+    /// Run a checked routine; `Ok(value)` on success, `Err` if it threw (panic).
+    fn run_checked(emit: fn(&mut Vec<u8>), a: &BigInt, b: &BigInt) -> Result<BigInt, String> {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        emit(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code)?;
+        let signed = st.last().cloned().ok_or("no result")?;
+        let m = modulus();
+        Ok(((signed % &m) + &m) % &m)
+    }
+
+    #[test]
+    fn checked_add_detects_overflow() {
+        // In range: matches the true sum.
+        assert_eq!(run_checked(emit_uint256_checked_add, &big("2"), &big("3")), Ok(big("5")));
+        assert_eq!(
+            run_checked(emit_uint256_checked_add, &(pow2(255) - 1), &BigInt::from(1)),
+            Ok(pow2(255)),
+            "2^255-1 + 1 = 2^255 (still < 2^256)"
+        );
+        assert_eq!(
+            run_checked(emit_uint256_checked_add, &(umax() - 1), &BigInt::from(1)),
+            Ok(umax()),
+            "max-1 + 1 = max"
+        );
+        // Overflow: a + b >= 2^256 must throw.
+        assert!(run_checked(emit_uint256_checked_add, &umax(), &BigInt::from(1)).is_err());
+        assert!(run_checked(emit_uint256_checked_add, &pow2(255), &pow2(255)).is_err());
+        assert!(run_checked(emit_uint256_checked_add, &umax(), &umax()).is_err());
+        assert!(run_checked(emit_uint256_checked_add, &(pow2(255) + 7), &pow2(255)).is_err());
+    }
+
+    #[test]
+    fn checked_sub_detects_underflow() {
+        // In range: a >= b.
+        assert_eq!(run_checked(emit_uint256_checked_sub, &big("5"), &big("3")), Ok(big("2")));
+        assert_eq!(run_checked(emit_uint256_checked_sub, &umax(), &umax()), Ok(big("0")));
+        assert_eq!(
+            run_checked(emit_uint256_checked_sub, &pow2(255), &BigInt::from(1)),
+            Ok(pow2(255) - 1),
+            "2^255 - 1 crosses the sign boundary"
+        );
+        assert_eq!(run_checked(emit_uint256_checked_sub, &umax(), &big("1")), Ok(umax() - 1));
+        // Underflow: a < b must throw.
+        assert!(run_checked(emit_uint256_checked_sub, &big("3"), &big("5")).is_err());
+        assert!(run_checked(emit_uint256_checked_sub, &big("0"), &big("1")).is_err());
+        assert!(run_checked(emit_uint256_checked_sub, &big("0"), &umax()).is_err());
+        assert!(run_checked(emit_uint256_checked_sub, &(pow2(255) - 1), &pow2(255)).is_err());
     }
 
     #[test]
