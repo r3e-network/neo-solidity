@@ -100,6 +100,53 @@ const BIAS127_LE: [u8; 32] = {
     b
 };
 
+/// 32-byte LE of `2^255 - 1` (`INT256_MAX`, all bits set except the sign bit) —
+/// AND-ing clears bit 255, turning an arithmetic right shift into a logical one.
+#[allow(dead_code)]
+const MAX_INT256_LE: [u8; 32] = {
+    let mut b = [0xFFu8; 32];
+    b[31] = 0x7F;
+    b
+};
+
+/// Emit a LOGICAL `a >>u n` for uint256 operands `[.., a, n]` (`n` in [0, 256]).
+/// Native NeoVM `SHR` is arithmetic (sign-extending), so for values >= 2^255 it
+/// would propagate the high bit. Identity used:
+///   `n == 0`        -> a
+///   `n >= 1`        -> logical_shr_1(a) >>arith (n-1)
+/// where `logical_shr_1(a) = (a >>arith 1) & (2^255-1)` is non-negative, so a
+/// subsequent arithmetic shift behaves logically. Every value stays <= 32 bytes.
+#[allow(dead_code)]
+fn emit_uint256_logical_shr(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x02);
+    out.push(0x00);
+    out.push(0x71); // STLOC1 (n)
+    out.push(0x70); // STLOC0 (a)
+    emit_ldloc(out, 1); // n
+    out.push(0x26); // JMPIFNOT -> n == 0 path
+    let jmpifnot_operand = out.len();
+    out.push(0x00);
+    // n >= 1: logical_shr_1(a) >> (n - 1)
+    emit_ldloc(out, 0); // a
+    out.push(0x11); // PUSH1
+    out.push(0xA9); // SHR  (a >>arith 1)
+    emit_pushint256_le(out, &MAX_INT256_LE);
+    out.push(0x91); // AND  -> logical_shr_1(a)  (>= 0)
+    emit_ldloc(out, 1); // n
+    out.push(0x11); // PUSH1
+    out.push(0x9F); // SUB  -> n - 1
+    out.push(0xA9); // SHR  -> result
+    out.push(0x22); // JMP -> end
+    let jmp_operand = out.len();
+    out.push(0x00);
+    let zero_pos = out.len();
+    emit_ldloc(out, 0); // a  (n == 0 -> result = a)
+    let end_pos = out.len();
+    out[jmpifnot_operand] = ((zero_pos as isize) - (jmpifnot_operand as isize - 1)) as i8 as u8;
+    out[jmp_operand] = ((end_pos as isize) - (jmp_operand as isize - 1)) as i8 as u8;
+}
+
 /// 32-byte LE of `2^64 - 1` (low 64 bits set) — a POSITIVE 256-bit mask used to
 /// extract 64-bit limbs for the software multiply.
 #[allow(dead_code)]
@@ -972,6 +1019,42 @@ mod uint256_ops_tests {
         assert!(run_checked(emit_uint256_checked_mul, &umax(), &big("2")).is_err());
         assert!(run_checked(emit_uint256_checked_mul, &umax(), &umax()).is_err());
         assert!(run_checked(emit_uint256_checked_mul, &(pow2(200)), &(pow2(100))).is_err());
+    }
+
+    /// Run the logical-shr routine; result as unsigned uint256 in [0, 2^256).
+    fn run_shr(a: &BigInt, n: u32) -> BigInt {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(&BigInt::from(n)));
+        emit_uint256_logical_shr(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        let signed = st.last().cloned().expect("result");
+        let m = modulus();
+        ((signed % &m) + &m) % &m
+    }
+
+    #[test]
+    fn logical_shr_is_unsigned_including_large() {
+        // Reference: unsigned shift = floor(a / 2^n).
+        let cases: [(BigInt, u32); 12] = [
+            (umax(), 0),
+            (umax(), 1),
+            (umax(), 128),
+            (umax(), 255),
+            (umax(), 256),                 // shifts everything out -> 0
+            (pow2(255), 1),                // 2^254 (native arith SHR would keep sign)
+            (pow2(255), 255),              // 1
+            (pow2(255) + BigInt::from(1), 255), // 1 (low bit dropped)
+            (pow2(200), 100),              // 2^100
+            (pow2(128), 64),               // 2^64
+            (big("115792089237316195423570985008687907853269984665640564039457584007913129639000"), 8),
+            (BigInt::from(0), 5),
+        ];
+        for (a, n) in cases {
+            let expect = &a >> n; // a is in [0, 2^256), so this is the unsigned shift
+            assert_eq!(run_shr(&a, n), expect, "shr({a}, {n})");
+        }
     }
 
     #[test]
