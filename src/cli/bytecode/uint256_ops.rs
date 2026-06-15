@@ -79,6 +79,99 @@ fn emit_uint256_unsigned_ge(out: &mut Vec<u8>) {
     out.push(0xB8); // GE   -> a^SIGN >=s b^SIGN  ==  a >=u b
 }
 
+/// 32-byte LE of `2^128 - 1` (low 128 bits set) — a POSITIVE 256-bit mask
+/// (pushed via PUSHINT256 so it is not the negative int128 `-1`).
+#[allow(dead_code)]
+const MASK128_LE: [u8; 32] = {
+    let mut b = [0u8; 32];
+    let mut i = 0;
+    while i < 16 {
+        b[i] = 0xFF;
+        i += 1;
+    }
+    b
+};
+
+/// 32-byte LE of `2^127` (bit 127 set) — the int128 sign bias.
+#[allow(dead_code)]
+const BIAS127_LE: [u8; 32] = {
+    let mut b = [0u8; 32];
+    b[15] = 0x80;
+    b
+};
+
+/// Push a small non-negative integer (a shift count) as a POSITIVE NeoVM
+/// integer. PUSHINT8 is signed, so values `>= 128` (e.g. a 128-bit shift) must
+/// use PUSHINT16, otherwise `0x80` would decode to `-128`.
+#[allow(dead_code)]
+fn emit_push_u8(out: &mut Vec<u8>, n: u8) {
+    if n <= 0x7F {
+        out.push(0x00); // PUSHINT8
+        out.push(n);
+    } else {
+        out.push(0x01); // PUSHINT16 (keeps the value positive)
+        out.extend_from_slice(&i16::from(n).to_le_bytes());
+    }
+}
+
+/// Emit `a + b mod 2^256` (UNCHECKED) for operands `[.., a, b]`, on the 32-byte
+/// two's-complement representation, using 128-bit limbs so no intermediate ever
+/// exceeds 32 bytes (a native `ADD` of two large uint256 values would otherwise
+/// produce a 33-byte result that a real Neo node rejects).
+///
+///   lo = (a & M128) + (b & M128)                         // <= 2^129
+///   hi = (a>>128 & M128) + (b>>128 & M128) + (lo>>128)   // <= 2^129
+///   result = sign_ext128(hi & M128) << 128  +  (lo & M128)
+/// where `sign_ext128(x) = (x ^ 2^127) - 2^127` keeps the high limb in
+/// `[-2^127, 2^127)` so the final value lands in `[-2^255, 2^255-1]` (<= 32 bytes).
+#[allow(dead_code)]
+fn emit_uint256_unchecked_add(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x03); // 3 locals
+    out.push(0x00); // 0 params
+    out.push(0x71); // STLOC1  (b)
+    out.push(0x70); // STLOC0  (a)
+    // lo = (a & M128) + (b & M128)
+    out.push(0x68); // LDLOC0
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD
+    out.push(0x72); // STLOC2  (lo)
+    // hi = (a>>128 & M128) + (b>>128 & M128) + (lo>>128)
+    out.push(0x68); // LDLOC0
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR  (lo>>128 = carry)
+    out.push(0x9E); // ADD  -> hi
+    // hi_result = hi & M128 ; hi_signed = (hi_result ^ 2^127) - 2^127
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x93); // XOR
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x9F); // SUB  -> hi_signed
+    // result = (hi_signed << 128) + (lo & M128)
+    emit_push_u8(out, 128);
+    out.push(0xA8); // SHL
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD  -> result
+}
+
 #[cfg(test)]
 mod uint256_ops_tests {
     use super::*;
@@ -106,6 +199,7 @@ mod uint256_ops_tests {
     // result (the real VM's MaxIntegerSize fault).
     fn faithful_run(code: &[u8]) -> Result<Vec<BigInt>, String> {
         let mut stack: Vec<BigInt> = Vec::new();
+        let mut locals: Vec<BigInt> = Vec::new();
         let mut ip = 0usize;
         let check = |v: BigInt| -> Result<BigInt, String> {
             if v.to_signed_bytes_le().len() > 32 {
@@ -165,6 +259,72 @@ mod uint256_ops_tests {
                     let x2 = stack.pop().ok_or("ge underflow")?;
                     let x1 = stack.pop().ok_or("ge underflow")?;
                     stack.push(BigInt::from(i32::from(x1 >= x2)));
+                    ip += 1;
+                }
+                0x00 => {
+                    // PUSHINT8 (signed)
+                    stack.push(BigInt::from(code[ip + 1] as i8));
+                    ip += 2;
+                }
+                0x01 => {
+                    // PUSHINT16 (signed LE)
+                    let v = i16::from_le_bytes([code[ip + 1], code[ip + 2]]);
+                    stack.push(BigInt::from(v));
+                    ip += 3;
+                }
+                0x57 => {
+                    // INITSLOT nlocals nparams
+                    let nlocals = code[ip + 1] as usize;
+                    locals = vec![BigInt::from(0); nlocals];
+                    ip += 3;
+                }
+                0x70 | 0x71 | 0x72 => {
+                    // STLOC0/1/2
+                    let i = (op - 0x70) as usize;
+                    locals[i] = stack.pop().ok_or("stloc underflow")?;
+                    ip += 1;
+                }
+                0x68 | 0x69 | 0x6A => {
+                    // LDLOC0/1/2
+                    let i = (op - 0x68) as usize;
+                    stack.push(locals[i].clone());
+                    ip += 1;
+                }
+                0x91 => {
+                    // AND
+                    let b = stack.pop().ok_or("and underflow")?;
+                    let a = stack.pop().ok_or("and underflow")?;
+                    stack.push(check(a & b)?);
+                    ip += 1;
+                }
+                0x9E => {
+                    // ADD
+                    let b = stack.pop().ok_or("add underflow")?;
+                    let a = stack.pop().ok_or("add underflow")?;
+                    stack.push(check(a + b)?);
+                    ip += 1;
+                }
+                0x9F => {
+                    // SUB
+                    let b = stack.pop().ok_or("sub underflow")?;
+                    let a = stack.pop().ok_or("sub underflow")?;
+                    stack.push(check(a - b)?);
+                    ip += 1;
+                }
+                0xA8 => {
+                    // SHL: value << shift (shift popped first)
+                    let shift = stack.pop().ok_or("shl underflow")?;
+                    let value = stack.pop().ok_or("shl underflow")?;
+                    let s: u64 = u64::try_from(shift).map_err(|_| "bad shift")?;
+                    stack.push(check(value << s as usize)?);
+                    ip += 1;
+                }
+                0xA9 => {
+                    // SHR: value >> shift (arithmetic, two's-complement)
+                    let shift = stack.pop().ok_or("shr underflow")?;
+                    let value = stack.pop().ok_or("shr underflow")?;
+                    let s: u64 = u64::try_from(shift).map_err(|_| "bad shift")?;
+                    stack.push(check(value >> s as usize)?);
                     ip += 1;
                 }
                 0x40 => break, // RET
@@ -255,6 +415,40 @@ mod uint256_ops_tests {
         code.push(0x40);
         let st = faithful_run(&code).expect("faithful run");
         st.last().cloned().unwrap_or_else(|| BigInt::from(0)) != BigInt::from(0)
+    }
+
+    /// Run the unchecked-add routine and return the result as an unsigned
+    /// uint256 in [0, 2^256).
+    fn run_add(a: &BigInt, b: &BigInt) -> BigInt {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        emit_uint256_unchecked_add(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        let signed = st.last().cloned().expect("result");
+        let m = modulus();
+        ((signed % &m) + &m) % &m
+    }
+
+    #[test]
+    fn unchecked_add_wraps_mod_2_256_including_large() {
+        let m = modulus();
+        let cases = [
+            (BigInt::from(2), BigInt::from(3)),
+            (BigInt::from(100), BigInt::from(200)),
+            (umax(), BigInt::from(1)),            // wraps to 0
+            (umax(), BigInt::from(2)),            // wraps to 1
+            (pow2(255), pow2(255)),               // 2^256 -> 0
+            (pow2(255) - 1, pow2(255) - 1),       // 2^256 - 2 (result >= 2^255)
+            (pow2(128), pow2(128)),               // crosses the limb boundary
+            (pow2(200) + 5, pow2(200) + 7),
+            (umax(), umax()),                     // 2^257-2 mod 2^256 = 2^256-2
+        ];
+        for (a, b) in cases {
+            let expect = ((&a + &b) % &m + &m) % &m;
+            assert_eq!(run_add(&a, &b), expect, "add({a}, {b})");
+        }
     }
 
     #[test]
