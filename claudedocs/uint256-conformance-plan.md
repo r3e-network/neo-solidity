@@ -55,13 +55,44 @@ revert for silent miscomputation, which is strictly worse.
 
 **Gating item:** the checked software arithmetic must be emitted as **CALL helper
 functions** (each routine has its own `INITSLOT`, so it cannot be inlined into a
-caller that already has one). That is a codegen feature — emit the helpers once
-per contract, manage their addresses, and route every uint256 arith site through
-`CALL`. That, plus the comparison/literal/ABI flip and adding ≥2^255
-contract-level tests (the suite under-covers them), is the remaining work. It is
-de-risked now (small blast radius, validated routines) but spans multiple
-sessions and cannot be landed green-in-one without shipping a silent regression
-midway.
+caller that already has one). The codegen infra is ready: `generate_contract_bytecode`
+(`bytecode_core.rs`) already resolves `CALL_L` patches by target *name* against an
+`offset_map`, so synthetic helper functions can be appended after the methods and
+named-CALLed from uint256 op sites (op sites get type info from
+`ir/expressions/dispatch/binary.rs`). Route via new IR instructions lowered in
+`bytecode_emit_ir.rs`; reserve no extra method locals (helpers have own frames).
+
+**Measured migration set (the second flip — simulator two's-complement encode +
+conformant literal — run against the whole suite).** Exactly **15** tests, all
+named, all expected-value migrations or coupled-wiring, *not* a rewrite:
+- ABI encode/decode must read a two's-complement uint256 as **unsigned**
+  (sign-extend to 32B): `abi_decode_uint256_max_roundtrip`,
+  `abi_decode_uint256_half_roundtrip`,
+  `abi_decode_uint256_array_with_high_bit_elements_roundtrip`,
+  `abi_decode_struct_with_negative_and_max_fields_roundtrip`,
+  `abi_roundtrip_props::{roundtrip_uint256, roundtrip_tuple_uint_addr,
+  roundtrip_int256}`.
+- Old-model unit pins to update: `test_bitwise_not_uint256_zero_returns_all_ones`
+  (`~0 = -1` all-ones IS the node result), `push_integer_bigint_coerces_out_of_range_unsigned_literals`.
+- Ternary/cast/storage reinterpretation: `batch39_n2_ternary_typed_arms_and_signed_widening`,
+  `batch57_gg2_uint256_cast_of_int256_two_complement_reinterpretation`,
+  `batch78_bbb4_storage_uint_to_signed_reinterpret_max_equals_minus_one`
+  (its very name — "max equals minus one" — is the two's-complement identity),
+  `batch80_ddd4_ternary_type_coercion_int_uint_mixed`,
+  `task108_catch_panic_int256_min_div_neg_one_routes_canonical`.
+- Overflow detection (the arith coupling): `arith_scope_uint256_mul_overflow` —
+  needs the software checked-mul (native MUL wraps so `GetSize>32` never trips).
+
+**Validated en route:** with the faithful (two's-complement) simulator encode, the
+unsigned-comparison routine now executes **correctly** in the runtime (the XOR-2^255
+trick requires two's-complement, which the old magnitude encode denied it). So
+comparison wiring is unblocked.
+
+This is a bounded, de-risked, multi-step landing (15 migrations + ABI unsigned-read
++ comparison wiring + arithmetic CALL-helpers + ≥2^255 contract tests), not a
+rewrite — but the pieces are coupled (a partial flip silently breaks ≥2^255
+comparison, which the suite under-covers) so they must land together, which is why
+it cannot be a single green-in-one-session commit.
 
 ## Problem
 
