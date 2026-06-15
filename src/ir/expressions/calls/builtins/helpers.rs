@@ -778,9 +778,14 @@ fn emit_abi_decode_dynamic_top_level(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
-    // For a single top-level dynamic arg, the tail offset is fixed at
-    // 0x20. Skip dereferencing the head — go straight to the tail.
-    emit_abi_decode_dynamic_tail(buffer_local, 32, value_type, ctx, instructions);
+    // Read the ACTUAL tail offset from head slot 0 rather than assuming the
+    // canonical 0x20: a non-canonical (but valid) encoder may place the tail at
+    // a different offset, and EVM decoders honor the encoded head pointer.
+    let tmp_id = ctx.next_label();
+    let offset_local = ctx.allocate_local(format!("__abi_dyn_top_off_{tmp_id}"), None);
+    emit_abi_decode_u256_at(buffer_local, 0, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(offset_local));
+    emit_abi_decode_dynamic_tail_runtime(buffer_local, offset_local, value_type, ctx, instructions);
 }
 
 /// Decode a dynamic tuple member at head index `index`.
