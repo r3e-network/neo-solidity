@@ -172,6 +172,62 @@ fn emit_uint256_unchecked_add(out: &mut Vec<u8>) {
     out.push(0x9E); // ADD  -> result
 }
 
+/// Emit `a - b mod 2^256` (UNCHECKED) for operands `[.., a, b]`. Mirrors the add
+/// routine with a borrow: the low-limb difference can go negative, and its
+/// arithmetic right shift by 128 yields `-1` (borrow) or `0`, which is folded
+/// straight into the high limb.
+///
+///   lo = (a & M128) - (b & M128)                         // in (-2^128, 2^128)
+///   hi = (a>>128 & M128) - (b>>128 & M128) + (lo>>128)   // (lo>>128) = -borrow
+///   result = sign_ext128(hi & M128) << 128  +  (lo & M128)
+#[allow(dead_code)]
+fn emit_uint256_unchecked_sub(out: &mut Vec<u8>) {
+    out.push(0x57); // INITSLOT
+    out.push(0x03); // 3 locals
+    out.push(0x00); // 0 params
+    out.push(0x71); // STLOC1  (b)
+    out.push(0x70); // STLOC0  (a)
+    // lo = (a & M128) - (b & M128)
+    out.push(0x68); // LDLOC0
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9F); // SUB
+    out.push(0x72); // STLOC2  (lo)
+    // hi = (a>>128 & M128) - (b>>128 & M128) + (lo>>128)
+    out.push(0x68); // LDLOC0
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x69); // LDLOC1
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9F); // SUB
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_push_u8(out, 128);
+    out.push(0xA9); // SHR  (lo>>128 = -borrow, in {-1, 0})
+    out.push(0x9E); // ADD  -> hi
+    // hi_signed = sign_ext128(hi & M128)
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x93); // XOR
+    emit_pushint256_le(out, &BIAS127_LE);
+    out.push(0x9F); // SUB  -> hi_signed
+    // result = (hi_signed << 128) + (lo & M128)
+    emit_push_u8(out, 128);
+    out.push(0xA8); // SHL
+    out.push(0x6A); // LDLOC2 (lo)
+    emit_pushint256_le(out, &MASK128_LE);
+    out.push(0x91); // AND
+    out.push(0x9E); // ADD  -> result
+}
+
 #[cfg(test)]
 mod uint256_ops_tests {
     use super::*;
@@ -429,6 +485,41 @@ mod uint256_ops_tests {
         let signed = st.last().cloned().expect("result");
         let m = modulus();
         ((signed % &m) + &m) % &m
+    }
+
+    /// Run the unchecked-sub routine and return the result as an unsigned
+    /// uint256 in [0, 2^256).
+    fn run_sub(a: &BigInt, b: &BigInt) -> BigInt {
+        let mut code = Vec::new();
+        emit_pushint256_le(&mut code, &u256_le(a));
+        emit_pushint256_le(&mut code, &u256_le(b));
+        emit_uint256_unchecked_sub(&mut code);
+        code.push(0x40);
+        let st = faithful_run(&code).expect("faithful run");
+        let signed = st.last().cloned().expect("result");
+        let m = modulus();
+        ((signed % &m) + &m) % &m
+    }
+
+    #[test]
+    fn unchecked_sub_wraps_mod_2_256_including_large() {
+        let m = modulus();
+        let cases = [
+            (BigInt::from(5), BigInt::from(3)),
+            (BigInt::from(3), BigInt::from(5)),   // wraps to 2^256-2
+            (BigInt::from(0), BigInt::from(1)),   // wraps to 2^256-1
+            (umax(), umax()),                     // 0
+            (umax(), BigInt::from(1)),            // 2^256-2
+            (pow2(255), BigInt::from(1)),         // 2^255-1 (crosses sign)
+            (pow2(255), pow2(255)),               // 0
+            (pow2(128), BigInt::from(1)),         // borrow across limb boundary
+            (BigInt::from(0), umax()),            // 1
+            (pow2(200), pow2(199)),               // 2^199
+        ];
+        for (a, b) in cases {
+            let expect = ((&a - &b) % &m + &m) % &m;
+            assert_eq!(run_sub(&a, &b), expect, "sub({a}, {b})");
+        }
     }
 
     #[test]
