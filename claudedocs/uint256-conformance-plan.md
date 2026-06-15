@@ -1,5 +1,41 @@
 # uint256 ≥ 2^255 conformance — implementation plan (#12)
 
+## Status (2026-06-15)
+
+**Phase 1 — software 256-bit routines: DONE & validated.**
+`src/cli/bytecode/uint256_ops.rs` emits conformant NeoVM bytecode for the full
+uint256 operation set, each operating on the **32-byte two's-complement**
+representation with **no intermediate exceeding 32 bytes** (so it runs on a real
+Neo node, unlike today's 33-byte literals / signed comparisons):
+
+| Op | Function(s) | Technique |
+|----|-------------|-----------|
+| `<` `>` `<=` `>=` | `emit_uint256_unsigned_{lt,gt,le,ge}` | XOR-2^255 order-preserving map |
+| `+` | `emit_uint256_{unchecked,checked}_add` | 128-bit limbs; carry-out = overflow (Panic 0x11) |
+| `-` | `emit_uint256_{unchecked,checked}_sub` | 128-bit limbs; final borrow = underflow |
+| `*` | `emit_uint256_{unchecked,checked}_mul` | 64-bit-limb schoolbook; high-column ≠ 0 = overflow |
+| `>>` | `emit_uint256_logical_shr` | logical (native SHR is arithmetic) |
+| `<<` | `emit_uint256_shl` | mask-before-shift limbs, wraps mod 2^256 |
+| `/` `%` | `emit_uint256_divmod_body` | unsigned reduction (HD 9-3); CALLs add/sub; Panic 0x12 on /0 |
+
+Validated by 15 unit tests against a **faithful reference VM** (signed
+two's-complement, 32-byte fault, call frames) in the same file — including
+values ≥ 2^255, limb boundaries, full wrap, and overflow/underflow/÷0 panics.
+`type(uint256).max`, the ERC-20 max-approval pattern, `1<<255` and large-balance
+`/1e18` are all covered by these primitives.
+
+**Phase 2 — wiring + simulator faithfulness: NOT STARTED (the real blocker).**
+The routines are not yet wired into lowering, because the **runtime simulator is
+itself non-conformant** (see section below) and therefore (a) hides the on-chain
+fault from the suite and (b) **cannot validate conformant bytecode** — wiring the
+routines in would turn dozens of currently-green tests red. Making the simulator
+faithful is a rewrite of the entire `StackItem` integer model (every
+arith/bitwise/compare/encode path) plus migration of ~1800 tests that encode the
+present unsigned-magnitude behavior: genuinely multi-session, not landable green
+in one. The honest path is either that rewrite or adding a **neo-go / Neo N3
+testnet** faithful-VM test backend to validate the conformant bytecode, then
+wiring + test migration as one reviewed change.
+
 ## Problem
 
 NeoVM `Integer` stack items are **signed two's-complement and capped at 32 bytes**
