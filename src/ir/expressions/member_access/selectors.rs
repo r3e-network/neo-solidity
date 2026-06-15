@@ -120,8 +120,27 @@ fn try_lower_selector_member_access(
         }
     }
 
-    // `ErrorName.selector` style custom-error selectors.
+    // `ErrorName.selector` style custom-error selectors. The selector MUST hash
+    // the parametrized canonical signature `Name(t1,t2,...)` (matching solc and
+    // `revert ErrorName(args)`), not the bare `Name()` — otherwise a declared
+    // error with parameters gets a different 4-byte selector than the one its own
+    // revert emits and than off-chain decoders expect.
     if let Expression::Variable(name) = inner {
+        let declared_params: Option<Vec<String>> = ctx
+            .error_signature(&name.name)
+            .map(|sig| sig.param_types.clone());
+        if let Some(param_types) = declared_params {
+            let canonical: Vec<String> = param_types
+                .iter()
+                .map(|ty| declared_error_param_canonical(ty, ctx))
+                .collect();
+            let selector =
+                selector_from_signature(&format!("{}({})", name.name, canonical.join(",")));
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                selector.to_vec(),
+            )));
+            return Some(true);
+        }
         if let Some(selector) = fallback_selector_for_name(&name.name) {
             instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
                 selector.to_vec(),
