@@ -5,6 +5,22 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
     let mut exposed_overload_counts: HashSet<(String, usize)> = HashSet::new();
     let mut constructor_count = 0usize;
 
+    // Struct field map so the duplicate-signature check canonicalizes a struct
+    // parameter to its ABI TUPLE shape, not its bare name. Two different
+    // structs with the same shape (`struct A{uint x}` / `struct B{uint y}`)
+    // produce the same 4-byte selector, so `f(A)` and `f(B)` collide on-chain —
+    // solc rejects this, but a name-keyed check (`f(A)` != `f(B)`) misses it.
+    let struct_fields_map: HashMap<String, Vec<(String, String)>> = metadata
+        .structs
+        .iter()
+        .map(|s| {
+            (
+                s.name.clone(),
+                s.fields.iter().map(|f| (f.name.clone(), f.ty.clone())).collect(),
+            )
+        })
+        .collect();
+
     // Used to reduce false-positive diagnostics for `return foo();` in
     // multi-return functions. NeoVM lowering represents tuples as arrays, so
     // returning another tuple-returning function call is valid.
@@ -48,7 +64,12 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                 let param_signature: Vec<String> = function
                     .parameters
                     .iter()
-                    .map(|param| canonical_param_type(&param.ty))
+                    .map(|param| {
+                        crate::utils::canonical_param_type_with_structs(
+                            &param.ty,
+                            &struct_fields_map,
+                        )
+                    })
                     .collect();
                 let signature = format!("{}({})", function.name, param_signature.join(","));
 

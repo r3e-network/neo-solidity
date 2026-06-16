@@ -498,3 +498,36 @@ contract C {
         "`return;` with a named return must compile"
     );
 }
+
+#[test]
+fn same_shape_struct_overloads_flagged_as_selector_collision() {
+    // struct A{uint256 x} and struct B{uint256 y} both canonicalize to the ABI
+    // tuple (uint256), so f(A) and f(B) share a 4-byte selector and collide
+    // on-chain — solc rejects this; a name-keyed check (f(A) != f(B)) missed it.
+    let collide = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct A { uint256 x; }
+    struct B { uint256 y; }
+    function f(A memory a) public pure returns (uint256) { return a.x; }
+    function f(B memory b) public pure returns (uint256) { return b.y; }
+}"#;
+    assert!(
+        compile_contracts(collide, false, 2).is_err(),
+        "same-shape struct overloads must be flagged as a selector collision"
+    );
+
+    // Distinct-shape struct overloads have distinct selectors -> still compile.
+    let ok = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct A { uint256 x; }
+    struct B { address y; }
+    function f(A memory a) public pure returns (uint256) { return a.x; }
+    function f(B memory b) public pure returns (uint256) { b; return 0; }
+}"#;
+    assert!(
+        compile_contracts(ok, false, 2).is_ok(),
+        "distinct-shape struct overloads must compile, got err"
+    );
+}
