@@ -250,7 +250,11 @@ contract NEP17 is INEP17, FrameworkBase {
         address to,
         uint256 amount,
         Any calldata data
-    ) public override whenTransfersEnabled validReceiver(to) validAmount(amount) returns (bool) {
+    ) public override whenTransfersEnabled validReceiver(to) returns (bool) {
+        // NEP-17 requires a zero-amount transfer to be processed normally
+        // (emit Transfer, run the receiver callback, return true) — so
+        // `validAmount` is intentionally NOT applied here; it stays on
+        // mint/burn where a non-zero amount is a legitimate business rule.
         // Authorization: the owner (acting as the direct sender or via witness)
         // or a spender holding sufficient allowance. Cache the witness result so
         // it is consulted once for both the check and the allowance accounting.
@@ -464,9 +468,14 @@ contract NEP17 is INEP17, FrameworkBase {
         _balances[to] += amount;
         
         emit Transfer(from, to, amount);
-        
-        // Call onNEP17Payment if recipient is a contract
-        if (to.code.length > 0) {
+
+        // Call onNEP17Payment if the recipient is a *different* contract.
+        // Escrowing to `address(this)` (timelock / conditional / staking /
+        // scheduled transfers all move tokens to self) is an internal
+        // bookkeeping move: this contract does not implement onNEP17Payment,
+        // so invoking the callback on itself would fault and revert the whole
+        // escrow-in leg. Skipping self also avoids spurious self-reentrancy.
+        if (to != address(this) && to.code.length > 0) {
             try INEP17Receiver(to).onNEP17Payment(from, amount, data) {
                 // Success
             } catch {
