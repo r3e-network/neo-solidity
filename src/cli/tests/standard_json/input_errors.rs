@@ -621,6 +621,16 @@ fn standard_json_accepts_global_symbol_import_for_dependency_resolution() {
         output["contracts"]["A.sol"]["A"].is_object(),
         "expected compiled contract artifact for A.sol/A"
     );
+    // The alias-resolution limitation is surfaced LOUDLY (a warning), not left
+    // as a silent bare-name bind: a global-symbol namespace must emit an
+    // IMPORT_ALIAS_BY_NAME warning so collisions can be caught by the author.
+    assert!(
+        errors.iter().any(|e| {
+            e.get("severity").and_then(Value::as_str) == Some("warning")
+                && e.get("code").and_then(Value::as_str) == Some("IMPORT_ALIAS_BY_NAME")
+        }),
+        "global-symbol import must emit an IMPORT_ALIAS_BY_NAME warning: {errors:?}"
+    );
 }
 
 #[test]

@@ -109,6 +109,18 @@ fn build_combined_source_with_import_validation(
         }));
     }
 
+    fn push_warning(errors: &mut Vec<Value>, file: &str, typ: &str, code: &str, message: String) {
+        errors.push(json!({
+            "component": "neo-devpack-solidity",
+            "severity": "warning",
+            "type": typ,
+            "code": code,
+            "sourceLocation": { "file": file },
+            "formattedMessage": message,
+            "message": message,
+        }));
+    }
+
     let available: HashSet<String> = sources.iter().map(|(name, _, _)| name.clone()).collect();
     let mut content_map: HashMap<String, String> = HashMap::new();
     for (name, content, _) in sources {
@@ -160,9 +172,38 @@ fn build_combined_source_with_import_validation(
                         );
                     }
                 }
-                Import::Rename(path, _renames, _) => {
+                Import::Rename(path, renames, _) => {
                     if let ImportPath::Filename(lit) = path {
                         imports.push(lit.string.clone());
+                        // Symbol RENAME aliases (`import {A as B}`) are resolved
+                        // by the underlying symbol name, not the alias binding:
+                        // sources are concatenated and re-parsed, so an alias
+                        // that shadows or collides with another top-level name
+                        // in the import closure can bind to the wrong
+                        // declaration. Surface this loudly so it is not a silent
+                        // miscompile (vs. a silent bare-name bind).
+                        let aliases: Vec<String> = renames
+                            .iter()
+                            .filter_map(|(orig, alias)| {
+                                alias.as_ref().map(|a| format!("{} as {}", orig.name, a.name))
+                            })
+                            .collect();
+                        if !aliases.is_empty() {
+                            push_warning(
+                                errors,
+                                file_name,
+                                "ImportAliasResolvedByName",
+                                "IMPORT_ALIAS_BY_NAME",
+                                format!(
+                                    "import alias(es) [{}] from '{}' are resolved by the \
+                                     underlying symbol name, not the alias; ensure the \
+                                     underlying names do not collide with other top-level \
+                                     definitions in the import closure",
+                                    aliases.join(", "),
+                                    lit.string
+                                ),
+                            );
+                        }
                     } else {
                         push_error(
                             errors,
@@ -173,9 +214,22 @@ fn build_combined_source_with_import_validation(
                         );
                     }
                 }
-                Import::GlobalSymbol(path, _, _) => {
+                Import::GlobalSymbol(path, namespace, _) => {
                     if let ImportPath::Filename(lit) = path {
                         imports.push(lit.string.clone());
+                        push_warning(
+                            errors,
+                            file_name,
+                            "ImportAliasResolvedByName",
+                            "IMPORT_ALIAS_BY_NAME",
+                            format!(
+                                "global import namespace '{}' for '{}' is resolved by the \
+                                 underlying symbol names, not the namespace; references like \
+                                 '{}.Symbol' bind by bare name and may collide with other \
+                                 top-level definitions in the import closure",
+                                namespace.name, lit.string, namespace.name
+                            ),
+                        );
                     } else {
                         push_error(
                             errors,
