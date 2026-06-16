@@ -748,7 +748,13 @@ contract NEP17 is INEP17, FrameworkBase {
         // Consume request before state transitions to prevent callback replay.
         Storage.remove(abi.encode("conditional_transfer", localRequestId));
 
-        if (code == 0 && abi.decode(result, (bool))) {
+        // The oracle `result` is the filtered response body, NOT necessarily a
+        // 32-byte ABI word. `abi.decode(result, (bool))` on a shorter body
+        // Panics (0x41) and would revert this callback AFTER the request record
+        // was consumed above — permanently stranding the escrow. Short-circuit
+        // on `result.length >= 32` so an unparsable/short result falls through
+        // to the refund branch instead of reverting.
+        if (code == 0 && result.length >= 32 && abi.decode(result, (bool))) {
             _transfer(address(this), to, amount, "");
             emit ConditionalTransferExecuted(from, to, amount);
         } else {
