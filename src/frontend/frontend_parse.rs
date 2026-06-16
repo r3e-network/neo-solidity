@@ -819,38 +819,74 @@ fn next_patch(version: Version) -> Version {
     }
 }
 
-/// Build a map from source positions to their preceding Natspec comments.
-fn build_comment_map(comments: &[Comment], _source: &str) -> HashMap<usize, NatspecDocIR> {
+/// Advance `pos` over ASCII whitespace in `bytes`, returning the index of the
+/// next non-whitespace byte (or the end of input).
+fn skip_whitespace_forward(bytes: &[u8], mut pos: usize) -> usize {
+    while pos < bytes.len() && bytes[pos].is_ascii_whitespace() {
+        pos += 1;
+    }
+    pos
+}
+
+/// Build a map from a DECLARATION's start position to the Natspec block that
+/// immediately precedes it. Each accumulated doc block is keyed at the first
+/// non-whitespace byte AFTER it (i.e. the start of the declaration it
+/// documents), so attachment is an exact lookup at the declaration's `start`
+/// — independent of distance, and never bleeding across an intervening
+/// declaration. A doc run is also broken when a non-whitespace token sits
+/// between two doc comments (that earlier doc belongs to the intervening
+/// declaration, not the later block).
+fn build_comment_map(comments: &[Comment], source: &str) -> HashMap<usize, NatspecDocIR> {
     let mut map = HashMap::new();
-    let mut last_doc_comment: Option<(usize, String)> = None;
+    let bytes = source.as_bytes();
+    // (end_of_last_doc_line, accumulated_text)
+    let mut pending: Option<(usize, String)> = None;
 
     for comment in comments {
         match comment {
             Comment::DocLine(loc, text) | Comment::DocBlock(loc, text) => {
-                if let Loc::File(_, _, end) = loc {
-                    // Accumulate doc comments - update end position to latest
+                if let Loc::File(_, start, end) = loc {
                     let clean_text = clean_doc_comment(text);
-                    if let Some((ref mut end_pos, ref mut existing)) = last_doc_comment {
-                        *end_pos = *end; // Update to latest end position
-                        existing.push('\n');
-                        existing.push_str(&clean_text);
+                    let continues = match &pending {
+                        Some((prev_end, _)) => bytes
+                            .get(*prev_end..*start)
+                            .is_some_and(|gap| gap.iter().all(u8::is_ascii_whitespace)),
+                        None => false,
+                    };
+                    if continues {
+                        if let Some((prev_end, existing)) = pending.as_mut() {
+                            *prev_end = *end;
+                            existing.push('\n');
+                            existing.push_str(&clean_text);
+                        }
                     } else {
-                        last_doc_comment = Some((*end, clean_text));
+                        if let Some((prev_end, doc_text)) = pending.take() {
+                            map.insert(
+                                skip_whitespace_forward(bytes, prev_end),
+                                parse_natspec(&doc_text),
+                            );
+                        }
+                        pending = Some((*end, clean_text));
                     }
                 }
             }
             Comment::Line(_loc, _) | Comment::Block(_loc, _) => {
-                // Regular comments break doc comment sequences
-                if let Some((end_pos, doc_text)) = last_doc_comment.take() {
-                    map.insert(end_pos, parse_natspec(&doc_text));
+                // Regular comments break doc comment sequences.
+                if let Some((prev_end, doc_text)) = pending.take() {
+                    map.insert(
+                        skip_whitespace_forward(bytes, prev_end),
+                        parse_natspec(&doc_text),
+                    );
                 }
             }
         }
     }
 
-    // Handle trailing doc comment
-    if let Some((end_pos, doc_text)) = last_doc_comment {
-        map.insert(end_pos, parse_natspec(&doc_text));
+    if let Some((prev_end, doc_text)) = pending.take() {
+        map.insert(
+            skip_whitespace_forward(bytes, prev_end),
+            parse_natspec(&doc_text),
+        );
     }
 
     map
@@ -959,19 +995,15 @@ fn save_tag_content(doc: &mut NatspecDocIR, tag: &str, content: &str) {
     }
 }
 
-/// Find the doc comment that precedes a given source location
+/// Find the doc comment that precedes a given declaration. `build_comment_map`
+/// keys each doc block at the start of the declaration it documents, so this is
+/// an exact lookup at the declaration's `start` — no fixed-distance backward
+/// scan (which mis-attached across intervening tokens or missed docs separated
+/// by more than 100 bytes of whitespace).
 fn find_preceding_doc(loc: &Loc, comment_map: &HashMap<usize, NatspecDocIR>) -> NatspecDocIR {
     if let Loc::File(_, start, _) = loc {
-        // Look for a doc comment that ends near this start position
-        // Allow some whitespace between comment end and definition start
-        for offset in 0..100 {
-            if let Some(pos) = start.checked_sub(offset) {
-                if let Some(doc) = comment_map.get(&pos) {
-                    return doc.clone();
-                }
-            } else {
-                break;
-            }
+        if let Some(doc) = comment_map.get(start) {
+            return doc.clone();
         }
     }
     NatspecDocIR::default()
