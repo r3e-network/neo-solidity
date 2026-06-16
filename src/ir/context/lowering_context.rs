@@ -96,7 +96,7 @@ struct LoweringContext<'a> {
     contract_types: &'a HashSet<String>,
     selector_registry: &'a SelectorRegistry,
     function_names: &'a HashSet<String>,
-    function_overloads: &'a HashMap<(String, usize), String>,
+    function_overloads: &'a FunctionOverloadTable,
     /// Every observed first-parameter type for each overload key
     /// (name, arg_count).
     ///
@@ -235,6 +235,30 @@ struct FunctionPointerBinding {
     has_return: bool,
 }
 
+/// Dispatch table for same-name functions: `(name, arity)` maps to every
+/// overload sharing that key, each carrying its parameter ValueTypes and the
+/// type-mangled neo_name. See [`LoweringContext::resolve_overload`].
+pub(crate) type FunctionOverloadTable =
+    HashMap<(String, usize), Vec<(Vec<ValueType>, String)>>;
+
+/// Compatibility test for same-arity overload resolution: is a call argument
+/// of type `arg` an acceptable match for a parameter of type `param`?
+///
+/// Integers match by SIGNEDNESS only — Solidity rejects same-arity overloads
+/// that differ solely by integer width as ambiguous, so width never has to
+/// distinguish them, whereas `int` vs `uint` can. Everything else (address,
+/// bool, bytesN, string, struct, ...) must match exactly so e.g. `f(uint256)`
+/// and `f(address)` are told apart.
+fn overload_arg_matches(arg: &ValueType, param: &ValueType) -> bool {
+    match (arg, param) {
+        (
+            ValueType::Integer { signed: a, .. },
+            ValueType::Integer { signed: p, .. },
+        ) => a == p,
+        _ => arg == param,
+    }
+}
+
 impl<'a> LoweringContext<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -258,7 +282,7 @@ impl<'a> LoweringContext<'a> {
         contract_types: &'a HashSet<String>,
         selector_registry: &'a SelectorRegistry,
         function_names: &'a HashSet<String>,
-        function_overloads: &'a HashMap<(String, usize), String>,
+        function_overloads: &'a FunctionOverloadTable,
         function_first_param_types: &'a HashMap<(String, usize), Vec<ValueType>>,
         function_return_types: &'a HashMap<(String, usize), ValueType>,
         using_target_types: &'a [Option<String>],
@@ -717,7 +741,49 @@ impl<'a> LoweringContext<'a> {
     fn neo_function_name(&self, name: &str, arg_count: usize) -> Option<String> {
         self.function_overloads
             .get(&(name.to_string(), arg_count))
-            .cloned()
+            .and_then(|bucket| bucket.first().map(|(_, neo_name)| neo_name.clone()))
+    }
+
+    /// Resolve a same-arity overload by argument type. Solidity allows
+    /// `f(uint256)` and `f(address)` to share `(name, arity)`; the frontend
+    /// mangles them into distinct neo_names, and this picks the right one by
+    /// matching the call's inferred argument types against each overload's
+    /// declared parameter types. With a single overload it returns that name
+    /// directly (the common, non-overloaded case). Returns `None` when several
+    /// overloads exist and none matches confidently, so the caller fails loud
+    /// instead of dispatching to the wrong function.
+    fn resolve_overload(
+        &self,
+        name: &str,
+        arg_count: usize,
+        arg_types: &[Option<ValueType>],
+    ) -> Option<String> {
+        let bucket = self.function_overloads.get(&(name.to_string(), arg_count))?;
+        if bucket.len() == 1 {
+            return Some(bucket[0].1.clone());
+        }
+        let mut best: Option<(usize, &String)> = None;
+        for (params, neo_name) in bucket {
+            if params.len() != arg_count {
+                continue;
+            }
+            let mut score = 0usize;
+            let mut compatible = true;
+            for (param, arg) in params.iter().zip(arg_types.iter()) {
+                match arg {
+                    Some(arg) if overload_arg_matches(arg, param) => score += 1,
+                    Some(_) => {
+                        compatible = false;
+                        break;
+                    }
+                    None => {} // unknown arg type — neither matches nor disqualifies
+                }
+            }
+            if compatible && best.is_none_or(|(best_score, _)| score > best_score) {
+                best = Some((score, neo_name));
+            }
+        }
+        best.map(|(_, neo_name)| neo_name.clone())
     }
 
     /// Task #91 — fetch the inlinable body for a library function whose first

@@ -197,6 +197,13 @@ fn try_lower_variable_call(
         }
 
         if ctx.function_names.contains(&identifier.name) {
+            // Infer argument types BEFORE lowering (lowering consumes the
+            // expressions onto the stack) so a same-arity overload can be
+            // resolved by type.
+            let arg_types: Vec<Option<ValueType>> = args
+                .iter()
+                .map(|arg| infer_type_from_expression(arg, ctx))
+                .collect();
             let mut success = true;
             for arg in args {
                 if !lower_expression(arg, ctx, instructions) {
@@ -205,7 +212,9 @@ fn try_lower_variable_call(
             }
 
             if success {
-                if let Some(neo_name) = ctx.neo_function_name(&identifier.name, args.len()) {
+                if let Some(neo_name) =
+                    ctx.resolve_overload(&identifier.name, args.len(), &arg_types)
+                {
                     instructions.push(Instruction::CallFunction {
                         name: neo_name,
                         arg_count: args.len(),

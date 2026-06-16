@@ -124,7 +124,14 @@ impl Module {
             .map(|method| method.name.clone())
             .collect();
 
-        let mut function_overloads = HashMap::new();
+        // `(name, arity)` → every overload sharing that key, each carrying its
+        // full parameter ValueTypes and the (already type-mangled) neo_name.
+        // Solidity allows overloading by parameter TYPE at the same arity
+        // (`f(uint256)` / `f(address)`), which the frontend mangles into
+        // distinct neo_names; keeping ALL of them lets the call site dispatch
+        // by argument type instead of collapsing to the last declaration.
+        let mut function_overloads: FunctionOverloadTable =
+            HashMap::new();
         // Map `(name, arity)` → every observed first-parameter type. Solidity
         // allows overloading by parameter types, so two `toInt128(int256)` /
         // `toInt128(uint256)` declarations share the same `(name, arity)`
@@ -142,7 +149,14 @@ impl Module {
         let mut function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
         for method in &metadata.methods {
             let key = (method.name.clone(), method.parameters.len());
-            function_overloads.insert(key.clone(), method.neo_name.clone());
+            {
+                let param_types: Vec<ValueType> =
+                    method.parameters.iter().map(ValueType::from_parameter).collect();
+                let bucket = function_overloads.entry(key.clone()).or_default();
+                if !bucket.iter().any(|(_, n)| n == &method.neo_name) {
+                    bucket.push((param_types, method.neo_name.clone()));
+                }
+            }
             if let Some(first_param) = method.parameters.first() {
                 let ty = ValueType::from_parameter(first_param);
                 let bucket = function_first_param_types.entry(key.clone()).or_default();

@@ -211,6 +211,25 @@ contract TupleDynStruct {
 }
 
 #[test]
+fn same_arity_overloads_dispatch_by_argument_type() {
+    // `pick(uint256)` and `pick(address)` share (name, arity)=(pick,1).
+    // Each call must dispatch to the overload matching its argument type;
+    // previously the dispatch table collapsed to the last declaration, so one
+    // of them ran the wrong body. pick(uint256(5))=105, pick(address(0))=7.
+    assert_returns_true(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function pick(uint256 x) internal pure returns (uint256) { return 100 + x; }
+    function pick(address a) internal pure returns (uint256) { return a == address(0) ? 7 : 9; }
+    function check() public pure returns (bool) {
+        return pick(uint256(5)) == 105 && pick(address(0)) == 7;
+    }
+}"#,
+    );
+}
+
+#[test]
 fn negative_signed_multi_value_return_sign_extends() {
     // A multi-value static return with a NEGATIVE signed integer must
     // sign-extend that slot to 32 bytes of 0xFF (EVM ABI canonical), not

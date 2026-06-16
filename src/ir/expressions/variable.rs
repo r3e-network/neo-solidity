@@ -97,7 +97,13 @@ fn lower_variable_expression(
         let neo_name = ctx
             .function_overloads
             .iter()
-            .find_map(|((n, _), v)| if n == &identifier.name { Some(v.clone()) } else { None })
+            .find_map(|((n, _), bucket)| {
+                if n == &identifier.name {
+                    bucket.first().map(|(_, neo_name)| neo_name.clone())
+                } else {
+                    None
+                }
+            })
             .unwrap_or_else(|| identifier.name.clone());
         instructions.push(Instruction::PushFunctionOffset { name: neo_name });
         true

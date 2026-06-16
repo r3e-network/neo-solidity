@@ -16,7 +16,7 @@ impl Function {
         contract_types: &HashSet<String>,
         selector_registry: &SelectorRegistry,
         function_names: &HashSet<String>,
-        function_overloads: &HashMap<(String, usize), String>,
+        function_overloads: &FunctionOverloadTable,
         function_first_param_types: &HashMap<(String, usize), Vec<ValueType>>,
         function_return_types: &HashMap<(String, usize), ValueType>,
         using_target_types: &[Option<String>],

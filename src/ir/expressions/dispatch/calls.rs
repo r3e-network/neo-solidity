@@ -397,6 +397,12 @@ fn try_lower_named_function_call(
         }
     }
 
+    // Infer argument types before lowering (which consumes them) for
+    // type-directed same-arity overload resolution.
+    let arg_types: Vec<Option<ValueType>> = ordered_exprs
+        .iter()
+        .map(|expr| infer_type_from_expression(expr, ctx))
+        .collect();
     // Lower each argument in positional order, then emit the call.
     let mut success = true;
     for expr in &ordered_exprs {
@@ -406,7 +412,9 @@ fn try_lower_named_function_call(
     }
 
     if success {
-        if let Some(neo_name) = ctx.neo_function_name(&identifier.name, named_args.len()) {
+        if let Some(neo_name) =
+            ctx.resolve_overload(&identifier.name, named_args.len(), &arg_types)
+        {
             instructions.push(Instruction::CallFunction {
                 name: neo_name,
                 arg_count: named_args.len(),
