@@ -126,7 +126,12 @@ impl NeoType {
                 key.canonical_abi_type(),
                 value.canonical_abi_type()
             ),
-            Self::Any => "any".to_string(),
+            // The devpack placeholder `type Any is bytes` shows as "Any" in the
+            // manifest (see `type_name`), but for ABI SELECTORS and event topic
+            // hashes it must canonicalize to its underlying type `bytes` — "any"
+            // is not a valid Solidity ABI type, so a literal "any" produces a
+            // selector no Ethereum/Solidity tool can reproduce.
+            Self::Any => "bytes".to_string(),
         }
     }
 }

@@ -95,3 +95,31 @@ fn parses_arrays_before_scalar_prefixes() {
         .expect("dynamic array type");
     assert_eq!(dyn_u256.canonical_abi_type(), "uint256[]");
 }
+
+#[test]
+fn canonical_abi_type_expands_structs_and_any() {
+    // Struct -> tuple shape (feeds function/event selectors and the
+    // standard-JSON ABI `components`).
+    let s = NeoType::Struct {
+        name: "P".to_string(),
+        fields: vec![
+            StructFieldType {
+                name: "a".to_string(),
+                ty: Box::new(NeoType::Integer { signed: false, bits: 256 }),
+            },
+            StructFieldType {
+                name: "b".to_string(),
+                ty: Box::new(NeoType::Boolean),
+            },
+        ],
+    };
+    assert_eq!(s.canonical_abi_type(), "(uint256,bool)");
+    // Array of struct.
+    assert_eq!(
+        NeoType::Array(Box::new(s), None).canonical_abi_type(),
+        "(uint256,bool)[]"
+    );
+    // `type Any is bytes` canonicalizes to its underlying ABI type for
+    // selectors (NOT the non-conformant "any").
+    assert_eq!(NeoType::Any.canonical_abi_type(), "bytes");
+}
