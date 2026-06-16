@@ -263,6 +263,19 @@ pub fn disassemble_neovm_bytecode(bytecode: &[u8]) -> String {
                 out.push_str(&format!(" token={idx}"));
             }
 
+            0xDB | 0xD9 => {
+                // CONVERT (0xDB) / ISTYPE (0xD9) take a mandatory 1-byte
+                // StackItemType operand. Without consuming it the operand byte
+                // was re-decoded as the next opcode, misaligning every
+                // subsequent instruction's offset in the listing (the compiler
+                // emits 0xDB 0x21 for essentially every storage-int load).
+                let Some(type_byte) = take(bytecode, &mut pc, 1) else {
+                    out.push_str(" <unexpected EOF>");
+                    break;
+                };
+                out.push_str(&format!(" type=0x{:02x}", type_byte[0]));
+            }
+
             _ => {}
         }
 
