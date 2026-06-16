@@ -427,3 +427,47 @@ contract C {
         "an unresolved member call must fail compilation, got {result:?}"
     );
 }
+
+#[test]
+fn fixed_size_array_event_param_is_not_misclassified_as_integer() {
+    // `uint256[3]` ends with `]` but not `[]`; it must classify as Array, not
+    // Integer, so emitting a fixed-array event param does not raise a spurious
+    // "expected Integer, got Array" type error.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    event E(uint256[3] vals);
+    function go() external {
+        uint256[3] memory a;
+        a[0] = 1; a[1] = 2; a[2] = 3;
+        emit E(a);
+    }
+}"#;
+    let result = compile_contracts(src, false, 2);
+    assert!(
+        result.is_ok(),
+        "fixed-size-array event param must compile, got {result:?}"
+    );
+}
+
+#[test]
+fn indexed_dynamic_array_event_param_compiles() {
+    // An indexed dynamic-array param must hash keccak256(abi.encode(value)),
+    // not the raw Array stack item (which a real node's CryptoLib.keccak256
+    // rejects). At minimum it must compile and lower.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    event E(uint256[] indexed vals, uint256 x);
+    function go() external {
+        uint256[] memory a = new uint256[](2);
+        a[0] = 1; a[1] = 2;
+        emit E(a, 7);
+    }
+}"#;
+    let result = compile_contracts(src, false, 2);
+    assert!(
+        result.is_ok(),
+        "indexed dynamic-array event param must compile, got {result:?}"
+    );
+}

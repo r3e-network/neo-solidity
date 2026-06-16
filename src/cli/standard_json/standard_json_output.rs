@@ -196,9 +196,11 @@ pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
         return "InteropInterface";
     }
 
-    // Array types must be checked FIRST (before checking base types)
-    // This ensures uint256[] returns "Array" not "Integer"
-    if ty.ends_with("[]") {
+    // Array types must be checked FIRST (before checking base types). Any
+    // trailing `]` is an array — both dynamic `T[]` and fixed-size `T[N]`
+    // (which ends with `]` but not `[]`) — so `uint256[3]` returns "Array",
+    // not "Integer".
+    if ty.ends_with(']') {
         return "Array";
     }
 

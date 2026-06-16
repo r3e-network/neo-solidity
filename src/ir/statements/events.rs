@@ -278,9 +278,30 @@ fn lower_emit_evm_shape(
     let mut success = true;
     for (arg, info) in indexed.iter().zip(indexed_params.iter()) {
         if info.is_dynamic {
-            if !lower_expression(arg, ctx, instructions) {
-                success = false;
-                break;
+            let is_bytes_like =
+                info.canonical_type == "string" || info.canonical_type == "bytes";
+            if is_bytes_like {
+                // `string`/`bytes`: the runtime value IS the byte payload, so
+                // keccak256(value) == keccak256(abi.encodePacked(value)) — the
+                // Solidity indexed-topic rule (ethers hashes the raw bytes).
+                if !lower_expression(arg, ctx, instructions) {
+                    success = false;
+                    break;
+                }
+            } else {
+                // Dynamic array / dynamic struct: the indexed topic is
+                // keccak256(abi.encode(value)) (ethers:
+                // keccak256(abiCoder.encode([type], [value]))). Hashing the raw
+                // Array stack item instead would hash a non-conformant blob and
+                // FAULT on a real node (CryptoLib.keccak256 requires a
+                // ByteString). Route through the conformant ABI encoder.
+                match lower_abi_encode_args_direct(&[*arg], ctx, instructions) {
+                    Some(true) => {}
+                    _ => {
+                        success = false;
+                        break;
+                    }
+                }
             }
             instructions.push(Instruction::CallBuiltin {
                 builtin: BuiltinCall::Keccak256,

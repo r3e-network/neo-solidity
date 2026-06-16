@@ -172,7 +172,12 @@ fn build_enum_variant_map(enums: &[EnumMetadata]) -> HashMap<String, HashMap<Str
 fn manifest_type_from_solidity_type(solidity_type: &str) -> ManifestType {
     let ty = solidity_type.trim().to_ascii_lowercase();
 
-    if ty.ends_with("[]") {
+    // Any trailing bracketed dimension is an array — both dynamic `T[]` and
+    // FIXED-SIZE `T[N]` (which ends with `]` but not `[]`). Without the broader
+    // check `uint256[3]` fell through to the `uint`-prefix branch and was
+    // misclassified as Integer, so a fixed-array event parameter triggered a
+    // spurious "expected Integer, got Array" type error.
+    if ty.ends_with(']') {
         return ManifestType::Array;
     }
 
