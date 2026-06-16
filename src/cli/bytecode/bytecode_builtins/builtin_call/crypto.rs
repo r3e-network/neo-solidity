@@ -276,6 +276,12 @@ fn emit_precompile_ecrecover(
 ///
 /// NeoVM MODPOW (0xA6) pops [base, exp, mod] and pushes the result.
 fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
+    // NOTE: this is the MINIMAL 1-byte-operand modexp variant. It assumes the
+    // EIP-198 length headers base_len==exp_len==mod_len==1 and reads the single
+    // operand bytes at fixed offsets 96/97/98 WITHOUT consulting the length
+    // words at 0/32/64. Inputs with wider operands are out of scope and would
+    // mis-read; callers must use 1-byte operands. (A full variable-width
+    // implementation is a separate enhancement.)
     // Stack: [payload] → extract bytes at offsets 96/97/98 as integers.
     bytecode.push(0x4A); // DUP payload
     push_integer_bigint(bytecode, &BigInt::from(96u8));

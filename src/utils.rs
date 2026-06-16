@@ -59,6 +59,19 @@ pub fn canonical_param_type_with_structs(
         .replace(" storage", "");
     let t = without_location.trim();
 
+    // Peel a trailing array suffix (`[]` or `[N]`), canonicalize the ELEMENT
+    // type, then re-append the suffix. Without this, an array-of-struct like
+    // `P[]` tokenizes to the whole `"P[]"` (not a struct-map key) and passes
+    // through verbatim, producing a non-conformant selector instead of the
+    // canonical `(uint256,bool)[]`.
+    if t.ends_with(']') {
+        if let Some(open) = t.rfind('[') {
+            let (element, suffix) = t.split_at(open);
+            let inner = canonical_param_type_with_structs(element.trim(), struct_fields);
+            return format!("{inner}{suffix}");
+        }
+    }
+
     // Handle `struct Name` → expand to `(field_types)`.
     // Handle `enum Name` → uint8.
     // Handle bare `Name` that matches a known struct → expand.
