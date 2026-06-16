@@ -681,22 +681,19 @@ fn try_lower_member_call(
             return Some(success);
         }
 
-        // Compatibility fallback for unresolved member calls.
-        let mut success = true;
-        if !lower_expression(inner.as_ref(), ctx, instructions) {
-            success = false;
-        } else {
-            instructions.push(Instruction::Drop(ValueType::Any));
-        }
-        for arg in args {
-            if !lower_expression(arg, ctx, instructions) {
-                success = false;
-            } else {
-                instructions.push(Instruction::Drop(ValueType::Any));
-            }
-        }
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-        return Some(success);
+        // A member call that matched none of the resolution branches above is
+        // a genuine error (typo'd method, missing/misspelled library function,
+        // member access on a type that doesn't support it). Previously this
+        // fell through to a silent fallback that dropped the arguments and
+        // pushed 0 — masking the error and shipping a function that returns 0
+        // (and loses any side-effecting argument). Fail loud instead, matching
+        // solc's "member not found or not visible".
+        ctx.record_error(format!(
+            "unresolved member call '{}(...)': no matching function, library, \
+             using-directive method, or builtin found for the receiver",
+            member.name
+        ));
+        return Some(false);
     }
 
     None

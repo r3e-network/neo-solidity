@@ -409,3 +409,21 @@ contract Bad {
         "declared NEP-17 with non-native Transfer types must fail, got {result:?}"
     );
 }
+
+#[test]
+fn unresolved_member_call_is_compile_error_not_silent_zero() {
+    // A typo'd / missing member function must be a hard compile error, not a
+    // silent fallback that drops the arguments and returns 0.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f(uint256 x) public pure returns (uint256) {
+        return x.frobnicate();
+    }
+}"#;
+    let result = compile_contracts(src, false, 2);
+    assert!(
+        result.is_err(),
+        "an unresolved member call must fail compilation, got {result:?}"
+    );
+}
