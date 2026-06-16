@@ -471,3 +471,30 @@ contract C {
         "indexed dynamic-array event param must compile, got {result:?}"
     );
 }
+
+#[test]
+fn return_tuple_count_mismatch_is_compile_error() {
+    // `return (1, 2)` from a single-return function is a definite arity
+    // mismatch (solc rejects it) — must now be a hard error, not a warning.
+    let two_for_one = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() public pure returns (uint256) { return (1, 2); }
+}"#;
+    assert!(
+        compile_contracts(two_for_one, false, 2).is_err(),
+        "returning a 2-tuple where 1 value is declared must fail compilation"
+    );
+
+    // But `return;` with a NAMED return is valid Solidity and must still
+    // compile (the named return's current value is returned).
+    let named_return = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() public pure returns (uint256 x) { x = 5; return; }
+}"#;
+    assert!(
+        compile_contracts(named_return, false, 2).is_ok(),
+        "`return;` with a named return must compile"
+    );
+}

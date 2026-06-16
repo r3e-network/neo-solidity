@@ -115,19 +115,39 @@ fn check_return_statements(
             }
         }
         Statement::Return(_, expr) => match (expected_count, expr) {
+            // Returning a value from a no-return function is invalid Solidity,
+            // but the synthesized getter for a `public` state variable reaches
+            // here with `expected_count == 0` (its return type is not tracked
+            // in the metadata the validator sees), so promoting this to an
+            // error false-positives on valid auto-getters. Keep it a warning;
+            // only the explicit-tuple arity mismatches below (which a getter
+            // never produces) are promoted to hard errors.
             (0, Some(_)) => diagnostics.push(Diagnostic::warning(format!(
-                "function '{function_name}' returns a value but is declared without return type"
+                "function '{function_name}' returns a value but is declared without a return type"
             ))),
             (0, None) => {}
+            // `return;` with a declared return is VALID when the returns are
+            // NAMED (their current values are returned), so this stays a
+            // warning to avoid false-positives on valid named-return functions.
             (1, None) => diagnostics.push(Diagnostic::warning(format!(
                 "function '{function_name}' declares a return value but returns without one"
             ))),
+            // A single declared return given an explicit multi-element tuple is
+            // a definite arity mismatch — hard error.
+            (1, Some(Expression::List(_, list))) if list.len() != 1 => {
+                diagnostics.push(Diagnostic::error(format!(
+                    "function '{function_name}' declares 1 return value but returns a {}-tuple",
+                    list.len()
+                )))
+            }
             (1, Some(_)) => {}
             (expected, Some(expr)) => {
                 if let Expression::List(_, list) = expr {
                     let actual = list.len();
                     if actual != expected {
-                        diagnostics.push(Diagnostic::warning(format!(
+                        // An explicit `return (a, b, ...)` whose element count
+                        // disagrees with the declaration is a definite mismatch.
+                        diagnostics.push(Diagnostic::error(format!(
                             "function '{function_name}' expected {expected} return values but found {actual}"
                         )));
                     }
