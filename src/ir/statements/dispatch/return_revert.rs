@@ -868,6 +868,22 @@ fn emit_static_abi_slot_for_value_type(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     match value_type {
+        ValueType::Integer { signed: true, .. } => {
+            // A NEGATIVE signed integer must sign-extend to the full 32-byte
+            // ABI slot (EVM canonical: high bytes are 0xFF). The slot encoder
+            // copies the minimal CONVERT bytes into a ZERO-filled buffer, which
+            // would zero-extend a negative. Mask to 2^256 bits first so a
+            // narrow negative is promoted to its canonical 32-byte
+            // two's-complement, making the zero-pad encode correct.
+            let mask: BigInt = (BigInt::one() << 256usize) - BigInt::one();
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(mask)));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            emit_revert_static_slot_32(ctx, instructions, true);
+            true
+        }
         ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::ByteArray,

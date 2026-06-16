@@ -210,6 +210,45 @@ contract TupleDynStruct {
     );
 }
 
+#[test]
+fn negative_signed_multi_value_return_sign_extends() {
+    // A multi-value static return with a NEGATIVE signed integer must
+    // sign-extend that slot to 32 bytes of 0xFF (EVM ABI canonical), not
+    // zero-extend it. `(-1, 5)` -> slot0 = 0xFF*32, slot1 = uint256(5).
+    let result = compile_and_execute(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() public pure returns (int256, uint256) {
+        return (-1, 5);
+    }
+}"#,
+    );
+    assert!(
+        result.success,
+        "multi-return must succeed; exc={:?}",
+        result.exception
+    );
+    assert_eq!(
+        result.return_data.len(),
+        64,
+        "two static slots = 64 bytes; got {}",
+        hex::encode(&result.return_data)
+    );
+    assert!(
+        result.return_data[..32].iter().all(|b| *b == 0xFF),
+        "int256(-1) must sign-extend to 32 0xFF bytes; got {}",
+        hex::encode(&result.return_data[..32])
+    );
+    let mut slot1 = [0u8; 32];
+    slot1[31] = 5;
+    assert_eq!(
+        &result.return_data[32..64],
+        &slot1,
+        "uint256(5) slot must be big-endian 5"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // 2. Unsigned decode >= 2^255
 // ---------------------------------------------------------------------------

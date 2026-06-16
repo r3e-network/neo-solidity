@@ -342,6 +342,20 @@ fn build_emit_static_abi_slot_for_value_type(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     match value_type {
+        ValueType::Integer { signed: true, .. } => {
+            // Negative signed integers must sign-extend to the full 32-byte ABI
+            // slot; mask to 2^256 bits so the zero-pad encoder sees the
+            // canonical two's-complement (mirrors
+            // return_revert.rs::emit_static_abi_slot_for_value_type).
+            let mask: BigInt = (BigInt::one() << 256usize) - BigInt::one();
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(mask)));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            build_emit_static_slot_32(ctx, instructions, true);
+            true
+        }
         ValueType::Integer { .. } | ValueType::Boolean | ValueType::Address => {
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::ByteArray,
