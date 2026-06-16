@@ -85,9 +85,7 @@ impl ExecutionContext {
         // NeoVM CAT faults when the concatenated result exceeds MaxItemSize.
         if a.len().saturating_add(b.len()) > NEOVM_MAX_ITEM_SIZE {
             return Err(RuntimeError::ExecutionError {
-                message: format!(
-                    "CAT: result exceeds NeoVM MaxItemSize ({NEOVM_MAX_ITEM_SIZE})"
-                ),
+                message: format!("CAT: result exceeds NeoVM MaxItemSize ({NEOVM_MAX_ITEM_SIZE})"),
             });
         }
         a.extend_from_slice(&b);
@@ -101,9 +99,11 @@ impl ExecutionContext {
         // Checked add: `index + count` can overflow usize for crafted operands
         // and wrap past the bounds guard into a slice-index panic (mirrors
         // memcpy_bytes' checked arithmetic above).
-        let end = index.checked_add(count).ok_or(RuntimeError::ExecutionError {
-            message: "SUBSTR: range overflow".to_string(),
-        })?;
+        let end = index
+            .checked_add(count)
+            .ok_or(RuntimeError::ExecutionError {
+                message: "SUBSTR: range overflow".to_string(),
+            })?;
         if end > data.len() {
             return Err(RuntimeError::ExecutionError {
                 message: "SUBSTR: out of bounds".to_string(),

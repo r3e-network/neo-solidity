@@ -32,12 +32,19 @@ fn internal_function_pointer_executes_correctly() {
     let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
     let res = rt.execute(&art.bytecode, &[]).expect("host-level execute");
-    assert!(res.success, "fn-pointer run() must succeed; exc={:?}", res.exception);
+    assert!(
+        res.success,
+        "fn-pointer run() must succeed; exc={:?}",
+        res.exception
+    );
     let mut v: u128 = 0;
     for (i, b) in res.return_data.iter().enumerate().take(16) {
         v |= (*b as u128) << (8 * i);
     }
-    assert_eq!(v, 84, "add then mul through a function pointer must yield 84");
+    assert_eq!(
+        v, 84,
+        "add then mul through a function pointer must yield 84"
+    );
 }
 
 // A function-pointer LOCAL (assigned from a function reference) must dispatch
@@ -62,9 +69,7 @@ fn function_pointer_local_executes_correctly() {
     let arts = compile_contracts(FN_PTR_LOCAL_SRC, false, 2).expect("compile");
     let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
-    let res = rt
-        .execute(&art.bytecode, &[])
-        .expect("host-level execute");
+    let res = rt.execute(&art.bytecode, &[]).expect("host-level execute");
     assert!(
         res.success,
         "fn-pointer-local run() must succeed; exc={:?}",
@@ -98,9 +103,7 @@ contract C {
     let arts = compile_contracts(src, false, 2).expect("compile");
     let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
-    let res = rt
-        .execute(&art.bytecode, &[])
-        .expect("host-level execute");
+    let res = rt.execute(&art.bytecode, &[]).expect("host-level execute");
     assert!(
         !res.success,
         "calling a zero-initialized function pointer must revert, not silently return 0"
@@ -113,7 +116,10 @@ fn function_pointer_uses_pusha_and_calla_not_pushint32() {
     let art = arts.iter().find(|a| a.metadata.name == "C").expect("C");
     let bc = &art.bytecode;
     // CALLA (0x36) is emitted for the indirect call.
-    assert!(bc.contains(&0x36), "function-pointer call must emit CALLA (0x36)");
+    assert!(
+        bc.contains(&0x36),
+        "function-pointer call must emit CALLA (0x36)"
+    );
     // PUSHA (0x0A) is emitted to materialize the code pointer that CALLA consumes.
     // On real NeoVM CALLA faults unless its operand is a Pointer from PUSHA.
     assert!(

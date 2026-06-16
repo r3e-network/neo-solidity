@@ -50,7 +50,10 @@ fn literal_max_returns_unsigned() {
 
 #[test]
 fn literal_one_shl_255() {
-    assert_eq!(returns_uint("return 1 << 255;"), BigUint::from(1u8) << 255u32);
+    assert_eq!(
+        returns_uint("return 1 << 255;"),
+        BigUint::from(1u8) << 255u32
+    );
 }
 
 // ---------------- unsigned ordered comparison ----------------
@@ -85,7 +88,9 @@ fn straddle_2_255_boundary() {
 
 #[test]
 fn equality_on_max() {
-    assert!(returns_bool("return type(uint256).max == type(uint256).max;"));
+    assert!(returns_bool(
+        "return type(uint256).max == type(uint256).max;"
+    ));
     assert!(!returns_bool("return type(uint256).max == 0;"));
     assert!(returns_bool("return type(uint256).max != 0;"));
 }
@@ -107,9 +112,14 @@ contract C {{ function f() external pure returns (uint256) {{ {body} }} }}"#
 #[test]
 fn checked_add_overflow_panics() {
     assert!(panics("return type(uint256).max + 1;"));
-    assert!(panics("uint256 a = type(uint256).max; uint256 b = 5; return a + b;"));
+    assert!(panics(
+        "uint256 a = type(uint256).max; uint256 b = 5; return a + b;"
+    ));
     // In range: no panic, correct value.
-    assert_eq!(returns_uint("return type(uint256).max - 1 + 1;"), u256_max());
+    assert_eq!(
+        returns_uint("return type(uint256).max - 1 + 1;"),
+        u256_max()
+    );
 }
 
 #[test]
@@ -117,7 +127,10 @@ fn checked_sub_underflow_panics() {
     assert!(panics("uint256 a = 3; uint256 b = 5; return a - b;"));
     assert!(panics("return uint256(0) - 1;"));
     // 2^255 - 1 crosses the sign boundary but does not underflow.
-    assert_eq!(returns_uint("return (uint256(1) << 255) - 1;"), (BigUint::from(1u8) << 255u32) - BigUint::from(1u8));
+    assert_eq!(
+        returns_uint("return (uint256(1) << 255) - 1;"),
+        (BigUint::from(1u8) << 255u32) - BigUint::from(1u8)
+    );
 }
 
 #[test]
@@ -133,7 +146,10 @@ fn checked_mul_overflow_panics() {
 
 #[test]
 fn unchecked_arithmetic_wraps() {
-    assert_eq!(returns_uint("unchecked { return type(uint256).max + 1; }"), BigUint::from(0u8));
+    assert_eq!(
+        returns_uint("unchecked { return type(uint256).max + 1; }"),
+        BigUint::from(0u8)
+    );
     assert_eq!(
         returns_uint("unchecked { return uint256(0) - 1; }"),
         u256_max()
@@ -153,20 +169,39 @@ fn unsigned_div_mod_including_large() {
         returns_uint("return type(uint256).max / 2;"),
         (BigUint::from(1u8) << 255u32) - BigUint::from(1u8)
     );
-    assert_eq!(returns_uint("return type(uint256).max % 2;"), BigUint::from(1u8));
+    assert_eq!(
+        returns_uint("return type(uint256).max % 2;"),
+        BigUint::from(1u8)
+    );
     // max / max = 1 ; max % max = 0.
-    assert_eq!(returns_uint("return type(uint256).max / type(uint256).max;"), BigUint::from(1u8));
-    assert_eq!(returns_uint("return type(uint256).max % type(uint256).max;"), BigUint::from(0u8));
+    assert_eq!(
+        returns_uint("return type(uint256).max / type(uint256).max;"),
+        BigUint::from(1u8)
+    );
+    assert_eq!(
+        returns_uint("return type(uint256).max % type(uint256).max;"),
+        BigUint::from(0u8)
+    );
     // large dividend, small divisor (the DeFi `balance / 1e18` shape).
     assert_eq!(
         returns_uint("return type(uint256).max / 1000000000000000000;"),
-        ((BigUint::from(1u8) << 256u32) - BigUint::from(1u8)) / BigUint::from(1_000_000_000_000_000_000u64)
+        ((BigUint::from(1u8) << 256u32) - BigUint::from(1u8))
+            / BigUint::from(1_000_000_000_000_000_000u64)
     );
     // small / large (big divisor branch) -> 0, remainder = dividend.
-    assert_eq!(returns_uint("return uint256(5) / (uint256(1) << 255);"), BigUint::from(0u8));
-    assert_eq!(returns_uint("return uint256(5) % (uint256(1) << 255);"), BigUint::from(5u8));
+    assert_eq!(
+        returns_uint("return uint256(5) / (uint256(1) << 255);"),
+        BigUint::from(0u8)
+    );
+    assert_eq!(
+        returns_uint("return uint256(5) % (uint256(1) << 255);"),
+        BigUint::from(5u8)
+    );
     // ordinary small values still correct.
-    assert_eq!(returns_uint("return uint256(100) / 7;"), BigUint::from(14u8));
+    assert_eq!(
+        returns_uint("return uint256(100) / 7;"),
+        BigUint::from(14u8)
+    );
     assert_eq!(returns_uint("return uint256(100) % 7;"), BigUint::from(2u8));
 }
 
@@ -186,22 +221,36 @@ fn erc20_infinite_approval_check() {
     ));
 }
 
-
 #[test]
 fn unsigned_power_overflow_and_wrap() {
     // 2^200 and 2^255 fit in uint256.
-    assert_eq!(returns_uint("uint256 b = 2; return b ** 200;"), BigUint::from(1u8) << 200u32);
-    assert_eq!(returns_uint("uint256 b = 2; return b ** 255;"), BigUint::from(1u8) << 255u32);
+    assert_eq!(
+        returns_uint("uint256 b = 2; return b ** 200;"),
+        BigUint::from(1u8) << 200u32
+    );
+    assert_eq!(
+        returns_uint("uint256 b = 2; return b ** 255;"),
+        BigUint::from(1u8) << 255u32
+    );
     // 2^256 overflows uint256 -> Panic(0x11).
     assert!(panics("uint256 b = 2; return b ** 256;"));
     // unchecked wraps mod 2^256: 2^256 -> 0.
-    assert_eq!(returns_uint("uint256 b = 2; unchecked { return b ** 256; }"), BigUint::from(0u8));
+    assert_eq!(
+        returns_uint("uint256 b = 2; unchecked { return b ** 256; }"),
+        BigUint::from(0u8)
+    );
 }
 
 #[test]
 fn unchecked_compound_uint256_wraps() {
-    assert_eq!(returns_uint("uint256 x = type(uint256).max; unchecked { x += 5; } return x;"), BigUint::from(4u8));
-    assert_eq!(returns_uint("uint256 x = 0; unchecked { x -= 1; } return x;"), u256_max());
+    assert_eq!(
+        returns_uint("uint256 x = type(uint256).max; unchecked { x += 5; } return x;"),
+        BigUint::from(4u8)
+    );
+    assert_eq!(
+        returns_uint("uint256 x = 0; unchecked { x -= 1; } return x;"),
+        u256_max()
+    );
     // loop counter reused as index still works (the old Buffer-index regression).
     assert_eq!(returns_uint("uint256[] memory a = new uint256[](3); for (uint256 i = 0; i < 3; i++) { a[i] = i; } return a[2];"), BigUint::from(2u8));
 }
@@ -209,8 +258,14 @@ fn unchecked_compound_uint256_wraps() {
 #[test]
 fn post_inc_dec_semantics_and_single_eval() {
     // Post-increment returns the OLD value; the variable is updated.
-    assert_eq!(returns_uint("uint256 x = 7; uint256 y = x++; return y * 100 + x;"), BigUint::from(708u16));
-    assert_eq!(returns_uint("uint256 x = 7; uint256 y = x--; return y * 100 + x;"), BigUint::from(706u16));
+    assert_eq!(
+        returns_uint("uint256 x = 7; uint256 y = x++; return y * 100 + x;"),
+        BigUint::from(708u16)
+    );
+    assert_eq!(
+        returns_uint("uint256 x = 7; uint256 y = x--; return y * 100 + x;"),
+        BigUint::from(706u16)
+    );
     // Indexed lvalue: a[i]++ updates a[i] and returns the old element.
     assert_eq!(
         returns_uint("uint256[] memory a = new uint256[](2); a[1] = 41; uint256 y = a[1]++; return y * 100 + a[1];"),
@@ -234,7 +289,10 @@ contract C { function f() external pure returns (uint256) {
     uint256[] memory a = new uint256[](3000); a[0] = 1; return a[0];
 } }"#;
     let r = compile_and_execute(src);
-    assert!(!r.success, "a 3000-element array must FAULT (exceeds MaxStackSize 2048)");
+    assert!(
+        !r.success,
+        "a 3000-element array must FAULT (exceeds MaxStackSize 2048)"
+    );
     // A valid large array (2000) still works.
     let ok = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -291,7 +349,10 @@ fn logical_shr_zero_fills_high_bit_uint256() {
     // SHR is arithmetic, so a uint256 >= 2^255 (stored 32-byte two's-complement)
     // would sign-extend. `type(uint256).max >> 1` must be 2^255-1, not 2^256-1.
     let two_255_minus_1 = (BigUint::from(1u8) << 255u32) - BigUint::from(1u8);
-    assert_eq!(returns_uint("return type(uint256).max >> 1;"), two_255_minus_1);
+    assert_eq!(
+        returns_uint("return type(uint256).max >> 1;"),
+        two_255_minus_1
+    );
     // (1 << 255) >> 254 == 2.
     assert_eq!(
         returns_uint("uint256 x = uint256(1) << 255; return x >> 254;"),
@@ -336,10 +397,22 @@ fn yul_ops_use_evm_unsigned_256bit_semantics() {
 fn bitwise_not_respects_operand_width() {
     // ~uintN is the complement WITHIN the N-bit width (not the full-precision
     // -x-1 that NeoVM INVERT computes).
-    assert_eq!(returns_uint("return uint256(~uint8(0));"), BigUint::from(255u8));
-    assert_eq!(returns_uint("return uint256(~uint16(0));"), BigUint::from(65535u32));
+    assert_eq!(
+        returns_uint("return uint256(~uint8(0));"),
+        BigUint::from(255u8)
+    );
+    assert_eq!(
+        returns_uint("return uint256(~uint16(0));"),
+        BigUint::from(65535u32)
+    );
     assert_eq!(returns_uint("return ~uint256(0);"), u256_max());
-    assert_eq!(returns_uint("return ~type(uint256).max;"), BigUint::from(0u8));
+    assert_eq!(
+        returns_uint("return ~type(uint256).max;"),
+        BigUint::from(0u8)
+    );
     // ~uint8(5) == 250.
-    assert_eq!(returns_uint("return uint256(~uint8(5));"), BigUint::from(250u8));
+    assert_eq!(
+        returns_uint("return uint256(~uint8(5));"),
+        BigUint::from(250u8)
+    );
 }

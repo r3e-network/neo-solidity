@@ -38,7 +38,11 @@ fn run_verify(message: &[u8], pubkey: &[u8], sig: &[u8]) -> bool {
             ],
         )
         .expect("verify call host-level");
-    assert!(res.success, "verify() must execute; exc={:?}", res.exception);
+    assert!(
+        res.success,
+        "verify() must execute; exc={:?}",
+        res.exception
+    );
     // bool return is a single 0x00/0x01 byte.
     res.return_data.first().copied().unwrap_or(0) != 0
 }

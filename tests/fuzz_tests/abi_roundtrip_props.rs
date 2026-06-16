@@ -821,7 +821,10 @@ contract Codec {{
     );
     let ok = run_check_returns_bool(&src)
         .unwrap_or_else(|e| panic!("EVM string[] decode conformance: {}", e));
-    assert!(ok, "decoded string[] did not match the canonical EVM payload");
+    assert!(
+        ok,
+        "decoded string[] did not match the canonical EVM payload"
+    );
 }
 
 /// CONFORMANCE: the compiler's ENCODER must reproduce the canonical EVM
@@ -849,7 +852,10 @@ contract Codec {{
     );
     let ok = run_check_returns_bool(&src)
         .unwrap_or_else(|e| panic!("EVM string[] encode conformance: {}", e));
-    assert!(ok, "encoded string[] bytes diverge from the canonical EVM payload");
+    assert!(
+        ok,
+        "encoded string[] bytes diverge from the canonical EVM payload"
+    );
 }
 
 proptest! {

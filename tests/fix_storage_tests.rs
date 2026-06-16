@@ -173,8 +173,13 @@ contract C {
 
     // 70000-byte value exceeds MaxStorageValueSize -> must FAULT.
     let big = rt
-        .call_method(&art.bytecode, &art.tokens, &art.manifest, "set",
-            &[StackItem::byte_array(vec![0x5A; 70_000])])
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "set",
+            &[StackItem::byte_array(vec![0x5A; 70_000])],
+        )
         .expect("host call");
     assert!(
         !big.success,
@@ -184,11 +189,19 @@ contract C {
     // A comfortably-under-limit value still stores fine.
     let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
     let ok = rt2
-        .call_method(&art.bytecode, &art.tokens, &art.manifest, "set",
-            &[StackItem::byte_array(vec![0x5A; 1000])])
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "set",
+            &[StackItem::byte_array(vec![0x5A; 1000])],
+        )
         .expect("host call");
-    assert!(ok.success, "storing a 1000-byte value must succeed: {:?}",
-        ok.exception.map(|e| e.message));
+    assert!(
+        ok.success,
+        "storing a 1000-byte value must succeed: {:?}",
+        ok.exception.map(|e| e.message)
+    );
 }
 
 #[test]

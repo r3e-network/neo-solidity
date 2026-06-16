@@ -756,6 +756,9 @@ contract C {{
 }}"#
     );
     let ok_result = compile_and_execute(&ok_src);
-    assert!(ok_result.success && ok_result.return_data == vec![0x01],
-        "1-byte modexp 3^2 mod 7 must still compute 2; rd={}", hex::encode(&ok_result.return_data));
+    assert!(
+        ok_result.success && ok_result.return_data == vec![0x01],
+        "1-byte modexp 3^2 mod 7 must still compute 2; rd={}",
+        hex::encode(&ok_result.return_data)
+    );
 }

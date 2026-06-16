@@ -97,7 +97,9 @@ impl ExecutionContext {
                 let curve = match borrowed.get(3) {
                     Some(StackItem::Integer(n)) => *n,
                     Some(StackItem::UnsignedInteger(n)) => *n as i64,
-                    Some(StackItem::ByteArray(b)) => b.borrow().first().copied().unwrap_or(0) as i64,
+                    Some(StackItem::ByteArray(b)) => {
+                        b.borrow().first().copied().unwrap_or(0) as i64
+                    }
                     _ => 0,
                 };
                 let (is_secp256r1, use_keccak) = match curve {

@@ -21,7 +21,9 @@ fn run_u(src: &str) -> Result<u128, u8> {
     let arts = compile_contracts(src, false, 2).expect("compile must succeed");
     assert!(!arts.is_empty(), "no artifacts");
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
-    let res = rt.execute(&arts[0].bytecode, &[]).expect("host-level execute must not error");
+    let res = rt
+        .execute(&arts[0].bytecode, &[])
+        .expect("host-level execute must not error");
     if res.success {
         let mut v: u128 = 0;
         for (i, b) in res.return_data.iter().enumerate().take(16) {
@@ -34,7 +36,11 @@ fn run_u(src: &str) -> Result<u128, u8> {
             Err(res.return_data[35])
         } else {
             // legacy "Panic: 0x11" message path
-            let msg = res.exception.as_ref().map(|e| e.message.clone()).unwrap_or_default();
+            let msg = res
+                .exception
+                .as_ref()
+                .map(|e| e.message.clone())
+                .unwrap_or_default();
             if let Some(i) = msg.find("Panic: 0x") {
                 if let Ok(c) = u8::from_str_radix(&msg[i + 9..i + 11], 16) {
                     return Err(c);
@@ -55,67 +61,112 @@ fn contract(body: &str, ret: &str) -> String {
 
 #[test]
 fn narrow_uint8_plus_literal_overflows() {
-    assert_eq!(run_u(&contract("uint8 x = 255; x = x + 1; return x;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint8 x = 255; x = x + 1; return x;", "uint8")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint8_mul_literal_overflows() {
-    assert_eq!(run_u(&contract("uint8 x = 16; x = x * 16; return x;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint8 x = 16; x = x * 16; return x;", "uint8")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint8_compound_add_overflows() {
-    assert_eq!(run_u(&contract("uint8 x = 255; x += 1; return x;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint8 x = 255; x += 1; return x;", "uint8")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint8_post_increment_overflows() {
-    assert_eq!(run_u(&contract("uint8 x = 255; x++; return x;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint8 x = 255; x++; return x;", "uint8")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint8_pre_increment_overflows() {
-    assert_eq!(run_u(&contract("uint8 x = 255; ++x; return x;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint8 x = 255; ++x; return x;", "uint8")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint16_compound_sub_underflows() {
-    assert_eq!(run_u(&contract("uint16 x = 0; x -= 1; return x;", "uint16")), Err(0x11));
+    assert_eq!(
+        run_u(&contract("uint16 x = 0; x -= 1; return x;", "uint16")),
+        Err(0x11)
+    );
 }
 
 #[test]
 fn narrow_uint8_power_literal_overflows() {
-    assert_eq!(run_u(&contract("uint8 a = 2; uint8 r = a ** 8; return r;", "uint8")), Err(0x11));
+    assert_eq!(
+        run_u(&contract(
+            "uint8 a = 2; uint8 r = a ** 8; return r;",
+            "uint8"
+        )),
+        Err(0x11)
+    );
 }
 
 // ---- non-overflowing narrow ops still produce the correct value ----
 
 #[test]
 fn narrow_uint8_in_range_add_ok() {
-    assert_eq!(run_u(&contract("uint8 x = 100; x = x + 27; return x;", "uint8")), Ok(127));
+    assert_eq!(
+        run_u(&contract("uint8 x = 100; x = x + 27; return x;", "uint8")),
+        Ok(127)
+    );
 }
 
 #[test]
 fn narrow_uint8_compound_in_range_ok() {
-    assert_eq!(run_u(&contract("uint8 x = 10; x += 5; return x;", "uint8")), Ok(15));
+    assert_eq!(
+        run_u(&contract("uint8 x = 10; x += 5; return x;", "uint8")),
+        Ok(15)
+    );
 }
 
 #[test]
 fn narrow_uint8_power_in_range_ok() {
-    assert_eq!(run_u(&contract("uint8 a = 2; uint8 r = a ** 7; return r;", "uint8")), Ok(128));
+    assert_eq!(
+        run_u(&contract(
+            "uint8 a = 2; uint8 r = a ** 7; return r;",
+            "uint8"
+        )),
+        Ok(128)
+    );
 }
 
 // ---- unchecked narrow wraps mod 2^N (no Panic) ----
 
 #[test]
 fn narrow_uint8_unchecked_compound_wraps() {
-    assert_eq!(run_u(&contract("uint8 x = 255; unchecked { x += 1; } return x;", "uint8")), Ok(0));
+    assert_eq!(
+        run_u(&contract(
+            "uint8 x = 255; unchecked { x += 1; } return x;",
+            "uint8"
+        )),
+        Ok(0)
+    );
 }
 
 #[test]
 fn narrow_uint8_unchecked_add_literal_wraps() {
     assert_eq!(
-        run_u(&contract("uint8 x = 255; unchecked { x = x + 2; } return x;", "uint8")),
+        run_u(&contract(
+            "uint8 x = 255; unchecked { x = x + 2; } return x;",
+            "uint8"
+        )),
         Ok(1)
     );
 }
@@ -124,25 +175,40 @@ fn narrow_uint8_unchecked_add_literal_wraps() {
 
 #[test]
 fn narrow_uint8_shl_truncates() {
-    assert_eq!(run_u(&contract("uint8 x = 200; x = x << 1; return x;", "uint8")), Ok(144));
+    assert_eq!(
+        run_u(&contract("uint8 x = 200; x = x << 1; return x;", "uint8")),
+        Ok(144)
+    );
 }
 
 #[test]
 fn narrow_uint8_shl_out_shifts_to_zero() {
-    assert_eq!(run_u(&contract("uint8 x = 1; x = x << 8; return x;", "uint8")), Ok(0));
+    assert_eq!(
+        run_u(&contract("uint8 x = 1; x = x << 8; return x;", "uint8")),
+        Ok(0)
+    );
 }
 
 // ---- wide (uint256) arithmetic is unaffected (no spurious guard / wrong path) ----
 
 #[test]
 fn uint256_in_range_add_literal_ok() {
-    assert_eq!(run_u(&contract("uint256 x = 1000; x = x + 1; return x;", "uint256")), Ok(1001));
+    assert_eq!(
+        run_u(&contract(
+            "uint256 x = 1000; x = x + 1; return x;",
+            "uint256"
+        )),
+        Ok(1001)
+    );
 }
 
 #[test]
 fn uint256_unchecked_add_literal_ok() {
     assert_eq!(
-        run_u(&contract("uint256 x = 1000; unchecked { x = x + 1; } return x;", "uint256")),
+        run_u(&contract(
+            "uint256 x = 1000; unchecked { x = x + 1; } return x;",
+            "uint256"
+        )),
         Ok(1001)
     );
 }
@@ -165,10 +231,7 @@ fn mixed_uint256_plus_uint32_is_wide_unchecked() {
 
 #[test]
 fn mixed_uint256_plus_uint32_in_range_checked() {
-    let src = contract(
-        "uint256 s = 1; uint32 a = 41; s += a; return s;",
-        "uint256",
-    );
+    let src = contract("uint256 s = 1; uint32 a = 41; s += a; return s;", "uint256");
     assert_eq!(run_u(&src), Ok(42));
 }
 
@@ -217,7 +280,10 @@ fn narrow_unchecked_post_inc_dec_recovers_wrapped_old_value() {
     );
     // the stored variable also wrapped correctly.
     assert_eq!(
-        run_u(&contract("unchecked { uint8 x = 255; x++; return x; }", "uint8")),
+        run_u(&contract(
+            "unchecked { uint8 x = 255; x++; return x; }",
+            "uint8"
+        )),
         Ok(0)
     );
 }

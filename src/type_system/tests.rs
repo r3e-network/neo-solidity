@@ -105,7 +105,10 @@ fn canonical_abi_type_expands_structs_and_any() {
         fields: vec![
             StructFieldType {
                 name: "a".to_string(),
-                ty: Box::new(NeoType::Integer { signed: false, bits: 256 }),
+                ty: Box::new(NeoType::Integer {
+                    signed: false,
+                    bits: 256,
+                }),
             },
             StructFieldType {
                 name: "b".to_string(),
