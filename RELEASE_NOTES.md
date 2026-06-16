@@ -1,93 +1,144 @@
-# neo-devpack-solidity v0.20.0 + devpack v2.0.0 — Correctness & Conformance Release
+# neo-devpack-solidity v0.21.0 + devpack v2.1.0 — Deep Correctness & Conformance Release
 
-**Release date:** 2026-06-11
-**Compiler / CLI / workspace:** **v0.20.0**
-**devpack (`@neo-devpack-solidity/contracts`):** **v2.0.0** (breaking — see below)
+**Release date:** 2026-06-16
+**Compiler / CLI / workspace:** **v0.21.0**
+**devpack (`@neo-devpack-solidity/contracts`):** **v2.1.0**
 
-> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.20.0]`.
+> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.21.0]`.
 > Previous releases: see the
 > [GitHub releases page](https://github.com/r3e-network/neo-devpack-solidity/releases)
-> and `CHANGELOG.md` history.
+> and `CHANGELOG.md` history (previous: v0.20.0 / devpack v2.0.0).
 
 ---
 
 ## TL;DR
 
-- **A full adversarial review pass fixed 26 independently verified
-  correctness findings** across ABI encoding/decoding, storage soundness,
-  manifest generation, devpack APIs, and compiler robustness — every
-  finding reproduced against the compiler before fixing, every fix covered
-  by regression tests.
-- **Token contracts are now ecosystem-conformant on real Neo N3.**
-  NEP-17/NEP-11 `Transfer` events emit **native NEP notifications**
-  (`[from, to, amount(, tokenId)]`, zero address → `Null`) that wallets,
-  explorers, and trackers can read; all other events declare their true
-  EVM wire shape so they pass HF_Basilisk notification validation
-  (previously **every `emit` faulted on nodes ≥ 3.6**).
-- **NEP-11 deep conformance:** ByteString token IDs (≤ 64 bytes),
-  `tokensOf`/`tokens` return real NeoVM iterators (manifest
-  `InteropInterface`, like the official C# devpack), `data` parameters are
-  `Any` — the devpack NEP-11 base now **passes neo-express's strict
-  deploy-time NEP-11 standard check**, validated on-chain end-to-end
-  (deploy → mint → native Transfer notification → iterator traversal).
-- **The devpack tells the truth.** 111 documented-but-uncallable library
-  functions, the fictional `Storage.*Local` API (would FAULT on every real
-  node), silently miscompiling helpers (`batchPut` → single `Put`, …), and
-  the misleading `hasRole` are gone; a probe test keeps the intrinsic
-  whitelist and the compiler's lowerings in lockstep so this class of gap
-  cannot reappear.
-- **Manifests are sound:** permissions cover `catch`-handler calls,
-  `safe`-flag analysis follows function pointers, NEP standards are only
-  claimed (or accepted, when declared) on real conformance, distinct-arity
-  overloads keep their Solidity names (ERC-20 `transfer(to, amount)` is
-  callable), and the NEP-17 `data` parameter is manifest type `Any`.
-- **Compiler robustness:** no more OOM-abort on huge constant folds at
-  default `-O2`, no more parser stack overflow on deeply nested input.
-- **Structural cleanup:** the dead Yul frontend (lexer/parser/semantic/
-  optimizer — never used by the real solang-based pipeline) and
-  `.dead_modules/` are deleted; all 156 `include!()` fragments under
-  `src/runtime` are real Rust modules now.
+- **`uint256` arithmetic is now conformant for values `>= 2^255`, end to
+  end.** Software 256-bit limb routines implement add/sub/mul, checked
+  overflow, unsigned compare, divmod, and logical/wrapping shifts entirely
+  in `<= 32`-byte NeoVM operations, so a value like `type(uint256).max` no
+  longer forms a rejected 33-byte integer and no longer reinterprets as
+  negative. `type(uint256).max < 5 == false`, `type(uint256).max >> 1`
+  gives `2^255-1`, unchecked `**`/`+=`/`++` wrap mod `2^256`, and checked
+  ops Panic(0x11) — matching a real node, with `int256` left on native
+  signed operations. The runtime simulator was made faithful to a 32-byte
+  two's-complement NeoVM so it can actually validate this class of behavior.
+- **Two full adversarial passes landed.** A 25-defect production audit (24
+  fixed) and a 12-subsystem systemic best-practice review (33 findings: 32
+  fixed, 1 surfaced as a loud compile-time warning). Every defect was
+  reproduced against the compiler/runtime/devpack before fixing and is
+  covered by regression tests.
+- **The ABI codec now covers the two shapes that previously fell back to
+  Neo-native bytes.** Nested-dynamic types (`string[]`, `bytes[]`, `T[][]`)
+  and dynamic structs (any struct with a dynamic field) encode and decode
+  with the full recursive EVM head/tail layout, so cross-contract calldata
+  and return-data are byte-exact with EVM/solc. `abi.decode` now follows the
+  encoded head offset instead of assuming `0x20`, accepts over-length
+  buffers, and faults Panic `0x41` on non-canonical (high-bit-set)
+  length/offset slots.
+- **Selectors and manifests are canonical.** Selectors, `.selector`, and
+  event `topic0` are computed from EVM-ABI-canonical types (struct → tuple,
+  enum → `uint8`, `uint` → `uint256`); standard-JSON `methodIdentifiers`,
+  `methodMap`, and the `abi` array now emit decodable `tuple`/`components`
+  shapes; `ErrorName.selector` hashes the parametrized signature; fixed-size
+  arrays (`uint256[3]`) and `bytes20` carry their true ABI type; struct
+  overloads colliding to the same tuple shape now error.
+- **Runtime VM fidelity improved across stack, item, and storage limits.**
+  Global and per-collection `MaxStackSize` (2048), `MaxItemSize` (65535) on
+  `NEWBUFFER`/`CAT`, and Neo N3 `Storage.Put` key/value size limits now
+  fault exactly where a real node would; minimal `CONVERT` Integer→bytes
+  encoding, corrected `PACKMAP` pop order, `MODPOW(-1)` modular inverse, and
+  a `SUBSTR` overflow guard close further simulator/real-node gaps.
+- **Dispatch is correct and fails loud.** Same-arity overloads resolve by
+  argument type instead of insertion order; unresolved member calls,
+  return-tuple arity mismatches, and `>255`-local functions are now hard
+  compile errors instead of silent mis-dispatch / zero-returns / truncated
+  slot indices; function-pointer locals dispatch via `CALLA` (and revert
+  cleanly when zero-init).
+- **Devpack fund-safety hardened.** NEP-17 self-escrow no longer faults the
+  escrow-in leg, zero-amount transfers conform to NEP-17, an
+  owner-authorized signer quorum gates the escrowed pool, the oracle
+  conditional-transfer callback no longer strands funds on a short result or
+  a mis-ordered signature, `multiSigBurn` requires the holder's witness, and
+  NEP-26 `onNEP11Payment` takes dynamic `bytes` token IDs.
+- **Tooling is more honest.** Standard-JSON parse failures emit one
+  structured `ParseError` per diagnostic with byte ranges, aliased imports
+  warn (`IMPORT_ALIAS_BY_NAME`), the disassembler decodes the `CALLT`,
+  `CONVERT`, and `ISTYPE` operands, and the compiler warns when a literal
+  exceeds NeoVM's 32-byte integer limit.
 
 ## Verification
 
-- `cargo test`: **1,758 tests, 0 failures** (unit, e2e, conformance,
-  differential, property/fuzz harnesses).
+- `cargo test`: full unit, e2e, conformance, differential, and
+  property/fuzz suites green — including new property tests pinning the
+  software 256-bit add/sub/mul/divmod/shift/compare routines against a
+  reference 256-bit model across the `[2^255, 2^256-1]` range, and ABI
+  round-trip tests for nested-dynamic and dynamic-struct encode/decode.
 - `cargo clippy --all-targets`: clean. `cargo fmt --check`: clean.
-- **23/23 neo-express on-chain smoke tests** (deploy, constructor args,
-  CALLT, permissions, low-level/external calls, structs, upgrade
-  lifecycle, witness guards, oracle relay).
-- New on-chain validations this release: committed transactions show
-  native `Transfer` state `[from|Null, to, amount(, tokenId)]`; custom
-  events HALT under Basilisk notification checks; `tokens()`/`tokensOf()`
-  return `InteropInterface` stack items on a real chain.
+- neo-express on-chain smoke tests remain the real-chain ground truth
+  (deploy, constructor args, CALLT, permissions, low-level/external calls,
+  structs, upgrade lifecycle, witness guards, oracle relay); the native NEP
+  Transfer / iterator / Basilisk-notification validations from v0.20.0
+  continue to pass.
+- Every fixed defect from both review passes ships with a regression test;
+  the two surfaced-but-not-silenced items (the `uint256` literal
+  representation warning and the `IMPORT_ALIAS_BY_NAME` warning) are
+  asserted as warnings rather than hard failures.
 
 ## Breaking changes
 
-- **devpack v2.0.0**: `Runtime.sol`/`Storage.sol`/`Neo.sol` pruned to the
-  intrinsic surface the compiler actually lowers; `Storage.*Local` and
-  `hasRole` removed; NEP-11 token IDs are `bytes` (was `bytes32`),
-  `tokensOf`/`tokens` return `Syscalls.Iterator` (was `bytes32[]`), and
-  `data` parameters are `Any`. Existing NEP-11 deployments using the old
-  base need a storage migration on upgrade.
-- **Event wire format**: standard-signature `Transfer` events emit native
-  NEP notifications; all other manifests now declare the EVM wire shape.
-  Anything pinned to the old (faulting) manifest declarations must
-  recompile.
-- **Overload naming**: distinct-arity overloads keep their original names
-  in the manifest; callers using mangled names like
-  `transfer(address,uint256)` must migrate on recompile.
-- **Rust API**: public modules `lexer`, `parser`, `semantic`, `optimizer`,
-  `codegen` removed; `interop_id_bytes` moved to
-  `neo_devpack_solidity::interop`.
+- **devpack NEP-26 receiver shape.** `INEP26Receiver.onNEP11Payment`
+  tokenId is now a dynamic `bytes` (was `bytes32`), matching
+  `INEP11Receiver` and the ByteString token IDs the NEP-11 base passes. A
+  contract implementing the old `bytes32` signature must update its
+  parameter type to be invoked correctly; a non-32-byte id no longer
+  mis-encodes.
+- **Standard-JSON error shape.** Parse failures now emit one
+  `type:"ParseError"` entry per diagnostic, each with
+  `sourceLocation:{file,start,end}` byte offsets, instead of a single
+  `type:"Generic"` blob. Tooling that pattern-matched the old single
+  `Generic` error must read the per-diagnostic `ParseError` array.
+- **New hard compile errors.** Unresolved member calls (`inner.member(args)`
+  matching no resolution branch), functions exceeding NeoVM's 255 local-slot
+  limit, explicit return-tuple arity mismatches, same-tuple-shape struct
+  overloads, and out-of-range `bytesN` (`bytes0`, `bytes33`+) now fail the
+  build. These previously compiled silently (member calls returned `0` and
+  dropped arguments; `>255` locals truncated slot indices; mismatches were
+  warnings), producing NEFs that mis-dispatched or contradicted their own
+  ABI. Code relying on those silent behaviors must be corrected.
+- **`bytes20` and fixed-size-array selectors changed.** `bytes20` now
+  canonicalizes to `bytes20` (was `address`) and `uint256[3]`-style
+  parameters now canonicalize to `T[N]` (was `T[]`), so the keccak selector,
+  `interfaceId`, and `abi.encodeWithSelector` payload for any function taking
+  these types change to the solc/ethers-correct values. Off-chain callers
+  hard-coding the old (incorrect) selectors must recompute them.
+- **`msg.value` now lowers to `0`.** Neo N3 has no EVM-style attached call
+  value; the prior `System.Runtime.GetMsgValue` syscall FAULTed on a real
+  node. Contracts that read `msg.value` must instead take received amounts
+  from the `amount` argument of `onNEP17Payment`/`onNEP11Payment`.
+- **Aliased imports warn.** `import {A as B}` and `import * as NS` now emit
+  an `IMPORT_ALIAS_BY_NAME` warning (resolution and codegen unchanged), since
+  aliases resolve by the underlying symbol name and a name collision in the
+  import closure could bind to the wrong declaration. Builds treating
+  warnings as errors must allowlist this code.
 
 ## Known limitations
 
-- NEP-11 `properties` returns serialized `bytes` (manifest `ByteArray`),
-  not the spec's `Map` — Solidity has no construct producing a NeoVM Map
-  return. Documented in `devpack/standards/STANDARDS_MAPPING.md`.
-- The bundled emulator remains a development tool, not consensus-grade:
-  see `docs/NEO_VM_PARITY_TODO.md` (gas approximation, exception-unwinding
-  parity). neo-express smoke tests are the real-chain ground truth.
-- `include!()`-based file structure remains outside `src/runtime`
-  (`src/ir`, `src/cli`, `src/frontend`); same modularization is a planned
-  follow-up.
+- `uint256` software arithmetic is scoped to genuinely-typed `uint256`;
+  signed `int256` deliberately keeps native NeoVM operations (`-x-1` NOT,
+  arithmetic shift, signed divmod), so the two integer widths follow
+  different code paths by design.
+- The bundled emulator, now made faithful to a 32-byte two's-complement
+  NeoVM with the stack/item/storage-limit checks above, remains a
+  development tool rather than consensus-grade: gas is approximated and
+  exception-unwinding parity is partial (see
+  `docs/NEO_VM_PARITY_TODO.md`). neo-express smoke tests are the real-chain
+  ground truth.
+- Modular-arithmetic sign conventions follow NeoVM's C#-style truncated
+  remainder (`MODMUL`/`MODPOW`, `%`), which differs from the Euclidean
+  non-negative form some EVM tooling assumes for negative operands; this is
+  intentional NeoVM parity, not an EVM match.
+- The minimal `CONVERT` Integer→ByteString/Buffer encoding is scoped to the
+  Solidity-observable CONVERT path; the internal storage/map-key byte helper
+  keeps its own fixed encoding, so the two are not interchangeable at the
+  byte level.

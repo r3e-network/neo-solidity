@@ -5,6 +5,469 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.21.0] - 2026-06-16
+
+Deep correctness-and-conformance release: software 256-bit arithmetic
+lands end to end so `uint256` values `>= 2^255` behave like a real Neo
+node, plus two full adversarial review passes — a 25-defect production
+audit (24 fixed) and a 12-subsystem systemic best-practice review (33
+findings: 32 fixed, 1 surfaced as a loud compile-time warning). Net
+effect is EVM/solc and Neo N3 conformance across integer arithmetic, the
+ABI codec (now including nested-dynamic and dynamic-struct encode/decode),
+runtime VM fidelity (`MaxStackSize`/`MaxItemSize`/storage limits),
+dispatch correctness (overload resolution, fail-loud member calls,
+function-pointer-local CALLA), selector/manifest canonicalization, tooling
+output, and devpack fund-safety (NEP-17 self-escrow, escrow-stranding).
+
+### Added
+
+- **Software 256-bit limb arithmetic for `uint256`.** Schoolbook routines
+  implement add/sub (two 128-bit limbs with carry/borrow folded through the
+  limb boundary) and multiply (four 64-bit limbs), each computing
+  `mod 2^256` so no intermediate exceeds NeoVM's 32-byte integer limit — a
+  native ADD/MUL of large `uint256` values would form a rejected 33-byte
+  result. Checked variants detect unsigned overflow (carry out of bit 256),
+  underflow (final borrow / signed high limb `< 0`), and product `>= 2^256`
+  without forming a 33-byte intermediate, raising a Solidity Panic(0x11) —
+  replacing the `GetSize > 32` heuristic that a two's-complement wrap
+  defeats.
+- **Unsigned 256-bit comparison, division, modulo, and shifts for
+  `uint256`.** The comparison family (`<`, `<=`, `>`, `>=`) is computed on
+  the 32-byte two's-complement form via the order-preserving XOR-`2^255`
+  map using only `<= 32`-byte operations, so values `>= 2^255` compare
+  correctly (`type(uint256).max < 5 == false`). Division/modulo use the
+  Hacker's Delight reduction to one signed DIV/MOD on the
+  provably-non-negative `(a>>1, b)` with a correction step (or a 0/1
+  quotient by unsigned compare when `b >= 2^255`); the limb-unsafe steps
+  call the validated add/sub helpers, and `b == 0` throws Panic(0x12).
+  Logical right shift uses `((a>>1) & (2^255-1)) >> (n-1)` (native NeoVM
+  SHR is arithmetic/sign-extending), and wrapping left shift masks each
+  128-bit limb to its low `128-k` bits before shifting and recombines as
+  two's-complement (native NeoVM SHL does not wrap, so `1 << 255` would
+  form a rejected 33-byte integer).
+- **Nested-dynamic ABI encode/decode** — `string[]`, `bytes[]`, `T[][]`
+  (arrays whose elements are themselves dynamic) now use the full recursive
+  EVM head/tail layout (`[length, n offsets, n element tails]`, each
+  element encoded/decoded recursively) on both the encode and decode sides,
+  instead of falling back to `StdLib.serialize`, which emitted Neo-native
+  bytes no EVM decoder could read. Cross-contract calldata and return-data
+  for these types is now byte-exact with EVM/solc. Locals draw from a
+  depth-indexed reusable scratch pool so many encode sites in one function
+  stay within NeoVM's 255-slot limit.
+- **Dynamic-struct ABI encode/decode** — structs containing any dynamic
+  field are now encoded as the EVM tuple of their fields with the proper
+  head/tail layout (static fields inline, dynamic fields as offset words
+  plus recursive tails) and decoded symmetrically, replacing the
+  `StdLib.serialize` fallback. `abi_value_type_is_dynamic` now follows
+  solc's tuple rule (a struct is dynamic iff any field is dynamic); all-static
+  structs are unchanged. Recursion covers nested shapes such as struct arrays
+  (`D[]`), a dynamic struct in a tuple position, and a struct whose dynamic
+  field is itself a `string[]`/struct.
+- **Global NeoVM `MaxStackSize` ref-count enforcement** — a
+  `live_stack_item_count` traversal walks every root (eval stack, indexed
+  slots, saved call frames), recursing into arrays/maps and de-duplicating
+  shared array/map/bytestring objects by pointer identity. Wired into
+  `NEWARRAY`, `APPEND`, `PACK`, and `PACKMAP`, it faults when total live
+  items exceed 2048, catching the case where many separate collections —
+  each individually under the limit — collectively blow the global limit
+  and revert on a real node (the per-collection guards alone could not see
+  this).
+- **Same-arity overload dispatch by argument type.** A call to one of two
+  overloads sharing a `(name, arity)` key (Solidity overloading by parameter
+  *type*, e.g. `f(uint256)` vs `f(address)`) is now resolved by matching the
+  call's inferred argument types against each overload's parameter types
+  (integers by signedness, everything else exactly) instead of collapsing to
+  whichever overload was inserted last. Previously one overload silently
+  executed the other's body on-chain; ambiguous/unmatched cases now fail
+  loud rather than mis-dispatching.
+- **Function-pointer local dispatch via CALLA.** Calls to a
+  `function(...) internal` *local* (not just a parameter) now register a
+  function-pointer binding at declaration and emit `CallIndirect`/`CALLA`.
+  Previously such a call fell through to a fallback that dropped its
+  arguments and pushed `0`; a never-assigned (zero-init) fp local now
+  reverts cleanly on call (CALLA on a Null slot faults) matching Solidity's
+  revert-on-zero-init-function-pointer behavior.
+- **Narrow-integer checked arithmetic** — `uintN`/`intN` (N<256) add/sub/mul/`<<`/`**`,
+  compound assignment, and `++`/`--` now revert on overflow and wrap mod-`2^N`
+  inside `unchecked` blocks via a shared overflow ladder, even when one
+  operand is an untyped literal (which previously defaulted to `uint256` and
+  routed past the narrow guard). Mixed-width operations (e.g. `uint256 + uint32`)
+  stay 256-bit; narrow signed division now panics on `intN.min / -1`. Matches
+  solc 0.8 semantics.
+- **`CryptoLib.verifyWithECDsa`** — implemented real signature verification
+  for secp256r1 (p256) and secp256k1 with SHA256/Keccak256 message hashing
+  selected by the NamedCurveHash byte (22/23/122/123), replacing the
+  always-false stub so the test oracle matches a real Neo node; secp256k1
+  accepts both high- and low-S forms.
+- **uint256 literal representation warning** — the compiler now warns when
+  an integer literal (e.g. `type(uint256).max`, all-ones masks) needs more
+  than NeoVM's 32-byte signed-integer limit, surfacing the on-chain fault
+  risk at compile time instead of failing silently after deploy.
+- **`CALLT` disassembly** — the disassembler now decodes the `CALLT`
+  (`0x37`) 2-byte token operand, keeping all following instructions
+  correctly aligned.
+- **Owner-managed multisig signer set** (devpack `NEP17`) —
+  `setMultisigSigner`/`setMultisigThreshold` (onlyOwner) so the contract's
+  escrowed pool can only be moved by an explicitly authorized signer quorum,
+  with the threshold required to be `>= 2`.
+- **Native-signature oracle callback** (devpack) — `CompleteNEP17Token`
+  and `CompleteNEP11NFT` register and expose
+  `onNativeOracleResponse(string url, bytes userData, int code, bytes result)`
+  for direct Oracle-native invocation, while retaining the
+  `IOracleServiceReceiver` method for the OracleService-forwarded path.
+
+### Changed
+
+- **`uint256` values in `[2^255, 2^256-1]` are now represented as 32-byte
+  two's-complement throughout**, matching how a real Neo node stores them:
+  literals (`type(uint256).max`, `1 << 255`, ERC-20 max approval,
+  keccak-derived values) emit a two's-complement PUSHINT256 instead of a
+  33-byte literal that faults on-chain; ordered comparison and
+  checked/unchecked add/sub/mul/div/mod route through the software 256-bit
+  routines, gated to genuinely-typed `uint256` so signed `int256` keeps
+  native operations; `int256(x)` at 256 bits is a no-op bit reinterpret;
+  and `abi.decode` reads the slot directly as two's-complement (dropping the
+  old positive-magnitude `0x00` sign-byte append) so
+  `abi.decode(abi.encode(x)) == x`.
+- **Runtime simulator made faithful to a 32-byte two's-complement NeoVM** —
+  negatives serialize to a 32-byte two's-complement word so a `uint256`
+  stays a distinguishable 256-bit value, narrow add/sub/mul promote to
+  BigInt on i64 overflow, and right-shift sign-extends narrow negatives,
+  letting it validate `uint256 >= 2^255` behavior that the old
+  unsigned-magnitude model could not.
+- **Yul/inline-assembly opcodes now use EVM-unsigned 256-bit semantics** —
+  `not` → `x XOR (2^256-1)` (was NeoVM INVERT's arbitrary-precision
+  `-x-1`, so `not(0)` gave `-1`), `lt`/`gt` → unsigned 256-bit compare
+  (was signed, so `lt(sub(0,1),5)` wrongly returned 1), `shr` → logical
+  shift (was arithmetic), and `div`/`mod` → unsigned divmod (were signed),
+  with the div-by-zero → 0 guard preserved.
+- **Top-level dynamic `abi.decode` honors the encoded head offset** — a
+  single top-level dynamic decode now dereferences head slot 0 to obtain the
+  tail offset at runtime instead of assuming the canonical `0x20`, so valid
+  but non-canonically-placed tails decode correctly, matching EVM decoders
+  that follow the encoded pointer. The superseded constant-offset tail
+  decoders were removed in favor of the runtime-offset path.
+- **Canonical struct/enum ABI types in standard-JSON output** —
+  `evm.methodIdentifiers` and `neo.methodMap` now build signature keys with
+  the same tuple-expanded canonicalizer used to compute the selector (e.g.
+  `f(MyStruct)` keys under `f((uint256,bool))`), so an SDK recomputing
+  `keccak256(key)[..4]` matches the emitted selector. The top-level `abi`
+  array now emits struct params as `tuple`/`tuple[]` with a recursively-built
+  `components` array (enums as `uint8`) instead of an undecodable
+  `"type":"MyStruct"`, so ethers/web3/Foundry can decode them. The devpack
+  `type Any is bytes` placeholder now canonicalizes to its underlying
+  `bytes` in selector and event-topic hashes (manifest still displays
+  `Any`), correcting NEP-17/NEP-11 transfer/onNEPxxPayment selectors.
+- **ABI-canonical selectors and event topics** — function selectors, the
+  `.selector` registry, and event `topic0` are now computed from
+  EVM-ABI-canonical types (struct → tuple, enum → `uint8`,
+  `uint` → `uint256`), unified across the manifest and event paths to match
+  Ethereum tooling.
+- **Indexed array/struct event topics hash `abi.encode(value)`** — an
+  `indexed` dynamic-array or dynamic-struct event parameter now hashes
+  `keccak256(abi.encode(value))` through the conformant ABI encoder,
+  matching ethers' `keccak256(abiCoder.encode([type],[value]))`. Previously
+  it hashed the raw NeoVM Array stack item (a serde_json blob), which
+  matched no off-chain decoder and faulted on a real node since
+  `CryptoLib.keccak256` requires a ByteString; `string`/`bytes` still hash
+  their raw bytes per the Solidity rule.
+- **Return-tuple arity mismatches promoted to hard errors** — unambiguous,
+  explicitly-written tuple/return-count mismatches (a single declared return
+  given `return (a, b)`, or a multi-return given an explicit tuple of the
+  wrong length) are now compile errors instead of warnings, so invalid
+  Solidity no longer produces a NEF whose declared ABI return contradicts
+  the body. Cases with false-positive risk (`return;` with named returns,
+  public-getter synthesis, heuristic call-arity inference) deliberately stay
+  warnings.
+- **`>255` local-slot functions rejected** — a function exceeding NeoVM's
+  255 local-slot limit now returns a clear compile error instead of silently
+  truncating the `INITSLOT` count and `LDLOC`/`STLOC` indices into the
+  `0..=255` byte range, which previously miscompiled slot indices.
+- **Internal function pointers lowered via `PUSHA` + `CALLA`** — internal
+  function pointers now emit a relative `PUSHA` Pointer consumed by `CALLA`
+  instead of a raw `PUSHINT32`, so they execute on a real Neo node.
+- **Per-collection NeoVM `MaxStackSize` (2048) guard** — `NEWARRAY` and
+  `APPEND` now fault when a single array exceeds 2048 elements, modeling
+  `ExecutionEngineLimits.MaxStackSize` (which counts every contained item).
+  Previously the simulator allowed unbounded arrays, hiding an on-chain
+  `MaxStackSize exceeded` fault and reporting success where a real node
+  reverts.
+- **NeoVM `MaxItemSize` (65535) enforcement on `NEWBUFFER`/`CAT`** — both
+  now fault when the requested or concatenated length exceeds
+  `ExecutionEngineLimits.MaxItemSize` instead of succeeding on a buffer a
+  real node rejects.
+- **Neo N3 storage size limits on `Storage.Put`** — keys past
+  `MaxStorageKeySize` (64) and values past `MaxStorageValueSize` (65535)
+  now fault; previously an oversized dynamic value (e.g. a `>64 KB` string)
+  silently succeeded in the simulator while reverting on-chain.
+- **Conformant minimal `CONVERT` Integer→ByteString/Buffer encoding** — the
+  `0x28`/`0x30` CONVERT handler now emits the minimal two's-complement
+  little-endian encoding of an integer (zero yields an empty span) instead
+  of a fixed 8-byte word, so a contract that converts an integer to bytes
+  and inspects its length, hashes it, or returns it observes the same widths
+  as a real node. Scoped to the Solidity-observable CONVERT path; the
+  internal storage/map-key byte helper is unchanged. `CONVERT` of an
+  Array/Map to Integer now faults as real NeoVM does, instead of silently
+  producing a degenerate integer.
+- **`MODPOW` exponent `-1` computes the modular multiplicative inverse** —
+  exponent `== -1` now returns `base.ModInverse(modulus)` in `[0, |m|)` via
+  the extended Euclidean algorithm (faulting only when no inverse exists),
+  matching NeoVM, instead of rejecting all negative exponents. `MODMUL`/`MODPOW`
+  now use C#-style truncated (`%`) remainders whose sign follows the operand,
+  matching NeoVM's `BigInteger.ModPow`/`%` for negative inputs rather than
+  the Euclidean non-negative form.
+- **`PACKMAP` pop order corrected** — now pops the key first (top of stack)
+  then the value, matching NeoVM's `key = Pop(); value = Pop()`; the order
+  was previously inverted, building maps with keys and values swapped.
+- **`msg.value` lowers to a conformant `0` (PUSH0)** instead of a fabricated
+  `System.Runtime.GetMsgValue` syscall. Neo N3 has no EVM-style attached
+  call value and no such interop, so the prior lowering FAULTed on a real
+  node (unknown interop service). Received amounts on Neo arrive as the
+  `amount` argument of `onNEP17Payment`/`onNEP11Payment`, not an ambient
+  `msg.value`.
+- **Auto-generated struct getters omit mapping/array members** — public
+  getters for struct state variables now drop mapping and array fields
+  (`bytes`/`string` retained), matching solc and avoiding an invalid
+  ABI/manifest that referenced non-returnable members.
+- **NEP-11 explicit-standards validation tightened** — declaring
+  `supportedstandards: ["NEP-11"]` now requires `totalSupply` and
+  `tokensOf` (matching the auto-detection set), so a manifest can no longer
+  advertise NEP-11 while missing spec-mandatory methods wallets/indexers
+  depend on.
+- **`abi.decode` accepts over-length buffers** — the static-size guard now
+  reverts only on under-length input and ignores trailing bytes, matching
+  solc/ethers/foundry decoding.
+- **`bytesN` width validation** — `bytes0` and `bytes33`+ are now rejected
+  at parse time instead of being silently accepted and mis-encoded
+  downstream (only `bytes1`..`bytes32` are valid).
+- **Yul `div`/`mod` by zero yields 0** — inline-assembly `div`/`mod` now
+  return 0 on a zero divisor per EVM/Yul semantics; high-level Solidity
+  division/modulo still Panics `0x12`.
+- **Standard-JSON parse errors are now one structured entry per diagnostic**
+  — a parse failure previously collapsed every parser diagnostic into a
+  single opaque `type:"Generic"` error with no byte offsets; it now emits
+  one `type:"ParseError"` object per diagnostic, each with a
+  `sourceLocation:{file,start,end}` byte range, so Hardhat/Foundry-style
+  tooling can enumerate individual errors and position source markers as it
+  expects.
+- **Aliased imports now emit a loud `IMPORT_ALIAS_BY_NAME` warning** —
+  symbol-rename (`import {A as B}`) and global-symbol (`import * as NS`)
+  aliases resolve by the underlying symbol name rather than the alias
+  binding, so a name collision in the import closure could bind to the wrong
+  declaration; every aliased import now warns instead of silently performing
+  a bare-name bind (resolution and codegen unchanged).
+- **Zero-amount transfers now conform to NEP-17** (devpack) — the canonical
+  4-arg `transfer` no longer reverts when `amount == 0`; a zero-value
+  transfer is processed normally (emits `Transfer`, runs the receiver
+  callback, returns true), matching the NEP-17 spec and a real Neo node. The
+  `validAmount` guard remains on mint/burn.
+- **Self-escrow skips the receiver callback** (devpack) — `_transfer` no
+  longer invokes `onNEP17Payment` when `to == address(this)`. Escrowing to
+  the contract itself (timelock, conditional, staking, scheduled transfers)
+  is internal bookkeeping; the base contract does not implement the
+  receiver, so the prior self-call faulted and reverted the entire
+  escrow-in leg. This also avoids spurious self-reentrancy.
+- **NEP-26 `onNEP11Payment` tokenId is now `bytes`** (devpack) —
+  `INEP26Receiver` takes a dynamic `bytes tokenId` instead of `bytes32`,
+  matching `INEP11Receiver` and the ByteString token IDs the NEP-11 base
+  actually passes; a non-32-byte id no longer mis-encodes.
+
+### Fixed
+
+- **`uint256` `**` (exponentiation) overflow and wrap** — checked `uint256`
+  `**` now Panics(0x11) when the true result exceeds `2^256-1` and unchecked
+  `**` wraps mod `2^256`; previously only narrow widths were handled, so
+  `uint256` `**` overflow faulted with the wrong reason and unchecked never
+  wrapped.
+- **Unchecked `uint256` compound assignment (`+=`, `-=`, `*=`, `++`)** —
+  routed through the software limb routines so operands `>= 2^255` wrap mod
+  `2^256` instead of faulting on a 33-byte native intermediate; the old
+  workaround left a Buffer that broke index reuse (e.g.
+  `for(...; i++) a[i]`).
+- **Width-correct bitwise NOT (`~`)** — `~x` now complements within the
+  operand width: `~uint8(0)` returns 255 (not `-1`) via re-truncation after
+  INVERT, and `~uint256(x)` uses `x XOR (2^256-1)` instead of truncating to
+  u64; `int256` keeps the full-width `-x-1`.
+- **`uint256` right-shift is now a logical shift** — a `uint256` at or above
+  `2^255` (stored 32-byte two's-complement) no longer sign-extends:
+  `type(uint256).max >> 1` gives `2^255-1` instead of `2^256-1` — while
+  `int256` retains the arithmetic shift.
+- **Narrow unchecked post-increment/decrement old-value recovery** —
+  `old = new -/+ 1` is re-truncated to the operand width, so a `uint8` wrap
+  recovers the width-bounded old value (255) instead of `-1`.
+- **Shift-count encoding for counts `>= 128`** — emitted via PUSHINT16
+  instead of the signed PUSHINT8 (where `0x80` decoded to `-128` and faulted
+  the shift).
+- **Post-increment/decrement evaluates the lvalue exactly once** — `x++`/`x--`
+  on an indexed or keyed lvalue (`m[f()]++`, `arr[g()]++`) previously lowered
+  the lvalue twice, running a side-effecting index expression twice (wrong
+  slot plus duplicate effects). The compound now runs once (single index
+  evaluation, leaving the new value on the stack) and the old value is
+  recovered as `new -/+ 1`, using the `uint256` limb routine so a wrapped
+  `>= 2^255` result does not fault on a 33-byte intermediate.
+- **`ErrorName.selector` hashes the parametrized signature** — a custom
+  error with parameters now computes `keccak("Name(t1,t2,...)")[..4]`
+  instead of the bare `Name()` form, so `ErrorName.selector` matches solc
+  and the 4-byte selector the error's own `revert` emits.
+- **Sign-extension of negative signed integers in static multi-value
+  returns** — the static-ABI return fast path zero-filled the 32-byte slot
+  before copying an integer's minimal two's-complement bytes, so a negative
+  signed value zero-extended its high bytes (e.g. `int256(-1)` became
+  `0x00..00FF` = 255) rather than the EVM-canonical `0xFF..FF`. Signed
+  integers are now masked to 256 bits before the slot encode, producing the
+  correct sign-extended two's-complement; applied to both the
+  `return_revert.rs` and `function.rs` static-slot encoders, with
+  unsigned/positive paths unchanged.
+- **Array-of-struct expansion in the fallback selector canonicalizer** —
+  `canonical_param_type_with_structs` (used when NeoType resolution fails)
+  only expanded a struct when the whole token was the struct name, so
+  `P[]`/`P[3]` passed through verbatim and produced a selector disagreeing
+  with `keccak256("(uint256,bool)[]")`. It now peels the trailing array
+  suffix, canonicalizes the element type recursively, and re-appends it.
+- **Same-ABI-shape struct-overload selector collisions detected** — two
+  overloads taking different structs with the same ABI tuple shape
+  (`struct A{uint256 x}` vs `struct B{uint256 y}`) now error, since both
+  keccak-hash to the identical `f((uint256))` 4-byte selector and cannot be
+  dispatched apart on-chain. The duplicate-signature check now canonicalizes
+  each struct parameter to its tuple shape (from `metadata.structs`) instead
+  of its bare name; distinct-shape overloads still compile.
+- **Rejection of non-canonical length/offset slots in `abi.decode`** — the
+  dynamic-decode slot readers consumed only the low 8 bytes of each 32-byte
+  length/offset word, so a crafted payload encoding a value in
+  `[2^64, 2^192)` with small low bits was silently truncated, causing the
+  decoder to read the wrong region instead of reverting. A high-bits guard
+  now faults (Panic `0x41`) whenever any of the high 24 bytes is set, on
+  both the compile-time-offset and runtime-offset readers; conformant slots
+  always have zero high bytes, so valid input is never faulted.
+- **Unresolved member calls fail loud** — a member call
+  `inner.member(args)` matching no resolution branch (builtin, library,
+  using-directive, iterator op, push/pop) now emits a hard diagnostic
+  instead of dropping the receiver and arguments, pushing `0`, and reporting
+  success. A typo'd method, missing library function, or member access on an
+  unsupporting type no longer silently compiles into a function that returns
+  0 and discards side-effecting arguments, matching solc's "member not
+  found" rejection.
+- **Fixed-size arrays classified as Array in the manifest** — a fixed-size
+  array type such as `uint256[3]` (ends with `]` but not `[]`) is now
+  correctly classified as an Array rather than falling through to the
+  uint-prefix branch and being labelled Integer, which previously produced a
+  spurious "expected Integer, got Array" error for fixed-array event
+  parameters. Manifest type detection now keys on any trailing `]`.
+- **Mixed unsigned/negative integer comparison via BigInt** — comparing an
+  `UnsignedInteger` against a negative `Integer` previously faulted on the
+  u64-coercion path; both operands are now promoted to BigInt so `<`/`>`/equality
+  yield the value a real node computes (NeoVM integers are arbitrary-precision
+  with no signed/unsigned tag).
+- **`SUBSTR` integer-overflow guard** — the bounds check now uses
+  `checked_add` for `index + count`; crafted operands could overflow `usize`
+  and wrap past the guard into a Rust slice-index panic (DoS) instead of a
+  clean VM fault.
+- **modexp (`0x05`) precompile result padding** — the MODPOW result is now
+  left-padded to exactly 32 bytes (prepend 32 zeros, keep the rightmost 32)
+  so every result width including zero yields a stable 32-byte big-endian
+  slot; the prior prepend-31-zeros approach produced 39-byte output under
+  the old fixed-8-byte CONVERT and would have produced 31 bytes for a zero
+  result under minimal encoding.
+- **0x05 modexp precompile now faults on unsupported operand widths** —
+  the 1-byte-operand variant read fixed offsets 96/97/98 and ignored the
+  EIP-198 length headers, mis-reading any wider input; it now asserts the
+  low byte of each length word (`base_len@31`, `exp_len@63`, `mod_len@95 == 1`)
+  and FAULTs on any unsupported shape, while the supported 1-byte path (e.g.
+  `3^2 mod 7 = 2`) is unchanged.
+- **Disassembler now decodes the 1-byte operand of `CONVERT` (`0xDB`) and
+  `ISTYPE` (`0xD9`)** — both fell into the no-operand catch-all, so their
+  mandatory StackItemType operand was re-decoded as the next opcode (the
+  compiler emits `0xDB 0x21` for nearly every storage-int load), silently
+  misaligning every following instruction in the listing; the operand is now
+  consumed and rendered as `type=0x..`. Debug-listing surface only; emitted
+  bytecode is unaffected.
+- **Dropped unsound `x * 0 → PUSH 0` peephole** — the constant-fold no
+  longer rewrites `<x>; PUSH 0; MUL` to `<x>; PUSH 0`, which leaked the
+  multiplicand on the evaluation stack and could eventually fault on
+  MAXSTACKSIZE inside a loop.
+- **`PUSHA` offset interpretation** — the runtime now reads the `PUSHA`
+  operand as a signed offset relative to the opcode (`ip + operand`),
+  mirroring NeoVM's Pointer semantics, instead of treating it as an absolute
+  u32 address.
+- **Pragma concat-feature gate now respects identifier boundaries** — the
+  `string.concat`/`bytes.concat` version checks (`>=0.8.12` / `>=0.8.4`)
+  require a non-identifier character before the match, so a user variable
+  like `myString.concat(...)` no longer falsely trips the gate and gets the
+  compile rejected.
+- **Fixed-array length preserved through the type system for correct ABI
+  selectors** — `NeoType::Array` now carries the fixed length `N`; the
+  parser records it and `canonical_abi_type`/`type_name` emit `T[N]` instead
+  of collapsing to `T[]`. A function with a fixed-size array parameter (e.g.
+  `uint256[3]`) now computes the correct keccak selector, `interfaceId`, and
+  `abi.encodeWithSelector` payload, matching solc/ethers.
+- **`bytes20` parses as a distinct fixed-bytes type, not `address`** — it
+  now maps to `ByteArray { fixed_len: Some(20) }` → canonical `bytes20`
+  rather than `address`. Solidity treats the two as different ABI types, so
+  `f(bytes20)` previously got the wrong (`f(address)`) selector and
+  `interfaceId`.
+- **Deterministic Natspec attachment keyed by declaration start** — each
+  accumulated doc block is now keyed at the first non-whitespace byte after
+  it (the start of the declaration it documents), and a doc run breaks when
+  a non-whitespace token sits between two doc comments. `find_preceding_doc`
+  becomes an exact, distance-independent lookup at the declaration start,
+  replacing a fixed backward `0..100`-byte scan that dropped doc blocks
+  separated by more whitespace and could cross-attach a comment onto the
+  wrong (next) declaration. Manifest documentation correctness only; no
+  bytecode impact.
+- **`NEP17` witness-authorized transfer no longer underflows the allowance**
+  (devpack) — allowance is now consumed only on the approval (spender)
+  path; an owner/witness-authorized transfer with zero allowance no longer
+  computes `allowance - amount` and reverts with Panic `0x11`.
+- **`NEP17` constructor enforces the max-supply cap on the initial mint**
+  (devpack) — the initial supply is now checked against a non-zero
+  `maxSupply` (the internal `_mint` does not enforce the cap), preserving
+  the supply invariant.
+- **Oracle conditional-transfer callback decoded the wrong arguments**
+  (devpack) — `conditionalTransferCallback` declared its parameters in the
+  wrong order, so the Oracle native (which calls
+  `(string url, bytes userData, int code, bytes result)`) caused `userData`
+  (carrying the local request id) to be read from the wrong slot, leaving
+  escrowed `conditionalTransfer` funds permanently locked. Corrected to the
+  native signature.
+- **Conditional-transfer callback could strand escrow on a short oracle
+  result** (devpack) — the callback consumed the pending-request record and
+  then ran `abi.decode(result, (bool))` on the raw filtered oracle body; a
+  body shorter than a 32-byte ABI word hit Panic (`0x41`) and reverted after
+  the request was consumed, permanently locking the tokens. Now guarded with
+  `result.length >= 32` so unparsable/short results fall through to the
+  existing refund branch.
+- **Unauthorized accounts could drain the escrowed pool via
+  `multiSigTransfer`** (devpack) — the pool transfer now fails closed when
+  the multisig set/threshold is unconfigured and requires every declared
+  signer to be an owner-authorized signer; previously any caller could
+  supply two arbitrary self-witnessed accounts and drain the contract's
+  escrow.
+- **`multiSigBurn` could burn a third party's balance** (devpack) —
+  `CompleteNEP17Token.multiSigBurn` now requires the holder's own witness
+  (`checkWitness(from)`), preventing arbitrary colluding signers from
+  burning an account they do not control.
+- **`Syscalls.scriptHashToAddress` preserves all 20 bytes** (devpack) —
+  script-hash-to-address conversion now maps the 20 bytes straight to
+  `uint160` instead of left-aligning into `bytes32` and discarding the top
+  12 bytes.
+- **VaultPattern shares minted against the pre-deposit balance** (devpack)
+  — share minting now divides by the vault's assets before the incoming
+  deposit (which already lands in the live balance), so depositors are no
+  longer diluted.
+- **`CompleteNEP11NFT` royalties paid by the buyer** (devpack) — the royalty
+  leg now transfers from the witnessed buyer (`msg.sender`) instead of the
+  seller, whose witness is never present in a buyer-initiated purchase, so
+  the payment no longer always fails; the buyer's payment is split between
+  seller proceeds and royalty.
+
+### Internal
+
+- **Functions exceeding NeoVM's 255 local-slot limit now raise a compile
+  error** — INITSLOT encodes the local count in one byte and LDLOC/STLOC
+  index `0..=255`, so a function with `>255` locals previously truncated
+  silently and miscompiled slot indices; `generate_contract_bytecode` now
+  returns a clear error instead.
+
 ## [v0.20.0] - 2026-06-11
 
 Correctness-and-conformance release: a full adversarial review pass (26

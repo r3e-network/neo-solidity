@@ -1,6 +1,6 @@
 {
   "name": "@r3e-network/neo-devpack-solidity",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "Production-focused Solidity-to-NeoVM compilation system",
   "private": true,
   "repository": {
