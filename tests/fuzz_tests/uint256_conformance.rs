@@ -307,6 +307,32 @@ fn logical_shr_zero_fills_high_bit_uint256() {
 }
 
 #[test]
+fn yul_ops_use_evm_unsigned_256bit_semantics() {
+    let two_255_minus_1 = (BigUint::from(1u8) << 255u32) - BigUint::from(1u8);
+    // not(0) == 2^256-1 (EVM 256-bit complement), not NeoVM INVERT's -1.
+    assert_eq!(
+        returns_uint("uint256 r; assembly { r := not(0) } return r;"),
+        u256_max()
+    );
+    // shr(1, not(0)) == 2^255-1 (LOGICAL shift, not arithmetic).
+    assert_eq!(
+        returns_uint("uint256 r; assembly { r := shr(1, not(0)) } return r;"),
+        two_255_minus_1.clone()
+    );
+    // div(not(0), 2) == 2^255-1 (UNSIGNED division).
+    assert_eq!(
+        returns_uint("uint256 r; assembly { r := div(not(0), 2) } return r;"),
+        two_255_minus_1
+    );
+    // lt(sub(0,1), 5) == 0: EVM sub(0,1)=2^256-1, and UNSIGNED lt(2^256-1,5)
+    // is false. A signed compare would wrongly yield 1.
+    assert_eq!(
+        returns_uint("uint256 r; assembly { r := lt(sub(0, 1), 5) } return r;"),
+        BigUint::from(0u8)
+    );
+}
+
+#[test]
 fn bitwise_not_respects_operand_width() {
     // ~uintN is the complement WITHIN the N-bit width (not the full-precision
     // -x-1 that NeoVM INVERT computes).

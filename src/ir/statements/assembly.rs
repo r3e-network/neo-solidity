@@ -847,11 +847,6 @@ fn lower_yul_function_call_as_expression(
             if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
                 return false;
             }
-            let op = if name == "div" {
-                BinaryOperator::Div
-            } else {
-                BinaryOperator::Mod
-            };
             let tmp = ctx.next_label();
             let b_local = ctx.allocate_local(format!("__yul_div_b_{tmp}"), None);
             let a_local = ctx.allocate_local(format!("__yul_div_a_{tmp}"), None);
@@ -869,7 +864,10 @@ fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::Label(nonzero));
             instructions.push(Instruction::LoadLocal(a_local));
             instructions.push(Instruction::LoadLocal(b_local));
-            instructions.push(Instruction::BinaryOp(op));
+            // EVM div/mod are UNSIGNED; native NeoVM DIV/MOD are signed and
+            // wrong for operands >= 2^255. Route through the software unsigned
+            // divmod (the divisor is provably non-zero here).
+            emit_u256_divmod_ir(ctx, instructions, name == "mod");
             instructions.push(Instruction::Label(done));
             true
         }
@@ -904,12 +902,13 @@ fn lower_yul_function_call_as_expression(
             if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
                 return false;
             }
-            let op = match name {
-                "shl" => BinaryOperator::Shl,
-                "shr" => BinaryOperator::Shr,
-                _ => unreachable!(),
-            };
-            instructions.push(Instruction::BinaryOp(op));
+            // Stack: [value, shift]. EVM `shr` is a LOGICAL shift; native NeoVM
+            // SHR is arithmetic and sign-extends a high-bit-set 256-bit word.
+            if name == "shr" {
+                emit_u256_logical_shr_ir(ctx, instructions);
+            } else {
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Shl));
+            }
             true
         }
         "lt" | "gt" | "eq" => {
@@ -922,13 +921,15 @@ fn lower_yul_function_call_as_expression(
             if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
                 return false;
             }
-            let op = match name {
-                "lt" => BinaryOperator::Lt,
-                "gt" => BinaryOperator::Gt,
-                "eq" => BinaryOperator::Eq,
-                _ => unreachable!(),
-            };
-            instructions.push(Instruction::BinaryOp(op));
+            // EVM `lt`/`gt` are UNSIGNED comparisons; native NeoVM LT/GT are
+            // signed and wrong for 256-bit words >= 2^255 (e.g. after a `sub`
+            // underflow produces a negative-looking value). Route lt/gt through
+            // the unsigned-256 compare; `eq` is sign-agnostic.
+            match name {
+                "lt" => emit_u256_unsigned_compare(instructions, BinaryOperator::Lt),
+                "gt" => emit_u256_unsigned_compare(instructions, BinaryOperator::Gt),
+                _ => instructions.push(Instruction::BinaryOp(BinaryOperator::Eq)),
+            }
             // Yul returns 0/1; convert the NeoVM Boolean to an Integer so
             // the value can chain into arithmetic (e.g. `add(lt(...), 1)`).
             instructions.push(Instruction::Convert {
@@ -957,7 +958,14 @@ fn lower_yul_function_call_as_expression(
             if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
                 return false;
             }
-            instructions.push(Instruction::BitwiseNot);
+            // EVM `not(x)` is the 256-bit complement `2^256-1-x`, NOT NeoVM
+            // INVERT's arbitrary-precision `-x-1`. XOR with the 256-bit all-ones
+            // literal routes through the runtime's wide BitXor, which masks the
+            // result to 256 bits (so `not(0)` == 2^256-1, and `and(x, not(mask))`
+            // is correct).
+            let max_u256: BigInt = (BigInt::one() << 256usize) - BigInt::one();
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(max_u256)));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::BitXor));
             true
         }
         _ => false,
