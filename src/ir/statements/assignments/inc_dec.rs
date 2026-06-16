@@ -26,8 +26,9 @@ fn lower_post_inc_dec(
     }
 
     // Recover `old` from `new` (on the stack). `++` -> old = new - 1; `--` -> new + 1.
+    let inferred = infer_type_from_expression(expr, ctx);
     let is_u256 = matches!(
-        infer_type_from_expression(expr, ctx),
+        inferred,
         Some(ValueType::Integer { signed: false, bits: 256 })
     );
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
@@ -47,6 +48,22 @@ fn lower_post_inc_dec(
             BinaryOperator::Add
         };
         instructions.push(Instruction::BinaryOp(recover));
+        // Re-truncate the recovered value to the operand width. When the
+        // compound WRAPPED in an `unchecked` block (e.g. `uint8 x = 255; x++`
+        // stores new = 0), the naive `new - 1` recovers -1 instead of the
+        // pre-increment 255; masking restores the correct width-bounded old
+        // value. (In checked mode the compound Panics before reaching here, so
+        // this only ever corrects a genuine wrap; non-wrapping values are
+        // unchanged by the mask.)
+        match inferred {
+            Some(ValueType::Integer { signed: false, bits }) if bits < 256 => {
+                emit_truncate_narrow_unsigned(instructions, bits);
+            }
+            Some(ValueType::Integer { signed: true, bits }) if bits < 256 => {
+                emit_truncate_narrow_signed(ctx, instructions, bits);
+            }
+            _ => {}
+        }
     }
     true
 }

@@ -284,3 +284,36 @@ fn returns_uint_src(src: &str) -> BigUint {
         other => panic!("expected uint, got {other:?}"),
     }
 }
+
+#[test]
+fn logical_shr_zero_fills_high_bit_uint256() {
+    // Solidity `>>` on an unsigned type is LOGICAL (zero-fill). Native NeoVM
+    // SHR is arithmetic, so a uint256 >= 2^255 (stored 32-byte two's-complement)
+    // would sign-extend. `type(uint256).max >> 1` must be 2^255-1, not 2^256-1.
+    let two_255_minus_1 = (BigUint::from(1u8) << 255u32) - BigUint::from(1u8);
+    assert_eq!(returns_uint("return type(uint256).max >> 1;"), two_255_minus_1);
+    // (1 << 255) >> 254 == 2.
+    assert_eq!(
+        returns_uint("uint256 x = uint256(1) << 255; return x >> 254;"),
+        BigUint::from(2u8)
+    );
+    // Shift-by-zero is identity even with the high bit set.
+    assert_eq!(returns_uint("return type(uint256).max >> 0;"), u256_max());
+    // >>= compound form goes through the same ladder.
+    assert_eq!(
+        returns_uint("uint256 x = type(uint256).max; x >>= 4; return x;"),
+        (BigUint::from(1u8) << 252u32) - BigUint::from(1u8)
+    );
+}
+
+#[test]
+fn bitwise_not_respects_operand_width() {
+    // ~uintN is the complement WITHIN the N-bit width (not the full-precision
+    // -x-1 that NeoVM INVERT computes).
+    assert_eq!(returns_uint("return uint256(~uint8(0));"), BigUint::from(255u8));
+    assert_eq!(returns_uint("return uint256(~uint16(0));"), BigUint::from(65535u32));
+    assert_eq!(returns_uint("return ~uint256(0);"), u256_max());
+    assert_eq!(returns_uint("return ~type(uint256).max;"), BigUint::from(0u8));
+    // ~uint8(5) == 250.
+    assert_eq!(returns_uint("return uint256(~uint8(5));"), BigUint::from(250u8));
+}

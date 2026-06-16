@@ -194,3 +194,30 @@ fn unsigned_narrow_div_unaffected() {
     let src = contract("uint8 a = 200; uint8 b = 3; return a / b;", "uint8");
     assert_eq!(run_u(&src), Ok(66));
 }
+
+#[test]
+fn narrow_unchecked_post_inc_dec_recovers_wrapped_old_value() {
+    // `y = x++` binds y to the PRE-increment value. At uint8 max in an unchecked
+    // block the increment wraps x to 0; the recovered old value must be the
+    // width-bounded 255, not -1 from a width-unaware `new - 1`.
+    assert_eq!(
+        run_u(&contract(
+            "unchecked { uint8 x = 255; uint8 y = x++; return y; }",
+            "uint8"
+        )),
+        Ok(255)
+    );
+    // post-decrement at the min wraps x to 255; old value is 0.
+    assert_eq!(
+        run_u(&contract(
+            "unchecked { uint8 x = 0; uint8 y = x--; return y; }",
+            "uint8"
+        )),
+        Ok(0)
+    );
+    // the stored variable also wrapped correctly.
+    assert_eq!(
+        run_u(&contract("unchecked { uint8 x = 255; x++; return x; }", "uint8")),
+        Ok(0)
+    );
+}

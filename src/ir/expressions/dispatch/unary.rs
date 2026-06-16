@@ -10,12 +10,44 @@ fn try_lower_expression_unary(
         } else {
             false
         }),
-        Expression::BitwiseNot(_, inner) => Some(if lower_expression(inner, ctx, instructions) {
-            instructions.push(Instruction::BitwiseNot);
-            true
-        } else {
-            false
-        }),
+        Expression::BitwiseNot(_, inner) => {
+            // Solidity `~x` is the bitwise complement WITHIN the operand's bit
+            // width: `~uint8(0) == 255`, `~uint16(0) == 65535`, etc. NeoVM
+            // INVERT computes the full-precision two's-complement `-x-1`, so a
+            // narrow/uint256 result must be re-truncated to the declared width
+            // — otherwise `~uint8(0)` yields -1 and `~uint256(small)` truncates
+            // to u64 via the runtime narrow-Integer path.
+            let ty = infer_type_from_expression(inner, ctx);
+            if !lower_expression(inner, ctx, instructions) {
+                return Some(false);
+            }
+            match ty {
+                Some(ValueType::Integer { signed: false, bits: 256 }) => {
+                    // ~x for uint256 == x XOR (2^256-1). The 256-bit all-ones
+                    // literal makes the runtime XOR take its wide BigInt path,
+                    // which canonicalizes the result (`u256_bigint_to_stack_item`)
+                    // — unlike INVERT, whose narrow negative result the
+                    // zero-padding emit_truncate_u256 cannot widen correctly.
+                    let max_u256: BigInt = (BigInt::one() << 256usize) - BigInt::one();
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(max_u256)));
+                    instructions.push(Instruction::BinaryOp(BinaryOperator::BitXor));
+                }
+                Some(ValueType::Integer { signed: false, bits }) if bits < 256 => {
+                    instructions.push(Instruction::BitwiseNot);
+                    emit_truncate_narrow_unsigned(instructions, bits);
+                }
+                Some(ValueType::Integer { signed: true, bits }) if bits < 256 => {
+                    instructions.push(Instruction::BitwiseNot);
+                    emit_truncate_narrow_signed(ctx, instructions, bits);
+                }
+                // int256: full-width `-x-1` is already the correct complement.
+                // Non-integer operands keep the bare op.
+                _ => {
+                    instructions.push(Instruction::BitwiseNot);
+                }
+            }
+            Some(true)
+        }
         Expression::Power(_, left, right) => Some(lower_power_expression(
             left.as_ref(),
             right.as_ref(),

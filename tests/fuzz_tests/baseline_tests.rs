@@ -6012,22 +6012,18 @@ contract C {{ function f() external pure returns (uint256) {{ return {expr}; }} 
             "uint256(i64::MAX) >> uint256({}) must equal {}; got {}",
             s, lhs >> s, got_shr);
 
-        // (f) NOT — currently BROKEN (u64 truncation). Pin the broken shape.
-        //
-        // Spec-correct would be `(2^256 - 1) - au`. Current behavior is
-        // `!au` (u64 bitwise NOT). We assert the CURRENT broken shape so
-        // the assertion fires if/when the lowering is fixed.
+        // (f) NOT — spec-correct full-width complement `(2^256 - 1) - au`.
+        // The unary `~` lowering now re-truncates the NeoVM INVERT result to
+        // the operand width (emit_truncate_u256), so `~uint256(x)` no longer
+        // truncates to u64.
         let got_not = run_expr(
             &format!("~uint256({au})"),
             "bitwise_not",
         );
-        let broken_current = BigUint::from(!au);
-        prop_assert_eq!(&got_not, &broken_current,
-            "~uint256({}) currently returns u64-truncated !au={}; got {}. \
-             If this fires, either (a) the lowering was widened to u256 \
-             (flip expected to `((1u16 << 15) * ...) - 1 - a` but in 256-bit), \
-             or (b) a new bug appeared — re-examine and file.",
-            au, !au, got_not);
+        let u256_max = (BigUint::from(1u8) << 256u32) - BigUint::from(1u8);
+        let expected_not = &u256_max - BigUint::from(au);
+        prop_assert_eq!(&got_not, &expected_not,
+            "~uint256({}) must equal (2^256-1)-au; got {}", au, got_not);
     }
 
     // Harness #4 — Static array `uint256[5] memory a; a[2] = v; return a[2];`

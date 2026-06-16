@@ -1157,6 +1157,52 @@ fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: Bin
     instructions.push(Instruction::BinaryOp(operator)); // (a^S) <s (b^S) == a <u b
 }
 
+/// Emit a LOGICAL (zero-filling) uint256 right shift for operands `[a, n]`
+/// (n on top). Native NeoVM SHR is arithmetic, so for a uint256 `a >= 2^255`
+/// (stored as a 32-byte two's-complement word) the sign bit propagates. Solidity
+/// `>>` on an unsigned type is logical, reproduced as:
+///   n == 0  ->  a
+///   n >= 1  ->  ((a >>arith 1) & (2^255-1)) >>arith (n-1)
+/// The `& (2^255-1)` clears the bit the first arithmetic shift pushed into
+/// position 255, turning the whole sequence into a zero-fill. (Mirrors the
+/// bytecode-level `emit_uint256_logical_shr` in cli/bytecode/uint256_ops.rs.)
+/// Uses scratch slots s[0..1]; it performs only native shift/and/sub ops (no
+/// nested limb routines), so it cannot collide with an in-flight u256 op.
+fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+    let scratch = ctx.u256_scratch_locals(2);
+    let n_local = scratch[0];
+    let a_local = scratch[1];
+    instructions.push(Instruction::StoreLocal(n_local)); // pop n
+    instructions.push(Instruction::StoreLocal(a_local)); // pop a
+
+    let nonzero_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    // if n == 0 -> result = a
+    instructions.push(Instruction::LoadLocal(n_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+    // JumpIf -> JMPIFNOT: jump to the n>=1 path when (n == 0) is FALSE.
+    instructions.push(Instruction::JumpIf {
+        target: nonzero_label,
+    });
+    instructions.push(Instruction::LoadLocal(a_local));
+    instructions.push(Instruction::Jump { target: end_label });
+
+    instructions.push(Instruction::Label(nonzero_label));
+    let max_int256: BigInt = (BigInt::one() << 255usize) - BigInt::one(); // 2^255 - 1
+    instructions.push(Instruction::LoadLocal(a_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // a >>arith 1
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(max_int256)));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd)); // logical (a>>1)
+    instructions.push(Instruction::LoadLocal(n_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Sub)); // n - 1
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // >> (n-1)
+    instructions.push(Instruction::Label(end_label));
+}
+
 // Emit unsigned `a / b` (or `a % b` if `want_remainder`) for uint256 operands
 // `[a, b]`. Native NeoVM DIV/MOD are signed, so they are wrong for operands at
 // or above 2^255. Reduction (Hacker's Delight 9-3): when the divisor is at or
@@ -1306,6 +1352,18 @@ fn emit_arith_with_overflow_ladder(
         && !is_int256_operand(right, ctx)
     {
         emit_u256_divmod_ir(ctx, instructions, matches!(operator, BinaryOperator::Mod));
+        return;
+    }
+
+    // uint256 `>>` is a LOGICAL (zero-filling) shift. Native NeoVM SHR is
+    // ARITHMETIC: a uint256 >= 2^255 is stored as a 32-byte two's-complement
+    // (negative-looking) word, so the sign bit would propagate (`type(uint256)
+    // .max >> 1` gives `2^256-1` instead of `2^255-1`). Gate on the LEFT
+    // operand (the value being shifted) being a genuine uint256; narrow uints
+    // are stored as positive narrow integers whose native SHR is already
+    // logical, and int256 keeps the arithmetic shift.
+    if matches!(operator, BinaryOperator::Shr) && is_typed_uint256(left, ctx) {
+        emit_u256_logical_shr_ir(ctx, instructions);
         return;
     }
 
