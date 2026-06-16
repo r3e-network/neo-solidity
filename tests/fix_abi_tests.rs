@@ -211,6 +211,29 @@ contract TupleDynStruct {
 }
 
 #[test]
+fn abi_decode_rejects_noncanonical_length_offset_slot() {
+    // The top-level offset word here has a nonzero HIGH byte (byte 0 = 0x01)
+    // with a benign low-8 (0x20). Reading only the low 8 bytes would silently
+    // truncate the crafted value and decode the wrong region; the high-bits
+    // guard must revert instead (Panic 0x41).
+    let result = compile_and_execute(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function check() public pure returns (uint256) {
+        bytes memory enc = hex"0100000000000000000000000000000000000000000000000000000000000020";
+        string[] memory b = abi.decode(enc, (string[]));
+        return b.length;
+    }
+}"#,
+    );
+    assert!(
+        !result.success,
+        "a non-canonical offset slot (nonzero high bytes) must revert, not silently truncate"
+    );
+}
+
+#[test]
 fn same_arity_overloads_dispatch_by_argument_type() {
     // `pick(uint256)` and `pick(address)` share (name, arity)=(pick,1).
     // Each call must dispatch to the overload matching its argument type;
