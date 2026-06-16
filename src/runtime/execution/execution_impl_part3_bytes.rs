@@ -1,8 +1,23 @@
 use super::*;
 
+/// NeoVM `ExecutionEngineLimits.MaxItemSize` (0xFFFF). A ByteString/Buffer
+/// whose length exceeds this FAULTs on a real node; NEWBUFFER, CAT and
+/// integer/byte growth past it throw "MaxItemSize exceeded".
+pub(crate) const NEOVM_MAX_ITEM_SIZE: usize = 0xFFFF;
+
 impl ExecutionContext {
     pub(crate) fn new_buffer(&mut self) -> Result<(), RuntimeError> {
         let len = self.pop_usize("NEWBUFFER")?;
+        // NeoVM faults when the requested size exceeds MaxItemSize (65535),
+        // independent of the host memory budget — model it so the simulator
+        // does not report success for a buffer a real node rejects.
+        if len > NEOVM_MAX_ITEM_SIZE {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "NEWBUFFER: length {len} exceeds NeoVM MaxItemSize ({NEOVM_MAX_ITEM_SIZE})"
+                ),
+            });
+        }
         // Bound user-supplied length against memory_limit to prevent OOM DoS
         // from attacker-supplied bytecode (PUSHINT + NEWBUFFER). Mirrors the
         // PUSHDATA4 length check in instruction/push.rs.
@@ -67,6 +82,14 @@ impl ExecutionContext {
     pub(crate) fn concat_bytes(&mut self) -> Result<(), RuntimeError> {
         let b = Self::stack_item_to_bytes(self.pop_stack()?);
         let mut a = Self::stack_item_to_bytes(self.pop_stack()?);
+        // NeoVM CAT faults when the concatenated result exceeds MaxItemSize.
+        if a.len().saturating_add(b.len()) > NEOVM_MAX_ITEM_SIZE {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "CAT: result exceeds NeoVM MaxItemSize ({NEOVM_MAX_ITEM_SIZE})"
+                ),
+            });
+        }
         a.extend_from_slice(&b);
         self.push_stack(StackItem::byte_array(a))
     }
@@ -75,12 +98,18 @@ impl ExecutionContext {
         let count = self.pop_usize("SUBSTR")?;
         let index = self.pop_usize("SUBSTR")?;
         let data = Self::stack_item_to_bytes(self.pop_stack()?);
-        if index + count > data.len() {
+        // Checked add: `index + count` can overflow usize for crafted operands
+        // and wrap past the bounds guard into a slice-index panic (mirrors
+        // memcpy_bytes' checked arithmetic above).
+        let end = index.checked_add(count).ok_or(RuntimeError::ExecutionError {
+            message: "SUBSTR: range overflow".to_string(),
+        })?;
+        if end > data.len() {
             return Err(RuntimeError::ExecutionError {
                 message: "SUBSTR: out of bounds".to_string(),
             });
         }
-        self.push_stack(StackItem::byte_array(data[index..index + count].to_vec()))
+        self.push_stack(StackItem::byte_array(data[index..end].to_vec()))
     }
 
     pub(crate) fn left_bytes(&mut self) -> Result<(), RuntimeError> {

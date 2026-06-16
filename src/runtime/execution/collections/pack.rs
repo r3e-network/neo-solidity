@@ -25,8 +25,10 @@ impl ExecutionContext {
         }
         let mut map = std::collections::HashMap::new();
         for _ in 0..count {
-            let value = self.pop_stack()?;
+            // NeoVM PACKMAP pops the KEY first (top of stack), then the value:
+            //   `PrimitiveType key = Pop(); StackItem value = Pop();`
             let key = self.pop_stack()?;
+            let value = self.pop_stack()?;
             let key_bytes = Self::stack_item_to_bytes(key);
             map.insert(key_bytes, value);
         }

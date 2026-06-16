@@ -124,12 +124,13 @@ fn remove_then_pickitem0_returns_remaining_element() {
 
 #[test]
 fn packmap_builds_map_and_supports_pickitem() {
-    // key "a" -> 1, key "b" -> 2, count=2 -> PACKMAP -> push "a" -> PICKITEM -> RET
+    // NeoVM PACKMAP pops KEY first (top), then value — so each pair is pushed
+    // value-then-key: {a:1, b:2}, count=2 -> PACKMAP -> push "a" -> PICKITEM -> RET
     let code = [
-        0x0C, 0x01, b'a', // key a
         0x11, // value 1
-        0x0C, 0x01, b'b', // key b
+        0x0C, 0x01, b'a', // key a
         0x12, // value 2
+        0x0C, 0x01, b'b', // key b
         0x12, // count=2
         0xBE, // PACKMAP
         0x0C, 0x01, b'a', // key a again

@@ -157,6 +157,41 @@ contract MapKeys {
 }
 
 #[test]
+fn storage_put_enforces_neo_n3_value_size_limit() {
+    // Neo N3 MaxStorageValueSize is 65535; a Storage.Put of a larger value
+    // FAULTs on-chain. The simulator must model that rather than silently
+    // succeeding (it would pass the 10 MiB overlay cap otherwise).
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes data;
+    function set(bytes memory v) external { data = v; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+
+    // 70000-byte value exceeds MaxStorageValueSize -> must FAULT.
+    let big = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "set",
+            &[StackItem::byte_array(vec![0x5A; 70_000])])
+        .expect("host call");
+    assert!(
+        !big.success,
+        "storing a 70000-byte value must FAULT (exceeds Neo N3 MaxStorageValueSize)"
+    );
+
+    // A comfortably-under-limit value still stores fine.
+    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let ok = rt2
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "set",
+            &[StackItem::byte_array(vec![0x5A; 1000])])
+        .expect("host call");
+    assert!(ok.success, "storing a 1000-byte value must succeed: {:?}",
+        ok.exception.map(|e| e.message));
+}
+
+#[test]
 fn integer_mapping_key_serialize_uses_integer_convert() {
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;

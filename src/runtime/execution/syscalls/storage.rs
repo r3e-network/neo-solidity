@@ -115,6 +115,30 @@ impl ExecutionContext {
                 let key = Self::stack_item_to_bytes(slot_item);
                 let value = Self::stack_item_to_bytes(value_item);
 
+                // Neo N3 consensus limits: a Storage.Put FAULTs when the key
+                // exceeds MaxStorageKeySize (64) or the value exceeds
+                // MaxStorageValueSize (65535). Without this, a contract storing
+                // an oversized dynamic value (e.g. a >64 KB string) succeeds in
+                // the simulator but reverts on-chain.
+                const MAX_STORAGE_KEY_SIZE: usize = 64;
+                const MAX_STORAGE_VALUE_SIZE: usize = 65535;
+                if key.len() > MAX_STORAGE_KEY_SIZE {
+                    return Err(RuntimeError::ExecutionError {
+                        message: format!(
+                            "Storage.Put: key length {} exceeds Neo N3 MaxStorageKeySize ({MAX_STORAGE_KEY_SIZE})",
+                            key.len()
+                        ),
+                    });
+                }
+                if value.len() > MAX_STORAGE_VALUE_SIZE {
+                    return Err(RuntimeError::ExecutionError {
+                        message: format!(
+                            "Storage.Put: value length {} exceeds Neo N3 MaxStorageValueSize ({MAX_STORAGE_VALUE_SIZE})",
+                            value.len()
+                        ),
+                    });
+                }
+
                 self.enforce_storage_limit(&key, &value)?;
 
                 let entry =
