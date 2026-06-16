@@ -1,9 +1,27 @@
+/// A single structured parser diagnostic, carrying the byte range so
+/// standard-JSON output can emit a precise `sourceLocation` (start/end) per
+/// error instead of collapsing every parse error into one opaque blob.
+#[derive(Debug, Clone)]
+pub struct ParseDiagnostic {
+    /// Human-readable message, prefixed with `line:column:` where known.
+    pub message: String,
+    /// Inclusive start byte offset in the source.
+    pub start: usize,
+    /// Exclusive end byte offset in the source.
+    pub end: usize,
+}
+
 /// Errors emitted by the frontend while parsing Solidity code.
 #[derive(Debug, Error)]
 pub enum FrontendError {
     /// Parsing failed; the contained message aggregates all diagnostics.
     #[error("Solidity parsing failed:\n{0}")]
     Parse(String),
+
+    /// Parsing failed; structured per-diagnostic form (preferred). Preserves
+    /// each diagnostic's byte range for precise tooling output.
+    #[error("Solidity parsing failed with {} error(s)", .0.len())]
+    ParseDiagnostics(Vec<ParseDiagnostic>),
 
     /// Invalid Solidity version pragma
     #[error("Unsupported Solidity version: {0}")]

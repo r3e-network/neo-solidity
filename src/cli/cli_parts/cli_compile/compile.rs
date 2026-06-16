@@ -66,8 +66,15 @@ pub fn compile_contracts_with_options(
     verbose: bool,
     options: CompileOptions,
 ) -> Result<Vec<CompilationArtifacts>, CompileError> {
-    let metadatas =
-        analyse_all_sources(source).map_err(|err| CompileError::Message(err.to_string()))?;
+    let metadatas = analyse_all_sources(source).map_err(|err| match err {
+        // Preserve structured parser diagnostics so standard-JSON emits one
+        // error per diagnostic with a precise sourceLocation, rather than
+        // collapsing them into a single opaque Generic error.
+        neo_devpack_solidity::solidity::SolidityError::Frontend(
+            neo_devpack_solidity::frontend::FrontendError::ParseDiagnostics(diags),
+        ) => CompileError::ParseErrors(diags),
+        other => CompileError::Message(other.to_string()),
+    })?;
 
     metadatas
         .into_iter()

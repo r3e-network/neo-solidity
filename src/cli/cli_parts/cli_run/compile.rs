@@ -47,6 +47,12 @@ fn compile_input_or_exit(
             emit_error(&message, "MANIFEST_GENERATION_ERROR", json_errors);
             std::process::exit(1);
         }
+        Err(CompileError::ParseErrors(diags)) => {
+            for diag in diags {
+                emit_error(&diag.message, "PARSE_ERROR", json_errors);
+            }
+            std::process::exit(1);
+        }
         Err(CompileError::Message(message)) => {
             emit_error(&message, "GENERIC_ERROR", json_errors);
             std::process::exit(1);

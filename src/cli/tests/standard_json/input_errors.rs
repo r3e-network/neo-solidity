@@ -527,12 +527,21 @@ fn standard_json_generic_errors_include_code() {
             .expect("output json");
 
     let errors = output["errors"].as_array().expect("errors array expected");
+    // A syntax error now surfaces as one or more structured ParseError entries,
+    // each carrying a precise sourceLocation (start/end), instead of a single
+    // opaque Generic blob — matching solc's per-diagnostic standard-JSON output.
     let error = errors
         .iter()
-        .find(|err| err["type"] == "Generic")
-        .expect("generic error");
+        .find(|err| err["type"] == "ParseError")
+        .expect("parse error");
 
-    assert_eq!(error["code"], "GENERIC_ERROR");
+    assert_eq!(error["code"], "PARSE_ERROR");
+    let loc = &error["sourceLocation"];
+    assert!(
+        loc.get("start").and_then(Value::as_u64).is_some()
+            && loc.get("end").and_then(Value::as_u64).is_some(),
+        "ParseError sourceLocation must carry byte start/end offsets, got {loc}"
+    );
 }
 
 #[test]

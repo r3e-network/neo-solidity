@@ -25,5 +25,8 @@ pub enum CompileError {
     Semantic(Vec<neo_devpack_solidity::solidity::Diagnostic>),
     Ir(Vec<neo_devpack_solidity::ir::IrDiagnostic>),
     Manifest(String),
+    /// Structured parser diagnostics — emitted as one standard-JSON error per
+    /// diagnostic with a precise `sourceLocation`, instead of one Generic blob.
+    ParseErrors(Vec<neo_devpack_solidity::frontend::ParseDiagnostic>),
     Message(String),
 }

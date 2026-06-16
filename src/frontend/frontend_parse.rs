@@ -1,7 +1,7 @@
 /// Parse Solidity source into [`ContractIR`] values.
 pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     let (source_unit, comments) = parse_solidity_guarded(source)
-        .map_err(|diags| FrontendError::Parse(format_diagnostics(source, &diags)))?;
+        .map_err(|diags| FrontendError::ParseDiagnostics(collect_parse_diagnostics(source, &diags)))?;
 
     // Build a map of end positions to preceding doc comments
     let comment_map = build_comment_map(&comments, source);

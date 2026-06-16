@@ -37,6 +37,24 @@ impl CompileError {
                 "formattedMessage": message,
                 "message": message,
             })],
+            CompileError::ParseErrors(diags) => diags
+                .into_iter()
+                .map(|diag| {
+                    json!({
+                        "component": "neo-devpack-solidity",
+                        "severity": "error",
+                        "type": "ParseError",
+                        "code": "PARSE_ERROR",
+                        "sourceLocation": {
+                            "file": file,
+                            "start": diag.start,
+                            "end": diag.end,
+                        },
+                        "formattedMessage": diag.message,
+                        "message": diag.message,
+                    })
+                })
+                .collect(),
             CompileError::Message(message) => vec![json!({
                 "component": "neo-devpack-solidity",
                 "severity": "error",

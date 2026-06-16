@@ -244,6 +244,21 @@ fn build_upgrade_report(
             ));
                 false
             }
+            Err(CompileError::ParseErrors(diags)) => {
+                for diag in diags {
+                    let category = classify_upgrade_category(&diag.message);
+                    findings.push(UpgradeFinding::new(
+                        "compile",
+                        UpgradeSeverity::Error,
+                        category,
+                        Some("PARSE_ERROR"),
+                        None::<String>,
+                        diag.message,
+                        None::<String>,
+                    ));
+                }
+                false
+            }
             Err(CompileError::Message(message)) => {
                 findings.push(UpgradeFinding::new(
                     "compile",
