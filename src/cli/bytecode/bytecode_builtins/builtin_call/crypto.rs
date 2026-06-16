@@ -276,12 +276,24 @@ fn emit_precompile_ecrecover(
 ///
 /// NeoVM MODPOW (0xA6) pops [base, exp, mod] and pushes the result.
 fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
-    // NOTE: this is the MINIMAL 1-byte-operand modexp variant. It assumes the
-    // EIP-198 length headers base_len==exp_len==mod_len==1 and reads the single
-    // operand bytes at fixed offsets 96/97/98 WITHOUT consulting the length
-    // words at 0/32/64. Inputs with wider operands are out of scope and would
-    // mis-read; callers must use 1-byte operands. (A full variable-width
-    // implementation is a separate enhancement.)
+    // This is the 1-byte-operand modexp variant: it reads single operand bytes
+    // at fixed offsets 96/97/98. To avoid SILENTLY mis-reading a wider input
+    // (whose operands are length-prefixed at different offsets), GATE on the
+    // EIP-198 length headers: assert the low byte of each length word
+    // (base_len@31, exp_len@63, mod_len@95) equals 1, faulting loudly on any
+    // unsupported shape instead of returning a wrong result. (Full
+    // variable-width support is a separate enhancement.)
+    for &len_byte_offset in &[31u8, 63u8, 95u8] {
+        bytecode.push(0x4A); // DUP payload
+        push_integer_bigint(bytecode, &BigInt::from(len_byte_offset));
+        push_integer_bigint(bytecode, &BigInt::from(1u8));
+        bytecode.push(0x8C); // SUBSTR → length low byte
+        bytecode.push(0xDB); // CONVERT
+        bytecode.push(0x21); // to Integer
+        push_integer_bigint(bytecode, &BigInt::from(1u8));
+        bytecode.push(0xB3); // NUMEQUAL → (len_byte == 1)
+        bytecode.push(0x39); // ASSERT — fault when the length is not 1
+    }
     // Stack: [payload] → extract bytes at offsets 96/97/98 as integers.
     bytecode.push(0x4A); // DUP payload
     push_integer_bigint(bytecode, &BigInt::from(96u8));

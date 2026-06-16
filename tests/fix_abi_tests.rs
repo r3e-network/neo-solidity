@@ -708,3 +708,54 @@ contract RequireDynCatch {
         hex::encode(&result.return_data)
     );
 }
+
+#[test]
+fn modexp_precompile_faults_on_unsupported_multibyte_shape() {
+    // The 0x05 precompile is the 1-byte-operand variant. A multi-byte shape
+    // (base_len=2 here) must FAULT loudly via the length-header gate, instead
+    // of silently mis-reading operand bytes and returning a wrong result.
+    let mut input = vec![0u8; 96];
+    input[31] = 2; // base_len = 2 (unsupported)
+    input[63] = 1; // exp_len = 1
+    input[95] = 1; // mod_len = 1
+    input.extend_from_slice(&[0x01, 0x02, 0x03, 0x05]); // base(2) exp(1) mod(1)
+    let hexstr = hex::encode(&input);
+    let src = format!(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {{
+    function check() public view returns (uint256) {{
+        bytes memory input = hex"{hexstr}";
+        (bool ok, bytes memory out) = address(0x05).staticcall(input);
+        return ok ? out.length : 999;
+    }}
+}}"#
+    );
+    let result = compile_and_execute(&src);
+    assert!(
+        !result.success,
+        "a multi-byte modexp shape must fault, not silently mis-read operands"
+    );
+
+    // The supported 1-byte shape still computes: 3^2 mod 7 = 2.
+    let mut ok_input = vec![0u8; 96];
+    ok_input[31] = 1;
+    ok_input[63] = 1;
+    ok_input[95] = 1;
+    ok_input.extend_from_slice(&[0x03, 0x02, 0x07]); // base=3 exp=2 mod=7
+    let ok_hex = hex::encode(&ok_input);
+    let ok_src = format!(
+        r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {{
+    function check() public view returns (bool) {{
+        bytes memory input = hex"{ok_hex}";
+        (bool ok, bytes memory out) = address(0x05).staticcall(input);
+        return ok && out.length == 32 && uint8(out[31]) == 2;
+    }}
+}}"#
+    );
+    let ok_result = compile_and_execute(&ok_src);
+    assert!(ok_result.success && ok_result.return_data == vec![0x01],
+        "1-byte modexp 3^2 mod 7 must still compute 2; rd={}", hex::encode(&ok_result.return_data));
+}
