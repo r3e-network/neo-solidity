@@ -112,6 +112,8 @@ impl ExecutionContext {
             witness_signers: Vec::new(),
             random_seed: None,
             random_counter: 0,
+            pending_signing_hash: None,
+            active_signing_hash: None,
         })
     }
 
@@ -170,6 +172,11 @@ impl ExecutionContext {
         // explicitly injected 0"). The `GetMsgValue` syscall handler coalesces
         // None → 0 when pushing to the stack.
         self.msg_value = self.pending_msg_value.take();
+        // S3 fix — drain the signing-hash override into the active slot so the
+        // crypto syscalls verify against the injected transaction digest for
+        // this execution only. `None` means "no override armed"; the crypto
+        // helper then falls back to the synthetic hash (backward-compat).
+        self.active_signing_hash = self.pending_signing_hash.take();
         // Neo N3 invocation counter is 1 for the first invocation of a contract
         // within a script execution and increments on re-entry.
         self.invocation_counter = 1;
@@ -237,6 +244,31 @@ impl ExecutionContext {
         self.pending_msg_value = Some(value);
     }
 
+    /// S3 fix — override the transaction signing hash used by
+    /// `System.Crypto.CheckSig` / `System.Crypto.CheckMultisig` for the next
+    /// execution.
+    ///
+    /// Neo N3 verifies ECDSA signatures against the script container's
+    /// verifiable transaction digest. The embedded runtime has no real script
+    /// container, so by default it synthesizes a deterministic hash from the
+    /// execution context (`bytecode || account || invocation_counter`) — that
+    /// fallback preserves the behavior of every test written before this API.
+    /// Hosts that need real correctness (e.g. a test that pre-signs a known
+    /// 32-byte digest) call this to arm the override; `initialize` drains it
+    /// into the active slot so it applies to exactly one execution, mirroring
+    /// `override_value` / `override_caller_account`.
+    ///
+    /// Passing `None` clears a previously armed override.
+    pub fn override_signing_hash(&mut self, hash: impl Into<Option<[u8; 32]>>) {
+        self.pending_signing_hash = hash.into();
+    }
+
+    /// Inspect the armed (not yet drained) signing-hash override. Returns
+    /// `None` after `initialize` consumes it. Intended for test assertions.
+    pub fn pending_signing_hash(&self) -> Option<[u8; 32]> {
+        self.pending_signing_hash
+    }
+
     /// Clear any pending metadata overrides before the next execution.
     ///
     /// Task #176 — also clears the sticky caller-account slot so that
@@ -248,5 +280,6 @@ impl ExecutionContext {
         self.pending_caller_account = None;
         self.pending_msg_value = None;
         self.sticky_caller_account = None;
+        self.pending_signing_hash = None;
     }
 }

@@ -188,4 +188,22 @@ pub struct ExecutionContext {
     pub(crate) random_seed: Option<[u8; 32]>,
     /// Counter for sequential random number generation
     pub(crate) random_counter: u64,
+
+    /// S3 fix — host-injected transaction signing hash used by
+    /// `System.Crypto.CheckSig`/`CheckMultisig` for the *current* execution.
+    ///
+    /// Neo N3 verifies signatures against the script container's verifiable
+    /// signing hash (the transaction digest). The embedded runtime has no real
+    /// script container, so by default `get_current_message_hash` falls back to
+    /// a deterministic synthetic hash (`SHA256(bytecode || account || counter)`)
+    /// — preserving the behavior of every test written before this field
+    /// existed. When a host needs real correctness (e.g. a test that pre-signs
+    /// a known digest), it calls `override_signing_hash` to arm this slot.
+    /// `initialize` drains it into [`Self::active_signing_hash`] so the override
+    /// applies to exactly one execution, mirroring `pending_msg_value` /
+    /// `pending_caller_account`.
+    pub(crate) pending_signing_hash: Option<[u8; 32]>,
+    /// Active signing hash for the in-flight execution. `None` tells
+    /// `get_current_message_hash` to compute its synthetic fallback.
+    pub(crate) active_signing_hash: Option<[u8; 32]>,
 }

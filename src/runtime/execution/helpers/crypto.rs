@@ -98,12 +98,26 @@ impl ExecutionContext {
 
     /// Get the current message hash for signature verification.
     ///
-    /// Returns a deterministic hash derived from the execution context
-    /// (bytecode hash + storage account + invocation counter).
-    /// Note: When connected to Neo N3 node, this returns the actual transaction hash.
+    /// Returns the host-injected transaction signing hash when one was armed
+    /// via [`Self::override_signing_hash`] for this execution (S3 fix),
+    /// otherwise falls back to a deterministic synthetic hash derived from the
+    /// execution context (bytecode hash + storage account + invocation
+    /// counter). The fallback preserves the behavior of every test written
+    /// before the injectable-hash API existed.
     pub(crate) fn get_current_message_hash(&self) -> [u8; 32] {
-        // Create a deterministic message hash from execution context
-        // This includes: bytecode hash + current account + invocation counter
+        // S3 fix — prefer the host-injected transaction signing hash. Neo N3
+        // verifies signatures against the script container's verifiable
+        // transaction digest; the embedded runtime has no real script
+        // container, so hosts that need real correctness inject the digest
+        // explicitly. `None` here means "no override armed for this
+        // execution" → fall through to the synthetic hash.
+        if let Some(injected) = self.active_signing_hash {
+            return injected;
+        }
+
+        // Backward-compatible fallback: a deterministic message hash derived
+        // from the execution context. Includes bytecode hash + current account
+        // + invocation counter.
         let mut hasher_input = Vec::new();
 
         // Include bytecode hash
