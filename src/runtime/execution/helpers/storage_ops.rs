@@ -274,6 +274,40 @@ impl ExecutionContext {
         self.storage_overlay.clear();
     }
 
+    /// S7 fix test helper — insert (or overwrite) a storage-overlay entry for
+    /// `key` with `value`, marked dirty. Lets a test pre-seed the overlay so
+    /// it can observe whether a faulted execution clobbered it. Host-only API;
+    /// compiled contracts reach storage via the syscalls.
+    pub fn storage_overlay_insert(&mut self, key: Vec<u8>, value: Vec<u8>) {
+        self.storage_overlay.insert(
+            key,
+            OverlayEntry {
+                value: Some(value),
+                dirty: true,
+            },
+        );
+    }
+
+    /// S7 fix test helper — read the current overlay value for `key`.
+    /// Returns the inner bytes if the entry exists and is non-tombstone.
+    pub fn storage_overlay_get(&self, key: &[u8]) -> Option<Vec<u8>> {
+        self.storage_overlay.get(key).and_then(|e| e.value.clone())
+    }
+
+    /// S7 fix — snapshot the current storage overlay so an inner-call fault
+    /// can be rolled back to this point. Returns a cheap clone of the map;
+    /// callers store it on the [`CallFrame`] being pushed so the matching
+    /// [`Self::restore_storage_snapshot`] runs exactly when that frame unwinds.
+    pub(crate) fn snapshot_storage_overlay(&self) -> HashMap<Vec<u8>, OverlayEntry> {
+        self.storage_overlay.clone()
+    }
+
+    /// S7 fix — restore the storage overlay to a prior snapshot, discarding
+    /// any writes the callee made between snapshot and fault.
+    pub(crate) fn restore_storage_snapshot(&mut self, snapshot: HashMap<Vec<u8>, OverlayEntry>) {
+        self.storage_overlay = snapshot;
+    }
+
     pub fn drain_dirty_storage_overlay(&mut self) -> Option<(String, StorageOverlayEntries)> {
         let account = self.storage_account.clone()?;
         let mut entries = Vec::new();
@@ -308,5 +342,64 @@ impl ExecutionContext {
             }
             _ => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+mod s7_tests {
+    use super::super::*;
+    use crate::runtime::RuntimeConfig;
+
+    fn fresh_ctx() -> ExecutionContext {
+        ExecutionContext::new(&RuntimeConfig::default()).expect("ctx")
+    }
+
+    /// S7 fix — snapshot/restore isolation. A callee that writes storage
+    /// and then faults must have its writes discarded; the caller's
+    /// pre-existing entries must survive. This is the load-bearing unit
+    /// for the `storage_snapshot` field wired through
+    /// `handle_contract_call` → `CallFrame.storage_snapshot` →
+    /// `dispatch_exception`'s unwind loop.
+    #[test]
+    fn snapshot_restore_discards_callee_writes_keeps_caller_state() {
+        let mut ctx = fresh_ctx();
+        // Caller pre-existing state: A = "caller_val".
+        ctx.storage_overlay_insert(vec![b'A'], b"caller_val".to_vec());
+
+        // Callee entry: snapshot the overlay.
+        let snapshot = ctx.snapshot_storage_overlay();
+
+        // Callee writes: clobbers A and adds a new key B.
+        ctx.storage_overlay_insert(vec![b'A'], b"callee_clobber".to_vec());
+        ctx.storage_overlay_insert(vec![b'B'], b"callee_only".to_vec());
+
+        // Callee faults → restore the snapshot.
+        ctx.restore_storage_snapshot(snapshot);
+
+        // After rollback: A is back to caller_val, B is gone.
+        assert_eq!(
+            ctx.storage_overlay_get(b"A"),
+            Some(b"caller_val".to_vec()),
+            "S7: callee's clobber of A must be discarded on revert"
+        );
+        assert_eq!(
+            ctx.storage_overlay_get(b"B"),
+            None,
+            "S7: callee-only write B must be discarded on revert"
+        );
+    }
+
+    /// S7 fix regression guard — snapshot captures the *current* overlay,
+    /// not an empty one.
+    #[test]
+    fn snapshot_is_not_empty_when_overlay_has_entries() {
+        let mut ctx = fresh_ctx();
+        ctx.storage_overlay_insert(vec![b'X'], b"v".to_vec());
+        let snapshot = ctx.snapshot_storage_overlay();
+        assert_eq!(snapshot.len(), 1, "snapshot must reflect the live overlay");
+        assert_eq!(
+            snapshot.get(&vec![b'X']).and_then(|e| e.value.clone()),
+            Some(b"v".to_vec())
+        );
     }
 }

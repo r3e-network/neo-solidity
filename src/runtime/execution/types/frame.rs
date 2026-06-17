@@ -3,6 +3,7 @@
 //! Provides structures for managing function call frames and exception handling.
 
 use super::stack::StackItem;
+use super::state::OverlayEntry;
 use std::collections::HashMap;
 
 /// Call frame for function calls
@@ -52,6 +53,17 @@ pub struct CallFrame {
     /// `StackItem::Null` result for void callees so the caller observes the
     /// same "one syscall result" contract regardless of dispatch flavour.
     pub syscall_result_expected: bool,
+    /// S7 fix — snapshot of the storage overlay taken when this frame was
+    /// pushed at a contract-call boundary. When the frame unwinds via an
+    /// exception (`dispatch_exception`), the runtime restores this snapshot so
+    /// the callee's dirty storage writes are discarded — matching Neo N3,
+    /// which reverts storage to the call-boundary snapshot on any inner fault.
+    ///
+    /// `None` for plain internal function calls (CALL_L) — only
+    /// `handle_contract_call`'s self-offsets dispatch arm populates it, since
+    /// that's the path that crosses a virtual contract boundary whose
+    /// storage semantics Neo N3 isolates per-call.
+    pub storage_snapshot: Option<HashMap<Vec<u8>, OverlayEntry>>,
 }
 
 impl CallFrame {
@@ -66,6 +78,7 @@ impl CallFrame {
             saved_args: Vec::new(),
             msg_sender_override: None,
             syscall_result_expected: false,
+            storage_snapshot: None,
         }
     }
 

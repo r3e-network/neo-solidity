@@ -35,6 +35,16 @@ impl ExecutionContext {
                             self.stack.truncate(callee_frame.stack_base);
                             self.locals = callee_frame.saved_locals;
                             self.args = callee_frame.saved_args;
+                            // S7 fix — if this frame crossed a contract-call
+                            // boundary (handle_contract_call's self-offsets
+                            // arm), restore the storage overlay to the snapshot
+                            // taken at entry. Without this, the callee's dirty
+                            // storage writes leak into the caller's overlay and
+                            // get committed at top-level halt — diverging from
+                            // Neo N3, which reverts storage on any inner fault.
+                            if let Some(snapshot) = callee_frame.storage_snapshot {
+                                self.restore_storage_snapshot(snapshot);
+                            }
                         }
                     }
                     if let Some(top) = self.try_stack.last_mut() {

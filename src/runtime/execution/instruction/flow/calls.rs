@@ -147,6 +147,7 @@ impl ExecutionContext {
             saved_args: std::mem::take(&mut self.args),
             msg_sender_override: None,
             syscall_result_expected: false,
+            storage_snapshot: None,
         };
         self.call_stack.push(frame);
         Ok(())

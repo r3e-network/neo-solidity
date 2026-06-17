@@ -603,7 +603,7 @@ fn s6_storage_put_faults_in_readonly_context() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
     ctx.override_call_flags(s6_call_flags::READ_STATES);
     ctx.initialize(&code, &[]).expect("init");
-    let outcome = s6_catch_halt(&mut ctx);
+    let outcome = step_until_halt(&mut ctx);
     assert!(
         outcome.is_err(),
         "Storage.Put in a read-only context (no WriteStates flag) must FAULT; \
@@ -628,7 +628,7 @@ fn s6_storage_put_succeeds_with_writestates_flag() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
     ctx.override_call_flags(s6_call_flags::READ_STATES | s6_call_flags::WRITE_STATES);
     ctx.initialize(&code, &[]).expect("init");
-    let outcome = s6_catch_halt(&mut ctx);
+    let outcome = step_until_halt(&mut ctx);
     assert!(
         outcome.is_ok(),
         "Storage.Put with WriteStates flag must succeed; got {:?}",
@@ -636,7 +636,7 @@ fn s6_storage_put_succeeds_with_writestates_flag() {
     );
 }
 
-fn s6_catch_halt(ctx: &mut ExecutionContext) -> Result<(), String> {
+fn step_until_halt(ctx: &mut ExecutionContext) -> Result<(), String> {
     loop {
         match ctx.step() {
             Ok(h) => {

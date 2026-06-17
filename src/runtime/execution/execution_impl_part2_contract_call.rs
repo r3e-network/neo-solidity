@@ -93,6 +93,10 @@ impl ExecutionContext {
                 // result lands at `stack_base + 1` and the check fires
                 // correctly.
                 self.push_call_frame(return_address)?;
+                // S7 fix — capture the storage-overlay snapshot BEFORE the
+                // mutable borrow of call_stack below (snapshot_storage_overlay
+                // borrows self too, which would conflict with last_mut).
+                let storage_snapshot = Some(self.snapshot_storage_overlay());
                 if let Some(frame) = self.call_stack.last_mut() {
                     frame.msg_sender_override = Some(synthetic_caller);
                     // Task #160 — mark the frame so `return_from_function`
@@ -107,6 +111,8 @@ impl ExecutionContext {
                     // — turning a happy-path `try Target(t).voidFn() {}` into
                     // an unintended catch firing.
                     frame.syscall_result_expected = true;
+                    // S7 fix — attach the snapshot captured above.
+                    frame.storage_snapshot = storage_snapshot;
                 }
                 // Unpack the params array and push args in reverse so that the
                 // target method's INITSLOT pops them into arg slots in order.
