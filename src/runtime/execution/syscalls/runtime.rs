@@ -178,8 +178,16 @@ impl ExecutionContext {
                 let event_name = self.pop_stack()?;
                 let state = self.pop_stack()?;
 
-                let event_name_bytes = Self::stack_item_to_bytes(event_name);
+                let event_name_bytes = Self::stack_item_to_bytes(event_name.clone());
                 let state_is_array = matches!(state, StackItem::Array(_));
+
+                // M-RT1 fix — record the notification so GetNotifications can
+                // return it. Capture a clone of the state BEFORE the EVM-shape
+                // decoding below consumes/moves it. Source script hash = the
+                // executing contract's default account (Neo N3 semantics).
+                let notification_state = state.clone();
+                let notification_src = self.default_account_bytes.clone();
+                let notification_name = event_name_bytes.clone();
 
                 // EVM-shape detection (post-fix): the lowering now emits the
                 // human-readable event name as the eventName arg (UTF-8 safe)
@@ -263,6 +271,9 @@ impl ExecutionContext {
                     });
                     self.return_data = bytes;
                 }
+                // M-RT1 fix — record the notification for GetNotifications.
+                self.notifications
+                    .push((notification_src, notification_name, notification_state));
                 Ok(true)
             }
             "System.Runtime.Log" => {
@@ -304,9 +315,39 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.GetNotifications" => {
-                // Call signature: GetNotifications([hash160])
-                let _hash = self.pop_stack()?;
-                self.push_stack(StackItem::array(Vec::new()))?;
+                // M-RT1 fix — return the ACTUAL notification list (optionally
+                // filtered by source script hash), not an empty array. Neo N3
+                // returns `Array<Notification>` where each Notification is
+                // `[scriptHash, itemName, state]`. Contracts that consume their
+                // own emitted notifications (e.g. re-entrancy guards, event-
+                // driven state machines) now see real data.
+                //
+                // Call signature: GetNotifications([hash160]) — the optional
+                // filter is a 1-element Array whose sole item is the source
+                // script hash (UInt160). An empty/null filter returns all.
+                let filter_item = self.pop_stack()?;
+                let filter_hash: Option<Vec<u8>> = match &filter_item {
+                    StackItem::Array(items) if !items.borrow().is_empty() => {
+                        Some(Self::stack_item_to_bytes(
+                            items.borrow().first().cloned().unwrap_or(StackItem::Null),
+                        ))
+                    }
+                    StackItem::Null => None,
+                    other => Some(Self::stack_item_to_bytes(other.clone())),
+                };
+                let matching: Vec<StackItem> = self
+                    .notifications
+                    .iter()
+                    .filter(|(src, _, _)| filter_hash.as_ref().map(|h| h == src).unwrap_or(true))
+                    .map(|(src, name, state)| {
+                        StackItem::array(vec![
+                            StackItem::byte_array(src.clone()),
+                            StackItem::byte_array(name.clone()),
+                            state.clone(),
+                        ])
+                    })
+                    .collect();
+                self.push_stack(StackItem::array(matching))?;
                 Ok(true)
             }
             "System.Runtime.BurnGas" => {

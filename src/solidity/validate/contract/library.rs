@@ -60,7 +60,7 @@ fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                          normalized to an internal helper",
                         metadata.name, method.name,
                     ))
-                    .with_code("W121")
+                    .with_code("W124")
                     .with_suggestion(
                         "prefer `internal` visibility for library helpers to match Neo lowering semantics",
                     ),

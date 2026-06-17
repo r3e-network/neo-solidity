@@ -705,7 +705,16 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         totalProposals = _proposalCounter;
         minimumTokensForProposal = totalSupply() / 100; // 1% of total supply
         
-        // Count active and executed proposals by iterating through storage
+        // Count active and executed proposals by iterating through storage.
+        //
+        // L-DEV note — this iterator is intentionally a no-op today: proposals
+        // are stored in the `_proposals` mapping (keyed by `bytes32 proposalId`,
+        // slot = keccak256(proposalId || state_slot)), so a `Storage.find` over
+        // the "proposal" raw prefix yields nothing and `activeProposals` /
+        // `executedProposals` return 0. A correct implementation would maintain
+        // a parallel enumeration index (a `bytes32[]` of proposal ids, or a
+        // counter-prefixed key set) updated in `createProposal`. Left as a
+        // showcase TODO to keep the example focused on the token standard.
         Storage.Iterator memory iterator = Storage.find(abi.encode("proposal"));
         
         while (iterator.next()) {

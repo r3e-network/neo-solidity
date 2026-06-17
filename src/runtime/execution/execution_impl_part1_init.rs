@@ -116,6 +116,7 @@ impl ExecutionContext {
             active_signing_hash: None,
             active_call_flags: 0x0F, // CallFlags::All — top-level default.
             pending_call_flags: None,
+            notifications: Vec::new(),
         })
     }
 
@@ -278,6 +279,36 @@ impl ExecutionContext {
     /// `None` after `initialize` consumes it. Intended for test assertions.
     pub fn pending_signing_hash(&self) -> Option<[u8; 32]> {
         self.pending_signing_hash
+    }
+
+    /// M-RT2 fix — override the seed used by `System.Runtime.GetRandom`.
+    ///
+    /// Neo N3 derives GetRandom output from a VRF (nextNonce); the embedded
+    /// runtime has no VRF and auto-seeds from `SHA256(block||counter)`, which
+    /// is deterministic across runs and identical across contract invocations
+    /// at the same height — so contracts relying on GetRandom for "uniqueness"
+    /// got meaningless results in tests. Hosts that need a realistic, varying
+    /// seed (e.g. a fuzz harness) can arm one here; it applies to all
+    /// subsequent GetRandom calls in this context. Passing `None` restores
+    /// the auto-seeding default.
+    pub fn override_random_seed(&mut self, seed: impl Into<Option<[u8; 32]>>) {
+        self.random_seed = seed.into();
+        // Reset the counter so a freshly-armed seed produces a fresh sequence.
+        self.random_counter = 0;
+    }
+
+    /// M-RT3 fix — register a witness signer for `System.Runtime.CheckWitness`.
+    ///
+    /// Neo N3's CheckWitness verifies that the script container carries a
+    /// witness whose verification script hashes to the given hash. The
+    /// embedded runtime has no real script container, so by default it falls
+    /// back to comparing against the caller/default account — meaning only
+    /// the default account's hash ever passes. Hosts that need to simulate
+    /// other signers (e.g. a multi-signature test) register their script
+    /// hashes here; once the list is non-empty CheckWitness checks ONLY
+    /// against it (no caller-account fallback).
+    pub fn add_witness_signer(&mut self, hash: Vec<u8>) {
+        self.witness_signers.push(hash);
     }
 
     /// S6 fix — override the CallFlags for the next execution.

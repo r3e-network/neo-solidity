@@ -226,4 +226,13 @@ pub struct ExecutionContext {
     /// top-level default of `CallFlags::All`). Mirrors `pending_msg_value` /
     /// `pending_signing_hash`'s one-shot drain contract.
     pub(crate) pending_call_flags: Option<u8>,
+
+    /// M-RT1 fix — notifications emitted during the current execution.
+    ///
+    /// Neo N3's `System.Runtime.GetNotifications` returns the actual
+    /// notification list (optionally filtered by source script hash). The
+    /// embedded runtime previously returned an empty array unconditionally,
+    /// so any contract consuming its own emitted notifications got nothing.
+    /// Each entry is `(script_hash: Vec<u8>, name: Vec<u8>, state: StackItem)`.
+    pub(crate) notifications: Vec<(Vec<u8>, Vec<u8>, StackItem)>,
 }

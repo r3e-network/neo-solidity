@@ -91,6 +91,14 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                 // into each contract below once all parts have been parsed.
                 file_level_usings.push(*using);
             }
+            // L-FE1 note — the catch-all silently drops any unrecognized
+            // SourceUnitPart variant (e.g. a future Solidity grammar extension,
+            // or a free function / file-level event). Today every variant the
+            // solang-parser emits for supported source is handled above, so
+            // this is unreachable in practice; if it ever fires, the contract
+            // will compile to nothing with no feedback. Surfacing a diagnostic
+            // here requires threading a diagnostics sink through this
+            // function (tracked as a follow-up polish item).
             _ => {}
         }
     }

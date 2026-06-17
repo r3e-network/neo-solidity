@@ -141,7 +141,18 @@ impl VMBridge {
                     // sourced messages still carry the `"THROW"` marker
                     // after a `finally` re-raise.
                     let rendered = e.to_string();
-                    let exception_type = if rendered.contains("THROW") {
+                    // M-RT4 fix — discriminate revert (THROW) vs VM fault by
+                    // the revert_payload marker, NOT by string-matching the
+                    // rendered Display. The THROW handler
+                    // (exceptions.rs:35) sets `revert_payload` to the raw
+                    // pushed bytes; a genuine VM fault (invalid opcode, stack
+                    // underflow, ABORT) never touches it. The previous
+                    // `rendered.contains("THROW")` check misclassified any
+                    // fault whose message happened to contain "THROW" (e.g. a
+                    // user `revert "THROW"` payload decoded as UTF-8, or an
+                    // ABORTMSG with "THROW" in its text).
+                    let has_revert_payload = !context.revert_payload().is_empty();
+                    let exception_type = if has_revert_payload {
                         ExceptionType::RevertExecution
                     } else {
                         ExceptionType::Fault

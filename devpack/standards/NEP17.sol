@@ -258,6 +258,19 @@ contract NEP17 is INEP17, FrameworkBase {
         // Authorization: the owner (acting as the direct sender or via witness)
         // or a spender holding sufficient allowance. Cache the witness result so
         // it is consulted once for both the check and the allowance accounting.
+        //
+        // M-DEV3 note — this is a HYBRID authorization model that mixes
+        // NEP-17 witness semantics with ERC-20 allowance semantics:
+        //   1. The owner authorizes either by being the direct caller OR by
+        //      passing `Runtime.checkWitness(from)` (Neo N3 witness check).
+        //   2. OR any address holding `_allowances[from][spender] >= amount`
+        //      may move the tokens WITHOUT a witness check (pure ERC-20 path).
+        // This is stricter than ERC-20 (adds the witness option) but allows a
+        // non-witnessed, allowance-only path that strict NEP-17 does not. The
+        // hybrid is intentional for Solidity-source compatibility (existing
+        // approve/transferFrom contracts keep working), but callers relying on
+        // a strict NEP-17 "only the owner or a witness holder can move tokens"
+        // invariant should be aware of this allowance path.
         bool ownerAuthorized = from == msg.sender || Runtime.checkWitness(from);
         require(
             ownerAuthorized || _allowances[from][msg.sender] >= amount,

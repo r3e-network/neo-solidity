@@ -106,7 +106,7 @@ fn json_errors_preserve_library_visibility_warnings() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("warning[W121]"),
+        stderr.contains("warning[W124]"),
         "expected warning code in stderr: {stderr}"
     );
     assert!(

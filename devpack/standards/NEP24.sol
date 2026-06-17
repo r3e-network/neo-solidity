@@ -24,7 +24,7 @@ interface INEP24Royalty {
         uint256 royaltyAmount;
     }
 
-    function royaltyInfo(bytes32 tokenId, address royaltyToken, uint256 salePrice)
+    function royaltyInfo(bytes memory tokenId, address royaltyToken, uint256 salePrice)
         external
         view
         returns (RoyaltyInfo[] memory royalties);
@@ -33,7 +33,7 @@ interface INEP24Royalty {
         address indexed royaltyToken,
         address indexed royaltyRecipient,
         address indexed buyer,
-        bytes32 tokenId,
+        bytes tokenId,
         uint256 amount
     );
 }
@@ -55,7 +55,7 @@ abstract contract NEP24Royalty is INEP24Royalty {
         bool isSet;
     }
 
-    mapping(bytes32 => RoyaltyRule) private _tokenRoyalty;
+    mapping(bytes => RoyaltyRule) private _tokenRoyalty;
     RoyaltyRule private _defaultRoyalty;
 
     error NEP24InvalidRoyaltyRecipient(address recipient);
@@ -65,22 +65,22 @@ abstract contract NEP24Royalty is INEP24Royalty {
         _setRoyaltyRule(_defaultRoyalty, recipient, bps);
     }
 
-    function _setTokenRoyalty(bytes32 tokenId, address recipient, uint96 bps) internal {
+    function _setTokenRoyalty(bytes memory tokenId, address recipient, uint96 bps) internal {
         RoyaltyRule storage rule = _tokenRoyalty[tokenId];
         _setRoyaltyRule(rule, recipient, bps);
     }
 
-    function _clearTokenRoyalty(bytes32 tokenId) internal {
+    function _clearTokenRoyalty(bytes memory tokenId) internal {
         delete _tokenRoyalty[tokenId];
     }
 
-    function _getRoyaltyRule(bytes32 tokenId) internal view returns (RoyaltyRule memory) {
+    function _getRoyaltyRule(bytes memory tokenId) internal view returns (RoyaltyRule memory) {
         RoyaltyRule memory rule = _tokenRoyalty[tokenId];
         if (rule.isSet) return rule;
         return _defaultRoyalty;
     }
 
-    function royaltyInfo(bytes32 tokenId, address royaltyToken, uint256 salePrice)
+    function royaltyInfo(bytes memory tokenId, address royaltyToken, uint256 salePrice)
         public
         view
         virtual

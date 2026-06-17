@@ -10,6 +10,12 @@ struct ConstantStateSignature {
 #[derive(Debug, Default)]
 struct SeenStateVariables {
     has_non_constant: bool,
+    // M-FE5 fix — track the type of the first non-constant declaration seen
+    // for this name so a later inheritance sibling declaring the SAME name
+    // with a DIFFERENT type can be reported as a hard error (not a warning).
+    // Two public state vars with the same name but different types silently
+    // alias the same storage slot (slot is name-derived), corrupting both.
+    first_non_constant_ty: Option<String>,
     constant_signatures: Vec<ConstantStateSignature>,
 }
 
@@ -64,11 +70,13 @@ impl SeenStateVariables {
         if state.is_constant {
             Self {
                 has_non_constant: false,
+                first_non_constant_ty: None,
                 constant_signatures: vec![build_constant_state_signature(state)],
             }
         } else {
             Self {
                 has_non_constant: true,
+                first_non_constant_ty: Some(state.ty.trim().to_ascii_lowercase()),
                 constant_signatures: Vec::new(),
             }
         }
@@ -92,7 +100,38 @@ fn validate_state_variables(
                 let current_non_constant = !state.is_constant;
                 if let Some(seen) = state_names.get_mut(name) {
                     if seen.has_non_constant || current_non_constant {
-                        if warned_non_constant_duplicates.insert(name.clone()) {
+                        // M-FE5 fix — if both the prior and current declarations
+                        // are non-constant AND their types differ, escalate to a
+                        // hard error. Two public state vars with the same name
+                        // but different types silently alias the same storage
+                        // slot (the Neo lowering derives the slot from the
+                        // name), corrupting both declarations. Same-name +
+                        // same-type duplicates stay a W122 warning.
+                        let current_ty = state.ty.trim().to_ascii_lowercase();
+                        let type_conflict = current_non_constant
+                            && seen.has_non_constant
+                            && seen
+                                .first_non_constant_ty
+                                .as_deref()
+                                .is_some_and(|prev| prev != current_ty);
+                        if type_conflict {
+                            diagnostics.push(
+                                Diagnostic::error(format!(
+                                    "state variable '{name}' is declared with \
+                                     conflicting types across inheritance \
+                                     ({} vs {}) — on Neo N3 the storage slot is \
+                                     derived from the name, so the two would \
+                                     silently alias and corrupt each other",
+                                    seen.first_non_constant_ty.as_deref().unwrap_or("?"),
+                                    current_ty
+                                ))
+                                .with_code("E122")
+                                .with_suggestion(
+                                    "rename one of the conflicting declarations, or \
+                                     align their types",
+                                ),
+                            );
+                        } else if warned_non_constant_duplicates.insert(name.clone()) {
                             diagnostics.push(
                                 Diagnostic::warning(format!(
                                     "duplicate state variable '{name}' detected while flattening/merging contracts"
@@ -104,6 +143,9 @@ fn validate_state_variables(
                             );
                         }
                         seen.has_non_constant = true;
+                        if seen.first_non_constant_ty.is_none() && current_non_constant {
+                            seen.first_non_constant_ty = Some(current_ty);
+                        }
                     } else {
                         let current_signature = build_constant_state_signature(state);
                         let is_identical_duplicate = seen
