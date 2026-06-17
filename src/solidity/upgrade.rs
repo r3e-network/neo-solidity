@@ -64,8 +64,16 @@ pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
         Lazy::new(|| Regex::new(r"(?:\.|\b)staticcall\s*\(").unwrap());
     static LOW_LEVEL_CALL_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\.\s*call\s*(?:\(|\{)").unwrap());
-    static ETHER_UNIT_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"\b(?:wei|gwei|szabo|finney|ether)\b").unwrap());
+    // M-FE4 fix — require the unit to follow a digit or `)` (the EVM
+    // numeric-literal-suffix shape). The previous `\b(?:...)\b` matched the
+    // word `ether` inside a comment (`// whether we proceed`), a variable
+    // name (`uint ether = msg.value;`), or a function name — all false
+    // positives that escalated to a hard error. Requiring a digit or `)`
+    // before the unit excludes identifier/comment occurrences while still
+    // catching the real `1 ether` / `(a + b) ether` forms.
+    static ETHER_UNIT_RE: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").unwrap()
+    });
     static SUPPORTS_INTERFACE_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\bsupportsInterface\s*\(").unwrap());
 

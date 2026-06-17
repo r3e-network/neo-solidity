@@ -1,9 +1,13 @@
+/// Output of [`emit_ir_function`]: the emitted bytes plus the call / token
+/// patches the caller must still resolve against the full bytecode buffer.
+type EmitIrOutput = Result<(Vec<u8>, Vec<CallPatch>, Vec<MethodTokenPatch>), String>;
+
 fn emit_ir_function(
     function: &ir::Function,
     module: &ir::Module,
     method: &FunctionMetadata,
     use_callt: bool,
-) -> (Vec<u8>, Vec<CallPatch>, Vec<MethodTokenPatch>) {
+) -> EmitIrOutput {
     use std::{collections::HashMap, convert::TryFrom};
 
     let mut local = Vec::new();
@@ -373,20 +377,32 @@ fn emit_ir_function(
     }
 
     for (position, label) in jump_patches {
-        let target_offset = label_offsets
-            .get(&label)
-            .copied()
-            .unwrap_or(local.len() as u32) as i32;
+        // M-BC1 fix — guard against an unresolved label or an out-of-range
+        // patch position. An unresolved label previously fell through to
+        // `local.len()` silently (turning the jump into a jump-to-RET); an
+        // out-of-range `position` (possible if the dead-code pruner removed a
+        // label but left its jump operand) would panic the slice write. Both
+        // are compiler-internal bugs; surface them as a hard error instead.
+        let Some(&target) = label_offsets.get(&label) else {
+            return Err(format!(
+                "bytecode emission: jump target label {label} unresolved                  (dead-code pruner likely removed it)"
+            ));
+        };
+        if position + 4 > local.len() {
+            return Err(format!(
+                "bytecode emission: jump patch position {position} out of                  range (local len {})",
+                local.len()
+            ));
+        }
+        let target_offset = target as i32;
         // `position` points at the beginning of the 4-byte operand; the opcode
         // is immediately before it.
         let opcode_pos = (position - 1) as i32;
-        let relative = target_offset
-            .checked_sub(opcode_pos)
-            .unwrap_or(0);
+        let relative = target_offset.checked_sub(opcode_pos).unwrap_or(0);
         local[position..position + 4].copy_from_slice(&relative.to_le_bytes());
     }
 
-    (local, call_patches, token_patches)
+    Ok((local, call_patches, token_patches))
 }
 
 fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {

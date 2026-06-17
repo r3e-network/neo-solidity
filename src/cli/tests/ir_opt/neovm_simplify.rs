@@ -161,7 +161,12 @@ fn neovm_simplify_removes_mul_one() {
 }
 
 #[test]
-fn neovm_bool_removes_eq_true() {
+fn neovm_bool_keeps_eq_true_for_safety() {
+    // M-BC2 fix regression guard: the `PUSH true, EQ → identity` rewrite was
+    // REMOVED because for a non-boolean operand (e.g. NeoVM Integer 5) it
+    // left `5` on the stack instead of producing `false`. The optimizer must
+    // now KEEP the `PUSH true; EQ` pair so the runtime performs the real
+    // equality check.
     use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
 
     let module = Module {
@@ -186,10 +191,18 @@ fn neovm_bool_removes_eq_true() {
 
     let optimized = optimize_ir(module, 3);
     let instrs = &optimized.functions[0].basic_blocks[0].instructions;
-    // x == true should be simplified to just x
-    assert_eq!(instrs.len(), 2);
+    // x == true must NOT be folded to `x`; the PUSH true; EQ pair survives.
+    assert_eq!(instrs.len(), 4, "PUSH true; EQ must be preserved (M-BC2)");
     assert!(matches!(instrs[0], Instruction::LoadLocal(0)));
-    assert!(matches!(instrs[1], Instruction::Return));
+    assert!(matches!(
+        instrs[1],
+        Instruction::PushLiteral(LiteralValue::Boolean(true))
+    ));
+    assert!(matches!(
+        instrs[2],
+        Instruction::BinaryOp(BinaryOperator::Eq)
+    ));
+    assert!(matches!(instrs[3], Instruction::Return));
 }
 
 #[test]

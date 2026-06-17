@@ -15,9 +15,19 @@ fn convert_contract(
     //
     // This keeps the contract compilable when authors include both `receive()`
     // (for Solidity source compatibility) and `onNEP17Payment` (for Neo).
-    let has_explicit_on_nep17_payment = contract.functions.iter().any(|function| {
-        !matches!(function.ty, FunctionTy::Receive) && function.name == "onNEP17Payment"
-    });
+    //
+    // M-FE3 fix — the detection is now case-INSENSITIVE (`eq_ignore_ascii_case`)
+    // to match the rest of the NEP-pattern validation
+    // (`erc_nep_patterns.rs:175`). A user-written `function onnep17payment(...)`
+    // or `onNEP17PAYMENT(...)` must still be recognized as the explicit
+    // callback; otherwise the compiler would remap `receive()` into a SECOND
+    // synthetic `onNEP17Payment`, producing a manifest-level name collision
+    // (Neo dispatches by name).
+    let has_explicit_on_nep17_payment = contract
+        .functions
+        .iter()
+        .any(|function| !matches!(function.ty, FunctionTy::Receive)
+            && function.name.eq_ignore_ascii_case("onnep17payment"));
 
     let mut methods: Vec<FunctionMetadata> = contract
         .functions

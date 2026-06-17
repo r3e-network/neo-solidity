@@ -150,7 +150,7 @@ pub(crate) fn generate_contract_bytecode(
         }
 
         let (function_bytes, patches, token_patches) =
-            emit_ir_function(ir_function, ir_module, method, use_callt);
+            emit_ir_function(ir_function, ir_module, method, use_callt)?;
         let base_position = bytecode.len();
         bytecode.extend_from_slice(&function_bytes);
 
@@ -203,10 +203,14 @@ pub(crate) fn generate_contract_bytecode(
                 bytecode[fixup.position..fixup.position + 4].copy_from_slice(&bytes);
             }
         } else {
-            eprintln!(
-                "warning: unresolved call target '{}' (offset unavailable)",
+            // M-BC1 fix — an unresolved call target previously fell back to
+            // `eprintln!` + leaving the operand as zero bytes, which emits a
+            // CALL_L with offset 0 (= infinite loop / call-to-self on-chain).
+            // Surface it as a hard error instead.
+            return Err(format!(
+                "bytecode emission: unresolved call target '{}' (method offset                  unavailable — the callee may be external and unlinked, or the                  IR call graph is inconsistent)",
                 fixup.target
-            );
+            ));
         }
     }
 
@@ -249,7 +253,16 @@ fn apply_method_tokens(
     let mut tokens: Vec<neo_devpack_solidity::neo::MethodToken> = Vec::with_capacity(unique.len());
 
     for (index, key) in unique.into_iter().enumerate() {
-        let token_index = u16::try_from(index).unwrap_or(u16::MAX);
+        // M-BC1 fix — the u16 token index must not silently alias to #511 when
+        // the MAX_METHOD_TOKENS cap is exceeded; surface it as a hard error so
+        // a too-large token table fails loudly instead of emitting wrong CALLT
+        // operands. (The current cap is 512, which fits in u16, but the cap is
+        // a spec constant that could change.)
+        let token_index = u16::try_from(index).map_err(|_| {
+            format!(
+                "bytecode emission: method-token index {index} exceeds u16 range                  (MAX_METHOD_TOKENS cap exceeded)"
+            )
+        })?;
         token_map.insert(key.clone(), token_index);
         tokens.push(neo_devpack_solidity::neo::MethodToken::new(
             key.hash,
@@ -261,14 +274,25 @@ fn apply_method_tokens(
     }
 
     for patch in patches {
+        // M-BC1 fix — a patch whose token isn't in the map, or whose position
+        // is out of range, previously `continue`d silently and left the CALLT
+        // operand as 0x0000 (token #0 = wrong native call at runtime). Surface
+        // both as hard errors.
         let Some(index) = token_map.get(&patch.token) else {
-            continue;
+            return Err(format!(
+                "bytecode emission: CALLT patch references an unregistered method                  token (hash={:?}, method='{}')",
+                patch.token.hash, patch.token.method
+            ));
         };
         let start = patch.position;
         let end = start + 2;
-        if end <= bytecode.len() {
-            bytecode[start..end].copy_from_slice(&index.to_le_bytes());
+        if end > bytecode.len() {
+            return Err(format!(
+                "bytecode emission: CALLT patch position {start} out of range                  (bytecode len {})",
+                bytecode.len()
+            ));
         }
+        bytecode[start..end].copy_from_slice(&index.to_le_bytes());
     }
 
     Ok(tokens)

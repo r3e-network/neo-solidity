@@ -41,18 +41,25 @@ impl MethodToken {
         self.call_flags & 0x01 != 0
     }
 
-    /// Serialize the method token to bytes
-    pub(super) fn serialize(&self, buffer: &mut Vec<u8>) {
+    /// Serialize the method token to bytes.
+    ///
+    /// M-BC3 fix — returns `Err` (rather than `assert!`-panicking) when the
+    /// method name exceeds the Neo N3 NEF3 spec cap (`MAX_TOKEN_METHOD_LENGTH`
+    /// = 32 bytes). `build_nef_with_tokens` validates up-front, but
+    /// `serialize` is `pub(super)` and any future direct caller would have
+    /// panicked instead of returning a clean error.
+    pub(super) fn serialize(&self, buffer: &mut Vec<u8>) -> Result<(), String> {
         // Contract hash (20 bytes)
         buffer.extend_from_slice(&self.hash);
 
         // Method name (length-prefixed string, max 32 bytes per Neo spec)
         let bytes = self.method.as_bytes();
-        assert!(
-            bytes.len() <= MAX_TOKEN_METHOD_LENGTH,
-            "method token '{}' exceeds {MAX_TOKEN_METHOD_LENGTH} bytes",
-            self.method
-        );
+        if bytes.len() > MAX_TOKEN_METHOD_LENGTH {
+            return Err(format!(
+                "method token '{}' exceeds {MAX_TOKEN_METHOD_LENGTH} bytes (Neo N3 NEF3 cap)",
+                self.method
+            ));
+        }
         write_varbytes(buffer, bytes);
 
         // Parameters count (2 bytes, little-endian)
@@ -63,5 +70,7 @@ impl MethodToken {
 
         // Call flags (1 byte)
         buffer.push(self.call_flags);
+
+        Ok(())
     }
 }

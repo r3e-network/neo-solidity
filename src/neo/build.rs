@@ -97,7 +97,7 @@ pub fn build_nef_with_tokens(
     // Method token table
     write_varint(&mut buffer, tokens.len() as u64);
     for token in tokens {
-        token.serialize(&mut buffer);
+        token.serialize(&mut buffer)?;
     }
 
     // Reserved bytes (2 bytes, must be 0)

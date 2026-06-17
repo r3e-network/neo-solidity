@@ -137,21 +137,17 @@ fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
     let mut i = 0;
 
     while i < block.instructions.len() {
-        // Pattern: PUSH true, EQ → identity for booleans (x == true = x)
-        if i + 1 < block.instructions.len() {
-            if let ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(true)) =
-                &block.instructions[i]
-            {
-                if let ir::Instruction::BinaryOp(ir::BinaryOperator::Eq) =
-                    &block.instructions[i + 1]
-                {
-                    // x == true → x (skip both)
-                    i += 2;
-                    continue;
-                }
-            }
+        // M-BC2 fix — REMOVED the `PUSH true, EQ → identity` rewrite. For a
+        // non-boolean operand (e.g. NeoVM Integer 5), `(5 == true)` must
+        // evaluate to `false`, but the rewrite left `5` on the stack —
+        // corrupting any downstream consumer expecting a 0/1 boolean. The
+        // frontend guarantees Solidity `bool` operands for `==`, but Yul /
+        // assembly-injected values or a future type-inference miss could
+        // reach here with a non-bool, so the rewrite was unsound. The EQ
+        // instruction is cheap; correctness wins.
 
-            // Pattern: PUSH false, NE → identity for booleans (x != false = x)
+        // Pattern: PUSH false, NE → identity for booleans (x != false = x)
+        if i + 1 < block.instructions.len() {
             if let ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(false)) =
                 &block.instructions[i]
             {
