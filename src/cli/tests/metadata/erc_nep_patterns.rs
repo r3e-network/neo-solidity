@@ -271,7 +271,10 @@ fn fallback_function_warns_onnep17payment() {
 }
 
 #[test]
-fn receive_with_existing_onnep17payment_warns_no_effect() {
+fn receive_with_existing_onnep17payment_is_a_hard_error() {
+    // M-FE1 fix: defining both receive() and an explicit onNEP17Payment makes
+    // receive() dead code (Neo N3 only invokes onNEP17Payment). The validator
+    // must emit a hard ERROR, not a warning.
     let methods = vec![
         build_public_method("receive", 0),
         build_public_method("onNEP17Payment", 3),
@@ -279,10 +282,15 @@ fn receive_with_existing_onnep17payment_warns_no_effect() {
     let metadata = build_test_contract("DualCallback", methods);
     let diagnostics = validate_contract(&metadata);
 
-    let warns = warnings_containing(&diagnostics, "no effect");
+    let errors: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.severity == DiagnosticSeverity::Error && d.message.contains("dead code")
+        })
+        .collect();
     assert!(
-        !warns.is_empty(),
-        "expected 'no effect' warning when both receive and onNEP17Payment exist, got: {:?}",
+        !errors.is_empty(),
+        "M-FE1: expected a 'dead code' ERROR when both receive and onNEP17Payment exist, got: {:?}",
         diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
     );
 }

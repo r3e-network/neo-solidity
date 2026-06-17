@@ -457,3 +457,60 @@ contract C {
         r_unknown.as_ref().ok()
     );
 }
+
+// ============================================================================
+// M-FE1 fix — when a contract defines BOTH receive() AND an explicit
+// onNEP17Payment(), the receive() becomes dead code: Neo N3 only invokes
+// onNEP17Payment for incoming NEP-17 transfers, so the receive() body never
+// fires. Before this fix the compiler emitted only a W105 warning, which was
+// easy to miss — an author trusting receive() to log/handle deposits would
+// ship a silently broken contract. The fix promotes the coexist case to a
+// hard error.
+// ============================================================================
+
+#[test]
+fn fe1_receive_with_explicit_onnep17_is_a_hard_error() {
+    let src = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Both {
+    /// @dev This is intentionally dead: Neo N3 only invokes onNEP17Payment.
+    receive() external payable {
+        // never fires on Neo
+    }
+
+    function onNEP17Payment(address from, uint256 amount, Any data) external {
+        // the real callback
+    }
+}
+"#;
+    let result = compile_contracts(src, false, 2);
+    assert!(
+        result.is_err(),
+        "M-FE1: a contract defining both receive() and onNEP17Payment must be \
+         a hard error (receive() would be silently dead code); compile \
+         unexpectedly succeeded"
+    );
+}
+
+#[test]
+fn fe1_receive_without_onnep17_still_compiles() {
+    // Regression guard: receive() alone is fine — it gets remapped to a
+    // synthetic onNEP17Payment. Only the BOTH case is an error.
+    let src = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract OnlyReceive {
+    receive() external payable {}
+}
+"#;
+    let result = compile_contracts(src, false, 2);
+    assert!(
+        result.is_ok(),
+        "receive() without an explicit onNEP17Payment must still compile (it \
+         is remapped); got error: {:?}",
+        result.err()
+    );
+}

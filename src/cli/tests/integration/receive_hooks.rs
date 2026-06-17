@@ -42,7 +42,11 @@ fn receive_function_is_lowered_to_onnep17payment() {
 }
 
 #[test]
-fn contract_can_define_onnep17payment_and_receive() {
+fn contract_defining_onnep17payment_and_receive_is_a_hard_error() {
+    // M-FE1 fix: defining BOTH receive() and an explicit onNEP17Payment makes
+    // the receive() body dead code — Neo N3 only invokes onNEP17Payment for
+    // incoming NEP-17 transfers, so the receive() never fires. The compiler
+    // must reject this (previously it warned, which was easy to miss).
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -65,32 +69,11 @@ fn contract_can_define_onnep17payment_and_receive() {
     }
     "#;
 
-    let artifacts = compile_contracts(source, false, 2).expect("compilation failed");
-    assert_eq!(artifacts.len(), 1);
-
-    let methods = artifacts[0].manifest["abi"]["methods"]
-        .as_array()
-        .expect("methods array");
-
+    let result = compile_contracts(source, false, 2);
     assert!(
-        methods
-            .iter()
-            .any(|m| m.get("name").and_then(Value::as_str) == Some("onNEP17Payment")),
-        "expected explicit onNEP17Payment method"
-    );
-    assert!(
-        methods
-            .iter()
-            .any(|m| m.get("name").and_then(Value::as_str) == Some("receive")),
-        "expected receive() to remain a callable Neo method when onNEP17Payment is already defined"
-    );
-
-    assert!(
-        artifacts[0]
-            .manifest
-            .get("features")
-            .and_then(Value::as_object)
-            .is_some_and(|features| features.is_empty()),
-        "expected `manifest.features` to be an empty object for Neo N3 compatibility"
+        result.is_err(),
+        "M-FE1: a contract defining both onNEP17Payment and receive() must be \
+         a hard error (receive() would be silently dead code); compile \
+         unexpectedly succeeded"
     );
 }

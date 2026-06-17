@@ -172,22 +172,62 @@ fn check_receive_fallback_pattern(
     all_methods: &[FunctionMetadata],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    // Distinguishing a user-written onNEP17Payment from the compiler-generated
+    // one: the convert phase remaps a source `receive()` into an
+    // `onNEP17Payment` ONLY when no explicit onNEP17Payment exists; when one
+    // DOES exist, the `receive()` is kept verbatim (see
+    // `src/solidity/convert/functions.rs`). So after convert:
+    //   - `receive` survives in `all_methods` ⟺ there's a user-written
+    //     onNEP17Payment (otherwise the receive would have been remapped into
+    //     it).
+    // The fallback case is trickier — fallback is never auto-remapped, so a
+    // surviving `fallback` + an `onNEP17Payment` could be the remapped receive.
+    // To stay sound we only treat the (receive + onNEP17Payment) coexist case
+    // as the hard error, and leave fallback+onNEP17Payment at a warning.
     let has_onnep17 = all_methods
         .iter()
         .any(|m| m.name.eq_ignore_ascii_case("onnep17payment"));
+    // A surviving `receive` method means convert kept it because an explicit
+    // onNEP17Payment already existed — the dead-code trap is real.
+    let has_surviving_receive = all_methods
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case("receive"));
 
     for method in all_methods {
         let name_lower = method.name.to_ascii_lowercase();
         if name_lower == "receive" || name_lower == "fallback" {
-            if has_onnep17 {
+            // M-FE1 hard error: only when `receive()` specifically survived
+            // convert alongside an explicit onNEP17Payment (the unambiguous
+            // dead-code case). fallback() stays a warning — its coexist
+            // ambiguity is documented in the audit but less dangerous.
+            let is_hard_error =
+                name_lower == "receive" && has_onnep17 && has_surviving_receive;
+            if is_hard_error {
+                diagnostics.push(
+                    Diagnostic::error(format!(
+                        "function '{}' is dead code on Neo N3: the contract already defines \
+                         onNEP17Payment, which is the ONLY callback Neo N3 invokes for incoming \
+                         NEP-17 transfers. The '{}' body would never execute — remove it and \
+                         consolidate the deposit-handling logic into onNEP17Payment.",
+                        method.name, method.name
+                    ))
+                    .with_code("E105")
+                    .with_suggestion(
+                        "Remove the receive()/fallback() and move its logic into \
+                         onNEP17Payment(address from, uint256 amount, bytes data)",
+                    ),
+                );
+            } else if has_onnep17 {
                 diagnostics.push(
                     Diagnostic::warning(format!(
                         "function '{}' has no effect on Neo N3. The contract already defines \
-                     onNEP17Payment which is the correct Neo callback for receiving tokens.",
+                         onNEP17Payment which is the correct Neo callback for receiving tokens.",
                         method.name
                     ))
                     .with_code("W105")
-                    .with_suggestion("Remove — the existing onNEP17Payment handler is sufficient"),
+                    .with_suggestion(
+                        "Remove — the existing onNEP17Payment handler is sufficient",
+                    ),
                 );
             } else {
                 diagnostics.push(Diagnostic::warning(format!(
