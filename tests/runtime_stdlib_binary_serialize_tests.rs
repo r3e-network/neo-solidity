@@ -70,7 +70,7 @@ fn serialize_bytearray_emits_neo_binary_varint_prefixed() {
     // serialize(ByteArray [0xAA, 0xBB]) => [0x00, 0x02, 0xAA, 0xBB]
     //   tag=0x00 (ByteArray), varint len=2, raw bytes.
     let (ok, out, exc) = call_stdlib("serialize", &[vec![0xAA, 0xBB]]);
-    assert!(ok, "serialize must succeed; exc={:?}", exc);
+    assert!(ok, "serialize must succeed; exc={exc:?}");
     assert_eq!(
         out,
         vec![0x00, 0x02, 0xAA, 0xBB],
@@ -82,19 +82,19 @@ fn serialize_bytearray_emits_neo_binary_varint_prefixed() {
 fn serialize_empty_bytearray_emits_tag_and_zero_len() {
     // serialize(ByteArray []) => [0x00, 0x00]
     let (ok, out, exc) = call_stdlib("serialize", &[vec![]]);
-    assert!(ok, "serialize must succeed; exc={:?}", exc);
+    assert!(ok, "serialize must succeed; exc={exc:?}");
     assert_eq!(out, vec![0x00, 0x00]);
 }
 
 #[test]
 fn serialize_deserialize_bytearray_roundtrips() {
     let bytes = vec![0xDE, 0xAD, 0xBE, 0xEF];
-    let (ok_s, ser, exc_s) = call_stdlib("serialize", &[bytes.clone()]);
-    assert!(ok_s, "serialize must succeed; exc={:?}", exc_s);
+    let (ok_s, ser, exc_s) = call_stdlib("serialize", std::slice::from_ref(&bytes));
+    assert!(ok_s, "serialize must succeed; exc={exc_s:?}");
     assert_eq!(ser, vec![0x00, 0x04, 0xDE, 0xAD, 0xBE, 0xEF]);
 
     let (ok_d, deser, exc_d) = call_stdlib("deserialize", &[ser]);
-    assert!(ok_d, "deserialize must succeed; exc={:?}", exc_d);
+    assert!(ok_d, "deserialize must succeed; exc={exc_d:?}");
     assert_eq!(
         deser, bytes,
         "deserialize(serialize(ByteArray)) returns the same bytes"

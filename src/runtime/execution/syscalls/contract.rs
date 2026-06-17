@@ -77,8 +77,9 @@ impl ExecutionContext {
                 }
                 Self::append_push_int(&mut script, pubkeys.len() as i64);
                 script.push(0x41); // SYSCALL
-                script
-                    .extend_from_slice(&crate::interop::interop_id_bytes("System.Crypto.CheckMultisig"));
+                script.extend_from_slice(&crate::interop::interop_id_bytes(
+                    "System.Crypto.CheckMultisig",
+                ));
 
                 // UInt160 = RIPEMD160(SHA256(script))
                 let sha = Sha256::digest(&script);
@@ -119,13 +120,13 @@ impl ExecutionContext {
     /// assembler would, so the derived account hash matches the on-chain
     /// derivation. Values must be non-negative.
     pub(crate) fn append_push_int(script: &mut Vec<u8>, value: i64) {
-        if value >= 0 && value <= 0xFF {
+        if (0..=0xFF).contains(&value) {
             script.push(0x00); // PUSHINT8
             script.push(value as u8);
-        } else if value >= 0 && value <= 0xFFFF {
+        } else if (0..=0xFFFF).contains(&value) {
             script.push(0x01); // PUSHINT16
             script.extend_from_slice(&(value as u16).to_le_bytes());
-        } else if value >= 0 && value <= 0xFFFF_FFFF {
+        } else if (0..=0xFFFF_FFFF).contains(&value) {
             script.push(0x02); // PUSHINT32
             script.extend_from_slice(&(value as u32).to_le_bytes());
         } else {

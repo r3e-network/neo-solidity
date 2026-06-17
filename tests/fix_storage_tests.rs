@@ -28,6 +28,20 @@ use neo_devpack_solidity::runtime::types::StackItem;
 use neo_devpack_solidity::runtime::{ExecutionResult, NeoRuntime, RuntimeConfig};
 use num_bigint::BigUint;
 
+/// Test-harness gas budget. The production `RuntimeConfig::default().gas_limit`
+/// is 10M (Neo N3 mainnet-scale); after the S2 fix `Storage.Put` charges the
+/// mainnet-aligned 100_000/byte rate, so storage-heavy contracts written by
+/// these tests can legitimately exceed 10M. These tests are not gas-asserting,
+/// so they use a generous 1B budget. Gas-asserting tests construct their own
+/// `RuntimeConfig` explicitly.
+fn test_runtime() -> NeoRuntime {
+    NeoRuntime::new(RuntimeConfig {
+        gas_limit: 1_000_000_000,
+        ..RuntimeConfig::default()
+    })
+    .expect("runtime")
+}
+
 fn decode_uint_le(bytes: &[u8]) -> BigUint {
     if bytes.is_empty() {
         BigUint::from(0u8)
@@ -127,7 +141,7 @@ contract MapKeys {
     // Behavioral sanity on the bundled runtime: write via bytes.concat,
     // read via an ABI parameter with the identical bytes.
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
     let a = StackItem::byte_array(vec![0xAA, 0xBB]);
     let b = StackItem::byte_array(vec![0xCC]);
     let r = rt
@@ -169,7 +183,7 @@ contract C {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
 
     // 70000-byte value exceeds MaxStorageValueSize -> must FAULT.
     let big = rt
@@ -187,7 +201,7 @@ contract C {
     );
 
     // A comfortably-under-limit value still stores fine.
-    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt2 = test_runtime();
     let ok = rt2
         .call_method(
             &art.bytecode,
@@ -256,7 +270,7 @@ contract FixedDelete {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("FixedDelete must compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
 
     let r = rt
         .call_method(&art.bytecode, &art.tokens, &art.manifest, "setAll", &[])
@@ -336,7 +350,7 @@ contract DynDelete {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("DynDelete must compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
     let call = |rt: &mut NeoRuntime, name: &str, args: &[StackItem]| {
         rt.call_method(&art.bytecode, &art.tokens, &art.manifest, name, args)
             .unwrap_or_else(|e| panic!("{name} host call failed: {e:?}"))
@@ -402,7 +416,7 @@ contract StructArr {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("StructArr must compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
     let call = |rt: &mut NeoRuntime, name: &str, args: &[StackItem]| {
         rt.call_method(&art.bytecode, &art.tokens, &art.manifest, name, args)
             .unwrap_or_else(|e| panic!("{name} host call failed: {e:?}"))
@@ -463,7 +477,7 @@ contract StructFixed {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("StructFixed must compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
     let call = |rt: &mut NeoRuntime, name: &str, args: &[StackItem]| {
         rt.call_method(&art.bytecode, &art.tokens, &art.manifest, name, args)
             .unwrap_or_else(|e| panic!("{name} host call failed: {e:?}"))
@@ -509,7 +523,7 @@ contract SlotDelete {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("SlotDelete must compile");
     let art = &arts[0];
-    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("runtime");
+    let mut rt = test_runtime();
     let addr = StackItem::byte_array(vec![0x11u8; 20]);
     let call = |rt: &mut NeoRuntime, name: &str, args: &[StackItem]| {
         rt.call_method(&art.bytecode, &art.tokens, &art.manifest, name, args)

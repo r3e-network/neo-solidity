@@ -1,13 +1,18 @@
 use super::*;
 
-/// Wave-#14 Finding #2 — per-byte gas surcharge for `Storage.Put`.
+/// S2 fix — per-byte gas surcharge for `Storage.Put`.
 ///
-/// Neo N3 charges roughly `100_000 * (key_len + value_len)` for storage
-/// writes. The flat 1000-gas cost previously baked into
-/// `syscall_gas_table` made it trivially cheap to write 1MB values,
-/// enabling DoS via storage growth. Start at `100` per byte: a 16-byte
-/// key+value pair now costs ~2_600 gas, while a 1KB pair costs ~100K.
-const STORAGE_PUT_PER_BYTE_GAS: u64 = 100;
+/// Neo N3 mainnet `Policy.storagePrice` is **100_000 gas per byte** for
+/// storage writes (key length + value length). The previous `100`/byte rate
+/// was ~1000× too cheap — contracts that fit the simulator's gas budget
+/// would exhaust gas on-chain, and any gas-assertion test passed locally
+/// while failing at deployment. Align to the mainnet rate of 100_000/byte so
+/// the simulator's gas profile matches a real node.
+///
+/// A 32-byte write (16-byte key + 16-byte value) now costs ~3.2M gas; the
+/// default `RuntimeConfig::gas_limit` of 10M accommodates ~3 such writes
+/// before OOG — same headroom as mainnet for typical contracts.
+const STORAGE_PUT_PER_BYTE_GAS: u64 = 100_000;
 
 /// Wave-#14 Finding #4 — per-verify gas surcharge for `CheckMultisig`.
 ///

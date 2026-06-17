@@ -300,7 +300,11 @@ fn override_signing_hash_is_drained_after_one_execution() {
     assert_eq!(ctx.pending_signing_hash(), Some(injected));
     ctx.initialize(&code, &[]).expect("init");
     while !ctx.step().expect("step").halted {}
-    assert_eq!(ctx.return_data(), vec![1], "first run uses the injected hash");
+    assert_eq!(
+        ctx.return_data(),
+        vec![1],
+        "first run uses the injected hash"
+    );
     // After execution the override must be drained.
     assert_eq!(
         ctx.pending_signing_hash(),
@@ -369,12 +373,14 @@ fn create_multisig_account_matches_verification_script_hash() {
     //   PUSH1 (0x11)  ; m = 1
     //   SYSCALL CreateMultisigAccount ; RET
     let secp = Secp256k1::signing_only();
-    let pk1 = secp256k1::PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&[1u8; 32]).unwrap())
-        .serialize()
-        .to_vec();
-    let pk2 = secp256k1::PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&[2u8; 32]).unwrap())
-        .serialize()
-        .to_vec();
+    let pk1 =
+        secp256k1::PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&[1u8; 32]).unwrap())
+            .serialize()
+            .to_vec();
+    let pk2 =
+        secp256k1::PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&[2u8; 32]).unwrap())
+            .serialize()
+            .to_vec();
     let m = 1u64;
 
     // Stack build: push m first (bottom), then the pubkeys array (top).

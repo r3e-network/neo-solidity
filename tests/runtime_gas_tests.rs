@@ -109,8 +109,13 @@ fn storage_operations_consume_significant_gas() {
         [hash[0], hash[1], hash[2], hash[3]]
     }
 
+    // S2 fix: Storage.Put now charges the mainnet-aligned 100_000/byte rate,
+    // so a "key"+"value" write (8 bytes) costs ~800K gas. The previous 10K
+    // budget was sized for the old 100/byte rate; raise it so the contract
+    // completes within budget. The test only asserts gas is consumed (>0),
+    // so any realistic budget works.
     let config = RuntimeConfig {
-        gas_limit: 10000,
+        gas_limit: 5_000_000,
         ..RuntimeConfig::default()
     };
     let mut ctx = ExecutionContext::new(&config).expect("context init");
@@ -152,5 +157,72 @@ fn storage_operations_consume_significant_gas() {
     assert!(
         gas_used > 100,
         "storage operations should consume significant gas (used: {gas_used})"
+    );
+}
+
+#[test]
+fn storage_put_gas_aligns_with_neo_n3_mainnet_per_byte_rate() {
+    // S2 fix: Neo N3 mainnet `Policy.storagePrice` is 100_000 gas/byte for
+    // storage writes. The embedded runtime previously charged 100/byte, ~1000×
+    // too cheap — contracts that fit the simulator's gas budget would exhaust
+    // gas on-chain. This test pins the mainnet-aligned rate by asserting that
+    // a single byte of storage costs a known, large amount.
+    //
+    // We compare gas(put a 16-byte value under a 16-byte key) against
+    // gas(put a 32-byte value under a 16-byte key): the delta must equal
+    // approximately rate * 16 bytes, with rate ≈ 100_000.
+    use sha2::{Digest, Sha256};
+
+    fn syscall_id(name: &str) -> [u8; 4] {
+        let hash = Sha256::digest(name.as_bytes());
+        [hash[0], hash[1], hash[2], hash[3]]
+    }
+
+    fn run_put(value_len: usize) -> u64 {
+        let config = RuntimeConfig {
+            // Generous budget so the per-byte rate does not OOG before we can
+            // read the total. Default 10M is enough for a few KB at 100K/byte.
+            gas_limit: 100_000_000,
+            ..RuntimeConfig::default()
+        };
+        let mut ctx = ExecutionContext::new(&config).expect("context init");
+        let get_ctx_id = syscall_id("System.Storage.GetContext");
+        let put_id = syscall_id("System.Storage.Put");
+        // Stack layout expected by Storage.Put: [value, key, context] with
+        // context on TOP. Push value first (bottom), then key, then call
+        // GetContext last so it lands on top.
+        let mut code = Vec::new();
+        // value_len-byte value (bottom).
+        code.extend_from_slice(&[0x0C, value_len as u8]);
+        code.extend_from_slice(&vec![0xAA; value_len]);
+        // 16-byte key (middle).
+        code.extend_from_slice(&[0x0C, 0x10]);
+        code.extend_from_slice(&[0u8; 16]);
+        // GetContext -> context on top.
+        code.push(0x41);
+        code.extend_from_slice(&get_ctx_id);
+        // Storage.Put.
+        code.push(0x41);
+        code.extend_from_slice(&put_id);
+        code.push(0x40);
+        ctx.initialize(&code, &[]).expect("init");
+        while !ctx.step().expect("step").halted {}
+        ctx.gas_used()
+    }
+
+    let gas_small = run_put(16);
+    let gas_large = run_put(32);
+    let delta = gas_large.saturating_sub(gas_small);
+
+    // 16 extra bytes at the mainnet-aligned 100_000/byte rate ⇒ ~1_600_000.
+    // Assert within a wide band (≥ 1_000_000) so the test is robust to the
+    // fixed-cost components but pins the rate at the right order of magnitude
+    // (the old 100/byte rate would give a delta of ~1_600 here).
+    assert!(
+        delta >= 1_000_000,
+        "S2: 16 extra storage bytes must cost ~1.6M gas at the mainnet-aligned \
+         100_000/byte rate; got delta={delta} (gas_small={gas_small}, \
+         gas_large={gas_large}). The old 100/byte rate would yield ~1_600 — \
+         if you see that, the S2 fix was reverted."
     );
 }

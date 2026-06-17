@@ -3,7 +3,16 @@ use super::*;
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
-            gas_limit: 10_000_000,
+            // S2 fix — align the default gas budget with Neo N3 mainnet.
+            // `MaxTransactionSystemFee` on mainnet is 2000 GAS = 2×10^9 gas
+            // units; the previous 10M default was ~200× too tight, so any
+            // contract that wrote a handful of storage slots (now charged at
+            // the mainnet-aligned 100_000 gas/byte rate) exhausted the budget.
+            // 1_000_000_000 sits comfortably under the mainnet cap while
+            // leaving realistic headroom for storage-heavy contracts. Tests
+            // that explicitly assert a tight gas budget construct their own
+            // `RuntimeConfig` and are unaffected.
+            gas_limit: 1_000_000_000,
             call_stack_limit: 1024,
             memory_limit: 1024 * 1024,       // 1MB
             storage_limit: 10 * 1024 * 1024, // 10MB

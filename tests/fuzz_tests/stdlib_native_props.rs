@@ -695,28 +695,32 @@ proptest! {
             std::str::from_utf8(&rd_s).ok());
     }
 
-    /// Malformed bytes fed to `deserialize` (i.e. NOT a valid serde-JSON
-    /// rendering of a StackItem) must error gracefully — the runtime returns
-    /// `StackItem::Null` (stdlib.rs:338 — `unwrap_or(StackItem::Null)`) which
-    /// serialises to an empty `return_data`. Critically: must NOT panic.
+    /// S1 fix: `deserialize` now parses the Neo N3 BinarySerializer wire
+    /// format, so many short byte streams ARE valid (any input starting with
+    /// 0x00..0x03 / 0x40 / 0x80 followed by a well-formed payload). This test
+    /// focuses on inputs that are DEFINITELY malformed for the binary format
+    /// — a tag byte whose declared payload is truncated — and asserts the
+    /// graceful Null fallback (stdlib.rs `unwrap_or(StackItem::Null)`).
+    /// Critically: must NOT panic.
     #[test]
     fn stdlib_deserialize_malformed_returns_null_no_panic(
-        garbage in prop::collection::vec(any::<u8>(), 1..=64),
+        extra in prop::collection::vec(any::<u8>(), 0..=32),
     ) {
-        // Skip inputs that happen to BE valid JSON for a StackItem — those
-        // are the round-trip path, not the malformed path. Cheap pre-filter:
-        // valid StackItem JSON starts with `{` and contains `"type"`. Any
-        // input not matching is guaranteed-malformed.
-        let looks_like_json = garbage.first().copied() == Some(b'{');
-        prop_assume!(!looks_like_json);
+        // Build a definitely-truncated input: ByteArray tag (0x00) claiming a
+        // 255-byte payload, followed by only `extra.len()` bytes. The decoder
+        // must hit the length check, return None, and the handler falls back
+        // to Null.
+        let mut garbage = vec![0x00, 0xFF];
+        garbage.extend_from_slice(&extra);
 
         let (ok, rd, exc) = call_stdlib("deserialize", std::slice::from_ref(&garbage));
         prop_assert!(ok,
             "deserialize of malformed bytes must NOT fault at host level; \
              input={:?}, exc={:?}", garbage, exc);
         prop_assert!(rd.is_empty(),
-            "deserialize of malformed bytes must return empty (Null); \
-             input={:?}, got={:?}", garbage, rd);
+            "deserialize of malformed (truncated-payload) binary must return \
+             empty (Null); input={:?}, got={:?}",
+            garbage, rd);
     }
 
     /// Same for jsonDeserialize — non-UTF8 bytes are coerced to empty string
@@ -741,4 +745,21 @@ proptest! {
             "jsonDeserialize of malformed bytes must return empty (Null); \
              input.len={}, got={:?}", garbage.len(), rd);
     }
+}
+
+/// A clearly-malformed binary tag (0x05 is not a valid StackItem type in the
+/// Neo BinarySerializer format the runtime models) must fall back to Null
+/// without panicking. (Outside the proptest! block because it's a fixed-input
+/// regression guard, not a property test.)
+#[test]
+fn stdlib_deserialize_unknown_tag_falls_back_to_null() {
+    let (ok, rd, _exc) = call_stdlib("deserialize", &[vec![0x05, 0xAA, 0xBB]]);
+    assert!(ok, "unknown-tag deserialize must not fault");
+    // Unknown tags are decoded defensively as Null (see neo_binary_deserialize_from).
+    // Null renders to empty return_data at RET.
+    assert!(
+        rd.is_empty(),
+        "unknown-tag deserialize must yield Null (empty return_data); got {:?}",
+        rd
+    );
 }

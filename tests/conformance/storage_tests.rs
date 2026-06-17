@@ -289,8 +289,12 @@ fn storage_put_empty_value_deletes() {
 /// Test storage operations consume gas
 #[test]
 fn storage_operations_consume_gas() {
+    // S2 fix: Storage.Put charges the mainnet-aligned 100_000 gas/byte rate,
+    // so a "key"+"value" write (8 bytes) costs ~800K gas. The previous 100K
+    // budget was sized for the old 100/byte rate; raise it so this contract
+    // (Put + Get) completes within budget.
     let config = RuntimeConfig {
-        gas_limit: 100_000,
+        gas_limit: 5_000_000,
         ..Default::default()
     };
 

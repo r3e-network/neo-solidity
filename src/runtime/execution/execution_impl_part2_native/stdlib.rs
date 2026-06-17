@@ -1096,11 +1096,11 @@ mod neo_binary_tests {
         for item in cases {
             let ser = ExecutionContext::neo_binary_serialize(&item);
             let de = ExecutionContext::neo_binary_deserialize(&ser)
-                .unwrap_or_else(|| panic!("deserialize failed for {:?}", item));
+                .unwrap_or_else(|| panic!("deserialize failed for {item:?}"));
             // Compare via re-serialization (canonical equality check that does
             // not require StackItem: PartialEq on nested Rcs).
             let re_ser = ExecutionContext::neo_binary_serialize(&de);
-            assert_eq!(re_ser, ser, "round-trip not canonical for {:?}", item);
+            assert_eq!(re_ser, ser, "round-trip not canonical for {item:?}");
         }
     }
 
@@ -1109,9 +1109,7 @@ mod neo_binary_tests {
         // An Integer tag with no payload must fail cleanly, not panic.
         assert!(ExecutionContext::neo_binary_deserialize(&[0x02]).is_none());
         // A ByteArray tag with a length claiming more bytes than available.
-        assert!(
-            ExecutionContext::neo_binary_deserialize(&[0x00, 0x05, 0xAA]).is_none()
-        );
+        assert!(ExecutionContext::neo_binary_deserialize(&[0x00, 0x05, 0xAA]).is_none());
         // Empty input.
         assert!(ExecutionContext::neo_binary_deserialize(&[]).is_none());
     }
