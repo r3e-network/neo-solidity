@@ -593,8 +593,13 @@ contract NEP11 is INEP11, FrameworkBase {
 
         emit Transfer(from, to, 1, tokenId);
 
-        // Call onNEP11Payment if recipient is a contract
-        if (to.code.length > 0) {
+        // Call onNEP11Payment if recipient is a contract.
+        // M-DEV1 fix: short-circuit self-transfers (to == address(this)). The
+        // NFT contract itself almost never implements INEP11Receiver, so
+        // calling onNEP11Payment on self would revert and hard-block any
+        // escrow / custody flow. This mirrors NEP17.sol's self-escrow guard
+        // and lets contracts custody their own tokens.
+        if (to != address(this) && to.code.length > 0) {
             try INEP11Receiver(to).onNEP11Payment(from, 1, tokenId, data) {
                 // Success
             } catch {
@@ -625,8 +630,11 @@ contract NEP11 is INEP11, FrameworkBase {
         emit Transfer(address(0), to, 1, tokenId);
         emit Mint(to, tokenId);
 
-        // Call onNEP11Payment if recipient is a contract
-        if (to.code.length > 0) {
+        // Call onNEP11Payment if recipient is a contract.
+        // M-DEV1 fix: same self-escrow short-circuit as _transfer — minting to
+        // self (custody) must not require the NFT contract to implement its
+        // own receiver callback.
+        if (to != address(this) && to.code.length > 0) {
             try INEP11Receiver(to).onNEP11Payment(address(0), 1, tokenId, "") {
                 // Success
             } catch {
