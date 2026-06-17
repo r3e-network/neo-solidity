@@ -5139,11 +5139,11 @@ contract C {{ function f() external pure returns (uint256) {{
     //   0x40          RET            (main-frame RET → stack top → return_data)
     //
     // Expected: `serialize(Integer(1))` returns a ByteArray containing the
-    // JSON encoding of the integer. The exact JSON shape is determined by
-    // StackItem's Serialize impl; we don't assert the full byte content —
-    // only that (a) execution succeeded, (b) return_data is non-empty, and
-    // (c) it's valid UTF-8 / JSON (a reasonable proxy for "the native was
-    // actually dispatched, not silently no-op'd").
+    // Neo N3 BinarySerializer encoding of the integer. Since S1, the wire
+    // format is type-tagged little-endian (NOT JSON): an Integer serializes
+    // as `[0x02, 1,0,0,0,0,0,0,0]`. We assert the exact bytes — a precise
+    // proxy for "the native was actually dispatched with the new binary
+    // format, not silently no-op'd or reverted to JSON".
     //
     // Status: ACTIVE. If CALLT dispatch is broken end-to-end, this harness
     // will fail with a clear message and be flipped to `#[ignore]` with a
@@ -5187,12 +5187,16 @@ contract C {{ function f() external pure returns (uint256) {{
              native returned Null, suggesting the method lookup missed or the \
              params array wasn't received. Full result: {:?}", result);
 
-        // Sanity: the JSON encoding of an integer should parse back.
-        let parsed: Result<serde_json::Value, _> = serde_json::from_slice(&result.return_data);
-        prop_assert!(parsed.is_ok(),
-            "StdLib.serialize returned non-JSON bytes: {:?} ({:?})",
-            result.return_data,
-            std::str::from_utf8(&result.return_data).ok());
+        // S1 fix: serialize now emits the Neo N3 BinarySerializer wire format.
+        // For Integer(1) the expected bytes are [0x02 (Integer tag), LE i64 = 1].
+        prop_assert_eq!(
+            &result.return_data[..],
+            &[0x02u8, 1, 0, 0, 0, 0, 0, 0, 0][..],
+            "StdLib.serialize(Integer 1) must emit Neo binary [0x02, LE i64], \
+             not JSON. If this regresses to JSON, the S1 fix was reverted. \
+             Got: {:?}",
+            std::str::from_utf8(&result.return_data).ok()
+        );
     }
 }
 

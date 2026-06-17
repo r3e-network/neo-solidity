@@ -625,50 +625,50 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
     /// `deserialize(serialize(x))` round-trip for the SCALAR shape that
-    /// PUSHDATA1 can land on the stack — a `ByteArray`. The native serialises
-    /// the StackItem via serde_json (stdlib.rs:324); deserialise inverts it.
-    /// For ByteArray inputs the serde shape is
-    /// `{"type":"ByteArray","value":"<hex>"}`, and the deserialise path
-    /// reconstructs the buffer bit-identically.
+    /// PUSHDATA1 can land on the stack — a `ByteArray`.
     ///
-    /// We pin this on the ByteArray case because that's the only StackItem
-    /// shape we can reliably PUSH from raw bytecode without involving NEWARRAY
-    /// / NEWMAP / PACK opcodes (which are exercised separately at the IR
-    /// level via the existing batches in batches_*.rs).
+    /// S1 fix: `serialize` now emits the Neo N3 BinarySerializer wire format
+    /// (type-tagged little-endian), NOT JSON. For a ByteArray the wire form is
+    /// `[0x00, varint(len), bytes...]`, so for len ≤ 128 the encoded size is
+    /// ≤ 130 bytes — always within the PUSHDATA1 budget, and the deserialise
+    /// leg is exercised unconditionally.
     #[test]
     fn stdlib_serialize_deserialize_bytearray_roundtrip(
         bytes in prop::collection::vec(any::<u8>(), 0..=128),
     ) {
         let (ok_s, rd_s, exc_s) = call_stdlib("serialize", std::slice::from_ref(&bytes));
         prop_assert!(ok_s, "serialize must succeed; exc={:?}", exc_s);
+
+        // Wire format: [0x00 (ByteArray tag), varint(len), bytes...].
+        // The empty case still emits the tag + zero-length varint.
         prop_assert!(!rd_s.is_empty(),
-            "serialize of ByteArray must produce non-empty JSON; bytes.len={}",
+            "serialize of ByteArray must produce non-empty binary; bytes.len={}",
             bytes.len());
+        prop_assert_eq!(
+            rd_s.first(), Some(&0x00),
+            "serialize(ByteArray) must start with the 0x00 ByteArray tag; got {:?}",
+            rd_s
+        );
+        prop_assert!(
+            !rd_s.starts_with(b"{") && !rd_s.starts_with(b"["),
+            "serialize must NOT emit JSON (S1 regression); got {:?}",
+            std::str::from_utf8(&rd_s).ok()
+        );
 
-        // The serialise output is JSON; sanity-check it parses.
-        let json: serde_json::Value = serde_json::from_slice(&rd_s)
-            .expect("serialize output must be valid JSON");
-        prop_assert!(json.is_object(),
-            "serialize JSON must be an object; got {:?}", json);
-
-        // serialize length cap for PUSHDATA1: hex-encoded N bytes plus the
-        // {"type":"ByteArray","value":"..."} wrapper. For N <= 128 the JSON
-        // is at most ~290 chars, so we can't always re-push as PUSHDATA1.
-        // Skip the deserialise leg when over-budget (the serialise leg
-        // alone is the load-bearing half of the round-trip — deserialise is
-        // checked unconditionally below for short payloads).
+        // PUSHDATA1 caps the deserialise-leg arg at 255 bytes; the binary
+        // encoding is tag(1) + varint(≤2) + bytes(≤128) so we are always safe,
+        // but guard explicitly against a future size change.
         prop_assume!(rd_s.len() <= 255);
 
-        // Deserialise back — passes the JSON bytes as the input arg.
+        // Deserialise back — passes the binary bytes as the input arg.
         let (ok_d, rd_d, exc_d) = call_stdlib("deserialize", std::slice::from_ref(&rd_s));
         prop_assert!(ok_d, "deserialize must succeed; exc={:?}", exc_d);
 
         // The round-tripped StackItem renders to the same byte payload at
         // RET. ByteArray → ByteArray preserves bytes verbatim.
         prop_assert_eq!(&rd_d, &bytes,
-            "deserialize(serialize(b)) must equal b; got={:?}, want={:?}, json={:?}",
-            rd_d, bytes,
-            std::str::from_utf8(&rd_s).ok());
+            "deserialize(serialize(b)) must equal b; got={:?}, want={:?}, bin={:?}",
+            rd_d, bytes, rd_s);
     }
 
     /// Same shape for jsonSerialize/jsonDeserialize. The JSON-flavoured pair
