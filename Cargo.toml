@@ -1,6 +1,6 @@
 [package]
 name = "neo-devpack-solidity"
-version = "0.21.0"
+version = "0.22.0"
 edition = "2021"
 rust-version = "1.88"
 description = "Production-focused Solidity-to-NeoVM compilation system"
@@ -9,7 +9,7 @@ repository = "https://github.com/r3e-network/neo-devpack-solidity"
 homepage = "https://github.com/r3e-network/neo-devpack-solidity"
 documentation = "https://docs.r3e.network/neo-devpack-solidity"
 authors = ["Jimmy <jimmy@r3e.network>"]
-keywords = ["neo", "solidity", "blockchain", "smart-contracts", "neovm", "compiler"]
+keywords = ["neo", "solidity", "smart-contracts", "neovm", "compiler"]
 categories = ["compilers", "development-tools", "cryptography"]
 readme = "README.md"
 

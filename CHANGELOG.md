@@ -5,6 +5,89 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.22.0] - 2026-06-17
+
+Runtime-fidelity & audit-fix release: a full systemic audit (22 findings,
+all fixed) closes the gap between "passes in the embedded simulator" and
+"runs correctly on a real Neo N3 node", and the toolchain target is
+aligned to Neo N3 **v3.10.0**. Every fix was TDD'd (test first, watch it
+fail, implement, watch it pass) and the full workspace stays green
+(1881 tests, 0 failures; clippy + fmt clean).
+
+### 🔴 Runtime simulator — 7 critical fidelity fixes
+
+The embedded NeoVM runtime is the oracle every compiler test trusts; these
+were the highest-impact divergences from a real node.
+
+- **`StdLib.serialize` now emits the Neo N3 BinarySerializer wire format**
+  (type-tagged little-endian), not JSON. The previous `serde_json` output
+  round-tripped inside the simulator but was byte-incompatible on-chain —
+  storage keys derived from serialized values, length checks, and
+  inter-contract interop all silently diverged. `jsonSerialize` stays JSON
+  for callers that explicitly want it. New `neo_binary_serialize`/
+  `deserialize` helpers with Neo's 7-bit-group big-endian varint.
+- **`CheckSig`/`CheckMultisig` verify against an injectable transaction
+  signing hash.** The previous synthetic hash (`SHA256(bytecode‖account‖
+  counter)`) matched no real signature, so signature verification was
+  effectively untestable. New `override_signing_hash()` host API; default
+  preserves the synthetic hash for backward compatibility.
+- **`CreateMultisigAccount` builds the real verification script** (`PUSHINT
+  m / PUSHDATA pk_i / PUSHINT n / SYSCALL CheckMultisig`) and returns
+  `RIPEMD160(SHA256(script))`, instead of the wrong `SHA256(m‖pubkeys)
+  [..20]`. Shares a `append_pushdata` helper with the (already-correct)
+  `CreateStandardAccount`.
+- **Storage gas aligned to Neo N3 mainnet: 100_000/byte** (was 100/byte,
+  ~1000× too cheap). `RuntimeConfig::default().gas_limit` raised 10M → 1B
+  (≈ `MaxTransactionSystemFee`) so realistic contracts don't OOG.
+- **CallFlags enforced: `Storage.Put`/`Delete` FAULT without `WriteStates`.**
+  `GetCallFlags` returns the active flags instead of a hard-coded `0x0F`.
+  New `override_call_flags()` host API lets tests simulate a `staticcall`-
+  shaped read-only context — the staticcall-could-write-storage trap is
+  now impossible.
+- **Storage snapshot/rollback on inner-call revert.** A faulting callee's
+  dirty writes are now discarded to the call-boundary snapshot
+  (`CallFrame.storage_snapshot` + `dispatch_exception` unwind), matching
+  Neo N3. Previously they leaked into the caller's overlay and got
+  committed at top-level halt.
+- **`StdLib.deserialize` decodes the binary format** (inverse of the new
+  `serialize`); `GetNotifications` returns real notifications (was empty);
+  `revert`-vs-`fault` is discriminated by the `revert_payload` marker, not
+  by substring-matching `"THROW"` in the rendered error.
+
+### 🟡 Compiler / IR / devpack — correctness fixes
+
+- **`mulmod`/`addmod` modulus step routed through the uint256 software
+  divmod** — native signed `MOD` gave wrong residues for moduli ≥ 2^255.
+- **`receive()` + explicit `onNEP17Payment` coexistence is now a hard
+  error (E105)** — the `receive()` body was dead code (Neo only invokes
+  `onNEP17Payment`); `fallback()` stays a loud W105 warning.
+- **NEP-11 `_transfer`/`_mint` self-escrow short-circuit** (`to !=
+  address(this)`) — matches NEP-17; unblocks NFT custody flows.
+- **Bytecode emission hardened**: 3 unchecked slice writes → `Result`;
+  unresolved call target → hard error (was `eprintln!` + zero-byte operand
+  = on-chain infinite loop); `u16` token-index overflow + unregistered
+  CALLT patches → hard errors.
+- **Removed the unsound `x == true → x` optimizer rewrite** (wrong for
+  non-boolean operands: `5 == true` must be `false`, not `5`).
+- **`MethodToken::serialize` returns `Result`** instead of `assert!`-
+  panicking on oversize method names.
+- **onNEP17Payment detection is case-insensitive**; **ETHER_UNIT_RE
+  requires a digit/`)` prefix** (no more false-positive on `// whether` or
+  `uint ether`); **inheritance type-conflict is a hard error (E122)**.
+- **NEP-24 `royaltyInfo` tokenId** `bytes32` → `bytes` (matches NEP-11/26).
+
+### 🔧 Toolchain & CI
+
+- **Target Neo N3 v3.10.0** (Gorgon-hardfork preparation; v3.10.0 activates
+  NO hardfork, so opcode/syscall/gas/NEF stay consensus-compatible).
+  `neo_version` 3.5.0 → 3.10.0; Neo / Neo.SmartContract.Framework NuGet
+  3.7.4 → 3.10.0 (49 csproj files); TFM net8.0 → net10.0; CI dotnet
+  8.0.x → 10.0.x. Neo.Express kept at 3.9.1 (latest; no 3.10.x exists).
+- **Neo-Express on-chain smoke is now a CI gate.** `ci.yml` runs a 6-script
+  subset per PR; `fuzz.yml` runs the full 28-script suite + 6 DeFi
+  showcases nightly. This is the only oracle that catches "passes in
+  simulator, fails on-chain" regressions.
+
 ## [v0.21.0] - 2026-06-16
 
 Deep correctness-and-conformance release: software 256-bit arithmetic
@@ -1820,7 +1903,8 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.22.0...HEAD
+[v0.22.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.21.0...v0.22.0
 [v0.19.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.1...v0.19.0
 [v0.18.1]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...v0.18.1
 [v0.18.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.17.0...v0.18.0

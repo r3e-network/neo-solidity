@@ -1,3 +1,79 @@
+# neo-devpack-solidity v0.22.0 + devpack v2.2.0 — Runtime-Fidelity & Audit-Fix Release
+
+**Release date:** 2026-06-17
+**Compiler / CLI / workspace:** **v0.22.0**
+**devpack (`@neo-devpack-solidity/contracts`):** **v2.2.0**
+**Target Neo N3 node:** **v3.10.0** (Gorgon-prep; no hardfork activation)
+
+> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.22.0]`.
+> Previous releases: see the
+> [GitHub releases page](https://github.com/r3e-network/neo-devpack-solidity/releases)
+> and `CHANGELOG.md` history (previous: v0.21.0 / devpack v2.1.0).
+
+---
+
+## TL;DR
+
+- **22 audit findings, all fixed.** A full systemic audit identified 7
+  critical runtime-simulator divergences from a real Neo N3 node plus 15
+  compiler/IR/devpack/CI issues. Every fix was TDD'd and the workspace
+  stays green (1881 tests, 0 failures).
+- **The "passes in simulator, fails on-chain" gap is closed.** `StdLib.
+  serialize` emits the real Neo binary format; storage gas is mainnet-
+  aligned (100_000/byte); `CheckSig` verifies real signatures; `CallFlags`
+  is enforced; storage reverts on inner-call faults; `CreateMultisigAccount`
+  matches on-chain derivation.
+- **Neo-Express on-chain smoke is now a CI gate** — the only oracle that
+  compares compiler output against a real Neo N3 VM now runs on every PR
+  (subset) and nightly (full 28-script suite).
+- **Target aligned to Neo N3 v3.10.0.** No spec change (v3.10.0 activates
+  no hardfork), but all version metadata, NuGet deps, TFM, and CI dotnet
+  versions are brought up to date.
+
+## What changed (high level)
+
+### Runtime simulator (critical)
+`StdLib.serialize`/`deserialize` → Neo N3 BinarySerializer format · `CheckSig`
+injectable signing hash · `CreateMultisigAccount` via verification-script
+construction · storage gas 100_000/byte · `CallFlags` enforcement on storage
+writes · storage snapshot/rollback on inner-call revert · `GetNotifications`
+returns real data · revert/fault discrimination by payload marker.
+
+### Compiler / IR / devpack
+`mulmod`/`addmod` uint256 software divmod · `receive()`+`onNEP17Payment`
+coexistence → hard error · NEP-11 self-escrow short-circuit · NEP-24 tokenId
+`bytes32`→`bytes` · bytecode emission hardened (3 unchecked writes → Result)
+· unsound `x==true→x` optimizer rewrite removed · onNEP17Payment detection
+case-insensitive · ETHER_UNIT_RE comment/identifier-aware · inheritance
+type-conflict → hard error · `MethodToken::serialize` → Result.
+
+### Toolchain & CI
+Target Neo N3 v3.10.0 (neo_version, NuGet 3.10.0, TFM net10.0, CI dotnet
+10.0.x) · Neo-Express smoke CI gate (per-PR subset + nightly full).
+
+## Migration notes
+
+- **`receive()` + `onNEP17Payment` together now fails to compile (E105).**
+  If a contract defined both, the `receive()` body was already dead code —
+  remove it and consolidate logic into `onNEP17Payment`. A lone `receive()`
+  still compiles (remapped to a synthetic `onNEP17Payment`).
+- **Default `gas_limit` raised 10M → 1B.** Tests that asserted a tight gas
+  budget should keep constructing their own `RuntimeConfig`; tests that
+  relied on the old 10M default now have realistic headroom under the
+  mainnet-aligned storage rate.
+- **NEP-24 `royaltyInfo` signature changed** (`bytes32` → `bytes` tokenId).
+  Update any caller passing a fixed 32-byte id.
+
+## Verification
+
+- `cargo test --workspace`: **1881 passed, 0 failed**.
+- `cargo fmt --check` + `cargo clippy -D warnings`: clean.
+- `dotnet restore` + `build` (Neo.Sol.Runtime + tests) against Neo 3.10.0:
+  0 errors.
+- devpack standards (NEP-17/11/24/26/27) + examples compile end-to-end.
+
+---
+
 # neo-devpack-solidity v0.21.0 + devpack v2.1.0 — Deep Correctness & Conformance Release
 
 **Release date:** 2026-06-16
