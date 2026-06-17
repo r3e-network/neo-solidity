@@ -114,6 +114,8 @@ impl ExecutionContext {
             random_counter: 0,
             pending_signing_hash: None,
             active_signing_hash: None,
+            active_call_flags: 0x0F, // CallFlags::All — top-level default.
+            pending_call_flags: None,
         })
     }
 
@@ -177,6 +179,15 @@ impl ExecutionContext {
         // this execution only. `None` means "no override armed"; the crypto
         // helper then falls back to the synthetic hash (backward-compat).
         self.active_signing_hash = self.pending_signing_hash.take();
+        // S6 fix — drain the CallFlags override. `None` keeps the top-level
+        // default (CallFlags::All = 0x0F); a host-armed value (e.g.
+        // ReadStates-only to simulate a staticcall callee) applies to exactly
+        // this execution.
+        if let Some(flags) = self.pending_call_flags.take() {
+            self.active_call_flags = flags;
+        } else {
+            self.active_call_flags = 0x0F; // CallFlags::All
+        }
         // Neo N3 invocation counter is 1 for the first invocation of a contract
         // within a script execution and increments on re-entry.
         self.invocation_counter = 1;
@@ -269,6 +280,27 @@ impl ExecutionContext {
         self.pending_signing_hash
     }
 
+    /// S6 fix — override the CallFlags for the next execution.
+    ///
+    /// Neo N3 gates storage writes (`WriteStates` = 0b0010), notifications
+    /// (`AllowNotify` = 0b1000), and nested calls (`AllowCall` = 0b0100)
+    /// behind the CallFlags bitmask. The top-level execution defaults to
+    /// `CallFlags::All` (0x0F); a host that needs to simulate a restricted
+    /// context (e.g. a `staticcall` callee that runs with only `ReadStates`)
+    /// arms the override here. `initialize` drains it so it applies to
+    /// exactly one execution, mirroring `override_value` /
+    /// `override_signing_hash`.
+    pub fn override_call_flags(&mut self, flags: u8) {
+        self.pending_call_flags = Some(flags);
+    }
+
+    /// S6 fix — inspect the active CallFlags for the in-flight execution.
+    /// Intended for test assertions and for the `System.Contract.GetCallFlags`
+    /// syscall handler.
+    pub fn active_call_flags(&self) -> u8 {
+        self.active_call_flags
+    }
+
     /// Clear any pending metadata overrides before the next execution.
     ///
     /// Task #176 — also clears the sticky caller-account slot so that
@@ -281,5 +313,6 @@ impl ExecutionContext {
         self.pending_msg_value = None;
         self.sticky_caller_account = None;
         self.pending_signing_hash = None;
+        self.pending_call_flags = None;
     }
 }

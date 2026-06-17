@@ -8,8 +8,12 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Contract.GetCallFlags" => {
-                // Default to CallFlags.All (ReadStates | WriteStates | AllowCall | AllowNotify).
-                self.push_stack(StackItem::UnsignedInteger(0x0F))?;
+                // S6 fix: return the *active* CallFlags for this execution
+                // (top-level = All = 0x0F; a restricted context set via
+                // `override_call_flags` returns its armed value). Previously
+                // hard-coded to 0x0F, hiding staticcall-shaped read-only
+                // contexts and letting them write storage.
+                self.push_stack(StackItem::UnsignedInteger(self.active_call_flags as u64))?;
                 Ok(true)
             }
             "System.Contract.CreateStandardAccount" => {

@@ -1,5 +1,11 @@
 use super::*;
 
+/// S6 fix — Neo N3 CallFlags bitmask constants. See
+/// `ExecutionContext::active_call_flags`. (`READ_STATES` is tracked for the
+/// upcoming Notify/Log + nested-Call gating follow-up; only `WRITE_STATES`
+/// has a consumer today, so we declare just it to keep clippy clean.)
+const CALL_FLAG_WRITE_STATES: u8 = 0b0010;
+
 /// Storage syscall implementations for Neo N3 VM compatibility.
 ///
 /// This module implements the System.Storage.* syscall interface, providing persistent
@@ -106,6 +112,15 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Storage.Put" => {
+                // S6 fix: Storage.Put requires the WriteStates CallFlag.
+                // A read-only context (staticcall-shaped, only ReadStates)
+                // must FAULT here — before this check a read-only callee
+                // could silently mutate state.
+                if self.active_call_flags & CALL_FLAG_WRITE_STATES == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Storage.Put requires CallFlag.WriteStates".to_string(),
+                    });
+                }
                 // Syscall signature: System.Storage.Put(context, key, value)
                 // Stack order: [value, key, context] (top-of-stack is `context`)
                 let _context = self.pop_stack()?; // context
@@ -153,6 +168,12 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Storage.Delete" => {
+                // S6 fix: Storage.Delete requires the WriteStates CallFlag.
+                if self.active_call_flags & CALL_FLAG_WRITE_STATES == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "Storage.Delete requires CallFlag.WriteStates".to_string(),
+                    });
+                }
                 // Syscall signature: System.Storage.Delete(context, key)
                 // Stack order: [key, context] (top-of-stack is `context`)
                 let _context = self.pop_stack()?; // context

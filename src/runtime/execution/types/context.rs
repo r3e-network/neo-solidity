@@ -206,4 +206,24 @@ pub struct ExecutionContext {
     /// Active signing hash for the in-flight execution. `None` tells
     /// `get_current_message_hash` to compute its synthetic fallback.
     pub(crate) active_signing_hash: Option<[u8; 32]>,
+
+    /// S6 fix — CallFlags for the in-flight execution.
+    ///
+    /// Neo N3 gates storage writes (`WriteStates`), notifications
+    /// (`AllowNotify`), and nested contract calls (`AllowCall`) behind the
+    /// CallFlags bitmask the *caller* grants the callee. A `staticcall`-shaped
+    /// invocation runs with only `ReadStates`, so any `Storage.Put`/`Delete`
+    /// or `Notify`/`Log` inside it must FAULT — the embedded runtime
+    /// previously hard-coded `GetCallFlags` to `0x0F` and ignored the bits,
+    /// so a read-only callee could silently mutate state.
+    ///
+    /// The top-level execution defaults to `CallFlags::All` (0x0F); hosts
+    /// that need to simulate a restricted context (e.g. a staticcall callee)
+    /// arm an override via [`Self::override_call_flags`], drained by
+    /// `initialize` so it applies to exactly one execution.
+    pub(crate) active_call_flags: u8,
+    /// Host-armed CallFlags override for the next execution (`None` = use the
+    /// top-level default of `CallFlags::All`). Mirrors `pending_msg_value` /
+    /// `pending_signing_hash`'s one-shot drain contract.
+    pub(crate) pending_call_flags: Option<u8>,
 }

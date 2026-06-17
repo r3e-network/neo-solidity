@@ -553,3 +553,98 @@ fn get_gas_left_reports_remaining() {
         "gas left should be non-zero"
     );
 }
+
+// ============================================================================
+// S6 fix — CallFlags enforcement. Neo N3 gates storage writes, notifications,
+// and nested calls behind CallFlags bits (ReadStates=1, WriteStates=2,
+// AllowCall=4, AllowNotify=8). A read-only context (staticcall-shaped) must
+// FAULT on Storage.Put/Delete and on Notify/Log. Before this fix the runtime
+// hard-coded GetCallFlags=0x0F and ignored the bits, so a staticcall could
+// write storage.
+// ============================================================================
+
+mod s6_call_flags {
+    pub const READ_STATES: u8 = 0b0001;
+    pub const WRITE_STATES: u8 = 0b0010;
+    pub const ALL: u8 = 0b1111;
+}
+
+#[test]
+fn s6_getcallflags_defaults_to_all_for_top_level_execution() {
+    let mut code = vec![0x41];
+    code.extend_from_slice(&syscall_id("System.Contract.GetCallFlags"));
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.initialize(&code, &[]).expect("init");
+    while !ctx.step().expect("step").halted {}
+    let rd = ctx.return_data();
+    assert!(
+        !rd.is_empty() && rd[0] == s6_call_flags::ALL,
+        "top-level GetCallFlags must be 0x0F (All); got {rd:?}"
+    );
+}
+
+#[test]
+fn s6_storage_put_faults_in_readonly_context() {
+    // When the active context has no WriteStates bit, Storage.Put must FAULT.
+    let get_ctx_id = syscall_id("System.Storage.GetContext");
+    let put_id = syscall_id("System.Storage.Put");
+
+    let mut code = Vec::new();
+    code.extend_from_slice(&[0x0C, 0x01, 0xAA]);
+    code.extend_from_slice(&[0x0C, 0x01, 0xBB]);
+    code.push(0x41);
+    code.extend_from_slice(&get_ctx_id);
+    code.push(0x41);
+    code.extend_from_slice(&put_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.override_call_flags(s6_call_flags::READ_STATES);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = s6_catch_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "Storage.Put in a read-only context (no WriteStates flag) must FAULT; \
+         instead it succeeded. S6 regression."
+    );
+}
+
+#[test]
+fn s6_storage_put_succeeds_with_writestates_flag() {
+    let get_ctx_id = syscall_id("System.Storage.GetContext");
+    let put_id = syscall_id("System.Storage.Put");
+
+    let mut code = Vec::new();
+    code.extend_from_slice(&[0x0C, 0x01, 0xAA]);
+    code.extend_from_slice(&[0x0C, 0x01, 0xBB]);
+    code.push(0x41);
+    code.extend_from_slice(&get_ctx_id);
+    code.push(0x41);
+    code.extend_from_slice(&put_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.override_call_flags(s6_call_flags::READ_STATES | s6_call_flags::WRITE_STATES);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = s6_catch_halt(&mut ctx);
+    assert!(
+        outcome.is_ok(),
+        "Storage.Put with WriteStates flag must succeed; got {:?}",
+        outcome.err()
+    );
+}
+
+fn s6_catch_halt(ctx: &mut ExecutionContext) -> Result<(), String> {
+    loop {
+        match ctx.step() {
+            Ok(h) => {
+                if h.halted {
+                    return Ok(());
+                }
+            }
+            Err(e) => return Err(format!("{e:?}")),
+        }
+    }
+}
