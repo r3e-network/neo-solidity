@@ -11,6 +11,7 @@
 "0.13.0"
 "3.6.0"
 "3.7.0"
+"3.10.0"
 # Method-token slot bytes (parameter count + has-return + call-flags)
 "\x00\x00"
 "\x01\x00"

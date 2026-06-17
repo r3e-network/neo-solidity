@@ -121,6 +121,9 @@ This command compiles + deploys a curated set of upstream contracts to a fresh l
 - `docs/solidity/famous-contracts-neoxp-deploy.md`
 
 It auto-installs Neo Express `3.9.1` into `build/dotnet-tools/` when missing.
+(Neo.Express tracks its own release cadence independent of the Neo N3 node
+version — the compiler/runtime target Neo N3 **v3.10.0**, but the latest
+Neo.Express toolchain is 3.9.1.)
 
 For strict **type-3** verification (deploy + state-changing invoke + post-state assertion), run:
 

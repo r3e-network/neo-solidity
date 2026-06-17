@@ -236,7 +236,7 @@ contract C {
             enable_debugging: false,
             enable_tracing: false,
             strict_mode: false,
-            neo_version: "3.0.0".to_string(),
+            neo_version: "3.10.0".to_string(),
             contract_account: "0000000000000000000000000000000000000000".to_string(),
             default_block_height: 0,
             default_timestamp: 0,

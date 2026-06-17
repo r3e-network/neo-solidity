@@ -42,7 +42,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 10.0.x
     - name: Run .NET vulnerability scan
       run: "cd src/Neo.Sol.Runtime\n\necho \"=== .NET Dependency Security Audit ===\"\
         \ >> ../../security_report.md\necho \"\" >> ../../security_report.md\n\nif\

@@ -20,7 +20,13 @@ impl Default for RuntimeConfig {
             enable_debugging: false,
             enable_tracing: false,
             strict_mode: true,
-            neo_version: "3.5.0".to_string(),
+            // Target Neo N3 node version. v3.10.0 is the current MainNet/T5
+            // TestNet release (Gorgon-hardfork preparation; v3.10.0 itself
+            // activates NO hardfork, so opcode/syscall/gas/NEF stay
+            // consensus-compatible with v3.7.x). This field is informational
+            // metadata only — there are zero runtime consumers (no version-
+            // gated logic, no manifest emission, no syscall return reads it).
+            neo_version: "3.10.0".to_string(),
             contract_account: "0x0000000000000000000000000000000000000000".to_string(),
             default_block_height: 0,
             // Task #105 — 1_704_067_200 = 2024-01-01T00:00:00Z. Using 0
