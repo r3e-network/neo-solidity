@@ -98,3 +98,50 @@ jobs:
           path: fuzz/artifacts/
           if-no-files-found: ignore
           retention-days: 30
+
+  # ==========================================================================
+  # Full Neo-Express on-chain suite (nightly) — all 28 compiler-behavior smoke
+  # scripts plus the DeFi/Web3 showcase scripts. This is the only oracle that
+  # compares compiler output against a real Neo N3 VM at full coverage; the
+  # per-PR subset lives in ci.yml::neoxp-smoke. See AUDIT_REPORT_v0.21.md §5.
+  # ==========================================================================
+  neoxp-smoke-full:
+    name: Neo-Express Full On-Chain Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-smoke-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-smoke-
+      - name: Build neo-solc (release)
+        run: cargo build --release --bin neo-solc
+      - name: Install .NET SDK (for Neo-Express)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Neo-Express + jq
+        run: |
+          dotnet tool install Neo.Express --tool-path "$PWD/build/dotnet-tools"
+          echo "$PWD/build/dotnet-tools" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq xxd
+      - name: Pin neo-solc binary for the smoke scripts
+        run: echo "NEO_SOLC=$PWD/target/release/neo-solc" >> "$GITHUB_ENV"
+      - name: Run the full Neo-Express smoke suite
+        run: make test-deploy-smoke-full
+      - name: Run the DeFi/Web3 showcase smoke suite
+        run: |
+          make test-deploy-wgas-smoke test-deploy-flashloan-smoke \
+            test-deploy-amm-smoke test-deploy-vesting-smoke \
+            test-deploy-lending-smoke test-deploy-dao-smoke

@@ -95,3 +95,56 @@ jobs:
           assert d.get(''name''); assert ''abi'' in d; assert ''permissions'' in d"
 
           '
+
+  # ==========================================================================
+  # Neo-Express on-chain smoke — the only oracle that catches "passes in the
+  # embedded simulator, fails on a real Neo N3 VM" regressions. See
+  # AUDIT_REPORT_v0.21.md §5 (M-TEST1) for why this gate exists.
+  #
+  # Per-PR we run a representative subset (deploy, CALLT, constructor, ABI
+  # encoding, storage round-trip, manifest permissions) that exercises the
+  # highest-risk compiler→on-chain paths. The full 28-script suite runs in
+  # fuzz.yml's nightly cron.
+  # ==========================================================================
+  neoxp-smoke:
+    name: Neo-Express On-Chain Smoke (subset)
+    needs: daily-gate
+    if: needs.daily-gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-smoke-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-smoke-
+      - name: Build neo-solc (release)
+        run: cargo build --release --bin neo-solc
+      - name: Install .NET SDK (for Neo-Express)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Neo-Express + jq
+        run: |
+          dotnet tool install Neo.Express --tool-path "$PWD/build/dotnet-tools"
+          echo "$PWD/build/dotnet-tools" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq xxd
+      - name: Pin neo-solc binary for the smoke scripts
+        run: echo "NEO_SOLC=$PWD/target/release/neo-solc" >> "$GITHUB_ENV"
+      - name: Run representative Neo-Express smoke subset
+        run: |
+          set -e
+          for t in deploy callt_smoke constructor_smoke encoding_smoke permissions_smoke; do
+            echo "::group::test_neoxp_${t}.sh"
+            bash "examples/test_neoxp_${t}.sh"
+            echo "::endgroup::"
+          done
