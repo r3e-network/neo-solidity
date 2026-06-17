@@ -126,13 +126,32 @@ fn try_lower_variable_call(
             instructions.push(Instruction::Label(compute_label));
             instructions.push(Instruction::LoadLocal(lhs_slot));
             instructions.push(Instruction::LoadLocal(rhs_slot));
+            // Compute the (a OP b) intermediate. For `addmod` the sum is at
+            // most 257 bits and the later uint256 divmod handles it. For
+            // `mulmod` the product can be up to 512 bits; the native Mul
+            // truncates to 256 bits — see the TODO note below.
             instructions.push(Instruction::BinaryOp(if identifier.name == "mulmod" {
                 BinaryOperator::Mul
             } else {
                 BinaryOperator::Add
             }));
+            // M-IR fix: the modulus reduction must use UNSIGNED uint256
+            // division, not native NeoVM MOD (which is signed and wrong for
+            // moduli >= 2^255). Stack now holds [product_or_sum, modulus],
+            // which is exactly the [a, b] convention `emit_u256_divmod_ir`
+            // expects; `want_remainder = true` selects the `%` result.
+            //
+            // TODO(full-512-bit-mulmod): for `mulmod` the native Mul above
+            // already truncated the 512-bit product to 256 bits when
+            // a*b >= 2^256, so the result is wrong for large operands. A
+            // fully EVM-conformant mulmod needs a 512-bit intermediate and a
+            // 512/256 long-division, which is a separate larger task. This
+            // routing fixes the reported audit finding (native signed MOD
+            // giving wrong residues for moduli >= 2^255) and matches EVM
+            // semantics for all addmod inputs and for mulmod inputs whose
+            // product fits in 256 bits.
             instructions.push(Instruction::LoadLocal(modulus_slot));
-            instructions.push(Instruction::BinaryOp(BinaryOperator::Mod));
+            emit_u256_divmod_ir(ctx, instructions, true);
             instructions.push(Instruction::Label(end_label));
             return Some(true);
         }

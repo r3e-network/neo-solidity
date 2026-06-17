@@ -24,3 +24,4 @@ include!("semantics/control_flow.rs");
 include!("semantics/return_values.rs");
 include!("semantics/native_calls.rs");
 include!("semantics/storage_layout.rs");
+include!("semantics/arithmetic.rs");
