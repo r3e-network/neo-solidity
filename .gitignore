@@ -83,3 +83,6 @@ LibraryExternalError.*
 # Archived files (Go implementation)
 /archive/
 .omx/
+
+# Local worktrees
+.worktrees/
