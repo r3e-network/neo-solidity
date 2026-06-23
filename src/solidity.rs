@@ -39,6 +39,8 @@ include!("solidity/solidity_metadata.rs");
 include!("solidity/upgrade.rs");
 include!("solidity/analyse/inheritance.rs");
 include!("solidity/analyse/modifiers.rs");
+include!("solidity/analyse/sibling_merge_walkers.rs");
+include!("solidity/analyse/merge_helpers.rs");
 include!("solidity/solidity_analyse.rs");
 include!("solidity/solidity_convert.rs");
 include!("solidity/solidity_validate.rs");
