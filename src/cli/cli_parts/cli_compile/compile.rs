@@ -66,14 +66,51 @@ pub fn compile_contracts_with_options(
     verbose: bool,
     options: CompileOptions,
 ) -> Result<Vec<CompilationArtifacts>, CompileError> {
+    use neo_devpack_solidity::frontend::FrontendError;
+    use neo_devpack_solidity::solidity::SolidityError;
+
+    // Map every SolidityError variant explicitly at the boundary instead of
+    // flattening via a catch-all `to_string()`. Each message string mirrors the
+    // variant's `#[error]` Display impl verbatim, so this is a structural
+    // change (no information lost to a catch-all), not an output change.
+    // ParseDiagnostics stays a structured ParseErrors so standard-JSON emits one
+    // error per diagnostic with a precise sourceLocation. Adding a new variant
+    // elsewhere will make this match non-exhaustive and force an update here.
     let metadatas = analyse_all_sources(source).map_err(|err| match err {
-        // Preserve structured parser diagnostics so standard-JSON emits one
-        // error per diagnostic with a precise sourceLocation, rather than
-        // collapsing them into a single opaque Generic error.
-        neo_devpack_solidity::solidity::SolidityError::Frontend(
-            neo_devpack_solidity::frontend::FrontendError::ParseDiagnostics(diags),
-        ) => CompileError::ParseErrors(diags),
-        other => CompileError::Message(other.to_string()),
+        SolidityError::Frontend(FrontendError::ParseDiagnostics(diags)) => {
+            CompileError::ParseErrors(diags)
+        }
+        SolidityError::Frontend(FrontendError::Parse(msg)) => {
+            CompileError::Message(format!("Solidity parsing failed:\n{msg}"))
+        }
+        SolidityError::Frontend(FrontendError::UnsupportedVersion(version)) => {
+            CompileError::Message(format!("Unsupported Solidity version: {version}"))
+        }
+        SolidityError::Frontend(FrontendError::ImportError { path, reason }) => {
+            CompileError::Message(format!("Failed to resolve import '{path}': {reason}"))
+        }
+        SolidityError::Frontend(FrontendError::ContractNotFound(name)) => {
+            CompileError::Message(format!("Contract '{name}' not found in source"))
+        }
+        SolidityError::Frontend(FrontendError::UnsupportedConstruct(kind)) => {
+            CompileError::Message(format!(
+                "internal error: unsupported top-level Solidity construct '{kind}' (please file \
+                 a bug — the compiler may need updating for a newer Solidity grammar)"
+            ))
+        }
+        SolidityError::Analysis(msg) => CompileError::Message(msg),
+        SolidityError::NoContracts => {
+            CompileError::Message("no contract definitions found in source".into())
+        }
+        SolidityError::ContractNotFound(name) => {
+            CompileError::Message(format!("contract '{name}' not found"))
+        }
+        SolidityError::UnsupportedFeature(msg) => {
+            CompileError::Message(format!("unsupported feature: {msg}"))
+        }
+        SolidityError::InheritanceError(msg) => {
+            CompileError::Message(format!("inheritance error: {msg}"))
+        }
     })?;
 
     metadatas
