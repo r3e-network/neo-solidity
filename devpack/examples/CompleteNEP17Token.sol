@@ -65,6 +65,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     mapping(bytes32 => Proposal) private _proposals;
     mapping(bytes32 => mapping(address => bool)) private _voted;
     uint256 private _proposalCounter;
+    bytes32[] private _proposalIds; // L-DEV fix — parallel index for enumeration
     
     struct Proposal {
         bytes32 id;
@@ -352,6 +353,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
             executed: false,
             proposalType: proposalType
         });
+        _proposalIds.push(proposalId); // L-DEV fix — track for enumeration
         
         emit ProposalCreated(proposalId, msg.sender, description);
     }
@@ -704,32 +706,16 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
     ) {
         totalProposals = _proposalCounter;
         minimumTokensForProposal = totalSupply() / 100; // 1% of total supply
-        
-        // Count active and executed proposals by iterating through storage.
-        //
-        // L-DEV note — this iterator is intentionally a no-op today: proposals
-        // are stored in the `_proposals` mapping (keyed by `bytes32 proposalId`,
-        // slot = keccak256(proposalId || state_slot)), so a `Storage.find` over
-        // the "proposal" raw prefix yields nothing and `activeProposals` /
-        // `executedProposals` return 0. A correct implementation would maintain
-        // a parallel enumeration index (a `bytes32[]` of proposal ids, or a
-        // counter-prefixed key set) updated in `createProposal`. Left as a
-        // showcase TODO to keep the example focused on the token standard.
-        Storage.Iterator memory iterator = Storage.find(abi.encode("proposal"));
-        
-        while (iterator.next()) {
-            bytes memory proposalData = iterator.value();
-            if (proposalData.length > 0) {
-                (, , , , uint256 endTime, , , bool executed) = abi.decode(
-                    proposalData, 
-                    (bytes32, address, string, bytes, uint256, uint256, uint256, bool)
-                );
-                
-                if (!executed && block.timestamp <= endTime) {
-                    activeProposals++;
-                } else if (executed) {
-                    executedProposals++;
-                }
+
+        // L-DEV fix — iterate the parallel _proposalIds index instead of
+        // Storage.find("proposal"), which never matched the Solidity
+        // keccak-keyed mapping slot.
+        for (uint256 i = 0; i < _proposalIds.length; i++) {
+            Proposal storage proposal = _proposals[_proposalIds[i]];
+            if (proposal.executed) {
+                executedProposals++;
+            } else if (block.timestamp <= proposal.endTime) {
+                activeProposals++;
             }
         }
     }
