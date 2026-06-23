@@ -34,7 +34,10 @@ fn compile_and_call(
 }
 
 /// Assert that two execution results are semantically equivalent (success,
-/// return data, and exception shape).
+/// return data, exception shape, storage state changes, and notification
+/// logs). M-TEST3 fix — the previous version compared only `return_data`,
+/// which made a peephole pass that reorders PUT and Notify invisible to the
+/// optimizer differential.
 fn assert_results_equivalent(
     a: &neo_devpack_solidity::runtime::ExecutionResult,
     b: &neo_devpack_solidity::runtime::ExecutionResult,
@@ -60,6 +63,37 @@ fn assert_results_equivalent(
             "exception presence mismatch: a={:?}, b={:?}",
             a.exception, b.exception
         ),
+    }
+
+    // M-TEST3 fix — compare storage state changes (order + content).
+    assert_eq!(
+        a.state_changes.len(),
+        b.state_changes.len(),
+        "state_changes count mismatch between O0 and O3: a={:?}, b={:?}",
+        a.state_changes,
+        b.state_changes
+    );
+    for (i, (ac, bc)) in a
+        .state_changes
+        .iter()
+        .zip(b.state_changes.iter())
+        .enumerate()
+    {
+        assert_eq!(ac, bc, "state_changes[{i}] mismatch between O0 and O3");
+    }
+
+    // M-TEST3 fix — compare notification logs (order + content). A
+    // peephole pass that reorders emit + storage write is observable
+    // on-chain and was previously invisible.
+    assert_eq!(
+        a.logs.len(),
+        b.logs.len(),
+        "logs count mismatch between O0 and O3: a={:?}, b={:?}",
+        a.logs,
+        b.logs
+    );
+    for (i, (al, bl)) in a.logs.iter().zip(b.logs.iter()).enumerate() {
+        assert_eq!(al, bl, "logs[{i}] mismatch between O0 and O3");
     }
 }
 
@@ -258,8 +292,21 @@ contract TestContract {{
         prop_assert!(!artifacts0.is_empty());
         prop_assert!(!artifacts3.is_empty());
 
-        let mut rt0 = NeoRuntime::new(RuntimeConfig::default()).expect("rt0");
-        let mut rt3 = NeoRuntime::new(RuntimeConfig::default()).expect("rt3");
+        // Pin a non-zero `contract_account` so the runtime skips its
+        // bytecode-derived address path (`RIPEMD160(SHA256(script))` — see
+        // execution_impl_part1_init.rs). O0 and O3 necessarily produce
+        // different bytecode, so without this pin the `LogEntry.address`
+        // would differ by construction across opt levels — a harness
+        // artifact, not an optimizer bug. With the pin, `address` is a
+        // stable literal for both runtimes and the full `LogEntry` equality
+        // (address + topics + data) is meaningful: any real Notify
+        // reordering still surfaces as a topics/data/order mismatch.
+        let rt_config = RuntimeConfig {
+            contract_account: "0x1111111111111111111111111111111111111111".to_string(),
+            ..Default::default()
+        };
+        let mut rt0 = NeoRuntime::new(rt_config.clone()).expect("rt0");
+        let mut rt3 = NeoRuntime::new(rt_config).expect("rt3");
 
         let res0 = rt0.call_method(
             &artifacts0[0].bytecode, &artifacts0[0].tokens,

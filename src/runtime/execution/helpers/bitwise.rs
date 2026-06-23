@@ -20,8 +20,8 @@ impl ExecutionContext {
     /// Encode a 256-bit value as the conformant NeoVM **32-byte two's-complement**
     /// Integer (the value mod 2^256, mapped into `[-2^255, 2^255-1]`; bit 255 set
     /// => negative). This matches what a real Neo node computes for bitwise/shift
-    /// results and lets the software uint256 routines (`cli/bytecode/uint256_ops.rs`)
-    /// execute correctly here as on-chain.
+    /// results and lets the software uint256 routines (now emitted inline as IR;
+    /// see ir/expressions/dispatch/binary.rs) execute correctly here as on-chain.
     pub(crate) fn u256_twos_complement_item(value: num_bigint::BigInt) -> StackItem {
         use num_bigint::BigInt;
         let one: BigInt = BigInt::from(1);

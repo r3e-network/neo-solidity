@@ -74,7 +74,7 @@ impl ExceptionType {
 }
 
 /// State change record
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StateChange {
     pub change_type: StateChangeType,
     pub account: String,
@@ -129,7 +129,7 @@ impl StateChangeType {
 }
 
 /// Log entry for events
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LogEntry {
     pub address: String,
     pub topics: Vec<Vec<u8>>,

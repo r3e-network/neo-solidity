@@ -34,6 +34,13 @@ pub enum FrontendError {
     /// Contract not found in source
     #[error("Contract '{0}' not found in source")]
     ContractNotFound(String),
+
+    /// Encountered an unrecognized `SourceUnitPart` variant from
+    /// solang-parser. Should be unreachable for any source the parser
+    /// currently emits; surfaced as a hard error so future parser
+    /// additions don't silently compile to an empty contract (audit L-FE1).
+    #[error("internal error: unsupported top-level Solidity construct '{0}' (please file a bug — the compiler may need updating for a newer Solidity grammar)")]
+    UnsupportedConstruct(String),
 }
 
 impl FrontendError {

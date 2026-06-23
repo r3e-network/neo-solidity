@@ -645,9 +645,10 @@ fn emit_checked_arith_guard_narrow_i(
 // ADD/SUB/MUL can both fault (a 33-byte intermediate) and wrap in a way the
 // `GetSize > 32` overflow heuristic cannot see. These helpers compute the
 // UNSIGNED result over 128-bit (add/sub) or 64-bit (mul) limbs so no intermediate
-// ever exceeds 32 bytes — the same routines validated in
-// `cli/bytecode/uint256_ops.rs` against a faithful reference VM — emitted here as
-// IR over a shared scratch-local pool.
+// ever exceeds 32 bytes — the same routines validated in a now-removed
+// bytecode-level prototype (`cli/bytecode/uint256_ops.rs`; see git history)
+// against a faithful reference VM — emitted here as IR over a shared
+// scratch-local pool.
 
 fn u256_push(ins: &mut Vec<Instruction>, v: BigInt) {
     ins.push(Instruction::PushLiteral(LiteralValue::Integer(v)));
@@ -1164,8 +1165,9 @@ fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: Bin
 ///   n == 0  ->  a
 ///   n >= 1  ->  ((a >>arith 1) & (2^255-1)) >>arith (n-1)
 /// The `& (2^255-1)` clears the bit the first arithmetic shift pushed into
-/// position 255, turning the whole sequence into a zero-fill. (Mirrors the
-/// bytecode-level `emit_uint256_logical_shr` in cli/bytecode/uint256_ops.rs.)
+/// position 255, turning the whole sequence into a zero-fill. (Mirrors a
+/// bytecode-level `emit_uint256_logical_shr` from the now-removed
+/// cli/bytecode/uint256_ops.rs; see git history.)
 /// Uses scratch slots s[0..1]; it performs only native shift/and/sub ops (no
 /// nested limb routines), so it cannot collide with an in-flight u256 op.
 fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {

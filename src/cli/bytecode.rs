@@ -36,7 +36,6 @@ use num_traits::{Signed, ToPrimitive, Zero};
 use std::collections::HashMap;
 
 include!("bytecode/bytecode_core.rs");
-include!("bytecode/uint256_ops.rs");
 include!("bytecode/bytecode_emit_ir.rs");
 include!("bytecode/bytecode_helpers.rs");
 include!("bytecode/bytecode_builtins.rs");
