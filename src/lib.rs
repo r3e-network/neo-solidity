@@ -35,14 +35,10 @@ pub mod neo;
 pub mod storage_key;
 
 // Supporting modules
-pub mod error;
 pub mod frontend;
 pub mod semantic_model;
 pub mod type_system;
 pub mod utils;
-
-// Public re-exports
-pub use error::*;
 
 /// Compiler version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
