@@ -1,92 +1,21 @@
-//! Semantic model extracted from Solidity metadata.
+//! Semantic validation extracted from Solidity metadata.
 
 use crate::frontend::VisibilityKind;
 use crate::solidity::{
-    ContractMetadata, Diagnostic, DiagnosticSeverity, FunctionKind, FunctionMetadata,
-    ParameterMetadata, StateMutability, StateVariableMetadata,
+    ContractMetadata, Diagnostic, DiagnosticSeverity, FunctionMetadata, ParameterMetadata,
+    StateVariableMetadata,
 };
-use crate::type_system::NeoType;
 
-#[derive(Debug, Clone)]
-pub struct SemanticModel {
-    pub functions: Vec<FunctionSymbol>,
-    pub state_variables: Vec<StateVariableSymbol>,
-}
-
-impl SemanticModel {
-    /// Get all public functions
-    pub fn public_functions(&self) -> Vec<&FunctionSymbol> {
-        self.functions
-            .iter()
-            .filter(|f| {
-                matches!(
-                    f.visibility,
-                    VisibilityKind::Public | VisibilityKind::External
-                )
-            })
-            .collect()
-    }
-
-    /// Get a function by name
-    pub fn get_function(&self, name: &str) -> Option<&FunctionSymbol> {
-        self.functions.iter().find(|f| f.name == name)
-    }
-
-    /// Get all state variables
-    pub fn get_state_variables(&self) -> &[StateVariableSymbol] {
-        &self.state_variables
-    }
-
-    /// Check if this is a payable contract
-    pub fn is_payable(&self) -> bool {
-        self.functions
-            .iter()
-            .any(|f| f.state_mutability == StateMutability::Payable)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FunctionSymbol {
-    pub name: String,
-    pub kind: FunctionKind,
-    pub parameters: Vec<ParameterSymbol>,
-    pub returns: Vec<ParameterSymbol>,
-    pub state_mutability: StateMutability,
-    pub visibility: VisibilityKind,
-}
-
-#[derive(Debug, Clone)]
-pub struct ParameterSymbol {
-    pub name: Option<String>,
-    pub ty: NeoType,
-    pub storage: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StateVariableSymbol {
-    pub name: Option<String>,
-    pub ty: NeoType,
-    pub is_constant: bool,
-    pub is_immutable: bool,
-    pub visibility: Option<String>,
-}
-
-pub fn build_semantic_model(metadata: &ContractMetadata) -> Result<SemanticModel, Vec<Diagnostic>> {
+pub fn build_semantic_model(metadata: &ContractMetadata) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
 
-    let mut functions = Vec::new();
     for function in &metadata.methods {
-        match convert_function(function) {
-            Ok(symbol) => functions.push(symbol),
-            Err(mut diags) => diagnostics.append(&mut diags),
-        }
+        check_function(function, &mut diagnostics);
     }
 
-    let mut state_variables = Vec::new();
     for state in &metadata.state_variables {
-        match convert_state_variable(state) {
-            Ok(symbol) => state_variables.push(symbol),
-            Err(mut diags) => diagnostics.append(&mut diags),
+        if let Some(diag) = check_state_variable(state) {
+            diagnostics.push(diag);
         }
     }
 
@@ -97,79 +26,47 @@ pub fn build_semantic_model(metadata: &ContractMetadata) -> Result<SemanticModel
     if has_error {
         Err(diagnostics)
     } else {
-        Ok(SemanticModel {
-            functions,
-            state_variables,
-        })
+        Ok(())
     }
 }
 
-fn convert_function(function: &FunctionMetadata) -> Result<FunctionSymbol, Vec<Diagnostic>> {
-    let mut diagnostics = Vec::new();
+fn check_function(function: &FunctionMetadata, diagnostics: &mut Vec<Diagnostic>) {
     let allow_unsupported_internal_types = !matches!(
         function.visibility,
         VisibilityKind::Public | VisibilityKind::External
     );
 
-    let mut parameters = Vec::new();
     for param in &function.parameters {
-        match convert_parameter(
+        if let Some(diag) = check_parameter(
             param,
             FunctionSide::Parameter,
             &function.name,
             allow_unsupported_internal_types,
         ) {
-            Ok(symbol) => parameters.push(symbol),
-            Err(diag) => diagnostics.push(diag),
+            diagnostics.push(diag);
         }
     }
 
-    let mut returns = Vec::new();
     for param in &function.return_parameters {
-        match convert_parameter(
+        if let Some(diag) = check_parameter(
             param,
             FunctionSide::Return,
             &function.name,
             allow_unsupported_internal_types,
         ) {
-            Ok(symbol) => returns.push(symbol),
-            Err(diag) => diagnostics.push(diag),
+            diagnostics.push(diag);
         }
-    }
-
-    if diagnostics
-        .iter()
-        .any(|diag| matches!(diag.severity, DiagnosticSeverity::Error))
-    {
-        Err(diagnostics)
-    } else {
-        Ok(FunctionSymbol {
-            name: function.name.clone(),
-            kind: function.kind,
-            parameters,
-            returns,
-            state_mutability: function.state_mutability,
-            visibility: function.visibility,
-        })
     }
 }
 
-fn convert_state_variable(
-    state: &StateVariableMetadata,
-) -> Result<StateVariableSymbol, Vec<Diagnostic>> {
+fn check_state_variable(state: &StateVariableMetadata) -> Option<Diagnostic> {
     match &state.neo_type {
-        Some(neo_type) => Ok(StateVariableSymbol {
-            name: state.name.clone(),
-            ty: neo_type.clone(),
-            is_constant: state.is_constant,
-            is_immutable: state.is_immutable,
-            visibility: state.visibility.clone(),
-        }),
-        None => Err(vec![Diagnostic::error(format!(
+        Some(_) => None,
+        None => Some(Diagnostic::error(format!(
             "state variable '{}' has unsupported type '{}'",
             state.name.as_deref().unwrap_or("<unnamed>"),
             state.ty
-        ))]),
+        ))),
     }
 }
 
@@ -178,23 +75,15 @@ enum FunctionSide {
     Return,
 }
 
-fn convert_parameter(
+fn check_parameter(
     param: &ParameterMetadata,
     side: FunctionSide,
     function_name: &str,
     allow_unsupported_internal_types: bool,
-) -> Result<ParameterSymbol, Diagnostic> {
+) -> Option<Diagnostic> {
     match &param.neo_type {
-        Some(neo_type) => Ok(ParameterSymbol {
-            name: param.name.clone(),
-            ty: neo_type.clone(),
-            storage: param.storage.clone(),
-        }),
-        None if allow_unsupported_internal_types => Ok(ParameterSymbol {
-            name: param.name.clone(),
-            ty: NeoType::Any,
-            storage: param.storage.clone(),
-        }),
+        Some(_) => None,
+        None if allow_unsupported_internal_types => None,
         // Task #94 — tolerate parenthesised tuple return/parameter types whose
         // components are all individually supported. The frontend loses the
         // structured tuple shape (solang flattens the top-level tuple into
@@ -202,22 +91,14 @@ fn convert_parameter(
         // raw `(T1, T2, ...)` string here. Downstream IR lowering treats the
         // slot as `NeoType::Any` and routes it through `abiEncode`, which
         // produces the EVM-canonical flat head layout the spec calls for.
-        None if is_supported_tuple_type(&param.ty) => Ok(ParameterSymbol {
-            name: param.name.clone(),
-            ty: NeoType::Any,
-            storage: param.storage.clone(),
-        }),
+        None if is_supported_tuple_type(&param.ty) => None,
         // Gap `nep11` — the devpack NeoVM iterator handle (`Syscalls.Iterator`).
         // The builtin helper libraries are never struct-merged into user
         // contracts, so the type never resolves to a `NeoType::Struct`; treat
         // the opaque handle as `Any` so NEP-11 `tokensOf`/`tokens` can declare
         // it (manifest returntype `InteropInterface`).
-        None if is_devpack_iterator_type(&param.ty) => Ok(ParameterSymbol {
-            name: param.name.clone(),
-            ty: NeoType::Any,
-            storage: param.storage.clone(),
-        }),
-        None => Err(Diagnostic::error(match side {
+        None if is_devpack_iterator_type(&param.ty) => None,
+        None => Some(Diagnostic::error(match side {
             FunctionSide::Parameter => format!(
                 "function '{}' parameter '{}' uses unsupported type '{}'",
                 function_name,
