@@ -39,20 +39,10 @@ pub mod error;
 pub mod frontend;
 pub mod semantic_model;
 pub mod type_system;
-pub mod types;
-
-// Supporting analysis and quality modules
-pub mod codegen_helpers;
-pub mod docs;
-pub mod security;
-pub mod testing;
 pub mod utils;
-pub mod validation;
-pub mod warning;
 
 // Public re-exports
 pub use error::*;
-pub use types::*;
 
 /// Compiler version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
