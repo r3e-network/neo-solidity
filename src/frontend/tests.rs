@@ -257,3 +257,17 @@ contract Test {
     let contracts = parse_source(source).expect("string.concat should be allowed under 0.8.20");
     assert_eq!(contracts.len(), 1);
 }
+
+#[test]
+fn unsupported_construct_variant_is_loud() {
+    let err = FrontendError::UnsupportedConstruct("StrawmanVariant".into());
+    let msg = err.to_string();
+    assert!(
+        msg.contains("StrawmanVariant"),
+        "UnsupportedConstruct must surface the kind in its message; got: {msg}"
+    );
+    assert!(
+        !err.is_recoverable(),
+        "UnsupportedConstruct must be a hard error so silent drops are impossible"
+    );
+}

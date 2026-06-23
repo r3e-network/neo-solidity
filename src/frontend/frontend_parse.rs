@@ -91,15 +91,37 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                 // into each contract below once all parts have been parsed.
                 file_level_usings.push(*using);
             }
-            // L-FE1 note — the catch-all silently drops any unrecognized
-            // SourceUnitPart variant (e.g. a future Solidity grammar extension,
-            // or a free function / file-level event). Today every variant the
-            // solang-parser emits for supported source is handled above, so
-            // this is unreachable in practice; if it ever fires, the contract
-            // will compile to nothing with no feedback. Surfacing a diagnostic
-            // here requires threading a diagnostics sink through this
-            // function (tracked as a follow-up polish item).
-            _ => {}
+            SourceUnitPart::ImportDirective(_) => {
+                // Intentionally ignored. Import resolution happens in a
+                // separate pass that scans source for import directives
+                // independently and merges imported files into the source
+                // unit before/around this function. Any ImportDirective
+                // node still present here is therefore a no-op.
+            }
+            SourceUnitPart::StraySemicolon(_) => {
+                // Parser artifact (a stray `;` at file scope) — drop silently.
+            }
+            SourceUnitPart::EventDefinition(_)
+            | SourceUnitPart::VariableDefinition(_)
+            | SourceUnitPart::Annotation(_) => {
+                // File-level events / constants / annotations are not yet
+                // lowered into the IR. Listed explicitly — never via `_` —
+                // so a future solang-parser grammar addition cannot silently
+                // fall through and produce an empty contract (audit L-FE1).
+            }
+            // L-FE1 safety net — any variant not explicitly handled above is
+            // a construct this compiler does not know about. Unreachable for
+            // the parser version pinned in Cargo.lock (hence the allow below);
+            // if it fires after a parser upgrade, the user sees a clear "file
+            // a bug" message instead of a silent empty contract. Keep this arm
+            // even though it is currently unreachable — it is the forward-
+            // compatibility guard L-FE1 requires.
+            #[allow(unreachable_patterns)]
+            other => {
+                return Err(FrontendError::UnsupportedConstruct(format!(
+                    "{other:?}"
+                )));
+            }
         }
     }
 
