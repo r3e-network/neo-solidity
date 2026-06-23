@@ -101,8 +101,9 @@ fn push_integer_bigint(bytecode: &mut Vec<u8>, value: &BigInt) {
     // TWO'S-COMPLEMENT (`value - 2^256`, which "looks negative"). That is the
     // only conformant on-chain form. Any literal in this range must be unsigned
     // (int256 max is 2^255-1), so the reinterpretation is unambiguous. The
-    // software uint256 routines (`cli/bytecode/uint256_ops.rs`) and the runtime
-    // operate on this representation.
+    // software uint256 routines (now emitted inline as IR; see
+    // ir/expressions/dispatch/binary.rs) and the runtime operate on this
+    // representation.
     {
         let two256: BigInt = BigInt::from(1) << 256u32;
         let sign_min: BigInt = BigInt::from(1) << 255u32;
