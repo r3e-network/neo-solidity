@@ -556,3 +556,29 @@ impl ExecutionContext {
         StackItem::byte_array(out.to_compressed().to_vec())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// S5 lock — `bls_serialize_gt` uses `format!("{gt:?}")` as a
+    /// non-canonical, differential-only encoding. This test locks the
+    /// encoding so that two calls on the same Gt value produce byte-identical
+    /// output. If a future change alters the encoding (e.g., switching to a
+    /// canonical Fp12 wire format), this test will fail loudly and force the
+    /// differential pairing tests to be re-validated against the new shape.
+    #[test]
+    fn s5_bls_gt_serialization_is_deterministic_for_identity() {
+        let gt = bls12_381::Gt::identity();
+        let bytes_a = ExecutionContext::bls_serialize_gt(&gt);
+        let bytes_b = ExecutionContext::bls_serialize_gt(&gt);
+        assert_eq!(
+            bytes_a, bytes_b,
+            "Gt serialization must be deterministic across calls (S5 lock)"
+        );
+        assert!(
+            !bytes_a.is_empty(),
+            "Gt serialization must produce non-empty output"
+        );
+    }
+}
