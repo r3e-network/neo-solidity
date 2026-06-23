@@ -298,7 +298,10 @@ fn compile_metadata(
         {
             return Err(CompileError::Manifest(message));
         }
-        warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
+        warnings.push(
+            neo_devpack_solidity::solidity::Diagnostic::warning(message)
+                .with_code("MANIFEST_FULL_WILDCARD"),
+        );
     } else {
         if has_wildcard_contract {
             let message = format!(
@@ -309,7 +312,10 @@ fn compile_metadata(
                 return Err(CompileError::Manifest(message));
             }
             if !wildcard_contract_only_nep_callbacks {
-                warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
+                warnings.push(
+                    neo_devpack_solidity::solidity::Diagnostic::warning(message)
+                        .with_code("MANIFEST_WILDCARD_CONTRACT"),
+                );
             }
         }
 
@@ -321,7 +327,10 @@ fn compile_metadata(
             if options.deny_wildcard_methods {
                 return Err(CompileError::Manifest(message));
             }
-            warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(message));
+            warnings.push(
+                neo_devpack_solidity::solidity::Diagnostic::warning(message)
+                    .with_code("MANIFEST_WILDCARD_METHODS"),
+            );
         }
     }
 

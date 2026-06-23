@@ -31,10 +31,13 @@ fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diag
                     // the raw NeoVM iterator stack item as the return value
                     // (manifest returntype `InteropInterface`), which is how
                     // NEP-11 `tokensOf`/`tokens` are specified.
-                    diagnostics.push(Diagnostic::error(format!(
-                        "function '{}' return type '{}' is unsupported",
-                        function.name, ret_param.ty
-                    )));
+                    diagnostics.push(
+                        Diagnostic::error(format!(
+                            "function '{}' return type '{}' is unsupported",
+                            function.name, ret_param.ty
+                        ))
+                        .with_code("UNSUPPORTED_RETURN_TYPE"),
+                    );
                 }
             }
 
@@ -50,20 +53,26 @@ fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diag
             };
 
             if !supported {
-                diagnostics.push(Diagnostic::warning(format!(
-                    "function '{}' returns '{}', which may not map cleanly to Neo manifest types",
-                    function.name, ret_param.ty
-                )));
+                diagnostics.push(
+                    Diagnostic::warning(format!(
+                        "function '{}' returns '{}', which may not map cleanly to Neo manifest types",
+                        function.name, ret_param.ty
+                    ))
+                    .with_code("RETURN_TYPE_UNMAPPED"),
+                );
             }
         }
 
         for ret_param in &function.return_parameters {
             if let Some(storage) = &ret_param.storage {
                 if storage == "storage" {
-                    diagnostics.push(Diagnostic::warning(format!(
-                        "function '{}' return value '{}' uses 'storage' data location (treated as Any)",
-                        function.name, ret_param.ty
-                    )));
+                    diagnostics.push(
+                        Diagnostic::warning(format!(
+                            "function '{}' return value '{}' uses 'storage' data location (treated as Any)",
+                            function.name, ret_param.ty
+                        ))
+                        .with_code("INVALID_STORAGE_RETURN"),
+                    );
                 }
             }
         }

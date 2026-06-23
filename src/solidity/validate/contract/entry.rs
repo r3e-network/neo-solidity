@@ -5,7 +5,10 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     let constructor_count = validate_methods(metadata, &mut diagnostics);
 
     if constructor_count > 1 {
-        diagnostics.push(Diagnostic::error(format!("multiple constructors defined ({constructor_count} total)")));
+        diagnostics.push(
+            Diagnostic::error(format!("multiple constructors defined ({constructor_count} total)"))
+                .with_code("MULTIPLE_CONSTRUCTORS"),
+        );
     }
 
     validate_state_variables(metadata, &method_name_counts, &mut diagnostics);
