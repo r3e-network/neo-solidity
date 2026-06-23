@@ -10,11 +10,14 @@ fn validate_events(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic
             .insert(event.normalized_name.clone());
 
         if event.parameters.len() > 16 {
-            diagnostics.push(Diagnostic::warning(format!(
-                "event '{}' has {} parameters which exceeds Neo ABI limits",
-                event.name,
-                event.parameters.len()
-            )));
+            diagnostics.push(
+                Diagnostic::warning(format!(
+                    "event '{}' has {} parameters which exceeds Neo ABI limits",
+                    event.name,
+                    event.parameters.len()
+                ))
+                .with_code("EVENT_PARAM_LIMIT"),
+            );
         }
     }
 

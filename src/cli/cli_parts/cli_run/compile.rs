@@ -9,8 +9,9 @@ fn compile_input_or_exit(
         Ok(list) => list,
         Err(CompileError::Diagnostics(diags)) | Err(CompileError::Semantic(diags)) => {
             for diag in diags {
-                let code = diag.code.as_deref().unwrap_or_else(|| {
-                    standard_json::infer_validation_code(&diag.message, diag.severity)
+                let code = diag.code.as_deref().unwrap_or(match diag.severity {
+                    DiagnosticSeverity::Warning => "VALIDATION_WARNING",
+                    DiagnosticSeverity::Error => "VALIDATION_ERROR",
                 });
                 match diag.severity {
                     DiagnosticSeverity::Warning => emit_warning_with_suggestion(

@@ -7,9 +7,9 @@ fn emit_contract_warnings(
 ) {
     for artifact in artifacts {
         for warning in &artifact.warnings {
-            let code = warning.code.as_deref().unwrap_or_else(|| {
-                // Fallback: infer a code from the message text
-                standard_json::infer_validation_code(&warning.message, warning.severity)
+            let code = warning.code.as_deref().unwrap_or(match warning.severity {
+                DiagnosticSeverity::Warning => "VALIDATION_WARNING",
+                DiagnosticSeverity::Error => "VALIDATION_ERROR",
             });
 
             // --Wno-<prefix>: suppress warnings whose code starts with prefix

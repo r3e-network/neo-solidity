@@ -42,7 +42,10 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
             FunctionKind::Constructor => {
                 constructor_count += 1;
                 if !function.return_parameters.is_empty() {
-                    diagnostics.push(Diagnostic::error("constructor must not specify a return type"));
+                    diagnostics.push(
+                        Diagnostic::error("constructor must not specify a return type")
+                            .with_code("INVALID_CONSTRUCTOR_RETURN"),
+                    );
                 }
             }
             FunctionKind::Regular => {
@@ -77,7 +80,10 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                 // libraries for compatibility; only enforce duplicate-signature
                 // errors on externally visible ABI methods.
                 if is_exposed && !signatures.insert(signature.clone()) {
-                    diagnostics.push(Diagnostic::error(format!("duplicate function signature '{signature}'")));
+                    diagnostics.push(
+                        Diagnostic::error(format!("duplicate function signature '{signature}'"))
+                            .with_code("DUPLICATE_SIGNATURE"),
+                    );
                 }
             }
         }
@@ -86,10 +92,13 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
         for param in &function.parameters {
             if let Some(name) = &param.name {
                 if !params.insert(name.clone()) {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "function '{}' has duplicate parameter name '{}'",
-                        function.name, name
-                    )));
+                    diagnostics.push(
+                        Diagnostic::error(format!(
+                            "function '{}' has duplicate parameter name '{}'",
+                            function.name, name
+                        ))
+                        .with_code("DUPLICATE_PARAMETER_NAME"),
+                    );
                 }
             }
 
@@ -110,10 +119,13 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                         ),
                     );
                 } else {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "function '{}' parameter '{}' uses unsupported type '{}'",
-                        function.name, param_name, param.ty
-                    )));
+                    diagnostics.push(
+                        Diagnostic::error(format!(
+                            "function '{}' parameter '{}' uses unsupported type '{}'",
+                            function.name, param_name, param.ty
+                        ))
+                        .with_code("UNSUPPORTED_PARAMETER_TYPE"),
+                    );
                 }
             }
 
@@ -149,14 +161,17 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                         VisibilityKind::External | VisibilityKind::Public
                     )
                 {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "public/external function '{}' parameter '{}' may not use 'storage' data location",
-                        function.name,
-                        param
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| "<unnamed>".to_string())
-                    )));
+                    diagnostics.push(
+                        Diagnostic::error(format!(
+                            "public/external function '{}' parameter '{}' may not use 'storage' data location",
+                            function.name,
+                            param
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| "<unnamed>".to_string())
+                        ))
+                        .with_code("INVALID_STORAGE_PARAM"),
+                    );
                 }
             }
         }
@@ -206,7 +221,8 @@ fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                     ))
                     .with_suggestion(
                         "add a function body, or declare the contract as abstract"
-                    ),
+                    )
+                    .with_code("MISSING_IMPLEMENTATION_RETURN"),
                 );
             }
         }

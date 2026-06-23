@@ -147,9 +147,12 @@ fn check_return_statements(
                     if actual != expected {
                         // An explicit `return (a, b, ...)` whose element count
                         // disagrees with the declaration is a definite mismatch.
-                        diagnostics.push(Diagnostic::error(format!(
-                            "function '{function_name}' expected {expected} return values but found {actual}"
-                        )));
+                        diagnostics.push(
+                            Diagnostic::error(format!(
+                                "function '{function_name}' expected {expected} return values but found {actual}"
+                            ))
+                            .with_code("RETURN_MISMATCH"),
+                        );
                     }
                 } else {
                     let inferred = match expr {
@@ -170,9 +173,12 @@ fn check_return_statements(
 
                     if let Some(actual) = inferred {
                         if actual != expected {
-                            diagnostics.push(Diagnostic::warning(format!(
-                                "function '{function_name}' expected {expected} return values but call returns {actual}"
-                            )));
+                            diagnostics.push(
+                                Diagnostic::warning(format!(
+                                    "function '{function_name}' expected {expected} return values but call returns {actual}"
+                                ))
+                                .with_code("RETURN_MISMATCH"),
+                            );
                         }
                     } else {
                         diagnostics.push(Diagnostic::warning(format!(

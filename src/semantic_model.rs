@@ -62,11 +62,14 @@ fn check_function(function: &FunctionMetadata, diagnostics: &mut Vec<Diagnostic>
 fn check_state_variable(state: &StateVariableMetadata) -> Option<Diagnostic> {
     match &state.neo_type {
         Some(_) => None,
-        None => Some(Diagnostic::error(format!(
-            "state variable '{}' has unsupported type '{}'",
-            state.name.as_deref().unwrap_or("<unnamed>"),
-            state.ty
-        ))),
+        None => Some(
+            Diagnostic::error(format!(
+                "state variable '{}' has unsupported type '{}'",
+                state.name.as_deref().unwrap_or("<unnamed>"),
+                state.ty
+            ))
+            .with_code("UNSUPPORTED_STATE_TYPE"),
+        ),
     }
 }
 
@@ -98,8 +101,8 @@ fn check_parameter(
         // the opaque handle as `Any` so NEP-11 `tokensOf`/`tokens` can declare
         // it (manifest returntype `InteropInterface`).
         None if is_devpack_iterator_type(&param.ty) => None,
-        None => Some(Diagnostic::error(match side {
-            FunctionSide::Parameter => format!(
+        None => Some(match side {
+            FunctionSide::Parameter => Diagnostic::error(format!(
                 "function '{}' parameter '{}' uses unsupported type '{}'",
                 function_name,
                 param
@@ -107,12 +110,14 @@ fn check_parameter(
                     .clone()
                     .unwrap_or_else(|| "<unnamed>".to_string()),
                 param.ty
-            ),
-            FunctionSide::Return => format!(
+            ))
+            .with_code("UNSUPPORTED_PARAMETER_TYPE"),
+            FunctionSide::Return => Diagnostic::error(format!(
                 "function '{}' return type '{}' is unsupported",
                 function_name, param.ty
-            ),
-        })),
+            ))
+            .with_code("UNSUPPORTED_RETURN_TYPE"),
+        }),
     }
 }
 

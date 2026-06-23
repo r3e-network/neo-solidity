@@ -3,6 +3,7 @@ use super::*;
 pub mod common;
 
 mod callt;
+mod error_bridge;
 mod imports;
 mod integration;
 mod ir_codegen;

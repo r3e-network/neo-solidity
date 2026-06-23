@@ -172,7 +172,10 @@ fn validate_state_variables(
                     state_names.insert(name.clone(), SeenStateVariables::from_state(state));
                 }
             }
-            None => diagnostics.push(Diagnostic::error("state variable declared without a name")),
+            None => diagnostics.push(
+                Diagnostic::error("state variable declared without a name")
+                    .with_code("STATE_VARIABLE_NAME_MISSING"),
+            ),
         }
 
         if state
@@ -210,19 +213,25 @@ fn validate_state_variables(
                     ),
                 );
             } else {
-                diagnostics.push(Diagnostic::error(format!(
-                    "state variable '{}' has unsupported type '{}'",
-                    state.name.as_deref().unwrap_or("<unnamed>"),
-                    state.ty
-                )));
+                diagnostics.push(
+                    Diagnostic::error(format!(
+                        "state variable '{}' has unsupported type '{}'",
+                        state.name.as_deref().unwrap_or("<unnamed>"),
+                        state.ty
+                    ))
+                    .with_code("UNSUPPORTED_STATE_TYPE"),
+                );
             }
         }
 
         if state.is_constant && !state.has_initializer {
-            diagnostics.push(Diagnostic::error(format!(
-                "constant state variable '{}' must have an initializer",
-                state.name.as_deref().unwrap_or("<unnamed>")
-            )));
+            diagnostics.push(
+                Diagnostic::error(format!(
+                    "constant state variable '{}' must have an initializer",
+                    state.name.as_deref().unwrap_or("<unnamed>")
+                ))
+                .with_code("CONSTANT_MISSING_INITIALIZER"),
+            );
         }
     }
 }
