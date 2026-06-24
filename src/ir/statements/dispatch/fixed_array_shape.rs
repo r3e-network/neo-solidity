@@ -15,7 +15,7 @@
 /// Mutates nothing. Whitespace-tolerant. Ignores trailing " memory" /
 /// " calldata" / " storage" markers that `format!("{}", pt::Type)` may emit
 /// on parameters.
-fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
+pub(crate) fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
     // Strip any storage-location suffix and surrounding whitespace.
     let cleaned: String = ty_str
         .chars()
@@ -72,7 +72,7 @@ fn parse_nested_fixed_array_shape(ty_str: &str) -> Option<Vec<usize>> {
     Some(dims_outer_first)
 }
 
-fn array_leaf_static_value_type(value_type: &ValueType) -> Option<ValueType> {
+pub(crate) fn array_leaf_static_value_type(value_type: &ValueType) -> Option<ValueType> {
     let mut current = value_type;
     while let ValueType::Array(inner) = current {
         current = inner.as_ref();
@@ -89,7 +89,7 @@ fn array_leaf_static_value_type(value_type: &ValueType) -> Option<ValueType> {
 /// by `abi_is_dynamic` / `abi_pad32_be` in the runtime's StdLib handler so
 /// the flat-array return path only fires for cases where the runtime's
 /// static fast-path produces correct output.
-fn is_static_32_byte_leaf_type(ty: &str) -> bool {
+pub(crate) fn is_static_32_byte_leaf_type(ty: &str) -> bool {
     let compact = ty.trim();
     match compact {
         "uint" | "int" | "address" | "bool" => true,

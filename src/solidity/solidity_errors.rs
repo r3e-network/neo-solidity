@@ -1,4 +1,7 @@
+use super::*;
+
 /// Errors from Solidity compilation
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum SolidityError {
     #[error("{0}")]
@@ -20,6 +23,7 @@ pub enum SolidityError {
     InheritanceError(String),
 }
 
+#[allow(dead_code)]
 impl SolidityError {
     /// Create an analysis error
     pub fn analysis(msg: impl Into<String>) -> Self {

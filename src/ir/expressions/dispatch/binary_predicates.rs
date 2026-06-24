@@ -1,7 +1,7 @@
 /// True if the expression is a literal number (number/hex). Used to avoid
 /// emitting the overflow guard when both operands are compile-time constants —
 /// the compiler's constant folder already handles those.
-fn is_literal_number(expr: &Expression) -> bool {
+pub(crate) fn is_literal_number(expr: &Expression) -> bool {
     matches!(
         match expr {
             Expression::Parenthesis(_, inner) => inner.as_ref(),
@@ -16,7 +16,7 @@ fn is_literal_number(expr: &Expression) -> bool {
 /// Infer whether an operand is `uint256` (256-bit unsigned integer). Defaults
 /// to `true` for literal numbers because Solidity number literals have type
 /// `uint256` by default.
-fn is_uint256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_uint256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
     match infer_type_from_expression(expr, ctx) {
         Some(ValueType::Integer {
             signed: false,
@@ -34,7 +34,7 @@ fn is_uint256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
 /// in `src/ir/build/inference.rs`), so it is explicitly excluded here: in
 /// `narrowVar OP literal` the literal adapts to the narrow operand's type and
 /// must NOT count as a real `uint256` that suppresses the narrow guard.
-fn is_typed_uint256(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_typed_uint256(expr: &Expression, ctx: &LoweringContext) -> bool {
     !is_literal_number(expr)
         && matches!(
             infer_type_from_expression(expr, ctx),
@@ -46,7 +46,7 @@ fn is_typed_uint256(expr: &Expression, ctx: &LoweringContext) -> bool {
 }
 
 /// Infer whether an operand is `int256` (256-bit signed integer).
-fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
     matches!(
         infer_type_from_expression(expr, ctx),
         Some(ValueType::Integer {
@@ -63,7 +63,7 @@ fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
 /// MIXED-width arithmetic (`uint256 + uint32`), where Solidity widens the narrow
 /// operand so the result is `uint256` and the 256-bit path must own it. Untyped
 /// literals adapt to the narrow operand's type and never count as wide here.
-fn is_narrow_result(left: &Expression, right: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_narrow_result(left: &Expression, right: &Expression, ctx: &LoweringContext) -> bool {
     if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
         return false;
     }
@@ -80,7 +80,7 @@ fn is_narrow_result(left: &Expression, right: &Expression, ctx: &LoweringContext
 ///   - at least one operand is `uint256`
 ///   - not inside an `unchecked { ... }` block
 ///   - not both operands are compile-time literals (constant-folded)
-fn should_emit_u256_arith_guard(
+pub(crate) fn should_emit_u256_arith_guard(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -125,12 +125,12 @@ fn should_emit_u256_arith_guard(
 /// types are the same narrow unsigned width (Solidity rejects mixed-width
 /// arithmetic at parse time unless one side is an untyped literal, in which
 /// case we rely on the typed operand's width).
-fn narrow_unsigned_bits(
+pub(crate) fn narrow_unsigned_bits(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
 ) -> Option<u16> {
-    fn narrow_bits(expr: &Expression, ctx: &LoweringContext) -> Option<u16> {
+    pub(crate) fn narrow_bits(expr: &Expression, ctx: &LoweringContext) -> Option<u16> {
         match infer_type_from_expression(expr, ctx) {
             Some(ValueType::Integer {
                 signed: false,
@@ -146,7 +146,7 @@ fn narrow_unsigned_bits(
 /// Add/Sub/Mul overflow-guard emission. Same preconditions as
 /// `should_emit_u256_arith_guard` except it fires for narrow widths instead
 /// of 256-bit. Returns the target bit width when a guard should be emitted.
-fn should_emit_narrow_u_arith_guard(
+pub(crate) fn should_emit_narrow_u_arith_guard(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -184,12 +184,12 @@ fn should_emit_narrow_u_arith_guard(
 /// BOTH operand types are the same narrow signed width (Solidity rejects
 /// mixed-width arithmetic at parse time unless one side is an untyped literal,
 /// in which case we rely on the typed operand's width).
-fn narrow_signed_bits(
+pub(crate) fn narrow_signed_bits(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
 ) -> Option<u16> {
-    fn narrow_bits(expr: &Expression, ctx: &LoweringContext) -> Option<u16> {
+    pub(crate) fn narrow_bits(expr: &Expression, ctx: &LoweringContext) -> Option<u16> {
         match infer_type_from_expression(expr, ctx) {
             Some(ValueType::Integer {
                 signed: true,
@@ -204,7 +204,7 @@ fn narrow_signed_bits(
 /// Task #154: gate for narrow signed (intN, N in {8,16,32,64,128}) Add/Sub/Mul
 /// overflow-guard emission. Mirrors `should_emit_narrow_u_arith_guard` for the
 /// signed domain. Returns the target bit width when a guard should be emitted.
-fn should_emit_narrow_i_arith_guard(
+pub(crate) fn should_emit_narrow_i_arith_guard(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -241,7 +241,7 @@ fn should_emit_narrow_i_arith_guard(
 /// can detect overflow/underflow directly. Accepted when either operand is
 /// typed `int256` (literal numbers on one side inherit the typed operand's
 /// width via Solidity's implicit conversion rules).
-fn should_emit_i256_arith_guard(
+pub(crate) fn should_emit_i256_arith_guard(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -273,7 +273,7 @@ fn should_emit_i256_arith_guard(
 /// representation so the runtime's wide-BigInt arithmetic path takes over —
 /// avoiding the i64 narrow-path strict-overflow fault that diverges from
 /// constant-folded results at higher optimizer levels.
-fn should_widen_unchecked_u256(
+pub(crate) fn should_widen_unchecked_u256(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -309,7 +309,7 @@ fn should_widen_unchecked_u256(
 /// `unchecked` narrow unsigned (uintN, N<256) Add/Sub/Mul truncation gate. Same
 /// preconditions as the checked narrow guard but for `unchecked` blocks, where
 /// the result wraps mod 2^N instead of panicking. Returns the bit width.
-fn should_truncate_unchecked_narrow_u(
+pub(crate) fn should_truncate_unchecked_narrow_u(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -337,7 +337,7 @@ fn should_truncate_unchecked_narrow_u(
 }
 
 /// `unchecked` narrow signed (intN, N<256) Add/Sub/Mul truncation gate.
-fn should_truncate_unchecked_narrow_i(
+pub(crate) fn should_truncate_unchecked_narrow_i(
     left: &Expression,
     right: &Expression,
     ctx: &LoweringContext,
@@ -370,7 +370,7 @@ fn should_truncate_unchecked_narrow_i(
 /// leaves `400` on the stack instead of `144`. Returns `(bits, signed)` of the
 /// left operand when it is a narrow integer (N<256); uint256/int256 are already
 /// clamped to 256 bits by the runtime SHL path.
-fn shl_narrow_truncation(
+pub(crate) fn shl_narrow_truncation(
     left: &Expression,
     ctx: &LoweringContext,
     operator: BinaryOperator,

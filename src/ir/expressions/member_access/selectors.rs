@@ -1,17 +1,17 @@
-fn try_lower_selector_member_access(
+pub(crate) fn try_lower_selector_member_access(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
-    fn selector_from_signature(signature: &str) -> [u8; 4] {
+    pub(crate) fn selector_from_signature(signature: &str) -> [u8; 4] {
         let mut hasher = Keccak256::new();
         hasher.update(signature.as_bytes());
         let digest = hasher.finalize();
         [digest[0], digest[1], digest[2], digest[3]]
     }
 
-    fn fallback_selector_for_name(name: &str) -> Option<[u8; 4]> {
+    pub(crate) fn fallback_selector_for_name(name: &str) -> Option<[u8; 4]> {
         let name = name.trim();
         if name.is_empty() {
             return None;
@@ -19,7 +19,7 @@ fn try_lower_selector_member_access(
         Some(selector_from_signature(&format!("{name}()")))
     }
 
-    fn resolve_contract_type_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_contract_type_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
         match expr {
             Expression::Variable(type_name) if ctx.is_contract_type_name(&type_name.name) => {
                 Some(type_name.name.clone())

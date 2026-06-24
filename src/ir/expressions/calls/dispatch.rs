@@ -1,4 +1,4 @@
-fn lower_function_call_expression(
+pub(crate) fn lower_function_call_expression(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,

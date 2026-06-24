@@ -1,8 +1,10 @@
+use super::*;
+
 /// Output of [`emit_ir_function`]: the emitted bytes plus the call / token
 /// patches the caller must still resolve against the full bytecode buffer.
 type EmitIrOutput = Result<(Vec<u8>, Vec<CallPatch>, Vec<MethodTokenPatch>), String>;
 
-fn emit_ir_function(
+pub(crate) fn emit_ir_function(
     function: &ir::Function,
     module: &ir::Module,
     method: &FunctionMetadata,
@@ -48,9 +50,7 @@ fn emit_ir_function(
                 ir::Instruction::LoadParameter(index) => {
                     emit_load_parameter(&mut local, method, *index)
                 }
-                ir::Instruction::StoreParameter(index) => {
-                    emit_store_parameter(&mut local, *index)
-                }
+                ir::Instruction::StoreParameter(index) => emit_store_parameter(&mut local, *index),
                 ir::Instruction::PushLiteral(literal) => {
                     push_literal_value(&mut local, literal);
                 }
@@ -122,20 +122,18 @@ fn emit_ir_function(
                     field_keys,
                     field_type,
                     ..
-                } => {
-                    emit_store_struct_field(
-                        &mut local,
-                        module,
-                        *state_index,
-                        key_types,
-                        StructFieldAccess {
-                            field_keys: field_keys.as_slice(),
-                            ty: field_type,
-                        },
-                        use_callt,
-                        &mut token_patches,
-                    )
-                }
+                } => emit_store_struct_field(
+                    &mut local,
+                    module,
+                    *state_index,
+                    key_types,
+                    StructFieldAccess {
+                        field_keys: field_keys.as_slice(),
+                        ty: field_type,
+                    },
+                    use_callt,
+                    &mut token_patches,
+                ),
                 ir::Instruction::LoadStructArrayElement {
                     state_index,
                     key_types,
@@ -206,11 +204,7 @@ fn emit_ir_function(
                         trailing_key_types,
                         use_callt,
                     };
-                    emit_store_struct_field_mapping_element(
-                        &mut local,
-                        &slot,
-                        &mut token_patches,
-                    )
+                    emit_store_struct_field_mapping_element(&mut local, &slot, &mut token_patches)
                 }
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value, use_callt, &mut token_patches)
@@ -405,7 +399,7 @@ fn emit_ir_function(
     Ok((local, call_patches, token_patches))
 }
 
-fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
+pub(crate) fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
     match value_type {
         ValueType::Integer { .. } => bytecode.push(0x10),
         // Solidity booleans are represented as 0/1 values on the stack. Use PUSH0 for the

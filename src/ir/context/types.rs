@@ -1,37 +1,37 @@
-struct LoopLabels {
-    continue_label: usize,
-    break_label: usize,
+pub(crate) struct LoopLabels {
+    pub(crate) continue_label: usize,
+    pub(crate) break_label: usize,
 }
 
-struct MappingAccess<'a> {
-    state_index: usize,
-    key_expressions: Vec<&'a Expression>,
-    key_types: Vec<ValueType>,
-    value_type: ValueType,
+pub(crate) struct MappingAccess<'a> {
+    pub(crate) state_index: usize,
+    pub(crate) key_expressions: Vec<&'a Expression>,
+    pub(crate) key_types: Vec<ValueType>,
+    pub(crate) value_type: ValueType,
 }
 
 #[derive(Clone)]
-struct StorageReference {
-    state_index: usize,
-    key_expressions: Vec<Expression>,
-    key_types: Vec<ValueType>,
-    value_type: ValueType,
-    field_path: Vec<StorageReferenceField>,
+pub(crate) struct StorageReference {
+    pub(crate) state_index: usize,
+    pub(crate) key_expressions: Vec<Expression>,
+    pub(crate) key_types: Vec<ValueType>,
+    pub(crate) value_type: ValueType,
+    pub(crate) field_path: Vec<StorageReferenceField>,
     // Task #82: inner-mapping key chain applied AFTER `field_path`.
     // Populated when the reference walks through a struct-field mapping such as
     // `slots[k].balances[a]`.
-    trailing_key_expressions: Vec<Expression>,
-    trailing_key_types: Vec<ValueType>,
+    pub(crate) trailing_key_expressions: Vec<Expression>,
+    pub(crate) trailing_key_types: Vec<ValueType>,
 }
 
 #[derive(Clone)]
-struct StorageReferenceField {
-    key: [u8; 32],
-    ty: ValueType,
+pub(crate) struct StorageReferenceField {
+    pub(crate) key: [u8; 32],
+    pub(crate) ty: ValueType,
 }
 
 impl MappingAccess<'_> {
-    fn to_storage_reference(&self) -> StorageReference {
+    pub(crate) fn to_storage_reference(&self) -> StorageReference {
         StorageReference {
             state_index: self.state_index,
             key_expressions: self

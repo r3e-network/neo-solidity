@@ -1,4 +1,4 @@
-fn load_expression(
+pub(crate) fn load_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -9,7 +9,7 @@ fn load_expression(
     }
 }
 
-fn push_default_for_type(ty: &PtType, instructions: &mut Vec<Instruction>) {
+pub(crate) fn push_default_for_type(ty: &PtType, instructions: &mut Vec<Instruction>) {
     match ty {
         PtType::Address | PtType::AddressPayable => {
             instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
@@ -38,7 +38,7 @@ fn push_default_for_type(ty: &PtType, instructions: &mut Vec<Instruction>) {
     }
 }
 
-fn push_default_for_value_type(
+pub(crate) fn push_default_for_value_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -115,7 +115,7 @@ fn push_default_for_value_type(
     }
 }
 
-fn push_default_for_storage_value_type(
+pub(crate) fn push_default_for_storage_value_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

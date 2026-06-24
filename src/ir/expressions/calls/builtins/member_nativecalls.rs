@@ -8,12 +8,12 @@
 // Note: This file is large (~1300 lines) due to the complexity of native contract handling.
 // Consider splitting by contract type in future refactoring.
 
-struct NativeContractDescriptor {
+pub(crate) struct NativeContractDescriptor {
     hash: [u8; 20],
     name: &'static str,
 }
 
-const NATIVE_CONTRACTS: [NativeContractDescriptor; 11] = [
+pub(crate) const NATIVE_CONTRACTS: [NativeContractDescriptor; 11] = [
     NativeContractDescriptor {
         hash: [
             0xf5, 0x63, 0xea, 0x40, 0xbc, 0x28, 0x3d, 0x4d, 0x0e, 0x05, 0xc4, 0x8e, 0xa3, 0x05,
@@ -93,14 +93,14 @@ const NATIVE_CONTRACTS: [NativeContractDescriptor; 11] = [
     },
 ];
 
-fn emit_throw_with_message(instructions: &mut Vec<Instruction>, message: &str) {
+pub(crate) fn emit_throw_with_message(instructions: &mut Vec<Instruction>, message: &str) {
     instructions.push(Instruction::PushLiteral(LiteralValue::String(
         message.as_bytes().to_vec(),
     )));
     instructions.push(Instruction::Throw);
 }
 
-fn emit_is_native_contract_check(
+pub(crate) fn emit_is_native_contract_check(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     contract_slot: usize,
@@ -124,7 +124,7 @@ fn emit_is_native_contract_check(
     instructions.push(Instruction::Label(done_label));
 }
 
-fn emit_native_contract_name(
+pub(crate) fn emit_native_contract_name(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     contract_slot: usize,
@@ -152,7 +152,7 @@ fn emit_native_contract_name(
     instructions.push(Instruction::Label(done_label));
 }
 
-fn try_lower_nativecalls_member_builtin(
+pub(crate) fn try_lower_nativecalls_member_builtin(
     base: &Identifier,
     member: &Identifier,
     args: &[Expression],

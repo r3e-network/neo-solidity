@@ -10,24 +10,24 @@
 // against a faithful reference VM — emitted here as IR over a shared
 // scratch-local pool.
 
-fn u256_push(ins: &mut Vec<Instruction>, v: BigInt) {
+pub(crate) fn u256_push(ins: &mut Vec<Instruction>, v: BigInt) {
     ins.push(Instruction::PushLiteral(LiteralValue::Integer(v)));
 }
-fn u256_bop(ins: &mut Vec<Instruction>, op: BinaryOperator) {
+pub(crate) fn u256_bop(ins: &mut Vec<Instruction>, op: BinaryOperator) {
     ins.push(Instruction::BinaryOp(op));
 }
-fn u256_mask128() -> BigInt {
+pub(crate) fn u256_mask128() -> BigInt {
     (BigInt::one() << 128usize) - BigInt::one()
 }
-fn u256_bias127() -> BigInt {
+pub(crate) fn u256_bias127() -> BigInt {
     BigInt::one() << 127usize
 }
-fn u256_mask64() -> BigInt {
+pub(crate) fn u256_mask64() -> BigInt {
     (BigInt::one() << 64usize) - BigInt::one()
 }
 
 /// `[a, b] -> [a + b mod 2^256]` over two 128-bit limbs (no 33-byte intermediate).
-fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+pub(crate) fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
     let s = ctx.u256_scratch_locals(3);
     let (al, bl, lo) = (s[0], s[1], s[2]);
     ins.push(Instruction::StoreLocal(bl));
@@ -53,7 +53,7 @@ fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instructi
 }
 
 /// `[a, b] -> [a - b mod 2^256]` (borrow folded through the limb boundary).
-fn emit_u256_unchecked_sub_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+pub(crate) fn emit_u256_unchecked_sub_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
     let s = ctx.u256_scratch_locals(3);
     let (al, bl, lo) = (s[0], s[1], s[2]);
     ins.push(Instruction::StoreLocal(bl));
@@ -79,7 +79,7 @@ fn emit_u256_unchecked_sub_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instructi
 }
 
 /// Push `(loc >> 128) & M128` (the unsigned high 128-bit limb of `loc`).
-fn emit_u256_hi_limb(ins: &mut Vec<Instruction>, loc: usize) {
+pub(crate) fn emit_u256_hi_limb(ins: &mut Vec<Instruction>, loc: usize) {
     ins.push(Instruction::LoadLocal(loc));
     u256_push(ins, BigInt::from(128u32));
     u256_bop(ins, BinaryOperator::Shr);
@@ -90,7 +90,7 @@ fn emit_u256_hi_limb(ins: &mut Vec<Instruction>, loc: usize) {
 /// Given a FULL high limb `hi` on the stack and the low sum in `lo`, leave
 /// `sign_ext128(hi & M128) << 128 + (lo & M128)` — the 32-byte two's-complement
 /// result, where `sign_ext128(x) = (x ^ 2^127) - 2^127`.
-fn emit_u256_combine_limbs(ins: &mut Vec<Instruction>, lo: usize) {
+pub(crate) fn emit_u256_combine_limbs(ins: &mut Vec<Instruction>, lo: usize) {
     u256_push(ins, u256_mask128());
     u256_bop(ins, BinaryOperator::BitAnd);
     u256_push(ins, u256_bias127());
@@ -108,7 +108,7 @@ fn emit_u256_combine_limbs(ins: &mut Vec<Instruction>, lo: usize) {
 /// Run the 64-bit-limb schoolbook columns. Consumes `[a, b]`; leaves limbs
 /// `a0..a3 -> s[0..3]`, `b0..b3 -> s[4..7]`, low result limbs `r0..r3 -> s[9..12]`,
 /// and the carry into column 4 in `s[8]`. Returns the 15-slot scratch vector.
-fn emit_u256_mul_columns_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) -> Vec<usize> {
+pub(crate) fn emit_u256_mul_columns_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) -> Vec<usize> {
     let s = ctx.u256_scratch_locals(15);
     // 0..3 a0..a3, 4..7 b0..b3, 8 acc, 9..12 r0..r3, 13 a, 14 b
     ins.push(Instruction::StoreLocal(s[14]));
@@ -157,7 +157,7 @@ fn emit_u256_mul_columns_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction
 
 /// Build the 32-byte two's-complement result from `r0..r3` (`s[9..12]`):
 /// `sign_ext128(r2 + (r3<<64)) << 128 + (r0 + (r1<<64))`. Reuses `s[13]`.
-fn emit_u256_mul_build_result_ir(ins: &mut Vec<Instruction>, s: &[usize]) {
+pub(crate) fn emit_u256_mul_build_result_ir(ins: &mut Vec<Instruction>, s: &[usize]) {
     // lo128 = r0 + (r1 << 64) -> reuse s[13]
     ins.push(Instruction::LoadLocal(s[9]));
     ins.push(Instruction::LoadLocal(s[10]));
@@ -183,7 +183,7 @@ fn emit_u256_mul_build_result_ir(ins: &mut Vec<Instruction>, s: &[usize]) {
 }
 
 /// `[a, b] -> [a * b mod 2^256]` via 64-bit-limb schoolbook (low 256 bits).
-fn emit_u256_unchecked_mul_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+pub(crate) fn emit_u256_unchecked_mul_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
     let s = emit_u256_mul_columns_ir(ctx, ins);
     emit_u256_mul_build_result_ir(ins, &s);
 }
@@ -192,7 +192,7 @@ fn emit_u256_unchecked_mul_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instructi
 /// (0x11) on unsigned overflow/underflow. `JumpIf { target }` branches when the
 /// popped condition is FALSE, so each guard pushes the OVERFLOW predicate and
 /// jumps PAST the panic when it is false.
-fn emit_u256_checked_arith(
+pub(crate) fn emit_u256_checked_arith(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     operator: BinaryOperator,
@@ -260,7 +260,7 @@ fn emit_u256_checked_arith(
 /// `[.., a, b]`. Uses the order-preserving map `x -> x ^ 2^255`, after which a
 /// native (signed) compare yields the unsigned result. `2^255` is pushed as a
 /// `uint256` literal, which lowers to the 32-byte two's-complement sign bit.
-fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: BinaryOperator) {
+pub(crate) fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: BinaryOperator) {
     let sign_bit: BigInt = BigInt::one() << 255usize; // 2^255
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(sign_bit.clone())));
     instructions.push(Instruction::BinaryOp(BinaryOperator::BitXor)); // [a, b^S]
@@ -283,7 +283,7 @@ fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: Bin
 /// cli/bytecode/uint256_ops.rs; see git history.)
 /// Uses scratch slots s[0..1]; it performs only native shift/and/sub ops (no
 /// nested limb routines), so it cannot collide with an in-flight u256 op.
-fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     let scratch = ctx.u256_scratch_locals(2);
     let n_local = scratch[0];
     let a_local = scratch[1];
@@ -326,7 +326,7 @@ fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<In
 // step. The limb-unsafe steps (`2t`, `2*rem`, `r-b`, `a-b`) reuse the inline
 // add/sub helpers (which use scratch slots `s[0..3]`), so divmod keeps its own
 // state in `s[8..15]`. Caller guarantees `b != 0` (div/mod-by-zero panics upstream).
-fn emit_u256_divmod_ir(
+pub(crate) fn emit_u256_divmod_ir(
     ctx: &mut LoweringContext,
     ins: &mut Vec<Instruction>,
     want_remainder: bool,

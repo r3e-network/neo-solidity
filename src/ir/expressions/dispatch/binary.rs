@@ -1,4 +1,4 @@
-fn fixed_len_bytes_be_from_hex_number(expr: &Expression, fixed_len: u16) -> Option<Vec<u8>> {
+pub(crate) fn fixed_len_bytes_be_from_hex_number(expr: &Expression, fixed_len: u16) -> Option<Vec<u8>> {
     let Expression::HexNumberLiteral(_, value, unit) = expr else {
         return None;
     };
@@ -31,7 +31,7 @@ fn fixed_len_bytes_be_from_hex_number(expr: &Expression, fixed_len: u16) -> Opti
     Some(out)
 }
 
-fn lower_bytes_eq_hex_number_literal(
+pub(crate) fn lower_bytes_eq_hex_number_literal(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,
@@ -87,7 +87,7 @@ fn lower_bytes_eq_hex_number_literal(
 
 /// operand *expressions* (types), not the stack, so this may run after the
 /// operands have been lowered.
-fn emit_arith_with_overflow_ladder(
+pub(crate) fn emit_arith_with_overflow_ladder(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,
@@ -254,7 +254,7 @@ fn emit_arith_with_overflow_ladder(
     }
 }
 
-fn lower_binary_expr(
+pub(crate) fn lower_binary_expr(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,

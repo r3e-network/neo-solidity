@@ -1,4 +1,4 @@
-fn try_lower_expression_assignments(
+pub(crate) fn try_lower_expression_assignments(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -91,7 +91,7 @@ fn try_lower_expression_assignments(
     }
 }
 
-fn lower_delete(
+pub(crate) fn lower_delete(
     target: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -281,7 +281,7 @@ fn lower_delete(
 /// defaults are not directly storable via a raw `Storage.Put` (structs,
 /// mappings, `Any`); the caller then falls back to the legacy base-slot-only
 /// write so behaviour for those shapes is unchanged.
-fn lower_delete_storage_array(
+pub(crate) fn lower_delete_storage_array(
     reference: &StorageReference,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

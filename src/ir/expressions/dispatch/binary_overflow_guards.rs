@@ -2,7 +2,7 @@
 /// Add/Sub/Mul. Consumes `[lhs, rhs]` and pushes the result. The runtime's
 /// i64/BigInt arithmetic doesn't wrap at `uintN`, so we compute the result
 /// and then range-check against `[0, 2^bits - 1]`; out-of-range → Panic(0x11).
-fn emit_checked_arith_guard_narrow_u(
+pub(crate) fn emit_checked_arith_guard_narrow_u(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     operator: BinaryOperator,
@@ -59,7 +59,7 @@ fn emit_checked_arith_guard_narrow_u(
 ///
 /// Stack transformation:
 ///   [..., x] -> [..., bytes_le(x) ++ 0x00]
-fn emit_widen_to_u256_unsigned(instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_widen_to_u256_unsigned(instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
@@ -74,7 +74,7 @@ fn emit_widen_to_u256_unsigned(instructions: &mut Vec<Instruction>) {
 /// unsigned-magnitude representation (see `emit_widen_to_u256_unsigned`). Used
 /// by the `unchecked { ... }` uint256 Add/Sub/Mul lowering so all four
 /// optimizer levels behave the same way.
-fn emit_widen_both_u256_unsigned(instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_widen_both_u256_unsigned(instructions: &mut Vec<Instruction>) {
     emit_widen_to_u256_unsigned(instructions);
     instructions.push(Instruction::Swap);
     emit_widen_to_u256_unsigned(instructions);
@@ -94,7 +94,7 @@ fn emit_widen_both_u256_unsigned(instructions: &mut Vec<Instruction>) {
 ///
 /// Stack transformation:
 ///   [..., x] -> [..., bytes_le(x)[0..32]]
-fn emit_truncate_u256(instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_truncate_u256(instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
@@ -118,7 +118,7 @@ fn emit_truncate_u256(instructions: &mut Vec<Instruction>) {
 /// result. INT256_MIN/MAX are pushed as 32-byte signed-LE ByteArrays so the
 /// `less_than` / `greater_than` helpers automatically route through the
 /// BigInt comparison path.
-fn emit_checked_arith_guard_i256(
+pub(crate) fn emit_checked_arith_guard_i256(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     operator: BinaryOperator,
@@ -185,7 +185,7 @@ fn emit_checked_arith_guard_i256(
 /// upgraded to the canonical Panic(0x11) envelope by this guard whenever the
 /// BigInt path is taken (narrow int128, or narrow-int summands whose results
 /// happen to overflow i64 without overflowing the Solidity-level width).
-fn emit_checked_arith_guard_narrow_i(
+pub(crate) fn emit_checked_arith_guard_narrow_i(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     operator: BinaryOperator,
@@ -245,7 +245,7 @@ fn emit_checked_arith_guard_narrow_i(
 /// result with the limb routines, and panic (0x11) on unsigned overflow/underflow
 /// detected via the carry/borrow signal (NOT the old `GetSize > 32` heuristic,
 /// which a two's-complement wrap defeats).
-fn emit_checked_arith_guard(
+pub(crate) fn emit_checked_arith_guard(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     operator: BinaryOperator,
@@ -358,7 +358,7 @@ fn emit_checked_arith_guard(
 /// Truncate the top-of-stack integer to `bits` low bits (unsigned): `& (2^bits-1)`.
 /// Used for `unchecked` narrow Add/Sub/Mul and narrow `<<` results, which wrap
 /// mod 2^bits rather than panicking.
-fn emit_truncate_narrow_unsigned(instructions: &mut Vec<Instruction>, bits: u16) {
+pub(crate) fn emit_truncate_narrow_unsigned(instructions: &mut Vec<Instruction>, bits: u16) {
     let mask = (BigInt::one() << bits as usize) - BigInt::one();
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(mask)));
     instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
@@ -368,7 +368,7 @@ fn emit_truncate_narrow_unsigned(instructions: &mut Vec<Instruction>, bits: u16)
 /// low `bits` bits, then two's-complement sign-extend (subtract 2^bits when the
 /// sign bit is set). Mirrors the `intN(..)` cast lowering in
 /// `src/ir/expressions/calls/type_constructors.rs`.
-fn emit_truncate_narrow_signed(
+pub(crate) fn emit_truncate_narrow_signed(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     bits: u16,

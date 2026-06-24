@@ -8,7 +8,7 @@ fn parse_manifest_permissions_mode(value: &str) -> Result<ManifestPermissionsMod
     }
 }
 
-fn load_manifest_permissions_override(
+pub(crate) fn load_manifest_permissions_override(
     path: &str,
     mode: &str,
 ) -> Result<ManifestPermissionsOverride, String> {

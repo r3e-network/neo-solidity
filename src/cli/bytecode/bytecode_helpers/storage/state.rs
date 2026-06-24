@@ -1,4 +1,4 @@
-fn emit_load_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
+pub(crate) fn emit_load_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
     let key = module
         .state_variables
         .get(index)
@@ -14,7 +14,7 @@ fn emit_load_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
     }
 }
 
-fn emit_store_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
+pub(crate) fn emit_store_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
     let key = module
         .state_variables
         .get(index)

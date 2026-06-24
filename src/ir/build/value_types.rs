@@ -1,5 +1,5 @@
 impl StateVariable {
-    fn from_metadata(symbol: &StateVariableMetadata) -> Self {
+    pub(crate) fn from_metadata(symbol: &StateVariableMetadata) -> Self {
         let storage_key = symbol
             .name
             .as_deref()
@@ -21,7 +21,7 @@ impl StateVariable {
 }
 
 impl Event {
-    fn from_metadata(event: &crate::solidity::EventMetadata) -> Self {
+    pub(crate) fn from_metadata(event: &crate::solidity::EventMetadata) -> Self {
         Self {
             name: event.name.clone(),
         }
@@ -29,7 +29,7 @@ impl Event {
 }
 
 impl ValueType {
-    fn from_neotype(neotype: &crate::type_system::NeoType) -> Self {
+    pub(crate) fn from_neotype(neotype: &crate::type_system::NeoType) -> Self {
         match neotype {
             crate::type_system::NeoType::Integer { signed, bits } => ValueType::Integer {
                 signed: *signed,
@@ -63,7 +63,7 @@ impl ValueType {
         }
     }
 
-    fn from_parameter(param: &ParameterMetadata) -> Self {
+    pub(crate) fn from_parameter(param: &ParameterMetadata) -> Self {
         match &param.neo_type {
             Some(neo_type) => ValueType::from_neotype(neo_type),
             None => ValueType::Any,

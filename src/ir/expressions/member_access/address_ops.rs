@@ -1,4 +1,4 @@
-fn try_lower_address_balance(
+pub(crate) fn try_lower_address_balance(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -28,7 +28,7 @@ fn try_lower_address_balance(
     None
 }
 
-fn try_lower_length_property(
+pub(crate) fn try_lower_length_property(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -147,7 +147,7 @@ fn try_lower_length_property(
     Some(false)
 }
 
-fn try_lower_current_key(
+pub(crate) fn try_lower_current_key(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -173,7 +173,7 @@ fn try_lower_current_key(
     Some(true)
 }
 
-fn try_lower_current_value(
+pub(crate) fn try_lower_current_value(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -199,7 +199,7 @@ fn try_lower_current_value(
     Some(true)
 }
 
-fn try_lower_code_property(
+pub(crate) fn try_lower_code_property(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,

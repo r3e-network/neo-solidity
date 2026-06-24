@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructFieldMetadata {
     pub name: String,
@@ -19,34 +21,53 @@ pub struct EnumTypeMetadata {
 /// Neo type representation for compiled contracts
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NeoType {
-    Integer { signed: bool, bits: u16 },
+    Integer {
+        signed: bool,
+        bits: u16,
+    },
     Boolean,
     String,
     Address,
-    ByteArray { fixed_len: Option<u16> },
+    ByteArray {
+        fixed_len: Option<u16>,
+    },
     /// A Solidity array. The second field carries the FIXED length for `T[N]`
     /// (preserved so the ABI signature / selector is `T[N]`, not `T[]`); `None`
     /// is a dynamic `T[]`.
     Array(Box<NeoType>, Option<usize>),
-    Mapping { key: Box<NeoType>, value: Box<NeoType> },
-    Struct { name: String, fields: Vec<StructFieldType> },
+    Mapping {
+        key: Box<NeoType>,
+        value: Box<NeoType>,
+    },
+    Struct {
+        name: String,
+        fields: Vec<StructFieldType>,
+    },
     Any,
 }
 
 impl NeoType {
     /// Create a uint256 type
     pub fn uint256() -> Self {
-        Self::Integer { signed: false, bits: 256 }
+        Self::Integer {
+            signed: false,
+            bits: 256,
+        }
     }
 
     /// Create an int256 type
     pub fn int256() -> Self {
-        Self::Integer { signed: true, bits: 256 }
+        Self::Integer {
+            signed: true,
+            bits: 256,
+        }
     }
 
     /// Create a fixed-size byte array
     pub fn bytes_fixed(len: u16) -> Self {
-        Self::ByteArray { fixed_len: Some(len) }
+        Self::ByteArray {
+            fixed_len: Some(len),
+        }
     }
 
     /// Create a dynamic byte array
@@ -61,7 +82,10 @@ impl NeoType {
 
     /// Check if this is a reference type (stored by reference)
     pub fn is_reference_type(&self) -> bool {
-        matches!(self, Self::Array(..) | Self::Mapping { .. } | Self::Struct { .. })
+        matches!(
+            self,
+            Self::Array(..) | Self::Mapping { .. } | Self::Struct { .. }
+        )
     }
 
     /// Get the storage size in bytes (for value types)
@@ -70,7 +94,9 @@ impl NeoType {
             Self::Integer { bits, .. } => Some((*bits as usize).div_ceil(8)),
             Self::Boolean => Some(1),
             Self::Address => Some(20),
-            Self::ByteArray { fixed_len: Some(len) } => Some(*len as usize),
+            Self::ByteArray {
+                fixed_len: Some(len),
+            } => Some(*len as usize),
             _ => None,
         }
     }
@@ -79,7 +105,10 @@ impl NeoType {
     pub fn type_name(&self) -> String {
         match self {
             Self::Integer { signed: true, bits } => format!("int{bits}"),
-            Self::Integer { signed: false, bits } => format!("uint{bits}"),
+            Self::Integer {
+                signed: false,
+                bits,
+            } => format!("uint{bits}"),
             Self::Boolean => "bool".to_string(),
             Self::String => "string".to_string(),
             Self::Address => "address".to_string(),
@@ -106,7 +135,10 @@ impl NeoType {
     pub fn canonical_abi_type(&self) -> String {
         match self {
             Self::Integer { signed: true, bits } => format!("int{bits}"),
-            Self::Integer { signed: false, bits } => format!("uint{bits}"),
+            Self::Integer {
+                signed: false,
+                bits,
+            } => format!("uint{bits}"),
             Self::Boolean => "bool".to_string(),
             Self::String => "string".to_string(),
             Self::Address => "address".to_string(),
@@ -115,8 +147,7 @@ impl NeoType {
             Self::Array(inner, Some(n)) => format!("{}[{}]", inner.canonical_abi_type(), n),
             Self::Array(inner, None) => format!("{}[]", inner.canonical_abi_type()),
             Self::Struct { fields, .. } => {
-                let parts: Vec<String> =
-                    fields.iter().map(|f| f.ty.canonical_abi_type()).collect();
+                let parts: Vec<String> = fields.iter().map(|f| f.ty.canonical_abi_type()).collect();
                 format!("({})", parts.join(","))
             }
             // Mappings never appear in a function/event signature; keep a stable
@@ -149,4 +180,3 @@ pub enum TypeParseError {
     #[error("fixed-point types are not supported on NeoVM: '{0}'")]
     FixedPoint(String),
 }
-

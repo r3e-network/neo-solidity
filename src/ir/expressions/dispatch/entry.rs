@@ -9,7 +9,7 @@
 // the full catalogue. The 1-MB grow ceiling is generous: real Solidity
 // parsers cap expression depth much lower so legitimate code never
 // needs the extra stack.
-fn lower_expression(
+pub(crate) fn lower_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -19,7 +19,7 @@ fn lower_expression(
     })
 }
 
-fn lower_expression_inner(
+pub(crate) fn lower_expression_inner(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

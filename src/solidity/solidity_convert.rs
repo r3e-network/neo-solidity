@@ -1,3 +1,5 @@
+use super::*;
+
 include!("convert/contract.rs");
 include!("convert/getters.rs");
 include!("convert/functions.rs");

@@ -1,4 +1,4 @@
-fn try_lower_expression_calls(
+pub(crate) fn try_lower_expression_calls(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -60,7 +60,7 @@ fn try_lower_expression_calls(
     }
 }
 
-fn lower_new_expression(
+pub(crate) fn lower_new_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -230,7 +230,7 @@ fn lower_new_expression(
     }
 }
 
-fn lower_new_array_allocation(
+pub(crate) fn lower_new_array_allocation(
     array_type_expr: &Expression,
     length_expr: &Expression,
     ctx: &mut LoweringContext,
@@ -324,7 +324,7 @@ fn lower_new_array_allocation(
 ///
 /// Returns `None` if the callee is not a known function (caller should fall
 /// through to the error path). Returns `Some(bool)` on success or error.
-fn try_lower_named_function_call(
+pub(crate) fn try_lower_named_function_call(
     func: &Expression,
     named_args: &[solang_parser::pt::NamedArgument],
     ctx: &mut LoweringContext,

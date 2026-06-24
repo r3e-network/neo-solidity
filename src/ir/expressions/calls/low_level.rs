@@ -1,4 +1,4 @@
-fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+pub(crate) fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => resolve_signature_string(inner, ctx),
         Expression::StringLiteral(parts) => {
@@ -30,7 +30,7 @@ fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext) -> Option<
     }
 }
 
-fn is_single_argument_bytes_or_type_wrapper(func: &Expression, args: &[Expression]) -> bool {
+pub(crate) fn is_single_argument_bytes_or_type_wrapper(func: &Expression, args: &[Expression]) -> bool {
     if args.len() != 1 {
         return false;
     }
@@ -42,7 +42,7 @@ fn is_single_argument_bytes_or_type_wrapper(func: &Expression, args: &[Expressio
     }
 }
 
-fn is_empty_low_level_payload(expr: &Expression) -> bool {
+pub(crate) fn is_empty_low_level_payload(expr: &Expression) -> bool {
     match expr {
         Expression::Parenthesis(_, inner) => is_empty_low_level_payload(inner),
         Expression::FunctionCall(_, func, args)
@@ -59,7 +59,7 @@ fn is_empty_low_level_payload(expr: &Expression) -> bool {
     }
 }
 
-fn is_contract_type_reference(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_contract_type_reference(expr: &Expression, ctx: &LoweringContext) -> bool {
     match expr {
         Expression::Variable(type_id) => ctx.is_contract_type_name(&type_id.name),
         Expression::MemberAccess(_, namespace_expr, type_id) => {
@@ -76,7 +76,7 @@ fn is_contract_type_reference(expr: &Expression, ctx: &LoweringContext) -> bool 
     }
 }
 
-fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+pub(crate) fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
     if let Some(name) = resolve_selector_method_name(expr, ctx) {
         if !name.trim().is_empty() {
             return Some(name);
@@ -129,7 +129,7 @@ fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> 
     }
 }
 
-fn extract_encode_call_arguments(expr: &Expression) -> Option<Vec<&Expression>> {
+pub(crate) fn extract_encode_call_arguments(expr: &Expression) -> Option<Vec<&Expression>> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_encode_call_arguments(inner),
         Expression::FunctionCall(_, func, args)
@@ -149,7 +149,7 @@ fn extract_encode_call_arguments(expr: &Expression) -> Option<Vec<&Expression>> 
     }
 }
 
-fn parse_low_level_call_data<'a>(
+pub(crate) fn parse_low_level_call_data<'a>(
     expr: &'a Expression,
     ctx: &LoweringContext,
 ) -> Result<Option<(String, Vec<&'a Expression>)>, String> {
@@ -243,7 +243,7 @@ fn parse_low_level_call_data<'a>(
     }
 }
 
-fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(usize, String)> {
+pub(crate) fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(usize, String)> {
     match expr {
         Expression::Parenthesis(_, inner) => resolve_call_data_local(inner, ctx),
         Expression::FunctionCall(_, func, args)
@@ -269,7 +269,7 @@ fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(
 /// for the underlying literal parsing (same codepath used by the address
 /// type constructor at `type_constructors.rs:88`). Runtime-computed
 /// addresses never match.
-fn precompile_index_from_target(expr: &Expression) -> Option<u8> {
+pub(crate) fn precompile_index_from_target(expr: &Expression) -> Option<u8> {
     let bytes = match expr {
         Expression::Parenthesis(_, inner) => return precompile_index_from_target(inner),
         Expression::FunctionCall(_, func, args) if args.len() == 1 => match func.as_ref() {
@@ -294,7 +294,7 @@ fn precompile_index_from_target(expr: &Expression) -> Option<u8> {
     }
 }
 
-fn pseudo_runtime_index_from_target(expr: &Expression) -> Option<u8> {
+pub(crate) fn pseudo_runtime_index_from_target(expr: &Expression) -> Option<u8> {
     let bytes = match expr {
         Expression::Parenthesis(_, inner) => return pseudo_runtime_index_from_target(inner),
         Expression::FunctionCall(_, func, args) if args.len() == 1 => match func.as_ref() {
@@ -314,7 +314,7 @@ fn pseudo_runtime_index_from_target(expr: &Expression) -> Option<u8> {
     }
 }
 
-fn runtime_syscall_for_low_level_method(method: &str) -> Option<&'static str> {
+pub(crate) fn runtime_syscall_for_low_level_method(method: &str) -> Option<&'static str> {
     match method {
         "getNetwork" | "getNetworkMagic" => Some("System.Runtime.GetNetwork"),
         "getPlatform" => Some("System.Runtime.Platform"),
@@ -327,7 +327,7 @@ fn runtime_syscall_for_low_level_method(method: &str) -> Option<&'static str> {
     }
 }
 
-fn emit_low_level_success_tuple_from_stack(
+pub(crate) fn emit_low_level_success_tuple_from_stack(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
@@ -359,7 +359,7 @@ fn emit_low_level_success_tuple_from_stack(
     instructions.push(Instruction::LoadLocal(tuple_local));
 }
 
-fn emit_pseudo_runtime_staticcall(
+pub(crate) fn emit_pseudo_runtime_staticcall(
     index: u8,
     payload: &Expression,
     ctx: &mut LoweringContext,
@@ -417,7 +417,7 @@ fn emit_pseudo_runtime_staticcall(
     }
 }
 
-fn unsupported_precompile_name(index: u8) -> &'static str {
+pub(crate) fn unsupported_precompile_name(index: u8) -> &'static str {
     match index {
         0x06 => "bn256Add",
         0x07 => "bn256ScalarMul",
@@ -427,7 +427,7 @@ fn unsupported_precompile_name(index: u8) -> &'static str {
     }
 }
 
-fn record_unsupported_precompile_error(index: u8, member_name: &str, ctx: &mut LoweringContext) {
+pub(crate) fn record_unsupported_precompile_error(index: u8, member_name: &str, ctx: &mut LoweringContext) {
     let name = unsupported_precompile_name(index);
     ctx.record_error_with_suggestion(
 		format!(
@@ -444,7 +444,7 @@ fn record_unsupported_precompile_error(index: u8, member_name: &str, ctx: &mut L
 /// subset). Returns `true` if the index was handled and `false` if lowering
 /// the payload failed. Unsupported precompiles must be rejected by the caller
 /// before this helper is reached.
-fn emit_precompile_staticcall(
+pub(crate) fn emit_precompile_staticcall(
     index: u8,
     payload: &Expression,
     ctx: &mut LoweringContext,
@@ -571,7 +571,7 @@ fn emit_precompile_staticcall(
     Some(true)
 }
 
-fn try_lower_low_level_address_call(
+pub(crate) fn try_lower_low_level_address_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -1023,7 +1023,7 @@ fn try_lower_low_level_address_call(
     None
 }
 
-fn emit_reencoded_low_level_return_data(
+pub(crate) fn emit_reencoded_low_level_return_data(
     data_local: usize,
     return_type: &ValueType,
     ctx: &mut LoweringContext,

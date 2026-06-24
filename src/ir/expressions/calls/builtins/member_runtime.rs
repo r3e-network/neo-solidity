@@ -1,11 +1,11 @@
-fn emit_runtime_throw_with_message(instructions: &mut Vec<Instruction>, message: &str) {
+pub(crate) fn emit_runtime_throw_with_message(instructions: &mut Vec<Instruction>, message: &str) {
     instructions.push(Instruction::PushLiteral(LiteralValue::String(
         message.as_bytes().to_vec(),
     )));
     instructions.push(Instruction::Throw);
 }
 
-fn try_lower_runtime_member_builtin(
+pub(crate) fn try_lower_runtime_member_builtin(
     base: &Identifier,
     member: &Identifier,
     args: &[Expression],

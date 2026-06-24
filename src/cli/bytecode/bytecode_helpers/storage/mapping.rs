@@ -109,7 +109,7 @@ fn emit_struct_field_slot(
     }
 }
 
-fn emit_load_mapping(
+pub(crate) fn emit_load_mapping(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -156,7 +156,7 @@ fn resolve_loaded_mapping_value_type(
     Some(current)
 }
 
-fn emit_store_mapping(
+pub(crate) fn emit_store_mapping(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -176,7 +176,7 @@ fn emit_store_mapping(
     emit_syscall(bytecode, "System.Storage.Put");
 }
 
-fn emit_store_mapping_array_deep_copy(
+pub(crate) fn emit_store_mapping_array_deep_copy(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -282,13 +282,13 @@ fn emit_store_array_value_deep_copy(
 /// Task #82: derive the storage slot for a mapping-in-struct-field access such as
 /// `slots[k].balances[a]`. Stack before: `[trailing_keyN, ..., trailing_key0, outer_keyN, ..., outer_key0]`.
 /// Stack after: `[slot_bytes]`.
-struct StructFieldMappingSlot<'a> {
-    module: &'a ir::Module,
-    state_index: usize,
-    key_types: &'a [ValueType],
-    field_keys: &'a [[u8; 32]],
-    trailing_key_types: &'a [ValueType],
-    use_callt: bool,
+pub(crate) struct StructFieldMappingSlot<'a> {
+    pub(crate) module: &'a ir::Module,
+    pub(crate) state_index: usize,
+    pub(crate) key_types: &'a [ValueType],
+    pub(crate) field_keys: &'a [[u8; 32]],
+    pub(crate) trailing_key_types: &'a [ValueType],
+    pub(crate) use_callt: bool,
 }
 
 fn emit_struct_field_mapping_slot(
@@ -322,7 +322,7 @@ fn emit_struct_field_mapping_slot(
     }
 }
 
-fn emit_load_struct_field_mapping_element(
+pub(crate) fn emit_load_struct_field_mapping_element(
     bytecode: &mut Vec<u8>,
     slot: &StructFieldMappingSlot<'_>,
     value_type: &ValueType,
@@ -334,7 +334,7 @@ fn emit_load_struct_field_mapping_element(
     emit_coerce_storage_value(bytecode, value_type);
 }
 
-fn emit_store_struct_field_mapping_element(
+pub(crate) fn emit_store_struct_field_mapping_element(
     bytecode: &mut Vec<u8>,
     slot: &StructFieldMappingSlot<'_>,
     token_patches: &mut Vec<MethodTokenPatch>,

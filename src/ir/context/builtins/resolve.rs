@@ -1,4 +1,4 @@
-fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
+pub(crate) fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
     if let Expression::MemberAccess(_, inner, member) = expr {
         if let Expression::Variable(base) = inner.as_ref() {
             let member_name = member.name.as_str();
@@ -93,7 +93,7 @@ pub fn builtin_intrinsic_surface() -> Vec<(&'static str, &'static [&'static str]
         .collect()
 }
 
-fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static str]> {
+pub(crate) fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static str]> {
     match base {
         "Runtime" => Some(&[
             "notify",
@@ -403,7 +403,7 @@ fn builtin_library_supported_members(base: &str) -> Option<&'static [&'static st
     }
 }
 
-fn resolve_runtime_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_runtime_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "notify" => Some(BuiltinCall::RuntimeNotify),
         "checkWitness" => Some(BuiltinCall::RuntimeCheckWitness),
@@ -450,7 +450,7 @@ fn resolve_runtime_member(member: &str) -> Option<BuiltinCall> {
     }
 }
 
-fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "encode" => Some(BuiltinCall::AbiEncode),
         "encodePacked" => Some(BuiltinCall::AbiEncodePacked),
@@ -462,7 +462,7 @@ fn resolve_abi_member(member: &str) -> Option<BuiltinCall> {
     }
 }
 
-fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
     // Note: every mapping here must target a syscall that exists in Neo N3's
     // ApplicationEngine interop table. The former `*Local` family lowered to
     // fictional `System.Storage.Local.*` names (sha256-hashed interop IDs that
@@ -492,7 +492,7 @@ fn resolve_storage_member(member: &str) -> Option<BuiltinCall> {
     }
 }
 
-fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "verifySignature" => Some(BuiltinCall::VerifySignature),
         "callContract" => Some(BuiltinCall::ContractCall),
@@ -578,7 +578,7 @@ fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
 /// Solidity source can write either `StdLib.itoa(v, 10)` or the devpack's
 /// `Syscalls.itoa(v, 10)`; both must land at the same CALLT. See
 /// `resolve_syscalls_member` for the sibling dispatch.
-fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "itoa" | "atoi"
         | "base64Encode" | "base64Decode" | "base64UrlEncode" | "base64UrlDecode"
@@ -595,7 +595,7 @@ fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
 /// `CryptoLib.<method>(...)` — resolve bare member-access into a NativeCall
 /// to the CryptoLib native contract (hash 1bf575ab11896884136110a35a12886cde0b66c72).
 /// Keeps parity with `Syscalls.sha256` / `Syscalls.ripemd160` / etc.
-fn resolve_cryptolib_member(member: &str) -> Option<BuiltinCall> {
+pub(crate) fn resolve_cryptolib_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "sha256" | "ripemd160" | "verifyWithECDsa" | "murmur32" | "keccak256"
         | "recoverSecp256K1" | "verifyWithEd25519" | "bls12381Serialize"
@@ -635,7 +635,7 @@ mod devpack_intrinsic_surface_tests {
     ///   `try_lower_value_transfer_helpers`
     ///   (src/ir/expressions/calls/value_transfer.rs for
     ///   `transferGas`/`transferNeo`)
-    fn special_case_lowerings(base: &str) -> &'static [&'static str] {
+    pub(crate) fn special_case_lowerings(base: &str) -> &'static [&'static str] {
         match base {
             "Runtime" => &[
                 "initializeServices",
@@ -659,7 +659,7 @@ mod devpack_intrinsic_surface_tests {
         }
     }
 
-    fn has_lowering(base: &str, member: &str) -> bool {
+    pub(crate) fn has_lowering(base: &str, member: &str) -> bool {
         let resolved = match base {
             "Runtime" => resolve_runtime_member(member).is_some(),
             "Storage" => resolve_storage_member(member).is_some(),
@@ -669,7 +669,7 @@ mod devpack_intrinsic_surface_tests {
         resolved || special_case_lowerings(base).contains(&member)
     }
 
-    fn devpack_library_path(base: &str) -> PathBuf {
+    pub(crate) fn devpack_library_path(base: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("devpack")
             .join("libraries")
@@ -679,7 +679,7 @@ mod devpack_intrinsic_surface_tests {
     /// Extract the names of all non-private function declarations from a
     /// devpack library source. Private helpers (declared `private` or named
     /// with a leading underscore) are not part of the public surface.
-    fn declared_public_functions(source: &str) -> Vec<String> {
+    pub(crate) fn declared_public_functions(source: &str) -> Vec<String> {
         let mut names = Vec::new();
         for line in source.lines() {
             let trimmed = line.trim_start();
@@ -704,7 +704,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn every_declared_devpack_library_function_has_an_intrinsic_lowering() {
+    pub(crate) fn every_declared_devpack_library_function_has_an_intrinsic_lowering() {
         for base in ["Runtime", "Storage", "Neo"] {
             let path = devpack_library_path(base);
             let source = std::fs::read_to_string(&path)
@@ -729,7 +729,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn every_declared_devpack_library_function_is_whitelisted() {
+    pub(crate) fn every_declared_devpack_library_function_is_whitelisted() {
         // The "supported intrinsics" diagnostic emitted for unsupported
         // members lists `builtin_library_supported_members`; everything the
         // shipped sources declare should appear there.
@@ -752,7 +752,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn every_whitelisted_member_has_an_intrinsic_lowering() {
+    pub(crate) fn every_whitelisted_member_has_an_intrinsic_lowering() {
         // The converse direction: the whitelist is what the compiler prints
         // as "supported intrinsics", so a whitelisted member without a
         // lowering would advertise an API that still hard-fails.
@@ -772,7 +772,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn fictional_local_storage_syscalls_are_not_resolvable() {
+    pub(crate) fn fictional_local_storage_syscalls_are_not_resolvable() {
         // Regression: `Storage.putLocal`/`getLocal`/`removeLocal`/`findLocal`
         // and the matching `Syscalls.storage*Local` wrappers lowered to
         // `System.Storage.Local.*` — syscalls that do not exist in Neo N3's
@@ -811,7 +811,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn miscompiling_storage_helpers_are_not_resolvable() {
+    pub(crate) fn miscompiling_storage_helpers_are_not_resolvable() {
         // Regression: these documented helpers used to lower to a single raw
         // syscall with the wrong arity/semantics (e.g. `count` returned an
         // iterator handle, `batchPut` issued one put with the arrays as
@@ -846,7 +846,7 @@ mod devpack_intrinsic_surface_tests {
     }
 
     #[test]
-    fn no_resolver_emits_syscalls_outside_the_neo_n3_interop_table() {
+    pub(crate) fn no_resolver_emits_syscalls_outside_the_neo_n3_interop_table() {
         // Every BuiltinCall::Syscall name produced by the resolvers must be a
         // real Neo N3 ApplicationEngine interop. Guards against reintroducing
         // fictional names like System.Storage.Local.* or

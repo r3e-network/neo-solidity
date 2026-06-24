@@ -1,4 +1,4 @@
-fn push_data(bytecode: &mut Vec<u8>, data: &[u8]) {
+pub(crate) fn push_data(bytecode: &mut Vec<u8>, data: &[u8]) {
     if data.len() <= u8::MAX as usize {
         bytecode.push(0x0C);
         bytecode.push(data.len() as u8);

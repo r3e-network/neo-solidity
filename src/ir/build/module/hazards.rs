@@ -1,5 +1,5 @@
 #[derive(Default, Clone, Copy)]
-struct Hazards {
+pub(crate) struct Hazards {
     writes_state: bool,
     notifies: bool,
     unsafe_contract_call: bool,
@@ -9,16 +9,16 @@ struct Hazards {
 }
 
 impl Hazards {
-    fn safe_violation(self) -> bool {
+    pub(crate) fn safe_violation(self) -> bool {
         self.writes_state || self.notifies || self.unsafe_contract_call
     }
 
-    fn pure_violation(self) -> bool {
+    pub(crate) fn pure_violation(self) -> bool {
         self.safe_violation()
             || self.reads_state
     }
 
-    fn merge_in(&mut self, other: Hazards) {
+    pub(crate) fn merge_in(&mut self, other: Hazards) {
         self.writes_state |= other.writes_state;
         self.notifies |= other.notifies;
         self.unsafe_contract_call |= other.unsafe_contract_call;
@@ -28,7 +28,7 @@ impl Hazards {
     }
 }
 
-fn direct_hazards(function: &Function) -> Hazards {
+pub(crate) fn direct_hazards(function: &Function) -> Hazards {
     let instrs: Vec<&Instruction> = function
         .basic_blocks
         .iter()
@@ -172,7 +172,7 @@ fn direct_hazards(function: &Function) -> Hazards {
     hazards
 }
 
-fn build_call_graph(functions: &[Function]) -> HashMap<String, Vec<String>> {
+pub(crate) fn build_call_graph(functions: &[Function]) -> HashMap<String, Vec<String>> {
     let mut graph: HashMap<String, Vec<String>> = HashMap::new();
     for function in functions {
         let mut callees: Vec<String> = Vec::new();
@@ -201,7 +201,7 @@ fn build_call_graph(functions: &[Function]) -> HashMap<String, Vec<String>> {
     graph
 }
 
-fn compute_transitive_hazards(
+pub(crate) fn compute_transitive_hazards(
     name: &str,
     direct: &HashMap<String, Hazards>,
     graph: &HashMap<String, Vec<String>>,

@@ -1,4 +1,4 @@
-fn lower_expression_statement(
+pub(crate) fn lower_expression_statement(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -25,7 +25,7 @@ fn lower_expression_statement(
     false
 }
 
-fn lower_variable_definition_statement(
+pub(crate) fn lower_variable_definition_statement(
     decl: &solang_parser::pt::VariableDeclaration,
     init: Option<&Expression>,
     ctx: &mut LoweringContext,
@@ -192,7 +192,7 @@ fn lower_variable_definition_statement(
     false
 }
 
-fn lower_emit_statement(
+pub(crate) fn lower_emit_statement(
     call: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -201,7 +201,7 @@ fn lower_emit_statement(
     false
 }
 
-fn lower_assembly_statement(
+pub(crate) fn lower_assembly_statement(
     block: &solang_parser::pt::YulBlock,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Natspec documentation extracted from Solidity source comments
 #[derive(Debug, Clone, Default)]
 pub struct NatspecDoc {
@@ -30,4 +32,3 @@ impl From<NatspecDocIR> for NatspecDoc {
         }
     }
 }
-

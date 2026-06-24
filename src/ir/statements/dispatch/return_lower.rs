@@ -1,4 +1,4 @@
-fn lower_return_statement(
+pub(crate) fn lower_return_statement(
     expr: Option<&Expression>,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -399,7 +399,7 @@ fn lower_return_statement(
 /// No-op (returns `true`) for internal functions and non-array /
 /// multi-value returns. Returns `false` only on a fatal lowering error
 /// (already recorded on `ctx`).
-fn wrap_external_single_array_return_value(
+pub(crate) fn wrap_external_single_array_return_value(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
@@ -525,7 +525,7 @@ fn wrap_external_single_array_return_value(
 /// Implicit `return;` (and the fall-off-end epilogue) for functions with
 /// named return variables: load each declared return slot and emit the
 /// shape matching the explicit-return path for the same signature.
-fn lower_implicit_return(
+pub(crate) fn lower_implicit_return(
     return_types: &[ValueType],
     return_slots: &[Option<usize>],
     ctx: &mut LoweringContext,
@@ -638,7 +638,7 @@ fn lower_implicit_return(
 /// Returns a `Vec<Expression>` clone of the arg slice for downstream
 /// helpers that only take `&[Expression]` (matches the shape those
 /// helpers already accept, e.g. `abi_decode_expected_static_bytes`).
-fn extract_abi_decode_call(expr: &Expression) -> Option<Vec<Expression>> {
+pub(crate) fn extract_abi_decode_call(expr: &Expression) -> Option<Vec<Expression>> {
     let Expression::FunctionCall(_, func, args) = expr else {
         return None;
     };
@@ -663,7 +663,7 @@ fn extract_abi_decode_call(expr: &Expression) -> Option<Vec<Expression>> {
 /// `return abi.decode(buf, tuple)` can short-circuit via a verbatim
 /// buffer return: the ABI canonical layout of a static tuple IS the
 /// input buffer, so no decode/re-encode round trip is needed.
-fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usize) -> bool {
+pub(crate) fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usize) -> bool {
     if expected_arity < 2 {
         return false;
     }
@@ -705,7 +705,7 @@ fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usiz
 /// bound (`size >= head_slots*32`) since dynamic payloads vary, and
 /// (b) future refinements (e.g. enforcing that offsets are in-range)
 /// can slot in here without perturbing the static-tuple path.
-fn abi_decode_types_match_return_arity_mixed(args: &[Expression], expected_arity: usize) -> bool {
+pub(crate) fn abi_decode_types_match_return_arity_mixed(args: &[Expression], expected_arity: usize) -> bool {
     if expected_arity < 2 {
         return false;
     }
@@ -746,7 +746,7 @@ fn abi_decode_types_match_return_arity_mixed(args: &[Expression], expected_arity
 /// pushes for `1`, `2`, `3` — three static head slots, which `abiEncode`
 /// packs into `32z|01 || 32z|02 || 32z|03`, matching Solidity's inlining
 /// of a static inner tuple into its parent's head section.
-fn flatten_tuple_return_params(
+pub(crate) fn flatten_tuple_return_params(
     params: &[(solang_parser::pt::Loc, Option<solang_parser::pt::Parameter>)],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

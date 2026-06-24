@@ -1,4 +1,4 @@
-fn lower_require(
+pub(crate) fn lower_require(
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -197,7 +197,7 @@ fn lower_require(
     instructions.push(Instruction::Label(ok_label));
 }
 
-fn lower_assert(args: &[Expression], ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn lower_assert(args: &[Expression], ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     if args.len() != 1 {
         ctx.record_error_with_suggestion(
             "assert() expects exactly one argument",
@@ -228,7 +228,7 @@ fn lower_assert(args: &[Expression], ctx: &mut LoweringContext, instructions: &m
     instructions.push(Instruction::Label(ok_label));
 }
 
-fn lower_logical_or(
+pub(crate) fn lower_logical_or(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,
@@ -256,7 +256,7 @@ fn lower_logical_or(
     true
 }
 
-fn lower_logical_and(
+pub(crate) fn lower_logical_and(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,

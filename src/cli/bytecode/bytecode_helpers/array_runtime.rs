@@ -1,16 +1,16 @@
-fn emit_new_array(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_new_array(bytecode: &mut Vec<u8>) {
     bytecode.push(0xC3); // NEWARRAY
 }
 
-fn emit_array_get(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_array_get(bytecode: &mut Vec<u8>) {
     bytecode.push(0xCE); // PICKITEM
 }
 
-fn emit_array_set(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_array_set(bytecode: &mut Vec<u8>) {
     bytecode.push(0xD0); // SETITEM
 }
 
-fn emit_load_runtime_value(
+pub(crate) fn emit_load_runtime_value(
     bytecode: &mut Vec<u8>,
     value: &ir::RuntimeValue,
     use_callt: bool,

@@ -1,4 +1,4 @@
-fn lower_member_access_expression(
+pub(crate) fn lower_member_access_expression(
     expr: &Expression,
     inner: &Expression,
     member: &Identifier,

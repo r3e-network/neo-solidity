@@ -1,16 +1,16 @@
 #[derive(Debug, Clone)]
-struct StandardJsonContractSource {
-    file_name: String,
-    contract_name: String,
+pub(crate) struct StandardJsonContractSource {
+    pub(crate) file_name: String,
+    pub(crate) contract_name: String,
 }
 
-struct CombinedStandardJsonSource {
+pub(crate) struct CombinedStandardJsonSource {
     source: String,
     contract_sources: Vec<StandardJsonContractSource>,
     source_units: Vec<CombinedStandardJsonSourceUnit>,
 }
 
-struct CombinedStandardJsonSourceUnit {
+pub(crate) struct CombinedStandardJsonSourceUnit {
     root_file: String,
     source: String,
     contract_sources: Vec<StandardJsonContractSource>,

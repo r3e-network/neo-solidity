@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Debug, Clone, Default)]
 pub struct SelectorRegistry {
     /// Mapping of Solidity type name -> method name -> list of selectors (one per overload).

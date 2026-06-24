@@ -15,12 +15,21 @@ use solang_parser::pt::{
 };
 use std::collections::{HashMap, HashSet};
 
-include!("ir/ir_types.rs");
-include!("ir/ir_build.rs");
-include!("ir/ir_context.rs");
-include!("ir/ir_statements.rs");
-include!("ir/ir_expressions.rs");
-include!("ir/ir_deploy.rs");
+mod ir_build;
+mod ir_context;
+mod ir_deploy;
+mod ir_expressions;
+mod ir_statements;
+mod ir_types;
+
+pub(crate) use ir_build::*;
+pub(crate) use ir_context::*;
+pub(crate) use ir_deploy::*;
+pub(crate) use ir_expressions::*;
+pub(crate) use ir_statements::*;
+pub use ir_types::*;
+
+pub use ir_context::builtin_intrinsic_surface;
 
 #[cfg(test)]
 mod tests;

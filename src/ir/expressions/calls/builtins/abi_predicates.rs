@@ -1,4 +1,4 @@
-fn manifest_type_name(ty: ManifestType) -> &'static str {
+pub(crate) fn manifest_type_name(ty: ManifestType) -> &'static str {
     match ty {
         ManifestType::Integer => "Integer",
         ManifestType::Boolean => "Boolean",
@@ -12,7 +12,7 @@ fn manifest_type_name(ty: ManifestType) -> &'static str {
     }
 }
 
-fn value_type_satisfies_manifest_type(actual: &ValueType, expected: ManifestType) -> Option<bool> {
+pub(crate) fn value_type_satisfies_manifest_type(actual: &ValueType, expected: ManifestType) -> Option<bool> {
     if expected == ManifestType::Any {
         return Some(true);
     }
@@ -41,7 +41,7 @@ fn value_type_satisfies_manifest_type(actual: &ValueType, expected: ManifestType
     }
 }
 
-fn extract_string_literal(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_string_literal(expr: &Expression) -> Option<String> {
     match expr {
         Expression::StringLiteral(parts) => {
             Some(String::from_utf8_lossy(&string_literal_bytes(parts)).to_string())
@@ -50,7 +50,7 @@ fn extract_string_literal(expr: &Expression) -> Option<String> {
     }
 }
 
-fn extract_abi_encode_args(expr: &Expression) -> Option<&[Expression]> {
+pub(crate) fn extract_abi_encode_args(expr: &Expression) -> Option<&[Expression]> {
     let Expression::FunctionCall(_, func, args) = expr else {
         return None;
     };
@@ -75,7 +75,7 @@ fn extract_abi_encode_args(expr: &Expression) -> Option<&[Expression]> {
 /// structs fold to per-field 32-byte slots, no offset/length header). Mirrors
 /// the `is_static_abi_type` predicate used by `abi_decode_expected_static_bytes`
 /// but operates on the IR `ValueType` rather than a solang `PtType`.
-fn is_static_abi_type_value(ty: &ValueType) -> bool {
+pub(crate) fn is_static_abi_type_value(ty: &ValueType) -> bool {
     match ty {
         ValueType::Integer { .. } => true,
         ValueType::Boolean => true,
@@ -108,7 +108,7 @@ fn is_static_abi_type_value(ty: &ValueType) -> bool {
 /// [`emit_abi_decode_nested_array_tail_runtime`]. The recursion mirrors the
 /// ENCODE side's `abi_dynamic_value_type_is_supported` exactly, so every
 /// canonically-encoded shape round-trips through `abi.decode`.
-fn abi_dynamic_decode_value_type_is_supported(value_type: &ValueType) -> bool {
+pub(crate) fn abi_dynamic_decode_value_type_is_supported(value_type: &ValueType) -> bool {
     match value_type {
         ValueType::ByteArray { fixed_len: None } | ValueType::String => true,
         ValueType::Array(element_type) => {
@@ -128,7 +128,7 @@ fn abi_dynamic_decode_value_type_is_supported(value_type: &ValueType) -> bool {
     }
 }
 
-fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
+pub(crate) fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
     match value_type {
         ValueType::Struct { fields, .. }
             if !fields.is_empty()
@@ -141,7 +141,7 @@ fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
     }
 }
 
-fn abi_value_type_is_dynamic(value_type: &ValueType) -> bool {
+pub(crate) fn abi_value_type_is_dynamic(value_type: &ValueType) -> bool {
     match value_type {
         ValueType::ByteArray { fixed_len: None } | ValueType::String | ValueType::Array(_) => true,
         // A struct is dynamic iff any field is (recursively) dynamic — solc's
@@ -153,7 +153,7 @@ fn abi_value_type_is_dynamic(value_type: &ValueType) -> bool {
     }
 }
 
-fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> bool {
+pub(crate) fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> bool {
     match value_type {
         ValueType::ByteArray { fixed_len: None } | ValueType::String => true,
         // A `T[]` is encodable when its elements are either fixed-width

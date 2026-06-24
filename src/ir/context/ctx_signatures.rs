@@ -4,11 +4,11 @@
 /// are bound as locals populated from the call-site args. See
 /// `member_calls.rs::inline_library_storage_call`.
 #[derive(Debug, Clone)]
-struct LibraryStorageBody {
-    param_names: Vec<String>,
-    value_param_types: Vec<Option<ValueType>>,
-    body: Statement,
-    return_type: Option<ValueType>,
+pub(crate) struct LibraryStorageBody {
+    pub(crate) param_names: Vec<String>,
+    pub(crate) value_param_types: Vec<Option<ValueType>>,
+    pub(crate) body: Statement,
+    pub(crate) return_type: Option<ValueType>,
 }
 
 /// Task #186 — per-binding metadata for an internal function-pointer local or
@@ -16,30 +16,30 @@ struct LibraryStorageBody {
 /// REVERSEN window size; `has_return` controls whether the `CallIndirect`
 /// result is treated as a value or a statement-expression.
 #[derive(Debug, Clone, Copy)]
-struct FunctionPointerBinding {
-    arg_count: usize,
-    has_return: bool,
+pub(crate) struct FunctionPointerBinding {
+    pub(crate) arg_count: usize,
+    pub(crate) has_return: bool,
 }
 
 impl<'a> LoweringContext<'a> {
-    fn state_type(&self, index: usize) -> Option<&ValueType> {
+    pub(crate) fn state_type(&self, index: usize) -> Option<&ValueType> {
         self.state_types.get(index)
     }
 
-    fn state_metadata(&self, index: usize) -> Option<&StateVariableMetadata> {
+    pub(crate) fn state_metadata(&self, index: usize) -> Option<&StateVariableMetadata> {
         self.state_variables.get(index)
     }
 
     /// Compile-time bound `N` when `struct_name.field_name` is declared as a
     /// fixed-size array (`T[N]`), `None` for dynamic (`T[]`) or non-array
     /// fields. See `struct_fixed_array_bounds`.
-    fn struct_fixed_array_bound(&self, struct_name: &str, field_name: &str) -> Option<u64> {
+    pub(crate) fn struct_fixed_array_bound(&self, struct_name: &str, field_name: &str) -> Option<u64> {
         self.struct_fixed_array_bounds
             .get(&(struct_name.to_string(), field_name.to_string()))
             .copied()
     }
 
-    fn can_write_state(&self, state_index: usize) -> bool {
+    pub(crate) fn can_write_state(&self, state_index: usize) -> bool {
         let Some(meta) = self.state_metadata(state_index) else {
             return true;
         };
@@ -71,7 +71,7 @@ impl<'a> LoweringContext<'a> {
             || self.function_name.contains("__ctor__")
     }
 
-    fn ensure_state_writable(&mut self, state_index: usize) -> bool {
+    pub(crate) fn ensure_state_writable(&mut self, state_index: usize) -> bool {
         if self.can_write_state(state_index) {
             return true;
         }
@@ -91,13 +91,13 @@ impl<'a> LoweringContext<'a> {
         false
     }
 
-    fn parameter_type(&self, name: &str) -> Option<&ValueType> {
+    pub(crate) fn parameter_type(&self, name: &str) -> Option<&ValueType> {
         self.param_index_map
             .get(name)
             .and_then(|idx| self.param_types.get(*idx))
     }
 
-    fn variable_type(&self, name: &str) -> Option<ValueType> {
+    pub(crate) fn variable_type(&self, name: &str) -> Option<ValueType> {
         if let Some(reference) = self.storage_alias(name) {
             return Some(reference.value_type.clone());
         }
@@ -120,7 +120,7 @@ impl<'a> LoweringContext<'a> {
     /// Task #91 — fetch the inlinable body for a library function whose first
     /// parameter is a storage-pointer struct. Returns `None` when the call
     /// should go through the normal `CallFunction` path.
-    fn library_storage_body(&self, name: &str, arg_count: usize) -> Option<&LibraryStorageBody> {
+    pub(crate) fn library_storage_body(&self, name: &str, arg_count: usize) -> Option<&LibraryStorageBody> {
         self.library_storage_bodies
             .get(&(name.to_string(), arg_count))
     }
@@ -131,19 +131,19 @@ impl<'a> LoweringContext<'a> {
     /// storage-reference resolver and the `.length` fast path to unwrap
     /// `fn()` into the backing state-var Expression so the caller can
     /// write to the actual storage slot instead of a materialised copy.
-    fn storage_pointer_returning_fn(&self, name: &str) -> Option<&str> {
+    pub(crate) fn storage_pointer_returning_fn(&self, name: &str) -> Option<&str> {
         self.storage_pointer_returning_fns
             .get(name)
             .map(|s| s.as_str())
     }
 
-    fn event_signature(&self, event_name: &str) -> Option<&[ManifestType]> {
+    pub(crate) fn event_signature(&self, event_name: &str) -> Option<&[ManifestType]> {
         self.event_signature_map
             .get(event_name)
             .map(|sig| sig.as_slice())
     }
 
-    fn event_evm_signature(&self, event_name: &str) -> Option<&EventSignature> {
+    pub(crate) fn event_evm_signature(&self, event_name: &str) -> Option<&EventSignature> {
         self.event_params_map.get(event_name)
     }
 
@@ -151,7 +151,7 @@ impl<'a> LoweringContext<'a> {
     /// never declared in (or inherited by / file-level-merged into) the
     /// current contract — callers then fall back to inferring canonical
     /// types from the revert-site argument expressions.
-    fn error_signature(&self, error_name: &str) -> Option<&ErrorAbiSignature> {
+    pub(crate) fn error_signature(&self, error_name: &str) -> Option<&ErrorAbiSignature> {
         self.error_signature_map.get(error_name)
     }
 }

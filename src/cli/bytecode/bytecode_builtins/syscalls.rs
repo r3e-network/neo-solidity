@@ -10,7 +10,7 @@ fn is_void_syscall(name: &str) -> bool {
     )
 }
 
-fn emit_native_contract_call(
+pub(crate) fn emit_native_contract_call(
     bytecode: &mut Vec<u8>,
     contract: ir::NativeContract,
     method: &str,
@@ -262,7 +262,7 @@ fn native_method_has_return_value(contract: ir::NativeContract, method: &str) ->
     Some(has_return)
 }
 
-fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
+pub(crate) fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
     bytecode.push(0x41);
     bytecode.extend_from_slice(&crate::interop::interop_id_bytes(name));
 }

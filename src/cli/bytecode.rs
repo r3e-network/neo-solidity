@@ -35,11 +35,18 @@ use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive, Zero};
 use std::collections::HashMap;
 
-include!("bytecode/bytecode_core.rs");
-include!("bytecode/bytecode_emit_ir.rs");
-include!("bytecode/bytecode_helpers.rs");
-include!("bytecode/bytecode_builtins.rs");
-include!("bytecode/bytecode_disasm.rs");
+mod bytecode_builtins;
+mod bytecode_core;
+mod bytecode_disasm;
+mod bytecode_emit_ir;
+mod bytecode_helpers;
+
+pub(crate) use bytecode_builtins::*;
+pub(crate) use bytecode_core::*;
+pub(crate) use bytecode_emit_ir::*;
+pub(crate) use bytecode_helpers::*;
+
+pub use bytecode_disasm::disassemble_neovm_bytecode;
 
 #[cfg(test)]
 pub(crate) mod tests;

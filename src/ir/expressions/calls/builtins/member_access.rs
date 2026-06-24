@@ -1,4 +1,4 @@
-fn try_lower_member_builtin(
+pub(crate) fn try_lower_member_builtin(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,

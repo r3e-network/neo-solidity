@@ -1,4 +1,4 @@
-fn emit_builtin_call(
+pub(crate) fn emit_builtin_call(
     bytecode: &mut Vec<u8>,
     builtin: &ir::BuiltinCall,
     arg_count: usize,

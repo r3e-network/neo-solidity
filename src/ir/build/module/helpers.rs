@@ -108,7 +108,7 @@ pub(crate) fn native_transfer_standard(
 
 /// Returns whether a canonical Solidity type is dynamic for indexed-event
 /// topic hashing.
-fn event_canonical_type_is_dynamic(canonical: &str) -> bool {
+pub(crate) fn event_canonical_type_is_dynamic(canonical: &str) -> bool {
     if canonical == "string" || canonical == "bytes" {
         return true;
     }
@@ -118,7 +118,7 @@ fn event_canonical_type_is_dynamic(canonical: &str) -> bool {
     matches!(canonical, "tuple") || is_user_defined_canonical_type(canonical)
 }
 
-fn is_user_defined_canonical_type(canonical: &str) -> bool {
+pub(crate) fn is_user_defined_canonical_type(canonical: &str) -> bool {
     if canonical == "bool" || canonical == "string" || canonical == "bytes" {
         return false;
     }
@@ -138,7 +138,7 @@ fn is_user_defined_canonical_type(canonical: &str) -> bool {
         .is_some_and(|c| c.is_ascii_uppercase())
 }
 
-fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>) -> String {
+pub(crate) fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>) -> String {
     let joined_types: Vec<String> = event
         .parameters
         .iter()
@@ -155,7 +155,7 @@ fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>
     format!("{}({})", event.name, joined_types.join(","))
 }
 
-fn build_enum_variant_map(enums: &[EnumMetadata]) -> HashMap<String, HashMap<String, u64>> {
+pub(crate) fn build_enum_variant_map(enums: &[EnumMetadata]) -> HashMap<String, HashMap<String, u64>> {
     let mut map = HashMap::new();
 
     for enum_meta in enums {
@@ -169,7 +169,7 @@ fn build_enum_variant_map(enums: &[EnumMetadata]) -> HashMap<String, HashMap<Str
     map
 }
 
-fn manifest_type_from_solidity_type(solidity_type: &str) -> ManifestType {
+pub(crate) fn manifest_type_from_solidity_type(solidity_type: &str) -> ManifestType {
     let ty = solidity_type.trim().to_ascii_lowercase();
 
     // Any trailing bracketed dimension is an array — both dynamic `T[]` and
@@ -229,7 +229,7 @@ fn manifest_type_from_solidity_type(solidity_type: &str) -> ManifestType {
     ManifestType::Any
 }
 
-fn call_flags_allow_write_or_notify(flags: u8) -> bool {
+pub(crate) fn call_flags_allow_write_or_notify(flags: u8) -> bool {
     // Neo N3 CallFlags:
     // - ReadStates   = 0x01
     // - WriteStates  = 0x02
@@ -239,11 +239,11 @@ fn call_flags_allow_write_or_notify(flags: u8) -> bool {
     flags & (0x02 | 0x08) != 0
 }
 
-fn parse_u8_literal(value: &BigInt) -> Option<u8> {
+pub(crate) fn parse_u8_literal(value: &BigInt) -> Option<u8> {
     value.to_u8()
 }
 
-fn native_call_is_mutating(contract: NativeContract, method: &str) -> bool {
+pub(crate) fn native_call_is_mutating(contract: NativeContract, method: &str) -> bool {
     match contract {
         NativeContract::Neo => matches!(
             method,

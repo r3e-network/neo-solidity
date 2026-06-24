@@ -1,3 +1,6 @@
+use super::*;
+
+#[allow(dead_code)]
 pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
     let mut contracts = analyse_all_sources(source)?;
     Ok(contracts.swap_remove(0))
@@ -49,9 +52,9 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
 
         for contract in contract_map.values() {
             let include_as_contract_type = match contract.kind {
-                ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
-                    true
-                }
+                ContractKind::Contract
+                | ContractKind::AbstractContract
+                | ContractKind::Interface => true,
                 ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
             };
 
@@ -160,13 +163,16 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             .filter(|d| matches!(d.severity, DiagnosticSeverity::Error))
             .collect();
         if !lib_errors.is_empty() {
-            let messages: Vec<String> = lib_errors.iter().map(|d| {
-                let mut msg = d.message.clone();
-                if let Some(suggestion) = &d.suggestion {
-                    msg.push_str(&format!("\n  suggestion: {suggestion}"));
-                }
-                msg
-            }).collect();
+            let messages: Vec<String> = lib_errors
+                .iter()
+                .map(|d| {
+                    let mut msg = d.message.clone();
+                    if let Some(suggestion) = &d.suggestion {
+                        msg.push_str(&format!("\n  suggestion: {suggestion}"));
+                    }
+                    msg
+                })
+                .collect();
             return Err(SolidityError::analysis(messages.join("\n")));
         }
     }
@@ -209,8 +215,8 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                             // on an empty stub (RET-only) which is acceptable
                             // for the dead-code paths that typically include
                             // such helpers transitively.
-                            let is_abstract_internal = matches!(f.ty, FunctionTy::Function)
-                                && f.body.is_none();
+                            let is_abstract_internal =
+                                matches!(f.ty, FunctionTy::Function) && f.body.is_none();
                             // Task #126 — include Fallback (and Receive) alongside
                             // ordinary external/public named functions so that a
                             // primary contract whose only entrypoint is
@@ -231,10 +237,8 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                                     f.visibility,
                                     VisibilityKind::External | VisibilityKind::Public
                                 );
-                            let is_fallback_like = matches!(
-                                f.ty,
-                                FunctionTy::Fallback | FunctionTy::Receive
-                            );
+                            let is_fallback_like =
+                                matches!(f.ty, FunctionTy::Fallback | FunctionTy::Receive);
                             // (We deliberately do NOT include
                             // `is_abstract_internal` here. Including abstract
                             // internal declarations would let merged bodies
@@ -317,11 +321,10 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         // `value_types.rs::compute_state_slot`), so merging Mock's `_bal`
         // into Client lets Client's compiled balanceOf read the same
         // storage slot Mock.mint wrote to.
-        let sibling_state_map: std::collections::HashMap<String, Vec<StateVariableIR>> =
-            primary
-                .iter()
-                .map(|c| (c.name.clone(), c.state_variables.clone()))
-                .collect();
+        let sibling_state_map: std::collections::HashMap<String, Vec<StateVariableIR>> = primary
+            .iter()
+            .map(|c| (c.name.clone(), c.state_variables.clone()))
+            .collect();
         // Task #198 — parallel constructor map. For `new Child(x, y)` inside a
         // Parent contract, the compiled Child lives in a separate artifact, so
         // the Parent's runtime invocation of its own `_deploy` never runs the
@@ -440,34 +443,33 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             })
             .collect();
 
-        let interface_impls: std::collections::HashMap<String, Vec<String>> =
-            interface_methods
-                .iter()
-                .map(|(iface_name, iface_method_set)| {
-                    let mut impls: Vec<String> = primary_method_names
-                        .iter()
-                        .filter_map(|(prim_name, prim_set)| {
-                            // Task #126 — a primary with a `fallback()` catches
-                            // any interface method that isn't explicitly declared,
-                            // so it's always a valid implementor for sibling-
-                            // merge purposes (at runtime the call routes through
-                            // the merged `fallback` entry, which may itself
-                            // revert — that revert is what we propagate to the
-                            // caller's try/catch).
-                            if iface_method_set.is_subset(prim_set)
-                                || primary_has_fallback.contains(prim_name)
-                            {
-                                Some(prim_name.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    // Deterministic order → reproducible bytecode offsets.
-                    impls.sort();
-                    (iface_name.clone(), impls)
-                })
-                .collect();
+        let interface_impls: std::collections::HashMap<String, Vec<String>> = interface_methods
+            .iter()
+            .map(|(iface_name, iface_method_set)| {
+                let mut impls: Vec<String> = primary_method_names
+                    .iter()
+                    .filter_map(|(prim_name, prim_set)| {
+                        // Task #126 — a primary with a `fallback()` catches
+                        // any interface method that isn't explicitly declared,
+                        // so it's always a valid implementor for sibling-
+                        // merge purposes (at runtime the call routes through
+                        // the merged `fallback` entry, which may itself
+                        // revert — that revert is what we propagate to the
+                        // caller's try/catch).
+                        if iface_method_set.is_subset(prim_set)
+                            || primary_has_fallback.contains(prim_name)
+                        {
+                            Some(prim_name.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                // Deterministic order → reproducible bytecode offsets.
+                impls.sort();
+                (iface_name.clone(), impls)
+            })
+            .collect();
 
         let interface_names: std::collections::HashSet<String> =
             interface_methods.keys().cloned().collect();
@@ -499,10 +501,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                     collect_interface_casts_stmt(body, &interface_names, &mut iface_refs);
                     // Task #194 — low-level calls whose payload encodes a
                     // statically resolvable method name.
-                    collect_low_level_call_method_refs_stmt(
-                        body,
-                        &mut low_level_method_refs,
-                    );
+                    collect_low_level_call_method_refs_stmt(body, &mut low_level_method_refs);
                 }
                 // Task K4 — function params/returns typed as a sibling contract
                 // (e.g. `function bounce() external returns (B) {...}`, or
@@ -535,10 +534,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 if let Some(init) = state.initializer.as_ref() {
                     collect_new_refs_expr(init, &primary_names, &mut referenced);
                     collect_interface_casts_expr(init, &interface_names, &mut iface_refs);
-                    collect_low_level_call_method_refs_expr(
-                        init,
-                        &mut low_level_method_refs,
-                    );
+                    collect_low_level_call_method_refs_expr(init, &mut low_level_method_refs);
                 }
             }
             // Task #115 — expand interface references to the primary contracts
@@ -834,10 +830,8 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
     // `f(P memory p)` where `struct P { uint256 a; bool b; }` is computed from
     // `f(P)` — which does not match the Solidity-spec selector for
     // `f((uint256,bool))`.
-    let mut struct_fields_map: std::collections::HashMap<
-        String,
-        Vec<(String, String)>,
-    > = std::collections::HashMap::new();
+    let mut struct_fields_map: std::collections::HashMap<String, Vec<(String, String)>> =
+        std::collections::HashMap::new();
     for contract in contract_map.values() {
         for struct_def in &contract.structs {
             let entries: Vec<(String, String)> = struct_def
@@ -977,7 +971,9 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         if has_primary && !libraries.is_empty() {
             for lib in &libraries {
                 flattened.functions.extend(lib.functions.clone());
-                flattened.state_variables.extend(lib.state_variables.clone());
+                flattened
+                    .state_variables
+                    .extend(lib.state_variables.clone());
                 flattened.structs.extend(lib.structs.clone());
                 flattened.enums.extend(lib.enums.clone());
                 // Merge the library's own `using` directives into the host.
@@ -1010,12 +1006,8 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             }
         }
         apply_modifiers_and_base_constructors(&mut flattened, &contract_map)?;
-        let mut metadata = convert_contract(
-            flattened,
-            &[],
-            &contract_types,
-            selector_registry.clone(),
-        );
+        let mut metadata =
+            convert_contract(flattened, &[], &contract_types, selector_registry.clone());
         metadata.flatten_warnings = flatten_warnings;
         metadatas.push(metadata);
     }

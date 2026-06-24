@@ -12,7 +12,7 @@ include!("builtins/member_neo.rs");
 include!("builtins/member_nativecalls.rs");
 include!("builtins/resolved.rs");
 
-fn try_lower_builtin_call(
+pub(crate) fn try_lower_builtin_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -36,7 +36,7 @@ fn try_lower_builtin_call(
 /// These are Solidity 0.8.x type-level functions. Each argument is lowered onto
 /// the stack, then chained with NeoVM CAT opcodes. Zero arguments produce an
 /// empty byte string; one argument is a pass-through.
-fn try_lower_type_concat(
+pub(crate) fn try_lower_type_concat(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,

@@ -1,7 +1,10 @@
+use super::*;
+
 /// Parse Solidity source into [`ContractIR`] values.
 pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
-    let (source_unit, comments) = parse_solidity_guarded(source)
-        .map_err(|diags| FrontendError::ParseDiagnostics(collect_parse_diagnostics(source, &diags)))?;
+    let (source_unit, comments) = parse_solidity_guarded(source).map_err(|diags| {
+        FrontendError::ParseDiagnostics(collect_parse_diagnostics(source, &diags))
+    })?;
 
     // Build a map of end positions to preceding doc comments
     let comment_map = build_comment_map(&comments, source);
@@ -118,9 +121,7 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
             // compatibility guard L-FE1 requires.
             #[allow(unreachable_patterns)]
             other => {
-                return Err(FrontendError::UnsupportedConstruct(format!(
-                    "{other:?}"
-                )));
+                return Err(FrontendError::UnsupportedConstruct(format!("{other:?}")));
             }
         }
     }
@@ -383,11 +384,10 @@ fn contains_builtin_call(haystack: &str, needle: &str) -> bool {
     let mut start = 0usize;
     while let Some(pos) = haystack[start..].find(needle) {
         let abs = start + pos;
-        let boundary_ok = abs == 0
-            || {
-                let prev = bytes[abs - 1];
-                !(prev.is_ascii_alphanumeric() || prev == b'_')
-            };
+        let boundary_ok = abs == 0 || {
+            let prev = bytes[abs - 1];
+            !(prev.is_ascii_alphanumeric() || prev == b'_')
+        };
         if boundary_ok {
             return true;
         }
@@ -814,7 +814,6 @@ fn intersects_semver_window(
     target_start: Version,
     target_end_exclusive: Version,
 ) -> bool {
-
     let effective_start = match lower {
         Bound::Unbounded => target_start,
         Bound::Inclusive(v) => v,
@@ -923,7 +922,7 @@ fn build_comment_map(comments: &[Comment], source: &str) -> HashMap<usize, Natsp
 }
 
 /// Remove comment delimiters and leading asterisks/slashes
-fn clean_doc_comment(text: &str) -> String {
+pub(crate) fn clean_doc_comment(text: &str) -> String {
     text.lines()
         .map(|line| {
             let trimmed = line.trim();
@@ -948,7 +947,7 @@ fn clean_doc_comment(text: &str) -> String {
 }
 
 /// Parse Natspec tags from a documentation comment
-fn parse_natspec(text: &str) -> NatspecDocIR {
+pub(crate) fn parse_natspec(text: &str) -> NatspecDocIR {
     let mut doc = NatspecDocIR::default();
     let mut current_tag: Option<&str> = None;
     let mut current_content = String::new();
@@ -1030,7 +1029,10 @@ fn save_tag_content(doc: &mut NatspecDocIR, tag: &str, content: &str) {
 /// an exact lookup at the declaration's `start` — no fixed-distance backward
 /// scan (which mis-attached across intervening tokens or missed docs separated
 /// by more than 100 bytes of whitespace).
-fn find_preceding_doc(loc: &Loc, comment_map: &HashMap<usize, NatspecDocIR>) -> NatspecDocIR {
+pub(crate) fn find_preceding_doc(
+    loc: &Loc,
+    comment_map: &HashMap<usize, NatspecDocIR>,
+) -> NatspecDocIR {
     if let Loc::File(_, start, _) = loc {
         if let Some(doc) = comment_map.get(start) {
             return doc.clone();

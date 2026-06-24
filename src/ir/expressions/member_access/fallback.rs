@@ -1,11 +1,11 @@
-fn lower_generic_member_access(
+pub(crate) fn lower_generic_member_access(
     expr: &Expression,
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
-    fn is_namespace_identifier(name: &str, ctx: &LoweringContext) -> bool {
+    pub(crate) fn is_namespace_identifier(name: &str, ctx: &LoweringContext) -> bool {
         !ctx.param_index_map.contains_key(name)
             && ctx.resolve_local(name).is_none()
             && !ctx.state_index_map.contains_key(name)

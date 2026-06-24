@@ -1,4 +1,4 @@
-fn resolve_struct_type_by_name(ctx: &LoweringContext<'_>, name: &str) -> Option<ValueType> {
+pub(crate) fn resolve_struct_type_by_name(ctx: &LoweringContext<'_>, name: &str) -> Option<ValueType> {
     ctx.defined_struct_types
         .iter()
         .chain(ctx.state_types.iter())
@@ -8,7 +8,7 @@ fn resolve_struct_type_by_name(ctx: &LoweringContext<'_>, name: &str) -> Option<
         .find_map(|ty| find_named_struct_type(ty, name))
 }
 
-fn try_lower_struct_constructor_call(
+pub(crate) fn try_lower_struct_constructor_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -35,7 +35,7 @@ fn try_lower_struct_constructor_call(
     ))
 }
 
-fn try_lower_struct_constructor_named_call(
+pub(crate) fn try_lower_struct_constructor_named_call(
     func: &Expression,
     args: &[solang_parser::pt::NamedArgument],
     ctx: &mut LoweringContext,
@@ -62,7 +62,7 @@ fn try_lower_struct_constructor_named_call(
     ))
 }
 
-fn lower_struct_constructor_positional(
+pub(crate) fn lower_struct_constructor_positional(
     call_name: &str,
     struct_type: &ValueType,
     fields: &[StructField],
@@ -118,7 +118,7 @@ fn lower_struct_constructor_positional(
     success
 }
 
-fn lower_struct_constructor_named(
+pub(crate) fn lower_struct_constructor_named(
     _call_name: &str,
     struct_type: &ValueType,
     fields: &[StructField],

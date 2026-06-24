@@ -1,9 +1,9 @@
 //! Basic Neo type representations derived from Solidity type strings.
 
-use thiserror::Error;
+mod parse;
+mod types;
 
-include!("type_system/types.rs");
-include!("type_system/parse.rs");
+pub(crate) use types::*;
 
 #[cfg(test)]
 mod tests;

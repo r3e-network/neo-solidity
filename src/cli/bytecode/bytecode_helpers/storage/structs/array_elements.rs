@@ -1,4 +1,4 @@
-fn emit_load_struct_array_element(
+pub(crate) fn emit_load_struct_array_element(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -96,7 +96,7 @@ fn emit_load_struct_array_element(
     }
 }
 
-fn emit_store_struct_array_element(
+pub(crate) fn emit_store_struct_array_element(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,

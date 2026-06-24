@@ -1,3 +1,5 @@
+use super::*;
+
 /// Maximum nested-struct resolution depth.
 ///
 /// Solidity allows self-referencing structs (`struct Node { Node[] children; }`)
@@ -473,14 +475,9 @@ fn parse_mapping_component_bounded(
 ) -> Result<NeoType, TypeParseError> {
     let trimmed = raw.trim();
 
-    if let Ok(parsed) = NeoType::from_solidity_bounded(
-        trimmed,
-        structs,
-        enums,
-        contract_types,
-        type_aliases,
-        depth,
-    ) {
+    if let Ok(parsed) =
+        NeoType::from_solidity_bounded(trimmed, structs, enums, contract_types, type_aliases, depth)
+    {
         return Ok(parsed);
     }
 

@@ -1,4 +1,4 @@
-fn emit_load_struct_field(
+pub(crate) fn emit_load_struct_field(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -29,7 +29,7 @@ fn emit_load_struct_field(
     }
 }
 
-fn emit_store_struct_field(
+pub(crate) fn emit_store_struct_field(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,

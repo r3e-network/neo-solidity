@@ -3,7 +3,7 @@
 // `{ { { ... } } }` 10k+ deep) without stack-overflowing. See
 // `src/ir/expressions/dispatch/entry.rs::lower_expression` for the
 // sibling guard and `docs/FUZZ.md` for the bug-class catalogue.
-fn lower_statement(
+pub(crate) fn lower_statement(
     statement: &Statement,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -13,7 +13,7 @@ fn lower_statement(
     })
 }
 
-fn lower_statement_inner(
+pub(crate) fn lower_statement_inner(
     statement: &Statement,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

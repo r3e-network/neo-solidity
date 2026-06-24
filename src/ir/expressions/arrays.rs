@@ -1,4 +1,4 @@
-fn lower_array_subscript_expression(
+pub(crate) fn lower_array_subscript_expression(
     expr: &Expression,
     array: &Expression,
     index: &Expression,
@@ -130,7 +130,7 @@ fn lower_array_subscript_expression(
 ///   dynamic case because fixed-size arrays do NOT maintain a length
 ///   slot at `LoadState(state_index)` (which would always read zero
 ///   and fire a spurious Panic(0x32) on every in-range access).
-enum StorageArrayBound {
+pub(crate) enum StorageArrayBound {
     DynamicStateVar {
         state_index: usize,
     },
@@ -154,7 +154,7 @@ enum StorageArrayBound {
 /// the state variable's source-type string: the IR's `ValueType::Array`
 /// collapses the two into one variant, but fixed-size arrays do NOT
 /// store a length at `LoadState` so we need the compile-time `N`.
-fn mapping_terminal_hits_array(
+pub(crate) fn mapping_terminal_hits_array(
     mapping: &MappingAccess<'_>,
     ctx: &LoweringContext,
 ) -> Option<StorageArrayBound> {
@@ -242,7 +242,7 @@ fn mapping_terminal_hits_array(
 /// by the first/leftmost subscript `a[…]`), and we walk inward by
 /// stripping a trailing bracket group per step. A layer is dynamic
 /// (`[]`) → returns `None`; fixed-size (`[N]`) → returns `Some(N)`.
-fn extract_fixed_array_bound_at_depth(ty: &str, _depth: usize) -> Option<u64> {
+pub(crate) fn extract_fixed_array_bound_at_depth(ty: &str, _depth: usize) -> Option<u64> {
     // For the types we need to support in the QQQ5 / MMM3 / MM2 / TT2 /
     // PPP2 set (single-level arrays at the state-var root, plus
     // `mapping(K=>T[])`), only the outermost array layer matters for
@@ -290,7 +290,7 @@ fn extract_fixed_array_bound_at_depth(ty: &str, _depth: usize) -> Option<u64> {
 /// `dispatch_exception` (see
 /// `src/runtime/execution/instruction/flow/try_frames.rs`) into the
 /// caller's `catch Panic(uint c)` arm.
-fn emit_storage_array_subscript_with_bounds(
+pub(crate) fn emit_storage_array_subscript_with_bounds(
     mapping: &MappingAccess<'_>,
     bound: StorageArrayBound,
     ctx: &mut LoweringContext,
@@ -426,7 +426,7 @@ fn emit_storage_array_subscript_with_bounds(
 /// inside `emit_storage_load`'s trailing-key evaluation — the same
 /// double-evaluation compromise documented in
 /// `emit_storage_array_subscript_with_bounds` above.
-fn emit_struct_field_array_bounds_guard(
+pub(crate) fn emit_struct_field_array_bounds_guard(
     array: &Expression,
     index: &Expression,
     ctx: &mut LoweringContext,
@@ -511,7 +511,7 @@ fn emit_struct_field_array_bounds_guard(
     true
 }
 
-fn lower_array_slice_expression(
+pub(crate) fn lower_array_slice_expression(
     array: &Expression,
     start: Option<&Expression>,
     end: Option<&Expression>,
@@ -655,7 +655,7 @@ fn lower_array_slice_expression(
 /// rather than a `T[]` dynamic array (`ValueType::Array(_)`). Covers
 /// `bytes memory`, `bytes calldata`, `bytes storage`, and byte-string
 /// literals such as `hex"..."`.
-fn is_bytes_slice_target(array: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_bytes_slice_target(array: &Expression, ctx: &LoweringContext) -> bool {
     matches!(
         infer_type_from_expression(array, ctx),
         Some(ValueType::ByteArray { .. })
@@ -671,7 +671,7 @@ fn is_bytes_slice_target(array: &Expression, ctx: &LoweringContext) -> bool {
 /// ByteString instead of trapping — matches Solidity's saturating
 /// semantics on `bytes` views and avoids a NeoVM "SUBSTR: out of bounds"
 /// fault for degenerate ranges.
-fn lower_bytes_slice_expression(
+pub(crate) fn lower_bytes_slice_expression(
     array: &Expression,
     start: Option<&Expression>,
     end: Option<&Expression>,
@@ -790,7 +790,7 @@ fn lower_bytes_slice_expression(
     true
 }
 
-fn lower_array_literal_expression(
+pub(crate) fn lower_array_literal_expression(
     elements: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

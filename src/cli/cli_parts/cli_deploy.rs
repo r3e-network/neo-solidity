@@ -1,4 +1,6 @@
-fn ensure_deploy_stub(metadata: &mut ContractMetadata) -> Result<(), CompileError> {
+use super::*;
+
+pub(crate) fn ensure_deploy_stub(metadata: &mut ContractMetadata) -> Result<(), CompileError> {
     const DEPLOY_NAME: &str = "_deploy";
 
     if metadata.methods.iter().any(|m| m.name == DEPLOY_NAME) {

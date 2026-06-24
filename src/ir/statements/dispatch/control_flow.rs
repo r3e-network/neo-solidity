@@ -1,4 +1,4 @@
-fn lower_block_statement(
+pub(crate) fn lower_block_statement(
     statements: &[Statement],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -15,7 +15,7 @@ fn lower_block_statement(
     returned
 }
 
-fn lower_if_statement(
+pub(crate) fn lower_if_statement(
     condition: &Expression,
     then_stmt: &Statement,
     else_stmt: Option<&Statement>,
@@ -46,7 +46,7 @@ fn lower_if_statement(
     }
 }
 
-fn lower_while_statement(
+pub(crate) fn lower_while_statement(
     condition: &Expression,
     body: &Statement,
     ctx: &mut LoweringContext,
@@ -68,7 +68,7 @@ fn lower_while_statement(
     false
 }
 
-fn lower_do_while_statement(
+pub(crate) fn lower_do_while_statement(
     body: &Statement,
     condition: &Expression,
     ctx: &mut LoweringContext,
@@ -109,7 +109,7 @@ fn lower_do_while_statement(
     false
 }
 
-fn lower_for_statement(
+pub(crate) fn lower_for_statement(
     init: Option<&Statement>,
     condition: Option<&Expression>,
     post: Option<&Expression>,
@@ -154,14 +154,14 @@ fn lower_for_statement(
     false
 }
 
-fn lower_break_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_break_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     if let Some(label) = ctx.break_target() {
         instructions.push(Instruction::Jump { target: label });
     }
     false
 }
 
-fn lower_continue_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_continue_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     if let Some(label) = ctx.continue_target() {
         instructions.push(Instruction::Jump { target: label });
     }

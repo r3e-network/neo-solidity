@@ -1,3 +1,5 @@
+use super::*;
+
 include!("bytecode_helpers/locals.rs");
 include!("bytecode_helpers/ops_and_literals.rs");
 include!("bytecode_helpers/storage.rs");

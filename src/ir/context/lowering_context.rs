@@ -22,8 +22,8 @@ impl IrDiagnostic {
     }
 }
 
-struct LoweringContext<'a> {
-    function_name: String,
+pub(crate) struct LoweringContext<'a> {
+    pub(crate) function_name: String,
     /// Name of the contract that owns this lowering context.
     ///
     /// Used by member-access selector resolution to look up `this.method.selector`
@@ -31,20 +31,20 @@ struct LoweringContext<'a> {
     /// lowered to their Ethereum keccak-4 selectors (matching how the AST shape
     /// `MemberAccess(MemberAccess(Variable("this"), method), selector)` is
     /// expected to behave in Solidity).
-    current_contract_name: String,
-    current_function_selector: [u8; 4],
-    is_safe: bool,
+    pub(crate) current_contract_name: String,
+    pub(crate) current_function_selector: [u8; 4],
+    pub(crate) is_safe: bool,
     /// Task #64 — whether this function is directly callable from the host
     /// (External or Public visibility). When true, multi-value returns are
     /// lowered through `abiEncode` so the main-frame RET emits EVM-canonical
     /// BE-packed bytes rather than a `StackItem::Array` that would leak as
     /// serde_json at `stack_item_to_bytes`. Internal/Private functions keep
     /// the Array shape so callers can destructure via `ArrayGet`.
-    is_externally_callable: bool,
-    param_index_map: HashMap<String, usize>,
-    param_types: &'a [ValueType],
-    return_slots: Vec<Option<usize>>,
-    return_types: Vec<ValueType>,
+    pub(crate) is_externally_callable: bool,
+    pub(crate) param_index_map: HashMap<String, usize>,
+    pub(crate) param_types: &'a [ValueType],
+    pub(crate) return_slots: Vec<Option<usize>>,
+    pub(crate) return_types: Vec<ValueType>,
     /// Task #185 — original Solidity type string for each declared return
     /// parameter (e.g. `uint[3][2]`). Used by `lower_return_statement` to
     /// detect nested fixed-size arrays (`T[N1][N2]...[Nk]`) so the return
@@ -53,15 +53,15 @@ struct LoweringContext<'a> {
     /// fixed-size info today (adding `fixed_size: Option<u64>` to
     /// `ValueType::Array` would cascade through 55+ call sites), so the
     /// fixed-shape hint rides alongside as a string.
-    return_type_strings: Vec<String>,
-    state_variables: &'a [StateVariableMetadata],
-    state_index_map: &'a HashMap<String, usize>,
-    state_types: &'a [ValueType],
+    pub(crate) return_type_strings: Vec<String>,
+    pub(crate) state_variables: &'a [StateVariableMetadata],
+    pub(crate) state_index_map: &'a HashMap<String, usize>,
+    pub(crate) state_types: &'a [ValueType],
     /// Canonical struct type definitions available to the compilation unit.
     ///
     /// This enables resolving user-defined structs even when they are only used
     /// in local variables (i.e., not present in state/param/return types).
-    defined_struct_types: &'a [ValueType],
+    pub(crate) defined_struct_types: &'a [ValueType],
     /// Compile-time bound `N` for every fixed-size array struct field
     /// (`struct S { uint256[3] arr; }`), keyed by `(struct_name, field_name)`.
     ///
@@ -70,20 +70,20 @@ struct LoweringContext<'a> {
     /// so the struct-field array bounds guard (storage-soundness fix, see
     /// `lower_array_subscript_expression`) must use the declared `N` instead
     /// of loading a length that would always read 0.
-    struct_fixed_array_bounds: &'a HashMap<(String, String), u64>,
-    event_index_map: &'a HashMap<String, usize>,
-    event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
-    event_params_map: &'a HashMap<String, EventSignature>,
+    pub(crate) struct_fixed_array_bounds: &'a HashMap<(String, String), u64>,
+    pub(crate) event_index_map: &'a HashMap<String, usize>,
+    pub(crate) event_signature_map: &'a HashMap<String, Vec<ManifestType>>,
+    pub(crate) event_params_map: &'a HashMap<String, EventSignature>,
     /// Declared custom `error` signatures keyed by error name. Used by the
     /// revert/require lowering to compute EVM custom-error selectors from
     /// the DECLARED parameter types and to reorder named arguments into
     /// declaration order.
-    error_signature_map: &'a HashMap<String, ErrorAbiSignature>,
-    enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
-    contract_types: &'a HashSet<String>,
-    selector_registry: &'a SelectorRegistry,
-    function_names: &'a HashSet<String>,
-    function_overloads: &'a FunctionOverloadTable,
+    pub(crate) error_signature_map: &'a HashMap<String, ErrorAbiSignature>,
+    pub(crate) enum_variant_map: &'a HashMap<String, HashMap<String, u64>>,
+    pub(crate) contract_types: &'a HashSet<String>,
+    pub(crate) selector_registry: &'a SelectorRegistry,
+    pub(crate) function_names: &'a HashSet<String>,
+    pub(crate) function_overloads: &'a FunctionOverloadTable,
     /// Every observed first-parameter type for each overload key
     /// (name, arg_count).
     ///
@@ -93,7 +93,7 @@ struct LoweringContext<'a> {
     /// `toInt128(uint256)` share the same `(name, arity)` key — so the
     /// bucket stores ALL observed first-parameter types and the receiver
     /// check accepts a match against ANY of them.
-    function_first_param_types: &'a HashMap<(String, usize), Vec<ValueType>>,
+    pub(crate) function_first_param_types: &'a HashMap<(String, usize), Vec<ValueType>>,
     /// Task #191 — first return-parameter type for each overload key
     /// (name, arg_count). Used by `infer_type_from_expression` to resolve
     /// member access on a FunctionCall result (e.g. `makeCounter().value`
@@ -102,32 +102,32 @@ struct LoweringContext<'a> {
     /// push-zero compatibility branch. Only the FIRST return type is
     /// recorded because member access on a multi-return function call is
     /// not valid Solidity — `(a, b) = f()` uses tuple destructuring.
-    function_return_types: &'a HashMap<(String, usize), ValueType>,
+    pub(crate) function_return_types: &'a HashMap<(String, usize), ValueType>,
     /// Normalized target types from parsed `using` directives.
     ///
     /// `None` means wildcard target (`for *`).
-    using_target_types: &'a [Option<String>],
+    pub(crate) using_target_types: &'a [Option<String>],
     /// Function-list constraints from `using {f, g} for T`.
     ///
     /// Map key is normalized function name (lowercase) and values are allowed
     /// target types (`None` means wildcard).
-    using_function_list_targets: &'a HashMap<String, Vec<Option<String>>>,
+    pub(crate) using_function_list_targets: &'a HashMap<String, Vec<Option<String>>>,
     /// Target scopes that have at least one `using { ... } for T` directive.
-    using_function_list_scope_targets: &'a [Option<String>],
+    pub(crate) using_function_list_scope_targets: &'a [Option<String>],
     /// Ordered parameter names for each function overload, keyed by (name, arg_count).
     /// Used to reorder named function call arguments into positional order.
-    function_param_names: &'a HashMap<(String, usize), Vec<String>>,
+    pub(crate) function_param_names: &'a HashMap<(String, usize), Vec<String>>,
     /// Functions that return void (empty return_parameters). Used to avoid
     /// emitting DROP after calling a void internal function as a statement.
-    void_functions: &'a HashSet<String>,
+    pub(crate) void_functions: &'a HashSet<String>,
     /// Mapping from original method name to renamed super-method name.
     /// Used to resolve `super.method()` calls during IR lowering.
-    super_method_map: &'a HashMap<String, String>,
+    pub(crate) super_method_map: &'a HashMap<String, String>,
     /// Task #91 — library functions whose first parameter is `T storage`,
     /// keyed by (name, arg_count). `member_calls.rs` inlines the body at
     /// the call site rather than emitting `CallFunction`, so storage writes
     /// (`d.x = v`) hit the caller's slot instead of a materialised copy.
-    library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
+    pub(crate) library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
     /// Task #196 — zero-arg internal functions that trivially return a
     /// storage pointer to a state variable (body is `return <state_var>;`
     /// and the return parameter is declared `T storage`). When a call site
@@ -140,12 +140,12 @@ struct LoweringContext<'a> {
     /// `emit_coerce_storage_value` for `ValueType::Array`). Extends Task
     /// #117's local-binding alias fix (`uint[] storage a = arr;`) across
     /// the function-return boundary.
-    storage_pointer_returning_fns: &'a HashMap<String, String>,
+    pub(crate) storage_pointer_returning_fns: &'a HashMap<String, String>,
     /// Task #91 — stack of (inline-return slot, end-label). When set,
     /// `lower_return_statement` redirects `return expr;` to store into
     /// `slot` and jump to `end_label` instead of emitting a raw `Return`
     /// that would exit the caller.
-    inline_return_stack: Vec<(Option<usize>, usize)>,
+    pub(crate) inline_return_stack: Vec<(Option<usize>, usize)>,
     /// Task #114 — modifier-epilogue return redirect. When set by
     /// `function.rs` for a function whose body was wrapped by at least one
     /// modifier with an epilogue (statements after `_;`), every
@@ -159,26 +159,26 @@ struct LoweringContext<'a> {
     /// still run before the actual RET. Distinct from the library-inline
     /// single-slot mechanism (`inline_return_stack`): modifier returns must
     /// carry multi-value tuples when the function declares `returns (T, U)`.
-    modifier_return_redirect: Option<(Vec<Option<usize>>, usize)>,
+    pub(crate) modifier_return_redirect: Option<(Vec<Option<usize>>, usize)>,
     /// Task #114 — stack of break labels belonging to the synthetic
     /// `do { body } while(false)` wrappers emitted by
     /// `apply_modifier_calls_to_body_with_epilogue`. Unlike the normal
     /// `loop_stack`, this tracks ONLY modifier-wrap scopes so a `return`
     /// inside a user loop jumps past the user loop and into the OUTERMOST
     /// modifier wrap's epilogue chain. Innermost wrap sits at the top.
-    modifier_break_stack: Vec<usize>,
-    local_index_map: HashMap<String, Vec<usize>>,
-    local_types: HashMap<usize, ValueType>,
-    scope_stack: Vec<Vec<String>>,
-    storage_aliases: HashMap<String, StorageReference>,
-    call_data_locals: HashMap<usize, String>,
-    local_count: u16,
+    pub(crate) modifier_break_stack: Vec<usize>,
+    pub(crate) local_index_map: HashMap<String, Vec<usize>>,
+    pub(crate) local_types: HashMap<usize, ValueType>,
+    pub(crate) scope_stack: Vec<Vec<String>>,
+    pub(crate) storage_aliases: HashMap<String, StorageReference>,
+    pub(crate) call_data_locals: HashMap<usize, String>,
+    pub(crate) local_count: u16,
     /// Lazily-allocated pool of scratch local slots reused by the inline
     /// software uint256 routines (add/sub/mul over 128-bit limbs). The routines
     /// consume their scratch transiently and leave their result on the stack, so
     /// every uint256 arith site in a function can share one pool — avoiding a
     /// per-site allocation that would blow past NeoVM's local-slot limit.
-    u256_scratch: Vec<usize>,
+    pub(crate) u256_scratch: Vec<usize>,
     /// Depth-indexed scratch-local pool for the nested-dynamic ABI
     /// encoder/decoder (`emit_abi_dynamic_nested_array_tail` /
     /// `emit_abi_decode_nested_array_tail_runtime`). `abi_nested_scratch[d]`
@@ -187,34 +187,34 @@ struct LoweringContext<'a> {
     /// locals are live), but every call site at the same depth shares one
     /// block — so a function with many `abi.encode(string[])` calls does not
     /// allocate a fresh batch of slots per site and blow NeoVM's 255 limit.
-    abi_nested_scratch: Vec<Vec<usize>>,
-    label_counter: usize,
-    loop_stack: Vec<LoopLabels>,
+    pub(crate) abi_nested_scratch: Vec<Vec<usize>>,
+    pub(crate) label_counter: usize,
+    pub(crate) loop_stack: Vec<LoopLabels>,
     /// State variable indices currently being inlined (constant resolution).
     /// Used to break infinite recursion when a constant's initializer
     /// transitively references itself through a cross-contract alias.
-    resolving_constants: Vec<usize>,
-    errors: Vec<IrDiagnostic>,
-    warnings: Vec<crate::solidity::Diagnostic>,
+    pub(crate) resolving_constants: Vec<usize>,
+    pub(crate) errors: Vec<IrDiagnostic>,
+    pub(crate) warnings: Vec<crate::solidity::Diagnostic>,
     /// Task #30: nested `unchecked { }` depth. When > 0, binary-arithmetic
     /// lowerings skip the Solidity-0.8.x checked overflow guard emission.
     /// Counter semantics (vs. a bool) correctly handle nested blocks:
     /// ```text
     /// unchecked { unchecked { a + b; } }  // depth 2 inside; guard still skipped
     /// ```
-    unchecked_depth: usize,
+    pub(crate) unchecked_depth: usize,
     /// Task #186 — function-pointer parameter/local bindings keyed by the
     /// binding name. Populated by `Function::from_metadata_with_warnings` for
     /// parameters whose declared Solidity type starts with `function` (the
     /// only source of function-pointer values currently supported). Consumed
     /// by `try_lower_variable_call` to emit a `CallIndirect` through `CALLA`
     /// instead of the legacy "drop args, push 0" compatibility fallback.
-    function_pointer_bindings: HashMap<String, FunctionPointerBinding>,
+    pub(crate) function_pointer_bindings: HashMap<String, FunctionPointerBinding>,
 }
 
 impl<'a> LoweringContext<'a> {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub(crate) fn new(
         function_name: &str,
         current_contract_name: &str,
         current_function_selector: [u8; 4],
@@ -306,7 +306,7 @@ impl<'a> LoweringContext<'a> {
     /// Task #186 — register a function-pointer binding for a parameter or
     /// local. `name` is the Solidity source name; `arg_count` and `has_return`
     /// are derived from the declared `function(...)` type.
-    fn register_function_pointer_binding(
+    pub(crate) fn register_function_pointer_binding(
         &mut self,
         name: &str,
         arg_count: usize,
@@ -322,28 +322,28 @@ impl<'a> LoweringContext<'a> {
     }
 
     /// Task #186 — look up a function-pointer binding for an identifier.
-    fn function_pointer_binding(&self, name: &str) -> Option<&FunctionPointerBinding> {
+    pub(crate) fn function_pointer_binding(&self, name: &str) -> Option<&FunctionPointerBinding> {
         self.function_pointer_bindings.get(name)
     }
 
     /// Returns `true` if currently lowering inside an `unchecked { ... }` block.
     /// Used by `lower_binary_expr` to suppress the Solidity 0.8.x checked
     /// overflow guard emission for Add/Sub/Mul.
-    fn in_unchecked_block(&self) -> bool {
+    pub(crate) fn in_unchecked_block(&self) -> bool {
         self.unchecked_depth > 0
     }
 
     /// Increment unchecked depth when entering `unchecked { ... }`.
-    fn enter_unchecked_block(&mut self) {
+    pub(crate) fn enter_unchecked_block(&mut self) {
         self.unchecked_depth = self.unchecked_depth.saturating_add(1);
     }
 
     /// Decrement unchecked depth when leaving an `unchecked { ... }` block.
-    fn exit_unchecked_block(&mut self) {
+    pub(crate) fn exit_unchecked_block(&mut self) {
         self.unchecked_depth = self.unchecked_depth.saturating_sub(1);
     }
 
-    fn current_function_selector(&self) -> [u8; 4] {
+    pub(crate) fn current_function_selector(&self) -> [u8; 4] {
         self.current_function_selector
     }
 
@@ -352,11 +352,11 @@ impl<'a> LoweringContext<'a> {
     /// Used to resolve `this.method.selector` expressions against the current
     /// contract's method registry when the inner expression is
     /// `Expression::Variable("this")`.
-    fn current_contract_name(&self) -> &str {
+    pub(crate) fn current_contract_name(&self) -> &str {
         &self.current_contract_name
     }
 
-    fn set_return_info(&mut self, slots: Vec<Option<usize>>, types: Vec<ValueType>) {
+    pub(crate) fn set_return_info(&mut self, slots: Vec<Option<usize>>, types: Vec<ValueType>) {
         self.return_slots = slots;
         self.return_types = types;
     }
@@ -367,11 +367,11 @@ impl<'a> LoweringContext<'a> {
     /// fixed-size-array dimensions (e.g. `uint[3][2]`) that `ValueType`
     /// doesn't preserve, enabling `lower_return_statement` to pick the
     /// flat EVM-canonical encoding for nested fixed-size array returns.
-    fn set_return_type_strings(&mut self, type_strings: Vec<String>) {
+    pub(crate) fn set_return_type_strings(&mut self, type_strings: Vec<String>) {
         self.return_type_strings = type_strings;
     }
 
-    fn return_type_strings(&self) -> &[String] {
+    pub(crate) fn return_type_strings(&self) -> &[String] {
         &self.return_type_strings
     }
 
@@ -379,11 +379,11 @@ impl<'a> LoweringContext<'a> {
     /// inlined library parameter name (`setX(uint256 v) { d.store(v); }` would
     /// otherwise resolve `v` inside the body to the caller's
     /// `LoadParameter(0)`). Returns the previous entry for later restoration.
-    fn hide_param_binding(&mut self, name: &str) -> Option<usize> {
+    pub(crate) fn hide_param_binding(&mut self, name: &str) -> Option<usize> {
         self.param_index_map.remove(name)
     }
 
-    fn restore_param_binding(&mut self, name: String, index: Option<usize>) {
+    pub(crate) fn restore_param_binding(&mut self, name: String, index: Option<usize>) {
         if let Some(idx) = index {
             self.param_index_map.insert(name, idx);
         }
@@ -391,16 +391,16 @@ impl<'a> LoweringContext<'a> {
 
     /// Task #91 — push/pop an inline-return redirect; see
     /// `inline_return_stack` docs and `lower_return_statement`.
-    fn push_inline_return(&mut self, slot: Option<usize>, end_label: usize) {
+    pub(crate) fn push_inline_return(&mut self, slot: Option<usize>, end_label: usize) {
         self.inline_return_stack.push((slot, end_label));
     }
 
-    fn pop_inline_return(&mut self) {
+    pub(crate) fn pop_inline_return(&mut self) {
         self.inline_return_stack.pop();
     }
 
     /// Return the current inline-return target, if any.
-    fn inline_return_target(&self) -> Option<(Option<usize>, usize)> {
+    pub(crate) fn inline_return_target(&self) -> Option<(Option<usize>, usize)> {
         self.inline_return_stack.last().copied()
     }
 
@@ -411,17 +411,17 @@ impl<'a> LoweringContext<'a> {
     /// (in declaration order for multi-return) and jumps to `end_label`,
     /// bypassing the raw RET that would otherwise skip the modifier
     /// epilogue (e.g. `locked = 0;` after `_;`).
-    fn set_modifier_return_redirect(&mut self, slots: Vec<Option<usize>>, end_label: usize) {
+    pub(crate) fn set_modifier_return_redirect(&mut self, slots: Vec<Option<usize>>, end_label: usize) {
         self.modifier_return_redirect = Some((slots, end_label));
     }
 
-    fn clear_modifier_return_redirect(&mut self) {
+    pub(crate) fn clear_modifier_return_redirect(&mut self) {
         self.modifier_return_redirect = None;
     }
 
     /// Return the current modifier-return redirect (slots, end_label) if set.
     /// The slots Vec mirrors `return_slots` (one entry per declared return).
-    fn modifier_return_target(&self) -> Option<(Vec<Option<usize>>, usize)> {
+    pub(crate) fn modifier_return_target(&self) -> Option<(Vec<Option<usize>>, usize)> {
         self.modifier_return_redirect.clone()
     }
 
@@ -430,11 +430,11 @@ impl<'a> LoweringContext<'a> {
     /// `lower_do_while_statement` when `had_modifier_epilogue` is active AND
     /// the condition is the constant `false` we inject — see
     /// `src/solidity/analyse/modifiers/expand.rs`.
-    fn push_modifier_break_label(&mut self, label: usize) {
+    pub(crate) fn push_modifier_break_label(&mut self, label: usize) {
         self.modifier_break_stack.push(label);
     }
 
-    fn pop_modifier_break_label(&mut self) {
+    pub(crate) fn pop_modifier_break_label(&mut self) {
         self.modifier_break_stack.pop();
     }
 
@@ -442,7 +442,7 @@ impl<'a> LoweringContext<'a> {
     /// not currently inside a modifier-epilogue scope. Used by
     /// `lower_return_statement` to pick the correct jump target when
     /// redirecting `return expr;` past user loops.
-    fn innermost_modifier_break_label(&self) -> Option<usize> {
+    pub(crate) fn innermost_modifier_break_label(&self) -> Option<usize> {
         self.modifier_break_stack.last().copied()
     }
 
@@ -450,23 +450,23 @@ impl<'a> LoweringContext<'a> {
     /// `had_modifier_epilogue` at the Solidity analyse layer. Mirrors the
     /// `modifier_return_redirect` being Some — that redirect is only set by
     /// `function.rs` when the flag was true.
-    fn in_modifier_epilogue_scope(&self) -> bool {
+    pub(crate) fn in_modifier_epilogue_scope(&self) -> bool {
         self.modifier_return_redirect.is_some()
     }
 
-    fn return_slots(&self) -> &[Option<usize>] {
+    pub(crate) fn return_slots(&self) -> &[Option<usize>] {
         &self.return_slots
     }
 
-    fn return_types(&self) -> &[ValueType] {
+    pub(crate) fn return_types(&self) -> &[ValueType] {
         &self.return_types
     }
 
-    fn is_externally_callable(&self) -> bool {
+    pub(crate) fn is_externally_callable(&self) -> bool {
         self.is_externally_callable
     }
 
-    fn record_error(&mut self, message: impl Into<String>) {
+    pub(crate) fn record_error(&mut self, message: impl Into<String>) {
         self.errors.push(IrDiagnostic {
             function_name: self.function_name.clone(),
             message: message.into(),
@@ -475,7 +475,7 @@ impl<'a> LoweringContext<'a> {
         });
     }
 
-    fn record_error_with_suggestion(
+    pub(crate) fn record_error_with_suggestion(
         &mut self,
         message: impl Into<String>,
         suggestion: impl Into<String>,
@@ -488,12 +488,12 @@ impl<'a> LoweringContext<'a> {
         });
     }
 
-    fn record_warning(&mut self, message: impl Into<String>) {
+    pub(crate) fn record_warning(&mut self, message: impl Into<String>) {
         self.warnings
             .push(crate::solidity::Diagnostic::warning(message));
     }
 
-    fn record_warning_with_suggestion(
+    pub(crate) fn record_warning_with_suggestion(
         &mut self,
         message: impl Into<String>,
         suggestion: impl Into<String>,
@@ -502,51 +502,51 @@ impl<'a> LoweringContext<'a> {
             .push(crate::solidity::Diagnostic::warning(message).with_suggestion(suggestion));
     }
 
-    fn set_call_data_local(&mut self, local_index: usize, method: String) {
+    pub(crate) fn set_call_data_local(&mut self, local_index: usize, method: String) {
         self.call_data_locals.insert(local_index, method);
     }
 
-    fn clear_call_data_local(&mut self, local_index: usize) {
+    pub(crate) fn clear_call_data_local(&mut self, local_index: usize) {
         self.call_data_locals.remove(&local_index);
     }
 
-    fn call_data_method_for_local(&self, local_index: usize) -> Option<&str> {
+    pub(crate) fn call_data_method_for_local(&self, local_index: usize) -> Option<&str> {
         self.call_data_locals
             .get(&local_index)
             .map(|method| method.as_str())
     }
 
-    fn is_contract_type_name(&self, name: &str) -> bool {
+    pub(crate) fn is_contract_type_name(&self, name: &str) -> bool {
         self.contract_types.contains(name)
     }
 
     /// Returns `true` if the given state variable index is currently being
     /// resolved (constant inlining). Used to break infinite recursion when a
     /// constant's initializer transitively references itself.
-    fn is_resolving_constant(&self, index: usize) -> bool {
+    pub(crate) fn is_resolving_constant(&self, index: usize) -> bool {
         self.resolving_constants.contains(&index)
     }
 
-    fn push_resolving_constant(&mut self, index: usize) {
+    pub(crate) fn push_resolving_constant(&mut self, index: usize) {
         self.resolving_constants.push(index);
     }
 
-    fn pop_resolving_constant(&mut self) {
+    pub(crate) fn pop_resolving_constant(&mut self) {
         self.resolving_constants.pop();
     }
 
-    fn type_method_selectors(&self, type_name: &str, method_name: &str) -> Option<&Vec<[u8; 4]>> {
+    pub(crate) fn type_method_selectors(&self, type_name: &str, method_name: &str) -> Option<&Vec<[u8; 4]>> {
         self.selector_registry
             .type_method_selectors
             .get(type_name)
             .and_then(|methods| methods.get(method_name))
     }
 
-    fn is_interface_type_name(&self, name: &str) -> bool {
+    pub(crate) fn is_interface_type_name(&self, name: &str) -> bool {
         self.selector_registry.interface_types.contains(name)
     }
 
-    fn interface_id_for_type(&self, type_name: &str) -> Option<[u8; 4]> {
+    pub(crate) fn interface_id_for_type(&self, type_name: &str) -> Option<[u8; 4]> {
         let methods = self
             .selector_registry
             .type_method_selectors
@@ -567,7 +567,7 @@ impl<'a> LoweringContext<'a> {
         Some(interface_id)
     }
 
-    fn local_type(&self, index: usize) -> Option<&ValueType> {
+    pub(crate) fn local_type(&self, index: usize) -> Option<&ValueType> {
         self.local_types.get(&index)
     }
 }

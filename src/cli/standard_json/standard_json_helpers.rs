@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn keccak256_hex(input: &str) -> String {
     let mut hasher = Keccak256::new();
     hasher.update(input.as_bytes());
@@ -13,11 +15,11 @@ pub(crate) fn hex_prefixed(value: &str) -> String {
     }
 }
 
-fn canonical_param_type(ty: &str) -> String {
+pub(crate) fn canonical_param_type(ty: &str) -> String {
     ty.split_whitespace().next().unwrap_or_default().to_string()
 }
 
-fn take_next_contract_source(
+pub(crate) fn take_next_contract_source(
     contract_sources: &mut VecDeque<StandardJsonContractSource>,
     contract_name: &str,
 ) -> Option<String> {
@@ -30,7 +32,9 @@ fn take_next_contract_source(
     None
 }
 
-fn has_duplicate_contract_names(contract_sources: &[StandardJsonContractSource]) -> bool {
+pub(crate) fn has_duplicate_contract_names(
+    contract_sources: &[StandardJsonContractSource],
+) -> bool {
     let mut counts: HashMap<&str, usize> = HashMap::new();
     for contract_source in contract_sources {
         let count = counts
@@ -60,7 +64,7 @@ pub(crate) fn standard_json_manual_code(typ: &str) -> &'static str {
     }
 }
 
-fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
+pub(crate) fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
     let unsupported_keys: Vec<_> = match settings {
         Value::Null => return None,
         Value::Object(map) if map.is_empty() => return None,
@@ -89,7 +93,7 @@ fn unsupported_settings_warning(settings: &Value) -> Option<Value> {
     }
 }
 
-fn read_optimizer_level(settings: &Value) -> Option<u8> {
+pub(crate) fn read_optimizer_level(settings: &Value) -> Option<u8> {
     let optimizer = match settings {
         Value::Object(map) => map.get("optimizer"),
         _ => None,

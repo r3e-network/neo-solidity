@@ -1,8 +1,10 @@
-fn emit_warning(message: &str, contract: Option<&str>, json: bool, code: Option<&str>) {
+use super::*;
+
+pub(crate) fn emit_warning(message: &str, contract: Option<&str>, json: bool, code: Option<&str>) {
     emit_warning_with_suggestion(message, contract, json, code, None);
 }
 
-fn emit_warning_with_suggestion(
+pub(crate) fn emit_warning_with_suggestion(
     message: &str,
     contract: Option<&str>,
     json: bool,
@@ -42,11 +44,16 @@ fn emit_warning_with_suggestion(
     }
 }
 
-fn emit_error(message: &str, code: &str, json: bool) {
+pub(crate) fn emit_error(message: &str, code: &str, json: bool) {
     emit_error_with_suggestion(message, code, json, None);
 }
 
-fn emit_error_with_suggestion(message: &str, code: &str, json: bool, suggestion: Option<&str>) {
+pub(crate) fn emit_error_with_suggestion(
+    message: &str,
+    code: &str,
+    json: bool,
+    suggestion: Option<&str>,
+) {
     use std::io::{self, Write};
 
     if json {

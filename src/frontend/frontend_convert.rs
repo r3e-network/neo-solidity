@@ -1,3 +1,5 @@
+use super::*;
+
 fn normalize_using_target_type(expr: &Expression) -> String {
     fn normalize_type_string(raw: &str) -> String {
         let compact = raw
@@ -21,7 +23,11 @@ fn normalize_using_target_type(expr: &Expression) -> String {
 }
 
 fn using_function_name(function: &UsingFunction) -> Option<String> {
-    function.path.identifiers.last().map(|identifier| identifier.name.clone())
+    function
+        .path
+        .identifiers
+        .last()
+        .map(|identifier| identifier.name.clone())
 }
 
 fn using_function_library_name(function: &UsingFunction) -> Option<String> {
@@ -97,9 +103,8 @@ fn convert_using_directive(using: &Using) -> (UsingDirectiveIR, Vec<String>, boo
 /// the directive is declared at the source unit (not contract) level and
 /// applies to every contract in the file. Mirrors the bookkeeping that
 /// `convert_contract` performs for contract-scope `using` directives.
-fn apply_file_level_using(contract: &mut ContractIR, using: &Using) {
-    let (directive, library_names, has_for_star, is_function_list) =
-        convert_using_directive(using);
+pub(crate) fn apply_file_level_using(contract: &mut ContractIR, using: &Using) {
+    let (directive, library_names, has_for_star, is_function_list) = convert_using_directive(using);
 
     for lib_name in library_names {
         if !contract.using_for_libraries.contains(&lib_name) {
@@ -115,7 +120,7 @@ fn apply_file_level_using(contract: &mut ContractIR, using: &Using) {
     contract.using_directives.push(directive);
 }
 
-fn convert_contract(
+pub(crate) fn convert_contract(
     contract: ContractDefinition,
     comment_map: &HashMap<usize, NatspecDocIR>,
 ) -> ContractIR {
@@ -198,8 +203,7 @@ fn convert_contract(
     // (`Pool.SwapParams memory ...`), so external references continue to
     // resolve. Inside the contract / library itself, we rewrite bare
     // references to qualified form so the IR-side type lookup is unambiguous.
-    let nested_struct_short_names: Vec<String> =
-        structs.iter().map(|s| s.name.clone()).collect();
+    let nested_struct_short_names: Vec<String> = structs.iter().map(|s| s.name.clone()).collect();
     if !nested_struct_short_names.is_empty() {
         // 1. Qualify the struct definitions.
         for s in &mut structs {
@@ -296,7 +300,7 @@ fn rewrite_struct_type_references(ty: &str, owner: &str, nested: &[String]) -> S
     out
 }
 
-fn convert_function(
+pub(crate) fn convert_function(
     function: FunctionDefinition,
     comment_map: &HashMap<usize, NatspecDocIR>,
 ) -> FunctionIR {
@@ -426,7 +430,7 @@ fn convert_event(event: EventDefinition) -> EventIR {
 /// the declared parameter names and Solidity type strings in declaration
 /// order so revert-site lowering can compute the EVM-canonical selector
 /// from the DECLARED signature.
-fn convert_error(def: solang_parser::pt::ErrorDefinition) -> ErrorIR {
+pub(crate) fn convert_error(def: solang_parser::pt::ErrorDefinition) -> ErrorIR {
     let name = def
         .name
         .as_ref()
@@ -489,7 +493,7 @@ fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {
     }
 }
 
-fn convert_struct(def: StructDefinition) -> StructIR {
+pub(crate) fn convert_struct(def: StructDefinition) -> StructIR {
     let name = def
         .name
         .as_ref()
@@ -511,7 +515,7 @@ fn convert_struct(def: StructDefinition) -> StructIR {
     StructIR { name, fields }
 }
 
-fn convert_enum(def: EnumDefinition) -> EnumIR {
+pub(crate) fn convert_enum(def: EnumDefinition) -> EnumIR {
     let name = def
         .name
         .as_ref()

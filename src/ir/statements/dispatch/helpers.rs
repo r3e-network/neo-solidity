@@ -1,5 +1,5 @@
-fn find_named_struct_type(value_type: &ValueType, name: &str) -> Option<ValueType> {
-    fn last_segment(qualified: &str) -> &str {
+pub(crate) fn find_named_struct_type(value_type: &ValueType, name: &str) -> Option<ValueType> {
+    pub(crate) fn last_segment(qualified: &str) -> &str {
         qualified
             .rsplit_once('.')
             .map_or(qualified, |(_, last)| last)

@@ -1,8 +1,13 @@
+use super::*;
+
 /// Convert solang parser diagnostics into structured [`ParseDiagnostic`]s,
 /// preserving each diagnostic's byte range and prefixing the message with
 /// `line:column:` so standard-JSON output can emit one error per diagnostic
 /// with a precise `sourceLocation`.
-fn collect_parse_diagnostics(source: &str, diagnostics: &[Diagnostic]) -> Vec<ParseDiagnostic> {
+pub(crate) fn collect_parse_diagnostics(
+    source: &str,
+    diagnostics: &[Diagnostic],
+) -> Vec<ParseDiagnostic> {
     diagnostics
         .iter()
         .map(|diag| {
@@ -46,4 +51,3 @@ fn offset_to_line_column(source: &str, offset: usize) -> (usize, usize) {
 
     (line, column)
 }
-

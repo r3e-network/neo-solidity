@@ -1,10 +1,10 @@
-fn try_lower_member_call(
+pub(crate) fn try_lower_member_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
-    fn format_builtin_member_list(members: &[&str]) -> String {
+    pub(crate) fn format_builtin_member_list(members: &[&str]) -> String {
         const MAX_SHOWN: usize = 12;
         if members.len() <= MAX_SHOWN {
             return members.join(", ");
@@ -17,7 +17,7 @@ fn try_lower_member_call(
         )
     }
 
-    fn resolve_static_library_base(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_static_library_base(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
         match inner {
             Expression::Variable(lib_id)
                 if !ctx.param_index_map.contains_key(&lib_id.name)
@@ -42,7 +42,7 @@ fn try_lower_member_call(
         }
     }
 
-    fn resolve_contract_type_name(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_contract_type_name(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
         match inner {
             Expression::Variable(type_id) if ctx.is_contract_type_name(&type_id.name) => {
                 Some(type_id.name.clone())
@@ -63,7 +63,7 @@ fn try_lower_member_call(
         }
     }
 
-    fn native_contract_from_constant(base: &str, constant: &str) -> Option<NativeContract> {
+    pub(crate) fn native_contract_from_constant(base: &str, constant: &str) -> Option<NativeContract> {
         if !matches!(base, "NativeCalls" | "NativeContracts") {
             return None;
         }
@@ -704,7 +704,7 @@ fn try_lower_member_call(
 /// `receiver`, the remaining params as locals populated from call-site args,
 /// then lowers the body in place. Any `return expr;` inside the body is
 /// redirected via `inline_return_stack` to the synthesised `__ret` local.
-fn inline_library_storage_call(
+pub(crate) fn inline_library_storage_call(
     body_info: LibraryStorageBody,
     receiver: StorageReference,
     args: &[Expression],

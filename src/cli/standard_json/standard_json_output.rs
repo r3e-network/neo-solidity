@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn build_compiled_contract_value(
     file_name: &str,
     artifact: &CompilationArtifacts,
@@ -192,7 +194,10 @@ pub(crate) fn solidity_to_manifest_type(solidity_type: &str) -> &'static str {
     // for `tokensOf`/`tokens`). The builtin helper libraries are never
     // struct-merged into user contracts, so this type always arrives here as
     // a raw type string with `neo_type == None`.
-    if matches!(ty.as_str(), "iterator" | "syscalls.iterator" | "storage.iterator") {
+    if matches!(
+        ty.as_str(),
+        "iterator" | "syscalls.iterator" | "storage.iterator"
+    ) {
         return "InteropInterface";
     }
 

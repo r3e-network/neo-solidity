@@ -1,4 +1,4 @@
-fn infer_literal_array_element_type(elements: &[Expression]) -> ValueType {
+pub(crate) fn infer_literal_array_element_type(elements: &[Expression]) -> ValueType {
     if elements.is_empty() {
         // Empty array literals (`[]`) have no elements to infer from.
         // Callers should use assignment-target context when available.
@@ -35,10 +35,10 @@ fn infer_literal_array_element_type(elements: &[Expression]) -> ValueType {
     inferred.unwrap_or(ValueType::Any)
 }
 
-fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
+pub(crate) fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
     use crate::storage_key::compute_state_slot;
 
-    fn mk_struct(name: &str, fields: Vec<(&str, ValueType)>) -> ValueType {
+    pub(crate) fn mk_struct(name: &str, fields: Vec<(&str, ValueType)>) -> ValueType {
         ValueType::Struct {
             name: name.to_string(),
             fields: fields
@@ -125,7 +125,7 @@ fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType> {
     }
 }
 
-fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &str) -> Option<ValueType> {
+pub(crate) fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &str) -> Option<ValueType> {
     ctx.defined_struct_types
         .iter()
         .chain(ctx.state_types.iter())
@@ -135,7 +135,7 @@ fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &str) -> Optio
         .find_map(|ty| find_named_struct_type(ty, name))
 }
 
-fn infer_struct_constructor_type(func: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_struct_constructor_type(func: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     match func {
         Expression::Variable(identifier) => infer_defined_struct_type_by_name(ctx, &identifier.name),
         Expression::MemberAccess(_, _, identifier) => {
@@ -151,7 +151,7 @@ fn infer_struct_constructor_type(func: &Expression, ctx: &LoweringContext) -> Op
 /// `Expression::ArraySubscript(inner, Some(_))`. A type expression is either a
 /// primitive `Type` node or nested `ArraySubscript` whose base is itself a
 /// type expression (covers nested fixed-size arrays like `uint[3][2]`).
-fn is_type_expression(expr: &Expression) -> bool {
+pub(crate) fn is_type_expression(expr: &Expression) -> bool {
     match expr {
         Expression::Type(_, _) => true,
         Expression::ArraySubscript(_, inner, _) => is_type_expression(inner),
@@ -165,13 +165,13 @@ fn is_type_expression(expr: &Expression) -> bool {
 // sources (e.g. 30k-paren chains, 10k-long `a.b.c.d...` selectors) would
 // otherwise stack-overflow the compiler. See sibling guards in
 // `src/ir/expressions/dispatch/entry.rs`.
-fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         infer_type_from_expression_inner(expr, ctx)
     })
 }
 
-fn infer_type_from_expression_inner(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_type_from_expression_inner(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     match expr {
         Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx),
         Expression::BoolLiteral(_, _) => Some(ValueType::Boolean),
@@ -540,7 +540,7 @@ fn infer_type_from_expression_inner(expr: &Expression, ctx: &LoweringContext) ->
     }
 }
 
-fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
+pub(crate) fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
     match ty {
         PtType::Bool => Some(ValueType::Boolean),
         PtType::Address | PtType::AddressPayable | PtType::Payable => Some(ValueType::Address),
@@ -584,7 +584,7 @@ fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
     }
 }
 
-fn infer_array_element_type(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_array_element_type(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
     match infer_type_from_expression(expr, ctx) {
         Some(ValueType::Array(inner)) => Some(*inner.clone()),
         _ => None,

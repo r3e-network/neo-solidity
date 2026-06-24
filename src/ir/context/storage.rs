@@ -1,4 +1,4 @@
-fn resolve_storage_reference(
+pub(crate) fn resolve_storage_reference(
     expression: &Expression,
     ctx: &LoweringContext,
 ) -> Option<StorageReference> {
@@ -133,7 +133,7 @@ fn resolve_storage_reference(
     }
 }
 
-fn emit_storage_load(
+pub(crate) fn emit_storage_load(
     reference: &StorageReference,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -261,7 +261,7 @@ fn emit_storage_load(
     true
 }
 
-fn emit_storage_store(
+pub(crate) fn emit_storage_store(
     reference: &StorageReference,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -378,7 +378,7 @@ fn emit_storage_store(
     true
 }
 
-fn resolve_mapping_access<'a>(
+pub(crate) fn resolve_mapping_access<'a>(
     expression: &'a Expression,
     ctx: &LoweringContext,
 ) -> Option<MappingAccess<'a>> {

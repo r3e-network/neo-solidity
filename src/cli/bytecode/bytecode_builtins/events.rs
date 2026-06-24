@@ -1,10 +1,10 @@
-fn emit_event(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize, arg_count: usize) {
+pub(crate) fn emit_event(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize, arg_count: usize) {
     if module.events.get(index).is_some() {
         emit_event_payload(bytecode, arg_count);
     }
 }
 
-fn emit_event_by_name(bytecode: &mut Vec<u8>, _name: &str, arg_count: usize) {
+pub(crate) fn emit_event_by_name(bytecode: &mut Vec<u8>, _name: &str, arg_count: usize) {
     emit_event_payload(bytecode, arg_count);
 }
 

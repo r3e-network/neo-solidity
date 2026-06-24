@@ -1,4 +1,4 @@
-fn lower_array_store(
+pub(crate) fn lower_array_store(
     target: &Expression,
     rhs: &Expression,
     ctx: &mut LoweringContext,
