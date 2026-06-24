@@ -8,17 +8,32 @@ impl ExecutionContext {
                 let pub_item = self.pop_stack()?;
                 let pubkey = Self::stack_item_to_bytes(pub_item);
                 let sig = Self::stack_item_to_bytes(sig_item);
-                // Use the current transaction/message hash for verification
-                // In a real implementation, this would come from the transaction context
-                let msg_hash = self.get_current_message_hash();
-                let ok = Self::verify_secp256k1_with_message(&msg_hash, &pubkey, &sig);
+                // No host-injected signing hash means CheckSig cannot
+                // meaningfully verify (there is no script container to derive
+                // a real transaction digest). Default to reject (`false`) — the
+                // honest answer without a verifiable hash.
+                let ok = match self.get_current_message_hash() {
+                    Some(h) => Self::verify_secp256k1_with_message(&h, &pubkey, &sig),
+                    None => false,
+                };
                 self.push_stack(StackItem::Boolean(ok))?;
                 Ok(true)
             }
             "System.Crypto.CheckMultisig" => {
                 let sigs_item = self.pop_stack()?;
                 let pubs_item = self.pop_stack()?;
-                let msg_hash = self.get_current_message_hash();
+                // No host-injected signing hash means CheckMultisig cannot
+                // meaningfully verify (there is no script container to derive
+                // a real transaction digest). Default to reject (`false`) — the
+                // honest answer without a verifiable hash. Args are already
+                // popped, so the stack stays balanced.
+                let msg_hash = match self.get_current_message_hash() {
+                    Some(h) => h,
+                    None => {
+                        self.push_stack(StackItem::Boolean(false))?;
+                        return Ok(true);
+                    }
+                };
 
                 // Extract individual items from arrays
                 let pub_items = match pubs_item {
