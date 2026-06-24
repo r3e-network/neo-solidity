@@ -885,6 +885,99 @@ contract C {{
 }
 
 // ============================================================
+// mulmod 512-bit intermediate-precision differential.
+//
+// `differential_mulmod` above uses u32 operands whose product always fits
+// in 256 bits, so it cannot catch the bug where `mulmod(a,b,m)` lowers to a
+// native NeoVM MUL (truncating a*b to 256 bits) before reducing mod m.
+// Solidity `mulmod` requires the FULL 512-bit intermediate product; when
+// a*b >= 2^256 the truncated path gives a wrong residue. These cases all
+// have a*b >= 2^256 and are computed against an arbitrary-precision
+// reference so any truncation surfaces immediately.
+// ============================================================
+
+/// Regression for full-512-bit `mulmod`: the intermediate product a*b must
+/// NOT be truncated to 256 bits before reducing mod m. Each case has
+/// `a*b >= 2^256`; the reference is `num-bigint`'s arbitrary-precision
+/// `(a*b) % m`. Pre-fix the compiler emitted a native MUL here and every
+/// case returned a wrong residue.
+///
+/// Follows the established `differential_mulmod` pattern: literals are
+/// inlined into the Solidity source and the function takes no args, which
+/// sidesteps the question of how the runtime marshals >i64 uint256
+/// parameters. Each case recompiles its own tiny contract (5 cases total).
+#[test]
+fn differential_mulmod_512bit() {
+    use num_bigint::BigUint;
+
+    let two = BigUint::from(2u32);
+    let pow128 = two.pow(128); // 2^128
+    let pow256 = two.pow(256);
+    let max_u256 = &pow256 - 1u32; // 2^256 - 1
+
+    // (a, b, m) triples whose product a*b >= 2^256. Expected = (a*b) % m.
+    let cases: Vec<(BigUint, BigUint, BigUint)> = vec![
+        // 2^128 * 2^128 = 2^256 exactly; 2^256 mod (2^256-1) = 1.
+        (pow128.clone(), pow128.clone(), max_u256.clone()),
+        // (2^256-1)^2 mod (2^256-1) = 0.
+        (max_u256.clone(), max_u256.clone(), max_u256.clone()),
+        // (2^256-1)*2 = 2^257-2 = 2*(2^256-1); mod (2^256-1) = 0.
+        (max_u256.clone(), BigUint::from(2u32), max_u256.clone()),
+        // 2^200 * 2^200 = 2^400; mod (2^256-1). 2^400 = 2^256*2^144 ≡ 1*2^144.
+        (two.pow(200), two.pow(200), max_u256.clone()),
+        // (2^256-1)*(2^256-2) mod (2^256-3): big product, non-trivial residue.
+        (max_u256.clone(), &max_u256 - 1u32, &max_u256 - 2u32),
+    ];
+
+    for (a, b, m) in &cases {
+        let expected = (a * b) % m;
+        // Sanity: every case really does overflow 256 bits in the product.
+        assert!(
+            a * b >= pow256,
+            "test invariant: a*b must be >= 2^256 for case a={} b={}",
+            a,
+            b
+        );
+
+        let src = format!(
+            r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {{
+    function f() external pure returns (uint256) {{
+        return mulmod({a}, {b}, {m});
+    }}
+}}"#
+        );
+        let arts = compile_contracts(&src, false, 2).expect("compile mulmod_512bit");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[])
+            .unwrap();
+        assert!(
+            r.success,
+            "mulmod_512bit faulted: a={} b={} m={}: {:?}",
+            a,
+            b,
+            m,
+            r.exception.as_ref().map(|e| &e.message)
+        );
+        let got = decode_uint_le(&r.return_data);
+        assert_eq!(
+            got,
+            expected,
+            "mulmod_512bit mismatch (product truncated?): \
+             a={} b={} m={}; a*b={} expected={}",
+            a,
+            b,
+            m,
+            a * b,
+            expected
+        );
+    }
+}
+
+// ============================================================
 // BLS12-381 G1/G2 differentials.
 //
 // These exercise the `CryptoLib.bls12381*` family used by ZK proof
