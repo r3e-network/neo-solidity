@@ -98,6 +98,10 @@ debug = true
 name = "neo-solc"
 path = "src/main.rs"
 
+[[bench]]
+name = "compile"
+harness = false
+
 [lints.rust]
 unused_must_use = "warn"
 

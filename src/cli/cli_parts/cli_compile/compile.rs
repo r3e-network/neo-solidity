@@ -113,8 +113,17 @@ pub fn compile_contracts_with_options(
         }
     })?;
 
+    // Compile each contract in parallel. `compile_metadata` consumes owned
+    // metadata and a freshly-cloned `CompileOptions`, so there is no shared
+    // mutable state between iterations; rayon preserves output order via
+    // `collect`, keeping artifact ordering identical to the sequential path.
+    // When `verbose` is set the diagnostic `println!` output from concurrent
+    // compilations may interleave — `verbose` is a debug knob rather than a
+    // structured log channel, so this is acceptable and no mutex is added (it
+    // would serialise the hot path and defeat the parallelism).
+    use rayon::prelude::*;
     metadatas
-        .into_iter()
+        .into_par_iter()
         .map(|metadata| compile_metadata(metadata, verbose, options.clone()))
         .collect()
 }
