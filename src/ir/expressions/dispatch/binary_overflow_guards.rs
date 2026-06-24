@@ -1,3 +1,5 @@
+use super::*;
+
 /// Batch-#30 H1: emit the narrow-width overflow/underflow check for uintN
 /// Add/Sub/Mul. Consumes `[lhs, rhs]` and pushes the result. The runtime's
 /// i64/BigInt arithmetic doesn't wrap at `uintN`, so we compute the result

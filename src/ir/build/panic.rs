@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #107 — Emit the canonical EVM `Panic(uint256)` revert envelope for a
 /// given panic code and THROW it.
 ///

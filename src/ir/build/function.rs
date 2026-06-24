@@ -1,3 +1,5 @@
+use super::*;
+
 impl Function {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_metadata_with_warnings(

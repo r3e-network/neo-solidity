@@ -1,3 +1,5 @@
+use super::*;
+
 /// ERC → NEP pattern adaptation diagnostics.
 ///
 /// Detects Ethereum-style patterns in Solidity contracts and emits warnings
@@ -9,7 +11,7 @@
 /// - ERC-721 `transferFrom(from, to, tokenId)` → NEP-11 `transfer(to, tokenId, data)`
 /// - `receive()` / `fallback()` → `onNEP17Payment()` callback
 /// - `supportsInterface(bytes4)` → manifest `supportedstandards`
-fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
     let public_methods: Vec<&FunctionMetadata> = metadata
         .methods
         .iter()

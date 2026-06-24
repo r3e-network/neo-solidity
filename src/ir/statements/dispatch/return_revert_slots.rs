@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #112 — left-align a bytesN value (ByteArray of length N where
 /// 1 ≤ N < 32) into a 32-byte buffer. The expected stack shape on entry is
 /// `[.., src_bytes]`; on exit it is `[.., dst_bytes32]`.

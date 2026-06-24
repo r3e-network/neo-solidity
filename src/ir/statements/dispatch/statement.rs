@@ -1,3 +1,5 @@
+use super::*;
+
 // `stacker::maybe_grow` at the entry lets the compiler handle
 // pathologically nested block / if-else / loop statements (e.g.
 // `{ { { ... } } }` 10k+ deep) without stack-overflowing. See

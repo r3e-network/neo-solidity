@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_neo_serialized_arg_array(
     args: &[Expression],
     ctx: &mut LoweringContext,

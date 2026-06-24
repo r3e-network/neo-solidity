@@ -1,11 +1,25 @@
 use super::*;
 
-include!("build/module.rs");
-include!("build/value_types.rs");
+#[path = "build/module.rs"]
+mod module;
+pub(crate) use module::*;
+#[path = "build/value_types.rs"]
+mod value_types;
 
-include!("build/literals.rs");
-include!("build/inference.rs");
-include!("build/selectors.rs");
-include!("build/params.rs");
-include!("build/panic.rs");
-include!("build/function.rs");
+#[path = "build/literals.rs"]
+mod literals;
+pub(crate) use literals::*;
+#[path = "build/inference.rs"]
+mod inference;
+pub(crate) use inference::*;
+#[path = "build/selectors.rs"]
+mod selectors;
+pub(crate) use selectors::*;
+#[path = "build/params.rs"]
+mod params;
+pub(crate) use params::*;
+#[path = "build/panic.rs"]
+mod panic;
+pub(crate) use panic::*;
+#[path = "build/function.rs"]
+mod function;

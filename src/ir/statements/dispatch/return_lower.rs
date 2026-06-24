@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_return_statement(
     expr: Option<&Expression>,
     ctx: &mut LoweringContext,

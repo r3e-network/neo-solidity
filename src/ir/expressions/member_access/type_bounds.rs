@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_type_bound_max(
     inner: &Expression,
     member: &Identifier,

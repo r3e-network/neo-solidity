@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #91 — inlinable metadata for a library function whose first
 /// parameter is a storage-pointer struct. `param_names[0]` is bound as a
 /// storage alias to the receiver's `StorageReference`; `param_names[1..]`
@@ -33,7 +35,11 @@ impl<'a> LoweringContext<'a> {
     /// Compile-time bound `N` when `struct_name.field_name` is declared as a
     /// fixed-size array (`T[N]`), `None` for dynamic (`T[]`) or non-array
     /// fields. See `struct_fixed_array_bounds`.
-    pub(crate) fn struct_fixed_array_bound(&self, struct_name: &str, field_name: &str) -> Option<u64> {
+    pub(crate) fn struct_fixed_array_bound(
+        &self,
+        struct_name: &str,
+        field_name: &str,
+    ) -> Option<u64> {
         self.struct_fixed_array_bounds
             .get(&(struct_name.to_string(), field_name.to_string()))
             .copied()
@@ -120,7 +126,11 @@ impl<'a> LoweringContext<'a> {
     /// Task #91 — fetch the inlinable body for a library function whose first
     /// parameter is a storage-pointer struct. Returns `None` when the call
     /// should go through the normal `CallFunction` path.
-    pub(crate) fn library_storage_body(&self, name: &str, arg_count: usize) -> Option<&LibraryStorageBody> {
+    pub(crate) fn library_storage_body(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Option<&LibraryStorageBody> {
         self.library_storage_bodies
             .get(&(name.to_string(), arg_count))
     }

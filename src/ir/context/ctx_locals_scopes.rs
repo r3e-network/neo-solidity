@@ -1,3 +1,5 @@
+use super::*;
+
 impl<'a> LoweringContext<'a> {
     pub(crate) fn next_label(&mut self) -> usize {
         let label = self.label_counter;

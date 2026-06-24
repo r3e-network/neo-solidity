@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_member_access_expression(
     expr: &Expression,
     inner: &Expression,

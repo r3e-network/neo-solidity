@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn find_named_struct_type(value_type: &ValueType, name: &str) -> Option<ValueType> {
     pub(crate) fn last_segment(qualified: &str) -> &str {
         qualified

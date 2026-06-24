@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #185 — parse a Solidity return type string like `uint[3][2]` into
 /// its nested fixed-size dimensions in OUTER-FIRST order (matches Solidity
 /// source convention: `uint[3][2]` is an array of 2 arrays of 3 uints, so

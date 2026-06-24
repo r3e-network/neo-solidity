@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_expression_statement(
     expr: &Expression,
     ctx: &mut LoweringContext,

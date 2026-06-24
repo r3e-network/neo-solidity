@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn infer_literal_array_element_type(elements: &[Expression]) -> ValueType {
     if elements.is_empty() {
         // Empty array literals (`[]`) have no elements to infer from.
@@ -125,7 +127,10 @@ pub(crate) fn builtin_struct_type(base: &str, member: &str) -> Option<ValueType>
     }
 }
 
-pub(crate) fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &str) -> Option<ValueType> {
+pub(crate) fn infer_defined_struct_type_by_name(
+    ctx: &LoweringContext,
+    name: &str,
+) -> Option<ValueType> {
     ctx.defined_struct_types
         .iter()
         .chain(ctx.state_types.iter())
@@ -135,9 +140,14 @@ pub(crate) fn infer_defined_struct_type_by_name(ctx: &LoweringContext, name: &st
         .find_map(|ty| find_named_struct_type(ty, name))
 }
 
-pub(crate) fn infer_struct_constructor_type(func: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_struct_constructor_type(
+    func: &Expression,
+    ctx: &LoweringContext,
+) -> Option<ValueType> {
     match func {
-        Expression::Variable(identifier) => infer_defined_struct_type_by_name(ctx, &identifier.name),
+        Expression::Variable(identifier) => {
+            infer_defined_struct_type_by_name(ctx, &identifier.name)
+        }
         Expression::MemberAccess(_, _, identifier) => {
             infer_defined_struct_type_by_name(ctx, &identifier.name)
         }
@@ -165,13 +175,19 @@ pub(crate) fn is_type_expression(expr: &Expression) -> bool {
 // sources (e.g. 30k-paren chains, 10k-long `a.b.c.d...` selectors) would
 // otherwise stack-overflow the compiler. See sibling guards in
 // `src/ir/expressions/dispatch/entry.rs`.
-pub(crate) fn infer_type_from_expression(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_type_from_expression(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<ValueType> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         infer_type_from_expression_inner(expr, ctx)
     })
 }
 
-pub(crate) fn infer_type_from_expression_inner(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_type_from_expression_inner(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<ValueType> {
     match expr {
         Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx),
         Expression::BoolLiteral(_, _) => Some(ValueType::Boolean),
@@ -313,9 +329,7 @@ pub(crate) fn infer_type_from_expression_inner(expr: &Expression, ctx: &Lowering
                 // `args.len() + 1` for the library-attach form. Try both
                 // shapes before giving up.
                 if ctx.has_using_directives() {
-                    if let Some(ty) =
-                        ctx.get_function_return_type(&method.name, args.len() + 1)
-                    {
+                    if let Some(ty) = ctx.get_function_return_type(&method.name, args.len() + 1) {
                         // Only honour the receiver-attached form when the
                         // inner expression isn't a namespace-style
                         // `Library.f(...)` call (which keeps its literal
@@ -396,11 +410,7 @@ pub(crate) fn infer_type_from_expression_inner(expr: &Expression, ctx: &Lowering
             if member.name == "length"
                 && matches!(
                     infer_type_from_expression(inner, ctx),
-                    Some(
-                        ValueType::ByteArray { .. }
-                            | ValueType::String
-                            | ValueType::Array(_)
-                    )
+                    Some(ValueType::ByteArray { .. } | ValueType::String | ValueType::Array(_))
                 )
             {
                 return Some(ValueType::Integer {
@@ -443,22 +453,20 @@ pub(crate) fn infer_type_from_expression_inner(expr: &Expression, ctx: &Lowering
                 inner.as_ref(),
                 Expression::Variable(id)
                     if id.name == "NativeCalls" || id.name == "NativeContracts"
-            )
-                && matches!(
-                    member.name.as_str(),
-                    "NEO_CONTRACT"
-                        | "GAS_CONTRACT"
-                        | "CONTRACT_MANAGEMENT"
-                        | "POLICY_CONTRACT"
-                        | "ORACLE_CONTRACT"
-                        | "ROLE_MANAGEMENT"
-                        | "NOTARY_CONTRACT"
-                        | "TREASURY_CONTRACT"
-                        | "LEDGER_CONTRACT"
-                        | "CRYPTO_LIB"
-                        | "STD_LIB"
-                )
-            {
+            ) && matches!(
+                member.name.as_str(),
+                "NEO_CONTRACT"
+                    | "GAS_CONTRACT"
+                    | "CONTRACT_MANAGEMENT"
+                    | "POLICY_CONTRACT"
+                    | "ORACLE_CONTRACT"
+                    | "ROLE_MANAGEMENT"
+                    | "NOTARY_CONTRACT"
+                    | "TREASURY_CONTRACT"
+                    | "LEDGER_CONTRACT"
+                    | "CRYPTO_LIB"
+                    | "STD_LIB"
+            ) {
                 return Some(ValueType::Address);
             }
 
@@ -584,7 +592,10 @@ pub(crate) fn value_type_from_ptype(ty: &PtType) -> Option<ValueType> {
     }
 }
 
-pub(crate) fn infer_array_element_type(expr: &Expression, ctx: &LoweringContext) -> Option<ValueType> {
+pub(crate) fn infer_array_element_type(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<ValueType> {
     match infer_type_from_expression(expr, ctx) {
         Some(ValueType::Array(inner)) => Some(*inner.clone()),
         _ => None,

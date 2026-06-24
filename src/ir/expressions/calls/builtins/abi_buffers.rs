@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_abi_decode_slot_slice(
     buffer_local: usize,
     index: usize,

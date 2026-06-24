@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_block_statement(
     statements: &[Statement],
     ctx: &mut LoweringContext,

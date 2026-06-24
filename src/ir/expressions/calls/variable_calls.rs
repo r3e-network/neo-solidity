@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_variable_call(
     func: &Expression,
     args: &[Expression],

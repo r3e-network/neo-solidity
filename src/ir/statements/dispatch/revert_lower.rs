@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #181 — recursively render a `ValueType` as its EVM-canonical ABI
 /// signature fragment. Used by `revert_arg_canonical_type` to expand struct
 /// args into their parenthesised tuple form (`(address,uint256)`) instead of

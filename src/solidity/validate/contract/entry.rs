@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 

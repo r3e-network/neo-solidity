@@ -1,3 +1,5 @@
+use super::*;
+
 // ---- Inline software uint256 routines (32-byte two's-complement) -------------
 //
 // NeoVM integers are signed two's-complement capped at 32 bytes, so a `uint256`

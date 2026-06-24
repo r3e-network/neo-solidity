@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn manifest_type_name(ty: ManifestType) -> &'static str {
     match ty {
         ManifestType::Integer => "Integer",

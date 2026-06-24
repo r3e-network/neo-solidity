@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_storage_reference(
     expression: &Expression,
     ctx: &LoweringContext,
@@ -26,9 +28,7 @@ pub(crate) fn resolve_storage_reference(
                     let state_type = ctx.state_type(state_index)?;
                     if matches!(
                         state_type,
-                        ValueType::Struct { .. }
-                            | ValueType::Array(_)
-                            | ValueType::Mapping { .. }
+                        ValueType::Struct { .. } | ValueType::Array(_) | ValueType::Mapping { .. }
                     ) {
                         return Some(StorageReference {
                             state_index,
@@ -184,7 +184,8 @@ pub(crate) fn emit_storage_load(
 
     // Task #82: nested mapping inside struct field — `slots[k].balances[a]`.
     if !reference.trailing_key_expressions.is_empty() && !reference.field_path.is_empty() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         push_trailing_keys_for_slot(instructions);
         push_keys_for_slot(instructions);
         instructions.push(Instruction::LoadStructFieldMappingElement {
@@ -198,7 +199,8 @@ pub(crate) fn emit_storage_load(
     }
 
     if let Some(field) = reference.field_path.last() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         push_keys_for_slot(instructions);
         instructions.push(Instruction::LoadStructField {
             state_index: reference.state_index,
@@ -226,9 +228,9 @@ pub(crate) fn emit_storage_load(
 
         for (index, field) in fields.iter().enumerate() {
             instructions.push(Instruction::LoadLocal(out_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                index as u64,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(index as u64),
+            )));
             // Mapping members have no loadable storage value (their entries
             // live at per-key derived slots) — keep the struct array at
             // `fields.len()` entries so PICKITEM field indices stay aligned,
@@ -310,7 +312,8 @@ pub(crate) fn emit_storage_store(
 
     // Task #82: nested mapping inside struct field — `slots[k].balances[a] = v`.
     if !reference.trailing_key_expressions.is_empty() && !reference.field_path.is_empty() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         push_trailing_keys_for_slot(instructions);
         push_keys_for_slot(instructions);
         instructions.push(Instruction::StoreStructFieldMappingElement {
@@ -323,7 +326,8 @@ pub(crate) fn emit_storage_store(
     }
 
     if let Some(field) = reference.field_path.last() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         push_keys_for_slot(instructions);
         instructions.push(Instruction::StoreStructField {
             state_index: reference.state_index,
@@ -354,9 +358,9 @@ pub(crate) fn emit_storage_store(
                 continue;
             }
             instructions.push(Instruction::LoadLocal(value_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                index as u64,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(index as u64),
+            )));
             instructions.push(Instruction::ArrayGet);
             push_keys_for_slot(instructions);
             instructions.push(Instruction::StoreStructField {

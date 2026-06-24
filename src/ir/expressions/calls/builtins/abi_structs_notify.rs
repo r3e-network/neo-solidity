@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn validate_runtime_notify_call(args: &[Expression], ctx: &mut LoweringContext) {
     if args.len() != 2 {
         return;

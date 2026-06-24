@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_address_balance(
     inner: &Expression,
     member: &Identifier,

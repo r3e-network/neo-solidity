@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
     literal_from_expression_with_warning(expr, &mut |_| {})
 }

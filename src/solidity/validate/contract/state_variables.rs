@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ConstantStateSignature {
     ty: String,
@@ -83,7 +85,7 @@ impl SeenStateVariables {
     }
 }
 
-fn validate_state_variables(
+pub(crate) fn validate_state_variables(
     metadata: &ContractMetadata,
     method_name_counts: &std::collections::HashMap<String, usize>,
     diagnostics: &mut Vec<Diagnostic>,

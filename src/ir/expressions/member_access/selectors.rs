@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_selector_member_access(
     inner: &Expression,
     member: &Identifier,

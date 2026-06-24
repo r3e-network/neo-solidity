@@ -1,4 +1,6 @@
-fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) -> usize {
+use super::*;
+
+pub(crate) fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) -> usize {
     use std::collections::{HashMap, HashSet};
 
     let mut signatures = HashSet::new();

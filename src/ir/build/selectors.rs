@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn string_literal_bytes(parts: &[PtStringLiteral]) -> Vec<u8> {
     let mut bytes = Vec::new();
     for part in parts {
@@ -134,7 +136,10 @@ pub(crate) fn extract_signature_string(expr: &Expression) -> Option<String> {
     }
 }
 
-pub(crate) fn resolve_selector_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+pub(crate) fn resolve_selector_method_name(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<String> {
     match expr {
         Expression::Variable(identifier) => {
             if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #124 — `abi.encode(struct)` whole-struct expansion. If `expr` has a
 /// struct type, emit per-field extraction instructions so the downstream
 /// `AbiEncode` builtin receives N individual stack items (one per direct

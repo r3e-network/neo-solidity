@@ -1,3 +1,5 @@
+use super::*;
+
 // Native Contract Call Handling
 //
 // This module handles lowering of Solidity native contract calls to NeoVM bytecode.

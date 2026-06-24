@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_abi_decode_direct(
     args: &[Expression],
     ctx: &mut LoweringContext,

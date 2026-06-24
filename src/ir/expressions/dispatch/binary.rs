@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn fixed_len_bytes_be_from_hex_number(expr: &Expression, fixed_len: u16) -> Option<Vec<u8>> {
     let Expression::HexNumberLiteral(_, value, unit) = expr else {
         return None;

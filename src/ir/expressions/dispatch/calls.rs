@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_expression_calls(
     expr: &Expression,
     ctx: &mut LoweringContext,

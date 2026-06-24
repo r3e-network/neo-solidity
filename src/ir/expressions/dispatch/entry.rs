@@ -1,3 +1,5 @@
+use super::*;
+
 // Expression lowering.
 //
 // `stacker::maybe_grow` at the entry point lets the compiler handle

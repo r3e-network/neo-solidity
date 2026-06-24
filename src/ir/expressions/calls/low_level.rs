@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => resolve_signature_string(inner, ctx),

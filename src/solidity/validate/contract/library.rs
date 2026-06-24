@@ -1,4 +1,6 @@
-fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+use super::*;
+
+pub(crate) fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
     if !metadata.is_library {
         return;
     }

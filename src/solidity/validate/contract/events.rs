@@ -1,4 +1,6 @@
-fn validate_events(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+use super::*;
+
+pub(crate) fn validate_events(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
     use std::collections::{BTreeSet, HashMap};
 
     let mut event_groups: HashMap<String, BTreeSet<String>> = HashMap::new();

@@ -1,3 +1,5 @@
+use super::*;
+
 /// True if the expression is a literal number (number/hex). Used to avoid
 /// emitting the overflow guard when both operands are compile-time constants —
 /// the compiler's constant folder already handles those.

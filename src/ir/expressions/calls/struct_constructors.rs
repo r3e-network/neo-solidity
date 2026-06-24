@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_struct_type_by_name(ctx: &LoweringContext<'_>, name: &str) -> Option<ValueType> {
     ctx.defined_struct_types
         .iter()
