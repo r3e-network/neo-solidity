@@ -190,24 +190,34 @@ function properties(bytes memory tokenId) public view returns (bytes memory) { .
 
 ### Manifest Type Deviations (devpack `NEP11.sol`)
 
-The devpack NEP-11 base produces a manifest whose types deviate from the
-canonical NEP-11 spec. Strict manifest validators (e.g. neo-go's
-`standard.Check`) and SDKs/wallets that derive call encodings from manifest
-types will treat these contracts as non-conforming, even though the manifest
-declares `"NEP-11"` in `supportedstandards`:
+The manifest types below were verified by compiling `devpack/standards/NEP11.sol`
+with this compiler and reading the emitted `*.manifest.json`. The current
+devpack base is manifest-compliant on every NEP-11 method **except** the
+optional `properties`:
 
-| Member               | NEP-11 spec manifest type           | Devpack manifest type | Impact                                                                  |
-| -------------------- | ----------------------------------- | --------------------- | ----------------------------------------------------------------------- |
-| `tokenId` parameters | `ByteArray` (ByteString, ≤64 bytes) | `Hash256` (`bytes32`) | SDKs may apply UInt256 endianness reversal; only 32-byte IDs supported  |
-| `tokensOf` / `tokens` return | `InteropInterface` (iterator) | `Array`               | Iterator/session-based traversal (wallets, indexers) does not work      |
-| `properties` return  | `Map`                               | `ByteArray` (`bytes`) | Metadata consumers expecting a Map (e.g. marketplaces) cannot decode    |
-| `transfer` `data`    | `Any`                               | `ByteArray` (`bytes`) | Strict type checkers report a mismatch                                  |
+| Member                  | NEP-11 spec manifest type   | Devpack manifest type | Status                                                                                          |
+| ----------------------- | --------------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
+| `tokenId` parameters    | `ByteArray` (ByteString, ≤64 bytes) | `ByteArray`    | ✅ Compliant (typed as Solidity dynamic `bytes`)                                                |
+| `tokensOf` / `tokens` return | `InteropInterface` (iterator) | `InteropInterface` | ✅ Compliant (returns `Syscalls.Iterator`)                                                     |
+| `transfer` `data`       | `Any`                       | `Any`                 | ✅ Compliant (typed as the devpack `Any` alias)                                                 |
+| `properties` return     | `Map`                       | `ByteArray` (`bytes`) | ⚠️ **Only remaining deviation** — see below                                                     |
 
-On-chain deployment is not blocked (Neo nodes do not enforce standard
+**`properties` deviation — Solidity type-system limitation (not fixable in the devpack).**
+NEP-11 types `properties(tokenId)` as a `Map` of property name to value.
+Solidity has no construct that produces a NeoVM `Map` stack item as a return
+value (a `mapping` compiles to storage prefix operations, not an in-memory
+`Map`), so the devpack returns the serialized properties blob as `bytes`
+(manifest `ByteArray`). This is the canonical mapping used by the official
+C# and Go devpacks' `properties` helpers that return a serialized `ByteString`.
+Strict manifest validators that require `properties` to return `Map` (e.g.
+neo-go's `standard.Check` on the optional-method set) will flag this one
+method. `properties` is **optional** in NEP-11; omit it if you need a
+strict-clean manifest.
+
+On-chain deployment is never blocked (Neo nodes do not enforce standard
 compliance at deploy time), and notification trackers that read raw stack
-items still work (a `bytes32` tokenId is a 32-byte ByteString on the stack).
-If you need strict NEP-11 manifest compliance today, declare your own
-methods with `bytes` token IDs instead of inheriting the `bytes32`-typed base.
+items work for every method. A `bytes` tokenId is a ByteString on the stack
+exactly as the spec requires.
 
 ---
 
@@ -308,14 +318,23 @@ unless the contract rejects replays.
 
 Neo N3 defines additional contract behavior standards beyond NEP-11/17/24.
 
-| NEP | Required Method | Purpose |
-| --- | --------------- | ------- |
-| NEP-22 | `update(nefFile, manifest, data)` | Standard contract update method |
-| NEP-26 | `onNEP11Payment(from, amount, tokenId, data)` | NEP-11 receiver callback |
-| NEP-27 | `onNEP17Payment(from, amount, data)` | NEP-17 receiver callback |
-| NEP-29 | `_deploy(data, update)` | Deploy/update lifecycle callback |
-| NEP-30 | `verify(...) -> bool` | Witness verification entrypoint |
-| NEP-31 | `destroy()` | Standard destroy method |
+> **Authoritative status:** every NEP number below is a **real, ratified** NEP
+> in the official [`neo-project/proposals`](https://github.com/neo-project/proposals)
+> repository — **not** an informal Neo N3 convention. The payment callbacks
+> `onNEP11Payment` / `onNEP17Payment` are ratified as their own standards
+> (NEP-26 and NEP-27 respectively, both Status: *Final*), separate from
+> NEP-11/NEP-17, so they can be referenced independently in a contract
+> manifest `supportedstandards`. Statuses below are taken from the proposals
+> README table.
+
+| NEP | Status   | Spec                                                                                                          | Required Method                                | Purpose                        |
+| --- | -------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| NEP-22 | Accepted | [nep-22](https://github.com/neo-project/proposals/blob/master/nep-22.mediawiki)                              | `update(nefFile, manifest, data)`              | Contract update method         |
+| NEP-26 | Final    | [nep-26](https://github.com/neo-project/proposals/blob/master/nep-26.mediawiki)                              | `onNEP11Payment(from, amount, tokenId, data)`  | NEP-11 receiver callback       |
+| NEP-27 | Final    | [nep-27](https://github.com/neo-project/proposals/blob/master/nep-27.mediawiki)                              | `onNEP17Payment(from, amount, data)`           | NEP-17 receiver callback       |
+| NEP-29 | Accepted | [nep-29](https://github.com/neo-project/proposals/blob/master/nep-29.mediawiki)                              | `_deploy(data, update)`                        | Deploy/update lifecycle callback |
+| NEP-30 | Accepted | [nep-30](https://github.com/neo-project/proposals/blob/master/nep-30.mediawiki)                              | `verify(...) -> bool`                          | Witness verification entrypoint |
+| NEP-31 | Accepted | [nep-31](https://github.com/neo-project/proposals/blob/master/nep-31.mediawiki)                              | `destroy()`                                    | Standard destroy method        |
 
 ### Compiler Behavior
 
