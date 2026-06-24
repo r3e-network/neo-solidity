@@ -7,4 +7,7 @@ include!("dispatch/primary.rs");
 include!("dispatch/calls.rs");
 include!("dispatch/tuple.rs");
 include!("dispatch/conditional.rs");
+include!("dispatch/binary_predicates.rs");
+include!("dispatch/binary_u256_softarith.rs");
+include!("dispatch/binary_overflow_guards.rs");
 include!("dispatch/binary.rs");
