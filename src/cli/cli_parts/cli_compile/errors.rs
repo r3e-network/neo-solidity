@@ -1,5 +1,5 @@
 impl CompileError {
-    fn into_errors(self, file: &str) -> Vec<Value> {
+    pub(crate) fn into_errors(self, file: &str) -> Vec<Value> {
         match self {
             CompileError::Diagnostics(diags) | CompileError::Semantic(diags) => diags
                 .into_iter()

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Map a resolved type to its EVM JSON-ABI `(type, components)`. A struct
 /// becomes `"tuple"` (or `"tuple[]"`/`"tuple[N]"`) carrying a recursively-built
 /// `components` array; enums already resolve to `uint8`. Falls back to the raw
@@ -56,7 +58,10 @@ fn abi_param_value(
     let mut obj = serde_json::Map::new();
     obj.insert("name".into(), Value::String(name));
     obj.insert("type".into(), Value::String(abi_type));
-    obj.insert("internalType".into(), Value::String(ty_fallback.to_string()));
+    obj.insert(
+        "internalType".into(),
+        Value::String(ty_fallback.to_string()),
+    );
     if let Some(components) = components {
         obj.insert("components".into(), Value::Array(components));
     }
@@ -84,7 +89,10 @@ pub(crate) fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
             .enumerate()
             .map(|(index, parameter)| {
                 abi_param_value(
-                    parameter.name.clone().unwrap_or_else(|| format!("arg{index}")),
+                    parameter
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("arg{index}")),
                     &parameter.neo_type,
                     &parameter.ty,
                     None,
@@ -98,7 +106,10 @@ pub(crate) fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
             .enumerate()
             .map(|(index, parameter)| {
                 abi_param_value(
-                    parameter.name.clone().unwrap_or_else(|| format!("ret{index}")),
+                    parameter
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("ret{index}")),
                     &parameter.neo_type,
                     &parameter.ty,
                     None,
@@ -133,7 +144,10 @@ pub(crate) fn build_standard_abi(metadata: &ContractMetadata) -> Vec<Value> {
             .enumerate()
             .map(|(index, parameter)| {
                 abi_param_value(
-                    parameter.name.clone().unwrap_or_else(|| format!("param{index}")),
+                    parameter
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("param{index}")),
                     &parameter.neo_type,
                     &parameter.ty,
                     Some(parameter.indexed),

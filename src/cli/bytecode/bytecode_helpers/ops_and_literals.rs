@@ -1,4 +1,4 @@
-fn emit_binary_op(bytecode: &mut Vec<u8>, operator: ir::BinaryOperator) {
+pub(crate) fn emit_binary_op(bytecode: &mut Vec<u8>, operator: ir::BinaryOperator) {
     let opcode = match operator {
         ir::BinaryOperator::Add => 0x9E,
         ir::BinaryOperator::Sub => 0x9F,
@@ -20,7 +20,7 @@ fn emit_binary_op(bytecode: &mut Vec<u8>, operator: ir::BinaryOperator) {
     bytecode.push(opcode);
 }
 
-fn push_literal_value(bytecode: &mut Vec<u8>, literal: &LiteralValue) {
+pub(crate) fn push_literal_value(bytecode: &mut Vec<u8>, literal: &LiteralValue) {
     match literal {
         LiteralValue::Integer(value) => push_integer_bigint(bytecode, value),
         // Use NeoVM boolean opcodes so returned values match the manifest ABI type.
@@ -33,7 +33,7 @@ fn push_literal_value(bytecode: &mut Vec<u8>, literal: &LiteralValue) {
     }
 }
 
-fn push_integer_bigint(bytecode: &mut Vec<u8>, value: &BigInt) {
+pub(crate) fn push_integer_bigint(bytecode: &mut Vec<u8>, value: &BigInt) {
     if value.is_zero() {
         bytecode.push(0x10);
         return;

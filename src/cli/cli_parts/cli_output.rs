@@ -1,4 +1,11 @@
-fn contract_output_prefix(base: &str, contract_name: &str, index: usize, total: usize) -> String {
+use super::*;
+
+pub(crate) fn contract_output_prefix(
+    base: &str,
+    contract_name: &str,
+    index: usize,
+    total: usize,
+) -> String {
     let base_path = std::path::Path::new(base);
     let base_is_dir = base.ends_with('/') || base.ends_with('\\') || base_path.is_dir();
 
@@ -11,10 +18,7 @@ fn contract_output_prefix(base: &str, contract_name: &str, index: usize, total: 
     });
 
     if base_is_dir {
-        return base_path
-            .join(sanitized)
-            .to_string_lossy()
-            .to_string();
+        return base_path.join(sanitized).to_string_lossy().to_string();
     }
 
     if total <= 1 {
@@ -54,18 +58,22 @@ fn split_extension(path: &str) -> (String, String) {
     (stem_path, format!(".{ext}"))
 }
 
-fn ensure_output_dir(path: &str) -> Result<(), String> {
+pub(crate) fn ensure_output_dir(path: &str) -> Result<(), String> {
     let Some(parent) = std::path::Path::new(path).parent() else {
         return Ok(());
     };
     if parent.as_os_str().is_empty() {
         return Ok(());
     }
-    fs::create_dir_all(parent)
-        .map_err(|err| format!("Failed to create output directory '{}': {err}", parent.display()))
+    fs::create_dir_all(parent).map_err(|err| {
+        format!(
+            "Failed to create output directory '{}': {err}",
+            parent.display()
+        )
+    })
 }
 
-fn write_nef_file(
+pub(crate) fn write_nef_file(
     path: &str,
     script: &[u8],
     tokens: &[neo_devpack_solidity::neo::MethodToken],
@@ -85,9 +93,7 @@ fn write_nef_file(
 
     let (clamped, truncated) = clamp_nef_source_with_flag(&resolved_source);
     if truncated {
-        let msg = format!(
-            "NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated"
-        );
+        let msg = format!("NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated");
         emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
     }
 
@@ -105,7 +111,7 @@ fn write_nef_file(
     Ok(checksum)
 }
 
-fn write_manifest_file(path: &str, manifest: &serde_json::Value) -> Result<(), String> {
+pub(crate) fn write_manifest_file(path: &str, manifest: &serde_json::Value) -> Result<(), String> {
     let manifest_str = serde_json::to_string_pretty(manifest)
         .map_err(|err| format!("Manifest serialization failed: {err}"))?;
     ensure_output_dir(path)?;
@@ -114,7 +120,7 @@ fn write_manifest_file(path: &str, manifest: &serde_json::Value) -> Result<(), S
     Ok(())
 }
 
-fn write_json_file(
+pub(crate) fn write_json_file(
     path: &str,
     script: &[u8],
     tokens: &[neo_devpack_solidity::neo::MethodToken],
@@ -136,9 +142,7 @@ fn write_json_file(
 
     let (clamped, truncated) = clamp_nef_source_with_flag(&resolved_source);
     if truncated {
-        let msg = format!(
-            "NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated"
-        );
+        let msg = format!("NEF source exceeds {NEF_SOURCE_MAX_BYTES} bytes and was truncated");
         emit_warning(&msg, None, json_warnings, Some("NEF_SOURCE_TRUNCATED"));
     }
 
@@ -183,14 +187,15 @@ fn write_json_file(
         "methodMap": neo_method_map,
     });
 
-    let json_str =
-        serde_json::to_string_pretty(&json_output).map_err(|err| format!("Failed to serialise JSON output: {err}"))?;
+    let json_str = serde_json::to_string_pretty(&json_output)
+        .map_err(|err| format!("Failed to serialise JSON output: {err}"))?;
     ensure_output_dir(path)?;
-    fs::write(path, json_str).map_err(|err| format!("Failed to write JSON file '{path}': {err}"))?;
+    fs::write(path, json_str)
+        .map_err(|err| format!("Failed to write JSON file '{path}': {err}"))?;
     Ok(())
 }
 
-fn write_assembly_file(path: &str, script: &[u8]) -> Result<(), String> {
+pub(crate) fn write_assembly_file(path: &str, script: &[u8]) -> Result<(), String> {
     let assembly = bytecode::disassemble_neovm_bytecode(script);
     ensure_output_dir(path)?;
     fs::write(path, assembly)

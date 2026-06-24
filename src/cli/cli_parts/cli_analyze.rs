@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Debug, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UpgradeSummary {
@@ -11,7 +13,7 @@ struct UpgradeSummary {
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FileUpgradeReport {
+pub(crate) struct FileUpgradeReport {
     input: String,
     compile_success: bool,
     contracts: Vec<String>,
@@ -111,7 +113,7 @@ fn collect_overload_findings(
         .collect()
 }
 
-fn build_upgrade_report(
+pub(crate) fn build_upgrade_report(
     input_file: &str,
     analysis_source: &str,
     compile_source: &str,
@@ -282,7 +284,7 @@ fn build_upgrade_report(
     })
 }
 
-fn print_upgrade_reports(reports: &[FileUpgradeReport]) {
+pub(crate) fn print_upgrade_reports(reports: &[FileUpgradeReport]) {
     match serialize_upgrade_reports(reports) {
         Ok(serialized) => println!("{serialized}"),
         Err(err) => {
@@ -292,7 +294,10 @@ fn print_upgrade_reports(reports: &[FileUpgradeReport]) {
     }
 }
 
-fn write_upgrade_reports(path: &str, reports: &[FileUpgradeReport]) -> Result<(), String> {
+pub(crate) fn write_upgrade_reports(
+    path: &str,
+    reports: &[FileUpgradeReport],
+) -> Result<(), String> {
     let serialized = serialize_upgrade_reports(reports)?;
     ensure_output_dir(path)?;
     fs::write(path, serialized)

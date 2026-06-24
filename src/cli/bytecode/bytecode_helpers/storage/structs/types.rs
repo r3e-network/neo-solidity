@@ -1,11 +1,11 @@
 #[derive(Clone, Copy)]
-struct StructFieldAccess<'a> {
-    field_keys: &'a [[u8; 32]],
-    ty: &'a ValueType,
+pub(crate) struct StructFieldAccess<'a> {
+    pub(crate) field_keys: &'a [[u8; 32]],
+    pub(crate) ty: &'a ValueType,
 }
 
 #[derive(Clone, Copy)]
-struct StructArrayElementAccess<'a> {
-    field_keys: &'a [[u8; 32]],
-    element_type: &'a ValueType,
+pub(crate) struct StructArrayElementAccess<'a> {
+    pub(crate) field_keys: &'a [[u8; 32]],
+    pub(crate) element_type: &'a ValueType,
 }

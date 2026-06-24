@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Deserialize)]
 pub(crate) struct StandardJsonInput {
     pub(crate) language: String,
@@ -11,4 +13,3 @@ pub(crate) struct StandardJsonSource {
     pub(crate) content: Option<String>,
     pub(crate) urls: Option<Vec<String>>,
 }
-

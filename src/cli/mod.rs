@@ -85,14 +85,31 @@ pub fn fuzz_process_standard_json_content(input: &[u8]) -> Result<(), String> {
     process_standard_json_content(input_str, None, options)
 }
 
-include!("cli_parts/cli_defs.rs");
-include!("cli_parts/cli_run.rs");
-include!("cli_parts/cli_compile.rs");
-include!("cli_parts/cli_analyze.rs");
-include!("cli_parts/cli_output.rs");
-include!("cli_parts/cli_manifest.rs");
-include!("cli_parts/cli_deploy.rs");
-include!("cli_parts/cli_diagnostics.rs");
+#[path = "cli_parts/cli_analyze.rs"]
+mod cli_analyze;
+#[path = "cli_parts/cli_compile.rs"]
+mod cli_compile;
+#[path = "cli_parts/cli_defs.rs"]
+mod cli_defs;
+#[path = "cli_parts/cli_deploy.rs"]
+mod cli_deploy;
+#[path = "cli_parts/cli_diagnostics.rs"]
+mod cli_diagnostics;
+#[path = "cli_parts/cli_manifest.rs"]
+mod cli_manifest;
+#[path = "cli_parts/cli_output.rs"]
+mod cli_output;
+#[path = "cli_parts/cli_run.rs"]
+mod cli_run;
+
+pub(crate) use cli_analyze::*;
+pub use cli_compile::*;
+pub use cli_defs::*;
+pub(crate) use cli_deploy::*;
+pub(crate) use cli_diagnostics::*;
+pub(crate) use cli_manifest::*;
+pub(crate) use cli_output::*;
+pub use cli_run::*;
 
 #[cfg(test)]
 mod tests;

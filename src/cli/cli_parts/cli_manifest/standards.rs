@@ -1,6 +1,6 @@
 /// Severity level for standards-detection diagnostics.
 #[derive(Debug, Clone, PartialEq)]
-enum StandardsDiagnosticLevel {
+pub(crate) enum StandardsDiagnosticLevel {
     /// Contract almost matches a standard, or a detected standard has issues.
     Warning,
     /// Informational hint about parameter signatures or events.
@@ -9,19 +9,19 @@ enum StandardsDiagnosticLevel {
 
 /// A diagnostic emitted during standards detection.
 #[derive(Debug, Clone)]
-struct StandardsDiagnostic {
-    level: StandardsDiagnosticLevel,
-    standard: &'static str,
-    message: String,
+pub(crate) struct StandardsDiagnostic {
+    pub(crate) level: StandardsDiagnosticLevel,
+    pub(crate) standard: &'static str,
+    pub(crate) message: String,
 }
 
 /// Result of standards detection: detected standards + any diagnostics.
-struct StandardsDetectionResult {
-    standards: Vec<String>,
-    diagnostics: Vec<StandardsDiagnostic>,
+pub(crate) struct StandardsDetectionResult {
+    pub(crate) standards: Vec<String>,
+    pub(crate) diagnostics: Vec<StandardsDiagnostic>,
 }
 
-fn detect_supported_standards(
+pub(crate) fn detect_supported_standards(
     methods: &[FunctionMetadata],
     events: &[EventMetadata],
 ) -> StandardsDetectionResult {

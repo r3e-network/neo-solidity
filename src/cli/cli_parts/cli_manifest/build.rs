@@ -159,7 +159,7 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
 /// Shared by manifest emission (`build_manifest`) and the standard-json
 /// `methodMap` (`build_neo_method_map`) so both report the same callable
 /// names.
-fn manifest_abi_method_name_fn<'a>(
+pub(crate) fn manifest_abi_method_name_fn<'a>(
     exposed: impl Iterator<Item = &'a FunctionMetadata>,
 ) -> impl Fn(&FunctionMetadata) -> String {
     let mut groups: HashMap<(String, usize), Vec<String>> = HashMap::new();
@@ -190,7 +190,7 @@ fn manifest_abi_method_name_fn<'a>(
     }
 }
 
-fn build_manifest(
+pub(crate) fn build_manifest(
     metadata: &ContractMetadata,
     ir_module: &ir::Module,
 ) -> Result<serde_json::Value, CompileError> {

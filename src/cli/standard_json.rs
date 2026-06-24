@@ -23,8 +23,8 @@
 //! compatible with standard Solidity compiler output.
 
 use super::{
-    compile_contracts_with_options, CompilationArtifacts, CompileOptions,
-    ManifestPermissionsOverride, COMPILER_ID,
+    compile_contracts_with_options, compiler_version_string_4, manifest_abi_method_name_fn,
+    CompilationArtifacts, CompileOptions, ManifestPermissionsOverride, COMPILER_ID,
 };
 use neo_devpack_solidity::frontend::{parse_source, ContractKind, VisibilityKind};
 use neo_devpack_solidity::neo::{
@@ -39,9 +39,16 @@ use sha3::{Digest, Keccak256};
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 
-include!("standard_json/standard_json_types.rs");
-include!("standard_json/standard_json_helpers.rs");
-include!("standard_json/standard_json_diagnostics.rs");
-include!("standard_json/standard_json_abi.rs");
-include!("standard_json/standard_json_output.rs");
-include!("standard_json/standard_json_process.rs");
+mod standard_json_abi;
+mod standard_json_diagnostics;
+mod standard_json_helpers;
+mod standard_json_output;
+mod standard_json_process;
+mod standard_json_types;
+
+pub(crate) use standard_json_abi::*;
+pub(crate) use standard_json_diagnostics::*;
+pub(crate) use standard_json_helpers::*;
+pub(crate) use standard_json_output::*;
+pub(crate) use standard_json_process::*;
+pub(crate) use standard_json_types::*;

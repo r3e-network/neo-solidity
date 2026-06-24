@@ -1,5 +1,7 @@
+use super::*;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum CallPatchKind {
+pub(crate) enum CallPatchKind {
     /// CALL_L — fixup writes a 4-byte signed offset relative to the CALL_L
     /// opcode position (opcode byte preceding `position`).
     CallRelative,
@@ -10,10 +12,10 @@ enum CallPatchKind {
 }
 
 #[derive(Clone, Debug)]
-struct CallPatch {
-    position: usize,
-    target: String,
-    kind: CallPatchKind,
+pub(crate) struct CallPatch {
+    pub(crate) position: usize,
+    pub(crate) target: String,
+    pub(crate) kind: CallPatchKind,
 }
 
 #[derive(Clone, Debug)]
@@ -23,29 +25,31 @@ pub(crate) struct BytecodeBuildOutput {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct MethodTokenKey {
-    hash: [u8; 20],
-    method: String,
-    parameters_count: u16,
-    has_return_value: bool,
-    call_flags: u8,
+pub(crate) struct MethodTokenKey {
+    pub(crate) hash: [u8; 20],
+    pub(crate) method: String,
+    pub(crate) parameters_count: u16,
+    pub(crate) has_return_value: bool,
+    pub(crate) call_flags: u8,
 }
 
 #[derive(Clone, Debug)]
-struct MethodTokenPatch {
-    position: usize,
-    token: MethodTokenKey,
+pub(crate) struct MethodTokenPatch {
+    pub(crate) position: usize,
+    pub(crate) token: MethodTokenKey,
 }
 
 /// Neo N3 uses CallFlags bitmask values.
-const CALLFLAGS_ALL: u8 = 0x0F;
+pub(crate) const CALLFLAGS_ALL: u8 = 0x0F;
 /// Read-only call flags (ReadStates | AllowCall).
-const CALLFLAGS_READ_ONLY: u8 = 0x05;
+pub(crate) const CALLFLAGS_READ_ONLY: u8 = 0x05;
 
 /// Native contract script hashes as they must be pushed onto the NeoVM stack
 /// (UInt160 little-endian byte order).
-const NATIVE_NEO_HASH_LE: [u8; 20] = *b"\xf5\x63\xea\x40\xbc\x28\x3d\x4d\x0e\x05\xc4\x8e\xa3\x05\xb3\xf2\xa0\x73\x40\xef";
-const NATIVE_GAS_HASH_LE: [u8; 20] = *b"\xcf\x76\xe2\x8b\xd0\x06\x2c\x4a\x47\x8e\xe3\x55\x61\x01\x13\x19\xf3\xcf\xa4\xd2";
+const NATIVE_NEO_HASH_LE: [u8; 20] =
+    *b"\xf5\x63\xea\x40\xbc\x28\x3d\x4d\x0e\x05\xc4\x8e\xa3\x05\xb3\xf2\xa0\x73\x40\xef";
+const NATIVE_GAS_HASH_LE: [u8; 20] =
+    *b"\xcf\x76\xe2\x8b\xd0\x06\x2c\x4a\x47\x8e\xe3\x55\x61\x01\x13\x19\xf3\xcf\xa4\xd2";
 const NATIVE_CONTRACT_MANAGEMENT_HASH_LE: [u8; 20] =
     *b"\xfd\xa3\xfa\x43\x46\xea\x53\x2a\x25\x8f\xc4\x97\xdd\xad\xdb\x64\x37\xc9\xfd\xff";
 const NATIVE_POLICY_HASH_LE: [u8; 20] =
@@ -118,9 +122,12 @@ pub(crate) fn generate_contract_bytecode(
         }
 
         let method_name = method.neo_name.clone();
-        let ir_function = function_map.get(method_name.as_str()).copied().ok_or_else(|| {
-            format!("internal compiler error: missing IR for method '{method_name}'")
-        })?;
+        let ir_function = function_map
+            .get(method_name.as_str())
+            .copied()
+            .ok_or_else(|| {
+                format!("internal compiler error: missing IR for method '{method_name}'")
+            })?;
 
         // NeoVM's `INITSLOT` encodes the local-slot count as a single byte, and
         // LDLOC/STLOC index the same 0..=255 range. A function with more than 255
@@ -182,9 +189,7 @@ pub(crate) fn generate_contract_bytecode(
                 CallPatchKind::CallRelative => {
                     // CALL_L uses a 4-byte signed offset from the beginning of the CALL_L opcode.
                     let opcode_pos = fixup.position.saturating_sub(1) as i32;
-                    let relative = (*target_offset as i32)
-                        .checked_sub(opcode_pos)
-                        .unwrap_or(0);
+                    let relative = (*target_offset as i32).checked_sub(opcode_pos).unwrap_or(0);
                     relative.to_le_bytes()
                 }
                 CallPatchKind::AbsoluteOffset => {
@@ -193,9 +198,7 @@ pub(crate) fn generate_contract_bytecode(
                     // `Pointer{ instruction_pointer + operand }`. The resulting
                     // Pointer is consumed by `CALLA`. Task #186.
                     let opcode_pos = fixup.position.saturating_sub(1) as i32;
-                    let relative = (*target_offset as i32)
-                        .checked_sub(opcode_pos)
-                        .unwrap_or(0);
+                    let relative = (*target_offset as i32).checked_sub(opcode_pos).unwrap_or(0);
                     relative.to_le_bytes()
                 }
             };

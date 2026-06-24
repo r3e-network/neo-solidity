@@ -3,9 +3,9 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-struct ResolvedSoliditySources {
-    files: Vec<(PathBuf, String)>,
-    combined_source: String,
+pub(crate) struct ResolvedSoliditySources {
+    pub(crate) files: Vec<(PathBuf, String)>,
+    pub(crate) combined_source: String,
 }
 
 /// A single Foundry-style import remapping: any import whose path starts with
@@ -15,21 +15,21 @@ struct ResolvedSoliditySources {
 /// `foobar/x.sol` alike). Order matters: the first matching remapping wins,
 /// which mirrors solc / foundry semantics.
 #[derive(Debug, Clone)]
-struct ImportRemapping {
-    prefix: String,
-    replacement: PathBuf,
+pub(crate) struct ImportRemapping {
+    pub(crate) prefix: String,
+    pub(crate) replacement: PathBuf,
 }
 
 #[allow(dead_code)] // used by the test suite under #[cfg(test)]; kept as a
 // thin wrapper so callers without remappings have a stable, ergonomic name.
-fn resolve_solidity_sources_with_imports(
+pub(crate) fn resolve_solidity_sources_with_imports(
     entry_file: &Path,
     include_paths: &[PathBuf],
 ) -> Result<ResolvedSoliditySources, String> {
     resolve_solidity_sources_with_options(entry_file, include_paths, &[])
 }
 
-fn resolve_solidity_sources_with_options(
+pub(crate) fn resolve_solidity_sources_with_options(
     entry_file: &Path,
     include_paths: &[PathBuf],
     remappings: &[ImportRemapping],
@@ -668,7 +668,7 @@ fn version_pin_aliases(import_path: &str) -> Vec<String> {
 /// input doesn't contain an `=` separator or the prefix is empty. The
 /// replacement path may be relative (resolved against the current working
 /// directory when used) or absolute.
-fn parse_remapping(spec: &str) -> Result<ImportRemapping, String> {
+pub(crate) fn parse_remapping(spec: &str) -> Result<ImportRemapping, String> {
     let (prefix, replacement) = spec
         .split_once('=')
         .ok_or_else(|| format!("invalid remapping '{spec}': expected `prefix=path`"))?;
@@ -685,7 +685,7 @@ fn parse_remapping(spec: &str) -> Result<ImportRemapping, String> {
 /// lines and lines whose first non-whitespace character is `#` are ignored.
 /// Errors out the first time a line is malformed so the user gets a precise
 /// line number in the diagnostic.
-fn load_remappings_file(path: &Path) -> Result<Vec<ImportRemapping>, String> {
+pub(crate) fn load_remappings_file(path: &Path) -> Result<Vec<ImportRemapping>, String> {
     let contents = fs::read_to_string(path)
         .map_err(|err| format!("failed to read remappings file '{}': {err}", path.display()))?;
     let mut out = Vec::new();

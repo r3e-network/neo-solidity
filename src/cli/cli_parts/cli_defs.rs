@@ -1,9 +1,13 @@
-const COMPILER_ID: &str = concat!("neo-devpack-solidity-", env!("CARGO_PKG_VERSION"));
-const COMPILER_EMAIL: &str = "Jimmy <jimmy@r3e.network>";
-const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+use super::*;
 
-fn compiler_version_string_4() -> String {
-    let mut parts = VERSION_STR.split('.').map(|p| p.parse::<u32>().unwrap_or(0));
+pub(crate) const COMPILER_ID: &str = concat!("neo-devpack-solidity-", env!("CARGO_PKG_VERSION"));
+pub(crate) const COMPILER_EMAIL: &str = "Jimmy <jimmy@r3e.network>";
+pub(crate) const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+
+pub(crate) fn compiler_version_string_4() -> String {
+    let mut parts = VERSION_STR
+        .split('.')
+        .map(|p| p.parse::<u32>().unwrap_or(0));
     let major = parts.next().unwrap_or(0);
     let minor = parts.next().unwrap_or(0);
     let patch = parts.next().unwrap_or(0);

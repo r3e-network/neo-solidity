@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn diagnostic_to_standard_error(
     diagnostic: &neo_devpack_solidity::solidity::Diagnostic,
     file: &str,
