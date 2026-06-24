@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
     match member {
         // ========== NEO native contract ==========

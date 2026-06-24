@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_storage_array_helpers(
     func: &Expression,
     args: &[Expression],
@@ -5,8 +7,7 @@ pub(crate) fn try_lower_storage_array_helpers(
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
     // Storage array helpers: support `arr.push(value)` and `arr.pop()`.
-    if let Some(result) = try_lower_storage_reference_array_helpers(func, args, ctx, instructions)
-    {
+    if let Some(result) = try_lower_storage_reference_array_helpers(func, args, ctx, instructions) {
         return Some(result);
     }
 

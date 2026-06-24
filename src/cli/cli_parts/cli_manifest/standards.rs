@@ -1,3 +1,5 @@
+use super::*;
+
 /// Severity level for standards-detection diagnostics.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum StandardsDiagnosticLevel {
@@ -29,7 +31,10 @@ pub(crate) fn detect_supported_standards(
         .iter()
         .filter(|m| {
             !matches!(m.kind, FunctionKind::Constructor)
-                && matches!(m.visibility, VisibilityKind::Public | VisibilityKind::External)
+                && matches!(
+                    m.visibility,
+                    VisibilityKind::Public | VisibilityKind::External
+                )
         })
         .collect();
     let names: HashSet<String> = public_methods
@@ -50,7 +55,10 @@ pub(crate) fn detect_supported_standards(
     // event. A vanilla ERC-20 port (`transfer(to, amount)`) gets a warning
     // explaining how to conform instead of a false NEP-17 claim.
     let nep17_required = ["symbol", "decimals", "totalsupply", "balanceof", "transfer"];
-    let nep17_present: Vec<&&str> = nep17_required.iter().filter(|m| names.contains(**m)).collect();
+    let nep17_present: Vec<&&str> = nep17_required
+        .iter()
+        .filter(|m| names.contains(**m))
+        .collect();
     let nep17_names_match = nep17_present.len() == nep17_required.len() && !has_ownerof;
     let nep17_transfer_ok = methods_named(&public_methods, "transfer")
         .iter()
@@ -119,7 +127,10 @@ pub(crate) fn detect_supported_standards(
         "ownerof",
         "transfer",
     ];
-    let nep11_present: Vec<&&str> = nep11_required.iter().filter(|m| names.contains(**m)).collect();
+    let nep11_present: Vec<&&str> = nep11_required
+        .iter()
+        .filter(|m| names.contains(**m))
+        .collect();
     let nep11_names_match = nep11_present.len() == nep11_required.len();
     let nep11_transfer_ok = methods_named(&public_methods, "transfer")
         .iter()
@@ -139,9 +150,8 @@ pub(crate) fn detect_supported_standards(
             problems.push("`transfer` must take 3 parameters (to, tokenId, data)");
         }
         if !nep11_event_ok {
-            problems.push(
-                "a 4-parameter `Transfer(from, to, amount, tokenId)` event must be declared",
-            );
+            problems
+                .push("a 4-parameter `Transfer(from, to, amount, tokenId)` event must be declared");
         }
         diagnostics.push(StandardsDiagnostic {
             level: StandardsDiagnosticLevel::Warning,
@@ -316,7 +326,9 @@ pub(crate) fn detect_supported_standards(
 /// canonicalizer is empty: enum names can never spell `address` / `uint256`
 /// / `bytes32` / `bytes` (reserved words), so positive matches are identical
 /// with or without enum knowledge.
-fn event_native_transfer_standard(event: &EventMetadata) -> Option<ir::NativeTransferStandard> {
+pub(crate) fn event_native_transfer_standard(
+    event: &EventMetadata,
+) -> Option<ir::NativeTransferStandard> {
     let enum_names: HashSet<String> = HashSet::new();
     let canonical_types: Vec<String> = event
         .parameters
@@ -329,7 +341,7 @@ fn event_native_transfer_standard(event: &EventMetadata) -> Option<ir::NativeTra
 /// Check that a `Transfer` event exists with the expected parameter count
 /// AND the parameter types that make the compiler emit it in native NEP
 /// shape (`[from, to, amount(, tokenId)]`, readable by NEP trackers).
-fn validate_transfer_event(
+pub(crate) fn validate_transfer_event(
     events: &[EventMetadata],
     standard: &'static str,
     expected_params: usize,
@@ -371,7 +383,11 @@ fn validate_transfer_event(
                      signature, so it will be emitted in EVM log shape (unreadable by NEP \
                      trackers). Declare it as `Transfer(address from, address to, uint256 \
                      amount{})` for native emission.",
-                    if expected_params == 4 { ", bytes tokenId" } else { "" },
+                    if expected_params == 4 {
+                        ", bytes tokenId"
+                    } else {
+                        ""
+                    },
                 ),
             });
         }
@@ -380,7 +396,7 @@ fn validate_transfer_event(
 }
 
 /// Returns all public/external methods with a given name (case-insensitive).
-fn methods_named<'a>(
+pub(crate) fn methods_named<'a>(
     public_methods: &[&'a FunctionMetadata],
     name: &str,
 ) -> Vec<&'a FunctionMetadata> {
@@ -392,7 +408,7 @@ fn methods_named<'a>(
 }
 
 /// Best-effort bool return detection for standards validation.
-fn method_returns_bool(method: &FunctionMetadata) -> bool {
+pub(crate) fn method_returns_bool(method: &FunctionMetadata) -> bool {
     if method.return_parameters.len() != 1 {
         return false;
     }
@@ -413,7 +429,7 @@ fn method_returns_bool(method: &FunctionMetadata) -> bool {
 /// conformance in `detect_supported_standards` (method names plus the
 /// `transfer` signature and `Transfer` event shape), so near-misses
 /// surface as warnings instead of false manifest claims.
-fn validate_declared_standards(
+pub(crate) fn validate_declared_standards(
     declared: &[String],
     methods: &[FunctionMetadata],
     events: &[EventMetadata],
@@ -422,7 +438,10 @@ fn validate_declared_standards(
         .iter()
         .filter(|m| {
             !matches!(m.kind, FunctionKind::Constructor)
-                && matches!(m.visibility, VisibilityKind::Public | VisibilityKind::External)
+                && matches!(
+                    m.visibility,
+                    VisibilityKind::Public | VisibilityKind::External
+                )
         })
         .collect();
     let names: HashSet<String> = public_methods
@@ -453,7 +472,15 @@ fn validate_declared_standards(
                 // mandatory per the NEP-11 spec; omitting them previously let a
                 // contract ship a manifest falsely advertising `supportedstandards:
                 // ["NEP-11"]` while lacking methods wallets/indexers rely on.
-                &["symbol", "decimals", "totalsupply", "balanceof", "tokensof", "ownerof", "transfer"],
+                &[
+                    "symbol",
+                    "decimals",
+                    "totalsupply",
+                    "balanceof",
+                    "tokensof",
+                    "ownerof",
+                    "transfer",
+                ],
                 4,
                 ir::NativeTransferStandard::Nep11,
                 3,

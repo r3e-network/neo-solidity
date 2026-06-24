@@ -1,6 +1,9 @@
 use super::*;
 
-pub(crate) fn validate_return_types(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn validate_return_types(
+    metadata: &ContractMetadata,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     for function in &metadata.methods {
         let is_exposed = matches!(
             function.visibility,

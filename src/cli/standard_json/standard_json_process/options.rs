@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Clone, Debug)]
 pub(crate) struct StandardJsonOptions<'a> {
     pub optimizer_level: u8,

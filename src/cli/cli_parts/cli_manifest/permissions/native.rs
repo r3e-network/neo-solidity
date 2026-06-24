@@ -14,7 +14,9 @@ pub(crate) fn require_native_method(
         .insert(method.to_string());
 }
 
-pub(crate) fn collect_native_permissions(ir_module: &ir::Module) -> BTreeMap<String, BTreeSet<String>> {
+pub(crate) fn collect_native_permissions(
+    ir_module: &ir::Module,
+) -> BTreeMap<String, BTreeSet<String>> {
     let mut native_methods: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
     for function in &ir_module.functions {

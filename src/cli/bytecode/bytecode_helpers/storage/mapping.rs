@@ -1,3 +1,5 @@
+use super::*;
+
 /// Canonical NeoVM stack-item type for a mapping-key value of the given
 /// Solidity type, or `None` when no canonicalization applies.
 ///
@@ -10,7 +12,7 @@
 /// one shape silently misses a read via the other. Mirror the SUBSTR slice
 /// fix (`src/ir/expressions/arrays.rs`, Task #95) and CONVERT every key to
 /// its canonical stack-item type before serializing.
-fn canonical_key_convert_target(key_type: &ValueType) -> Option<ir::ConvertTarget> {
+pub(crate) fn canonical_key_convert_target(key_type: &ValueType) -> Option<ir::ConvertTarget> {
     match key_type {
         ValueType::Integer { .. } => Some(ir::ConvertTarget::Integer),
         ValueType::Boolean => Some(ir::ConvertTarget::Boolean),
@@ -26,7 +28,7 @@ fn canonical_key_convert_target(key_type: &ValueType) -> Option<ir::ConvertTarge
     }
 }
 
-fn emit_serialize_key(
+pub(crate) fn emit_serialize_key(
     bytecode: &mut Vec<u8>,
     key_type: &ValueType,
     use_callt: bool,
@@ -45,7 +47,7 @@ fn emit_serialize_key(
     );
 }
 
-fn emit_mapping_slot(
+pub(crate) fn emit_mapping_slot(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -77,7 +79,7 @@ fn emit_mapping_slot(
     }
 }
 
-fn emit_struct_field_slot(
+pub(crate) fn emit_struct_field_slot(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
     state_index: usize,
@@ -134,7 +136,7 @@ pub(crate) fn emit_load_mapping(
     }
 }
 
-fn resolve_loaded_mapping_value_type(
+pub(crate) fn resolve_loaded_mapping_value_type(
     module: &ir::Module,
     state_index: usize,
     key_depth: usize,
@@ -205,7 +207,7 @@ pub(crate) fn emit_store_mapping_array_deep_copy(
 ///
 /// Stack on entry: `[..., slot, array]`
 /// Stack on exit:  `[...]`
-fn emit_store_array_value_deep_copy(
+pub(crate) fn emit_store_array_value_deep_copy(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -291,7 +293,7 @@ pub(crate) struct StructFieldMappingSlot<'a> {
     pub(crate) use_callt: bool,
 }
 
-fn emit_struct_field_mapping_slot(
+pub(crate) fn emit_struct_field_mapping_slot(
     bytecode: &mut Vec<u8>,
     slot: &StructFieldMappingSlot<'_>,
     token_patches: &mut Vec<MethodTokenPatch>,

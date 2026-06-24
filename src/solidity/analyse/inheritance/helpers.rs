@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn base_last_name(base: &Base) -> Option<String> {
     base.name.identifiers.last().map(|id| id.name.clone())
 }

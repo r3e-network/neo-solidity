@@ -1,3 +1,5 @@
+use super::*;
+
 impl CompileError {
     pub(crate) fn into_errors(self, file: &str) -> Vec<Value> {
         match self {

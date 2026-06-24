@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_state_array_helpers(
     func: &Expression,
     args: &[Expression],
@@ -64,7 +66,9 @@ pub(crate) fn lower_state_array_push(
 
         // Increment length.
         instructions.push(Instruction::LoadLocal(len_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::one(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
         instructions.push(Instruction::StoreState(state_index));
 
@@ -128,7 +132,9 @@ pub(crate) fn lower_state_array_push(
 
     // Increment length.
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreState(state_index));
 
@@ -157,13 +163,19 @@ pub(crate) fn lower_state_array_pop(
 
     // Abort on empty array.
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-    instructions.push(Instruction::JumpIf { target: empty_label });
+    instructions.push(Instruction::JumpIf {
+        target: empty_label,
+    });
 
     let new_len_local = ctx.allocate_local("__array_new_len".to_string(), None);
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
     instructions.push(Instruction::StoreLocal(new_len_local));
 

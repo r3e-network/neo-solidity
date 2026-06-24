@@ -52,9 +52,9 @@ pub(crate) fn scan_stmt(
             scan_expr(cond, contract_types) || scan_stmt(body, contract_types)
         }
         S::Expression(_, expr) => scan_expr(expr, contract_types),
-        S::VariableDefinition(_, _, init) => init
-            .as_ref()
-            .is_some_and(|e| scan_expr(e, contract_types)),
+        S::VariableDefinition(_, _, init) => {
+            init.as_ref().is_some_and(|e| scan_expr(e, contract_types))
+        }
         S::For(_, i, c, n, b) => {
             i.as_ref().is_some_and(|s| scan_stmt(s, contract_types))
                 || c.as_ref().is_some_and(|e| scan_expr(e, contract_types))
@@ -97,16 +97,14 @@ pub(crate) fn scan_expr(
             scan_expr(i, contract_types)
         }
         E::FunctionCall(_, func, args) => {
-            scan_expr(func, contract_types)
-                || args.iter().any(|a| scan_expr(a, contract_types))
+            scan_expr(func, contract_types) || args.iter().any(|a| scan_expr(a, contract_types))
         }
         E::NamedFunctionCall(_, func, args) => {
             scan_expr(func, contract_types)
                 || args.iter().any(|a| scan_expr(&a.expr, contract_types))
         }
         E::ArraySubscript(_, a, b) => {
-            scan_expr(a, contract_types)
-                || b.as_ref().is_some_and(|e| scan_expr(e, contract_types))
+            scan_expr(a, contract_types) || b.as_ref().is_some_and(|e| scan_expr(e, contract_types))
         }
         E::ConditionalOperator(_, c, a, b) => {
             scan_expr(c, contract_types)
@@ -119,9 +117,7 @@ pub(crate) fn scan_expr(
         // inside arithmetic/comparison expressions — it is the RHS of an
         // assignment or variable definition, which the statement-level
         // handler already visits.
-        E::Assign(_, a, b) => {
-            scan_expr(a, contract_types) || scan_expr(b, contract_types)
-        }
+        E::Assign(_, a, b) => scan_expr(a, contract_types) || scan_expr(b, contract_types),
         E::ArrayLiteral(_, values) => values.iter().any(|v| scan_expr(v, contract_types)),
         _ => false,
     }

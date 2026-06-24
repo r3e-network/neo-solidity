@@ -1,4 +1,6 @@
-fn is_void_syscall(name: &str) -> bool {
+use super::*;
+
+pub(crate) fn is_void_syscall(name: &str) -> bool {
     matches!(
         name,
         "System.Storage.Put"
@@ -80,7 +82,7 @@ pub(crate) fn emit_native_contract_call(
     emit_syscall(bytecode, "System.Contract.Call");
 }
 
-fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {
+pub(crate) fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {
     match native_method_is_mutating(contract, method) {
         Some(true) => CALLFLAGS_ALL,
         Some(false) => CALLFLAGS_READ_ONLY,
@@ -88,7 +90,10 @@ fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {
     }
 }
 
-fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Option<bool> {
+pub(crate) fn native_method_is_mutating(
+    contract: ir::NativeContract,
+    method: &str,
+) -> Option<bool> {
     use ir::NativeContract::{
         ContractManagement, Gas, Neo, Notary, Oracle, Policy, RoleManagement,
     };
@@ -137,7 +142,10 @@ fn native_method_is_mutating(contract: ir::NativeContract, method: &str) -> Opti
     Some(is_mutating)
 }
 
-fn native_method_has_return_value(contract: ir::NativeContract, method: &str) -> Option<bool> {
+pub(crate) fn native_method_has_return_value(
+    contract: ir::NativeContract,
+    method: &str,
+) -> Option<bool> {
     use ir::NativeContract::{
         ContractManagement, CryptoLib, Gas, Ledger, Neo, Notary, Oracle, Policy, RoleManagement,
         StdLib, Treasury,

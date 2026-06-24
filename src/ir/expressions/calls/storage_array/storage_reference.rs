@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_storage_reference_array_helpers(
     func: &Expression,
     args: &[Expression],
@@ -83,7 +85,9 @@ pub(crate) fn lower_storage_reference_push(
 
                 // Increment length.
                 instructions.push(Instruction::LoadLocal(len_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::one(),
+                )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
 
                 if !emit_storage_store(reference, ctx, instructions) {
@@ -126,7 +130,8 @@ pub(crate) fn lower_storage_reference_push(
     };
 
     if !reference.field_path.is_empty() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         instructions.push(Instruction::StoreStructArrayElement {
             state_index: reference.state_index,
             key_types: reference.key_types.clone(),
@@ -180,7 +185,9 @@ pub(crate) fn lower_storage_reference_push(
 
     // Increment length.
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
 
     if !emit_storage_store(reference, ctx, instructions) {
@@ -214,13 +221,19 @@ pub(crate) fn lower_storage_reference_pop(
 
     // Abort on empty array.
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-    instructions.push(Instruction::JumpIf { target: empty_label });
+    instructions.push(Instruction::JumpIf {
+        target: empty_label,
+    });
 
     let new_len_local = ctx.allocate_local("__array_new_len".to_string(), None);
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
     instructions.push(Instruction::StoreLocal(new_len_local));
 
@@ -243,7 +256,8 @@ pub(crate) fn lower_storage_reference_pop(
     });
 
     if !reference.field_path.is_empty() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         instructions.push(Instruction::LoadStructArrayElement {
             state_index: reference.state_index,
             key_types: reference.key_types.clone(),
@@ -279,7 +293,8 @@ pub(crate) fn lower_storage_reference_pop(
         load_expression(expr, ctx, instructions);
     }
     if !reference.field_path.is_empty() {
-        let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+        let field_keys: Vec<[u8; 32]> =
+            reference.field_path.iter().map(|field| field.key).collect();
         instructions.push(Instruction::StoreStructArrayElement {
             state_index: reference.state_index,
             key_types: reference.key_types.clone(),

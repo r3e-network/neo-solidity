@@ -1,4 +1,6 @@
-fn build_parameter_substitutions(
+use super::*;
+
+pub(crate) fn build_parameter_substitutions(
     params: &[ParameterIR],
     args: &[Expression],
 ) -> Result<std::collections::HashMap<String, Expression>, SolidityError> {

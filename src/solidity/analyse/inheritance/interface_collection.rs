@@ -1,4 +1,6 @@
-fn collect_interface_events_recursive(
+use super::*;
+
+pub(crate) fn collect_interface_events_recursive(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
     seen: &mut std::collections::HashSet<String>,
@@ -26,7 +28,7 @@ fn collect_interface_events_recursive(
     }
 }
 
-fn collect_interface_events(
+pub(crate) fn collect_interface_events(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Vec<EventIR> {
@@ -36,7 +38,7 @@ fn collect_interface_events(
     events
 }
 
-fn collect_interface_types_recursive(
+pub(crate) fn collect_interface_types_recursive(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
     seen: &mut std::collections::HashSet<String>,
@@ -65,14 +67,20 @@ fn collect_interface_types_recursive(
                 );
             }
             ContractKind::Contract | ContractKind::AbstractContract => {
-                collect_interface_types_recursive(base_contract, contract_map, seen, structs, enums);
+                collect_interface_types_recursive(
+                    base_contract,
+                    contract_map,
+                    seen,
+                    structs,
+                    enums,
+                );
             }
             _ => {}
         }
     }
 }
 
-fn collect_interface_types(
+pub(crate) fn collect_interface_types(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> (Vec<StructIR>, Vec<EnumIR>) {

@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn compile_contracts(
     source: &str,
     verbose: bool,
@@ -17,14 +19,15 @@ pub fn compile_contracts(
     )
 }
 
-
 fn apply_manifest_permissions_override(
     manifest: &mut serde_json::Value,
     metadata: &ContractMetadata,
     override_permissions: &ManifestPermissionsOverride,
 ) -> Result<(), CompileError> {
     let mut inferred = parse_manifest_permissions_from_manifest(manifest).map_err(|err| {
-        CompileError::Message(format!("Failed to parse inferred manifest permissions: {err}"))
+        CompileError::Message(format!(
+            "Failed to parse inferred manifest permissions: {err}"
+        ))
     })?;
 
     match override_permissions.mode {
@@ -183,11 +186,13 @@ fn compile_metadata(
     }
 
     ensure_deploy_stub(&mut metadata)?;
-    let has_parameterised_constructor = metadata.methods.iter().any(|m| {
-        matches!(m.kind, FunctionKind::Constructor) && !m.parameters.is_empty()
-    });
+    let has_parameterised_constructor = metadata
+        .methods
+        .iter()
+        .any(|m| matches!(m.kind, FunctionKind::Constructor) && !m.parameters.is_empty());
 
-    let (ir_module, ir_warnings) = ir::Module::from_contract_with_warnings(&metadata).map_err(CompileError::Ir)?;
+    let (ir_module, ir_warnings) =
+        ir::Module::from_contract_with_warnings(&metadata).map_err(CompileError::Ir)?;
     warnings.extend(ir_warnings);
     let ir_module = optimize_ir(ir_module, optimizer_level);
 
@@ -222,8 +227,8 @@ fn compile_metadata(
     .map_err(CompileError::Message)?;
     let mut manifest = build_manifest(&metadata, &ir_module)?;
 
-    if let Some(source_override) = load_manifest_permissions_override_from_natspec(&metadata)
-        .map_err(CompileError::Message)?
+    if let Some(source_override) =
+        load_manifest_permissions_override_from_natspec(&metadata).map_err(CompileError::Message)?
     {
         apply_manifest_permissions_override(&mut manifest, &metadata, &source_override)?;
     }
@@ -239,7 +244,8 @@ fn compile_metadata(
 
         let has_json_deserialize =
             manifest_allows_permission(&manifest, &stdlib_contract, "jsonDeserialize");
-        let has_deserialize = manifest_allows_permission(&manifest, &stdlib_contract, "deserialize");
+        let has_deserialize =
+            manifest_allows_permission(&manifest, &stdlib_contract, "deserialize");
 
         if !(has_json_deserialize && has_deserialize) {
             warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(format!(
@@ -261,7 +267,8 @@ fn compile_metadata(
             let mut wildcard_methods = false;
             let mut full_wildcard = false;
             let mut wildcard_contract_only_nep_callbacks = true;
-            const NEP_CALLBACK_METHODS: [&str; 3] = ["onNEP11Payment", "onNEP17Payment", "onOracleResponse"];
+            const NEP_CALLBACK_METHODS: [&str; 3] =
+                ["onNEP11Payment", "onNEP17Payment", "onOracleResponse"];
             for entry in permissions {
                 let contract_is_wildcard = entry["contract"] == "*";
                 let methods_is_wildcard = entry["methods"] == "*";

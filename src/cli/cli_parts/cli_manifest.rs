@@ -1,6 +1,12 @@
 use super::*;
 use std::collections::{BTreeMap, BTreeSet};
 
-include!("cli_manifest/build.rs");
-include!("cli_manifest/standards.rs");
-include!("cli_manifest/permissions.rs");
+#[path = "cli_manifest/build.rs"]
+mod build;
+pub(crate) use build::*;
+#[path = "cli_manifest/standards.rs"]
+mod standards;
+pub(crate) use standards::*;
+#[path = "cli_manifest/permissions.rs"]
+mod permissions;
+pub(crate) use permissions::*;

@@ -1,4 +1,6 @@
-fn emit_load_struct_value_from_slot(
+use super::*;
+
+pub(crate) fn emit_load_struct_value_from_slot(
     bytecode: &mut Vec<u8>,
     fields: &[ir::StructField],
     use_callt: bool,
@@ -60,7 +62,7 @@ fn emit_load_struct_value_from_slot(
     bytecode.push(0x45); // DROP
 }
 
-fn emit_store_struct_value_to_slot(
+pub(crate) fn emit_store_struct_value_to_slot(
     bytecode: &mut Vec<u8>,
     fields: &[ir::StructField],
     use_callt: bool,

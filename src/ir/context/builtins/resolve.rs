@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
     if let Expression::MemberAccess(_, inner, member) = expr {
         if let Expression::Variable(base) = inner.as_ref() {
@@ -65,8 +67,14 @@ pub(crate) fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
 
 /// The builtin-library base names the compiler lowers as intrinsics
 /// (their devpack Solidity bodies are never compiled).
-pub const BUILTIN_LIBRARY_BASES: &[&str] =
-    &["Runtime", "abi", "Storage", "Syscalls", "NativeCalls", "Neo"];
+pub const BUILTIN_LIBRARY_BASES: &[&str] = &[
+    "Runtime",
+    "abi",
+    "Storage",
+    "Syscalls",
+    "NativeCalls",
+    "Neo",
+];
 
 /// Introspection over the complete builtin intrinsic surface:
 /// `(base, supported members)` for every builtin library base.
@@ -597,16 +605,28 @@ pub(crate) fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
 /// Keeps parity with `Syscalls.sha256` / `Syscalls.ripemd160` / etc.
 pub(crate) fn resolve_cryptolib_member(member: &str) -> Option<BuiltinCall> {
     match member {
-        "sha256" | "ripemd160" | "verifyWithECDsa" | "murmur32" | "keccak256"
-        | "recoverSecp256K1" | "verifyWithEd25519" | "bls12381Serialize"
-        | "bls12381Deserialize" | "bls12381Equal" | "bls12381Add" | "bls12381Mul"
-        | "bls12381Pairing" | "bls12381G1Add" | "bls12381G1Mul" | "bls12381G2Add"
-        | "bls12381G2Mul" | "bls12381G1Neg" | "bls12381G2Neg" => {
-            Some(BuiltinCall::NativeCall {
-                contract: NativeContract::CryptoLib,
-                method: member.to_string(),
-            })
-        }
+        "sha256"
+        | "ripemd160"
+        | "verifyWithECDsa"
+        | "murmur32"
+        | "keccak256"
+        | "recoverSecp256K1"
+        | "verifyWithEd25519"
+        | "bls12381Serialize"
+        | "bls12381Deserialize"
+        | "bls12381Equal"
+        | "bls12381Add"
+        | "bls12381Mul"
+        | "bls12381Pairing"
+        | "bls12381G1Add"
+        | "bls12381G1Mul"
+        | "bls12381G2Add"
+        | "bls12381G2Mul"
+        | "bls12381G1Neg"
+        | "bls12381G2Neg" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::CryptoLib,
+            method: member.to_string(),
+        }),
         _ => None,
     }
 }

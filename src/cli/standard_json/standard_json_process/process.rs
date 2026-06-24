@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn process_standard_json(
     input_path: &str,
     output_path: Option<&str>,

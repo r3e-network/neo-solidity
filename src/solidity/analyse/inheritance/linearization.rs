@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn c3_merge(
     contract_name: &str,
     mut sequences: Vec<Vec<String>>,
@@ -13,7 +15,9 @@ pub(crate) fn c3_merge(
         let mut candidate: Option<String> = None;
         for seq in &sequences {
             let head = &seq[0];
-            let is_in_tail = sequences.iter().any(|other| other.iter().skip(1).any(|v| v == head));
+            let is_in_tail = sequences
+                .iter()
+                .any(|other| other.iter().skip(1).any(|v| v == head));
             if !is_in_tail {
                 candidate = Some(head.clone());
                 break;

@@ -1,4 +1,6 @@
-fn apply_base_constructors_and_modifiers(
+use super::*;
+
+pub(crate) fn apply_base_constructors_and_modifiers(
     contract: &ContractIR,
     constructor: &FunctionIR,
     modifier_defs: &std::collections::HashMap<(String, usize), FunctionIR>,
@@ -22,7 +24,10 @@ fn apply_base_constructors_and_modifiers(
         base.args.clone().unwrap_or_default()
     }
 
-    fn find_base_args_in_invocations(invocations: &[Base], base_name: &str) -> Option<Vec<Expression>> {
+    fn find_base_args_in_invocations(
+        invocations: &[Base],
+        base_name: &str,
+    ) -> Option<Vec<Expression>> {
         invocations
             .iter()
             .find(|b| base_last_name(b).as_deref() == Some(base_name))
@@ -51,7 +56,8 @@ fn apply_base_constructors_and_modifiers(
         contract_map: &std::collections::HashMap<String, ContractIR>,
     ) -> Result<Vec<Expression>, SolidityError> {
         // 1) Explicit base invocation in the most-derived constructor.
-        if let Some(args) = find_base_args_in_invocations(&constructor.base_or_modifiers, base_name) {
+        if let Some(args) = find_base_args_in_invocations(&constructor.base_or_modifiers, base_name)
+        {
             return Ok(args);
         }
         // 2) Base arguments on the most-derived contract inheritance specifier.
@@ -95,8 +101,10 @@ fn apply_base_constructors_and_modifiers(
                         )?;
 
                         if child_ctor_args.len() == child_ctor.parameters.len() {
-                            let substitutions =
-                                build_parameter_substitutions(&child_ctor.parameters, &child_ctor_args)?;
+                            let substitutions = build_parameter_substitutions(
+                                &child_ctor.parameters,
+                                &child_ctor_args,
+                            )?;
                             args.iter()
                                 .map(|expr| rewrite_expression(expr, &substitutions))
                                 .collect()
@@ -124,8 +132,10 @@ fn apply_base_constructors_and_modifiers(
                         )?;
 
                         if child_ctor_args.len() == child_ctor.parameters.len() {
-                            let substitutions =
-                                build_parameter_substitutions(&child_ctor.parameters, &child_ctor_args)?;
+                            let substitutions = build_parameter_substitutions(
+                                &child_ctor.parameters,
+                                &child_ctor_args,
+                            )?;
                             args.iter()
                                 .map(|expr| rewrite_expression(expr, &substitutions))
                                 .collect()
@@ -254,7 +264,9 @@ fn apply_base_constructors_and_modifiers(
     let wrapped = apply_modifier_calls_to_body(body, &constructor_modifiers, modifier_defs)?;
     let mut statements = prologue;
     match wrapped {
-        Statement::Block { statements: inner, .. } => statements.extend(inner),
+        Statement::Block {
+            statements: inner, ..
+        } => statements.extend(inner),
         other => statements.push(other),
     }
 

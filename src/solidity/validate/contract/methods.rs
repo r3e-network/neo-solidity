@@ -1,6 +1,9 @@
 use super::*;
 
-pub(crate) fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) -> usize {
+pub(crate) fn validate_methods(
+    metadata: &ContractMetadata,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> usize {
     use std::collections::{HashMap, HashSet};
 
     let mut signatures = HashSet::new();
@@ -18,7 +21,10 @@ pub(crate) fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Ve
         .map(|s| {
             (
                 s.name.clone(),
-                s.fields.iter().map(|f| (f.name.clone(), f.ty.clone())).collect(),
+                s.fields
+                    .iter()
+                    .map(|f| (f.name.clone(), f.ty.clone()))
+                    .collect(),
             )
         })
         .collect();
@@ -137,9 +143,7 @@ pub(crate) fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Ve
                 fn is_invalid_mapping_key(ty: &NeoType) -> bool {
                     matches!(
                         ty,
-                        NeoType::Array(..)
-                            | NeoType::Struct { .. }
-                            | NeoType::Mapping { .. }
+                        NeoType::Array(..) | NeoType::Struct { .. } | NeoType::Mapping { .. }
                     )
                 }
                 if is_invalid_mapping_key(key) {
@@ -221,9 +225,7 @@ pub(crate) fn validate_methods(metadata: &ContractMetadata, diagnostics: &mut Ve
                          provide a body or mark the contract as 'abstract contract {}'",
                         function.name, metadata.name
                     ))
-                    .with_suggestion(
-                        "add a function body, or declare the contract as abstract"
-                    )
+                    .with_suggestion("add a function body, or declare the contract as abstract")
                     .with_code("MISSING_IMPLEMENTATION_RETURN"),
                 );
             }

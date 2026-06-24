@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_load_struct_field(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn rewrite_statement(
     stmt: &Statement,
     subs: &std::collections::HashMap<String, Expression>,

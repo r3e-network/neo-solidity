@@ -318,7 +318,7 @@ pub(crate) fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     bytecode.push(0x8C); // SUBSTR → mod (consumes payload)
     bytecode.push(0xDB); // CONVERT
     bytecode.push(0x21); // to Integer
-    // Stack: [base, exp, mod]
+                         // Stack: [base, exp, mod]
 
     bytecode.push(0xA6); // MODPOW → [result_int]
 
@@ -334,7 +334,7 @@ pub(crate) fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     push_data(bytecode, &[0u8; 32]);
     bytecode.push(0x50); // SWAP → [zeros32, result_bytes]
     bytecode.push(0x8B); // CAT → zeros32 || result_bytes  (32 or 33 bytes)
-    // Right-align: take the LAST 32 bytes so the result sits in byte 31.
+                         // Right-align: take the LAST 32 bytes so the result sits in byte 31.
     bytecode.push(0x4A); // DUP
     bytecode.push(0xCA); // SIZE → len
     push_integer_bigint(bytecode, &BigInt::from(32u8));

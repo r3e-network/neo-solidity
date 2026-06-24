@@ -77,9 +77,7 @@ pub(crate) fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Ve
                         metadata.name, method.name,
                     ))
                     .with_code("W120")
-                    .with_suggestion(
-                        "use `internal` or `pure` visibility for library functions",
-                    ),
+                    .with_suggestion("use `internal` or `pure` visibility for library functions"),
                 );
             }
             _ => {}

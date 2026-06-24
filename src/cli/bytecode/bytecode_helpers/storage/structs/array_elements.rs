@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_load_struct_array_element(
     bytecode: &mut Vec<u8>,
     module: &ir::Module,
@@ -67,7 +69,12 @@ pub(crate) fn emit_load_struct_array_element(
 
                 match &field.ty {
                     ValueType::Struct { fields, .. } => {
-                        emit_load_struct_value_from_slot(bytecode, fields, use_callt, token_patches);
+                        emit_load_struct_value_from_slot(
+                            bytecode,
+                            fields,
+                            use_callt,
+                            token_patches,
+                        );
                     }
                     _ => {
                         emit_syscall(bytecode, "System.Storage.GetContext");
@@ -164,12 +171,7 @@ pub(crate) fn emit_store_struct_array_element(
 
                 match &field.ty {
                     ValueType::Struct { fields, .. } => {
-                        emit_store_struct_value_to_slot(
-                            bytecode,
-                            fields,
-                            use_callt,
-                            token_patches,
-                        );
+                        emit_store_struct_value_to_slot(bytecode, fields, use_callt, token_patches);
                     }
                     ValueType::Array(_) => {
                         // Task #182 — a dynamic-array field inside a struct-array
@@ -192,11 +194,7 @@ pub(crate) fn emit_store_struct_array_element(
                         // Instead, iterate the Array, writing each element at
                         // its derived per-element slot, then write the length
                         // at `field_slot`.
-                        emit_store_array_field_deep_copy(
-                            bytecode,
-                            use_callt,
-                            token_patches,
-                        );
+                        emit_store_array_field_deep_copy(bytecode, use_callt, token_patches);
                     }
                     _ => {
                         // Store `field_value` into `field_slot`.
@@ -274,7 +272,7 @@ fn emit_store_array_field_deep_copy(
         use_callt,
         token_patches,
     ); // -> [..., slot, array, current, current_bytes]
-    // slot is at depth 3 (top=current_bytes, d1=current, d2=array, d3=slot).
+       // slot is at depth 3 (top=current_bytes, d1=current, d2=array, d3=slot).
     bytecode.push(0x13); // PUSH3
     bytecode.push(0x4D); // PICK -> [..., slot, array, current, current_bytes, slot]
     bytecode.push(0x8B); // CAT -> [..., slot, array, current, (current_bytes||slot)]
@@ -291,7 +289,7 @@ fn emit_store_array_field_deep_copy(
     // After element_slot push: top=element_slot, d1=current, d2=array.
     bytecode.push(0x12); // PUSH2
     bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array]
-    // Now top=array, d1=element_slot, d2=current.
+                         // Now top=array, d1=element_slot, d2=current.
     bytecode.push(0x12); // PUSH2
     bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array, current]
     bytecode.push(0xCE); // PICKITEM -> [..., slot, array, current, element_slot, array[current]]
@@ -322,10 +320,10 @@ fn emit_store_array_field_deep_copy(
     // Stack at exit: [..., slot, array, 0] (i == 0).
     bytecode.push(0x45); // DROP -> [..., slot, array]
     bytecode.push(0xCA); // SIZE -> [..., slot, length]
-    // Store length as the Array "base" value so that the read path's
-    // `emit_coerce_storage_value` ValueType::Array arm (which coerces to
-    // Integer) observes the correct `.length`. Put expects
-    // [value, key, context].
+                         // Store length as the Array "base" value so that the read path's
+                         // `emit_coerce_storage_value` ValueType::Array arm (which coerces to
+                         // Integer) observes the correct `.length`. Put expects
+                         // [value, key, context].
     bytecode.push(0x50); // SWAP -> [..., length, slot]
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");

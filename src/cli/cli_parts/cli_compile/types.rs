@@ -1,19 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ManifestPermissionsMode {
+pub(crate) enum ManifestPermissionsMode {
     Merge,
     ReplaceWildcards,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum ManifestPermissionMethods {
+pub(crate) enum ManifestPermissionMethods {
     All,
     Some(BTreeSet<String>),
 }
 
 impl ManifestPermissionMethods {
-    fn merge_in(&mut self, other: ManifestPermissionMethods) {
+    pub(crate) fn merge_in(&mut self, other: ManifestPermissionMethods) {
         match (self, other) {
             (ManifestPermissionMethods::All, _) => {}
             (this, ManifestPermissionMethods::All) => {
@@ -25,17 +25,17 @@ impl ManifestPermissionMethods {
         }
     }
 
-    fn is_wildcard(&self) -> bool {
+    pub(crate) fn is_wildcard(&self) -> bool {
         matches!(self, ManifestPermissionMethods::All)
     }
 }
 
-type ManifestPermissionMap = BTreeMap<String, ManifestPermissionMethods>;
+pub(crate) type ManifestPermissionMap = BTreeMap<String, ManifestPermissionMethods>;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ManifestPermissionsOverride {
-    mode: ManifestPermissionsMode,
-    permissions: ManifestPermissionMap,
+    pub(crate) mode: ManifestPermissionsMode,
+    pub(crate) permissions: ManifestPermissionMap,
 }
 
 #[derive(Clone, Debug)]

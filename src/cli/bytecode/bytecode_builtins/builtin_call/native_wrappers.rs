@@ -94,8 +94,8 @@ pub(crate) fn emit_get_contract(
 
     bytecode.push(0x14); // PUSH4
     bytecode.push(0xC0); // PACK
-    // PACK reverses stack order; restore the field order expected by the devpack helper:
-    // [hash, nef, manifestBytes, updateCounter]
+                         // PACK reverses stack order; restore the field order expected by the devpack helper:
+                         // [hash, nef, manifestBytes, updateCounter]
     bytecode.push(0x4A); // DUP
     bytecode.push(0xD1); // REVERSEITEMS
 }
@@ -154,7 +154,7 @@ pub(crate) fn emit_get_neo_account_state(
     bytecode.push(0x10); // PUSH0 (lastGasPerVote)
     bytecode.push(0x14); // PUSH4
     bytecode.push(0xC0); // PACK
-    // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
+                         // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
     bytecode.push(0x4A); // DUP
     bytecode.push(0xD1); // REVERSEITEMS
 

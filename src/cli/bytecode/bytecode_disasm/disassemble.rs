@@ -1,3 +1,5 @@
+use super::*;
+
 /// Disassemble NeoVM bytecode into a human-readable textual listing.
 ///
 /// This function is total: any byte sequence (including malformed or

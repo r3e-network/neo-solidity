@@ -1,16 +1,26 @@
-#[path = "builtin_call/runtime.rs"] mod runtime;
+use super::*;
+
+#[path = "builtin_call/runtime.rs"]
+mod runtime;
 pub(crate) use runtime::*;
-#[path = "builtin_call/crypto.rs"] mod crypto;
+#[path = "builtin_call/crypto.rs"]
+mod crypto;
 pub(crate) use crypto::*;
-#[path = "builtin_call/storage.rs"] mod storage;
+#[path = "builtin_call/storage.rs"]
+mod storage;
 pub(crate) use storage::*;
-#[path = "builtin_call/abi.rs"] mod abi;
+#[path = "builtin_call/abi.rs"]
+mod abi;
 pub(crate) use abi::*;
-#[path = "builtin_call/contract_calls.rs"] mod contract_calls;
+#[path = "builtin_call/contract_calls.rs"]
+mod contract_calls;
 pub(crate) use contract_calls::*;
-#[path = "builtin_call/native_wrappers.rs"] mod native_wrappers;
+#[path = "builtin_call/native_wrappers.rs"]
+mod native_wrappers;
 pub(crate) use native_wrappers::*;
-#[path = "builtin_call/syscall.rs"] mod syscall;
+#[path = "builtin_call/syscall.rs"]
+mod syscall;
 pub(crate) use syscall::*;
-#[path = "builtin_call/emit.rs"] mod emit;
+#[path = "builtin_call/emit.rs"]
+mod emit;
 pub(crate) use emit::*;

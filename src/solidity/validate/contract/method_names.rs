@@ -1,6 +1,8 @@
 use super::*;
 
-pub(crate) fn build_method_name_counts(metadata: &ContractMetadata) -> std::collections::HashMap<String, usize> {
+pub(crate) fn build_method_name_counts(
+    metadata: &ContractMetadata,
+) -> std::collections::HashMap<String, usize> {
     use std::collections::HashMap;
 
     // Track method names to detect conflicts with public state variable getters.
