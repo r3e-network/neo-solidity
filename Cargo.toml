@@ -21,6 +21,13 @@ readme = "README.md"
 [features]
 default = ["runtime"]
 runtime = ["dep:bls12_381", "dep:group", "dep:p256", "dep:dashmap"]
+# Real-node differential harness (`tests/neoxp_differential.rs`). Requires the
+# .NET SDK + Neo-Express plus a pre-built `neo-solc`; the tests are also
+# `#[ignore]`. Runs only via the dedicated `neoxp-diff` CI job:
+#   cargo test --features neoxp-diff -- --ignored
+# Depends on the `runtime` feature (default-on) for the in-tree simulator; it
+# is NOT implied here so `--no-default-features` stays a lean-binary gate.
+neoxp-diff = []
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
@@ -66,10 +73,6 @@ group = { version = "0.13", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-# Sign secp256r1 (P-256) test vectors to validate the runtime's
-# CryptoLib.verifyWithECDsa handler against genuine ECDSA signatures.
-# See tests/runtime_verify_ecdsa_tests.rs.
-p256 = { version = "0.13", features = ["ecdsa"] }
 proptest = "1.0"
 quickcheck = "1.0"
 tempfile = "3.0"

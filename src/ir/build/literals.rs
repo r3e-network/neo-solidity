@@ -312,7 +312,11 @@ pub(crate) fn has_ether_unit(expr: &Expression) -> bool {
 pub(crate) const MAX_DECIMAL_EXPONENT: u32 = 1024;
 
 pub(crate) fn pow10(exp: u32) -> BigInt {
-    try_pow10(exp).expect("pow10 caller must validate exponent ≤ MAX_DECIMAL_EXPONENT")
+    // Infallible variant: every call site passes a hardcoded ether-unit
+    // exponent (9, 12, 15, 18), far below MAX_DECIMAL_EXPONENT, so
+    // `try_pow10` cannot return None here. User-controlled exponents must
+    // go through `try_pow10` instead. Safe under `panic = "abort"`.
+    try_pow10(exp).expect("pow10 caller must pass a hardcoded exponent ≤ MAX_DECIMAL_EXPONENT")
 }
 
 /// Fallible variant of `pow10` for call sites that parse user-controlled

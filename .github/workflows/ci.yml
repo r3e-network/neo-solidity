@@ -174,3 +174,52 @@ jobs:
             bash "examples/test_neoxp_${t}.sh"
             echo "::endgroup::"
           done
+
+  # ==========================================================================
+  # Neo-Express differential harness — runs the compiled DiffTest contract in
+  # BOTH the in-tree simulator AND a real Neo-Express node, then diffs the
+  # integer results for opcodes NOT covered by the smoke suite (POW, XOR, SHL,
+  # nested MOD, complex bitwise, DIV). Closes audit gap #1
+  # (AUDIT_REPORT_v0.21.md §5): the only oracle that proves compiler-emitted
+  # bytecode agrees with a real Neo N3 node, not just the embedded simulator.
+  #
+  # The test lives in tests/neoxp_differential.rs, is gated behind
+  # `#![cfg(feature = "neoxp-diff")]`, and every case is `#[ignore]`, so it is
+  # compiled (not run) by the default/all-features jobs and only executed here.
+  # ==========================================================================
+  neoxp-diff:
+    name: Neo-Express Differential
+    needs: daily-gate
+    if: needs.daily-gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-neoxpdiff-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-neoxpdiff-
+      - name: Build neo-solc (release)
+        run: cargo build --release --bin neo-solc
+      - name: Install .NET SDK (for Neo-Express)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Neo-Express + jq
+        run: |
+          dotnet tool install Neo.Express --tool-path "$PWD/build/dotnet-tools"
+          echo "$PWD/build/dotnet-tools" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq xxd
+      - name: Pin neo-solc binary for the differential harness
+        run: echo "NEO_SOLC=$PWD/target/release/neo-solc" >> "$GITHUB_ENV"
+      - name: Run neoxp differential tests
+        run: cargo test --features neoxp-diff -- --ignored

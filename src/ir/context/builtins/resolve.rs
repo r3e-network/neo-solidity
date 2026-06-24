@@ -95,6 +95,10 @@ pub fn builtin_intrinsic_surface() -> Vec<(&'static str, &'static [&'static str]
             (
                 *base,
                 builtin_library_supported_members(base)
+                    // Invariant: `base` iterates the hardcoded
+                    // BUILTIN_LIBRARY_BASES table, every entry of which has a
+                    // matching arm, so this cannot be None. Safe under
+                    // `panic = "abort"`.
                     .expect("every builtin library base has a member whitelist"),
             )
         })

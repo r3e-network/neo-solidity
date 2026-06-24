@@ -266,16 +266,29 @@ pub(crate) fn lower_yul_block(
             init.push(Instruction::StoreLocal(mem_local));
         }
         if needs_transient_init {
-            let transient_local = state
-                .transient_local
-                .expect("transient_allocated_here ⇒ transient_local populated");
+            // `transient_allocated_here ⇒ transient_local` is a compiler
+            // invariant (`ensure_transient` sets both together). Under
+            // `panic = "abort"` a future refactor that broke the pairing
+            // would abort the process instantly; degrade to a diagnostic
+            // and roll back this block instead.
+            let Some(transient_local) = state.transient_local else {
+                ctx.record_error(
+                    "internal: transient_allocated_here set but transient_local was not populated",
+                );
+                instructions.truncate(snapshot);
+                return false;
+            };
             init.push(Instruction::NewMap);
             init.push(Instruction::StoreLocal(transient_local));
         }
         if needs_returndata_init {
-            let rd_local = state
-                .returndata_local
-                .expect("returndata_allocated_here ⇒ returndata_local populated");
+            let Some(rd_local) = state.returndata_local else {
+                ctx.record_error(
+                    "internal: returndata_allocated_here set but returndata_local was not populated",
+                );
+                instructions.truncate(snapshot);
+                return false;
+            };
             // Task #184 — seed with an empty ByteString so `GetSize` returns 0
             // and `returndatacopy(_, _, 0)` is a no-op. `NewBuffer(0)` would
             // emit a zero-length Buffer which also reports Size 0, but the
@@ -860,6 +873,9 @@ pub(crate) fn lower_yul_function_call_as_expression(
                 "add" => BinaryOperator::Add,
                 "sub" => BinaryOperator::Sub,
                 "mul" => BinaryOperator::Mul,
+                // Unreachable: the enclosing match arm restricts `name` to
+                // "add"|"sub"|"mul". The arm exists only because Rust cannot
+                // prove &str exhaustiveness.
                 _ => unreachable!(),
             };
             instructions.push(Instruction::BinaryOp(op));
@@ -920,6 +936,9 @@ pub(crate) fn lower_yul_function_call_as_expression(
                 "and" => BinaryOperator::BitAnd,
                 "or" => BinaryOperator::BitOr,
                 "xor" => BinaryOperator::BitXor,
+                // Unreachable: the enclosing match arm restricts `name` to
+                // "and"|"or"|"xor". The arm exists only because Rust cannot
+                // prove &str exhaustiveness.
                 _ => unreachable!(),
             };
             instructions.push(Instruction::BinaryOp(op));

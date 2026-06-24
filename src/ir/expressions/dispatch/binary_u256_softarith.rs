@@ -252,7 +252,18 @@ pub(crate) fn emit_u256_checked_arith(
             instructions.push(Instruction::Label(no_overflow));
             emit_u256_mul_build_result_ir(instructions, &s);
         }
-        _ => unreachable!("emit_u256_checked_arith only handles Add/Sub/Mul"),
+        _ => {
+            // Only Add/Sub/Mul are supported. The sole caller
+            // (`emit_checked_arith_guard`) filters the operator with
+            // `matches!(Add|Sub|Mul)`, so this arm is unreachable today.
+            // Under `panic = "abort"` a future caller that skipped that
+            // guard would abort the process; degrade to a diagnostic
+            // instead of crashing. The operand stack is left unchanged;
+            // the recorded error stops this compilation.
+            ctx.record_error(format!(
+                "internal: emit_u256_checked_arith only handles Add/Sub/Mul, got {operator:?}"
+            ));
+        }
     }
 }
 

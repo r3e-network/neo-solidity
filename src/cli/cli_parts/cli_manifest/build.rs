@@ -177,6 +177,9 @@ pub(crate) fn manifest_abi_method_name_fn<'a>(
         if neo_names.len() > 1 {
             let primary = neo_names
                 .into_iter()
+                // Invariant: this branch is only entered when
+                // `neo_names.len() > 1`, so the iterator is non-empty and
+                // `min()` always yields Some. Safe under `panic = "abort"`.
                 .min()
                 .expect("collision group is non-empty");
             same_arity_primary.insert(key, primary);
