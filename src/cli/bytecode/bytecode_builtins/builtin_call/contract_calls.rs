@@ -1,4 +1,6 @@
-fn emit_contract_call(
+use super::*;
+
+pub(crate) fn emit_contract_call(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -24,7 +26,7 @@ fn emit_contract_call(
     emit_serialize_single_return(bytecode, use_callt, token_patches);
 }
 
-fn emit_contract_call_with_flags(
+pub(crate) fn emit_contract_call_with_flags(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -49,7 +51,7 @@ fn emit_contract_call_with_flags(
 /// returndata. Null still maps to empty bytes; non-null values use real
 /// StdLib.serialize so emitted NEFs do not depend on pseudo-native ABI helper
 /// methods that are absent from Neo N3.
-fn emit_serialize_single_return(
+pub(crate) fn emit_serialize_single_return(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,

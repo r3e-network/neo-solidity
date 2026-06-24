@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #112 — left-align a bytesN value (ByteArray of length N where
 /// 1 ≤ N < 32) into a 32-byte buffer. The expected stack shape on entry is
 /// `[.., src_bytes]`; on exit it is `[.., dst_bytes32]`.
@@ -6,7 +8,11 @@
 /// into `dst[0..N]`, then re-push the destination and canonicalise as
 /// ByteArray. The tail 32-N bytes remain zero-padded — matching
 /// `abi.encode(bytesN)`'s spec (left-aligned content, zero-padded on the right).
-pub(crate) fn emit_pad_bytesn_to_32(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>, n: usize) {
+pub(crate) fn emit_pad_bytesn_to_32(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    n: usize,
+) {
     let tmp_id = ctx.next_label();
     let src_local = ctx.allocate_local(format!("__bytesn_pad_src_{tmp_id}"), None);
     let dst_local = ctx.allocate_local(format!("__bytesn_pad_dst_{tmp_id}"), None);

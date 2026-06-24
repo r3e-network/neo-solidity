@@ -1,3 +1,5 @@
+use super::*;
+
 /// Lower a Solidity `emit Event(arg1, arg2, ...)` expression.
 ///
 /// Two emission shapes exist, selected per event declaration:
@@ -70,7 +72,11 @@
 ///     inherited-event resolution lost the declaration), or
 ///   * the emit's argument count differs from the declaration, or
 ///   * an argument expression cannot be lowered.
-pub(crate) fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn lower_emit(
+    expr: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
     let Expression::FunctionCall(_, func, args) = expr else {
         return;
     };
@@ -187,7 +193,10 @@ pub(crate) fn lower_emit_native_transfer(
 /// zero-literal would silently miss Buffer-shaped zero addresses on real
 /// nodes. CONVERT-to-Integer handles ByteString, Buffer, Integer and
 /// Boolean uniformly (any all-zero encoding => 0).
-pub(crate) fn emit_zero_address_to_null(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_zero_address_to_null(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
     let end_label = ctx.next_label();
 
     // [addr] -> [addr, addr] -> [addr, addr_as_int] -> [addr, is_zero]
@@ -195,7 +204,9 @@ pub(crate) fn emit_zero_address_to_null(ctx: &mut LoweringContext, instructions:
     instructions.push(Instruction::Convert {
         target: ConvertTarget::Integer,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
     // IR `JumpIf` lowers to NeoVM JMPIFNOT_L: it branches when the
     // condition is FALSE — i.e. skip the Null substitution for any
@@ -278,8 +289,7 @@ pub(crate) fn lower_emit_evm_shape(
     let mut success = true;
     for (arg, info) in indexed.iter().zip(indexed_params.iter()) {
         if info.is_dynamic {
-            let is_bytes_like =
-                info.canonical_type == "string" || info.canonical_type == "bytes";
+            let is_bytes_like = info.canonical_type == "string" || info.canonical_type == "bytes";
             if is_bytes_like {
                 // `string`/`bytes`: the runtime value IS the byte payload, so
                 // keccak256(value) == keccak256(abi.encodePacked(value)) — the
@@ -363,7 +373,9 @@ pub(crate) fn lower_emit_evm_shape(
     // keep only the canonical result.
     if success {
         if non_indexed.is_empty() {
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            instructions.push(Instruction::PushLiteral(
+                LiteralValue::ByteArray(Vec::new()),
+            ));
         } else {
             let pre_data = instructions.len();
             let refs: Vec<&Expression> = non_indexed.clone();

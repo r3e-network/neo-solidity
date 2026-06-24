@@ -1,7 +1,9 @@
+use super::*;
+
 /// Stack budget for the compiler driver thread spawned by [`run`]. Keep in
 /// sync with `PARSE_THREAD_STACK_BYTES` in
 /// src/frontend/frontend_guarded_parse.rs so every stage shares one ceiling.
-const DRIVER_THREAD_STACK_BYTES: usize = 256 * 1024 * 1024;
+pub(crate) const DRIVER_THREAD_STACK_BYTES: usize = 256 * 1024 * 1024;
 
 pub fn run() {
     // The Solidity AST is deeply recursive. Parsing is guarded by
@@ -31,7 +33,7 @@ pub fn run() {
     }
 }
 
-fn run_driver() {
+pub(crate) fn run_driver() {
     let matches = build_matches();
 
     if try_run_standard_json(&matches) {

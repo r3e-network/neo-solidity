@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_variable_expression(
     identifier: &Identifier,
     ctx: &mut LoweringContext,
@@ -11,7 +13,9 @@ pub(crate) fn lower_variable_expression(
         return true;
     }
     if identifier.name == "block" || identifier.name == "msg" {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         return true;
     }
     if identifier.name == "super" {
@@ -22,7 +26,9 @@ pub(crate) fn lower_variable_expression(
             "the 'super' keyword can only be used in member-call expressions (super.method())",
             "use super.methodName() to call a parent contract's function, or inline the parent logic directly",
         );
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         return false;
     }
     if let Some(alias) = ctx.storage_alias(&identifier.name).cloned() {
@@ -80,7 +86,10 @@ pub(crate) fn lower_variable_expression(
         // member expressions (e.g. `Enum.Operation.Call`). As a bare value they
         // are not runtime variables; emit a neutral placeholder instead of a
         // hard unknown-identifier error.
-        instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![0u8; 20])));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+            0u8;
+            20
+        ])));
         true
     } else if ctx.function_names.contains(&identifier.name) {
         // Task #186 — a bare reference to an internal function name in value
@@ -110,7 +119,9 @@ pub(crate) fn lower_variable_expression(
     } else {
         // Compatibility fallback for unresolved constants/symbols from foreign
         // environments (e.g., chain-specific helper contracts).
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         true
     }
 }

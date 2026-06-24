@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn validate_runtime_notify_call(args: &[Expression], ctx: &mut LoweringContext) {
     if args.len() != 2 {
         return;
@@ -108,4 +110,3 @@ pub(crate) fn flat_slot_count_for_param_type(ty: &ValueType) -> usize {
         _ => 1,
     }
 }
-

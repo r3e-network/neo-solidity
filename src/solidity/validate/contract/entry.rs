@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -6,8 +8,10 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
 
     if constructor_count > 1 {
         diagnostics.push(
-            Diagnostic::error(format!("multiple constructors defined ({constructor_count} total)"))
-                .with_code("MULTIPLE_CONSTRUCTORS"),
+            Diagnostic::error(format!(
+                "multiple constructors defined ({constructor_count} total)"
+            ))
+            .with_code("MULTIPLE_CONSTRUCTORS"),
         );
     }
 
@@ -39,10 +43,7 @@ fn validate_abstract_contract(metadata: &ContractMetadata, diagnostics: &mut Vec
     let unimplemented: Vec<&str> = metadata
         .methods
         .iter()
-        .filter(|m| {
-            matches!(m.kind, FunctionKind::Regular)
-                && m.body.is_none()
-        })
+        .filter(|m| matches!(m.kind, FunctionKind::Regular) && m.body.is_none())
         .map(|m| m.name.as_str())
         .collect();
 
@@ -65,7 +66,7 @@ fn validate_abstract_contract(metadata: &ContractMetadata, diagnostics: &mut Vec
                 unimplemented.join(", "),
             ))
             .with_suggestion(
-                "derived contracts must implement these functions or also be declared abstract"
+                "derived contracts must implement these functions or also be declared abstract",
             ),
         );
     } else {

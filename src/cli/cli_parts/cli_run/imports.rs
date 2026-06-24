@@ -1,3 +1,5 @@
+use super::*;
+
 use solang_parser::pt::{Import, ImportPath, SourceUnitPart};
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -21,7 +23,7 @@ pub(crate) struct ImportRemapping {
 }
 
 #[allow(dead_code)] // used by the test suite under #[cfg(test)]; kept as a
-// thin wrapper so callers without remappings have a stable, ergonomic name.
+                    // thin wrapper so callers without remappings have a stable, ergonomic name.
 pub(crate) fn resolve_solidity_sources_with_imports(
     entry_file: &Path,
     include_paths: &[PathBuf],
@@ -260,8 +262,7 @@ pub(crate) fn resolve_solidity_sources_with_options(
         // packages are hoisted up to the parent `node_modules/`. Falling
         // through to `@openzeppelin/contracts-4.8.3/...` (a top-level
         // include-path candidate) recovers the hoisted layout.
-        let mut alias_sources: Vec<String> =
-            import_aliases(&working_import).into_iter().collect();
+        let mut alias_sources: Vec<String> = import_aliases(&working_import).into_iter().collect();
         if matched_remapping.is_some() {
             for alias in import_aliases(import_path) {
                 if !alias_sources.contains(&alias) {
@@ -276,8 +277,8 @@ pub(crate) fn resolve_solidity_sources_with_options(
                 continue;
             }
 
-            let is_relative_import = candidate_import.starts_with("./")
-                || candidate_import.starts_with("../");
+            let is_relative_import =
+                candidate_import.starts_with("./") || candidate_import.starts_with("../");
 
             if is_relative_import {
                 // Standard relative-import resolution: resolve against the
@@ -409,7 +410,7 @@ pub(crate) fn resolve_solidity_sources_with_options(
 /// relative import resolution: a relative `./Foo.sol` from a vendored copy of
 /// `@openzeppelin/contracts/utils/Bar.sol` can be re-rooted under an installed
 /// `node_modules/@openzeppelin/contracts/utils/Foo.sol`.
-fn virtual_dir_under(from_dir: &Path, root: &Path) -> Option<PathBuf> {
+pub(crate) fn virtual_dir_under(from_dir: &Path, root: &Path) -> Option<PathBuf> {
     let canonical_from = from_dir.canonicalize().ok()?;
     let canonical_root = root.canonicalize().ok()?;
     canonical_from
@@ -423,7 +424,7 @@ fn virtual_dir_under(from_dir: &Path, root: &Path) -> Option<PathBuf> {
 /// filesystem root or after a small bounded number of steps so we never scan
 /// the whole machine. This mirrors solc / hardhat / foundry's
 /// "search-up-for-node_modules" behaviour for npm-style imports.
-fn extend_with_auto_node_modules(start: &Path, out: &mut Vec<PathBuf>) {
+pub(crate) fn extend_with_auto_node_modules(start: &Path, out: &mut Vec<PathBuf>) {
     // Bound the climb to a sensible depth so degenerate paths (`/a/b/c/...`
     // with hundreds of components) can't make us stat the filesystem
     // forever. Real-world Solidity projects sit a few directories deep.
@@ -462,7 +463,7 @@ fn extend_with_auto_node_modules(start: &Path, out: &mut Vec<PathBuf>) {
 /// `permit2/=lib/v4-core/lib/permit2/...` mapping inside the published
 /// package, so `import "permit2/src/..."` from a vendored v4-periphery
 /// contract only resolves once that file is loaded.
-fn extend_with_auto_remappings(start: &Path, out: &mut Vec<ImportRemapping>) {
+pub(crate) fn extend_with_auto_remappings(start: &Path, out: &mut Vec<ImportRemapping>) {
     const MAX_CLIMB: usize = 16;
     let initial = if start.is_file() {
         start.parent().map(Path::to_path_buf)
@@ -474,11 +475,7 @@ fn extend_with_auto_remappings(start: &Path, out: &mut Vec<ImportRemapping>) {
     };
     let mut seen: HashSet<PathBuf> = HashSet::new();
 
-    fn try_load(
-        dir: &Path,
-        out: &mut Vec<ImportRemapping>,
-        seen: &mut HashSet<PathBuf>,
-    ) {
+    fn try_load(dir: &Path, out: &mut Vec<ImportRemapping>, seen: &mut HashSet<PathBuf>) {
         let candidate = dir.join("remappings.txt");
         if candidate.is_file() && seen.insert(candidate.clone()) {
             if let Ok(loaded) = load_remappings_file(&candidate) {
@@ -529,15 +526,12 @@ fn extend_with_auto_remappings(start: &Path, out: &mut Vec<ImportRemapping>) {
 /// Uniswap V4 / forge-installed contract). Bounded by the on-disk fanout —
 /// most packages don't ship one, so this is effectively one `metadata()` per
 /// published package.
-fn scan_node_modules_for_remappings(
+pub(crate) fn scan_node_modules_for_remappings(
     node_modules: &Path,
     out: &mut Vec<ImportRemapping>,
     seen: &mut HashSet<PathBuf>,
 ) {
-    fn auto_register_foundry_lib(
-        pkg_dir: &Path,
-        out: &mut Vec<ImportRemapping>,
-    ) {
+    fn auto_register_foundry_lib(pkg_dir: &Path, out: &mut Vec<ImportRemapping>) {
         let lib_dir = pkg_dir.join("lib");
         let Ok(lib_entries) = std::fs::read_dir(&lib_dir) else {
             return;
@@ -566,11 +560,7 @@ fn scan_node_modules_for_remappings(
             }
         }
     }
-    fn try_load(
-        dir: &Path,
-        out: &mut Vec<ImportRemapping>,
-        seen: &mut HashSet<PathBuf>,
-    ) {
+    fn try_load(dir: &Path, out: &mut Vec<ImportRemapping>, seen: &mut HashSet<PathBuf>) {
         let candidate = dir.join("remappings.txt");
         if candidate.is_file() && seen.insert(candidate.clone()) {
             if let Ok(loaded) = load_remappings_file(&candidate) {
@@ -622,11 +612,15 @@ fn scan_node_modules_for_remappings(
 ///      version is installed).
 ///
 /// Returns an empty `Vec` when the path doesn't carry an inline pin.
-fn version_pin_aliases(import_path: &str) -> Vec<String> {
+pub(crate) fn version_pin_aliases(import_path: &str) -> Vec<String> {
     let head_and_tail = import_path.splitn(2, '/');
     let mut iter = head_and_tail;
-    let Some(head) = iter.next() else { return Vec::new() };
-    let Some(tail) = iter.next() else { return Vec::new() };
+    let Some(head) = iter.next() else {
+        return Vec::new();
+    };
+    let Some(tail) = iter.next() else {
+        return Vec::new();
+    };
     let (scope_prefix, name_and_rest) = if head.starts_with('@') {
         (Some(head.to_string()), tail.to_string())
     } else {
@@ -697,11 +691,7 @@ pub(crate) fn load_remappings_file(path: &Path) -> Result<Vec<ImportRemapping>, 
         match parse_remapping(trimmed) {
             Ok(remap) => out.push(remap),
             Err(err) => {
-                return Err(format!(
-                    "{}:{}: {err}",
-                    path.display(),
-                    line_no + 1
-                ));
+                return Err(format!("{}:{}: {err}", path.display(), line_no + 1));
             }
         }
     }

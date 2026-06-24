@@ -1,8 +1,10 @@
-fn base_last_name(base: &Base) -> Option<String> {
+use super::*;
+
+pub(crate) fn base_last_name(base: &Base) -> Option<String> {
     base.name.identifiers.last().map(|id| id.name.clone())
 }
 
-fn function_ty_key(ty: FunctionTy) -> u8 {
+pub(crate) fn function_ty_key(ty: FunctionTy) -> u8 {
     match ty {
         FunctionTy::Constructor => 0,
         FunctionTy::Function => 1,

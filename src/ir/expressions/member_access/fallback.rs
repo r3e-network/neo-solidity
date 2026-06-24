@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_generic_member_access(
     expr: &Expression,
     inner: &Expression,
@@ -66,7 +68,8 @@ pub(crate) fn lower_generic_member_access(
                     }
                     if matches!(state_type.as_ref(), Some(ValueType::Address)) {
                         if let Some(bytes) = address_bytes_le_from_expression(&initializer) {
-                            instructions.push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
+                            instructions
+                                .push(Instruction::PushLiteral(LiteralValue::Address(bytes)));
                             return true;
                         }
                     }
@@ -88,10 +91,7 @@ pub(crate) fn lower_generic_member_access(
 
     // Memory struct field access: `tmp.field`
     if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx) {
-        if let Some(field_index) = fields
-            .iter()
-            .position(|field| field.name == member.name)
-        {
+        if let Some(field_index) = fields.iter().position(|field| field.name == member.name) {
             if !lower_expression(inner, ctx, instructions) {
                 return false;
             }

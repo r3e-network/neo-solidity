@@ -1,4 +1,9 @@
-pub(crate) fn resolve_struct_type_by_name(ctx: &LoweringContext<'_>, name: &str) -> Option<ValueType> {
+use super::*;
+
+pub(crate) fn resolve_struct_type_by_name(
+    ctx: &LoweringContext<'_>,
+    name: &str,
+) -> Option<ValueType> {
     ctx.defined_struct_types
         .iter()
         .chain(ctx.state_types.iter())
@@ -71,11 +76,12 @@ pub(crate) fn lower_struct_constructor_positional(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     let tmp_id = ctx.next_label();
-    let struct_local = ctx.allocate_local(format!("__struct_ctor_{tmp_id}"), Some(struct_type.clone()));
+    let struct_local =
+        ctx.allocate_local(format!("__struct_ctor_{tmp_id}"), Some(struct_type.clone()));
 
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        fields.len() as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(fields.len() as u64),
+    )));
     instructions.push(Instruction::NewArray {
         element_type: ValueType::Any,
     });
@@ -85,9 +91,9 @@ pub(crate) fn lower_struct_constructor_positional(
 
     for (index, field) in fields.iter().enumerate() {
         instructions.push(Instruction::LoadLocal(struct_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            index as u64,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(index as u64),
+        )));
         if let Some(arg) = args.get(index) {
             if !lower_expression(arg, ctx, instructions) {
                 push_default_for_value_type(&field.ty, ctx, instructions);
@@ -127,7 +133,8 @@ pub(crate) fn lower_struct_constructor_named(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     let tmp_id = ctx.next_label();
-    let struct_local = ctx.allocate_local(format!("__struct_ctor_{tmp_id}"), Some(struct_type.clone()));
+    let struct_local =
+        ctx.allocate_local(format!("__struct_ctor_{tmp_id}"), Some(struct_type.clone()));
 
     let mut field_indexes = HashMap::with_capacity(fields.len());
     for (index, field) in fields.iter().enumerate() {
@@ -167,9 +174,9 @@ pub(crate) fn lower_struct_constructor_named(
         arg_locals[field_index] = Some(arg_local);
     }
 
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        fields.len() as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(fields.len() as u64),
+    )));
     instructions.push(Instruction::NewArray {
         element_type: ValueType::Any,
     });
@@ -177,9 +184,9 @@ pub(crate) fn lower_struct_constructor_named(
 
     for (index, field) in fields.iter().enumerate() {
         instructions.push(Instruction::LoadLocal(struct_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            index as u64,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(index as u64),
+        )));
         if let Some(arg_local) = arg_locals[index] {
             instructions.push(Instruction::LoadLocal(arg_local));
         } else {

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_expression_unary(
     expr: &Expression,
     ctx: &mut LoweringContext,
@@ -22,7 +24,10 @@ pub(crate) fn try_lower_expression_unary(
                 return Some(false);
             }
             match ty {
-                Some(ValueType::Integer { signed: false, bits: 256 }) => {
+                Some(ValueType::Integer {
+                    signed: false,
+                    bits: 256,
+                }) => {
                     // ~x for uint256 == x XOR (2^256-1). The 256-bit all-ones
                     // literal makes the runtime XOR take its wide BigInt path,
                     // which canonicalizes the result (`u256_bigint_to_stack_item`)
@@ -32,7 +37,10 @@ pub(crate) fn try_lower_expression_unary(
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(max_u256)));
                     instructions.push(Instruction::BinaryOp(BinaryOperator::BitXor));
                 }
-                Some(ValueType::Integer { signed: false, bits }) if bits < 256 => {
+                Some(ValueType::Integer {
+                    signed: false,
+                    bits,
+                }) if bits < 256 => {
                     instructions.push(Instruction::BitwiseNot);
                     emit_truncate_narrow_unsigned(instructions, bits);
                 }
@@ -132,10 +140,7 @@ pub(crate) fn should_emit_negate_guard(inner: &Expression, ctx: &LoweringContext
 /// Returns the `type(intN).min` literal value for the inferred signed-int
 /// type of the operand, or `None` for unsigned / unknown types.
 pub(crate) fn signed_intn_min_literal(inner: &Expression, ctx: &LoweringContext) -> Option<BigInt> {
-    if let Some(ValueType::Integer {
-        signed: true,
-        bits,
-    }) = infer_type_from_expression(inner, ctx)
+    if let Some(ValueType::Integer { signed: true, bits }) = infer_type_from_expression(inner, ctx)
     {
         // intN::min = -2^(N-1).
         let one: BigInt = BigInt::from(1);

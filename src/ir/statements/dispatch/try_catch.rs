@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
     match value_type {
         ValueType::Any => None,
@@ -162,9 +164,9 @@ pub(crate) fn emit_selector_guard(
     //    selector + 32-byte arg, etc). GetSize pushes the byte length.
     instructions.push(Instruction::LoadLocal(catch_local));
     instructions.push(Instruction::GetSize);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        min_len,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(min_len),
+    )));
     // Comparator: size >= min_len. Use Lt(size, min_len) then JumpIf-false
     // to fall through when NOT less (i.e. size >= min_len). Inverting: we
     // need to JumpIf to fail when size < min_len. So compute `size < min`
@@ -173,15 +175,21 @@ pub(crate) fn emit_selector_guard(
     // size is not less than min) to match_label; fall through to
     // fail_label when size < min (JumpIf does not branch).
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-    instructions.push(Instruction::JumpIf { target: match_label });
+    instructions.push(Instruction::JumpIf {
+        target: match_label,
+    });
     instructions.push(Instruction::Jump { target: fail_label });
     instructions.push(Instruction::Label(match_label));
 
     // 3. Extract the first 4 bytes and compare to `selector`. SUBSTR
     //    consumes [bytes, index, count] and pushes the substring.
     instructions.push(Instruction::LoadLocal(catch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(4u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(4u8),
+    )));
     instructions.push(Instruction::Substr);
     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
         selector.to_vec(),
@@ -200,10 +208,12 @@ pub(crate) fn emit_decode_be_u256_low_u64(
 ) {
     let tmp = ctx.allocate_local("__catch_u256_low_u64".to_string(), None);
     instructions.push(Instruction::LoadLocal(source_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        slot_offset + 24,
-    ))));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(8u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(slot_offset + 24),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(8u8),
+    )));
     instructions.push(Instruction::Substr);
     instructions.push(Instruction::StoreLocal(tmp));
     instructions.push(Instruction::LoadLocal(tmp));
@@ -230,8 +240,10 @@ pub(crate) fn bind_panic_code_parameter(
         return;
     };
 
-    let inferred = infer_type_from_expression(&parameter.ty, ctx)
-        .unwrap_or(ValueType::Integer { signed: false, bits: 256 });
+    let inferred = infer_type_from_expression(&parameter.ty, ctx).unwrap_or(ValueType::Integer {
+        signed: false,
+        bits: 256,
+    });
     let slot = ctx.allocate_local(name, Some(inferred));
 
     // Decode the low u64 directly from the big-endian ABI word. Do not route
@@ -275,7 +287,9 @@ pub(crate) fn bind_error_message_parameter(
 
     // SUBSTR(payload, 68, len_tmp) → raw string bytes.
     instructions.push(Instruction::LoadLocal(catch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(68u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(68u8),
+    )));
     instructions.push(Instruction::LoadLocal(len_tmp));
     instructions.push(Instruction::Substr);
     instructions.push(Instruction::StoreLocal(slot));
@@ -374,10 +388,8 @@ pub(crate) fn lower_try_statement(
                 if let Some(param) = param_tuple.1.as_ref() {
                     let inferred_type =
                         infer_type_from_expression(&param.ty, ctx).unwrap_or(ValueType::Any);
-                    let tmp = ctx.allocate_local(
-                        format!("__try_ret_{i}"),
-                        Some(inferred_type.clone()),
-                    );
+                    let tmp =
+                        ctx.allocate_local(format!("__try_ret_{i}"), Some(inferred_type.clone()));
 
                     instructions.push(Instruction::LoadLocal(array_tmp));
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(

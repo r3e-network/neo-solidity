@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
     match member {
         "contractCall" => Some(BuiltinCall::ContractCall),

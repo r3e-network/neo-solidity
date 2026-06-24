@@ -1,4 +1,6 @@
-fn emit_native_call(
+use super::*;
+
+pub(crate) fn emit_native_call(
     bytecode: &mut Vec<u8>,
     contract: ir::NativeContract,
     method: &str,
@@ -16,7 +18,7 @@ fn emit_native_call(
     );
 }
 
-fn emit_deploy_contract(
+pub(crate) fn emit_deploy_contract(
     bytecode: &mut Vec<u8>,
     arg_count: usize,
     use_callt: bool,
@@ -37,7 +39,7 @@ fn emit_deploy_contract(
     bytecode.push(0xCE); // PICKITEM
 }
 
-fn emit_get_contract(
+pub(crate) fn emit_get_contract(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -92,13 +94,13 @@ fn emit_get_contract(
 
     bytecode.push(0x14); // PUSH4
     bytecode.push(0xC0); // PACK
-    // PACK reverses stack order; restore the field order expected by the devpack helper:
-    // [hash, nef, manifestBytes, updateCounter]
+                         // PACK reverses stack order; restore the field order expected by the devpack helper:
+                         // [hash, nef, manifestBytes, updateCounter]
     bytecode.push(0x4A); // DUP
     bytecode.push(0xD1); // REVERSEITEMS
 }
 
-fn emit_get_contract_script(
+pub(crate) fn emit_get_contract_script(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -117,7 +119,7 @@ fn emit_get_contract_script(
     bytecode.push(0xCE); // PICKITEM
 }
 
-fn emit_get_neo_account_state(
+pub(crate) fn emit_get_neo_account_state(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -152,7 +154,7 @@ fn emit_get_neo_account_state(
     bytecode.push(0x10); // PUSH0 (lastGasPerVote)
     bytecode.push(0x14); // PUSH4
     bytecode.push(0xC0); // PACK
-    // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
+                         // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
     bytecode.push(0x4A); // DUP
     bytecode.push(0xD1); // REVERSEITEMS
 

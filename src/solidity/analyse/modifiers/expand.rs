@@ -1,4 +1,6 @@
-fn build_modifier_definition_map(
+use super::*;
+
+pub(crate) fn build_modifier_definition_map(
     contract: &ContractIR,
 ) -> std::collections::HashMap<(String, usize), FunctionIR> {
     let mut map: std::collections::HashMap<(String, usize), FunctionIR> =
@@ -22,7 +24,7 @@ fn build_modifier_definition_map(
     map
 }
 
-fn apply_modifier_calls_to_body(
+pub(crate) fn apply_modifier_calls_to_body(
     original_body: &Statement,
     modifier_calls: &[Base],
     modifier_defs: &std::collections::HashMap<(String, usize), FunctionIR>,
@@ -38,7 +40,7 @@ fn apply_modifier_calls_to_body(
 /// `FunctionIR::had_modifier_epilogue`, which in turn tells the IR lowerer
 /// to redirect `return expr;` inside the expanded body to synthetic return
 /// slots + a jump past the epilogue so tail statements still run.
-fn apply_modifier_calls_to_body_with_epilogue(
+pub(crate) fn apply_modifier_calls_to_body_with_epilogue(
     original_body: &Statement,
     modifier_calls: &[Base],
     modifier_defs: &std::collections::HashMap<(String, usize), FunctionIR>,
@@ -115,7 +117,8 @@ fn apply_modifier_calls_to_body_with_epilogue(
             normalized_args.truncate(modifier_def.parameters.len());
         }
 
-        let substitutions = build_parameter_substitutions(&modifier_def.parameters, &normalized_args)?;
+        let substitutions =
+            build_parameter_substitutions(&modifier_def.parameters, &normalized_args)?;
         current = rewrite_statement(modifier_body, &substitutions, Some(&current));
     }
 
@@ -129,7 +132,7 @@ fn apply_modifier_calls_to_body_with_epilogue(
 /// We look across nested blocks: `_;` can appear inside an if-branch, for
 /// example `modifier guarded() { if (cond) { _; log(); } }` — the `log()` is
 /// an epilogue that must run after the inlined body on the taken branch.
-fn modifier_body_has_epilogue(body: &Statement) -> bool {
+pub(crate) fn modifier_body_has_epilogue(body: &Statement) -> bool {
     match body {
         Statement::Block { statements, .. } => {
             // Check if any statement after the first `_;` exists (top level),
@@ -169,7 +172,7 @@ fn modifier_body_has_epilogue(body: &Statement) -> bool {
     }
 }
 
-fn statement_list_from_body(body: &Statement) -> Vec<Statement> {
+pub(crate) fn statement_list_from_body(body: &Statement) -> Vec<Statement> {
     match body {
         Statement::Block { statements, .. } => statements.clone(),
         stmt => vec![stmt.clone()],

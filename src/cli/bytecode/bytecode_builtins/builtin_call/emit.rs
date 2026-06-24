@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_builtin_call(
     bytecode: &mut Vec<u8>,
     builtin: &ir::BuiltinCall,
@@ -43,7 +45,9 @@ pub(crate) fn emit_builtin_call(
         ir::BuiltinCall::NotifySerialized => {
             emit_notify_serialized(bytecode, use_callt, token_patches)
         }
-        ir::BuiltinCall::VerifySignature => emit_verify_signature(bytecode, use_callt, token_patches),
+        ir::BuiltinCall::VerifySignature => {
+            emit_verify_signature(bytecode, use_callt, token_patches)
+        }
         ir::BuiltinCall::DeployContract => {
             emit_deploy_contract(bytecode, arg_count, use_callt, token_patches)
         }

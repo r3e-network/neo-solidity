@@ -1,4 +1,6 @@
-fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
+use super::*;
+
+pub(crate) fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
     let mut optimized = Vec::with_capacity(block.instructions.len());
     let mut i = 0;
 
@@ -12,10 +14,9 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
         // statically-unreachable `return s;` tail (see fuzz harness
         // batch35_k3_view_dead_branch_storage_read_not_eliminated).
         if i + 1 < block.instructions.len() {
-            if let (
-                ir::Instruction::PushLiteral(lit),
-                ir::Instruction::JumpIf { target },
-            ) = (&block.instructions[i], &block.instructions[i + 1]) {
+            if let (ir::Instruction::PushLiteral(lit), ir::Instruction::JumpIf { target }) =
+                (&block.instructions[i], &block.instructions[i + 1])
+            {
                 let branch_taken = match lit {
                     ir::LiteralValue::Boolean(b) => Some(!*b),
                     ir::LiteralValue::Integer(n) => Some(n.is_zero()),
@@ -59,10 +60,9 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
 
         // Try identity elimination: x + 0, x * 1, etc.
         if i + 1 < block.instructions.len() {
-            if let Some(simplified) = try_identity_elimination(
-                &block.instructions[i],
-                &block.instructions[i + 1],
-            ) {
+            if let Some(simplified) =
+                try_identity_elimination(&block.instructions[i], &block.instructions[i + 1])
+            {
                 if let Some(instr) = simplified {
                     optimized.push(instr);
                 }
@@ -80,17 +80,18 @@ fn fold_constant_binary_ops(block: &mut ir::BasicBlock) {
 }
 
 /// Try to eliminate identity operations
-fn try_identity_elimination(
+pub(crate) fn try_identity_elimination(
     first: &ir::Instruction,
     second: &ir::Instruction,
 ) -> Option<Option<ir::Instruction>> {
-    use ir::{Instruction::{PushLiteral, BinaryOp}, LiteralValue::Integer};
+    use ir::{
+        Instruction::{BinaryOp, PushLiteral},
+        LiteralValue::Integer,
+    };
 
     match (first, second) {
         // PUSH 0, ADD -> no-op (keep original value)
-        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Add)) if n.is_zero() => {
-            Some(None)
-        }
+        (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Add)) if n.is_zero() => Some(None),
         // PUSH 1, MUL -> no-op
         (PushLiteral(Integer(n)), BinaryOp(ir::BinaryOperator::Mul)) if *n == 1.into() => {
             Some(None)
@@ -121,12 +122,12 @@ fn try_identity_elimination(
 /// the exact code `-O0`/`-O1` already emit for the same source.
 const MAX_FOLDED_LITERAL_BITS: u64 = 4096;
 
-fn evaluate_binary_literal(
+pub(crate) fn evaluate_binary_literal(
     lhs: &ir::LiteralValue,
     rhs: &ir::LiteralValue,
     op: ir::BinaryOperator,
 ) -> Option<ir::LiteralValue> {
-    use ir::LiteralValue::{Integer, Boolean};
+    use ir::LiteralValue::{Boolean, Integer};
 
     match (lhs, rhs) {
         (Integer(a), Integer(b)) => match op {
@@ -217,8 +218,7 @@ mod fold_literal_bits_guard_tests {
         assert_eq!(result, None, "oversized shift must be left to runtime");
 
         // Sub-abort DoS shape: `1 << 200000000` used to emit a 25 MB .nef.
-        let result =
-            evaluate_binary_literal(&int(1), &int(200_000_000), ir::BinaryOperator::Shl);
+        let result = evaluate_binary_literal(&int(1), &int(200_000_000), ir::BinaryOperator::Shl);
         assert_eq!(result, None);
     }
 
@@ -232,8 +232,7 @@ mod fold_literal_bits_guard_tests {
     #[test]
     fn mul_declines_to_fold_when_product_exceeds_ceiling() {
         let big = BigInt::from(1) << 4000u32; // 4001 bits
-        let result =
-            evaluate_binary_literal(&int(big.clone()), &int(big), ir::BinaryOperator::Mul);
+        let result = evaluate_binary_literal(&int(big.clone()), &int(big), ir::BinaryOperator::Mul);
         assert_eq!(result, None, "huge-literal product must be left to runtime");
     }
 
@@ -251,4 +250,3 @@ mod fold_literal_bits_guard_tests {
         assert_eq!(result, int(&max256 * &max256));
     }
 }
-

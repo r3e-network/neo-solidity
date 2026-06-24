@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn extract_return_expression(body: &Option<Statement>) -> Option<Expression> {
     let statement = body.as_ref()?;
 
@@ -18,7 +20,7 @@ pub fn extract_return_expression(body: &Option<Statement>) -> Option<Expression>
     }
 }
 
-fn check_return_statements(
+pub(crate) fn check_return_statements(
     statement: &Statement,
     expected_count: usize,
     function_name: &str,

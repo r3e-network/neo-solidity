@@ -1,8 +1,9 @@
+use super::*;
+
 /// Dispatch table for same-name functions: `(name, arity)` maps to every
 /// overload sharing that key, each carrying its parameter ValueTypes and the
 /// type-mangled neo_name. See [`LoweringContext::resolve_overload`].
-pub(crate) type FunctionOverloadTable =
-    HashMap<(String, usize), Vec<(Vec<ValueType>, String)>>;
+pub(crate) type FunctionOverloadTable = HashMap<(String, usize), Vec<(Vec<ValueType>, String)>>;
 
 /// Compatibility test for same-arity overload resolution: is a call argument
 /// of type `arg` an acceptable match for a parameter of type `param`?
@@ -14,10 +15,7 @@ pub(crate) type FunctionOverloadTable =
 /// and `f(address)` are told apart.
 pub(crate) fn overload_arg_matches(arg: &ValueType, param: &ValueType) -> bool {
     match (arg, param) {
-        (
-            ValueType::Integer { signed: a, .. },
-            ValueType::Integer { signed: p, .. },
-        ) => a == p,
+        (ValueType::Integer { signed: a, .. }, ValueType::Integer { signed: p, .. }) => a == p,
         _ => arg == param,
     }
 }
@@ -43,7 +41,9 @@ impl<'a> LoweringContext<'a> {
         arg_count: usize,
         arg_types: &[Option<ValueType>],
     ) -> Option<String> {
-        let bucket = self.function_overloads.get(&(name.to_string(), arg_count))?;
+        let bucket = self
+            .function_overloads
+            .get(&(name.to_string(), arg_count))?;
         if bucket.len() == 1 {
             return Some(bucket[0].1.clone());
         }
@@ -148,7 +148,11 @@ impl<'a> LoweringContext<'a> {
     }
 
     /// Returns the ordered parameter names for a function overload, if known.
-    pub(crate) fn get_function_param_names(&self, name: &str, arg_count: usize) -> Option<&[String]> {
+    pub(crate) fn get_function_param_names(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Option<&[String]> {
         self.function_param_names
             .get(&(name.to_string(), arg_count))
             .map(|v| v.as_slice())
@@ -159,7 +163,11 @@ impl<'a> LoweringContext<'a> {
     /// return value, or the build pipeline didn't register it). Callers
     /// should degrade gracefully (e.g., `infer_type_from_expression` falls
     /// through to the existing type-inference logic).
-    pub(crate) fn get_function_return_type(&self, name: &str, arg_count: usize) -> Option<&ValueType> {
+    pub(crate) fn get_function_return_type(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Option<&ValueType> {
         self.function_return_types
             .get(&(name.to_string(), arg_count))
     }

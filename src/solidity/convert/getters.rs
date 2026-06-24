@@ -1,4 +1,6 @@
-fn solidity_type_from_neotype(neotype: &NeoType) -> String {
+use super::*;
+
+pub(crate) fn solidity_type_from_neotype(neotype: &NeoType) -> String {
     match neotype {
         NeoType::Integer { signed, bits } => {
             if *signed {
@@ -28,7 +30,7 @@ fn solidity_type_from_neotype(neotype: &NeoType) -> String {
     }
 }
 
-fn getter_signature_from_neotype(
+pub(crate) fn getter_signature_from_neotype(
     var_name: &str,
     neotype: &NeoType,
 ) -> (Vec<ParameterMetadata>, Vec<ParameterMetadata>, Expression) {
@@ -138,4 +140,3 @@ fn getter_signature_from_neotype(
         }
     }
 }
-

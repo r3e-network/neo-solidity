@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn normalize_solidity_like_type_signature(raw: &str) -> String {
     let compact = raw
         .chars()

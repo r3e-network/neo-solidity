@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn find_named_struct_type(value_type: &ValueType, name: &str) -> Option<ValueType> {
     pub(crate) fn last_segment(qualified: &str) -> &str {
         qualified
@@ -30,8 +32,9 @@ pub(crate) fn find_named_struct_type(value_type: &ValueType, name: &str) -> Opti
                 .find_map(|field| find_named_struct_type(&field.ty, name))
         }
         ValueType::Array(inner) => find_named_struct_type(inner, name),
-        ValueType::Mapping { key, value } => find_named_struct_type(key, name)
-            .or_else(|| find_named_struct_type(value, name)),
+        ValueType::Mapping { key, value } => {
+            find_named_struct_type(key, name).or_else(|| find_named_struct_type(value, name))
+        }
         _ => None,
     }
 }

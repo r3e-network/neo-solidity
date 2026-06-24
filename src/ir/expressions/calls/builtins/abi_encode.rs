@@ -1,3 +1,5 @@
+use super::*;
+
 /// Task #124 — `abi.encode(struct)` whole-struct expansion. If `expr` has a
 /// struct type, emit per-field extraction instructions so the downstream
 /// `AbiEncode` builtin receives N individual stack items (one per direct
@@ -175,9 +177,9 @@ pub(crate) fn lower_abi_encode_head_tail_direct(
     }
 
     let offset_local = ctx.allocate_local("__abi_tail_offset".to_string(), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        (head_slot_count * 32) as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from((head_slot_count * 32) as u64),
+    )));
     instructions.push(Instruction::StoreLocal(offset_local));
 
     let mut tail_locals = Vec::new();
@@ -201,8 +203,7 @@ pub(crate) fn lower_abi_encode_head_tail_direct(
             instructions.push(Instruction::StoreLocal(offset_local));
             tail_locals.push(tail_local);
         } else {
-            let slots =
-                emit_abi_static_slots_from_local(*local, value_type, ctx, instructions)?;
+            let slots = emit_abi_static_slots_from_local(*local, value_type, ctx, instructions)?;
             part_count += slots;
         }
     }
@@ -367,7 +368,10 @@ pub(crate) fn lower_packed_abi_bytes_for_expr(
             emit_abi_fixed_buffer_signed(ctx, instructions, (bits / 8) as usize);
             Some(true)
         }
-        ValueType::Integer { bits, signed: false } => {
+        ValueType::Integer {
+            bits,
+            signed: false,
+        } => {
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::ByteArray,
             });
@@ -413,13 +417,15 @@ pub(crate) fn emit_abi_static_slots_from_local(
     match value_type {
         ValueType::Struct { fields, .. }
             if !fields.is_empty()
-                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+                && fields
+                    .iter()
+                    .all(|field| is_static_abi_type_value(&field.ty)) =>
         {
             for (index, field) in fields.iter().enumerate() {
                 instructions.push(Instruction::LoadLocal(local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                    index as u64,
-                ))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(index as u64),
+                )));
                 instructions.push(Instruction::ArrayGet);
                 emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
             }
@@ -446,9 +452,9 @@ pub(crate) fn emit_abi_encode_single_stack_value_for_type(
 
         let value_local = ctx.allocate_local("__abi_single_value".to_string(), None);
         instructions.push(Instruction::StoreLocal(value_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            32u8,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(32u8),
+        )));
         emit_abi_u256_slot(ctx, instructions);
         instructions.push(Instruction::LoadLocal(value_local));
         emit_abi_dynamic_tail_for_value_type(value_type, 0, ctx, instructions)?;
@@ -484,15 +490,11 @@ pub(crate) fn emit_abi_dynamic_tail_for_value_type(
         // `T[]` where each element is itself dynamic (string[], bytes[],
         // uint256[][], ...). The element offsets form a head section and the
         // element encodings a tail section, recursively — full EVM layout.
-        ValueType::Array(element_type)
-            if abi_dynamic_value_type_is_supported(element_type) =>
-        {
+        ValueType::Array(element_type) if abi_dynamic_value_type_is_supported(element_type) => {
             emit_abi_dynamic_nested_array_tail(element_type, depth, ctx, instructions)
         }
         // Dynamic struct → encode as a tuple of its fields (head+tail).
-        ValueType::Struct { fields, .. }
-            if abi_dynamic_value_type_is_supported(value_type) =>
-        {
+        ValueType::Struct { fields, .. } if abi_dynamic_value_type_is_supported(value_type) => {
             emit_abi_dynamic_struct_tail(fields, depth, ctx, instructions)
         }
         _ => None,
@@ -506,8 +508,7 @@ pub(crate) fn emit_abi_dynamic_bytes_tail(
     let tmp_id = ctx.next_label();
     let src_local = ctx.allocate_local(format!("__abi_dyn_bytes_src_{tmp_id}"), None);
     let len_local = ctx.allocate_local(format!("__abi_dyn_bytes_len_{tmp_id}"), None);
-    let padded_len_local =
-        ctx.allocate_local(format!("__abi_dyn_bytes_padded_len_{tmp_id}"), None);
+    let padded_len_local = ctx.allocate_local(format!("__abi_dyn_bytes_padded_len_{tmp_id}"), None);
     let padded_local = ctx.allocate_local(format!("__abi_dyn_bytes_padded_{tmp_id}"), None);
     let len_slot_local = ctx.allocate_local(format!("__abi_dyn_bytes_len_slot_{tmp_id}"), None);
 
@@ -521,17 +522,17 @@ pub(crate) fn emit_abi_dynamic_bytes_tail(
     instructions.push(Instruction::StoreLocal(len_slot_local));
 
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        31u8,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(31u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        32u8,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Div));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        32u8,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
     instructions.push(Instruction::StoreLocal(padded_len_local));
 
@@ -540,9 +541,13 @@ pub(crate) fn emit_abi_dynamic_bytes_tail(
     instructions.push(Instruction::StoreLocal(padded_local));
 
     instructions.push(Instruction::LoadLocal(padded_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(len_local));
     instructions.push(Instruction::MemCpy);
 
@@ -605,20 +610,26 @@ pub(crate) fn emit_abi_dynamic_nested_array_tail(
 
     // off := n * 32  (head section size; first element tail begins here)
     instructions.push(Instruction::LoadLocal(n_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        32u8,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
     instructions.push(Instruction::StoreLocal(off_local));
 
     // heads := "" ; tails := ""
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+    instructions.push(Instruction::PushLiteral(
+        LiteralValue::ByteArray(Vec::new()),
+    ));
     instructions.push(Instruction::StoreLocal(heads_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+    instructions.push(Instruction::PushLiteral(
+        LiteralValue::ByteArray(Vec::new()),
+    ));
     instructions.push(Instruction::StoreLocal(tails_local));
 
     // idx := 0
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     let loop_label = ctx.next_label();
@@ -665,7 +676,9 @@ pub(crate) fn emit_abi_dynamic_nested_array_tail(
 
     // idx := idx + 1
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
     instructions.push(Instruction::Jump { target: loop_label });
@@ -717,9 +730,9 @@ pub(crate) fn emit_abi_dynamic_struct_tail(
     instructions.push(Instruction::StoreLocal(struct_local));
 
     let offset_local = ctx.allocate_local(format!("__abi_dstruct_off_{tmp_id}"), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        (head_slot_count * 32) as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from((head_slot_count * 32) as u64),
+    )));
     instructions.push(Instruction::StoreLocal(offset_local));
 
     let mut tail_locals = Vec::new();
@@ -734,9 +747,9 @@ pub(crate) fn emit_abi_dynamic_struct_tail(
 
             // Compute the field tail and stash it for the tail section.
             instructions.push(Instruction::LoadLocal(struct_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                field_index as u64,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(field_index as u64),
+            )));
             instructions.push(Instruction::ArrayGet);
             emit_abi_dynamic_tail_for_value_type(&field.ty, depth + 1, ctx, instructions)?;
             let tail_local =
@@ -753,9 +766,9 @@ pub(crate) fn emit_abi_dynamic_struct_tail(
         } else {
             // Static field: inline its slot(s) into the head section.
             instructions.push(Instruction::LoadLocal(struct_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                field_index as u64,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(field_index as u64),
+            )));
             instructions.push(Instruction::ArrayGet);
             let slots = emit_abi_static_slots_for_stack_value(&field.ty, ctx, instructions)?;
             part_count += slots;
@@ -793,16 +806,18 @@ pub(crate) fn emit_abi_static_slots_for_stack_value(
     match value_type {
         ValueType::Struct { fields, .. }
             if !fields.is_empty()
-                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+                && fields
+                    .iter()
+                    .all(|field| is_static_abi_type_value(&field.ty)) =>
         {
             let tmp_id = ctx.next_label();
             let struct_local = ctx.allocate_local(format!("__abi_stack_struct_{tmp_id}"), None);
             instructions.push(Instruction::StoreLocal(struct_local));
             for (index, field) in fields.iter().enumerate() {
                 instructions.push(Instruction::LoadLocal(struct_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                    index as u64,
-                ))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(index as u64),
+                )));
                 instructions.push(Instruction::ArrayGet);
                 emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
             }
@@ -840,14 +855,14 @@ pub(crate) fn emit_abi_static_array_buffer(
     instructions.push(Instruction::StoreLocal(len_local));
 
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        element_byte_len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(element_byte_len as u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
     if include_length {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            32u8,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(32u8),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     }
     instructions.push(Instruction::NewBuffer);
@@ -859,16 +874,22 @@ pub(crate) fn emit_abi_static_array_buffer(
         let len_slot_local = ctx.allocate_local(format!("__abi_arr_len_slot_{tmp_id}"), None);
         instructions.push(Instruction::StoreLocal(len_slot_local));
         instructions.push(Instruction::LoadLocal(out_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::LoadLocal(len_slot_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            32u8,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(32u8),
+        )));
         instructions.push(Instruction::MemCpy);
     }
 
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     let loop_label = ctx.next_label();
@@ -896,27 +917,33 @@ pub(crate) fn emit_abi_static_array_buffer(
 
     instructions.push(Instruction::LoadLocal(out_local));
     if include_length {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            32u8,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(32u8),
+        )));
     } else {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
     }
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        element_byte_len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(element_byte_len as u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::LoadLocal(elem_slot_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        element_byte_len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(element_byte_len as u64),
+    )));
     instructions.push(Instruction::MemCpy);
 
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
     instructions.push(Instruction::Jump { target: loop_label });
@@ -928,4 +955,3 @@ pub(crate) fn emit_abi_static_array_buffer(
     });
     Some(())
 }
-

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_type_constructor_call(
     func: &Expression,
     args: &[Expression],
@@ -28,14 +30,16 @@ pub(crate) fn try_lower_type_constructor_call(
                 });
                 coerce_to_fixed_bytes(20, false, ctx, instructions);
             } else {
-                instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                    vec![0u8; 20],
-                )));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                    0u8;
+                    20
+                ])));
             }
         } else {
-            instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                vec![0u8; 20],
-            )));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                0u8;
+                20
+            ])));
         }
 
         true
@@ -80,14 +84,16 @@ pub(crate) fn try_lower_type_constructor_call(
             PtType::Payable => {
                 if let Some(arg) = args.first() {
                     if !lower_expression(arg, ctx, instructions) {
-                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                            vec![0u8; 20],
-                        )));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                            0u8;
+                            20
+                        ])));
                     }
                 } else {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                        vec![0u8; 20],
-                    )));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                        0u8;
+                        20
+                    ])));
                 }
                 return Some(true);
             }
@@ -121,14 +127,16 @@ pub(crate) fn try_lower_type_constructor_call(
                         });
                         coerce_to_fixed_bytes(20, false, ctx, instructions);
                     } else {
-                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                            vec![0u8; 20],
-                        )));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                            0u8;
+                            20
+                        ])));
                     }
                 } else {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(
-                        vec![0u8; 20],
-                    )));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
+                        0u8;
+                        20
+                    ])));
                 }
                 return Some(true);
             }
@@ -305,9 +313,9 @@ pub(crate) fn try_lower_type_constructor_call(
                     .first()
                     .is_none_or(|arg| !lower_expression(arg, ctx, instructions))
                 {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                        Vec::new(),
-                    )));
+                    instructions.push(Instruction::PushLiteral(
+                        LiteralValue::ByteArray(Vec::new()),
+                    ));
                 }
                 return Some(true);
             }
@@ -329,9 +337,9 @@ pub(crate) fn try_lower_type_constructor_call(
                     .first()
                     .is_none_or(|arg| !lower_expression(arg, ctx, instructions))
                 {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                        Vec::new(),
-                    )));
+                    instructions.push(Instruction::PushLiteral(
+                        LiteralValue::ByteArray(Vec::new()),
+                    ));
                 }
                 return Some(true);
             }
@@ -365,9 +373,9 @@ pub(crate) fn coerce_to_fixed_bytes(
     instructions.push(Instruction::StoreLocal(src_local));
 
     // Allocate zero-initialized destination buffer of fixed length.
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
     instructions.push(Instruction::NewBuffer);
     instructions.push(Instruction::StoreLocal(dst_local));
 
@@ -379,9 +387,9 @@ pub(crate) fn coerce_to_fixed_bytes(
     let ge_label = ctx.next_label();
     let end_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: ge_label });
 
@@ -390,17 +398,21 @@ pub(crate) fn coerce_to_fixed_bytes(
     instructions.push(Instruction::Jump { target: end_label });
 
     instructions.push(Instruction::Label(ge_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Label(end_label));
 
     // NeoVM MEMCPY stack order: [dst, dst_offset, src, src_offset, count]
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
     // Note: MEMCPY modifies the buffer in-place and does NOT push anything
@@ -443,9 +455,13 @@ pub(crate) fn materialize_byte_array_buffer(
     instructions.push(Instruction::StoreLocal(dst_local));
 
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::MemCpy);
 

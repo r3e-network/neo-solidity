@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Clone, Copy)]
 pub(crate) struct StructFieldAccess<'a> {
     pub(crate) field_keys: &'a [[u8; 32]],

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Structured diagnostic emitted during IR lowering.
 ///
 /// Captures the originating function name, a human-readable message, and an
@@ -411,7 +413,11 @@ impl<'a> LoweringContext<'a> {
     /// (in declaration order for multi-return) and jumps to `end_label`,
     /// bypassing the raw RET that would otherwise skip the modifier
     /// epilogue (e.g. `locked = 0;` after `_;`).
-    pub(crate) fn set_modifier_return_redirect(&mut self, slots: Vec<Option<usize>>, end_label: usize) {
+    pub(crate) fn set_modifier_return_redirect(
+        &mut self,
+        slots: Vec<Option<usize>>,
+        end_label: usize,
+    ) {
         self.modifier_return_redirect = Some((slots, end_label));
     }
 
@@ -535,7 +541,11 @@ impl<'a> LoweringContext<'a> {
         self.resolving_constants.pop();
     }
 
-    pub(crate) fn type_method_selectors(&self, type_name: &str, method_name: &str) -> Option<&Vec<[u8; 4]>> {
+    pub(crate) fn type_method_selectors(
+        &self,
+        type_name: &str,
+        method_name: &str,
+    ) -> Option<&Vec<[u8; 4]>> {
         self.selector_registry
             .type_method_selectors
             .get(type_name)

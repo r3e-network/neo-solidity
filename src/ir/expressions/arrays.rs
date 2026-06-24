@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_array_subscript_expression(
     expr: &Expression,
     array: &Expression,
@@ -55,7 +57,9 @@ pub(crate) fn lower_array_subscript_expression(
             return false;
         }
         emit_storage_load(&reference, ctx, instructions)
-    } else if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions) {
+    } else if lower_expression(array, ctx, instructions)
+        && lower_expression(index, ctx, instructions)
+    {
         // Task #107 — emit an explicit bounds guard so array-index-OOB
         // reverts with the canonical EVM Panic(uint256) envelope
         //   keccak256("Panic(uint256)")[..4] || abi.encode(0x32)
@@ -69,7 +73,10 @@ pub(crate) fn lower_array_subscript_expression(
         let tmp_id = ctx.next_label();
         let idx_local = ctx.allocate_local(
             format!("__aidx_{tmp_id}"),
-            Some(ValueType::Integer { signed: false, bits: 256 }),
+            Some(ValueType::Integer {
+                signed: false,
+                bits: 256,
+            }),
         );
         let arr_local = ctx.allocate_local(format!("__aarr_{tmp_id}"), None);
 
@@ -84,10 +91,14 @@ pub(crate) fn lower_array_subscript_expression(
         // with Solidity's own lowering.
         let after_neg_label = ctx.next_label();
         instructions.push(Instruction::LoadLocal(idx_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
         // JumpIf-on-false: skip the THROW when idx < 0 is false.
-        instructions.push(Instruction::JumpIf { target: after_neg_label });
+        instructions.push(Instruction::JumpIf {
+            target: after_neg_label,
+        });
         emit_panic(0x32, instructions);
         instructions.push(Instruction::Label(after_neg_label));
 
@@ -332,7 +343,9 @@ pub(crate) fn emit_storage_array_subscript_with_bounds(
     // defensive parity with the memory-array guard above.
     let after_neg_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf {
         target: after_neg_label,
@@ -382,9 +395,9 @@ pub(crate) fn emit_storage_array_subscript_with_bounds(
             // per-index slot via `StoreMappingElement`), so the
             // runtime length cannot be derived from storage. Emit the
             // literal `N`.
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                *n,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(*n),
+            )));
         }
     }
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
@@ -478,7 +491,9 @@ pub(crate) fn emit_struct_field_array_bounds_guard(
     // Guard 1: index < 0 → Panic(0x32).
     let after_neg_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf {
         target: after_neg_label,
@@ -491,9 +506,9 @@ pub(crate) fn emit_struct_field_array_bounds_guard(
     instructions.push(Instruction::LoadLocal(idx_local));
     match fixed_bound {
         Some(bound) => {
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                bound,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(bound),
+            )));
         }
         None => {
             // Dynamic field — the length lives at the struct-field slot,
@@ -538,7 +553,9 @@ pub(crate) fn lower_array_slice_expression(
             return false;
         }
     } else {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
     }
     instructions.push(Instruction::StoreLocal(start_local));
 
@@ -557,7 +574,9 @@ pub(crate) fn lower_array_slice_expression(
     let clamp_start_label = ctx.next_label();
     let clamp_start_done = ctx.next_label();
     instructions.push(Instruction::LoadLocal(start_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
     instructions.push(Instruction::JumpIf {
         target: clamp_start_label,
@@ -566,7 +585,9 @@ pub(crate) fn lower_array_slice_expression(
         target: clamp_start_done,
     });
     instructions.push(Instruction::Label(clamp_start_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(start_local));
     instructions.push(Instruction::Label(clamp_start_done));
 
@@ -601,12 +622,18 @@ pub(crate) fn lower_array_slice_expression(
     let clamp_label = ctx.next_label();
     let clamp_done = ctx.next_label();
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-    instructions.push(Instruction::JumpIf { target: clamp_label });
+    instructions.push(Instruction::JumpIf {
+        target: clamp_label,
+    });
     instructions.push(Instruction::Jump { target: clamp_done });
     instructions.push(Instruction::Label(clamp_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(len_local));
     instructions.push(Instruction::Label(clamp_done));
 
@@ -618,7 +645,9 @@ pub(crate) fn lower_array_slice_expression(
     instructions.push(Instruction::StoreLocal(out_local));
 
     let idx_local = ctx.allocate_local("__slice_index".to_string(), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     let loop_label = ctx.next_label();
@@ -640,7 +669,9 @@ pub(crate) fn lower_array_slice_expression(
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(1u8))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(1u8),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
 
@@ -702,7 +733,9 @@ pub(crate) fn lower_bytes_slice_expression(
             return false;
         }
     } else {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
     }
     instructions.push(Instruction::StoreLocal(start_local));
 
@@ -715,12 +748,20 @@ pub(crate) fn lower_bytes_slice_expression(
     let start_clamp_lo = ctx.next_label();
     let start_clamp_lo_done = ctx.next_label();
     instructions.push(Instruction::LoadLocal(start_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-    instructions.push(Instruction::JumpIf { target: start_clamp_lo });
-    instructions.push(Instruction::Jump { target: start_clamp_lo_done });
+    instructions.push(Instruction::JumpIf {
+        target: start_clamp_lo,
+    });
+    instructions.push(Instruction::Jump {
+        target: start_clamp_lo_done,
+    });
     instructions.push(Instruction::Label(start_clamp_lo));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(start_local));
     instructions.push(Instruction::Label(start_clamp_lo_done));
 
@@ -730,8 +771,12 @@ pub(crate) fn lower_bytes_slice_expression(
     instructions.push(Instruction::LoadLocal(start_local));
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Le));
-    instructions.push(Instruction::JumpIf { target: start_clamp_hi });
-    instructions.push(Instruction::Jump { target: start_clamp_hi_done });
+    instructions.push(Instruction::JumpIf {
+        target: start_clamp_hi,
+    });
+    instructions.push(Instruction::Jump {
+        target: start_clamp_hi_done,
+    });
     instructions.push(Instruction::Label(start_clamp_hi));
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::StoreLocal(start_local));
@@ -754,8 +799,12 @@ pub(crate) fn lower_bytes_slice_expression(
     instructions.push(Instruction::LoadLocal(end_local));
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Le));
-    instructions.push(Instruction::JumpIf { target: end_clamp_hi });
-    instructions.push(Instruction::Jump { target: end_clamp_hi_done });
+    instructions.push(Instruction::JumpIf {
+        target: end_clamp_hi,
+    });
+    instructions.push(Instruction::Jump {
+        target: end_clamp_hi_done,
+    });
     instructions.push(Instruction::Label(end_clamp_hi));
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::StoreLocal(end_local));
@@ -768,8 +817,12 @@ pub(crate) fn lower_bytes_slice_expression(
     instructions.push(Instruction::LoadLocal(end_local));
     instructions.push(Instruction::LoadLocal(start_local));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-    instructions.push(Instruction::JumpIf { target: end_clamp_lo });
-    instructions.push(Instruction::Jump { target: end_clamp_lo_done });
+    instructions.push(Instruction::JumpIf {
+        target: end_clamp_lo,
+    });
+    instructions.push(Instruction::Jump {
+        target: end_clamp_lo_done,
+    });
     instructions.push(Instruction::Label(end_clamp_lo));
     instructions.push(Instruction::LoadLocal(start_local));
     instructions.push(Instruction::StoreLocal(end_local));
@@ -800,19 +853,21 @@ pub(crate) fn lower_array_literal_expression(
         "__array_literal".to_string(),
         Some(ValueType::Array(Box::new(element_type.clone()))),
     );
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        elements.len(),
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(elements.len()),
+    )));
     instructions.push(Instruction::NewArray { element_type });
     instructions.push(Instruction::StoreLocal(array_local));
 
     for (index, element) in elements.iter().enumerate() {
         instructions.push(Instruction::LoadLocal(array_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            index as u64,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(index as u64),
+        )));
         if !lower_expression(element, ctx, instructions) {
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
         }
         instructions.push(Instruction::ArraySet);
     }

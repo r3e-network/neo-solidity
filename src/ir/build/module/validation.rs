@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn compute_transitive_hazard_map(functions: &[Function]) -> HashMap<String, Hazards> {
     let mut direct = HashMap::new();
     for function in functions {
@@ -26,10 +28,7 @@ pub(crate) fn validate_safe_methods(
             continue;
         }
 
-        let hazards = hazards
-            .get(&method.neo_name)
-            .copied()
-            .unwrap_or_default();
+        let hazards = hazards.get(&method.neo_name).copied().unwrap_or_default();
 
         if !hazards.safe_violation() {
             continue;
@@ -77,10 +76,7 @@ pub(crate) fn validate_pure_methods(
             continue;
         }
 
-        let hazards = hazards
-            .get(&method.neo_name)
-            .copied()
-            .unwrap_or_default();
+        let hazards = hazards.get(&method.neo_name).copied().unwrap_or_default();
 
         if !hazards.pure_violation() {
             continue;

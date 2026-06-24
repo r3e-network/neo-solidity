@@ -1,4 +1,6 @@
-fn flatten_contract_inheritance(
+use super::*;
+
+pub(crate) fn flatten_contract_inheritance(
     contract: ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<(ContractIR, Vec<String>), SolidityError> {
@@ -13,7 +15,8 @@ fn flatten_contract_inheritance(
     let mut state_variables: Vec<StateVariableIR> = Vec::new();
 
     let mut structs: Vec<StructIR> = Vec::new();
-    let mut struct_index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut struct_index: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
 
     let mut enums: Vec<EnumIR> = Vec::new();
     let mut enum_index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
@@ -60,8 +63,10 @@ fn flatten_contract_inheritance(
     // derived-first order (reverse of base-first emission order) and marking
     // any ancestor's state var whose name is already claimed by a more-
     // derived ancestor as needing a rename.
-    let mut state_var_renames: std::collections::HashMap<String, std::collections::HashMap<String, String>> =
-        std::collections::HashMap::new();
+    let mut state_var_renames: std::collections::HashMap<
+        String,
+        std::collections::HashMap<String, String>,
+    > = std::collections::HashMap::new();
     {
         let mut claimed_names: std::collections::HashSet<String> = std::collections::HashSet::new();
         // Walk derived-first so the *most-derived* declaration wins on
@@ -305,9 +310,11 @@ fn flatten_contract_inheritance(
                         // preserved level-1 slot (B's body) as pointing to
                         // that level-2 slot too — i.e. B's super.foo → A's.
                         let prev_l1_key = format!("{}::{}", super_name, func.name);
-                        if functions.iter().any(|f| f.name == super_level_name(2, &func.name)) {
-                            super_method_map
-                                .insert(prev_l1_key, super_level_name(2, &func.name));
+                        if functions
+                            .iter()
+                            .any(|f| f.name == super_level_name(2, &func.name))
+                        {
+                            super_method_map.insert(prev_l1_key, super_level_name(2, &func.name));
                         }
                         // Plain key retained for backward-compat callers
                         // (expression lowerer falls back to it).
@@ -410,28 +417,31 @@ fn flatten_contract_inheritance(
             merged_has_using_function_list || ancestor.has_using_function_list;
     }
 
-    Ok((ContractIR {
-        name: contract.name,
-        kind: contract.kind,
-        bases: contract.bases,
-        functions,
-        events,
-        errors,
-        state_variables,
-        structs,
-        enums,
-        doc: contract.doc,
-        has_using_for_star: merged_has_using_for_star,
-        has_using_function_list: merged_has_using_function_list,
-        using_for_libraries: merged_using_for_libraries,
-        using_directives: merged_using_directives,
-        has_type_definitions: contract.has_type_definitions,
-        type_aliases,
-        super_method_map,
-    }, warnings))
+    Ok((
+        ContractIR {
+            name: contract.name,
+            kind: contract.kind,
+            bases: contract.bases,
+            functions,
+            events,
+            errors,
+            state_variables,
+            structs,
+            enums,
+            doc: contract.doc,
+            has_using_for_star: merged_has_using_for_star,
+            has_using_function_list: merged_has_using_function_list,
+            using_for_libraries: merged_using_for_libraries,
+            using_directives: merged_using_directives,
+            has_type_definitions: contract.has_type_definitions,
+            type_aliases,
+            super_method_map,
+        },
+        warnings,
+    ))
 }
 
-fn inheritance_contract_chain(
+pub(crate) fn inheritance_contract_chain(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<Vec<String>, SolidityError> {
@@ -440,7 +450,7 @@ fn inheritance_contract_chain(
 
 /// Returns the synthesized name for the N-th preserved super body of `method_name`.
 /// Level 1 uses the legacy `__super_{name}` name for backward compatibility.
-fn super_level_name(level: usize, method_name: &str) -> String {
+pub(crate) fn super_level_name(level: usize, method_name: &str) -> String {
     if level == 1 {
         format!("__super_{method_name}")
     } else {
@@ -450,7 +460,7 @@ fn super_level_name(level: usize, method_name: &str) -> String {
 
 /// Parses the chain depth `N` out of a synthesized super-body name for
 /// `method_name`. Returns `None` if `name` is not a super-body for that method.
-fn parse_super_level(name: &str, method_name: &str) -> Option<usize> {
+pub(crate) fn parse_super_level(name: &str, method_name: &str) -> Option<usize> {
     let legacy = format!("__super_{method_name}");
     if name == legacy {
         return Some(1);

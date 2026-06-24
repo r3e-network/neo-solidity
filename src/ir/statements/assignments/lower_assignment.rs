@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_assignment(
     lhs: &Expression,
     rhs: &Expression,
@@ -246,9 +248,9 @@ pub(crate) fn lower_assignment(
         ) {
             instructions.push(Instruction::LoadLocal(tuple_local));
             for index in path {
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                    *index as u64,
-                ))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(*index as u64),
+                )));
                 instructions.push(Instruction::ArrayGet);
             }
         }
@@ -389,13 +391,7 @@ pub(crate) fn lower_assignment(
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                         BigInt::from(index as u64),
                     )));
-                    emit_abi_decode_static_slot(
-                        buffer_local,
-                        index,
-                        value_type,
-                        ctx,
-                        instructions,
-                    );
+                    emit_abi_decode_static_slot(buffer_local, index, value_type, ctx, instructions);
                     instructions.push(Instruction::ArraySet);
                 }
 
@@ -462,7 +458,11 @@ pub(crate) fn lower_assignment(
                     let dst_type = ctx.local_type(index).cloned();
                     let decoded = match dst_type.as_ref() {
                         Some(ty) => try_lower_this_external_dynamic_assign(
-                            index, rhs, ty, ctx, instructions,
+                            index,
+                            rhs,
+                            ty,
+                            ctx,
+                            instructions,
                         ),
                         None => false,
                     };
@@ -666,13 +666,15 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     };
 
     // new_len = m.length (GetSize on the NeoVM array/buffer).
-    let new_len_local = ctx.allocate_local("__arr_assign_new_len".to_string(), Some(uint256.clone()));
+    let new_len_local =
+        ctx.allocate_local("__arr_assign_new_len".to_string(), Some(uint256.clone()));
     instructions.push(Instruction::LoadLocal(src_local));
     instructions.push(Instruction::GetSize);
     instructions.push(Instruction::StoreLocal(new_len_local));
 
     // old_len = current length slot (the state var itself holds the length).
-    let old_len_local = ctx.allocate_local("__arr_assign_old_len".to_string(), Some(uint256.clone()));
+    let old_len_local =
+        ctx.allocate_local("__arr_assign_old_len".to_string(), Some(uint256.clone()));
     instructions.push(Instruction::LoadState(state_index));
     instructions.push(Instruction::StoreLocal(old_len_local));
 
@@ -691,7 +693,9 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     let copy_cond_label = ctx.next_label();
     let copy_end_label = ctx.next_label();
     let idx_local = ctx.allocate_local("__arr_assign_idx".to_string(), Some(uint256.clone()));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     instructions.push(Instruction::Label(copy_cond_label));
@@ -700,7 +704,9 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     // IR JumpIf branches when the condition is false, so this exits the loop
     // once idx >= new_len.
-    instructions.push(Instruction::JumpIf { target: copy_end_label });
+    instructions.push(Instruction::JumpIf {
+        target: copy_end_label,
+    });
 
     // slot[idx] := src[idx]
     instructions.push(Instruction::LoadLocal(src_local));
@@ -721,10 +727,14 @@ pub(crate) fn lower_storage_array_assign_from_memory(
 
     // idx += 1
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
-    instructions.push(Instruction::Jump { target: copy_cond_label });
+    instructions.push(Instruction::Jump {
+        target: copy_cond_label,
+    });
     instructions.push(Instruction::Label(copy_end_label));
 
     // Deletion loop: for (i = new_len; i < old_len; i++) { slot[i] = default }
@@ -740,7 +750,9 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::LoadLocal(idx_local));
     instructions.push(Instruction::LoadLocal(old_len_local));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-    instructions.push(Instruction::JumpIf { target: delete_end_label });
+    instructions.push(Instruction::JumpIf {
+        target: delete_end_label,
+    });
 
     push_default_for_value_type(&element_type, ctx, instructions);
     instructions.push(Instruction::LoadLocal(idx_local));
@@ -757,10 +769,14 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     }
 
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
-    instructions.push(Instruction::Jump { target: delete_cond_label });
+    instructions.push(Instruction::Jump {
+        target: delete_cond_label,
+    });
     instructions.push(Instruction::Label(delete_end_label));
 }
 

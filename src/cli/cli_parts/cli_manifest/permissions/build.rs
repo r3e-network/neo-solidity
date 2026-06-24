@@ -1,4 +1,6 @@
-fn collect_contract_call_permissions(
+use super::*;
+
+pub(crate) fn collect_contract_call_permissions(
     ir_module: &ir::Module,
 ) -> (BTreeMap<String, PermissionMethods>, bool) {
     let mut needs_wildcard = false;
@@ -36,7 +38,7 @@ fn collect_contract_call_permissions(
 }
 
 /// Infer contract permissions based on method signatures and behavior
-fn infer_permissions(
+pub(crate) fn infer_permissions(
     metadata: &ContractMetadata,
     ir_module: &ir::Module,
 ) -> Vec<serde_json::Value> {

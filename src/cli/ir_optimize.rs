@@ -14,7 +14,15 @@
 use neo_devpack_solidity::ir;
 use num_traits::{ToPrimitive, Zero};
 
-include!("ir_optimize/optimize.rs");
-include!("ir_optimize/constant_folding.rs");
-include!("ir_optimize/labels.rs");
-include!("ir_optimize/neovm.rs");
+#[path = "ir_optimize/optimize.rs"]
+mod optimize;
+pub(crate) use optimize::*;
+#[path = "ir_optimize/constant_folding.rs"]
+mod constant_folding;
+pub(crate) use constant_folding::*;
+#[path = "ir_optimize/labels.rs"]
+mod labels;
+pub(crate) use labels::*;
+#[path = "ir_optimize/neovm.rs"]
+mod neovm;
+pub(crate) use neovm::*;

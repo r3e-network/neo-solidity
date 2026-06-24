@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_runtime_throw_with_message(instructions: &mut Vec<Instruction>, message: &str) {
     instructions.push(Instruction::PushLiteral(LiteralValue::String(
         message.as_bytes().to_vec(),

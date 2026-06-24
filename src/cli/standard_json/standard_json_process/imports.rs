@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Debug, Clone)]
 pub(crate) struct StandardJsonContractSource {
     pub(crate) file_name: String,
@@ -5,18 +7,18 @@ pub(crate) struct StandardJsonContractSource {
 }
 
 pub(crate) struct CombinedStandardJsonSource {
-    source: String,
-    contract_sources: Vec<StandardJsonContractSource>,
-    source_units: Vec<CombinedStandardJsonSourceUnit>,
+    pub(crate) source: String,
+    pub(crate) contract_sources: Vec<StandardJsonContractSource>,
+    pub(crate) source_units: Vec<CombinedStandardJsonSourceUnit>,
 }
 
 pub(crate) struct CombinedStandardJsonSourceUnit {
-    root_file: String,
-    source: String,
-    contract_sources: Vec<StandardJsonContractSource>,
+    pub(crate) root_file: String,
+    pub(crate) source: String,
+    pub(crate) contract_sources: Vec<StandardJsonContractSource>,
 }
 
-fn build_combined_source_with_import_validation(
+pub(crate) fn build_combined_source_with_import_validation(
     sources: &[(String, String, String)],
     errors: &mut Vec<Value>,
 ) -> CombinedStandardJsonSource {
@@ -132,25 +134,24 @@ fn build_combined_source_with_import_validation(
         // Guarded parse: runs on a worker thread with a large bounded stack
         // so deeply nested input becomes a diagnostic, not a stack-overflow
         // abort. Keep ALL solang_parser::parse calls behind this helper.
-        let (unit, _comments) = match neo_devpack_solidity::frontend::parse_solidity_guarded(
-            content,
-        ) {
-            Ok(parsed) => parsed,
-            Err(diags) => {
-                let summary = diags
-                    .iter()
-                    .map(|d| d.message.as_str())
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                push_error(
-                    errors,
-                    file_name,
-                    "ImportParseError",
-                    format!("failed to parse source to resolve imports: {summary}"),
-                );
-                continue;
-            }
-        };
+        let (unit, _comments) =
+            match neo_devpack_solidity::frontend::parse_solidity_guarded(content) {
+                Ok(parsed) => parsed,
+                Err(diags) => {
+                    let summary = diags
+                        .iter()
+                        .map(|d| d.message.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    push_error(
+                        errors,
+                        file_name,
+                        "ImportParseError",
+                        format!("failed to parse source to resolve imports: {summary}"),
+                    );
+                    continue;
+                }
+            };
 
         let mut imports: Vec<String> = Vec::new();
         for part in unit.0.iter() {
@@ -185,7 +186,9 @@ fn build_combined_source_with_import_validation(
                         let aliases: Vec<String> = renames
                             .iter()
                             .filter_map(|(orig, alias)| {
-                                alias.as_ref().map(|a| format!("{} as {}", orig.name, a.name))
+                                alias
+                                    .as_ref()
+                                    .map(|a| format!("{} as {}", orig.name, a.name))
                             })
                             .collect();
                         if !aliases.is_empty() {

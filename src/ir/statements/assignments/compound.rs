@@ -1,3 +1,5 @@
+use super::*;
+
 /// Dispatch compound-assignment arithmetic (`x <op>= y`, `x++`, `--x`, `x <<= y`)
 /// through the SAME overflow-guard / width-truncation ladder as regular binary
 /// expressions, so `x <op>= y` is byte-for-byte identical to `x = x <op> y`.
@@ -141,7 +143,8 @@ pub(crate) fn lower_compound_assignment(
         }
 
         if let Some(field) = reference.field_path.last() {
-            let field_keys: Vec<[u8; 32]> = reference.field_path.iter().map(|field| field.key).collect();
+            let field_keys: Vec<[u8; 32]> =
+                reference.field_path.iter().map(|field| field.key).collect();
             let tmp_id = ctx.next_label();
             let mut key_locals: Vec<usize> = Vec::new();
 
@@ -356,6 +359,8 @@ pub(crate) fn lower_compound_assignment(
     } else {
         success = false;
     }
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     success
 }

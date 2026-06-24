@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_array_store(
     target: &Expression,
     rhs: &Expression,
@@ -20,4 +22,3 @@ pub(crate) fn lower_array_store(
     load_expression(rhs, ctx, instructions);
     instructions.push(Instruction::Drop(ValueType::Any));
 }
-

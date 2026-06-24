@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_native_contract_constant(
     inner: &Expression,
     member: &Identifier,

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn canonical_param_type(ty: &str) -> String {
     let mut parts = ty.split_whitespace();
     match parts.next() {
@@ -25,4 +27,3 @@ pub(crate) fn compute_function_selector(name: &str, param_types: &[String]) -> [
     selector.copy_from_slice(&digest[..4]);
     selector
 }
-

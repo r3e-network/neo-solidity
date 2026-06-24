@@ -1,3 +1,5 @@
+use super::*;
+
 /// ERC → NEP pattern adaptation diagnostics.
 ///
 /// Detects Ethereum-style patterns in Solidity contracts and emits warnings
@@ -9,7 +11,10 @@
 /// - ERC-721 `transferFrom(from, to, tokenId)` → NEP-11 `transfer(to, tokenId, data)`
 /// - `receive()` / `fallback()` → `onNEP17Payment()` callback
 /// - `supportsInterface(bytes4)` → manifest `supportedstandards`
-fn validate_erc_nep_patterns(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn validate_erc_nep_patterns(
+    metadata: &ContractMetadata,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let public_methods: Vec<&FunctionMetadata> = metadata
         .methods
         .iter()
@@ -200,8 +205,7 @@ fn check_receive_fallback_pattern(
             // convert alongside an explicit onNEP17Payment (the unambiguous
             // dead-code case). fallback() stays a warning — its coexist
             // ambiguity is documented in the audit but less dangerous.
-            let is_hard_error =
-                name_lower == "receive" && has_onnep17 && has_surviving_receive;
+            let is_hard_error = name_lower == "receive" && has_onnep17 && has_surviving_receive;
             if is_hard_error {
                 diagnostics.push(
                     Diagnostic::error(format!(
@@ -225,9 +229,7 @@ fn check_receive_fallback_pattern(
                         method.name
                     ))
                     .with_code("W105")
-                    .with_suggestion(
-                        "Remove — the existing onNEP17Payment handler is sufficient",
-                    ),
+                    .with_suggestion("Remove — the existing onNEP17Payment handler is sufficient"),
                 );
             } else {
                 diagnostics.push(Diagnostic::warning(format!(

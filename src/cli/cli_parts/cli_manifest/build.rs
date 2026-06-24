@@ -1,3 +1,5 @@
+use super::*;
+
 fn parse_json_value(raw: &str, tag: &str) -> Option<Value> {
     match serde_json::from_str::<Value>(raw) {
         Ok(value) => Some(value),
@@ -354,8 +356,7 @@ pub(crate) fn build_manifest(
     //     truthfully as `[topic0,] <indexed...>, data` — all ByteArray
     //     (topics are 32-byte slots / keccak hashes, data is the
     //     abi.encoded non-indexed payload). Anonymous events drop topic0.
-    let event_enum_names: HashSet<String> =
-        metadata.enums.iter().map(|e| e.name.clone()).collect();
+    let event_enum_names: HashSet<String> = metadata.enums.iter().map(|e| e.name.clone()).collect();
     let events_json: Vec<_> = metadata
         .events
         .iter()

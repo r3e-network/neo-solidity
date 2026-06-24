@@ -1,3 +1,5 @@
+use super::*;
+
 // `stacker::maybe_grow` at the entry lets the compiler handle
 // pathologically nested block / if-else / loop statements (e.g.
 // `{ { { ... } } }` 10k+ deep) without stack-overflowing. See
@@ -39,9 +41,13 @@ pub(crate) fn lower_statement_inner(
             }
             result
         }
-        Statement::If(_, condition, then_stmt, else_stmt) => {
-            lower_if_statement(condition, then_stmt, else_stmt.as_deref(), ctx, instructions)
-        }
+        Statement::If(_, condition, then_stmt, else_stmt) => lower_if_statement(
+            condition,
+            then_stmt,
+            else_stmt.as_deref(),
+            ctx,
+            instructions,
+        ),
         Statement::While(_, condition, body) => {
             lower_while_statement(condition, body, ctx, instructions)
         }

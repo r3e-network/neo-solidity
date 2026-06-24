@@ -1,4 +1,6 @@
-fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+use super::*;
+
+pub(crate) fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
     if !metadata.is_library {
         return;
     }
@@ -75,9 +77,7 @@ fn validate_library(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnosti
                         metadata.name, method.name,
                     ))
                     .with_code("W120")
-                    .with_suggestion(
-                        "use `internal` or `pure` visibility for library functions",
-                    ),
+                    .with_suggestion("use `internal` or `pure` visibility for library functions"),
                 );
             }
             _ => {}

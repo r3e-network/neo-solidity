@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) struct LoopLabels {
     pub(crate) continue_label: usize,
     pub(crate) break_label: usize,

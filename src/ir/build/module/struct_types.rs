@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn build_defined_struct_types(
     structs: &[crate::solidity::StructMetadata],
     enums: &[EnumMetadata],
@@ -5,8 +7,8 @@ pub(crate) fn build_defined_struct_types(
     type_aliases: &std::collections::HashMap<String, String>,
 ) -> Vec<ValueType> {
     use crate::type_system::{
-        EnumTypeMetadata, NeoType, StructFieldMetadata as TypeStructFieldMetadata,
-        StructFieldType, StructTypeMetadata,
+        EnumTypeMetadata, NeoType, StructFieldMetadata as TypeStructFieldMetadata, StructFieldType,
+        StructTypeMetadata,
     };
 
     let struct_type_info: Vec<StructTypeMetadata> = structs

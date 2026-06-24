@@ -1,16 +1,44 @@
-include!("builtins/abi_predicates.rs");
-include!("builtins/abi_buffers.rs");
-include!("builtins/abi_encode.rs");
-include!("builtins/abi_decode.rs");
-include!("builtins/abi_structs_notify.rs");
-include!("builtins/native_serialize.rs");
-include!("builtins/member_access.rs");
-include!("builtins/member_runtime.rs");
-include!("builtins/member_syscalls.rs");
-include!("builtins/member_storage.rs");
-include!("builtins/member_neo.rs");
-include!("builtins/member_nativecalls.rs");
-include!("builtins/resolved.rs");
+use super::*;
+
+#[path = "builtins/abi_predicates.rs"]
+mod abi_predicates;
+pub(crate) use abi_predicates::*;
+#[path = "builtins/abi_buffers.rs"]
+mod abi_buffers;
+pub(crate) use abi_buffers::*;
+#[path = "builtins/abi_encode.rs"]
+mod abi_encode;
+pub(crate) use abi_encode::*;
+#[path = "builtins/abi_decode.rs"]
+mod abi_decode;
+pub(crate) use abi_decode::*;
+#[path = "builtins/abi_structs_notify.rs"]
+mod abi_structs_notify;
+pub(crate) use abi_structs_notify::*;
+#[path = "builtins/native_serialize.rs"]
+mod native_serialize;
+pub(crate) use native_serialize::*;
+#[path = "builtins/member_access.rs"]
+mod member_access;
+pub(crate) use member_access::*;
+#[path = "builtins/member_runtime.rs"]
+mod member_runtime;
+pub(crate) use member_runtime::*;
+#[path = "builtins/member_syscalls.rs"]
+mod member_syscalls;
+pub(crate) use member_syscalls::*;
+#[path = "builtins/member_storage.rs"]
+mod member_storage;
+pub(crate) use member_storage::*;
+#[path = "builtins/member_neo.rs"]
+mod member_neo;
+pub(crate) use member_neo::*;
+#[path = "builtins/member_nativecalls.rs"]
+mod member_nativecalls;
+pub(crate) use member_nativecalls::*;
+#[path = "builtins/resolved.rs"]
+mod resolved;
+pub(crate) use resolved::*;
 
 pub(crate) fn try_lower_builtin_call(
     func: &Expression,

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_neo_member_builtin(
     base: &Identifier,
     member: &Identifier,

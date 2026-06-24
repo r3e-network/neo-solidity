@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_post_inc_dec(
     expr: &Expression,
     ctx: &mut LoweringContext,
@@ -29,9 +31,14 @@ pub(crate) fn lower_post_inc_dec(
     let inferred = infer_type_from_expression(expr, ctx);
     let is_u256 = matches!(
         inferred,
-        Some(ValueType::Integer { signed: false, bits: 256 })
+        Some(ValueType::Integer {
+            signed: false,
+            bits: 256
+        })
     );
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     if is_u256 {
         // Use the limb routine so a uint256 result >= 2^255 (e.g. recovering the
         // old value of an unchecked `x++` that wrapped) does not fault on a
@@ -56,7 +63,10 @@ pub(crate) fn lower_post_inc_dec(
         // this only ever corrects a genuine wrap; non-wrapping values are
         // unchanged by the mask.)
         match inferred {
-            Some(ValueType::Integer { signed: false, bits }) if bits < 256 => {
+            Some(ValueType::Integer {
+                signed: false,
+                bits,
+            }) if bits < 256 => {
                 emit_truncate_narrow_unsigned(instructions, bits);
             }
             Some(ValueType::Integer { signed: true, bits }) if bits < 256 => {

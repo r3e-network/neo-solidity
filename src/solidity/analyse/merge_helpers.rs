@@ -3,7 +3,7 @@
 /// and the bare `uint`/`int` aliases expand to their canonical 256-bit
 /// forms (`uint256[3]` == `uint [3]` == `uint256 [ 3 ]`,
 /// `mapping(address=>uint)` == `mapping(address => uint256)`).
-fn normalize_state_type_for_merge(ty: &str) -> String {
+pub(crate) fn normalize_state_type_for_merge(ty: &str) -> String {
     let mut out = String::with_capacity(ty.len());
     let mut word = String::new();
     let flush = |word: &mut String, out: &mut String| {

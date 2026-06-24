@@ -1,4 +1,9 @@
-pub(crate) fn fixed_len_bytes_be_from_hex_number(expr: &Expression, fixed_len: u16) -> Option<Vec<u8>> {
+use super::*;
+
+pub(crate) fn fixed_len_bytes_be_from_hex_number(
+    expr: &Expression,
+    fixed_len: u16,
+) -> Option<Vec<u8>> {
     let Expression::HexNumberLiteral(_, value, unit) = expr else {
         return None;
     };
@@ -180,12 +185,12 @@ pub(crate) fn emit_arith_with_overflow_ladder(
     // overflows (result == 2^(N-1) == intN_max + 1). Unsigned division never
     // overflows; int256 / i64 min/-1 are caught inside the runtime divmod, so
     // this covers only the narrow signed widths the runtime leaves un-trapped.
-    let div_narrow_i = if matches!(operator, BinaryOperator::Div) && is_narrow_result(left, right, ctx)
-    {
-        narrow_signed_bits(left, right, ctx)
-    } else {
-        None
-    };
+    let div_narrow_i =
+        if matches!(operator, BinaryOperator::Div) && is_narrow_result(left, right, ctx) {
+            narrow_signed_bits(left, right, ctx)
+        } else {
+            None
+        };
 
     if emit_guard {
         // The conformant uint256 checked add/sub/mul operate directly on the
@@ -304,7 +309,9 @@ pub(crate) fn lower_binary_expr(
         // arith-overflow=0x11, abi.decode-short=0x41.
         let ok_label = ctx.next_label();
         instructions.push(Instruction::LoadLocal(rhs_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
         instructions.push(Instruction::JumpIf { target: ok_label });
         emit_panic(0x12, instructions);

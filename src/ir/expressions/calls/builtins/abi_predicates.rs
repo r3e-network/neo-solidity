@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn manifest_type_name(ty: ManifestType) -> &'static str {
     match ty {
         ManifestType::Integer => "Integer",
@@ -12,7 +14,10 @@ pub(crate) fn manifest_type_name(ty: ManifestType) -> &'static str {
     }
 }
 
-pub(crate) fn value_type_satisfies_manifest_type(actual: &ValueType, expected: ManifestType) -> Option<bool> {
+pub(crate) fn value_type_satisfies_manifest_type(
+    actual: &ValueType,
+    expected: ManifestType,
+) -> Option<bool> {
     if expected == ManifestType::Any {
         return Some(true);
     }
@@ -132,7 +137,9 @@ pub(crate) fn abi_static_slot_count(value_type: &ValueType) -> Option<usize> {
     match value_type {
         ValueType::Struct { fields, .. }
             if !fields.is_empty()
-                && fields.iter().all(|field| is_static_abi_type_value(&field.ty)) =>
+                && fields
+                    .iter()
+                    .all(|field| is_static_abi_type_value(&field.ty)) =>
         {
             Some(fields.len())
         }
@@ -176,4 +183,3 @@ pub(crate) fn abi_dynamic_value_type_is_supported(value_type: &ValueType) -> boo
         _ => false,
     }
 }
-

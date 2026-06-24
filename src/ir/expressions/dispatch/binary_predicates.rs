@@ -1,3 +1,5 @@
+use super::*;
+
 /// True if the expression is a literal number (number/hex). Used to avoid
 /// emitting the overflow guard when both operands are compile-time constants —
 /// the compiler's constant folder already handles those.
@@ -63,14 +65,19 @@ pub(crate) fn is_int256_operand(expr: &Expression, ctx: &LoweringContext) -> boo
 /// MIXED-width arithmetic (`uint256 + uint32`), where Solidity widens the narrow
 /// operand so the result is `uint256` and the 256-bit path must own it. Untyped
 /// literals adapt to the narrow operand's type and never count as wide here.
-pub(crate) fn is_narrow_result(left: &Expression, right: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_narrow_result(
+    left: &Expression,
+    right: &Expression,
+    ctx: &LoweringContext,
+) -> bool {
     if is_typed_uint256(left, ctx) || is_typed_uint256(right, ctx) {
         return false;
     }
     if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
         return false;
     }
-    narrow_unsigned_bits(left, right, ctx).is_some() || narrow_signed_bits(left, right, ctx).is_some()
+    narrow_unsigned_bits(left, right, ctx).is_some()
+        || narrow_signed_bits(left, right, ctx).is_some()
 }
 
 /// Task #30 slice 2: gate for `uint256` Add/Sub/Mul overflow-guard emission.
@@ -191,10 +198,11 @@ pub(crate) fn narrow_signed_bits(
 ) -> Option<u16> {
     pub(crate) fn narrow_bits(expr: &Expression, ctx: &LoweringContext) -> Option<u16> {
         match infer_type_from_expression(expr, ctx) {
-            Some(ValueType::Integer {
-                signed: true,
-                bits,
-            }) if matches!(bits, 8 | 16 | 32 | 64 | 128) => Some(bits),
+            Some(ValueType::Integer { signed: true, bits })
+                if matches!(bits, 8 | 16 | 32 | 64 | 128) =>
+            {
+                Some(bits)
+            }
             _ => None,
         }
     }

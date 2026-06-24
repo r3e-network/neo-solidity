@@ -49,7 +49,15 @@ pub(crate) use solidity_metadata::*;
 pub(crate) use solidity_validate::*;
 pub(crate) use upgrade::*;
 
-include!("solidity/analyse/inheritance.rs");
-include!("solidity/analyse/modifiers.rs");
-include!("solidity/analyse/sibling_merge_walkers.rs");
-include!("solidity/analyse/merge_helpers.rs");
+#[path = "solidity/analyse/inheritance.rs"]
+mod inheritance;
+pub(crate) use inheritance::*;
+#[path = "solidity/analyse/modifiers.rs"]
+mod modifiers;
+pub(crate) use modifiers::*;
+#[path = "solidity/analyse/sibling_merge_walkers.rs"]
+mod sibling_merge_walkers;
+pub(crate) use sibling_merge_walkers::*;
+#[path = "solidity/analyse/merge_helpers.rs"]
+mod merge_helpers;
+pub(crate) use merge_helpers::*;

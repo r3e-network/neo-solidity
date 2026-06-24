@@ -1,4 +1,6 @@
-fn rewrite_statement(
+use super::*;
+
+pub(crate) fn rewrite_statement(
     stmt: &Statement,
     subs: &std::collections::HashMap<String, Expression>,
     placeholder_body: Option<&Statement>,

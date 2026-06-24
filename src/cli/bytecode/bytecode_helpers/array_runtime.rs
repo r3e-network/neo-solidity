@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_new_array(bytecode: &mut Vec<u8>) {
     bytecode.push(0xC3); // NEWARRAY
 }
@@ -50,13 +52,12 @@ pub(crate) fn emit_load_runtime_value(
             // Second test: == ContractManagement.Hash (LE bytes)
             // Stack: [calling_dup, calling_eq_entry?]
             bytecode.push(0x50); // SWAP — bring calling_dup back to top
-            // PUSHDATA1 0x14 (20-byte hash, LE):
+                                 // PUSHDATA1 0x14 (20-byte hash, LE):
             bytecode.push(0x0C); // PUSHDATA1
             bytecode.push(0x14); // length 20
             bytecode.extend_from_slice(&[
-                0xFD, 0xA3, 0xFA, 0x43, 0x46, 0xEA, 0x53, 0x2A,
-                0x25, 0x8F, 0xC4, 0x97, 0xDD, 0xAD, 0xDB, 0x64,
-                0x37, 0xC9, 0xFD, 0xFF,
+                0xFD, 0xA3, 0xFA, 0x43, 0x46, 0xEA, 0x53, 0x2A, 0x25, 0x8F, 0xC4, 0x97, 0xDD, 0xAD,
+                0xDB, 0x64, 0x37, 0xC9, 0xFD, 0xFF,
             ]);
             bytecode.push(0x97); // EQUAL — calling == ContractManagement?
 
@@ -95,7 +96,9 @@ pub(crate) fn emit_load_runtime_value(
             bytecode[jmp_if_not_operand..jmp_if_not_operand + 4]
                 .copy_from_slice(&rel_else.to_le_bytes());
 
-            let rel_end = (end_pos as i32).checked_sub(jmp_end_pos as i32).unwrap_or(0);
+            let rel_end = (end_pos as i32)
+                .checked_sub(jmp_end_pos as i32)
+                .unwrap_or(0);
             bytecode[jmp_end_operand..jmp_end_operand + 4].copy_from_slice(&rel_end.to_le_bytes());
         }
         ir::RuntimeValue::MsgValue => {

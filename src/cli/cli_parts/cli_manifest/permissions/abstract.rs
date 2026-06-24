@@ -1,8 +1,10 @@
-fn pop_value(stack: &mut Vec<AbstractValue>) -> Result<AbstractValue, ()> {
+use super::*;
+
+pub(crate) fn pop_value(stack: &mut Vec<AbstractValue>) -> Result<AbstractValue, ()> {
     stack.pop().ok_or(())
 }
 
-fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
+pub(crate) fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
     if stack.len() < n {
         return Err(());
     }
@@ -12,8 +14,22 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
     Ok(())
 }
 
-fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
-    use ir::Instruction::{Drop, LoadParameter, StoreParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, StoreArrayDeepCopy, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadStructFieldMappingElement, StoreStructFieldMappingElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, PushFunctionOffset, CallIndirect, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, NewMap, ArrayGet, ArraySet, HasKey, MemCpy, Substr, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
+pub(crate) fn apply_instruction(
+    state: &mut AbstractState,
+    instr: &ir::Instruction,
+    ir_module: &ir::Module,
+) -> Result<(), ()> {
+    use ir::Instruction::{
+        Abort, AbortMsg, ArrayGet, ArraySet, BinaryOp, BitwiseNot, CallBuiltin, CallFunction,
+        CallIndirect, Convert, Drop, Dup, EmitEvent, EmitEventByName, EndTry, GetSize, HasKey,
+        IsType, Jump, JumpIf, Label, LoadLocal, LoadMappingElement, LoadParameter,
+        LoadRuntimeValue, LoadState, LoadStorageDynamic, LoadStructArrayElement, LoadStructField,
+        LoadStructFieldMappingElement, LogicalNot, MemCpy, NewArray, NewBuffer, NewMap,
+        PushFunctionOffset, PushLiteral, Return, ReturnDefault, ReturnVoid, ReverseItems,
+        StoreArrayDeepCopy, StoreLocal, StoreMappingElement, StoreParameter, StoreState,
+        StoreStructArrayElement, StoreStructField, StoreStructFieldMappingElement, Substr, Swap,
+        Throw, Try,
+    };
 
     match instr {
         Drop(_) => {
@@ -106,7 +122,10 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
         }
         CallFunction { name, arg_count } => {
             pop_n(&mut state.stack, *arg_count)?;
-            let returns_value = ir_module.get_function(name).map(|f| !f.returns.is_empty()).unwrap_or(true);
+            let returns_value = ir_module
+                .get_function(name)
+                .map(|f| !f.returns.is_empty())
+                .unwrap_or(true);
             if returns_value {
                 state.stack.push(AbstractValue::Unknown);
             }
@@ -127,7 +146,10 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
             // integer literal. Stack effect: +1 (one new opaque integer).
             state.stack.push(AbstractValue::Unknown);
         }
-        CallIndirect { arg_count, has_return } => {
+        CallIndirect {
+            arg_count,
+            has_return,
+        } => {
             // Task #186 — indirect call through a function-pointer value.
             // Consumes `arg_count` arguments + 1 target offset; pushes a
             // return value iff the callee returns something.
@@ -190,7 +212,11 @@ fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_modu
             pop_value(&mut state.stack)?;
         }
         Dup => {
-            let value = state.stack.last().cloned().unwrap_or(AbstractValue::Unknown);
+            let value = state
+                .stack
+                .last()
+                .cloned()
+                .unwrap_or(AbstractValue::Unknown);
             state.stack.push(value);
         }
         Swap => {

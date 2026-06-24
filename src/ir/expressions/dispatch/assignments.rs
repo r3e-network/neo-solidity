@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_expression_assignments(
     expr: &Expression,
     ctx: &mut LoweringContext,
@@ -78,15 +80,19 @@ pub(crate) fn try_lower_expression_assignments(
             lower_assignment(lhs, rhs, ctx, instructions);
             Some(true)
         }
-        Expression::PostIncrement(_, inner) => Some(lower_post_inc_dec(inner, ctx, instructions, true)),
+        Expression::PostIncrement(_, inner) => {
+            Some(lower_post_inc_dec(inner, ctx, instructions, true))
+        }
         Expression::PostDecrement(_, inner) => {
             Some(lower_post_inc_dec(inner, ctx, instructions, false))
         }
-        Expression::PreIncrement(_, inner) => Some(lower_pre_inc_dec(inner, ctx, instructions, true)),
-        Expression::PreDecrement(_, inner) => Some(lower_pre_inc_dec(inner, ctx, instructions, false)),
-        Expression::Delete(_, target) => {
-            Some(lower_delete(target, ctx, instructions))
+        Expression::PreIncrement(_, inner) => {
+            Some(lower_pre_inc_dec(inner, ctx, instructions, true))
         }
+        Expression::PreDecrement(_, inner) => {
+            Some(lower_pre_inc_dec(inner, ctx, instructions, false))
+        }
+        Expression::Delete(_, target) => Some(lower_delete(target, ctx, instructions)),
         _ => None,
     }
 }
@@ -235,7 +241,8 @@ pub(crate) fn lower_delete(
     if let Expression::MemberAccess(_, inner, member) = target {
         if let Expression::Variable(base) = inner.as_ref() {
             if let Some(local_index) = ctx.resolve_local(&base.name) {
-                if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx)
+                if let Some(ValueType::Struct { fields, .. }) =
+                    infer_type_from_expression(inner, ctx)
                 {
                     if let Some((field_index, field)) = fields
                         .iter()
@@ -260,7 +267,9 @@ pub(crate) fn lower_delete(
 
     // Compatibility fallback for unsupported `delete` shapes:
     // preserve control flow by treating as a no-op.
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     true
 }
 
@@ -333,10 +342,8 @@ pub(crate) fn lower_delete_storage_array(
             .map(|meta| meta.ty.clone())
             .and_then(|ty| extract_fixed_array_bound_at_depth(&ty, 0))
             .is_some();
-    let len_local = ctx.allocate_local(
-        format!("__delete_sarr_len_{tmp_id}"),
-        Some(uint256.clone()),
-    );
+    let len_local =
+        ctx.allocate_local(format!("__delete_sarr_len_{tmp_id}"), Some(uint256.clone()));
     if is_fixed_size {
         let bound = ctx
             .state_metadata(reference.state_index)
@@ -366,11 +373,11 @@ pub(crate) fn lower_delete_storage_array(
     element_key_types.push(uint256.clone());
     let cond_label = ctx.next_label();
     let end_label = ctx.next_label();
-    let idx_local = ctx.allocate_local(
-        format!("__delete_sarr_idx_{tmp_id}"),
-        Some(uint256.clone()),
-    );
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    let idx_local =
+        ctx.allocate_local(format!("__delete_sarr_idx_{tmp_id}"), Some(uint256.clone()));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     instructions.push(Instruction::Label(cond_label));
@@ -400,7 +407,9 @@ pub(crate) fn lower_delete_storage_array(
     }
 
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
     instructions.push(Instruction::Jump { target: cond_label });
@@ -409,7 +418,9 @@ pub(crate) fn lower_delete_storage_array(
     // Dynamic arrays: zero the base (length) slot. Fixed-size arrays have no
     // length slot — leave the never-read base slot untouched.
     if !is_fixed_size {
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         for local in key_locals.iter().rev() {
             instructions.push(Instruction::LoadLocal(*local));
         }

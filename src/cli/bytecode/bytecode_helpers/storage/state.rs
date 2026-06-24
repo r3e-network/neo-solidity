@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn emit_load_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
     let key = module
         .state_variables
@@ -27,7 +29,7 @@ pub(crate) fn emit_store_state(bytecode: &mut Vec<u8>, module: &ir::Module, inde
     emit_syscall(bytecode, "System.Storage.Put");
 }
 
-fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) {
+pub(crate) fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) {
     fn with_null_default(
         bytecode: &mut Vec<u8>,
         default_value: impl Fn(&mut Vec<u8>),
@@ -99,10 +101,14 @@ fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) {
         bytecode[jmp_not_missing_operand..jmp_not_missing_operand + 4]
             .copy_from_slice(&rel_not_missing.to_le_bytes());
 
-        let rel_end = (end_pos as i32).checked_sub(jmp_end_pos as i32).unwrap_or(0);
+        let rel_end = (end_pos as i32)
+            .checked_sub(jmp_end_pos as i32)
+            .unwrap_or(0);
         bytecode[jmp_end_operand..jmp_end_operand + 4].copy_from_slice(&rel_end.to_le_bytes());
 
-        let rel_end2 = (end_pos as i32).checked_sub(jmp_end2_pos as i32).unwrap_or(0);
+        let rel_end2 = (end_pos as i32)
+            .checked_sub(jmp_end2_pos as i32)
+            .unwrap_or(0);
         bytecode[jmp_end2_operand..jmp_end2_operand + 4].copy_from_slice(&rel_end2.to_le_bytes());
     }
 
@@ -132,16 +138,28 @@ fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) {
             );
         }
         ValueType::String => {
-            with_null_default(bytecode, |bytecode| push_data(bytecode, &[]), |_bytecode| {});
+            with_null_default(
+                bytecode,
+                |bytecode| push_data(bytecode, &[]),
+                |_bytecode| {},
+            );
         }
         ValueType::Address => {
-            with_null_default(bytecode, |bytecode| push_data(bytecode, &[0u8; 20]), |_bytecode| {});
+            with_null_default(
+                bytecode,
+                |bytecode| push_data(bytecode, &[0u8; 20]),
+                |_bytecode| {},
+            );
         }
         ValueType::ByteArray { fixed_len } => {
             let default_bytes = fixed_len
                 .map(|len| vec![0u8; len as usize])
                 .unwrap_or_default();
-            with_null_default(bytecode, |bytecode| push_data(bytecode, &default_bytes), |_bytecode| {});
+            with_null_default(
+                bytecode,
+                |bytecode| push_data(bytecode, &default_bytes),
+                |_bytecode| {},
+            );
         }
         ValueType::Array(_) => {
             with_null_default(

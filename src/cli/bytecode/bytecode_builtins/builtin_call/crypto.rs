@@ -1,4 +1,6 @@
-fn emit_keccak256(
+use super::*;
+
+pub(crate) fn emit_keccak256(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -13,7 +15,7 @@ fn emit_keccak256(
     )
 }
 
-fn emit_ecrecover(
+pub(crate) fn emit_ecrecover(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -155,7 +157,7 @@ fn emit_ecrecover(
     bytecode[jmp_end_operand..jmp_end_operand + 4].copy_from_slice(&rel_end.to_le_bytes());
 }
 
-fn emit_verify_signature(
+pub(crate) fn emit_verify_signature(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -181,7 +183,7 @@ fn emit_verify_signature(
 /// (recoverSecp256K1 → SUBSTR(1,64) → keccak256 → RIGHT 20). A final CAT with
 /// 12 zero bytes left-pads the 20-byte address into a 32-byte slot so the
 /// returned `bytes memory` matches the Ethereum 0x01 contract output.
-fn emit_precompile_ecrecover(
+pub(crate) fn emit_precompile_ecrecover(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -275,7 +277,7 @@ fn emit_precompile_ecrecover(
 /// (this matches Solidity's behaviour when `mod == 1` — result is zero).
 ///
 /// NeoVM MODPOW (0xA6) pops [base, exp, mod] and pushes the result.
-fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
+pub(crate) fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     // This is the 1-byte-operand modexp variant: it reads single operand bytes
     // at fixed offsets 96/97/98. To avoid SILENTLY mis-reading a wider input
     // (whose operands are length-prefixed at different offsets), GATE on the
@@ -316,7 +318,7 @@ fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     bytecode.push(0x8C); // SUBSTR → mod (consumes payload)
     bytecode.push(0xDB); // CONVERT
     bytecode.push(0x21); // to Integer
-    // Stack: [base, exp, mod]
+                         // Stack: [base, exp, mod]
 
     bytecode.push(0xA6); // MODPOW → [result_int]
 
@@ -332,7 +334,7 @@ fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     push_data(bytecode, &[0u8; 32]);
     bytecode.push(0x50); // SWAP → [zeros32, result_bytes]
     bytecode.push(0x8B); // CAT → zeros32 || result_bytes  (32 or 33 bytes)
-    // Right-align: take the LAST 32 bytes so the result sits in byte 31.
+                         // Right-align: take the LAST 32 bytes so the result sits in byte 31.
     bytecode.push(0x4A); // DUP
     bytecode.push(0xCA); // SIZE → len
     push_integer_bigint(bytecode, &BigInt::from(32u8));

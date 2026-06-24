@@ -1,10 +1,15 @@
+use super::*;
+
 /// Drop instructions that follow a terminator (Return / Jump / Abort / Throw /
 /// EndTry) up to the next `Label`. Task #88 — also drop labels that are no
 /// longer reachable (no incoming Jump/JumpIf, preceded only by a terminator)
 /// so a now-statically-dead arm (e.g. `if (true) return 1; return s;` at L2+)
 /// can have its tail instructions — including `LoadState`/storage reads —
 /// elided instead of falling through a dead fall-through at the label.
-fn prune_after_terminator(block: &mut ir::BasicBlock, live_labels: &std::collections::HashSet<usize>) {
+fn prune_after_terminator(
+    block: &mut ir::BasicBlock,
+    live_labels: &std::collections::HashSet<usize>,
+) {
     let mut trimmed = Vec::with_capacity(block.instructions.len());
     let mut terminated = false;
 

@@ -1,4 +1,6 @@
-fn emit_contract_warnings(
+use super::*;
+
+pub(crate) fn emit_contract_warnings(
     artifacts: &[CompilationArtifacts],
     json_warnings: bool,
     json_errors: bool,
@@ -13,12 +15,18 @@ fn emit_contract_warnings(
             });
 
             // --Wno-<prefix>: suppress warnings whose code starts with prefix
-            if suppress_prefixes.iter().any(|p| code.starts_with(p.as_str())) {
+            if suppress_prefixes
+                .iter()
+                .any(|p| code.starts_with(p.as_str()))
+            {
                 continue;
             }
 
             // --Werror=<prefix>: promote matching warnings to errors
-            if promote_prefixes.iter().any(|p| code.starts_with(p.as_str())) {
+            if promote_prefixes
+                .iter()
+                .any(|p| code.starts_with(p.as_str()))
+            {
                 emit_error(&warning.message, code, json_errors);
                 continue;
             }
@@ -34,17 +42,17 @@ fn emit_contract_warnings(
     }
 }
 
-struct OutputConfig<'a> {
-    format: &'a str,
-    output_prefix: &'a str,
-    input_file: &'a str,
-    nef_source_override: Option<&'a str>,
-    deployer: Option<[u8; 20]>,
-    json_errors: bool,
-    json_warnings: bool,
+pub(crate) struct OutputConfig<'a> {
+    pub(crate) format: &'a str,
+    pub(crate) output_prefix: &'a str,
+    pub(crate) input_file: &'a str,
+    pub(crate) nef_source_override: Option<&'a str>,
+    pub(crate) deployer: Option<[u8; 20]>,
+    pub(crate) json_errors: bool,
+    pub(crate) json_warnings: bool,
 }
 
-fn write_contract_outputs(
+pub(crate) fn write_contract_outputs(
     artifacts: &[CompilationArtifacts],
     config: &OutputConfig<'_>,
 ) {

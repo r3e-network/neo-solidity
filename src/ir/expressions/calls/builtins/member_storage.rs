@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_storage_member_builtin(
     base: &Identifier,
     member: &Identifier,

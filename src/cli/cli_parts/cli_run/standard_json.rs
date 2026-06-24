@@ -1,4 +1,6 @@
-fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
+use super::*;
+
+pub(crate) fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
     fn standard_json_cli_error_code(message: &str) -> &'static str {
         let lower = message.to_ascii_lowercase();
         if lower.contains("failed to parse standard json input") {

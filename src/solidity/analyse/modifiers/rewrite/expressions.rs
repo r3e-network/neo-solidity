@@ -1,4 +1,6 @@
-fn rewrite_expression(
+use super::*;
+
+pub(crate) fn rewrite_expression(
     expr: &Expression,
     subs: &std::collections::HashMap<String, Expression>,
 ) -> Expression {
@@ -10,16 +12,22 @@ fn rewrite_expression(
         Expression::PostDecrement(loc, inner) => {
             Expression::PostDecrement(*loc, Box::new(rewrite_expression(inner, subs)))
         }
-        Expression::New(loc, inner) => Expression::New(*loc, Box::new(rewrite_expression(inner, subs))),
+        Expression::New(loc, inner) => {
+            Expression::New(*loc, Box::new(rewrite_expression(inner, subs)))
+        }
         Expression::ArraySubscript(loc, inner, index) => Expression::ArraySubscript(
             *loc,
             Box::new(rewrite_expression(inner, subs)),
-            index.as_ref().map(|e| Box::new(rewrite_expression(e, subs))),
+            index
+                .as_ref()
+                .map(|e| Box::new(rewrite_expression(e, subs))),
         ),
         Expression::ArraySlice(loc, inner, start, end) => Expression::ArraySlice(
             *loc,
             Box::new(rewrite_expression(inner, subs)),
-            start.as_ref().map(|e| Box::new(rewrite_expression(e, subs))),
+            start
+                .as_ref()
+                .map(|e| Box::new(rewrite_expression(e, subs))),
             end.as_ref().map(|e| Box::new(rewrite_expression(e, subs))),
         ),
         Expression::Parenthesis(loc, inner) => {
@@ -49,9 +57,15 @@ fn rewrite_expression(
                     expr: rewrite_expression(&arg.expr, subs),
                 })
                 .collect();
-            Expression::NamedFunctionCall(*loc, Box::new(rewrite_expression(func, subs)), rewritten_args)
+            Expression::NamedFunctionCall(
+                *loc,
+                Box::new(rewrite_expression(func, subs)),
+                rewritten_args,
+            )
         }
-        Expression::Not(loc, inner) => Expression::Not(*loc, Box::new(rewrite_expression(inner, subs))),
+        Expression::Not(loc, inner) => {
+            Expression::Not(*loc, Box::new(rewrite_expression(inner, subs)))
+        }
         Expression::BitwiseNot(loc, inner) => {
             Expression::BitwiseNot(*loc, Box::new(rewrite_expression(inner, subs)))
         }

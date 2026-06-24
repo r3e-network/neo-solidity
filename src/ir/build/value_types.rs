@@ -1,3 +1,5 @@
+use super::*;
+
 impl StateVariable {
     pub(crate) fn from_metadata(symbol: &StateVariableMetadata) -> Self {
         let storage_key = symbol

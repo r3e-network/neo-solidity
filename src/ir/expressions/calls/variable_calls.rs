@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn try_lower_variable_call(
     func: &Expression,
     args: &[Expression],
@@ -163,14 +165,18 @@ pub(crate) fn try_lower_variable_call(
                 let fail_label = ctx.next_label();
                 let ok_label = ctx.next_label();
                 if !lower_expression(&args[0], ctx, instructions) {
-                    instructions
-                        .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::zero(),
+                    )));
                     return Some(false);
                 }
                 let tmp_id = ctx.next_label();
                 let value_slot = ctx.allocate_local(
                     format!("__enum_cast_{tmp_id}"),
-                    Some(ValueType::Integer { signed: false, bits: 8 }),
+                    Some(ValueType::Integer {
+                        signed: false,
+                        bits: 8,
+                    }),
                 );
                 instructions.push(Instruction::StoreLocal(value_slot));
                 // IR `JumpIf` branches when the operand is false. Compute
@@ -263,12 +269,8 @@ pub(crate) fn try_lower_variable_call(
                         instructions.push(Instruction::Drop(ValueType::Any));
                     }
                     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                        format!(
-                            "'{}'/{} has no compiled body",
-                            identifier.name,
-                            args.len()
-                        )
-                        .into_bytes(),
+                        format!("'{}'/{} has no compiled body", identifier.name, args.len())
+                            .into_bytes(),
                     )));
                     instructions.push(Instruction::AbortMsg);
                     // Push a default return value so any caller that expects

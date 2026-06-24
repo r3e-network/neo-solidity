@@ -1,4 +1,6 @@
-fn convert_event(
+use super::*;
+
+pub(crate) fn convert_event(
     event: EventIR,
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],
@@ -35,7 +37,10 @@ fn convert_event(
     }
 }
 
-fn normalize_event_signature(name: &str, params: &[crate::frontend::EventParameterIR]) -> String {
+pub(crate) fn normalize_event_signature(
+    name: &str,
+    params: &[crate::frontend::EventParameterIR],
+) -> String {
     fn canonical_param_type(ty: &str) -> String {
         let mut parts = ty.split_whitespace();
         match parts.next() {

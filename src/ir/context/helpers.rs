@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn load_expression(
     expr: &Expression,
     ctx: &mut LoweringContext,

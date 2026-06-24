@@ -1,4 +1,6 @@
-fn remove_trivial_jumps(block: &mut ir::BasicBlock) {
+use super::*;
+
+pub(crate) fn remove_trivial_jumps(block: &mut ir::BasicBlock) {
     let mut optimized = Vec::with_capacity(block.instructions.len());
     let mut iter = block.instructions.iter();
     while let Some(instr) = iter.next() {
@@ -15,7 +17,10 @@ fn remove_trivial_jumps(block: &mut ir::BasicBlock) {
     block.instructions = optimized;
 }
 
-fn dedupe_labels(block: &mut ir::BasicBlock, remap: &mut std::collections::HashMap<usize, usize>) {
+pub(crate) fn dedupe_labels(
+    block: &mut ir::BasicBlock,
+    remap: &mut std::collections::HashMap<usize, usize>,
+) {
     let mut optimized = Vec::with_capacity(block.instructions.len());
     let mut last_label: Option<usize> = None;
 
@@ -40,7 +45,10 @@ fn dedupe_labels(block: &mut ir::BasicBlock, remap: &mut std::collections::HashM
     block.instructions = optimized;
 }
 
-fn retarget_jumps(blocks: &mut [ir::BasicBlock], remap: &std::collections::HashMap<usize, usize>) {
+pub(crate) fn retarget_jumps(
+    blocks: &mut [ir::BasicBlock],
+    remap: &std::collections::HashMap<usize, usize>,
+) {
     for block in blocks {
         for instr in &mut block.instructions {
             match instr {

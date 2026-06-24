@@ -1,5 +1,7 @@
+use super::*;
+
 /// NeoVM-specific peephole optimization: removes redundant stack operations
-fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
+pub(crate) fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
     let mut optimized = Vec::with_capacity(block.instructions.len());
     let mut i = 0;
 
@@ -32,10 +34,9 @@ fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
 
         // Pattern: StoreLocal x, LoadLocal x → DUP, StoreLocal x
         if i + 1 < block.instructions.len() {
-            if let (
-                ir::Instruction::StoreLocal(store_idx),
-                ir::Instruction::LoadLocal(load_idx),
-            ) = (&block.instructions[i], &block.instructions[i + 1]) {
+            if let (ir::Instruction::StoreLocal(store_idx), ir::Instruction::LoadLocal(load_idx)) =
+                (&block.instructions[i], &block.instructions[i + 1])
+            {
                 if store_idx == load_idx {
                     optimized.push(ir::Instruction::Dup);
                     optimized.push(ir::Instruction::StoreLocal(*store_idx));
@@ -62,7 +63,7 @@ fn neovm_peephole_optimize(block: &mut ir::BasicBlock) {
 }
 
 /// NeoVM-specific: simplify identity operations (x + 0, x * 1, x & MAX, etc.)
-fn neovm_simplify_identity_ops(block: &mut ir::BasicBlock) {
+pub(crate) fn neovm_simplify_identity_ops(block: &mut ir::BasicBlock) {
     use num_bigint::BigInt;
     use num_traits::Zero;
 
@@ -132,7 +133,7 @@ fn neovm_simplify_identity_ops(block: &mut ir::BasicBlock) {
 }
 
 /// NeoVM-specific: optimize boolean patterns
-fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
+pub(crate) fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
     let mut optimized = Vec::with_capacity(block.instructions.len());
     let mut i = 0;
 

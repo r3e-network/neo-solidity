@@ -1,4 +1,9 @@
-fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Vec<ContractCallRequirement> {
+use super::*;
+
+pub(crate) fn analyze_contract_calls(
+    function: &ir::Function,
+    ir_module: &ir::Module,
+) -> Vec<ContractCallRequirement> {
     const MAX_STATE_VARIANTS: usize = 16;
 
     let mut has_contract_calls = false;
@@ -113,7 +118,9 @@ fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Ve
                 _ => (0usize, 0usize, 0usize),
             };
 
-            if expected_args > 0 && *arg_count == expected_args && state_in.stack.len() >= expected_args
+            if expected_args > 0
+                && *arg_count == expected_args
+                && state_in.stack.len() >= expected_args
             {
                 let stack_len = state_in.stack.len();
                 let contract_value = &state_in.stack[stack_len - contract_from_end];
