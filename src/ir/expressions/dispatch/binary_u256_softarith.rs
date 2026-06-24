@@ -418,3 +418,316 @@ pub(crate) fn emit_u256_divmod_ir(
     ins.push(Instruction::Label(done));
     ins.push(Instruction::LoadLocal(if want_remainder { r } else { q }));
 }
+
+/// Build a canonical 32-byte uint256 from four 64-bit limbs and leave it on
+/// the stack: `sign_ext128(l2 + (l3<<64)) << 128 + ((l0 + (l1<<64)) & M128)`.
+/// Mirrors `emit_u256_mul_build_result_ir` / `emit_u256_combine_limbs` but
+/// takes explicit limb slots so the 512-bit mul can reuse it for BOTH the
+/// low and high 256-bit halves. `tmp` is a scratch slot for the lo128
+/// intermediate (written and read within this routine only).
+fn emit_u256_build_256_ir(
+    ins: &mut Vec<Instruction>,
+    l0: usize,
+    l1: usize,
+    l2: usize,
+    l3: usize,
+    tmp: usize,
+) {
+    // lo128 = l0 + (l1 << 64)  (< 2^128, fits, no 33-byte intermediate)
+    ins.push(Instruction::LoadLocal(l0));
+    ins.push(Instruction::LoadLocal(l1));
+    u256_push(ins, BigInt::from(64u32));
+    u256_bop(ins, BinaryOperator::Shl);
+    u256_bop(ins, BinaryOperator::Add);
+    ins.push(Instruction::StoreLocal(tmp));
+    // hi128 = l2 + (l3 << 64); sign_ext128(hi128) << 128 + (lo128 & M128)
+    ins.push(Instruction::LoadLocal(l2));
+    ins.push(Instruction::LoadLocal(l3));
+    u256_push(ins, BigInt::from(64u32));
+    u256_bop(ins, BinaryOperator::Shl);
+    u256_bop(ins, BinaryOperator::Add);
+    u256_push(ins, u256_mask128());
+    u256_bop(ins, BinaryOperator::BitAnd);
+    u256_push(ins, u256_bias127());
+    u256_bop(ins, BinaryOperator::BitXor);
+    u256_push(ins, u256_bias127());
+    u256_bop(ins, BinaryOperator::Sub);
+    u256_push(ins, BigInt::from(128u32));
+    u256_bop(ins, BinaryOperator::Shl);
+    ins.push(Instruction::LoadLocal(tmp));
+    u256_push(ins, u256_mask128());
+    u256_bop(ins, BinaryOperator::BitAnd);
+    u256_bop(ins, BinaryOperator::Add);
+}
+
+/// `[a, b, m] -> [(a*b) mod m]` with the FULL 512-bit intermediate product.
+///
+/// Solidity `mulmod(a, b, m)` requires `a*b` to be computed at 512-bit width
+/// before reducing mod m; the native NeoVM `MUL` truncates to 256 bits, so
+/// any `mulmod` whose product can reach `2^256` (always possible for uint256
+/// operands) is wrong on the naive path.
+///
+/// Algorithm — bit-serial MSB-first shift/subtract (simple & correct; an
+/// optimization to Knuth Algorithm D can follow if the runtime gas cost of
+/// the 512-iteration loop ever matters):
+///
+/// 1. P = a*b via 64-bit-limb schoolbook (8 columns -> r0..r7), packed into
+///    two 256-bit halves PHI (high) and PLO (low). The product of two
+///    `< 2^256` values is strictly `< 2^512`, so columns 0..7 suffice and
+///    the column-7 carry-out is zero (ignored).
+/// 2. R = 0; repeat 512 times (one product bit per iteration, MSB first):
+///
+///    ```text
+///    bit      = bit 255 of PHI                  (the next product bit)
+///    carry_lo = bit 255 of PLO
+///    PLO      = (PLO + PLO) mod 2^256           (left shift, MSB dropped)
+///    PHI      = ((PHI + PHI) mod 2^256) | carry_lo
+///    carry_R  = bit 255 of R
+///    low      = ((R + R) mod 2^256) | bit
+///    if carry_R OR (low >=u m): R = low - m
+///    else                     : R = low
+///    ```
+///
+/// 3. R in [0, m) is the result.
+///
+/// Every `+` is the limb-based `emit_u256_unchecked_add_ir` (NOT a native
+/// `<< 1`): the runtime auto-narrows small positive results to an i64, so a
+/// native `<< 1` would store `2^63` as `i64::MIN` (negative) and corrupt the
+/// next iteration's BigInt bitwise/shift ops. The limb-based add always
+/// emits the canonical 32-byte two's-complement word. Likewise `low - m`
+/// goes through `emit_u256_unchecked_sub_ir`: native SUB does not mask to
+/// 256 bits, so a result in `[2^255, 2^256)` would surface as a 33-byte
+/// positive ByteArray. Bit-255 extraction `(X >> 255) & 1` and `low >=u m`
+/// are reliable on canonical operands. The wrapping `mod 2^256` is exactly
+/// the high-bit-discarding left shift we need (the dropped bit was already
+/// captured as the corresponding `carry`/`bit`).
+///
+/// Why `low - m` is always the correct next remainder (even when `low < m`):
+/// the true shifted value is `R' = carry_R*2^256 + low`. If `carry_R = 1`
+/// then `R' >= 2^256 > m` and `low < m` holds, so the wrapping 256-bit
+/// subtract `low - m` yields `low - m + 2^256 = R' - m`. If `carry_R = 0`
+/// and `low >=u m` the plain subtract `low - m` is `R' - m`. In both cases
+/// the result is the correct `< m` remainder.
+///
+/// `low - m` goes through `emit_u256_unchecked_sub_ir` (NOT native SUB):
+/// the runtime's arithmetic SUB path does not mask to 256 bits, so a result
+/// in `[2^255, 2^256)` would surface as a 33-byte positive ByteArray and
+/// corrupt the next iteration. The limb-based unchecked-sub always emits the
+/// canonical 32-byte two's-complement word. `low >=u m` uses the slotless
+/// `emit_u256_unsigned_compare`; all `& (2^255-1)`, `<< 1`, `| bit`, `>> 255`
+/// ops are canonicalized to 32 bytes by the runtime's bitwise/shift handlers.
+///
+/// SCRATCH PARTITION (shared `u256_scratch_locals` pool, grown to index 29).
+/// Loop-persistent state lives in `s[3..10]` so it survives the in-loop
+/// `emit_u256_unchecked_sub_ir` call, which transiently reuses `s[0..3]`:
+///   s[3]=m  s[4]=R  s[5]=PHI  s[6]=PLO  s[7]=CTR
+///   s[8]=T_bit  s[9]=T_carry  s[10]=T_low
+/// Preamble (512-bit mul) temporaries occupy `s[11..29]` (and `s[0]` as a
+/// one-shot combine temp) and are dead once PHI/PLO are written. No other
+/// u256 helper is invoked inside the loop, so there is no nested-slot
+/// collision.
+pub(crate) fn emit_u256_mulmod_512bit_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+    let s = ctx.u256_scratch_locals(30);
+    // Loop-persistent state (kept out of s[0..3] so unchecked_sub is safe).
+    let m = s[3];
+    let r = s[4];
+    let phi = s[5];
+    let plo = s[6];
+    let ctr = s[7];
+    let t_bit = s[8];
+    let t_carry = s[9];
+    let t_low = s[10];
+    // Preamble temporaries (dead after PHI/PLO are built).
+    let a = s[11];
+    let b = s[12];
+    let a0 = s[13];
+    let a1 = s[14];
+    let a2 = s[15];
+    let a3 = s[16];
+    let b0 = s[17];
+    let b1 = s[18];
+    let b2 = s[19];
+    let b3 = s[20];
+    let acc = s[21];
+    let r0 = s[22];
+    let r1 = s[23];
+    let r2 = s[24];
+    let r3 = s[25];
+    let r4 = s[26];
+    let r5 = s[27];
+    let r6 = s[28];
+    let r7 = s[29];
+    let lo128_tmp = s[0]; // preamble-only; unchecked_sub is not called until the loop.
+
+    let mask64 = u256_mask64();
+    let a_limbs = [a0, a1, a2, a3];
+    let b_limbs = [b0, b1, b2, b3];
+    let r_limbs = [r0, r1, r2, r3, r4, r5, r6, r7];
+
+    // ---- pop operands: entry stack [a, b, m] (m on top) ----
+    ins.push(Instruction::StoreLocal(m));
+    ins.push(Instruction::StoreLocal(b));
+    ins.push(Instruction::StoreLocal(a));
+
+    // ---- extract 64-bit limbs a0..a3, b0..b3 ----
+    for (i, &slot) in a_limbs.iter().enumerate() {
+        ins.push(Instruction::LoadLocal(a));
+        if i > 0 {
+            u256_push(ins, BigInt::from(64u32 * i as u32));
+            u256_bop(ins, BinaryOperator::Shr);
+        }
+        u256_push(ins, mask64.clone());
+        u256_bop(ins, BinaryOperator::BitAnd);
+        ins.push(Instruction::StoreLocal(slot));
+    }
+    for (j, &slot) in b_limbs.iter().enumerate() {
+        ins.push(Instruction::LoadLocal(b));
+        if j > 0 {
+            u256_push(ins, BigInt::from(64u32 * j as u32));
+            u256_bop(ins, BinaryOperator::Shr);
+        }
+        u256_push(ins, mask64.clone());
+        u256_bop(ins, BinaryOperator::BitAnd);
+        ins.push(Instruction::StoreLocal(slot));
+    }
+
+    // ---- 8-column schoolbook: r_k = (acc + Σ a[i]*b[k-i]) & M64, acc = carry ----
+    u256_push(ins, BigInt::zero());
+    ins.push(Instruction::StoreLocal(acc));
+    for (k, &rslot) in r_limbs.iter().enumerate() {
+        ins.push(Instruction::LoadLocal(acc));
+        // i ranges over the valid partial-product indices for column k
+        // (empty for k == 7: column 7 is carry-only).
+        let lo = k.saturating_sub(3);
+        let hi = k.min(3);
+        #[allow(clippy::needless_range_loop)]
+        for i in lo..=hi {
+            let j = k - i;
+            ins.push(Instruction::LoadLocal(a_limbs[i]));
+            ins.push(Instruction::LoadLocal(b_limbs[j]));
+            u256_bop(ins, BinaryOperator::Mul);
+            u256_bop(ins, BinaryOperator::Add);
+        }
+        // [col_sum] on stack; split into low 64 bits (r_k) and carry (new acc).
+        ins.push(Instruction::Dup);
+        u256_push(ins, mask64.clone());
+        u256_bop(ins, BinaryOperator::BitAnd);
+        ins.push(Instruction::StoreLocal(rslot));
+        u256_push(ins, BigInt::from(64u32));
+        u256_bop(ins, BinaryOperator::Shr);
+        ins.push(Instruction::StoreLocal(acc));
+    }
+    // acc is now the column-7 carry-out; product < 2^512 guarantees it is 0.
+
+    // ---- pack r0..r3 -> PLO, r4..r7 -> PHI (canonical 32-byte words) ----
+    emit_u256_build_256_ir(ins, r0, r1, r2, r3, lo128_tmp);
+    ins.push(Instruction::StoreLocal(plo));
+    emit_u256_build_256_ir(ins, r4, r5, r6, r7, lo128_tmp);
+    ins.push(Instruction::StoreLocal(phi));
+
+    // ---- R = 0, CTR = 512 ----
+    u256_push(ins, BigInt::zero());
+    ins.push(Instruction::StoreLocal(r));
+    u256_push(ins, BigInt::from(512u32));
+    ins.push(Instruction::StoreLocal(ctr));
+
+    // ---- 512-iteration bit-serial reduction ----
+    let loop_top = ctx.next_label();
+    let body = ctx.next_label();
+    let check_ge = ctx.next_label();
+    let subtract = ctx.next_label();
+    let keep = ctx.next_label();
+    let after = ctx.next_label();
+    let end = ctx.next_label();
+
+    ins.push(Instruction::Label(loop_top));
+    // Continue while CTR != 0. JumpIf branches when FALSE => jump to body
+    // exactly when (CTR == 0) is false.
+    ins.push(Instruction::LoadLocal(ctr));
+    u256_push(ins, BigInt::zero());
+    u256_bop(ins, BinaryOperator::Eq);
+    ins.push(Instruction::JumpIf { target: body });
+    ins.push(Instruction::Jump { target: end });
+
+    ins.push(Instruction::Label(body));
+    ins.push(Instruction::LoadLocal(ctr));
+    u256_push(ins, BigInt::one());
+    u256_bop(ins, BinaryOperator::Sub);
+    ins.push(Instruction::StoreLocal(ctr));
+
+    // bit = MSB(PHI) = (PHI >> 255) & 1
+    ins.push(Instruction::LoadLocal(phi));
+    u256_push(ins, BigInt::from(255u32));
+    u256_bop(ins, BinaryOperator::Shr);
+    u256_push(ins, BigInt::one());
+    u256_bop(ins, BinaryOperator::BitAnd);
+    ins.push(Instruction::StoreLocal(t_bit));
+
+    // carry_lo = (PLO >> 255) & 1
+    ins.push(Instruction::LoadLocal(plo));
+    u256_push(ins, BigInt::from(255u32));
+    u256_bop(ins, BinaryOperator::Shr);
+    u256_push(ins, BigInt::one());
+    u256_bop(ins, BinaryOperator::BitAnd);
+    ins.push(Instruction::StoreLocal(t_carry));
+
+    // PLO = (PLO + PLO) mod 2^256   (== PLO<<1 with MSB dropped = carry_lo)
+    // Done via the limb-based unchecked-add so the result is the canonical
+    // 32-byte two's-complement word; a native `<< 1` would, for narrow
+    // Integer intermediates, store 2^63 as i64::MIN (negative) and corrupt
+    // the next iteration's BigInt bitwise/shift ops.
+    ins.push(Instruction::LoadLocal(plo));
+    ins.push(Instruction::LoadLocal(plo));
+    emit_u256_unchecked_add_ir(ctx, ins);
+    ins.push(Instruction::StoreLocal(plo));
+
+    // PHI = ((PHI + PHI) mod 2^256) | carry_lo   (PHI<<1 with MSB=bit dropped)
+    ins.push(Instruction::LoadLocal(phi));
+    ins.push(Instruction::LoadLocal(phi));
+    emit_u256_unchecked_add_ir(ctx, ins);
+    ins.push(Instruction::LoadLocal(t_carry));
+    u256_bop(ins, BinaryOperator::BitOr);
+    ins.push(Instruction::StoreLocal(phi));
+
+    // carry_R = (R >> 255) & 1
+    ins.push(Instruction::LoadLocal(r));
+    u256_push(ins, BigInt::from(255u32));
+    u256_bop(ins, BinaryOperator::Shr);
+    u256_push(ins, BigInt::one());
+    u256_bop(ins, BinaryOperator::BitAnd);
+    ins.push(Instruction::StoreLocal(t_carry));
+
+    // low = ((R + R) mod 2^256) | bit   (R<<1 with MSB=carry_R dropped)
+    ins.push(Instruction::LoadLocal(r));
+    ins.push(Instruction::LoadLocal(r));
+    emit_u256_unchecked_add_ir(ctx, ins);
+    ins.push(Instruction::LoadLocal(t_bit));
+    u256_bop(ins, BinaryOperator::BitOr);
+    ins.push(Instruction::StoreLocal(t_low));
+
+    // need_sub = carry_R OR (low >=u m). carry_R truthy => subtract; else ge.
+    ins.push(Instruction::LoadLocal(t_carry));
+    ins.push(Instruction::JumpIf { target: check_ge }); // jump when carry_R == 0
+    ins.push(Instruction::Jump { target: subtract });
+    ins.push(Instruction::Label(check_ge));
+    ins.push(Instruction::LoadLocal(t_low));
+    ins.push(Instruction::LoadLocal(m));
+    emit_u256_unsigned_compare(ins, BinaryOperator::Ge);
+    ins.push(Instruction::JumpIf { target: keep }); // jump when (low >=u m) is false
+    // fall through (low >=u m) into the subtract branch.
+    ins.push(Instruction::Label(subtract));
+    ins.push(Instruction::LoadLocal(t_low));
+    ins.push(Instruction::LoadLocal(m));
+    emit_u256_unchecked_sub_ir(ctx, ins); // [low - m], canonical 32-byte word
+    ins.push(Instruction::StoreLocal(r));
+    ins.push(Instruction::Jump { target: after });
+    ins.push(Instruction::Label(keep));
+    ins.push(Instruction::LoadLocal(t_low));
+    ins.push(Instruction::StoreLocal(r));
+    ins.push(Instruction::Label(after));
+
+    ins.push(Instruction::Jump { target: loop_top });
+    ins.push(Instruction::Label(end));
+
+    ins.push(Instruction::LoadLocal(r));
+}

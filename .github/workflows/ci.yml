@@ -107,11 +107,19 @@ jobs:
   # The 10 DeFi/showcase scripts run in fuzz.yml's nightly cron.
   # ==========================================================================
   neoxp-smoke:
-    name: Neo-Express On-Chain Smoke (compiler-behavior)
+    name: Neo-Express Smoke (${{ matrix.group }})
     needs: daily-gate
     if: needs.daily-gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        group:
+          - core
+          - calls
+          - storage
+          - misc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,14 +148,26 @@ jobs:
           sudo apt-get install -y -qq jq xxd
       - name: Pin neo-solc binary for the smoke scripts
         run: echo "NEO_SOLC=$PWD/target/release/neo-solc" >> "$GITHUB_ENV"
-      - name: Run Neo-Express compiler-behavior smoke suite
+      - name: Run Neo-Express smoke group ${{ matrix.group }}
+        env:
+          NEOXP_GROUP: ${{ matrix.group }}
         run: |
           set -e
-          for t in deploy callt_smoke constructor_smoke encoding_smoke permissions_smoke \
-                   lowlevel_call_smoke lowlevel_call_failure_smoke external_member_call_smoke \
-                   view_readonly_call_smoke compound_assignment_smoke struct_array_element_smoke \
-                   nested_struct_storage_smoke delete_smoke update_smoke evm_compat_smoke \
-                   abortmsg_smoke; do
+          case "$NEOXP_GROUP" in
+            core)
+              scripts="deploy callt_smoke constructor_smoke encoding_smoke"
+              ;;
+            calls)
+              scripts="lowlevel_call_smoke lowlevel_call_failure_smoke external_member_call_smoke view_readonly_call_smoke"
+              ;;
+            storage)
+              scripts="permissions_smoke compound_assignment_smoke struct_array_element_smoke nested_struct_storage_smoke"
+              ;;
+            misc)
+              scripts="delete_smoke update_smoke evm_compat_smoke abortmsg_smoke"
+              ;;
+          esac
+          for t in $scripts; do
             echo "::group::test_neoxp_${t}.sh"
             bash "examples/test_neoxp_${t}.sh"
             echo "::endgroup::"
