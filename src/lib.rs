@@ -2,42 +2,46 @@
 //!
 //! A Solidity to NeoVM bytecode compiler for Neo N3 smart contracts.
 //!
-//! # Architecture
+//! # Public API
 //!
-//! The compiler is organized into the following modules:
+//! - [`cli`] — compiler entry point (`compile_contracts`, `disassemble_neovm_bytecode`)
+//! - [`neo`] — NEF/manifest building and parsing utilities
 //!
-//! - `solidity` - Solidity source parsing and metadata extraction
-//! - `ir` - Intermediate representation for code generation
-//! - `runtime` - NeoVM execution environment
-//! - `neo` - Neo-specific utilities (NEF, manifest)
-//! - `interop` - Neo N3 interop service identifiers (syscall IDs)
+//! All other modules are `#[doc(hidden)]` — internal/test-facing, not part
+//! of the documented public contract.
 //!
 //! Author: Jimmy <jimmy@r3e.network>
 
 // Allow referring to this crate by name (`neo_devpack_solidity::...`) internally.
 extern crate self as neo_devpack_solidity;
 
-// Core compilation modules
-pub mod ir;
-pub mod solidity;
+// === Public API (documented) ===
 
-// Public CLI APIs (standard-json, NEF/manifest output, etc.)
+/// Compiler CLI: `compile_contracts`, `disassemble_neovm_bytecode`, standard-JSON.
 pub mod cli;
 
-// Neo N3 interop service identifiers
-pub mod interop;
-
-// Runtime and execution
-pub mod runtime;
-
-// Neo-specific utilities
+/// NEF/manifest building, parsing, method tokens, contract hashes.
 pub mod neo;
-pub mod storage_key;
 
-// Supporting modules
+// === Internal / test-facing (hidden from docs) ===
+
+#[doc(hidden)]
 pub mod frontend;
+#[doc(hidden)]
+pub mod interop;
+#[doc(hidden)]
+pub mod ir;
+#[doc(hidden)]
+pub mod runtime;
+#[doc(hidden)]
 pub mod semantic_model;
+#[doc(hidden)]
+pub mod solidity;
+#[doc(hidden)]
+pub mod storage_key;
+#[doc(hidden)]
 pub mod type_system;
+#[doc(hidden)]
 pub mod utils;
 
 /// Compiler version
