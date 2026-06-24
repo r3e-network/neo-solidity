@@ -78,6 +78,8 @@ jobs:
         run: cargo test --workspace --all-features
       - name: Build release binary
         run: cargo build --release
+      - name: Verify lean build (--no-default-features)
+        run: cargo build --no-default-features --bin neo-solc
       - name: Compile smoke contract
         run: "./target/release/neo-solc examples/ERC20Token.sol -o SmokeERC20 -v
 

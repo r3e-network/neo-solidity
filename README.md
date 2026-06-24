@@ -275,22 +275,22 @@ The Neo DevPack for Solidity consists of several integrated components:
 
 ```mermaid
 graph TB
-    A[Solidity Source] --> B[Yul IR Generation]
+    A[Solidity Source] --> B[solang-parser AST]
     B --> C[Neo DevPack for Solidity]
-    C --> D[Lexer]
-    C --> E[Parser]
-    C --> F[Semantic Analyzer]
-    C --> G[Optimizer]
-    C --> H[Code Generator]
-    H --> I[NeoVM Bytecode]
-    H --> J[Neo Manifest]
+    C --> D[Frontend: parse + contract metadata]
+    C --> E[Solidity Analysis: inheritance, modifiers, validation]
+    C --> F[IR Lowering: expressions, statements, builtins]
+    C --> G[Optimizer: constant folding, peephole, dead code]
+    C --> H[Bytecode Emission: NeoVM ops + method tokens]
+    H --> I[NeoVM Bytecode .nef]
+    H --> J[Neo Manifest .manifest.json]
     H --> K[ABI JSON]
 
-    L[Neo-Sol Runtime] --> M[Memory Manager]
-    L --> N[Storage Manager]
-    L --> O[ABI Encoder]
-    L --> P[Crypto Library]
-    L --> Q[Event System]
+    L[Embedded Runtime Simulator] --> M[Storage Manager]
+    L --> N[Syscall Handlers]
+    L --> O[ABI Codec]
+    L --> P[Crypto + BLS12-381]
+    L --> Q[Event / Notify System]
 
     R[Developer Tools] --> S[Hardhat Plugin]
     R --> T[Foundry Adapter]
@@ -312,7 +312,7 @@ graph TB
 
 - **Rust**: 1.88 or higher
 - **Node.js**: 20.19+ or 22.12+ (for tooling and documentation builds)
-- **.NET SDK**: 8.0 or higher (for optional C# runtime)
+- **.NET SDK**: 10.0 or higher (for Neo-Express smoke tests and optional C# runtime)
 - **Neo CLI**: 3.0+ (for deployment)
 - **Memory**: 4GB RAM minimum, 8GB recommended
 - **Disk Space**: 2GB for full installation
