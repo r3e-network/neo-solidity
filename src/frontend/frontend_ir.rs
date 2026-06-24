@@ -1,3 +1,5 @@
+use super::*;
+
 /// Natspec documentation extracted from source comments.
 #[derive(Debug, Clone, Default)]
 pub struct NatspecDocIR {

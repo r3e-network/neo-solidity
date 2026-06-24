@@ -17,12 +17,19 @@ use solang_parser::{
 use std::collections::HashMap;
 use thiserror::Error;
 
-include!("frontend/frontend_errors.rs");
-include!("frontend/frontend_ir.rs");
-include!("frontend/frontend_diagnostics.rs");
-include!("frontend/frontend_guarded_parse.rs");
-include!("frontend/frontend_parse.rs");
-include!("frontend/frontend_convert.rs");
+mod frontend_convert;
+mod frontend_diagnostics;
+mod frontend_errors;
+mod frontend_guarded_parse;
+mod frontend_ir;
+mod frontend_parse;
+
+pub(crate) use frontend_convert::*;
+pub(crate) use frontend_diagnostics::*;
+pub(crate) use frontend_errors::*;
+pub(crate) use frontend_guarded_parse::*;
+pub(crate) use frontend_ir::*;
+pub use frontend_parse::*;
 
 #[cfg(test)]
 mod tests;

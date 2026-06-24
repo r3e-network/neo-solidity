@@ -1,3 +1,5 @@
+use super::*;
+
 /// A single structured parser diagnostic, carrying the byte range so
 /// standard-JSON output can emit a precise `sourceLocation` (start/end) per
 /// error instead of collapsing every parse error into one opaque blob.
@@ -62,4 +64,3 @@ impl FrontendError {
         matches!(self, Self::UnsupportedVersion(_))
     }
 }
-
