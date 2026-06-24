@@ -664,10 +664,8 @@ contract NEP17 is INEP17, FrameworkBase {
     function multiSigTransfer(
         address to,
         uint256 amount,
-        address[] memory signers,
-        bytes[] memory signatures
+        address[] memory signers
     ) public whenTransfersEnabled validReceiver(to) validAmount(amount) {
-        require(signers.length == signatures.length, "NEP17: array length mismatch");
         require(signers.length >= 2, "NEP17: minimum 2 signers required");
         require(signers.length <= 10, "NEP17: maximum 10 signers allowed");
         // The threshold must be configured by the owner; an unconfigured (zero)
@@ -675,10 +673,9 @@ contract NEP17 is INEP17, FrameworkBase {
         require(_multisigThreshold >= 2, "NEP17: multisig not configured");
         require(signers.length >= _multisigThreshold, "NEP17: below threshold");
 
-        // Off-chain signatures are collected by clients, but on-chain authorization
-        // is enforced via Neo witness checks for each declared signer.
-        signatures;
-
+        // On-chain authorization is enforced via Neo witness checks for each
+        // declared signer. Off-chain signature collection is the client's
+        // responsibility — this function does not verify signatures on-chain.
         for (uint256 i = 0; i < signers.length; i++) {
             address signer = signers[i];
             require(signer != address(0), "NEP17: invalid signer");
