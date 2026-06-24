@@ -1,4 +1,4 @@
-fn try_lower_value_transfer_helpers(
+pub(crate) fn try_lower_value_transfer_helpers(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,

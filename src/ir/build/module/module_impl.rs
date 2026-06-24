@@ -434,6 +434,7 @@ impl Module {
         ))
     }
 
+    #[allow(dead_code)]
     pub fn from_contract(metadata: &ContractMetadata) -> Result<Self, Vec<IrDiagnostic>> {
         Self::from_contract_with_warnings(metadata).map(|(module, _warnings)| module)
     }

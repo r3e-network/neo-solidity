@@ -1,4 +1,4 @@
-fn convert_contract(
+pub(crate) fn convert_contract(
     contract: ContractIR,
     inherited_events: &[EventMetadata],
     contract_types: &[String],

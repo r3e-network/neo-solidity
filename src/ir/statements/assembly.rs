@@ -1,4 +1,4 @@
-fn lower_special_assembly(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_special_assembly(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     match ctx.function_name.as_str() {
         "extsload" | "exttload" => {
             lower_extsload_single(ctx, instructions)
@@ -9,7 +9,7 @@ fn lower_special_assembly(ctx: &mut LoweringContext, instructions: &mut Vec<Inst
     }
 }
 
-fn lower_extsload_single(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_single(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     let slot_index = match ctx.param_index_map.get("slot").copied() {
         Some(index) if ctx.param_index_map.len() == 1 => index,
         _ => return false,
@@ -21,7 +21,7 @@ fn lower_extsload_single(ctx: &mut LoweringContext, instructions: &mut Vec<Instr
     true
 }
 
-fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     let start_index = match ctx.param_index_map.get("startSlot").copied() {
         Some(index) => index,
         None => return false,
@@ -104,7 +104,7 @@ fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
     true
 }
 
-fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
     let slots_index = match ctx.param_index_map.get("slots").copied() {
         Some(index) if ctx.param_index_map.len() == 1 => index,
         _ => return false,
@@ -210,7 +210,7 @@ fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instru
 /// successfully lowered. A `false` result causes the enclosing assembly
 /// statement to fall back to the legacy no-op warning path, preserving
 /// compilation for contracts using unsupported yul constructs.
-fn lower_yul_block(
+pub(crate) fn lower_yul_block(
     block: &solang_parser::pt::YulBlock,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -283,12 +283,12 @@ fn lower_yul_block(
 /// `0x40` free-memory-pointer slot (64–95) plus a 32-byte return slot at
 /// 0–31 plus some scratch space. Yul blocks that mstore above this bound
 /// will trap at runtime with `MEMCPY: range out of bounds`.
-const YUL_MEMORY_BYTES: u64 = 256;
+pub(crate) const YUL_MEMORY_BYTES: u64 = 256;
 
 /// Per-block lowering state. Tracks the NeoVM local slot holding the yul
 /// memory buffer (lazily allocated on first mstore/mload) and a map of yul
 /// variable names to NeoVM local slots.
-struct YulLoweringState {
+pub(crate) struct YulLoweringState {
     memory_local: Option<usize>,
     /// Task #100 — the transient-storage map local. Unlike `memory_local`,
     /// this is allocated at the FUNCTION level (via the shared
@@ -323,7 +323,7 @@ struct YulLoweringState {
 }
 
 impl YulLoweringState {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             memory_local: None,
             transient_local: None,
@@ -338,7 +338,7 @@ impl YulLoweringState {
     /// for emitting the NEWBUFFER + StoreLocal prelude — we do this centrally
     /// in `lower_yul_block` after the whole body has been lowered so the
     /// allocation always sits before the first use.
-    fn ensure_memory(&mut self, ctx: &mut LoweringContext) -> usize {
+    pub(crate) fn ensure_memory(&mut self, ctx: &mut LoweringContext) -> usize {
         if let Some(slot) = self.memory_local {
             return slot;
         }
@@ -353,7 +353,7 @@ impl YulLoweringState {
     /// already-initialised map). The block that first introduces the local
     /// sets `transient_allocated_here` so `lower_yul_block` emits the
     /// NEWMAP prelude before the body.
-    fn ensure_transient(&mut self, ctx: &mut LoweringContext) -> usize {
+    pub(crate) fn ensure_transient(&mut self, ctx: &mut LoweringContext) -> usize {
         if let Some(slot) = self.transient_local {
             return slot;
         }
@@ -381,7 +381,7 @@ impl YulLoweringState {
     /// so `lower_yul_block` emits a `PUSH 0 ; NEWBUFFER ; StoreLocal` prelude
     /// — an empty buffer models `returndatasize() == 0`, which is what the
     /// minimal Task #184 surface needs (no preceding external call).
-    fn ensure_returndata(&mut self, ctx: &mut LoweringContext) -> usize {
+    pub(crate) fn ensure_returndata(&mut self, ctx: &mut LoweringContext) -> usize {
         if let Some(slot) = self.returndata_local {
             return slot;
         }
@@ -396,7 +396,7 @@ impl YulLoweringState {
     }
 }
 
-fn lower_yul_statement(
+pub(crate) fn lower_yul_statement(
     stmt: &solang_parser::pt::YulStatement,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -650,7 +650,7 @@ fn lower_yul_statement(
 /// Lower a yul function-call used as a top-level statement. Handles the
 /// side-effect opcodes (mstore, return) whose yul signatures have no return
 /// values. `mload`, `add`, etc. are only valid as expressions.
-fn lower_yul_function_call_as_statement(
+pub(crate) fn lower_yul_function_call_as_statement(
     call: &solang_parser::pt::YulFunctionCall,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -714,7 +714,7 @@ fn lower_yul_function_call_as_statement(
 }
 
 /// Lower a yul expression, leaving its integer value on the NeoVM stack.
-fn lower_yul_expression(
+pub(crate) fn lower_yul_expression(
     expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -776,7 +776,7 @@ fn lower_yul_expression(
     }
 }
 
-fn lower_yul_function_call_as_expression(
+pub(crate) fn lower_yul_function_call_as_expression(
     call: &solang_parser::pt::YulFunctionCall,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -974,7 +974,7 @@ fn lower_yul_function_call_as_expression(
 
 /// Emit `mstore(offset, value)` — copy the 32 big-endian bytes of `value`
 /// into `__yul_memory[offset .. offset+32]`.
-fn lower_yul_mstore(
+pub(crate) fn lower_yul_mstore(
     offset_expr: &solang_parser::pt::YulExpression,
     value_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
@@ -1060,7 +1060,7 @@ fn lower_yul_mstore(
 
 /// Emit `mload(offset)` — read 32 bytes from `__yul_memory[offset..offset+32]`,
 /// decoded as a big-endian uint256.
-fn lower_yul_mload(
+pub(crate) fn lower_yul_mload(
     offset_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -1094,7 +1094,7 @@ fn lower_yul_mload(
 /// return type is an integer, re-interpret the slice as BE-packed uint so
 /// the main-frame RET emits the expected 32-byte value; otherwise hand the
 /// raw buffer to RET.
-fn lower_yul_return(
+pub(crate) fn lower_yul_return(
     offset_expr: &solang_parser::pt::YulExpression,
     length_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
@@ -1150,7 +1150,7 @@ fn lower_yul_return(
 ///
 /// Stack shape for NeoVM SETITEM (0xD0): bottom → top = [collection, key, value].
 /// After the op, the map has been mutated in place and the stack is empty.
-fn lower_yul_tstore(
+pub(crate) fn lower_yul_tstore(
     slot_expr: &solang_parser::pt::YulExpression,
     value_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
@@ -1178,7 +1178,7 @@ fn lower_yul_tstore(
 ///
 /// Generated shape (pseudocode):
 ///     if HAS_KEY(map, slot) { push(map_slot); } else { push(0); }
-fn lower_yul_tload(
+pub(crate) fn lower_yul_tload(
     slot_expr: &solang_parser::pt::YulExpression,
     state: &mut YulLoweringState,
     ctx: &mut LoweringContext,
@@ -1260,7 +1260,7 @@ fn lower_yul_tload(
 /// `THROW: returndata: read past returndatasize`, which contains the
 /// `"returndata"` substring the `batch76_zz4` harness accepts as a clean
 /// underflow marker (see `tests/fuzz_tests/batches_66_80.rs`).
-fn lower_yul_returndatacopy(
+pub(crate) fn lower_yul_returndatacopy(
     dst_expr: &solang_parser::pt::YulExpression,
     src_expr: &solang_parser::pt::YulExpression,
     len_expr: &solang_parser::pt::YulExpression,

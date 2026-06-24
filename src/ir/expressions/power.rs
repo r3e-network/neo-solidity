@@ -1,4 +1,4 @@
-fn lower_power_expression(
+pub(crate) fn lower_power_expression(
     left: &Expression,
     right: &Expression,
     ctx: &mut LoweringContext,

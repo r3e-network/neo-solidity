@@ -1,4 +1,4 @@
-fn canonical_param_type(ty: &str) -> String {
+pub(crate) fn canonical_param_type(ty: &str) -> String {
     let mut parts = ty.split_whitespace();
     match parts.next() {
         Some("struct" | "enum") => parts.next().unwrap_or_default().to_string(),
@@ -7,7 +7,7 @@ fn canonical_param_type(ty: &str) -> String {
     }
 }
 
-fn compute_function_selector(name: &str, param_types: &[String]) -> [u8; 4] {
+pub(crate) fn compute_function_selector(name: &str, param_types: &[String]) -> [u8; 4] {
     if name.eq_ignore_ascii_case("constructor") {
         return [0u8; 4];
     }

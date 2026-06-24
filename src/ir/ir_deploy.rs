@@ -1,5 +1,7 @@
+use super::*;
+
 #[allow(clippy::too_many_arguments)]
-fn build_deploy_function_with_warnings(
+pub(crate) fn build_deploy_function_with_warnings(
     metadata: &FunctionMetadata,
     current_contract_name: &str,
     constructors: &[&Function],

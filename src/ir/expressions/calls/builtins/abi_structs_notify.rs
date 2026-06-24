@@ -1,4 +1,4 @@
-fn validate_runtime_notify_call(args: &[Expression], ctx: &mut LoweringContext) {
+pub(crate) fn validate_runtime_notify_call(args: &[Expression], ctx: &mut LoweringContext) {
     if args.len() != 2 {
         return;
     }
@@ -65,7 +65,7 @@ fn validate_runtime_notify_call(args: &[Expression], ctx: &mut LoweringContext) 
 /// is not a function parameter, or the parameter is not a struct type. The
 /// caller should then fall through to the standard `lower_expression`
 /// path.
-fn resolve_struct_param_flat_slots(
+pub(crate) fn resolve_struct_param_flat_slots(
     expr: &Expression,
     ctx: &LoweringContext,
 ) -> Option<(usize, usize)> {
@@ -102,7 +102,7 @@ fn resolve_struct_param_flat_slots(
 /// field count; all other value types count as 1. Nested structs flatten
 /// only one level (fields that are themselves structs stay as single slots
 /// for now — nested expansion is a follow-up).
-fn flat_slot_count_for_param_type(ty: &ValueType) -> usize {
+pub(crate) fn flat_slot_count_for_param_type(ty: &ValueType) -> usize {
     match ty {
         ValueType::Struct { fields, .. } => fields.len(),
         _ => 1,

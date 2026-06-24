@@ -1,4 +1,4 @@
-fn try_lower_state_array_helpers(
+pub(crate) fn try_lower_state_array_helpers(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -41,7 +41,7 @@ fn try_lower_state_array_helpers(
     }
 }
 
-fn lower_state_array_push(
+pub(crate) fn lower_state_array_push(
     state_index: usize,
     element_type: &ValueType,
     args: &[Expression],
@@ -136,7 +136,7 @@ fn lower_state_array_push(
     true
 }
 
-fn lower_state_array_pop(
+pub(crate) fn lower_state_array_pop(
     state_index: usize,
     element_type: &ValueType,
     args: &[Expression],

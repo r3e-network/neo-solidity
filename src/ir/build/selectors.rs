@@ -1,4 +1,4 @@
-fn string_literal_bytes(parts: &[PtStringLiteral]) -> Vec<u8> {
+pub(crate) fn string_literal_bytes(parts: &[PtStringLiteral]) -> Vec<u8> {
     let mut bytes = Vec::new();
     for part in parts {
         // Solang's lexer hands us the raw source bytes between the quotes,
@@ -28,7 +28,7 @@ fn string_literal_bytes(parts: &[PtStringLiteral]) -> Vec<u8> {
 /// Unknown escape sequences (e.g. `\z`) are left verbatim as two bytes
 /// (backslash + char) so we don't silently drop data — the analyser
 /// rejects malformed escapes before lowering.
-fn unescape_solidity_string(raw: &str) -> Vec<u8> {
+pub(crate) fn unescape_solidity_string(raw: &str) -> Vec<u8> {
     let bytes = raw.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -112,7 +112,7 @@ fn unescape_solidity_string(raw: &str) -> Vec<u8> {
     out
 }
 
-fn extract_signature_string(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_signature_string(expr: &Expression) -> Option<String> {
     match expr {
         Expression::StringLiteral(parts) => {
             Some(String::from_utf8_lossy(&string_literal_bytes(parts)).to_string())
@@ -134,7 +134,7 @@ fn extract_signature_string(expr: &Expression) -> Option<String> {
     }
 }
 
-fn resolve_selector_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+pub(crate) fn resolve_selector_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
     match expr {
         Expression::Variable(identifier) => {
             if let Some(state_index) = ctx.state_index_map.get(&identifier.name).copied() {

@@ -1,4 +1,4 @@
-fn try_lower_expression_conditional(
+pub(crate) fn try_lower_expression_conditional(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

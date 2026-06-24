@@ -1,4 +1,4 @@
-fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
+pub(crate) fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
     match value_type {
         ValueType::Any => None,
         ValueType::Boolean => Some(ConvertTarget::Boolean),
@@ -11,7 +11,7 @@ fn value_type_to_catch_guard(value_type: &ValueType) -> Option<ConvertTarget> {
     }
 }
 
-fn catch_clause_param(
+pub(crate) fn catch_clause_param(
     clause: &solang_parser::pt::CatchClause,
 ) -> Option<&solang_parser::pt::Parameter> {
     match clause {
@@ -20,18 +20,18 @@ fn catch_clause_param(
     }
 }
 
-fn catch_clause_statement(clause: &solang_parser::pt::CatchClause) -> &Statement {
+pub(crate) fn catch_clause_statement(clause: &solang_parser::pt::CatchClause) -> &Statement {
     match clause {
         solang_parser::pt::CatchClause::Simple(_, _, stmt) => stmt,
         solang_parser::pt::CatchClause::Named(_, _, _, stmt) => stmt,
     }
 }
 
-fn is_bare_catch_clause(clause: &solang_parser::pt::CatchClause) -> bool {
+pub(crate) fn is_bare_catch_clause(clause: &solang_parser::pt::CatchClause) -> bool {
     matches!(clause, solang_parser::pt::CatchClause::Simple(_, None, _))
 }
 
-fn catch_clause_guard_target(
+pub(crate) fn catch_clause_guard_target(
     clause: &solang_parser::pt::CatchClause,
     ctx: &mut LoweringContext,
 ) -> Option<ConvertTarget> {
@@ -58,7 +58,7 @@ fn catch_clause_guard_target(
 /// `catch Panic(uint code)` and `catch Error(string msg)` can decode
 /// their payloads directly. Named clauses referencing user-defined
 /// errors fall into `UserNamed` and use the legacy (permissive) path.
-enum CatchClauseKind {
+pub(crate) enum CatchClauseKind {
     /// `catch Panic(uint code)` — match 4-byte selector `0x4e487b71`,
     /// decode code from `abi.encode(uint256)`.
     Panic,
@@ -78,7 +78,7 @@ enum CatchClauseKind {
     SimpleTyped,
 }
 
-fn classify_catch_clause(
+pub(crate) fn classify_catch_clause(
     clause: &solang_parser::pt::CatchClause,
     ctx: &mut LoweringContext,
 ) -> CatchClauseKind {
@@ -120,7 +120,7 @@ fn classify_catch_clause(
 }
 
 /// Compute the 4-byte keccak selector for an EVM-style revert shape.
-fn revert_envelope_selector(signature: &[u8]) -> [u8; 4] {
+pub(crate) fn revert_envelope_selector(signature: &[u8]) -> [u8; 4] {
     let mut hasher = Keccak256::new();
     hasher.update(signature);
     let digest = hasher.finalize();
@@ -130,7 +130,7 @@ fn revert_envelope_selector(signature: &[u8]) -> [u8; 4] {
 /// Emit a guard that jumps to `fail_label` unless the payload in
 /// `catch_local` is a ByteArray whose first 4 bytes match `selector`.
 /// Leaves the stack empty on fall-through (match) and on jump (mismatch).
-fn emit_selector_guard(
+pub(crate) fn emit_selector_guard(
     catch_local: usize,
     selector: [u8; 4],
     min_len: u64,
@@ -192,7 +192,7 @@ fn emit_selector_guard(
     instructions.push(Instruction::JumpIf { target: fail_label });
 }
 
-fn emit_decode_be_u256_low_u64(
+pub(crate) fn emit_decode_be_u256_low_u64(
     source_local: usize,
     slot_offset: u64,
     ctx: &mut LoweringContext,
@@ -217,7 +217,7 @@ fn emit_decode_be_u256_low_u64(
 /// Bind the `uint code` parameter for a `catch Panic(uint code)` clause.
 /// The payload is `0x4e487b71 || abi.encode(uint256 code)`; extract bytes
 /// [4..36] via SUBSTR and Convert to Integer.
-fn bind_panic_code_parameter(
+pub(crate) fn bind_panic_code_parameter(
     clause: &solang_parser::pt::CatchClause,
     catch_local: usize,
     ctx: &mut LoweringContext,
@@ -249,7 +249,7 @@ fn bind_panic_code_parameter(
 ///   (padded to 32-byte boundary)
 /// Decode: read length from bytes [36..68], then extract bytes
 /// [68..68+length] as the raw string.
-fn bind_error_message_parameter(
+pub(crate) fn bind_error_message_parameter(
     clause: &solang_parser::pt::CatchClause,
     catch_local: usize,
     ctx: &mut LoweringContext,
@@ -281,7 +281,7 @@ fn bind_error_message_parameter(
     instructions.push(Instruction::StoreLocal(slot));
 }
 
-fn bind_catch_clause_parameter(
+pub(crate) fn bind_catch_clause_parameter(
     clause: &solang_parser::pt::CatchClause,
     catch_local: usize,
     ctx: &mut LoweringContext,
@@ -301,7 +301,7 @@ fn bind_catch_clause_parameter(
     instructions.push(Instruction::StoreLocal(slot));
 }
 
-fn lower_try_statement(
+pub(crate) fn lower_try_statement(
     expr: &Expression,
     handler: &Option<(solang_parser::pt::ParameterList, Box<Statement>)>,
     catches: &[solang_parser::pt::CatchClause],

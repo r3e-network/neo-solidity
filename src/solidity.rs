@@ -33,14 +33,23 @@ use solang_parser::pt::{
 };
 use thiserror::Error;
 
-include!("solidity/solidity_errors.rs");
-include!("solidity/solidity_docs.rs");
-include!("solidity/solidity_metadata.rs");
-include!("solidity/upgrade.rs");
+mod solidity_analyse;
+mod solidity_convert;
+mod solidity_docs;
+mod solidity_errors;
+mod solidity_metadata;
+mod solidity_validate;
+mod upgrade;
+
+pub(crate) use solidity_analyse::*;
+pub(crate) use solidity_convert::*;
+pub(crate) use solidity_docs::*;
+pub(crate) use solidity_errors::*;
+pub(crate) use solidity_metadata::*;
+pub(crate) use solidity_validate::*;
+pub(crate) use upgrade::*;
+
 include!("solidity/analyse/inheritance.rs");
 include!("solidity/analyse/modifiers.rs");
 include!("solidity/analyse/sibling_merge_walkers.rs");
 include!("solidity/analyse/merge_helpers.rs");
-include!("solidity/solidity_analyse.rs");
-include!("solidity/solidity_convert.rs");
-include!("solidity/solidity_validate.rs");

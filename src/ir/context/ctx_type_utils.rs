@@ -1,4 +1,4 @@
-fn normalize_solidity_like_type_signature(raw: &str) -> String {
+pub(crate) fn normalize_solidity_like_type_signature(raw: &str) -> String {
     let compact = raw
         .chars()
         .filter(|c| !c.is_ascii_whitespace())
@@ -13,7 +13,7 @@ fn normalize_solidity_like_type_signature(raw: &str) -> String {
     }
 }
 
-fn value_type_signature(value_type: &ValueType) -> String {
+pub(crate) fn value_type_signature(value_type: &ValueType) -> String {
     match value_type {
         ValueType::Integer { signed: true, bits } => format!("int{bits}"),
         ValueType::Integer {
@@ -44,14 +44,14 @@ fn value_type_signature(value_type: &ValueType) -> String {
 /// `"data"` (`lookup_struct` strips the qualifier). Fall back to matching
 /// by the last `.`-separated segment so storage-pointer struct receivers
 /// dispatch correctly.
-fn using_target_matches_signature(target: &str, receiver_sig: &str) -> bool {
+pub(crate) fn using_target_matches_signature(target: &str, receiver_sig: &str) -> bool {
     target == receiver_sig
         || target
             .rsplit_once('.')
             .is_some_and(|(_, last)| last == receiver_sig)
 }
 
-fn is_implicitly_convertible(actual: &ValueType, expected: &ValueType) -> bool {
+pub(crate) fn is_implicitly_convertible(actual: &ValueType, expected: &ValueType) -> bool {
     match (actual, expected) {
         (_, ValueType::Any) | (ValueType::Any, _) => true,
         (

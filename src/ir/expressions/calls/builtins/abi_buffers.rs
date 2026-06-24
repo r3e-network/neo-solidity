@@ -1,4 +1,4 @@
-fn emit_abi_decode_slot_slice(
+pub(crate) fn emit_abi_decode_slot_slice(
     buffer_local: usize,
     index: usize,
     slot_offset: usize,
@@ -15,7 +15,7 @@ fn emit_abi_decode_slot_slice(
     instructions.push(Instruction::Substr);
 }
 
-fn emit_abi_u256_slot(
+pub(crate) fn emit_abi_u256_slot(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
@@ -29,7 +29,7 @@ fn emit_abi_u256_slot(
     );
 }
 
-fn emit_abi_fixed_buffer(
+pub(crate) fn emit_abi_fixed_buffer(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     len: usize,
@@ -107,7 +107,7 @@ fn emit_abi_fixed_buffer(
 ///
 /// Stack on entry: `[src_signed_le_bytearray]`.
 /// Stack on exit:  `[buffer_bytearray]` (`len`-byte big-endian, sign-extended).
-fn emit_abi_fixed_buffer_signed(
+pub(crate) fn emit_abi_fixed_buffer_signed(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     len: usize,
@@ -223,7 +223,7 @@ fn emit_abi_fixed_buffer_signed(
     });
 }
 
-fn emit_abi_bytesn_slot(
+pub(crate) fn emit_abi_bytesn_slot(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     len: usize,

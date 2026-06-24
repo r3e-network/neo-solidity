@@ -10,7 +10,7 @@
 /// This previously emitted only the uint256/int256 guards, silently skipping the
 /// narrow-width overflow check so `uint8 x; x += 1` / `x++` overflowed instead of
 /// reverting Panic(0x11), and narrow `unchecked`/`<<=` results were not truncated.
-fn emit_compound_binary_op_for_lhs(
+pub(crate) fn emit_compound_binary_op_for_lhs(
     lhs: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -30,7 +30,7 @@ fn emit_compound_binary_op_for_lhs(
 /// treated MEMCPY as returning a destination buffer and needed stack cleanup
 /// here; real NeoVM MEMCPY pushes no value, so the lowered RHS is already the
 /// canonical result.
-fn lower_compound_rhs(
+pub(crate) fn lower_compound_rhs(
     rhs: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -42,7 +42,7 @@ fn lower_compound_rhs(
     true
 }
 
-fn lower_compound_assignment(
+pub(crate) fn lower_compound_assignment(
     lhs: &Expression,
     rhs: &Expression,
     ctx: &mut LoweringContext,

@@ -1,4 +1,4 @@
-fn lower_post_inc_dec(
+pub(crate) fn lower_post_inc_dec(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -68,7 +68,7 @@ fn lower_post_inc_dec(
     true
 }
 
-fn lower_pre_inc_dec(
+pub(crate) fn lower_pre_inc_dec(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

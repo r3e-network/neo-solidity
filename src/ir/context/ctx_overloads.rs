@@ -12,7 +12,7 @@ pub(crate) type FunctionOverloadTable =
 /// distinguish them, whereas `int` vs `uint` can. Everything else (address,
 /// bool, bytesN, string, struct, ...) must match exactly so e.g. `f(uint256)`
 /// and `f(address)` are told apart.
-fn overload_arg_matches(arg: &ValueType, param: &ValueType) -> bool {
+pub(crate) fn overload_arg_matches(arg: &ValueType, param: &ValueType) -> bool {
     match (arg, param) {
         (
             ValueType::Integer { signed: a, .. },
@@ -23,7 +23,7 @@ fn overload_arg_matches(arg: &ValueType, param: &ValueType) -> bool {
 }
 
 impl<'a> LoweringContext<'a> {
-    fn neo_function_name(&self, name: &str, arg_count: usize) -> Option<String> {
+    pub(crate) fn neo_function_name(&self, name: &str, arg_count: usize) -> Option<String> {
         self.function_overloads
             .get(&(name.to_string(), arg_count))
             .and_then(|bucket| bucket.first().map(|(_, neo_name)| neo_name.clone()))
@@ -37,7 +37,7 @@ impl<'a> LoweringContext<'a> {
     /// directly (the common, non-overloaded case). Returns `None` when several
     /// overloads exist and none matches confidently, so the caller fails loud
     /// instead of dispatching to the wrong function.
-    fn resolve_overload(
+    pub(crate) fn resolve_overload(
         &self,
         name: &str,
         arg_count: usize,
@@ -71,11 +71,11 @@ impl<'a> LoweringContext<'a> {
         best.map(|(_, neo_name)| neo_name.clone())
     }
 
-    fn has_using_directives(&self) -> bool {
+    pub(crate) fn has_using_directives(&self) -> bool {
         !self.using_target_types.is_empty()
     }
 
-    fn using_target_allows_receiver(&self, receiver_type: &ValueType) -> bool {
+    pub(crate) fn using_target_allows_receiver(&self, receiver_type: &ValueType) -> bool {
         if self.using_target_types.is_empty() {
             return false;
         }
@@ -88,7 +88,7 @@ impl<'a> LoweringContext<'a> {
         })
     }
 
-    fn using_function_list_allows_receiver(
+    pub(crate) fn using_function_list_allows_receiver(
         &self,
         function_name: &str,
         receiver_type: Option<&ValueType>,
@@ -123,7 +123,7 @@ impl<'a> LoweringContext<'a> {
         })
     }
 
-    fn receiver_matches_function_overload(
+    pub(crate) fn receiver_matches_function_overload(
         &self,
         function_name: &str,
         arg_count: usize,
@@ -148,7 +148,7 @@ impl<'a> LoweringContext<'a> {
     }
 
     /// Returns the ordered parameter names for a function overload, if known.
-    fn get_function_param_names(&self, name: &str, arg_count: usize) -> Option<&[String]> {
+    pub(crate) fn get_function_param_names(&self, name: &str, arg_count: usize) -> Option<&[String]> {
         self.function_param_names
             .get(&(name.to_string(), arg_count))
             .map(|v| v.as_slice())
@@ -159,13 +159,13 @@ impl<'a> LoweringContext<'a> {
     /// return value, or the build pipeline didn't register it). Callers
     /// should degrade gracefully (e.g., `infer_type_from_expression` falls
     /// through to the existing type-inference logic).
-    fn get_function_return_type(&self, name: &str, arg_count: usize) -> Option<&ValueType> {
+    pub(crate) fn get_function_return_type(&self, name: &str, arg_count: usize) -> Option<&ValueType> {
         self.function_return_types
             .get(&(name.to_string(), arg_count))
     }
 
     /// Returns true if the named function returns void (no return values).
-    fn is_void_function(&self, name: &str) -> bool {
+    pub(crate) fn is_void_function(&self, name: &str) -> bool {
         self.void_functions.contains(name)
     }
 
@@ -176,7 +176,7 @@ impl<'a> LoweringContext<'a> {
     /// `__super_foo` the nested `super.foo()` resolves to the NEXT-older
     /// `__super2_foo`, not back to itself. Falls back to the unqualified key
     /// for the top-of-chain derived frame and for any legacy call sites.
-    fn super_method_name(&self, method_name: &str) -> Option<&str> {
+    pub(crate) fn super_method_name(&self, method_name: &str) -> Option<&str> {
         let qualified = format!("{}::{}", self.function_name, method_name);
         if let Some(target) = self.super_method_map.get(&qualified) {
             return Some(target.as_str());

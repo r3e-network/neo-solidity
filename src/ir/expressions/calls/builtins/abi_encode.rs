@@ -25,7 +25,7 @@
 /// is not struct-typed (caller falls through to standard `lower_expression`).
 /// `success` is threaded through so the caller can short-circuit when a
 /// nested lowering fails.
-fn try_flatten_struct_arg_for_abi_encode(
+pub(crate) fn try_flatten_struct_arg_for_abi_encode(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -64,7 +64,7 @@ fn try_flatten_struct_arg_for_abi_encode(
     Some(field_count)
 }
 
-fn lower_abi_encode_args_direct_from_slice(
+pub(crate) fn lower_abi_encode_args_direct_from_slice(
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -73,7 +73,7 @@ fn lower_abi_encode_args_direct_from_slice(
     lower_abi_encode_args_direct(&refs, ctx, instructions)
 }
 
-fn lower_abi_encode_args_direct(
+pub(crate) fn lower_abi_encode_args_direct(
     args: &[&Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -81,7 +81,7 @@ fn lower_abi_encode_args_direct(
     lower_abi_encode_args_direct_impl(args, ctx, instructions, false)
 }
 
-fn lower_abi_encode_args_direct_for_encode_call(
+pub(crate) fn lower_abi_encode_args_direct_for_encode_call(
     args: &[&Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -89,7 +89,7 @@ fn lower_abi_encode_args_direct_for_encode_call(
     lower_abi_encode_args_direct_impl(args, ctx, instructions, true)
 }
 
-fn lower_abi_encode_args_direct_impl(
+pub(crate) fn lower_abi_encode_args_direct_impl(
     args: &[&Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -130,7 +130,7 @@ fn lower_abi_encode_args_direct_impl(
     Some(true)
 }
 
-fn lower_abi_encode_head_tail_direct(
+pub(crate) fn lower_abi_encode_head_tail_direct(
     args: &[&Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -224,7 +224,7 @@ fn lower_abi_encode_head_tail_direct(
     Some(true)
 }
 
-fn lower_abi_encode_packed_args_direct_from_slice(
+pub(crate) fn lower_abi_encode_packed_args_direct_from_slice(
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -251,7 +251,7 @@ fn lower_abi_encode_packed_args_direct_from_slice(
     Some(true)
 }
 
-fn lower_static_abi_slots_for_expr(
+pub(crate) fn lower_static_abi_slots_for_expr(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -309,7 +309,7 @@ fn lower_static_abi_slots_for_expr(
     }
 }
 
-fn emit_expr_static_abi_slot_for_value_type(
+pub(crate) fn emit_expr_static_abi_slot_for_value_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -344,7 +344,7 @@ fn emit_expr_static_abi_slot_for_value_type(
     }
 }
 
-fn lower_packed_abi_bytes_for_expr(
+pub(crate) fn lower_packed_abi_bytes_for_expr(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -404,7 +404,7 @@ fn lower_packed_abi_bytes_for_expr(
     lowered
 }
 
-fn emit_abi_static_slots_from_local(
+pub(crate) fn emit_abi_static_slots_from_local(
     local: usize,
     value_type: &ValueType,
     ctx: &mut LoweringContext,
@@ -434,7 +434,7 @@ fn emit_abi_static_slots_from_local(
     }
 }
 
-fn emit_abi_encode_single_stack_value_for_type(
+pub(crate) fn emit_abi_encode_single_stack_value_for_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -467,7 +467,7 @@ fn emit_abi_encode_single_stack_value_for_type(
     None
 }
 
-fn emit_abi_dynamic_tail_for_value_type(
+pub(crate) fn emit_abi_dynamic_tail_for_value_type(
     value_type: &ValueType,
     depth: usize,
     ctx: &mut LoweringContext,
@@ -499,7 +499,7 @@ fn emit_abi_dynamic_tail_for_value_type(
     }
 }
 
-fn emit_abi_dynamic_bytes_tail(
+pub(crate) fn emit_abi_dynamic_bytes_tail(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
@@ -557,7 +557,7 @@ fn emit_abi_dynamic_bytes_tail(
     });
 }
 
-fn emit_abi_dynamic_static_array_tail(
+pub(crate) fn emit_abi_dynamic_static_array_tail(
     element_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -579,7 +579,7 @@ fn emit_abi_dynamic_static_array_tail(
 ///
 /// where `off_i = n*32 + Σ_{j<i} len(tail_j)` and each `tail_i` is produced by
 /// recursively encoding element `i` via [`emit_abi_dynamic_tail_for_value_type`].
-fn emit_abi_dynamic_nested_array_tail(
+pub(crate) fn emit_abi_dynamic_nested_array_tail(
     element_type: &ValueType,
     depth: usize,
     ctx: &mut LoweringContext,
@@ -690,7 +690,7 @@ fn emit_abi_dynamic_nested_array_tail(
 /// fields as 32-byte offsets relative to the start of the head) followed by
 /// the dynamic-field tails — identical to `lower_abi_encode_head_tail_direct`
 /// but reading fields from the struct array rather than argument expressions.
-fn emit_abi_dynamic_struct_tail(
+pub(crate) fn emit_abi_dynamic_struct_tail(
     fields: &[StructField],
     depth: usize,
     ctx: &mut LoweringContext,
@@ -777,7 +777,7 @@ fn emit_abi_dynamic_struct_tail(
     Some(())
 }
 
-fn emit_abi_packed_static_array(
+pub(crate) fn emit_abi_packed_static_array(
     element_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -785,7 +785,7 @@ fn emit_abi_packed_static_array(
     emit_abi_static_array_buffer(element_type, ctx, instructions, false)
 }
 
-fn emit_abi_static_slots_for_stack_value(
+pub(crate) fn emit_abi_static_slots_for_stack_value(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -816,7 +816,7 @@ fn emit_abi_static_slots_for_stack_value(
     }
 }
 
-fn emit_abi_static_array_buffer(
+pub(crate) fn emit_abi_static_array_buffer(
     element_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

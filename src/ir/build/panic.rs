@@ -27,7 +27,7 @@
 ///   CallBuiltin BytesConcat 2                           ; selector || payload
 ///   Throw
 /// ```
-fn emit_panic(code: u8, instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_panic(code: u8, instructions: &mut Vec<Instruction>) {
     let panic_selector = {
         let mut hasher = Keccak256::new();
         hasher.update(b"Panic(uint256)");

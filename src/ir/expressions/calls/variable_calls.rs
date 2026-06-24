@@ -1,4 +1,4 @@
-fn try_lower_variable_call(
+pub(crate) fn try_lower_variable_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,

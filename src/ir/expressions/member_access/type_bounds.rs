@@ -1,4 +1,4 @@
-fn try_lower_type_bound_max(
+pub(crate) fn try_lower_type_bound_max(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -74,7 +74,7 @@ fn try_lower_type_bound_max(
     None
 }
 
-fn try_lower_type_bound_min(
+pub(crate) fn try_lower_type_bound_min(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -134,7 +134,7 @@ fn try_lower_type_bound_min(
     None
 }
 
-fn try_lower_type_name(
+pub(crate) fn try_lower_type_name(
     inner: &Expression,
     member: &Identifier,
     _ctx: &mut LoweringContext,
@@ -158,7 +158,7 @@ fn try_lower_type_name(
     Some(true)
 }
 
-fn try_lower_type_code(
+pub(crate) fn try_lower_type_code(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,
@@ -233,7 +233,7 @@ fn try_lower_type_code(
 ///
 /// We inline the construction here rather than calling `crate::neo::build_nef`
 /// to keep the IR crate's dependency surface unchanged.
-fn creation_code_payload(contract_name: &str, member_name: &str) -> Vec<u8> {
+pub(crate) fn creation_code_payload(contract_name: &str, member_name: &str) -> Vec<u8> {
     let mut script_hasher = Keccak256::new();
     script_hasher.update(member_name.as_bytes());
     script_hasher.update(b":");
@@ -272,7 +272,7 @@ fn creation_code_payload(contract_name: &str, member_name: &str) -> Vec<u8> {
     buffer
 }
 
-fn try_lower_interface_id(
+pub(crate) fn try_lower_interface_id(
     inner: &Expression,
     member: &Identifier,
     ctx: &mut LoweringContext,

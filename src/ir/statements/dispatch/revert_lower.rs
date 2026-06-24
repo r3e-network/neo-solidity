@@ -7,7 +7,7 @@
 /// IR's `ValueType` tree (which already carries resolved field types) so
 /// the revert-selector path doesn't need the solang-level string→fields map
 /// that `solidity_analyse.rs` built for Task #106.
-fn value_type_canonical_abi(ty: &ValueType) -> String {
+pub(crate) fn value_type_canonical_abi(ty: &ValueType) -> String {
     match ty {
         ValueType::Integer { signed: true, bits } => format!("int{bits}"),
         ValueType::Integer {
@@ -44,7 +44,7 @@ fn value_type_canonical_abi(ty: &ValueType) -> String {
 /// 2-arg function-call shape has no inference rule. Look that up via
 /// `resolve_struct_type_by_name` (shared with the struct-constructor
 /// lowering) so the selector and flatten paths see the same fields.
-fn resolve_struct_type_for_revert_arg(
+pub(crate) fn resolve_struct_type_for_revert_arg(
     expr: &Expression,
     ctx: &LoweringContext,
 ) -> Option<ValueType> {
@@ -89,7 +89,7 @@ fn resolve_struct_type_for_revert_arg(
 /// #106 struct-expansion pattern from `abi.encodeCall` to custom-error
 /// reverts so `revert NotAuthorized(Actor(addr, 5))` emits the spec
 /// selector `keccak256("NotAuthorized((address,uint256))")[..4]`.
-fn revert_arg_canonical_type(expr: &Expression, ctx: &LoweringContext) -> String {
+pub(crate) fn revert_arg_canonical_type(expr: &Expression, ctx: &LoweringContext) -> String {
     // Struct-typed args first: cover both the Variable path (handled by
     // infer) AND the constructor-call path (`Actor(...)`) which has no
     // inference rule but resolves via `resolve_struct_type_by_name`.
@@ -133,7 +133,7 @@ fn revert_arg_canonical_type(expr: &Expression, ctx: &LoweringContext) -> String
 /// version re-lowers the expression per field — fine for bare Variable
 /// references, wasteful for constructor calls that build the struct array
 /// on every index).
-fn lower_and_flatten_revert_arg(
+pub(crate) fn lower_and_flatten_revert_arg(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -176,7 +176,7 @@ fn lower_and_flatten_revert_arg(
 /// Solidity actually hashes for the selector
 /// (`keccak256("Name(uint8)")`, not `keccak256("Name(uint256)")`, for
 /// `error Name(uint8 code); revert Name(1);`).
-fn declared_error_param_canonical(raw: &str, ctx: &LoweringContext) -> String {
+pub(crate) fn declared_error_param_canonical(raw: &str, ctx: &LoweringContext) -> String {
     let cleaned = raw
         .replace(" memory", "")
         .replace(" calldata", "")
@@ -221,7 +221,7 @@ fn declared_error_param_canonical(raw: &str, ctx: &LoweringContext) -> String {
 /// expression-type inference only when the error name was never declared
 /// (e.g. a qualified `Lib.Error` whose library declaration is not merged)
 /// or the argument count differs from the declaration.
-fn revert_error_arg_types(
+pub(crate) fn revert_error_arg_types(
     error_name: &str,
     args: &[Expression],
     ctx: &LoweringContext,
@@ -245,7 +245,7 @@ fn revert_error_arg_types(
 /// Compute the 4-byte keccak selector for a custom error signature.
 ///
 /// Signature form: `Name(t1,t2,...)` per Solidity's ABI spec.
-fn revert_error_selector(name: &str, arg_types: &[String]) -> [u8; 4] {
+pub(crate) fn revert_error_selector(name: &str, arg_types: &[String]) -> [u8; 4] {
     let signature = format!("{}({})", name, arg_types.join(","));
     let mut hasher = Keccak256::new();
     hasher.update(signature.as_bytes());
@@ -263,7 +263,7 @@ fn revert_error_selector(name: &str, arg_types: &[String]) -> [u8; 4] {
 /// - 32 bytes: string length
 /// - N bytes: UTF-8 string data
 /// - padding: zero bytes to the next 32-byte boundary
-fn error_string_literal_envelope(literal_bytes: &[u8]) -> Vec<u8> {
+pub(crate) fn error_string_literal_envelope(literal_bytes: &[u8]) -> Vec<u8> {
     let selector = revert_error_selector("Error", &["string".to_string()]);
     let padded_len = literal_bytes.len().div_ceil(32) * 32;
     let mut out = Vec::with_capacity(4 + 32 + 32 + padded_len);
@@ -287,7 +287,7 @@ fn error_string_literal_envelope(literal_bytes: &[u8]) -> Vec<u8> {
 /// Shared predicate between `lower_revert_statement` and `lower_require`
 /// so both wrap dynamic string messages in the same `Error(string)`
 /// envelope.
-fn revert_message_arg_is_string(arg: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn revert_message_arg_is_string(arg: &Expression, ctx: &LoweringContext) -> bool {
     matches!(
         infer_type_from_expression(arg, ctx),
         Some(ValueType::String)
@@ -319,7 +319,7 @@ fn revert_message_arg_is_string(arg: &Expression, ctx: &LoweringContext) -> bool
 ///
 /// Returns `false` (leaving `instructions` unchanged) when the message
 /// expression cannot be lowered; callers fall back to their legacy paths.
-fn emit_error_string_envelope_throw(
+pub(crate) fn emit_error_string_envelope_throw(
     arg: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -362,7 +362,7 @@ fn emit_error_string_envelope_throw(
     false
 }
 
-fn lower_revert_statement(
+pub(crate) fn lower_revert_statement(
     ident: Option<&solang_parser::pt::IdentifierPath>,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -527,7 +527,7 @@ fn lower_revert_statement(
     true
 }
 
-fn lower_revert_named_args(
+pub(crate) fn lower_revert_named_args(
     ident: Option<&solang_parser::pt::IdentifierPath>,
     args: &[solang_parser::pt::NamedArgument],
     ctx: &mut LoweringContext,

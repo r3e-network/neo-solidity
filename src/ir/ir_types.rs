@@ -1,3 +1,5 @@
+use super::*;
+
 /// IR module representing a compiled contract
 #[derive(Debug)]
 pub struct Module {
@@ -9,7 +11,9 @@ pub struct Module {
 impl Module {
     /// Get the constructor function if present
     pub fn constructor(&self) -> Option<&Function> {
-        self.functions.iter().find(|f| f.kind == FunctionKind::Constructor)
+        self.functions
+            .iter()
+            .find(|f| f.kind == FunctionKind::Constructor)
     }
 
     /// Get a function by name
@@ -19,7 +23,8 @@ impl Module {
 
     /// Count total instructions across all functions
     pub fn instruction_count(&self) -> usize {
-        self.functions.iter()
+        self.functions
+            .iter()
             .flat_map(|f| &f.basic_blocks)
             .map(|bb| bb.instructions.len())
             .sum()
@@ -45,7 +50,10 @@ impl Function {
 
     /// Get total instruction count
     pub fn instruction_count(&self) -> usize {
-        self.basic_blocks.iter().map(|bb| bb.instructions.len()).sum()
+        self.basic_blocks
+            .iter()
+            .map(|bb| bb.instructions.len())
+            .sum()
     }
 }
 
@@ -396,7 +404,7 @@ pub enum ValueType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ManifestType {
+pub enum ManifestType {
     Integer,
     Boolean,
     String,
@@ -439,17 +447,26 @@ pub enum BinaryOperator {
 impl BinaryOperator {
     /// Check if this is an arithmetic operator
     pub fn is_arithmetic(&self) -> bool {
-        matches!(self, Self::Add | Self::Sub | Self::Mul | Self::Div | Self::Mod)
+        matches!(
+            self,
+            Self::Add | Self::Sub | Self::Mul | Self::Div | Self::Mod
+        )
     }
 
     /// Check if this is a comparison operator
     pub fn is_comparison(&self) -> bool {
-        matches!(self, Self::Lt | Self::Le | Self::Gt | Self::Ge | Self::Eq | Self::Ne)
+        matches!(
+            self,
+            Self::Lt | Self::Le | Self::Gt | Self::Ge | Self::Eq | Self::Ne
+        )
     }
 
     /// Check if this is a bitwise operator
     pub fn is_bitwise(&self) -> bool {
-        matches!(self, Self::BitAnd | Self::BitOr | Self::BitXor | Self::Shl | Self::Shr)
+        matches!(
+            self,
+            Self::BitAnd | Self::BitOr | Self::BitXor | Self::Shl | Self::Shr
+        )
     }
 
     /// Get the operator symbol

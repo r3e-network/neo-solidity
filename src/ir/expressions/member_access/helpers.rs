@@ -1,4 +1,4 @@
-fn typeof_argument(expr: &Expression) -> Option<&Expression> {
+pub(crate) fn typeof_argument(expr: &Expression) -> Option<&Expression> {
     if let Expression::FunctionCall(_, func, args) = expr {
         if args.len() == 1 && matches!(func.as_ref(), Expression::Variable(id) if id.name == "type")
         {

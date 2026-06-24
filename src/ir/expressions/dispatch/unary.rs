@@ -1,4 +1,4 @@
-fn try_lower_expression_unary(
+pub(crate) fn try_lower_expression_unary(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -76,7 +76,7 @@ fn try_lower_expression_unary(
 ///    emit_panic(0x11)  // canonical EVM Panic(uint256) envelope
 ///    leaving the original operand on the stack for the subsequent negation.
 /// 3. Multiply by -1 to compute the negation.
-fn lower_negate_expression(
+pub(crate) fn lower_negate_expression(
     inner: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -116,7 +116,7 @@ fn lower_negate_expression(
 }
 
 /// Gate for Task #30 slice 2 unary-minus guard emission.
-fn should_emit_negate_guard(inner: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn should_emit_negate_guard(inner: &Expression, ctx: &LoweringContext) -> bool {
     if ctx.in_unchecked_block() {
         return false;
     }
@@ -131,7 +131,7 @@ fn should_emit_negate_guard(inner: &Expression, ctx: &LoweringContext) -> bool {
 
 /// Returns the `type(intN).min` literal value for the inferred signed-int
 /// type of the operand, or `None` for unsigned / unknown types.
-fn signed_intn_min_literal(inner: &Expression, ctx: &LoweringContext) -> Option<BigInt> {
+pub(crate) fn signed_intn_min_literal(inner: &Expression, ctx: &LoweringContext) -> Option<BigInt> {
     if let Some(ValueType::Integer {
         signed: true,
         bits,

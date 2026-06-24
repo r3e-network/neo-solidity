@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UpgradeSeverity {
@@ -71,9 +72,8 @@ pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
     // positives that escalated to a hard error. Requiring a digit or `)`
     // before the unit excludes identifier/comment occurrences while still
     // catching the real `1 ether` / `(a + b) ether` forms.
-    static ETHER_UNIT_RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").unwrap()
-    });
+    static ETHER_UNIT_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").unwrap());
     static SUPPORTS_INTERFACE_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\bsupportsInterface\s*\(").unwrap());
 

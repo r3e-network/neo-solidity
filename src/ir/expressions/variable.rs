@@ -1,4 +1,4 @@
-fn lower_variable_expression(
+pub(crate) fn lower_variable_expression(
     identifier: &Identifier,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

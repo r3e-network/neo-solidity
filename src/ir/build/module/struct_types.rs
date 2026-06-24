@@ -1,4 +1,4 @@
-fn build_defined_struct_types(
+pub(crate) fn build_defined_struct_types(
     structs: &[crate::solidity::StructMetadata],
     enums: &[EnumMetadata],
     contract_types: &[String],

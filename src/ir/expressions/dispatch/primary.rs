@@ -1,4 +1,4 @@
-fn try_lower_expression_primary(
+pub(crate) fn try_lower_expression_primary(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

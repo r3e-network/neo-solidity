@@ -1,4 +1,4 @@
-fn lower_abi_decode_direct(
+pub(crate) fn lower_abi_decode_direct(
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -139,7 +139,7 @@ fn lower_abi_decode_direct(
 ///
 /// Stack on exit: `[decoded_value]` (ByteString for string/bytes, Array
 /// of element values for `T[]`).
-fn emit_abi_decode_dynamic_top_level(
+pub(crate) fn emit_abi_decode_dynamic_top_level(
     buffer_local: usize,
     value_type: &ValueType,
     ctx: &mut LoweringContext,
@@ -161,7 +161,7 @@ fn emit_abi_decode_dynamic_top_level(
 /// the byte offset of the member's tail relative to the start of the
 /// encoded buffer) and dispatches to [`emit_abi_decode_dynamic_tail`] at
 /// that runtime offset.
-fn emit_abi_decode_dynamic_tuple_member(
+pub(crate) fn emit_abi_decode_dynamic_tuple_member(
     buffer_local: usize,
     index: usize,
     value_type: &ValueType,
@@ -186,7 +186,7 @@ fn emit_abi_decode_dynamic_tuple_member(
 /// Same as [`emit_abi_decode_dynamic_tail`] but with the tail offset
 /// supplied at runtime via `offset_local`. Used for tuple members where
 /// the offset is read from a head slot.
-fn emit_abi_decode_dynamic_tail_runtime(
+pub(crate) fn emit_abi_decode_dynamic_tail_runtime(
     buffer_local: usize,
     offset_local: usize,
     value_type: &ValueType,
@@ -264,7 +264,7 @@ fn emit_abi_decode_dynamic_tail_runtime(
 /// decode the wrong region instead of reverting. `offset_push` pushes the byte
 /// offset of the slot start; Panic(0x41) fires when any high byte is set. A
 /// conformant slot always has zero high bytes, so this never faults valid input.
-fn emit_abi_decode_slot_high_bits_guard(
+pub(crate) fn emit_abi_decode_slot_high_bits_guard(
     buffer_local: usize,
     offset_push: Instruction,
     ctx: &mut LoweringContext,
@@ -288,7 +288,7 @@ fn emit_abi_decode_slot_high_bits_guard(
     instructions.push(Instruction::Label(ok));
 }
 
-fn emit_abi_decode_u256_at(
+pub(crate) fn emit_abi_decode_u256_at(
     buffer_local: usize,
     byte_offset: usize,
     ctx: &mut LoweringContext,
@@ -320,7 +320,7 @@ fn emit_abi_decode_u256_at(
 
 /// Read the u256 stored at the runtime byte offset held in `offset_local`.
 /// Same low-8-bytes shortcut as [`emit_abi_decode_u256_at`].
-fn emit_abi_decode_u256_at_runtime(
+pub(crate) fn emit_abi_decode_u256_at_runtime(
     buffer_local: usize,
     offset_local: usize,
     ctx: &mut LoweringContext,
@@ -349,7 +349,7 @@ fn emit_abi_decode_u256_at_runtime(
 }
 
 /// Decode a `string` / `bytes` tail at a runtime byte offset.
-fn emit_abi_decode_bytes_tail_runtime(
+pub(crate) fn emit_abi_decode_bytes_tail_runtime(
     buffer_local: usize,
     offset_local: usize,
     ctx: &mut LoweringContext,
@@ -374,7 +374,7 @@ fn emit_abi_decode_bytes_tail_runtime(
 }
 
 /// Decode a `T[]` tail at a runtime byte offset (tuple-member case).
-fn emit_abi_decode_static_element_array_tail_runtime(
+pub(crate) fn emit_abi_decode_static_element_array_tail_runtime(
     buffer_local: usize,
     offset_local: usize,
     element_type: &ValueType,
@@ -449,7 +449,7 @@ fn emit_abi_decode_static_element_array_tail_runtime(
 /// element read its offset (relative to the start of the head section) from
 /// the head entry and decode the element tail recursively at that absolute
 /// offset. Stack on exit: `[Array<decoded elements>]`.
-fn emit_abi_decode_nested_array_tail_runtime(
+pub(crate) fn emit_abi_decode_nested_array_tail_runtime(
     buffer_local: usize,
     offset_local: usize,
     element_type: &ValueType,
@@ -539,7 +539,7 @@ fn emit_abi_decode_nested_array_tail_runtime(
 /// offset word each), so the per-field head position is a compile-time
 /// constant; dynamic fields read a relative offset and decode their tail
 /// recursively. Stack on exit: `[Array<field values>]`.
-fn emit_abi_decode_dynamic_struct_tail_runtime(
+pub(crate) fn emit_abi_decode_dynamic_struct_tail_runtime(
     buffer_local: usize,
     offset_local: usize,
     fields: &[StructField],
@@ -632,7 +632,7 @@ fn emit_abi_decode_dynamic_struct_tail_runtime(
 ///
 /// Stack on entry: `[le_bytes_buffer]`.
 /// Stack on exit:  `[unsigned_integer]`.
-fn emit_le_buffer_to_unsigned_integer(
+pub(crate) fn emit_le_buffer_to_unsigned_integer(
     _ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) {
@@ -654,7 +654,7 @@ fn emit_le_buffer_to_unsigned_integer(
 /// Decode a single static element at a runtime byte offset inside
 /// `buffer_local`. Mirrors [`emit_abi_decode_static_slot`] but operates
 /// at a runtime offset rather than a compile-time slot index.
-fn emit_abi_decode_static_slot_at_runtime_offset(
+pub(crate) fn emit_abi_decode_static_slot_at_runtime_offset(
     buffer_local: usize,
     offset_local: usize,
     value_type: &ValueType,
@@ -782,7 +782,7 @@ fn emit_abi_decode_static_slot_at_runtime_offset(
     }
 }
 
-fn abi_decode_value_types(
+pub(crate) fn abi_decode_value_types(
     types_expr: &Expression,
     ctx: &LoweringContext,
 ) -> Option<Vec<ValueType>> {
@@ -800,7 +800,7 @@ fn abi_decode_value_types(
     }
 }
 
-fn emit_abi_decode_static_slot(
+pub(crate) fn emit_abi_decode_static_slot(
     buffer_local: usize,
     index: usize,
     value_type: &ValueType,

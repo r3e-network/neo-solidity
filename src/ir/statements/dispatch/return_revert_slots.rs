@@ -6,7 +6,7 @@
 /// into `dst[0..N]`, then re-push the destination and canonicalise as
 /// ByteArray. The tail 32-N bytes remain zero-padded — matching
 /// `abi.encode(bytesN)`'s spec (left-aligned content, zero-padded on the right).
-fn emit_pad_bytesn_to_32(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>, n: usize) {
+pub(crate) fn emit_pad_bytesn_to_32(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>, n: usize) {
     let tmp_id = ctx.next_label();
     let src_local = ctx.allocate_local(format!("__bytesn_pad_src_{tmp_id}"), None);
     let dst_local = ctx.allocate_local(format!("__bytesn_pad_dst_{tmp_id}"), None);
@@ -72,7 +72,7 @@ fn emit_pad_bytesn_to_32(ctx: &mut LoweringContext, instructions: &mut Vec<Instr
     });
 }
 
-fn is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
+pub(crate) fn is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
     matches!(
         value_type,
         ValueType::Integer { .. }
@@ -84,7 +84,7 @@ fn is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
     )
 }
 
-fn emit_static_abi_slot_for_value_type(
+pub(crate) fn emit_static_abi_slot_for_value_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -126,7 +126,7 @@ fn emit_static_abi_slot_for_value_type(
     }
 }
 
-fn lower_static_abi_return_expr_slot(
+pub(crate) fn lower_static_abi_return_expr_slot(
     expr: &Expression,
     value_type: &ValueType,
     ctx: &mut LoweringContext,
@@ -138,7 +138,7 @@ fn lower_static_abi_return_expr_slot(
     emit_static_abi_slot_for_value_type(value_type, ctx, instructions)
 }
 
-fn is_direct_static_revert_arg(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_direct_static_revert_arg(expr: &Expression, ctx: &LoweringContext) -> bool {
     if resolve_struct_type_for_revert_arg(expr, ctx).is_some() {
         return false;
     }
@@ -151,7 +151,7 @@ fn is_direct_static_revert_arg(expr: &Expression, ctx: &LoweringContext) -> bool
     )
 }
 
-fn emit_revert_static_slot_32(
+pub(crate) fn emit_revert_static_slot_32(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     reverse: bool,
@@ -218,7 +218,7 @@ fn emit_revert_static_slot_32(
     }
 }
 
-fn lower_direct_static_revert_arg_slot(
+pub(crate) fn lower_direct_static_revert_arg_slot(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

@@ -70,7 +70,7 @@
 ///     inherited-event resolution lost the declaration), or
 ///   * the emit's argument count differs from the declaration, or
 ///   * an argument expression cannot be lowered.
-fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     let Expression::FunctionCall(_, func, args) = expr else {
         return;
     };
@@ -132,7 +132,7 @@ fn lower_emit(expr: &Expression, ctx: &mut LoweringContext, instructions: &mut V
 /// `to == null` for burn) that wallets and indexers expect. `amount` is
 /// CONVERTed to Integer so the manifest's declared `Integer` type is
 /// honoured even if the value arrives as a byte string.
-fn lower_emit_native_transfer(
+pub(crate) fn lower_emit_native_transfer(
     event_name: &str,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -187,7 +187,7 @@ fn lower_emit_native_transfer(
 /// zero-literal would silently miss Buffer-shaped zero addresses on real
 /// nodes. CONVERT-to-Integer handles ByteString, Buffer, Integer and
 /// Boolean uniformly (any all-zero encoding => 0).
-fn emit_zero_address_to_null(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_zero_address_to_null(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     let end_label = ctx.next_label();
 
     // [addr] -> [addr, addr] -> [addr, addr_as_int] -> [addr, is_zero]
@@ -206,7 +206,7 @@ fn emit_zero_address_to_null(ctx: &mut LoweringContext, instructions: &mut Vec<I
     instructions.push(Instruction::Label(end_label));
 }
 
-fn lower_emit_evm_shape(
+pub(crate) fn lower_emit_evm_shape(
     event_name: &str,
     signature: &EventSignature,
     args: &[Expression],

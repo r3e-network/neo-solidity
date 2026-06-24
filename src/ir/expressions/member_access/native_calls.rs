@@ -1,4 +1,4 @@
-fn try_lower_native_contract_constant(
+pub(crate) fn try_lower_native_contract_constant(
     inner: &Expression,
     member: &Identifier,
     instructions: &mut Vec<Instruction>,
@@ -52,7 +52,7 @@ fn try_lower_native_contract_constant(
     None
 }
 
-fn try_lower_syscalls_contract_constant(
+pub(crate) fn try_lower_syscalls_contract_constant(
     inner: &Expression,
     member: &Identifier,
     instructions: &mut Vec<Instruction>,

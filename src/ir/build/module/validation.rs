@@ -1,4 +1,4 @@
-fn compute_transitive_hazard_map(functions: &[Function]) -> HashMap<String, Hazards> {
+pub(crate) fn compute_transitive_hazard_map(functions: &[Function]) -> HashMap<String, Hazards> {
     let mut direct = HashMap::new();
     for function in functions {
         direct.insert(function.name.clone(), direct_hazards(function));
@@ -15,7 +15,7 @@ fn compute_transitive_hazard_map(functions: &[Function]) -> HashMap<String, Haza
     memo
 }
 
-fn validate_safe_methods(
+pub(crate) fn validate_safe_methods(
     metadata: &ContractMetadata,
     hazards: &HashMap<String, Hazards>,
 ) -> Vec<IrDiagnostic> {
@@ -66,7 +66,7 @@ fn validate_safe_methods(
     errors
 }
 
-fn validate_pure_methods(
+pub(crate) fn validate_pure_methods(
     metadata: &ContractMetadata,
     hazards: &HashMap<String, Hazards>,
 ) -> Vec<IrDiagnostic> {

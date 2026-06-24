@@ -1,10 +1,10 @@
-fn try_lower_type_constructor_call(
+pub(crate) fn try_lower_type_constructor_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
-    fn lower_contract_like_cast(
+    pub(crate) fn lower_contract_like_cast(
         args: &[Expression],
         ctx: &mut LoweringContext,
         instructions: &mut Vec<Instruction>,
@@ -349,7 +349,7 @@ fn try_lower_type_constructor_call(
     None
 }
 
-fn coerce_to_fixed_bytes(
+pub(crate) fn coerce_to_fixed_bytes(
     len: usize,
     reverse: bool,
     ctx: &mut LoweringContext,
@@ -422,7 +422,7 @@ fn coerce_to_fixed_bytes(
     });
 }
 
-fn materialize_byte_array_buffer(
+pub(crate) fn materialize_byte_array_buffer(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     reverse: bool,

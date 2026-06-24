@@ -1,4 +1,4 @@
-fn try_lower_resolved_builtin_call(
+pub(crate) fn try_lower_resolved_builtin_call(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -327,7 +327,7 @@ fn try_lower_resolved_builtin_call(
 /// (`uintN`, `intN`, `address[ payable]`, `bool`, `bytesN`). Returns `None`
 /// for dynamic or mixed tuples; callers then fall back to the legacy
 /// no-guard path since a simple size comparison is insufficient.
-fn abi_decode_expected_static_bytes(args: &[Expression]) -> Option<u32> {
+pub(crate) fn abi_decode_expected_static_bytes(args: &[Expression]) -> Option<u32> {
     let slot_count: u32 = match args.get(1)? {
         Expression::List(_, params) => {
             let mut count: u32 = 0;
@@ -357,7 +357,7 @@ fn abi_decode_expected_static_bytes(args: &[Expression]) -> Option<u32> {
 
 /// Task #84 — true iff `expr` names a Solidity type whose ABI encoding is
 /// exactly one 32-byte slot (no offset/length tail).
-fn is_static_abi_type(expr: &Expression) -> bool {
+pub(crate) fn is_static_abi_type(expr: &Expression) -> bool {
     matches!(
         expr,
         Expression::Type(
@@ -380,7 +380,7 @@ fn is_static_abi_type(expr: &Expression) -> bool {
 /// static+dynamic tuple passthrough in `return_revert.rs` to recognise
 /// `return abi.decode(buf, (uint, string, address))`-style shapes
 /// whose canonical output IS the input buffer verbatim.
-fn is_dynamic_abi_type(expr: &Expression) -> bool {
+pub(crate) fn is_dynamic_abi_type(expr: &Expression) -> bool {
     match expr {
         Expression::Type(_, PtType::DynamicBytes | PtType::String) => true,
         // `T[]` appears as an ArraySubscript with no length index.

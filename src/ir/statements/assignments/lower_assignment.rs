@@ -1,4 +1,4 @@
-fn lower_assignment(
+pub(crate) fn lower_assignment(
     lhs: &Expression,
     rhs: &Expression,
     ctx: &mut LoweringContext,
@@ -636,7 +636,7 @@ fn lower_assignment(
 // paths — `state_index` plus a single uint256 key. Re-using those paths keeps
 // the in-storage representation compatible with subsequent reads via
 // `arr[i]` and with length-aware helpers like `arr.length`.
-fn lower_storage_array_assign_from_memory(
+pub(crate) fn lower_storage_array_assign_from_memory(
     state_index: usize,
     rhs: &Expression,
     ctx: &mut LoweringContext,
@@ -776,7 +776,7 @@ fn lower_storage_array_assign_from_memory(
 /// Without this broader match, (2) and (3) skipped the compile-time
 /// ABI-decode and the destructure PICKITEM chain indexed the raw
 /// encoded bytes — producing zero-valued per-byte reads.
-fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringContext) -> bool {
+pub(crate) fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringContext) -> bool {
     let Expression::FunctionCall(_, func, _) = rhs else {
         return false;
     };
@@ -844,7 +844,7 @@ fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringContext) -> b
 /// dispatch lowering elsewhere in the call chain. Dynamic types are the
 /// novel case: their wire shape (head-offset + length + payload) needs
 /// the dedicated walker.
-fn try_lower_this_external_dynamic_assign(
+pub(crate) fn try_lower_this_external_dynamic_assign(
     slot: usize,
     rhs: &Expression,
     dst_type: &ValueType,

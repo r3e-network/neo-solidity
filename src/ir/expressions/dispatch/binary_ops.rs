@@ -1,4 +1,4 @@
-fn try_lower_expression_binary_ops(
+pub(crate) fn try_lower_expression_binary_ops(
     expr: &Expression,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

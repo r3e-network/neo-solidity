@@ -1,4 +1,4 @@
-fn try_lower_storage_reference_array_helpers(
+pub(crate) fn try_lower_storage_reference_array_helpers(
     func: &Expression,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -60,7 +60,7 @@ fn try_lower_storage_reference_array_helpers(
     }
 }
 
-fn lower_storage_reference_push(
+pub(crate) fn lower_storage_reference_push(
     reference: &StorageReference,
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -191,7 +191,7 @@ fn lower_storage_reference_push(
     true
 }
 
-fn lower_storage_reference_pop(
+pub(crate) fn lower_storage_reference_pop(
     reference: &StorageReference,
     element_type: &ValueType,
     args: &[Expression],

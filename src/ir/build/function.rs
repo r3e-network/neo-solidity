@@ -1,6 +1,6 @@
 impl Function {
     #[allow(clippy::too_many_arguments)]
-    fn from_metadata_with_warnings(
+    pub(crate) fn from_metadata_with_warnings(
         metadata: &FunctionMetadata,
         current_contract_name: &str,
         state_variables: &[StateVariableMetadata],
@@ -324,7 +324,7 @@ impl Function {
     }
 }
 
-fn build_is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
+pub(crate) fn build_is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
     matches!(
         value_type,
         ValueType::Integer { .. }
@@ -336,7 +336,7 @@ fn build_is_static_abi_slot_value_type(value_type: &ValueType) -> bool {
     )
 }
 
-fn build_emit_static_abi_slot_for_value_type(
+pub(crate) fn build_emit_static_abi_slot_for_value_type(
     value_type: &ValueType,
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
@@ -376,7 +376,7 @@ fn build_emit_static_abi_slot_for_value_type(
     }
 }
 
-fn build_emit_static_slot_32(
+pub(crate) fn build_emit_static_slot_32(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     reverse: bool,
@@ -439,7 +439,7 @@ fn build_emit_static_slot_32(
     });
 }
 
-fn build_emit_pad_bytesn_to_32(
+pub(crate) fn build_emit_pad_bytesn_to_32(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
     n: usize,
@@ -502,7 +502,7 @@ fn build_emit_pad_bytesn_to_32(
 /// parameters that need `CallIndirect` dispatch at call sites, since the
 /// `NeoType` layer maps function types to `None` and the ValueType erases
 /// this info.
-fn parse_function_pointer_type(ty: &str) -> Option<(usize, bool)> {
+pub(crate) fn parse_function_pointer_type(ty: &str) -> Option<(usize, bool)> {
     let trimmed = ty.trim();
     if !trimmed.starts_with("function") {
         return None;
@@ -550,24 +550,24 @@ mod function_pointer_type_tests {
     use super::parse_function_pointer_type;
 
     #[test]
-    fn parses_two_arg_with_return() {
+    pub(crate) fn parses_two_arg_with_return() {
         let s = "function (uint256, uint256) pure returns (uint256)";
         assert_eq!(parse_function_pointer_type(s), Some((2, true)));
     }
 
     #[test]
-    fn parses_void_function_type() {
+    pub(crate) fn parses_void_function_type() {
         assert_eq!(parse_function_pointer_type("function ()"), Some((0, false)));
     }
 
     #[test]
-    fn rejects_non_function_types() {
+    pub(crate) fn rejects_non_function_types() {
         assert_eq!(parse_function_pointer_type("uint256"), None);
         assert_eq!(parse_function_pointer_type("mapping(uint => uint)"), None);
     }
 
     #[test]
-    fn parses_nested_tuple_args() {
+    pub(crate) fn parses_nested_tuple_args() {
         // Defensive: tuple-shaped args should not mis-split on inner commas.
         let s = "function ((uint256, bool), address) returns (uint256)";
         assert_eq!(parse_function_pointer_type(s), Some((2, true)));

@@ -1,4 +1,4 @@
-fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
+pub(crate) fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
     literal_from_expression_with_warning(expr, &mut |_| {})
 }
 
@@ -15,7 +15,7 @@ fn literal_from_expression(expr: &Expression) -> Option<LiteralValue> {
 /// to the test suite but breaks on a real node. Surfacing it as a compile-time
 /// warning makes the (currently architectural) limitation visible BEFORE deploy
 /// instead of a silent on-chain fault. See `claudedocs/review-findings.md` (#12).
-fn neovm_integer_limit_warning(value: &BigInt) -> Option<String> {
+pub(crate) fn neovm_integer_limit_warning(value: &BigInt) -> Option<String> {
     let len = value.to_signed_bytes_le().len();
     if len > 32 {
         Some(format!(
@@ -34,7 +34,7 @@ fn neovm_integer_limit_warning(value: &BigInt) -> Option<String> {
 // `1 + (((...(1)...)))` drives into a deep self-call. Stacker lets the
 // compiler walk the chain without overflowing. See the sibling guards in
 // `src/ir/expressions/dispatch/entry.rs` and `src/ir/statements/dispatch/statement.rs`.
-fn literal_from_expression_with_warning<F>(
+pub(crate) fn literal_from_expression_with_warning<F>(
     expr: &Expression,
     on_warning: &mut F,
 ) -> Option<LiteralValue>
@@ -46,7 +46,7 @@ where
     })
 }
 
-fn literal_from_expression_with_warning_inner<F>(
+pub(crate) fn literal_from_expression_with_warning_inner<F>(
     expr: &Expression,
     on_warning: &mut F,
 ) -> Option<LiteralValue>
@@ -156,7 +156,7 @@ where
     }
 }
 
-fn address_bytes_le_from_expression(expr: &Expression) -> Option<Vec<u8>> {
+pub(crate) fn address_bytes_le_from_expression(expr: &Expression) -> Option<Vec<u8>> {
     match expr {
         Expression::Parenthesis(_, inner) => address_bytes_le_from_expression(inner),
         Expression::AddressLiteral(_, value) => decode_hex_bytes(value).map(|mut bytes| {
@@ -215,7 +215,7 @@ fn address_bytes_le_from_expression(expr: &Expression) -> Option<Vec<u8>> {
     }
 }
 
-fn decode_hex_segments(parts: &[PtHexLiteral]) -> Option<Vec<u8>> {
+pub(crate) fn decode_hex_segments(parts: &[PtHexLiteral]) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
     for part in parts {
         let segment = part.hex.trim();
@@ -230,7 +230,7 @@ fn decode_hex_segments(parts: &[PtHexLiteral]) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-fn decode_hex_bytes(value: &str) -> Option<Vec<u8>> {
+pub(crate) fn decode_hex_bytes(value: &str) -> Option<Vec<u8>> {
     let cleaned = value.trim();
     if let Some(inner) = cleaned.strip_prefix("0x") {
         hex_decode(inner).ok()
@@ -239,16 +239,16 @@ fn decode_hex_bytes(value: &str) -> Option<Vec<u8>> {
     }
 }
 
-fn parse_decimal_bigint(value: &str) -> Option<BigInt> {
+pub(crate) fn parse_decimal_bigint(value: &str) -> Option<BigInt> {
     let sanitized: String = value.chars().filter(|c| *c != '_').collect();
     BigInt::parse_bytes(sanitized.as_bytes(), 10)
 }
 
-fn sanitize_numeric_token(value: &str) -> String {
+pub(crate) fn sanitize_numeric_token(value: &str) -> String {
     value.chars().filter(|c| *c != '_').collect()
 }
 
-fn parse_signed_decimal_i32(value: &str) -> Option<i32> {
+pub(crate) fn parse_signed_decimal_i32(value: &str) -> Option<i32> {
     let sanitized = sanitize_numeric_token(value);
     if sanitized.trim().is_empty() {
         Some(0)
@@ -257,7 +257,7 @@ fn parse_signed_decimal_i32(value: &str) -> Option<i32> {
     }
 }
 
-fn unit_multiplier(unit: &Identifier) -> Option<BigInt> {
+pub(crate) fn unit_multiplier(unit: &Identifier) -> Option<BigInt> {
     match unit.name.as_str() {
         // Solidity ether units
         "wei" => Some(BigInt::one()),
@@ -279,11 +279,11 @@ fn unit_multiplier(unit: &Identifier) -> Option<BigInt> {
     }
 }
 
-fn is_ether_unit(name: &str) -> bool {
+pub(crate) fn is_ether_unit(name: &str) -> bool {
     matches!(name, "wei" | "gwei" | "szabo" | "finney" | "ether")
 }
 
-fn has_ether_unit(expr: &Expression) -> bool {
+pub(crate) fn has_ether_unit(expr: &Expression) -> bool {
     match expr {
         Expression::NumberLiteral(_, _, _, Some(unit)) => is_ether_unit(&unit.name),
         Expression::HexNumberLiteral(_, _, Some(unit)) => is_ether_unit(&unit.name),
@@ -307,9 +307,9 @@ fn has_ether_unit(expr: &Expression) -> bool {
 /// time — a denial-of-service vector via arbitrary user input. The
 /// `fuzz_target_1` corpus routinely discovers shapes that would hit this
 /// without the guard; see docs/FUZZ.md for triage guidance.
-const MAX_DECIMAL_EXPONENT: u32 = 1024;
+pub(crate) const MAX_DECIMAL_EXPONENT: u32 = 1024;
 
-fn pow10(exp: u32) -> BigInt {
+pub(crate) fn pow10(exp: u32) -> BigInt {
     try_pow10(exp).expect("pow10 caller must validate exponent ≤ MAX_DECIMAL_EXPONENT")
 }
 
@@ -317,7 +317,7 @@ fn pow10(exp: u32) -> BigInt {
 /// exponents. Returns `None` on exponents that would exceed
 /// `MAX_DECIMAL_EXPONENT`, signalling an invalid Solidity literal rather
 /// than a panic.
-fn try_pow10(exp: u32) -> Option<BigInt> {
+pub(crate) fn try_pow10(exp: u32) -> Option<BigInt> {
     if exp > MAX_DECIMAL_EXPONENT {
         return None;
     }
@@ -325,7 +325,7 @@ fn try_pow10(exp: u32) -> Option<BigInt> {
     Some(ten.pow(exp))
 }
 
-fn parse_hex_bigint(value: &str) -> Option<BigInt> {
+pub(crate) fn parse_hex_bigint(value: &str) -> Option<BigInt> {
     let sanitized = value.trim_start_matches("0x");
     BigInt::parse_bytes(sanitized.as_bytes(), 16)
 }
