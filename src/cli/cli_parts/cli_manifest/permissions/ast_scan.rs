@@ -1,3 +1,5 @@
+use super::*;
+
 // Task #55: AST-level scan for `new Contract(...)` expressions.
 //
 // The IR lowering for `new Contract(...)` pushes a 20-byte zero address
@@ -7,7 +9,7 @@
 // where `T` is a known contract type, and wire `ContractManagement.deploy`
 // into the manifest so a later compiler revision that actually performs the
 // deployment is not blocked by a missing permission.
-fn contract_uses_new_contract(metadata: &ContractMetadata) -> bool {
+pub(crate) fn contract_uses_new_contract(metadata: &ContractMetadata) -> bool {
     let contract_types: std::collections::HashSet<&str> =
         metadata.contract_types.iter().map(String::as_str).collect();
 
@@ -19,7 +21,7 @@ fn contract_uses_new_contract(metadata: &ContractMetadata) -> bool {
     })
 }
 
-fn is_new_contract(
+pub(crate) fn is_new_contract(
     expr: &solang_parser::pt::Expression,
     contract_types: &std::collections::HashSet<&str>,
 ) -> bool {
@@ -34,7 +36,7 @@ fn is_new_contract(
     false
 }
 
-fn scan_stmt(
+pub(crate) fn scan_stmt(
     stmt: &solang_parser::pt::Statement,
     contract_types: &std::collections::HashSet<&str>,
 ) -> bool {
@@ -82,7 +84,7 @@ fn scan_stmt(
 // deliberately enumerates common shapes rather than every binary operator;
 // `new T(...)` normally appears as a statement, assignment RHS, return value,
 // argument, or conditional branch, all of which are covered below.
-fn scan_expr(
+pub(crate) fn scan_expr(
     expr: &solang_parser::pt::Expression,
     contract_types: &std::collections::HashSet<&str>,
 ) -> bool {

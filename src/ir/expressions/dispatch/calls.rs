@@ -40,12 +40,13 @@ pub(crate) fn try_lower_expression_calls(
             );
             Some(false)
         }
-        Expression::FunctionCall(_, func, args) => {
-            Some(lower_function_call_expression(func.as_ref(), args, ctx, instructions))
-        }
-        Expression::New(_, expr) => {
-            Some(lower_new_expression(expr.as_ref(), ctx, instructions))
-        }
+        Expression::FunctionCall(_, func, args) => Some(lower_function_call_expression(
+            func.as_ref(),
+            args,
+            ctx,
+            instructions,
+        )),
+        Expression::New(_, expr) => Some(lower_new_expression(expr.as_ref(), ctx, instructions)),
         Expression::Type(_, ty) => {
             push_default_for_type(ty, instructions);
             Some(true)
@@ -100,7 +101,9 @@ pub(crate) fn lower_new_expression(
             if let Expression::ArraySubscript(_, array_type_expr, index) = func.as_ref() {
                 if let Some(fixed_len_expr) = index.as_ref() {
                     if !args.is_empty() {
-                        ctx.record_error("new fixed-size array constructor does not accept runtime arguments");
+                        ctx.record_error(
+                            "new fixed-size array constructor does not accept runtime arguments",
+                        );
                         for arg in args {
                             if lower_expression(arg, ctx, instructions) {
                                 instructions.push(Instruction::Drop(ValueType::Any));
@@ -159,9 +162,7 @@ pub(crate) fn lower_new_expression(
             if let Expression::Variable(identifier) = func.as_ref() {
                 if ctx.is_contract_type_name(&identifier.name) {
                     let mangled = format!("__ctor__{}", identifier.name);
-                    let mangled_resolves = ctx
-                        .neo_function_name(&mangled, args.len())
-                        .is_some();
+                    let mangled_resolves = ctx.neo_function_name(&mangled, args.len()).is_some();
                     if mangled_resolves {
                         let mut success = true;
                         for arg in args {
@@ -170,9 +171,7 @@ pub(crate) fn lower_new_expression(
                             }
                         }
                         if success {
-                            if let Some(neo_name) =
-                                ctx.neo_function_name(&mangled, args.len())
-                            {
+                            if let Some(neo_name) = ctx.neo_function_name(&mangled, args.len()) {
                                 instructions.push(Instruction::CallFunction {
                                     name: neo_name,
                                     arg_count: args.len(),
@@ -211,7 +210,12 @@ pub(crate) fn lower_new_expression(
             true
         }
         Expression::ArraySubscript(_, array_type_expr, Some(length_expr)) => {
-            lower_new_array_allocation(array_type_expr.as_ref(), length_expr.as_ref(), ctx, instructions)
+            lower_new_array_allocation(
+                array_type_expr.as_ref(),
+                length_expr.as_ref(),
+                ctx,
+                instructions,
+            )
         }
         Expression::FunctionCallBlock(_, _, _) => {
             ctx.record_warning_with_suggestion(
@@ -310,7 +314,9 @@ pub(crate) fn lower_new_array_allocation(
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
 
@@ -339,8 +345,9 @@ pub(crate) fn try_lower_named_function_call(
     // Look up parameter names for this function with matching arg count.
     // Clone to release the immutable borrow on `ctx` so we can call
     // `ctx.record_error()` later.
-    let param_names: Vec<String> =
-        ctx.get_function_param_names(&identifier.name, named_args.len())?.to_vec();
+    let param_names: Vec<String> = ctx
+        .get_function_param_names(&identifier.name, named_args.len())?
+        .to_vec();
 
     // Build name→index mapping from the function's parameter list.
     let name_to_index: HashMap<&str, usize> = param_names
@@ -414,8 +421,7 @@ pub(crate) fn try_lower_named_function_call(
     }
 
     if success {
-        if let Some(neo_name) =
-            ctx.resolve_overload(&identifier.name, named_args.len(), &arg_types)
+        if let Some(neo_name) = ctx.resolve_overload(&identifier.name, named_args.len(), &arg_types)
         {
             instructions.push(Instruction::CallFunction {
                 name: neo_name,
@@ -424,7 +430,8 @@ pub(crate) fn try_lower_named_function_call(
         } else {
             ctx.record_error(format!(
                 "no overload of '{}' with {} argument(s)",
-                identifier.name, named_args.len()
+                identifier.name,
+                named_args.len()
             ));
             success = false;
         }

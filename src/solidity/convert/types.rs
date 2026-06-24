@@ -1,4 +1,6 @@
-fn convert_struct(ir: StructIR) -> StructMetadata {
+use super::*;
+
+pub(crate) fn convert_struct(ir: StructIR) -> StructMetadata {
     let fields = ir
         .fields
         .into_iter()
@@ -8,17 +10,20 @@ fn convert_struct(ir: StructIR) -> StructMetadata {
         })
         .collect();
 
-    StructMetadata { name: ir.name, fields }
+    StructMetadata {
+        name: ir.name,
+        fields,
+    }
 }
 
-fn convert_enum(ir: EnumIR) -> EnumMetadata {
+pub(crate) fn convert_enum(ir: EnumIR) -> EnumMetadata {
     EnumMetadata {
         name: ir.name,
         values: ir.values,
     }
 }
 
-fn structs_to_type_metadata(structs: &[StructMetadata]) -> Vec<StructTypeMetadata> {
+pub(crate) fn structs_to_type_metadata(structs: &[StructMetadata]) -> Vec<StructTypeMetadata> {
     structs
         .iter()
         .map(|s| StructTypeMetadata {
@@ -35,7 +40,7 @@ fn structs_to_type_metadata(structs: &[StructMetadata]) -> Vec<StructTypeMetadat
         .collect()
 }
 
-fn enums_to_type_metadata(enums: &[EnumMetadata]) -> Vec<EnumTypeMetadata> {
+pub(crate) fn enums_to_type_metadata(enums: &[EnumMetadata]) -> Vec<EnumTypeMetadata> {
     enums
         .iter()
         .map(|enum_meta| EnumTypeMetadata {
@@ -44,4 +49,3 @@ fn enums_to_type_metadata(enums: &[EnumMetadata]) -> Vec<EnumTypeMetadata> {
         })
         .collect()
 }
-

@@ -138,7 +138,8 @@ pub(crate) fn try_lower_syscalls_member_builtin(
 
             // Equivalent to Solidity `addr != address(0)`.
             instructions.push(Instruction::PushLiteral(LiteralValue::Address(vec![
-                0u8; 20
+                0u8;
+                20
             ])));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
             Some(true)

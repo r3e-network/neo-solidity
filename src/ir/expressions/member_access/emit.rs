@@ -17,7 +17,9 @@ pub(crate) fn lower_member_access_expression(
             ),
             "access the member directly by name, call super.method(), or extract shared logic into a named internal function",
         );
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         return false;
     }
 

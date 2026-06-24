@@ -1,7 +1,8 @@
-fn run_single_file(matches: &clap::ArgMatches) {
+use super::*;
+
+pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
     fn sanitize_stem_or_fallback(stem: Option<&str>, fallback: String) -> String {
-        stem.and_then(standard_json::sanitize_contract_name)
-            .unwrap_or(fallback)
+        stem.and_then(sanitize_contract_name).unwrap_or(fallback)
     }
 
     fn is_output_directory(path: &str, assume_dir_when_missing: bool) -> bool {
@@ -160,7 +161,7 @@ fn run_single_file(matches: &clap::ArgMatches) {
             }
 
             let joined = parts.join("_");
-            standard_json::sanitize_contract_name(&joined).unwrap_or(fallback)
+            sanitize_contract_name(&joined).unwrap_or(fallback)
         }
 
         let mut stem_counts: HashMap<String, usize> = HashMap::new();
@@ -253,18 +254,17 @@ fn run_single_file(matches: &clap::ArgMatches) {
             }
         }
 
-        let resolved =
-            match resolve_solidity_sources_with_options(
-                Path::new(input_file),
-                &include_paths,
-                &remappings,
-            ) {
-                Ok(resolved) => resolved,
-                Err(err) => {
-                    eprintln!("Error resolving imports: {err}");
-                    std::process::exit(1);
-                }
-            };
+        let resolved = match resolve_solidity_sources_with_options(
+            Path::new(input_file),
+            &include_paths,
+            &remappings,
+        ) {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                eprintln!("Error resolving imports: {err}");
+                std::process::exit(1);
+            }
+        };
         let input_content = resolved.combined_source;
 
         if verbose {

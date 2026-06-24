@@ -1,3 +1,5 @@
+use super::*;
+
 /// Normalize a Solidity type string into its EVM-canonical signature form.
 ///
 /// Canonicalization is the minimum set of rewrites Solidity itself applies
@@ -138,7 +140,10 @@ pub(crate) fn is_user_defined_canonical_type(canonical: &str) -> bool {
         .is_some_and(|c| c.is_ascii_uppercase())
 }
 
-pub(crate) fn event_canonical_signature(event: &EventMetadata, enum_names: &HashSet<String>) -> String {
+pub(crate) fn event_canonical_signature(
+    event: &EventMetadata,
+    enum_names: &HashSet<String>,
+) -> String {
     let joined_types: Vec<String> = event
         .parameters
         .iter()
@@ -155,7 +160,9 @@ pub(crate) fn event_canonical_signature(event: &EventMetadata, enum_names: &Hash
     format!("{}({})", event.name, joined_types.join(","))
 }
 
-pub(crate) fn build_enum_variant_map(enums: &[EnumMetadata]) -> HashMap<String, HashMap<String, u64>> {
+pub(crate) fn build_enum_variant_map(
+    enums: &[EnumMetadata],
+) -> HashMap<String, HashMap<String, u64>> {
     let mut map = HashMap::new();
 
     for enum_meta in enums {
@@ -256,7 +263,10 @@ pub(crate) fn native_call_is_mutating(contract: NativeContract, method: &str) ->
         ),
         NativeContract::Gas => matches!(method, "transfer"),
         NativeContract::ContractManagement => {
-            matches!(method, "deploy" | "update" | "destroy" | "setMinimumDeploymentFee")
+            matches!(
+                method,
+                "deploy" | "update" | "destroy" | "setMinimumDeploymentFee"
+            )
         }
         NativeContract::Policy => matches!(
             method,

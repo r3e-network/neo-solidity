@@ -331,7 +331,9 @@ pub(crate) fn emit_error_string_envelope_throw(
     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
         selector.to_vec(),
     )));
-    if let Some(ok) = lower_abi_encode_args_direct_from_slice(std::slice::from_ref(arg), ctx, instructions) {
+    if let Some(ok) =
+        lower_abi_encode_args_direct_from_slice(std::slice::from_ref(arg), ctx, instructions)
+    {
         if ok {
             instructions.push(Instruction::CallBuiltin {
                 builtin: BuiltinCall::BytesConcat,
@@ -599,9 +601,7 @@ pub(crate) fn lower_revert_named_args(
             instructions.push(Instruction::Throw);
             return true;
         }
-        if let Some(ok) =
-            lower_abi_encode_args_direct_from_slice(&direct_args, ctx, instructions)
-        {
+        if let Some(ok) = lower_abi_encode_args_direct_from_slice(&direct_args, ctx, instructions) {
             if ok {
                 instructions.push(Instruction::CallBuiltin {
                     builtin: BuiltinCall::BytesConcat,

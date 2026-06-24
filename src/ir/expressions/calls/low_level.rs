@@ -32,7 +32,10 @@ pub(crate) fn resolve_signature_string(expr: &Expression, ctx: &LoweringContext)
     }
 }
 
-pub(crate) fn is_single_argument_bytes_or_type_wrapper(func: &Expression, args: &[Expression]) -> bool {
+pub(crate) fn is_single_argument_bytes_or_type_wrapper(
+    func: &Expression,
+    args: &[Expression],
+) -> bool {
     if args.len() != 1 {
         return false;
     }
@@ -78,7 +81,10 @@ pub(crate) fn is_contract_type_reference(expr: &Expression, ctx: &LoweringContex
     }
 }
 
-pub(crate) fn resolve_encode_call_method_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+pub(crate) fn resolve_encode_call_method_name(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<String> {
     if let Some(name) = resolve_selector_method_name(expr, ctx) {
         if !name.trim().is_empty() {
             return Some(name);
@@ -245,7 +251,10 @@ pub(crate) fn parse_low_level_call_data<'a>(
     }
 }
 
-pub(crate) fn resolve_call_data_local(expr: &Expression, ctx: &LoweringContext) -> Option<(usize, String)> {
+pub(crate) fn resolve_call_data_local(
+    expr: &Expression,
+    ctx: &LoweringContext,
+) -> Option<(usize, String)> {
     match expr {
         Expression::Parenthesis(_, inner) => resolve_call_data_local(inner, ctx),
         Expression::FunctionCall(_, func, args)
@@ -429,7 +438,11 @@ pub(crate) fn unsupported_precompile_name(index: u8) -> &'static str {
     }
 }
 
-pub(crate) fn record_unsupported_precompile_error(index: u8, member_name: &str, ctx: &mut LoweringContext) {
+pub(crate) fn record_unsupported_precompile_error(
+    index: u8,
+    member_name: &str,
+    ctx: &mut LoweringContext,
+) {
     let name = unsupported_precompile_name(index);
     ctx.record_error_with_suggestion(
 		format!(
@@ -1000,10 +1013,8 @@ pub(crate) fn try_lower_low_level_address_call(
             // current invocation with that message — equivalent to an EVM
             // revert with reason.
             instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                format!(
-                    "opaque address.{member_name}(<bytes>) is not lowerable on Neo N3"
-                )
-                .into_bytes(),
+                format!("opaque address.{member_name}(<bytes>) is not lowerable on Neo N3")
+                    .into_bytes(),
             )));
             instructions.push(Instruction::AbortMsg);
             // Per the (bool success, bytes returndata) shape that callers
@@ -1039,7 +1050,9 @@ pub(crate) fn emit_reencoded_low_level_return_data(
         },
         arg_count: 1,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::ArrayGet);
     if emit_abi_encode_single_stack_value_for_type(return_type, ctx, instructions).is_some() {
         instructions.push(Instruction::StoreLocal(data_local));

@@ -8,9 +8,9 @@ pub(crate) fn lower_neo_serialized_arg_array(
     let tmp_id = ctx.next_label();
     let array_local = ctx.allocate_local(format!("__neo_serialized_args_{tmp_id}"), None);
 
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        args.len() as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(args.len() as u64),
+    )));
     instructions.push(Instruction::NewArray {
         element_type: ValueType::Any,
     });
@@ -19,12 +19,14 @@ pub(crate) fn lower_neo_serialized_arg_array(
     let mut success = true;
     for (index, arg) in args.iter().enumerate() {
         instructions.push(Instruction::LoadLocal(array_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-            index as u64,
-        ))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(index as u64),
+        )));
         if !lower_expression(arg, ctx, instructions) {
             success = false;
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
         }
         instructions.push(Instruction::ArraySet);
     }
@@ -40,4 +42,3 @@ pub(crate) fn lower_neo_serialized_arg_array(
 
     success
 }
-

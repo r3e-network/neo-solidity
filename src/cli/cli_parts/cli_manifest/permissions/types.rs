@@ -1,34 +1,36 @@
-const MAX_ABSTRACT_OPTIONS: usize = 8;
+use super::*;
+
+pub(crate) const MAX_ABSTRACT_OPTIONS: usize = 8;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum AbstractAtom {
+pub(crate) enum AbstractAtom {
     Literal(ir::LiteralValue),
     ExecutingScriptHash,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum AbstractValue {
+pub(crate) enum AbstractValue {
     Possible(Vec<AbstractAtom>),
     Unknown,
 }
 
 impl AbstractValue {
-    fn literal(lit: ir::LiteralValue) -> Self {
+    pub(crate) fn literal(lit: ir::LiteralValue) -> Self {
         Self::Possible(vec![AbstractAtom::Literal(lit)])
     }
 
-    fn executing_script_hash() -> Self {
+    pub(crate) fn executing_script_hash() -> Self {
         Self::Possible(vec![AbstractAtom::ExecutingScriptHash])
     }
 
-    fn atoms(&self) -> Option<&[AbstractAtom]> {
+    pub(crate) fn atoms(&self) -> Option<&[AbstractAtom]> {
         match self {
             AbstractValue::Possible(values) => Some(values.as_slice()),
             AbstractValue::Unknown => None,
         }
     }
 
-    fn merge(&self, other: &Self) -> Self {
+    pub(crate) fn merge(&self, other: &Self) -> Self {
         match (self, other) {
             (AbstractValue::Unknown, _) | (_, AbstractValue::Unknown) => AbstractValue::Unknown,
             (AbstractValue::Possible(left), AbstractValue::Possible(right)) => {
@@ -48,20 +50,20 @@ impl AbstractValue {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct AbstractState {
-    stack: Vec<AbstractValue>,
-    locals: Vec<AbstractValue>,
+pub(crate) struct AbstractState {
+    pub(crate) stack: Vec<AbstractValue>,
+    pub(crate) locals: Vec<AbstractValue>,
 }
 
 impl AbstractState {
-    fn new(local_count: u16) -> Self {
+    pub(crate) fn new(local_count: u16) -> Self {
         Self {
             stack: Vec::new(),
             locals: vec![AbstractValue::Unknown; local_count as usize],
         }
     }
 
-    fn merge_from(&mut self, other: &Self) -> bool {
+    pub(crate) fn merge_from(&mut self, other: &Self) -> bool {
         let mut changed = false;
 
         if self.stack.len() != other.stack.len() {
@@ -105,13 +107,13 @@ impl AbstractState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum PermissionMethods {
+pub(crate) enum PermissionMethods {
     All,
     Some(std::collections::BTreeSet<String>),
 }
 
 impl PermissionMethods {
-    fn merge_in(&mut self, other: PermissionMethods) {
+    pub(crate) fn merge_in(&mut self, other: PermissionMethods) {
         match (self, other) {
             (PermissionMethods::All, _) => {}
             (this, PermissionMethods::All) => {
@@ -125,7 +127,7 @@ impl PermissionMethods {
 }
 
 #[derive(Clone, Debug)]
-struct ContractCallRequirement {
-    contract: Option<String>,
-    method: Option<String>,
+pub(crate) struct ContractCallRequirement {
+    pub(crate) contract: Option<String>,
+    pub(crate) method: Option<String>,
 }

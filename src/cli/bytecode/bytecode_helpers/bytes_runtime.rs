@@ -1,8 +1,10 @@
+use super::*;
+
 pub(crate) fn emit_new_buffer(bytecode: &mut Vec<u8>) {
     bytecode.push(0x88); // NEWBUFFER
 }
 
-fn stack_item_type_code(target: ir::ConvertTarget) -> u8 {
+pub(crate) fn stack_item_type_code(target: ir::ConvertTarget) -> u8 {
     match target {
         ir::ConvertTarget::Any => 0x00,
         ir::ConvertTarget::Boolean => 0x20,

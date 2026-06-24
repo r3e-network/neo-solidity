@@ -33,9 +33,9 @@ pub(crate) fn try_lower_value_transfer_helpers(
                         return Some(false);
                     }
                 } else {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                        Vec::new(),
-                    )));
+                    instructions.push(Instruction::PushLiteral(
+                        LiteralValue::ByteArray(Vec::new()),
+                    ));
                 }
 
                 instructions.push(Instruction::CallBuiltin {
@@ -83,9 +83,9 @@ pub(crate) fn try_lower_value_transfer_helpers(
                 }
 
                 // `data` argument - empty by default.
-                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
-                    Vec::new(),
-                )));
+                instructions.push(Instruction::PushLiteral(
+                    LiteralValue::ByteArray(Vec::new()),
+                ));
 
                 instructions.push(Instruction::CallBuiltin {
                     builtin: BuiltinCall::NativeCall {

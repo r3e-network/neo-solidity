@@ -1,8 +1,10 @@
-fn build_matches() -> clap::ArgMatches {
+use super::*;
+
+pub(crate) fn build_matches() -> clap::ArgMatches {
     build_cli_command().get_matches()
 }
 
-fn build_cli_command() -> Command {
+pub(crate) fn build_cli_command() -> Command {
     Command::new("neo-solc")
         .version(env!("CARGO_PKG_VERSION"))
         .author(COMPILER_EMAIL)

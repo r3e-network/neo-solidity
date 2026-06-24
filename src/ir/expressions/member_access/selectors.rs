@@ -21,7 +21,10 @@ pub(crate) fn try_lower_selector_member_access(
         Some(selector_from_signature(&format!("{name}()")))
     }
 
-    pub(crate) fn resolve_contract_type_name(expr: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_contract_type_name(
+        expr: &Expression,
+        ctx: &LoweringContext,
+    ) -> Option<String> {
         match expr {
             Expression::Variable(type_name) if ctx.is_contract_type_name(&type_name.name) => {
                 Some(type_name.name.clone())
@@ -54,9 +57,9 @@ pub(crate) fn try_lower_selector_member_access(
         if let Some(type_name) = resolve_contract_type_name(target_inner.as_ref(), ctx) {
             if let Some(selectors) = ctx.type_method_selectors(&type_name, &target_method.name) {
                 if selectors.len() == 1 {
-                    instructions.push(Instruction::PushLiteral(
-                        LiteralValue::ByteArray(selectors[0].to_vec()),
-                    ));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        selectors[0].to_vec(),
+                    )));
                     return Some(true);
                 }
 
@@ -98,9 +101,9 @@ pub(crate) fn try_lower_selector_member_access(
                 ctx.type_method_selectors(&current_contract, &target_method.name)
             {
                 if selectors.len() == 1 {
-                    instructions.push(Instruction::PushLiteral(
-                        LiteralValue::ByteArray(selectors[0].to_vec()),
-                    ));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+                        selectors[0].to_vec(),
+                    )));
                     return Some(true);
                 }
 

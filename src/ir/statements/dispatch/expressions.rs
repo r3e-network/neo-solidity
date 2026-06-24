@@ -71,7 +71,13 @@ pub(crate) fn lower_variable_definition_statement(
             // + has-return parsed from the declared type) so
             // `try_lower_variable_call` emits a `CallIndirect` instead. Mirrors
             // the parameter path in `ir/build/function.rs`.
-            if let Expression::Type(_, PtType::Function { params, returns, .. }) = &decl.ty {
+            if let Expression::Type(
+                _,
+                PtType::Function {
+                    params, returns, ..
+                },
+            ) = &decl.ty
+            {
                 let arg_count = params.len();
                 let has_return = returns
                     .as_ref()
@@ -165,8 +171,7 @@ pub(crate) fn lower_variable_definition_statement(
                 // this, push_default_for_value_type(Array) emits NEWARRAY 0 which fails
                 // at runtime (SETITEM "unsupported target Integer(0)", SIZE "unsupported
                 // type"). Mirrors the `new T[N]` path in lower_new_array_allocation.
-                if let Expression::ArraySubscript(_, array_type_expr, Some(length_expr)) =
-                    &decl.ty
+                if let Expression::ArraySubscript(_, array_type_expr, Some(length_expr)) = &decl.ty
                 {
                     lower_new_array_allocation(
                         array_type_expr.as_ref(),

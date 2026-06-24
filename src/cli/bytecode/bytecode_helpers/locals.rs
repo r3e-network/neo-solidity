@@ -1,4 +1,10 @@
-pub(crate) fn emit_load_parameter(bytecode: &mut Vec<u8>, _method: &FunctionMetadata, index: usize) {
+use super::*;
+
+pub(crate) fn emit_load_parameter(
+    bytecode: &mut Vec<u8>,
+    _method: &FunctionMetadata,
+    index: usize,
+) {
     if index <= 6 {
         bytecode.push(0x78 + index as u8);
     } else {
@@ -39,4 +45,3 @@ pub(crate) fn emit_store_parameter(bytecode: &mut Vec<u8>, index: usize) {
         bytecode.push(index as u8);
     }
 }
-

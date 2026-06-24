@@ -1,11 +1,13 @@
+use super::*;
+
 #[derive(Default, Clone, Copy)]
 pub(crate) struct Hazards {
-    writes_state: bool,
-    notifies: bool,
-    unsafe_contract_call: bool,
-    reads_state: bool,
-    reads_environment: bool,
-    contract_calls: bool,
+    pub(crate) writes_state: bool,
+    pub(crate) notifies: bool,
+    pub(crate) unsafe_contract_call: bool,
+    pub(crate) reads_state: bool,
+    pub(crate) reads_environment: bool,
+    pub(crate) contract_calls: bool,
 }
 
 impl Hazards {
@@ -14,8 +16,7 @@ impl Hazards {
     }
 
     pub(crate) fn pure_violation(self) -> bool {
-        self.safe_violation()
-            || self.reads_state
+        self.safe_violation() || self.reads_state
     }
 
     pub(crate) fn merge_in(&mut self, other: Hazards) {
@@ -99,7 +100,10 @@ pub(crate) fn direct_hazards(function: &Function) -> Hazards {
                     ) {
                         hazards.writes_state = true;
                     }
-                    if matches!(name.as_str(), "System.Runtime.Notify" | "System.Runtime.Log") {
+                    if matches!(
+                        name.as_str(),
+                        "System.Runtime.Notify" | "System.Runtime.Log"
+                    ) {
                         hazards.notifies = true;
                     }
 
@@ -125,7 +129,10 @@ pub(crate) fn direct_hazards(function: &Function) -> Hazards {
                     }
 
                     // Iterators are produced by storage queries; treat them as state reads.
-                    if matches!(name.as_str(), "System.Iterator.Next" | "System.Iterator.Value") {
+                    if matches!(
+                        name.as_str(),
+                        "System.Iterator.Next" | "System.Iterator.Value"
+                    ) {
                         hazards.reads_state = true;
                     }
 

@@ -256,7 +256,7 @@ pub(crate) fn creation_code_payload(contract_name: &str, member_name: &str) -> V
     buffer.push(0); // reserved
     buffer.push(0); // varint token count = 0
     buffer.extend_from_slice(&[0, 0]); // reserved
-    // varbytes script (length <= 252 so single-byte varint)
+                                       // varbytes script (length <= 252 so single-byte varint)
     buffer.push(script.len() as u8);
     buffer.extend_from_slice(&script);
     // Checksum: first 4 bytes of a deterministic hash over all preceding
@@ -305,10 +305,7 @@ pub(crate) fn try_lower_interface_id(
             }
 
             ctx.record_error_with_suggestion(
-                format!(
-                    "unable to compute interfaceId for '{}'",
-                    type_name.name
-                ),
+                format!("unable to compute interfaceId for '{}'", type_name.name),
                 "ensure the interface has at least one function declaration",
             );
             return Some(false);

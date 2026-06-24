@@ -85,11 +85,8 @@ pub(crate) fn lower_do_while_statement(
     // the `modifier_break_stack` so `lower_return_statement` can jump past
     // any intervening user loops and land after the synthetic wrap (i.e.
     // just before the modifier epilogue statements run).
-    let is_modifier_wrap = ctx.in_modifier_epilogue_scope()
-        && matches!(
-            condition,
-            Expression::BoolLiteral(_, false)
-        );
+    let is_modifier_wrap =
+        ctx.in_modifier_epilogue_scope() && matches!(condition, Expression::BoolLiteral(_, false));
 
     instructions.push(Instruction::Label(start_label));
     ctx.push_loop(condition_label, end_label);
@@ -156,14 +153,20 @@ pub(crate) fn lower_for_statement(
     false
 }
 
-pub(crate) fn lower_break_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_break_statement(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     if let Some(label) = ctx.break_target() {
         instructions.push(Instruction::Jump { target: label });
     }
     false
 }
 
-pub(crate) fn lower_continue_statement(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_continue_statement(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     if let Some(label) = ctx.continue_target() {
         instructions.push(Instruction::Jump { target: label });
     }

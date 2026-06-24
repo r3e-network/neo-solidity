@@ -1,7 +1,9 @@
+use super::*;
+
 /// Task #83 — walk a statement tree collecting every `new X()` target name
 /// that matches a known primary contract. Mirrors the ast_scan permissions
 /// pass but accumulates matches instead of returning a boolean.
-fn collect_new_contract_refs(
+pub(crate) fn collect_new_contract_refs(
     stmt: &Statement,
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -11,7 +13,7 @@ fn collect_new_contract_refs(
     })
 }
 
-fn collect_new_contract_refs_inner(
+pub(crate) fn collect_new_contract_refs_inner(
     stmt: &Statement,
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -81,7 +83,7 @@ fn collect_new_contract_refs_inner(
 /// interface-cast receiver where `I` is a known interface declared in the
 /// same source unit. Mirrors `collect_new_contract_refs` but tracks a
 /// different alphabet of names (interface kinds, not primary contracts).
-fn collect_interface_casts_stmt(
+pub(crate) fn collect_interface_casts_stmt(
     stmt: &Statement,
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -91,7 +93,7 @@ fn collect_interface_casts_stmt(
     })
 }
 
-fn collect_interface_casts_stmt_inner(
+pub(crate) fn collect_interface_casts_stmt_inner(
     stmt: &Statement,
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -113,9 +115,7 @@ fn collect_interface_casts_stmt_inner(
             collect_interface_casts_expr(cond, interface_names, sink);
             collect_interface_casts_stmt(body, interface_names, sink);
         }
-        Statement::Expression(_, expr) => {
-            collect_interface_casts_expr(expr, interface_names, sink)
-        }
+        Statement::Expression(_, expr) => collect_interface_casts_expr(expr, interface_names, sink),
         Statement::VariableDefinition(_, _, Some(expr)) => {
             collect_interface_casts_expr(expr, interface_names, sink);
         }
@@ -162,7 +162,7 @@ fn collect_interface_casts_stmt_inner(
 /// Task #115 — expression-level half of `collect_interface_casts_stmt`.
 /// Matches `FunctionCall(Variable(I), _)` where `I` is a known interface
 /// name. The parser emits this shape for interface casts like `I(addr)`.
-fn collect_interface_casts_expr(
+pub(crate) fn collect_interface_casts_expr(
     expr: &Expression,
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -172,7 +172,7 @@ fn collect_interface_casts_expr(
     })
 }
 
-fn collect_interface_casts_expr_inner(
+pub(crate) fn collect_interface_casts_expr_inner(
     expr: &Expression,
     interface_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -237,7 +237,7 @@ fn collect_interface_casts_expr_inner(
 /// Task #83 — expression-level half of `collect_new_contract_refs`. Matches
 /// `Expression::New(FunctionCall(Variable(name), _))` and recurses through
 /// the usual expression containers.
-fn collect_new_refs_expr(
+pub(crate) fn collect_new_refs_expr(
     expr: &Expression,
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -247,7 +247,7 @@ fn collect_new_refs_expr(
     })
 }
 
-fn collect_new_refs_expr_inner(
+pub(crate) fn collect_new_refs_expr_inner(
     expr: &Expression,
     primary_names: &std::collections::HashSet<String>,
     sink: &mut std::collections::HashSet<String>,
@@ -340,7 +340,7 @@ fn collect_new_refs_expr_inner(
 /// alphabet: plain method names (e.g. `"getValue"`) that the sibling-merge
 /// pass later cross-references against every sibling primary's declared
 /// method set.
-fn collect_low_level_call_method_refs_stmt(
+pub(crate) fn collect_low_level_call_method_refs_stmt(
     stmt: &Statement,
     sink: &mut std::collections::HashSet<String>,
 ) {
@@ -349,7 +349,7 @@ fn collect_low_level_call_method_refs_stmt(
     })
 }
 
-fn collect_low_level_call_method_refs_stmt_inner(
+pub(crate) fn collect_low_level_call_method_refs_stmt_inner(
     stmt: &Statement,
     sink: &mut std::collections::HashSet<String>,
 ) {
@@ -436,7 +436,7 @@ fn collect_low_level_call_method_refs_stmt_inner(
 /// …)`) stay unresolved and yield nothing — the compiler's caller-side
 /// lowering similarly cannot route those through sibling-merge, so they
 /// fall through to the real cross-contract dispatch path.
-fn collect_low_level_call_method_refs_expr(
+pub(crate) fn collect_low_level_call_method_refs_expr(
     expr: &Expression,
     sink: &mut std::collections::HashSet<String>,
 ) {
@@ -445,17 +445,15 @@ fn collect_low_level_call_method_refs_expr(
     })
 }
 
-fn collect_low_level_call_method_refs_expr_inner(
+pub(crate) fn collect_low_level_call_method_refs_expr_inner(
     expr: &Expression,
     sink: &mut std::collections::HashSet<String>,
 ) {
     if let Expression::FunctionCall(_, func, args) = expr {
         if args.len() == 1 {
             if let Expression::MemberAccess(_, _recv, member) = func.as_ref() {
-                let is_low_level = matches!(
-                    member.name.as_str(),
-                    "call" | "staticcall" | "delegatecall"
-                );
+                let is_low_level =
+                    matches!(member.name.as_str(), "call" | "staticcall" | "delegatecall");
                 if is_low_level {
                     if let Some(name) = extract_static_method_name_from_payload(&args[0]) {
                         if !name.trim().is_empty() {
@@ -514,13 +512,13 @@ fn collect_low_level_call_method_refs_expr_inner(
 /// Task #194 — peel the `abi.encodeWith{Selector,Signature}` /
 /// `abi.encodeCall` wrapper of a low-level call payload to extract the
 /// Solidity method name when it is statically resolvable.
-fn extract_static_method_name_from_payload(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_method_name_from_payload(expr: &Expression) -> Option<String> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         extract_static_method_name_from_payload_inner(expr)
     })
 }
 
-fn extract_static_method_name_from_payload_inner(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_method_name_from_payload_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_method_name_from_payload(inner),
         Expression::FunctionCall(_, func, args) => {
@@ -581,13 +579,13 @@ fn extract_static_method_name_from_payload_inner(expr: &Expression) -> Option<St
 /// Task #194 — analogue of `resolve_selector_method_name` in
 /// `ir/build/selectors.rs` that operates on raw `solang_parser::pt`
 /// expressions (the analyse pass runs before the IR is built).
-fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_selector_method_name(expr: &Expression) -> Option<String> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         extract_static_selector_method_name_inner(expr)
     })
 }
 
-fn extract_static_selector_method_name_inner(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_selector_method_name_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_selector_method_name(inner),
         Expression::MemberAccess(_, inner, member) => {
@@ -647,13 +645,13 @@ fn extract_static_selector_method_name_inner(expr: &Expression) -> Option<String
 /// `abi.encodeCall(funcRef, tuple)`. Accepts `Type.method`,
 /// `instance.method`, or nested member-access chains and returns the
 /// outermost member name.
-fn extract_static_encode_call_method_name(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_encode_call_method_name(expr: &Expression) -> Option<String> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         extract_static_encode_call_method_name_inner(expr)
     })
 }
 
-fn extract_static_encode_call_method_name_inner(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_encode_call_method_name_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_encode_call_method_name(inner),
         Expression::MemberAccess(_, _inner, member) => {
@@ -683,13 +681,13 @@ fn extract_static_encode_call_method_name_inner(expr: &Expression) -> Option<Str
 /// / `string(…)` casts and unwraps `Parenthesis` but stops at the first
 /// non-literal (e.g. `constant`-stored strings are not read here because
 /// the analyse pass doesn't have access to the lowering context yet).
-fn extract_static_signature_string(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_signature_string(expr: &Expression) -> Option<String> {
     stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
         extract_static_signature_string_inner(expr)
     })
 }
 
-fn extract_static_signature_string_inner(expr: &Expression) -> Option<String> {
+pub(crate) fn extract_static_signature_string_inner(expr: &Expression) -> Option<String> {
     match expr {
         Expression::Parenthesis(_, inner) => extract_static_signature_string(inner),
         Expression::StringLiteral(parts) => {
@@ -714,20 +712,15 @@ fn extract_static_signature_string_inner(expr: &Expression) -> Option<String> {
 /// introduces. Used by the sibling-merge closure so multi-hop cross-contract
 /// call chains pull every reachable primary into the root artifact's
 /// self-dispatch table.
-fn collect_direct_sibling_contract_refs(
+pub(crate) fn collect_direct_sibling_contract_refs(
     contract: &ContractIR,
     primary_names: &std::collections::HashSet<String>,
     interface_names: &std::collections::HashSet<String>,
     interface_impls: &std::collections::HashMap<String, Vec<String>>,
-    primary_method_names: &std::collections::HashMap<
-        String,
-        std::collections::HashSet<String>,
-    >,
+    primary_method_names: &std::collections::HashMap<String, std::collections::HashSet<String>>,
 ) -> std::collections::HashSet<String> {
-    let mut referenced: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
-    let mut iface_refs: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
+    let mut referenced: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut iface_refs: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut low_level_method_refs: std::collections::HashSet<String> =
         std::collections::HashSet::new();
 

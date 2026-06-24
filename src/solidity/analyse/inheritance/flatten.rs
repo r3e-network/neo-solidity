@@ -1,4 +1,4 @@
-fn flatten_contract_inheritance(
+pub(crate) fn flatten_contract_inheritance(
     contract: ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<(ContractIR, Vec<String>), SolidityError> {
@@ -431,7 +431,7 @@ fn flatten_contract_inheritance(
     }, warnings))
 }
 
-fn inheritance_contract_chain(
+pub(crate) fn inheritance_contract_chain(
     contract: &ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<Vec<String>, SolidityError> {
@@ -440,7 +440,7 @@ fn inheritance_contract_chain(
 
 /// Returns the synthesized name for the N-th preserved super body of `method_name`.
 /// Level 1 uses the legacy `__super_{name}` name for backward compatibility.
-fn super_level_name(level: usize, method_name: &str) -> String {
+pub(crate) fn super_level_name(level: usize, method_name: &str) -> String {
     if level == 1 {
         format!("__super_{method_name}")
     } else {
@@ -450,7 +450,7 @@ fn super_level_name(level: usize, method_name: &str) -> String {
 
 /// Parses the chain depth `N` out of a synthesized super-body name for
 /// `method_name`. Returns `None` if `name` is not a super-body for that method.
-fn parse_super_level(name: &str, method_name: &str) -> Option<usize> {
+pub(crate) fn parse_super_level(name: &str, method_name: &str) -> Option<usize> {
     let legacy = format!("__super_{method_name}");
     if name == legacy {
         return Some(1);

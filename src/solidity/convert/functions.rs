@@ -1,4 +1,6 @@
-fn convert_function(
+use super::*;
+
+pub(crate) fn convert_function(
     function: FunctionIR,
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],
@@ -83,13 +85,29 @@ fn convert_function(
     let parameters: Vec<ParameterMetadata> = function
         .parameters
         .into_iter()
-        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types, type_aliases))
+        .map(|param| {
+            convert_parameter(
+                param,
+                struct_types,
+                enum_types,
+                contract_types,
+                type_aliases,
+            )
+        })
         .collect();
 
     let return_parameters = function
         .returns
         .into_iter()
-        .map(|param| convert_parameter(param, struct_types, enum_types, contract_types, type_aliases))
+        .map(|param| {
+            convert_parameter(
+                param,
+                struct_types,
+                enum_types,
+                contract_types,
+                type_aliases,
+            )
+        })
         .collect();
 
     // Build each parameter's EVM-ABI canonical type for the function selector
@@ -135,7 +153,7 @@ fn convert_function(
     }
 }
 
-fn convert_parameter(
+pub(crate) fn convert_parameter(
     param: ParameterIR,
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],
@@ -143,7 +161,14 @@ fn convert_parameter(
     type_aliases: &std::collections::HashMap<String, String>,
 ) -> ParameterMetadata {
     let ty = param.ty;
-    let neo_type = NeoType::from_solidity_with_aliases(&ty, struct_types, enum_types, contract_types, type_aliases).ok();
+    let neo_type = NeoType::from_solidity_with_aliases(
+        &ty,
+        struct_types,
+        enum_types,
+        contract_types,
+        type_aliases,
+    )
+    .ok();
     ParameterMetadata {
         name: param.name,
         ty,

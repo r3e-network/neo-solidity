@@ -321,18 +321,16 @@ pub(crate) fn lower_return_statement(
                                     && abi_value_type_is_dynamic(ret))
                         });
 
-                    if matching_single_type
-                        && decoded_type.is_some_and(abi_value_type_is_dynamic)
-                    {
+                    if matching_single_type && decoded_type.is_some_and(abi_value_type_is_dynamic) {
                         if let Some(buffer_expr) = abi_decode_args.first() {
                             let pre_len = instructions.len();
                             if lower_expression(buffer_expr, ctx, instructions) {
                                 let decode_ok_label = ctx.next_label();
                                 instructions.push(Instruction::Dup);
                                 instructions.push(Instruction::GetSize);
-                                instructions.push(Instruction::PushLiteral(
-                                    LiteralValue::Integer(BigInt::from(64u32)),
-                                ));
+                                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                    BigInt::from(64u32),
+                                )));
                                 instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
                                 instructions.push(Instruction::JumpIf {
                                     target: decode_ok_label,
@@ -406,120 +404,118 @@ pub(crate) fn wrap_external_single_array_return_value(
     instructions: &mut Vec<Instruction>,
 ) -> bool {
     if ctx.is_externally_callable() {
-                let return_types = ctx.return_types().to_vec();
-                if return_types.len() == 1
-                    && matches!(return_types.first(), Some(ValueType::Array(_)))
-                {
-                    // Task #185 — nested fixed-size array return (e.g.
-                    // `uint[3][2] memory`). The EVM canonical encoding is a
-                    // flat concat of leaf values: `pad32_be(a[0][0]) ||
-                    // pad32_be(a[0][1]) || ... || pad32_be(a[N-1][M-1])`,
-                    // NOT the dynamic-array `offset || length || elements`
-                    // wrapper that generic `AbiEncode(Array)` emits. We
-                    // detect this from the raw Solidity type string (e.g.
-                    // "uint[3][2]") since `ValueType::Array` alone does not
-                    // preserve fixed-size dimensions. When it matches, stash
-                    // the array in a local, unroll the nested index
-                    // traversal into per-leaf `ArrayGet` sequences, then emit
-                    // each leaf as a direct 32-byte ABI slot.
-                    let ret_ty_strings = ctx.return_type_strings();
-                    if let Some(first_ty) = ret_ty_strings.first() {
-                        if let Some(dims) = parse_nested_fixed_array_shape(first_ty) {
-                            if let Some(leaf_type) =
-                                array_leaf_static_value_type(return_types.first().unwrap())
-                            {
-                                // Cap the unrolled instruction count so a
-                                // pathological return type like
-                                // `uint[1000000000][1000000000] memory`
-                                // (from a malicious source) doesn't OOM /
-                                // time-out the compiler emitting billions
-                                // of `LoadLocal`/`ArrayGet` pairs.
-                                // Real contract returns top out at a few
-                                // hundred leaves; 65_536 is a generous
-                                // cap well above any legitimate use.
-                                const MAX_FIXED_ARRAY_LEAVES: usize = 65_536;
-                                let total_leaves: usize = dims
-                                    .iter()
-                                    .try_fold(1usize, |acc, d| acc.checked_mul(*d))
-                                    .filter(|n| *n <= MAX_FIXED_ARRAY_LEAVES)
-                                    .unwrap_or(0);
-                                if total_leaves > 0 {
-                                    // Stash the outer array in a temp local
-                                    // so each per-leaf traversal can start
-                                    // from the same base.
-                                    let tmp_id = ctx.next_label();
-                                    let array_local = ctx
-                                        .allocate_local(format!("__flat_ret_arr_{tmp_id}"), None);
-                                    instructions.push(Instruction::StoreLocal(array_local));
+        let return_types = ctx.return_types().to_vec();
+        if return_types.len() == 1 && matches!(return_types.first(), Some(ValueType::Array(_))) {
+            // Task #185 — nested fixed-size array return (e.g.
+            // `uint[3][2] memory`). The EVM canonical encoding is a
+            // flat concat of leaf values: `pad32_be(a[0][0]) ||
+            // pad32_be(a[0][1]) || ... || pad32_be(a[N-1][M-1])`,
+            // NOT the dynamic-array `offset || length || elements`
+            // wrapper that generic `AbiEncode(Array)` emits. We
+            // detect this from the raw Solidity type string (e.g.
+            // "uint[3][2]") since `ValueType::Array` alone does not
+            // preserve fixed-size dimensions. When it matches, stash
+            // the array in a local, unroll the nested index
+            // traversal into per-leaf `ArrayGet` sequences, then emit
+            // each leaf as a direct 32-byte ABI slot.
+            let ret_ty_strings = ctx.return_type_strings();
+            if let Some(first_ty) = ret_ty_strings.first() {
+                if let Some(dims) = parse_nested_fixed_array_shape(first_ty) {
+                    if let Some(leaf_type) =
+                        array_leaf_static_value_type(return_types.first().unwrap())
+                    {
+                        // Cap the unrolled instruction count so a
+                        // pathological return type like
+                        // `uint[1000000000][1000000000] memory`
+                        // (from a malicious source) doesn't OOM /
+                        // time-out the compiler emitting billions
+                        // of `LoadLocal`/`ArrayGet` pairs.
+                        // Real contract returns top out at a few
+                        // hundred leaves; 65_536 is a generous
+                        // cap well above any legitimate use.
+                        const MAX_FIXED_ARRAY_LEAVES: usize = 65_536;
+                        let total_leaves: usize = dims
+                            .iter()
+                            .try_fold(1usize, |acc, d| acc.checked_mul(*d))
+                            .filter(|n| *n <= MAX_FIXED_ARRAY_LEAVES)
+                            .unwrap_or(0);
+                        if total_leaves > 0 {
+                            // Stash the outer array in a temp local
+                            // so each per-leaf traversal can start
+                            // from the same base.
+                            let tmp_id = ctx.next_label();
+                            let array_local =
+                                ctx.allocate_local(format!("__flat_ret_arr_{tmp_id}"), None);
+                            instructions.push(Instruction::StoreLocal(array_local));
 
-                                    // Enumerate every leaf coordinate in
-                                    // row-major (outer-most first) order so
-                                    // the flat output matches the Solidity
-                                    // static encoding layout.
-                                    let mut coord = vec![0usize; dims.len()];
-                                    loop {
-                                        // Walk from the stashed array down
-                                        // through each dimension: load
-                                        // array, PushLiteral(i_k), ArrayGet
-                                        // for k in 0..dims.len().
-                                        instructions.push(Instruction::LoadLocal(array_local));
-                                        for &idx in &coord {
-                                            instructions.push(Instruction::PushLiteral(
-                                                LiteralValue::Integer(BigInt::from(idx as u64)),
-                                            ));
-                                            instructions.push(Instruction::ArrayGet);
-                                        }
-                                        if !emit_static_abi_slot_for_value_type(
-                                            &leaf_type,
-                                            ctx,
-                                            instructions,
-                                        ) {
-                                            ctx.record_error("failed to encode fixed-array return leaf");
-                                            return false;
-                                        }
+                            // Enumerate every leaf coordinate in
+                            // row-major (outer-most first) order so
+                            // the flat output matches the Solidity
+                            // static encoding layout.
+                            let mut coord = vec![0usize; dims.len()];
+                            loop {
+                                // Walk from the stashed array down
+                                // through each dimension: load
+                                // array, PushLiteral(i_k), ArrayGet
+                                // for k in 0..dims.len().
+                                instructions.push(Instruction::LoadLocal(array_local));
+                                for &idx in &coord {
+                                    instructions.push(Instruction::PushLiteral(
+                                        LiteralValue::Integer(BigInt::from(idx as u64)),
+                                    ));
+                                    instructions.push(Instruction::ArrayGet);
+                                }
+                                if !emit_static_abi_slot_for_value_type(
+                                    &leaf_type,
+                                    ctx,
+                                    instructions,
+                                ) {
+                                    ctx.record_error("failed to encode fixed-array return leaf");
+                                    return false;
+                                }
 
-                                        // Advance to the next coordinate
-                                        // (least-significant dim increments
-                                        // first, with carry into outer
-                                        // dims) until all coords exhausted.
-                                        let mut i = dims.len();
-                                        let mut done = true;
-                                        while i > 0 {
-                                            i -= 1;
-                                            coord[i] += 1;
-                                            if coord[i] < dims[i] {
-                                                done = false;
-                                                break;
-                                            }
-                                            coord[i] = 0;
-                                        }
-                                        if done {
-                                            break;
-                                        }
+                                // Advance to the next coordinate
+                                // (least-significant dim increments
+                                // first, with carry into outer
+                                // dims) until all coords exhausted.
+                                let mut i = dims.len();
+                                let mut done = true;
+                                while i > 0 {
+                                    i -= 1;
+                                    coord[i] += 1;
+                                    if coord[i] < dims[i] {
+                                        done = false;
+                                        break;
                                     }
-
-                                    instructions.push(Instruction::CallBuiltin {
-                                        builtin: BuiltinCall::BytesConcat,
-                                        arg_count: total_leaves,
-                                    });
-                                    return true;
+                                    coord[i] = 0;
+                                }
+                                if done {
+                                    break;
                                 }
                             }
+
+                            instructions.push(Instruction::CallBuiltin {
+                                builtin: BuiltinCall::BytesConcat,
+                                arg_count: total_leaves,
+                            });
+                            return true;
                         }
                     }
-                    if emit_abi_encode_single_stack_value_for_type(
-                        return_types.first().unwrap(),
-                        ctx,
-                        instructions,
-                    )
-                    .is_none()
-                    {
-                        instructions.push(Instruction::CallBuiltin {
-                            builtin: BuiltinCall::AbiEncode,
-                            arg_count: 1,
-                        });
-                    }
                 }
+            }
+            if emit_abi_encode_single_stack_value_for_type(
+                return_types.first().unwrap(),
+                ctx,
+                instructions,
+            )
+            .is_none()
+            {
+                instructions.push(Instruction::CallBuiltin {
+                    builtin: BuiltinCall::AbiEncode,
+                    arg_count: 1,
+                });
+            }
+        }
     }
     true
 }
@@ -665,7 +661,10 @@ pub(crate) fn extract_abi_decode_call(expr: &Expression) -> Option<Vec<Expressio
 /// `return abi.decode(buf, tuple)` can short-circuit via a verbatim
 /// buffer return: the ABI canonical layout of a static tuple IS the
 /// input buffer, so no decode/re-encode round trip is needed.
-pub(crate) fn abi_decode_types_match_return_arity(args: &[Expression], expected_arity: usize) -> bool {
+pub(crate) fn abi_decode_types_match_return_arity(
+    args: &[Expression],
+    expected_arity: usize,
+) -> bool {
     if expected_arity < 2 {
         return false;
     }
@@ -707,7 +706,10 @@ pub(crate) fn abi_decode_types_match_return_arity(args: &[Expression], expected_
 /// bound (`size >= head_slots*32`) since dynamic payloads vary, and
 /// (b) future refinements (e.g. enforcing that offsets are in-range)
 /// can slot in here without perturbing the static-tuple path.
-pub(crate) fn abi_decode_types_match_return_arity_mixed(args: &[Expression], expected_arity: usize) -> bool {
+pub(crate) fn abi_decode_types_match_return_arity_mixed(
+    args: &[Expression],
+    expected_arity: usize,
+) -> bool {
     if expected_arity < 2 {
         return false;
     }

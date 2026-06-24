@@ -1,3 +1,5 @@
+use super::*;
+
 impl Module {
     pub fn from_contract_with_warnings(
         metadata: &ContractMetadata,
@@ -41,11 +43,8 @@ impl Module {
             })
             .collect();
 
-        let enum_name_set: HashSet<String> = metadata
-            .enums
-            .iter()
-            .map(|e| e.name.clone())
-            .collect();
+        let enum_name_set: HashSet<String> =
+            metadata.enums.iter().map(|e| e.name.clone()).collect();
 
         let event_params_map: HashMap<String, EventSignature> = metadata
             .events
@@ -130,8 +129,7 @@ impl Module {
         // (`f(uint256)` / `f(address)`), which the frontend mangles into
         // distinct neo_names; keeping ALL of them lets the call site dispatch
         // by argument type instead of collapsing to the last declaration.
-        let mut function_overloads: FunctionOverloadTable =
-            HashMap::new();
+        let mut function_overloads: FunctionOverloadTable = HashMap::new();
         // Map `(name, arity)` → every observed first-parameter type. Solidity
         // allows overloading by parameter types, so two `toInt128(int256)` /
         // `toInt128(uint256)` declarations share the same `(name, arity)`
@@ -150,8 +148,11 @@ impl Module {
         for method in &metadata.methods {
             let key = (method.name.clone(), method.parameters.len());
             {
-                let param_types: Vec<ValueType> =
-                    method.parameters.iter().map(ValueType::from_parameter).collect();
+                let param_types: Vec<ValueType> = method
+                    .parameters
+                    .iter()
+                    .map(ValueType::from_parameter)
+                    .collect();
                 let bucket = function_overloads.entry(key.clone()).or_default();
                 if !bucket.iter().any(|(_, n)| n == &method.neo_name) {
                     bucket.push((param_types, method.neo_name.clone()));
@@ -165,8 +166,7 @@ impl Module {
                 }
             }
             if let Some(first_return) = method.return_parameters.first() {
-                function_return_types
-                    .insert(key.clone(), ValueType::from_parameter(first_return));
+                function_return_types.insert(key.clone(), ValueType::from_parameter(first_return));
             }
             let param_names: Vec<String> = method
                 .parameters
@@ -218,12 +218,8 @@ impl Module {
             .iter()
             .flat_map(|struct_meta| {
                 struct_meta.fields.iter().filter_map(|field| {
-                    extract_fixed_array_bound_at_depth(&field.ty, 0).map(|bound| {
-                        (
-                            (struct_meta.name.clone(), field.name.clone()),
-                            bound,
-                        )
-                    })
+                    extract_fixed_array_bound_at_depth(&field.ty, 0)
+                        .map(|bound| ((struct_meta.name.clone(), field.name.clone()), bound))
                 })
             })
             .collect();
@@ -238,10 +234,8 @@ impl Module {
             .iter()
             .filter_map(|method| {
                 let first_param = method.parameters.first()?;
-                let is_storage_pointer =
-                    first_param.storage.as_deref() == Some("storage");
-                let first_ty =
-                    first_param.neo_type.as_ref().map(ValueType::from_neotype)?;
+                let is_storage_pointer = first_param.storage.as_deref() == Some("storage");
+                let first_ty = first_param.neo_type.as_ref().map(ValueType::from_neotype)?;
                 if !is_storage_pointer || !matches!(first_ty, ValueType::Struct { .. }) {
                     return None;
                 }
@@ -266,7 +260,12 @@ impl Module {
                     .and_then(|p| p.neo_type.as_ref().map(ValueType::from_neotype));
                 Some((
                     (method.name.clone(), method.parameters.len()),
-                    LibraryStorageBody { param_names, value_param_types, body, return_type },
+                    LibraryStorageBody {
+                        param_names,
+                        value_param_types,
+                        body,
+                        return_type,
+                    },
                 ))
             })
             .collect();
@@ -309,8 +308,7 @@ impl Module {
                 if ret_param.storage.as_deref() != Some("storage") {
                     return None;
                 }
-                let body_expr =
-                    crate::solidity::extract_return_expression(&method.body)?;
+                let body_expr = crate::solidity::extract_return_expression(&method.body)?;
                 let state_var_name = match body_expr {
                     solang_parser::pt::Expression::Variable(id) => id.name,
                     _ => return None,

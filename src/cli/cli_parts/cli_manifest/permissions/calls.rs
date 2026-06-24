@@ -1,4 +1,6 @@
-fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Vec<ContractCallRequirement> {
+use super::*;
+
+pub(crate) fn analyze_contract_calls(function: &ir::Function, ir_module: &ir::Module) -> Vec<ContractCallRequirement> {
     const MAX_STATE_VARIANTS: usize = 16;
 
     let mut has_contract_calls = false;

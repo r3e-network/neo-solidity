@@ -19,7 +19,10 @@ pub(crate) fn try_lower_member_call(
         )
     }
 
-    pub(crate) fn resolve_static_library_base(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_static_library_base(
+        inner: &Expression,
+        ctx: &LoweringContext,
+    ) -> Option<String> {
         match inner {
             Expression::Variable(lib_id)
                 if !ctx.param_index_map.contains_key(&lib_id.name)
@@ -44,7 +47,10 @@ pub(crate) fn try_lower_member_call(
         }
     }
 
-    pub(crate) fn resolve_contract_type_name(inner: &Expression, ctx: &LoweringContext) -> Option<String> {
+    pub(crate) fn resolve_contract_type_name(
+        inner: &Expression,
+        ctx: &LoweringContext,
+    ) -> Option<String> {
         match inner {
             Expression::Variable(type_id) if ctx.is_contract_type_name(&type_id.name) => {
                 Some(type_id.name.clone())
@@ -65,7 +71,10 @@ pub(crate) fn try_lower_member_call(
         }
     }
 
-    pub(crate) fn native_contract_from_constant(base: &str, constant: &str) -> Option<NativeContract> {
+    pub(crate) fn native_contract_from_constant(
+        base: &str,
+        constant: &str,
+    ) -> Option<NativeContract> {
         if !matches!(base, "NativeCalls" | "NativeContracts") {
             return None;
         }
@@ -145,9 +154,9 @@ pub(crate) fn try_lower_member_call(
                 ),
                 "ensure the base contract defines this function with a body and marks it 'virtual'",
             );
-            instructions.push(Instruction::PushLiteral(
-                LiteralValue::Integer(BigInt::zero()),
-            ));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             return Some(false);
         }
 
@@ -254,7 +263,10 @@ pub(crate) fn try_lower_member_call(
                     _ => "Neo N3 does not support low-level EVM calls; use NativeCalls.sol for contract-to-contract interactions",
                 };
                 ctx.record_warning_with_suggestion(
-                    format!("unsupported low-level EVM call '{}' ignored (returns false)", member.name),
+                    format!(
+                        "unsupported low-level EVM call '{}' ignored (returns false)",
+                        member.name
+                    ),
                     suggestion,
                 );
                 instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(false)));
@@ -317,9 +329,9 @@ pub(crate) fn try_lower_member_call(
                 Some(ValueType::Array(Box::new(ValueType::Any))),
             );
 
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                args.len(),
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(args.len()),
+            )));
             instructions.push(Instruction::NewArray {
                 element_type: ValueType::Any,
             });
@@ -345,9 +357,9 @@ pub(crate) fn try_lower_member_call(
             // Use read-only call flags in `view`/`pure` contexts to align with Solidity's
             // static-call behavior and Neo N3 `safe` method expectations.
             let flags = if ctx.is_safe { 0x05u8 } else { 0x0Fu8 };
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                flags,
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(flags),
+            )));
             instructions.push(Instruction::PushLiteral(LiteralValue::String(
                 member.name.as_bytes().to_vec(),
             )));
@@ -421,10 +433,8 @@ pub(crate) fn try_lower_member_call(
                 return Some(success);
             }
 
-            let with_receiver = ctx
-                .neo_function_name(&member.name, args.len() + 1);
-            let without_receiver = ctx
-                .neo_function_name(&member.name, args.len());
+            let with_receiver = ctx.neo_function_name(&member.name, args.len() + 1);
+            let without_receiver = ctx.neo_function_name(&member.name, args.len());
             let receiver_type = infer_type_from_expression(inner.as_ref(), ctx);
 
             let (neo_name, arg_count, use_receiver) = if let Some(name) = with_receiver {
@@ -449,7 +459,9 @@ pub(crate) fn try_lower_member_call(
                             instructions.push(Instruction::Drop(ValueType::Any));
                         }
                     }
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::zero(),
+                    )));
                     return Some(success);
                 }
 
@@ -475,8 +487,9 @@ pub(crate) fn try_lower_member_call(
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
                         }
-                        instructions
-                            .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::zero(),
+                        )));
                         return Some(success);
                     }
                 }
@@ -502,7 +515,9 @@ pub(crate) fn try_lower_member_call(
                             instructions.push(Instruction::Drop(ValueType::Any));
                         }
                     }
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                        BigInt::zero(),
+                    )));
                     return Some(success);
                 }
 
@@ -532,8 +547,9 @@ pub(crate) fn try_lower_member_call(
                                 instructions.push(Instruction::Drop(ValueType::Any));
                             }
                         }
-                        instructions
-                            .push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::zero(),
+                        )));
                         return Some(success);
                     }
                 }
@@ -552,7 +568,11 @@ pub(crate) fn try_lower_member_call(
                     if let Some(reference) = resolve_storage_reference(inner.as_ref(), ctx) {
                         let produces_value = body_info.return_type.is_some();
                         let _ = inline_library_storage_call(
-                            body_info, reference, args, ctx, instructions,
+                            body_info,
+                            reference,
+                            args,
+                            ctx,
+                            instructions,
                         );
                         // Void library calls must report `false` so the outer
                         // expression-statement lowering does not emit a
@@ -580,7 +600,9 @@ pub(crate) fn try_lower_member_call(
                         instructions.push(Instruction::Drop(ValueType::Any));
                     }
                 }
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
                 return Some(success);
             };
 

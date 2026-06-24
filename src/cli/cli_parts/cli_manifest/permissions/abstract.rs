@@ -1,8 +1,10 @@
-fn pop_value(stack: &mut Vec<AbstractValue>) -> Result<AbstractValue, ()> {
+use super::*;
+
+pub(crate) fn pop_value(stack: &mut Vec<AbstractValue>) -> Result<AbstractValue, ()> {
     stack.pop().ok_or(())
 }
 
-fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
+pub(crate) fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
     if stack.len() < n {
         return Err(());
     }
@@ -12,7 +14,7 @@ fn pop_n(stack: &mut Vec<AbstractValue>, n: usize) -> Result<(), ()> {
     Ok(())
 }
 
-fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
+pub(crate) fn apply_instruction(state: &mut AbstractState, instr: &ir::Instruction, ir_module: &ir::Module) -> Result<(), ()> {
     use ir::Instruction::{Drop, LoadParameter, StoreParameter, PushLiteral, Return, ReturnVoid, ReturnDefault, Abort, AbortMsg, Throw, BinaryOp, LoadState, StoreState, LoadStorageDynamic, LoadLocal, StoreLocal, LoadMappingElement, StoreMappingElement, StoreArrayDeepCopy, LoadStructField, StoreStructField, LoadStructArrayElement, StoreStructArrayElement, LoadStructFieldMappingElement, StoreStructFieldMappingElement, LoadRuntimeValue, GetSize, CallFunction, CallBuiltin, PushFunctionOffset, CallIndirect, EmitEvent, EmitEventByName, Convert, IsType, NewBuffer, NewArray, NewMap, ArrayGet, ArraySet, HasKey, MemCpy, Substr, ReverseItems, BitwiseNot, LogicalNot, Try, EndTry, Jump, Label, JumpIf, Dup, Swap};
 
     match instr {

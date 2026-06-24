@@ -1,4 +1,6 @@
-fn compile_input_or_exit(
+use super::*;
+
+pub(crate) fn compile_input_or_exit(
     input_content: &str,
     verbose: bool,
     options: CompileOptions,

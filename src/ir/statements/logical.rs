@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_require(
     args: &[Expression],
     ctx: &mut LoweringContext,
@@ -197,7 +199,11 @@ pub(crate) fn lower_require(
     instructions.push(Instruction::Label(ok_label));
 }
 
-pub(crate) fn lower_assert(args: &[Expression], ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn lower_assert(
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
     if args.len() != 1 {
         ctx.record_error_with_suggestion(
             "assert() expects exactly one argument",

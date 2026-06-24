@@ -1,4 +1,9 @@
-pub(crate) fn lower_special_assembly(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+use super::*;
+
+pub(crate) fn lower_special_assembly(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     match ctx.function_name.as_str() {
         "extsload" | "exttload" => {
             lower_extsload_single(ctx, instructions)
@@ -9,7 +14,10 @@ pub(crate) fn lower_special_assembly(ctx: &mut LoweringContext, instructions: &m
     }
 }
 
-pub(crate) fn lower_extsload_single(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_single(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     let slot_index = match ctx.param_index_map.get("slot").copied() {
         Some(index) if ctx.param_index_map.len() == 1 => index,
         _ => return false,
@@ -21,7 +29,10 @@ pub(crate) fn lower_extsload_single(ctx: &mut LoweringContext, instructions: &mu
     true
 }
 
-pub(crate) fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_range(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     let start_index = match ctx.param_index_map.get("startSlot").copied() {
         Some(index) => index,
         None => return false,
@@ -104,7 +115,10 @@ pub(crate) fn lower_extsload_range(ctx: &mut LoweringContext, instructions: &mut
     true
 }
 
-pub(crate) fn lower_extsload_slots(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) -> bool {
+pub(crate) fn lower_extsload_slots(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
     let slots_index = match ctx.param_index_map.get("slots").copied() {
         Some(index) if ctx.param_index_map.len() == 1 => index,
         _ => return false,
@@ -245,9 +259,9 @@ pub(crate) fn lower_yul_block(
     if needs_memory_init || needs_transient_init || needs_returndata_init {
         let mut init: Vec<Instruction> = Vec::new();
         if let Some(mem_local) = state.memory_local {
-            init.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                YUL_MEMORY_BYTES,
-            ))));
+            init.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(YUL_MEMORY_BYTES),
+            )));
             init.push(Instruction::NewBuffer);
             init.push(Instruction::StoreLocal(mem_local));
         }
@@ -268,7 +282,9 @@ pub(crate) fn lower_yul_block(
             // empty-ByteString literal matches the shape of a real callee's
             // ByteString return value so the follow-up "stash after call"
             // plumbing drops into the same slot without a type change.
-            init.push(Instruction::PushLiteral(LiteralValue::ByteArray(Vec::new())));
+            init.push(Instruction::PushLiteral(
+                LiteralValue::ByteArray(Vec::new()),
+            ));
             init.push(Instruction::StoreLocal(rd_local));
         }
         let tail = instructions.split_off(snapshot);
@@ -569,8 +585,7 @@ pub(crate) fn lower_yul_statement(
                 return false;
             }
             let disc_label = ctx.next_label();
-            let disc_local =
-                ctx.allocate_local(format!("__yul_switch_disc_{disc_label}"), None);
+            let disc_local = ctx.allocate_local(format!("__yul_switch_disc_{disc_label}"), None);
             instructions.push(Instruction::StoreLocal(disc_local));
 
             let end_label = ctx.next_label();
@@ -662,7 +677,13 @@ pub(crate) fn lower_yul_function_call_as_statement(
             if call.arguments.len() != 2 {
                 return false;
             }
-            lower_yul_mstore(&call.arguments[0], &call.arguments[1], state, ctx, instructions)
+            lower_yul_mstore(
+                &call.arguments[0],
+                &call.arguments[1],
+                state,
+                ctx,
+                instructions,
+            )
         }
         "mstore8" => {
             // mstore8 would require a single-byte write path distinct from
@@ -678,13 +699,25 @@ pub(crate) fn lower_yul_function_call_as_statement(
             if call.arguments.len() != 2 {
                 return false;
             }
-            lower_yul_tstore(&call.arguments[0], &call.arguments[1], state, ctx, instructions)
+            lower_yul_tstore(
+                &call.arguments[0],
+                &call.arguments[1],
+                state,
+                ctx,
+                instructions,
+            )
         }
         "return" => {
             if call.arguments.len() != 2 {
                 return false;
             }
-            lower_yul_return(&call.arguments[0], &call.arguments[1], state, ctx, instructions)
+            lower_yul_return(
+                &call.arguments[0],
+                &call.arguments[1],
+                state,
+                ctx,
+                instructions,
+            )
         }
         "returndatacopy" => {
             // Task #184 — `returndatacopy(dst, src, len)` copies `len` bytes
@@ -722,15 +755,13 @@ pub(crate) fn lower_yul_expression(
 ) -> bool {
     use solang_parser::pt::YulExpression;
     match expr {
-        YulExpression::NumberLiteral(_, integer, _exp, _) => {
-            match integer.parse::<BigInt>() {
-                Ok(value) => {
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
-                    true
-                }
-                Err(_) => false,
+        YulExpression::NumberLiteral(_, integer, _exp, _) => match integer.parse::<BigInt>() {
+            Ok(value) => {
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(value)));
+                true
             }
-        }
+            Err(_) => false,
+        },
         YulExpression::HexNumberLiteral(_, raw, _) => {
             let digits = raw.trim_start_matches("0x").trim_start_matches("0X");
             match BigInt::parse_bytes(digits.as_bytes(), 16) {
@@ -742,9 +773,9 @@ pub(crate) fn lower_yul_expression(
             }
         }
         YulExpression::BoolLiteral(_, value, _) => {
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-                u8::from(*value),
-            ))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(u8::from(*value)),
+            )));
             true
         }
         YulExpression::Variable(ident) => {
@@ -856,10 +887,14 @@ pub(crate) fn lower_yul_function_call_as_expression(
             let done = ctx.next_label();
             // `JumpIf` jumps when the condition is FALSE: divisor != 0 -> divide.
             instructions.push(Instruction::LoadLocal(b_local));
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
             instructions.push(Instruction::JumpIf { target: nonzero });
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::Jump { target: done });
             instructions.push(Instruction::Label(nonzero));
             instructions.push(Instruction::LoadLocal(a_local));
@@ -944,7 +979,9 @@ pub(crate) fn lower_yul_function_call_as_expression(
             if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
                 return false;
             }
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::Integer,
@@ -1011,7 +1048,9 @@ pub(crate) fn lower_yul_mstore(
     instructions.push(Instruction::StoreLocal(src_local));
 
     let scratch_local = ctx.allocate_local(format!("__yul_mstore_scratch_{tmp_id}"), None);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::NewBuffer);
     instructions.push(Instruction::StoreLocal(scratch_local));
 
@@ -1025,22 +1064,30 @@ pub(crate) fn lower_yul_mstore(
     let ge_label = ctx.next_label();
     let end_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: ge_label });
     instructions.push(Instruction::LoadLocal(size_local));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Jump { target: end_label });
     instructions.push(Instruction::Label(ge_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::StoreLocal(count_local));
     instructions.push(Instruction::Label(end_label));
 
     // Copy LE bytes into scratch[0 .. count].
     instructions.push(Instruction::LoadLocal(scratch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
     // Real NeoVM MEMCPY: Pop 5, Push 0. Load scratch explicitly.
@@ -1051,8 +1098,12 @@ pub(crate) fn lower_yul_mstore(
     instructions.push(Instruction::LoadLocal(mem_local));
     instructions.push(Instruction::LoadLocal(offset_local));
     instructions.push(Instruction::LoadLocal(scratch_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::MemCpy);
     // Real NeoVM MEMCPY: Pop 5, Push 0. Nothing to discard.
     true
@@ -1073,7 +1124,9 @@ pub(crate) fn lower_yul_mload(
     if !lower_yul_expression(offset_expr, state, ctx, instructions) {
         return false;
     }
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::Substr);
 
     // SUBSTR returns a ByteString. Reverse into LE and CONVERT→Integer to
@@ -1217,7 +1270,9 @@ pub(crate) fn lower_yul_tload(
 
     // key absent → push 0 (EIP-1153 default for unset transient slot)
     instructions.push(Instruction::Label(missing_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
 
     instructions.push(Instruction::Label(end_label));
     true
@@ -1306,11 +1361,11 @@ pub(crate) fn lower_yul_returndatacopy(
     //   JumpIf(skip_label)   — IR JumpIf = JMPIFNOT: branches when falsy,
     //                          i.e. when (len != 0) is false, i.e. len == 0.
     instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-    instructions.push(Instruction::JumpIf {
-        target: skip_label,
-    });
+    instructions.push(Instruction::JumpIf { target: skip_label });
 
     // Bounds check: compute (src + len) and compare with returndatasize.
     //

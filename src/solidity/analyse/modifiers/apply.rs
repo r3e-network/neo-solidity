@@ -1,4 +1,4 @@
-fn apply_modifiers_and_base_constructors(
+pub(crate) fn apply_modifiers_and_base_constructors(
     contract: &mut ContractIR,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<(), SolidityError> {

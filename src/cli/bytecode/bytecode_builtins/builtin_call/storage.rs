@@ -1,4 +1,6 @@
-fn emit_storage_find(bytecode: &mut Vec<u8>, arg_count: usize) {
+use super::*;
+
+pub(crate) fn emit_storage_find(bytecode: &mut Vec<u8>, arg_count: usize) {
     // Stack input: [prefix] or [prefix, options]
     // Neo N3 Find signature: Find(context, prefix, options)
     // Stack order for syscall: [options, prefix, context]
@@ -13,7 +15,7 @@ fn emit_storage_find(bytecode: &mut Vec<u8>, arg_count: usize) {
     emit_syscall(bytecode, "System.Storage.Find");
 }
 
-fn emit_storage_put(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_storage_put(bytecode: &mut Vec<u8>) {
     // Stack input: [key, value]
     // Stack order for System.Storage.Put: [value, key, context]
     bytecode.push(0x50); // SWAP -> [value, key]
@@ -22,12 +24,12 @@ fn emit_storage_put(bytecode: &mut Vec<u8>) {
     bytecode.push(0x11); // PUSH1 to avoid stack underflow on statement calls
 }
 
-fn emit_storage_get(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_storage_get(bytecode: &mut Vec<u8>) {
     emit_syscall(bytecode, "System.Storage.GetReadOnlyContext");
     emit_syscall(bytecode, "System.Storage.Get");
 }
 
-fn emit_storage_delete(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_storage_delete(bytecode: &mut Vec<u8>) {
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Delete");
     bytecode.push(0x11); // PUSH1

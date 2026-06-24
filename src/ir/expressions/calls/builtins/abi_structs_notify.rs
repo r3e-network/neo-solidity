@@ -110,4 +110,3 @@ pub(crate) fn flat_slot_count_for_param_type(ty: &ValueType) -> usize {
         _ => 1,
     }
 }
-

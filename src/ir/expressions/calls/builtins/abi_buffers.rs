@@ -8,19 +8,16 @@ pub(crate) fn emit_abi_decode_slot_slice(
     instructions: &mut Vec<Instruction>,
 ) {
     instructions.push(Instruction::LoadLocal(buffer_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        (index * 32 + slot_offset) as u64,
-    ))));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(
-        len as u64,
-    ))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from((index * 32 + slot_offset) as u64),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(len as u64),
+    )));
     instructions.push(Instruction::Substr);
 }
 
-pub(crate) fn emit_abi_u256_slot(
-    ctx: &mut LoweringContext,
-    instructions: &mut Vec<Instruction>,
-) {
+pub(crate) fn emit_abi_u256_slot(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
     let _ = emit_expr_static_abi_slot_for_value_type(
         &ValueType::Integer {
             signed: false,
@@ -164,7 +161,9 @@ pub(crate) fn emit_abi_fixed_buffer_signed(
     instructions.push(Instruction::Convert {
         target: ConvertTarget::Integer,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     // Jump to pos_label when `val < 0` is FALSE (positive/zero).
     instructions.push(Instruction::JumpIf { target: pos_label });
@@ -186,9 +185,13 @@ pub(crate) fn emit_abi_fixed_buffer_signed(
     ])));
     instructions.push(Instruction::StoreLocal(fill_local));
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(fill_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
         BigInt::from(len as u64),
     )));
@@ -210,9 +213,13 @@ pub(crate) fn emit_abi_fixed_buffer_signed(
     // MemCpy the low `count` bytes of src into dst at offset 0. The remaining
     // `len - count` high bytes of dst keep their fill value (0x00 or 0xff).
     instructions.push(Instruction::LoadLocal(dst_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(src_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(count_local));
     instructions.push(Instruction::MemCpy);
 

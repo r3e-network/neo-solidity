@@ -36,7 +36,9 @@ pub(crate) fn emit_checked_arith_guard_narrow_u(
     // Check: result < 0 → Panic(0x11). Catches Sub underflow (lhs < rhs).
     let done_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(result_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: done_label });
     emit_panic(0x11, instructions);
@@ -100,13 +102,20 @@ pub(crate) fn emit_truncate_u256(instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::Convert {
         target: ConvertTarget::ByteArray,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8; 32])));
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+        0u8;
+        32
+    ])));
     instructions.push(Instruction::CallBuiltin {
         builtin: BuiltinCall::BytesConcat,
         arg_count: 2,
     });
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(32u64),
+    )));
     instructions.push(Instruction::Substr);
 }
 
@@ -222,7 +231,9 @@ pub(crate) fn emit_checked_arith_guard_narrow_i(
     // Check: result > intN_MAX → Panic(0x11).
     let after_max_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(result_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(int_max_bytes)));
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+        int_max_bytes,
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
     instructions.push(Instruction::JumpIf {
         target: after_max_label,
@@ -233,7 +244,9 @@ pub(crate) fn emit_checked_arith_guard_narrow_i(
     // Check: result < intN_MIN → Panic(0x11).
     let done_label = ctx.next_label();
     instructions.push(Instruction::LoadLocal(result_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(int_min_bytes)));
+    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
+        int_min_bytes,
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
     instructions.push(Instruction::JumpIf { target: done_label });
     emit_panic(0x11, instructions);
@@ -295,9 +308,13 @@ pub(crate) fn emit_checked_arith_guard(
             // This avoids pushing a 33-byte UINT256_MAX literal (which real
             // NeoVM rejects — Integer max is 32 bytes).
             instructions.push(Instruction::LoadLocal(result_local));
-            instructions.push(Instruction::Convert { target: ConvertTarget::ByteArray });
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
             instructions.push(Instruction::GetSize);
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(32u64),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
             // JumpIf-on-false: if overflow is FALSE (safe), skip the THROW.
             instructions.push(Instruction::JumpIf { target: done_label });
@@ -313,9 +330,7 @@ pub(crate) fn emit_checked_arith_guard(
             // JumpIf-on-false: if underflow is FALSE (safe), skip THROW and
             // compute the Sub below.
             let safe_label = ctx.next_label();
-            instructions.push(Instruction::JumpIf {
-                target: safe_label,
-            });
+            instructions.push(Instruction::JumpIf { target: safe_label });
             // Task #107 — canonical EVM Panic(uint256) envelope.
             emit_panic(0x11, instructions);
             instructions.push(Instruction::Label(safe_label));
@@ -335,9 +350,13 @@ pub(crate) fn emit_checked_arith_guard(
 
             // Overflow guard: same size-check approach as Add.
             instructions.push(Instruction::LoadLocal(result_local));
-            instructions.push(Instruction::Convert { target: ConvertTarget::ByteArray });
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
             instructions.push(Instruction::GetSize);
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(32u64))));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::from(32u64),
+            )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
             instructions.push(Instruction::JumpIf { target: done_label });
             emit_panic(0x11, instructions);

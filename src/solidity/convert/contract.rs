@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn convert_contract(
     contract: ContractIR,
     inherited_events: &[EventMetadata],
@@ -23,11 +25,10 @@ pub(crate) fn convert_contract(
     // callback; otherwise the compiler would remap `receive()` into a SECOND
     // synthetic `onNEP17Payment`, producing a manifest-level name collision
     // (Neo dispatches by name).
-    let has_explicit_on_nep17_payment = contract
-        .functions
-        .iter()
-        .any(|function| !matches!(function.ty, FunctionTy::Receive)
-            && function.name.eq_ignore_ascii_case("onnep17payment"));
+    let has_explicit_on_nep17_payment = contract.functions.iter().any(|function| {
+        !matches!(function.ty, FunctionTy::Receive)
+            && function.name.eq_ignore_ascii_case("onnep17payment")
+    });
 
     let mut methods: Vec<FunctionMetadata> = contract
         .functions
@@ -251,7 +252,10 @@ pub(crate) fn convert_contract(
                     //     fails with "member-style call '...' is not available
                     //     for receiver type 'Address' under the current
                     //     `using` directives".
-                    if contract_types.iter().any(|name| name.eq_ignore_ascii_case(stripped)) {
+                    if contract_types
+                        .iter()
+                        .any(|name| name.eq_ignore_ascii_case(stripped))
+                    {
                         return "address".to_string();
                     }
                     t.clone()
@@ -269,7 +273,7 @@ pub(crate) fn convert_contract(
     }
 }
 
-fn synthesize_public_getters(
+pub(crate) fn synthesize_public_getters(
     methods: &mut Vec<FunctionMetadata>,
     state_variables: &[StateVariableMetadata],
 ) {
@@ -359,7 +363,7 @@ fn synthesize_public_getters(
     }
 }
 
-fn convert_state_variable(
+pub(crate) fn convert_state_variable(
     var: StateVariableIR,
     struct_types: &[StructTypeMetadata],
     enum_types: &[EnumTypeMetadata],

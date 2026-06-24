@@ -1,4 +1,6 @@
-fn emit_abi_encode(
+use super::*;
+
+pub(crate) fn emit_abi_encode(
     bytecode: &mut Vec<u8>,
     arg_count: usize,
     use_callt: bool,
@@ -35,7 +37,7 @@ fn emit_abi_encode(
     );
 }
 
-fn emit_abi_encode_packed(
+pub(crate) fn emit_abi_encode_packed(
     bytecode: &mut Vec<u8>,
     arg_count: usize,
     use_callt: bool,
@@ -67,7 +69,7 @@ fn emit_abi_encode_packed(
     );
 }
 
-fn emit_abi_decode(
+pub(crate) fn emit_abi_decode(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -86,7 +88,7 @@ fn emit_abi_decode(
     );
 }
 
-fn emit_notify_serialized(
+pub(crate) fn emit_notify_serialized(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,

@@ -1,3 +1,5 @@
+use super::*;
+
 pub(crate) fn lower_power_expression(
     left: &Expression,
     right: &Expression,
@@ -24,8 +26,7 @@ pub(crate) fn lower_power_expression(
                 for _ in 0..exp {
                     result *= &base;
                 }
-                instructions
-                    .push(Instruction::PushLiteral(LiteralValue::Integer(result)));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(result)));
                 return true;
             }
             // exp > MAX_LITERAL_POW_EXP: fall through to the runtime
@@ -47,7 +48,9 @@ pub(crate) fn lower_power_expression(
     }
     instructions.push(Instruction::StoreLocal(exp_local));
 
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::StoreLocal(result_local));
 
     let loop_label = ctx.next_label();
@@ -56,14 +59,20 @@ pub(crate) fn lower_power_expression(
 
     instructions.push(Instruction::Label(loop_label));
     instructions.push(Instruction::LoadLocal(exp_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
     instructions.push(Instruction::JumpIf { target: end_label });
 
     instructions.push(Instruction::LoadLocal(exp_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
     // JumpIf branches when the condition is false; skip multiply when exp is even.
     instructions.push(Instruction::JumpIf {
@@ -81,7 +90,9 @@ pub(crate) fn lower_power_expression(
     instructions.push(Instruction::StoreLocal(base_local));
 
     instructions.push(Instruction::LoadLocal(exp_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Shr));
     instructions.push(Instruction::StoreLocal(exp_local));
 

@@ -1,4 +1,6 @@
-fn emit_runtime_notify(
+use super::*;
+
+pub(crate) fn emit_runtime_notify(
     bytecode: &mut Vec<u8>,
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
@@ -19,6 +21,6 @@ fn emit_runtime_notify(
     bytecode.push(0x11); // PUSH1 (truthy) to satisfy Solidity's expression semantics
 }
 
-fn emit_runtime_check_witness(bytecode: &mut Vec<u8>) {
+pub(crate) fn emit_runtime_check_witness(bytecode: &mut Vec<u8>) {
     emit_syscall(bytecode, "System.Runtime.CheckWitness");
 }

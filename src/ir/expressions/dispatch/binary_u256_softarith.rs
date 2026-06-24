@@ -110,7 +110,10 @@ pub(crate) fn emit_u256_combine_limbs(ins: &mut Vec<Instruction>, lo: usize) {
 /// Run the 64-bit-limb schoolbook columns. Consumes `[a, b]`; leaves limbs
 /// `a0..a3 -> s[0..3]`, `b0..b3 -> s[4..7]`, low result limbs `r0..r3 -> s[9..12]`,
 /// and the carry into column 4 in `s[8]`. Returns the 15-slot scratch vector.
-pub(crate) fn emit_u256_mul_columns_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) -> Vec<usize> {
+pub(crate) fn emit_u256_mul_columns_ir(
+    ctx: &mut LoweringContext,
+    ins: &mut Vec<Instruction>,
+) -> Vec<usize> {
     let s = ctx.u256_scratch_locals(15);
     // 0..3 a0..a3, 4..7 b0..b3, 8 acc, 9..12 r0..r3, 13 a, 14 b
     ins.push(Instruction::StoreLocal(s[14]));
@@ -242,7 +245,9 @@ pub(crate) fn emit_u256_checked_arith(
             }
             // [high]; overflow iff high != 0.
             let no_overflow = ctx.next_label();
-            instructions.push(Instruction::JumpIf { target: no_overflow }); // jumps if high == 0
+            instructions.push(Instruction::JumpIf {
+                target: no_overflow,
+            }); // jumps if high == 0
             emit_panic(0x11, instructions);
             instructions.push(Instruction::Label(no_overflow));
             emit_u256_mul_build_result_ir(instructions, &s);
@@ -262,9 +267,14 @@ pub(crate) fn emit_u256_checked_arith(
 /// `[.., a, b]`. Uses the order-preserving map `x -> x ^ 2^255`, after which a
 /// native (signed) compare yields the unsigned result. `2^255` is pushed as a
 /// `uint256` literal, which lowers to the 32-byte two's-complement sign bit.
-pub(crate) fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, operator: BinaryOperator) {
+pub(crate) fn emit_u256_unsigned_compare(
+    instructions: &mut Vec<Instruction>,
+    operator: BinaryOperator,
+) {
     let sign_bit: BigInt = BigInt::one() << 255usize; // 2^255
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(sign_bit.clone())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        sign_bit.clone(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::BitXor)); // [a, b^S]
     instructions.push(Instruction::Swap); // [b^S, a]
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(sign_bit)));
@@ -285,7 +295,10 @@ pub(crate) fn emit_u256_unsigned_compare(instructions: &mut Vec<Instruction>, op
 /// cli/bytecode/uint256_ops.rs; see git history.)
 /// Uses scratch slots s[0..1]; it performs only native shift/and/sub ops (no
 /// nested limb routines), so it cannot collide with an in-flight u256 op.
-pub(crate) fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: &mut Vec<Instruction>) {
+pub(crate) fn emit_u256_logical_shr_ir(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
     let scratch = ctx.u256_scratch_locals(2);
     let n_local = scratch[0];
     let a_local = scratch[1];
@@ -297,7 +310,9 @@ pub(crate) fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: 
 
     // if n == 0 -> result = a
     instructions.push(Instruction::LoadLocal(n_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
     // JumpIf -> JMPIFNOT: jump to the n>=1 path when (n == 0) is FALSE.
     instructions.push(Instruction::JumpIf {
@@ -309,12 +324,16 @@ pub(crate) fn emit_u256_logical_shr_ir(ctx: &mut LoweringContext, instructions: 
     instructions.push(Instruction::Label(nonzero_label));
     let max_int256: BigInt = (BigInt::one() << 255usize) - BigInt::one(); // 2^255 - 1
     instructions.push(Instruction::LoadLocal(a_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // a >>arith 1
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(max_int256)));
     instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd)); // logical (a>>1)
     instructions.push(Instruction::LoadLocal(n_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub)); // n - 1
     instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // >> (n-1)
     instructions.push(Instruction::Label(end_label));
@@ -716,7 +735,7 @@ pub(crate) fn emit_u256_mulmod_512bit_ir(ctx: &mut LoweringContext, ins: &mut Ve
     ins.push(Instruction::LoadLocal(m));
     emit_u256_unsigned_compare(ins, BinaryOperator::Ge);
     ins.push(Instruction::JumpIf { target: keep }); // jump when (low >=u m) is false
-    // fall through (low >=u m) into the subtract branch.
+                                                    // fall through (low >=u m) into the subtract branch.
     ins.push(Instruction::Label(subtract));
     ins.push(Instruction::LoadLocal(t_low));
     ins.push(Instruction::LoadLocal(m));

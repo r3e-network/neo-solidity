@@ -1,4 +1,4 @@
-fn c3_merge(
+pub(crate) fn c3_merge(
     contract_name: &str,
     mut sequences: Vec<Vec<String>>,
 ) -> Result<Vec<String>, SolidityError> {
@@ -37,7 +37,7 @@ fn c3_merge(
     Ok(result)
 }
 
-fn contract_linearization_mro(
+pub(crate) fn contract_linearization_mro(
     contract_name: &str,
     contract_map: &std::collections::HashMap<String, ContractIR>,
     visiting: &mut std::collections::HashSet<String>,
@@ -131,7 +131,7 @@ fn contract_linearization_mro(
     Ok(linearization)
 }
 
-fn contract_linearization_base_to_derived(
+pub(crate) fn contract_linearization_base_to_derived(
     contract_name: &str,
     contract_map: &std::collections::HashMap<String, ContractIR>,
 ) -> Result<Vec<String>, SolidityError> {
