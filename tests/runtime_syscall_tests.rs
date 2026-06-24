@@ -190,7 +190,7 @@ fn checksig_with_injected_signing_hash_verifies_real_signature() {
     // can assert *correctness* (not just "returns a boolean"). The host signs a
     // known 32-byte hash, injects it via `override_signing_hash`, and the
     // verifier must accept the real signature. Without the override the runtime
-    // falls back to its deterministic synthetic hash (backward-compat).
+    // has no signing hash and rejects (`false`).
 
     let secp = Secp256k1::signing_only();
     let sk = SecretKey::from_slice(&[7u8; 32]).expect("sk");
@@ -274,7 +274,7 @@ fn checksig_with_injected_signing_hash_rejects_wrong_signature() {
 fn override_signing_hash_is_drained_after_one_execution() {
     // The override should apply to exactly one execution (mirroring
     // override_value / override_caller_account), so a second run without
-    // re-injection falls back to the synthetic hash.
+    // re-injection has no signing hash and rejects (`false`).
     let secp = Secp256k1::signing_only();
     let sk = SecretKey::from_slice(&[7u8; 32]).expect("sk");
     let pk = secp256k1::PublicKey::from_secret_key(&secp, &sk);

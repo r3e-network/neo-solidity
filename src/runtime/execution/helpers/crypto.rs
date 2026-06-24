@@ -100,42 +100,17 @@ impl ExecutionContext {
     ///
     /// Returns the host-injected transaction signing hash when one was armed
     /// via [`Self::override_signing_hash`] for this execution (S3 fix),
-    /// otherwise falls back to a deterministic synthetic hash derived from the
-    /// execution context (bytecode hash + storage account + invocation
-    /// counter). The fallback preserves the behavior of every test written
-    /// before the injectable-hash API existed.
-    pub(crate) fn get_current_message_hash(&self) -> [u8; 32] {
-        // S3 fix — prefer the host-injected transaction signing hash. Neo N3
-        // verifies signatures against the script container's verifiable
-        // transaction digest; the embedded runtime has no real script
-        // container, so hosts that need real correctness inject the digest
-        // explicitly. `None` here means "no override armed for this
-        // execution" → fall through to the synthetic hash.
-        if let Some(injected) = self.active_signing_hash {
-            return injected;
-        }
-
-        // Backward-compatible fallback: a deterministic message hash derived
-        // from the execution context. Includes bytecode hash + current account
-        // + invocation counter.
-        let mut hasher_input = Vec::new();
-
-        // Include bytecode hash
-        let bytecode_hash = Sha256::digest(&self.bytecode);
-        hasher_input.extend_from_slice(&bytecode_hash);
-
-        // Include storage account if available
-        if let Some(ref account) = self.storage_account {
-            hasher_input.extend_from_slice(account.as_bytes());
-        }
-
-        // Include invocation counter for uniqueness
-        hasher_input.extend_from_slice(&self.invocation_counter.to_le_bytes());
-
-        // Final hash
-        let result = Sha256::digest(&hasher_input);
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&result);
-        hash
+    /// otherwise `None`.
+    ///
+    /// `None` (the default when no host has injected a real signing hash) is
+    /// the honest answer: the embedded runtime has no script container from
+    /// which to derive a verifiable Neo N3 transaction digest, so any
+    /// signature check against a fabricated hash is meaningless. Callers
+    /// (`System.Crypto.CheckSig` / `CheckMultisig`) treat `None` as
+    /// "verification fails" (push `false`), making rejection the default.
+    /// Hosts that need meaningful results inject the real digest via
+    /// [`Self::override_signing_hash`].
+    pub(crate) fn get_current_message_hash(&self) -> Option<[u8; 32]> {
+        self.active_signing_hash
     }
 }

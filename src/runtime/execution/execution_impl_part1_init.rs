@@ -262,13 +262,12 @@ impl ExecutionContext {
     ///
     /// Neo N3 verifies ECDSA signatures against the script container's
     /// verifiable transaction digest. The embedded runtime has no real script
-    /// container, so by default it synthesizes a deterministic hash from the
-    /// execution context (`bytecode || account || invocation_counter`) — that
-    /// fallback preserves the behavior of every test written before this API.
-    /// Hosts that need real correctness (e.g. a test that pre-signs a known
-    /// 32-byte digest) call this to arm the override; `initialize` drains it
-    /// into the active slot so it applies to exactly one execution, mirroring
-    /// `override_value` / `override_caller_account`.
+    /// container, so by default CheckSig/CheckMultisig reject (`false`) —
+    /// there is no digest to verify against. Hosts that need real correctness
+    /// (e.g. a test that pre-signs a known 32-byte digest) call this to arm
+    /// the override; `initialize` drains it into the active slot so it applies
+    /// to exactly one execution, mirroring `override_value` /
+    /// `override_caller_account`.
     ///
     /// Passing `None` clears a previously armed override.
     pub fn override_signing_hash(&mut self, hash: impl Into<Option<[u8; 32]>>) {

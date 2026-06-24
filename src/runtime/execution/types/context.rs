@@ -194,17 +194,16 @@ pub struct ExecutionContext {
     ///
     /// Neo N3 verifies signatures against the script container's verifiable
     /// signing hash (the transaction digest). The embedded runtime has no real
-    /// script container, so by default `get_current_message_hash` falls back to
-    /// a deterministic synthetic hash (`SHA256(bytecode || account || counter)`)
-    /// — preserving the behavior of every test written before this field
-    /// existed. When a host needs real correctness (e.g. a test that pre-signs
-    /// a known digest), it calls `override_signing_hash` to arm this slot.
-    /// `initialize` drains it into [`Self::active_signing_hash`] so the override
-    /// applies to exactly one execution, mirroring `pending_msg_value` /
-    /// `pending_caller_account`.
+    /// script container, so by default `get_current_message_hash` returns
+    /// `None` and CheckSig/CheckMultisig reject (`false`) — verifying against
+    /// a fabricated hash would be meaningless. When a host needs real
+    /// correctness (e.g. a test that pre-signs a known digest), it calls
+    /// `override_signing_hash` to arm this slot. `initialize` drains it into
+    /// [`Self::active_signing_hash`] so the override applies to exactly one
+    /// execution, mirroring `pending_msg_value` / `pending_caller_account`.
     pub(crate) pending_signing_hash: Option<[u8; 32]>,
-    /// Active signing hash for the in-flight execution. `None` tells
-    /// `get_current_message_hash` to compute its synthetic fallback.
+    /// Active signing hash for the in-flight execution. `None` tells the
+    /// syscall handlers to reject (push `false`) — no synthetic fallback.
     pub(crate) active_signing_hash: Option<[u8; 32]>,
 
     /// S6 fix — CallFlags for the in-flight execution.
