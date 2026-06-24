@@ -101,17 +101,17 @@ jobs:
   # embedded simulator, fails on a real Neo N3 VM" regressions. See
   # AUDIT_REPORT_v0.21.md §5 (M-TEST1) for why this gate exists.
   #
-  # Per-PR we run a representative subset (deploy, CALLT, constructor, ABI
-  # encoding, storage round-trip, manifest permissions) that exercises the
-  # highest-risk compiler→on-chain paths. The full 28-script suite runs in
-  # fuzz.yml's nightly cron.
+  # Per-PR we run all compiler-behavior scripts (deploy, CALLT, constructor,
+  # ABI encoding, storage round-trip, manifest permissions, lowlevel calls,
+  # struct storage, compound assignment, delete, update, evm-compat, abortmsg).
+  # The 10 DeFi/showcase scripts run in fuzz.yml's nightly cron.
   # ==========================================================================
   neoxp-smoke:
-    name: Neo-Express On-Chain Smoke (subset)
+    name: Neo-Express On-Chain Smoke (compiler-behavior)
     needs: daily-gate
     if: needs.daily-gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,10 +140,14 @@ jobs:
           sudo apt-get install -y -qq jq xxd
       - name: Pin neo-solc binary for the smoke scripts
         run: echo "NEO_SOLC=$PWD/target/release/neo-solc" >> "$GITHUB_ENV"
-      - name: Run representative Neo-Express smoke subset
+      - name: Run Neo-Express compiler-behavior smoke suite
         run: |
           set -e
-          for t in deploy callt_smoke constructor_smoke encoding_smoke permissions_smoke; do
+          for t in deploy callt_smoke constructor_smoke encoding_smoke permissions_smoke \
+                   lowlevel_call_smoke lowlevel_call_failure_smoke external_member_call_smoke \
+                   view_readonly_call_smoke compound_assignment_smoke struct_array_element_smoke \
+                   nested_struct_storage_smoke delete_smoke update_smoke evm_compat_smoke \
+                   abortmsg_smoke; do
             echo "::group::test_neoxp_${t}.sh"
             bash "examples/test_neoxp_${t}.sh"
             echo "::endgroup::"
