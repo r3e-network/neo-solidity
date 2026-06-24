@@ -874,7 +874,7 @@ checksum = "9252111cf132ba0929b6f8e030cac2a24b507f3a4d6db6fb2896f27b354c714b"
 
 [[package]]
 name = "neo-devpack-solidity"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "base64",

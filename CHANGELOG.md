@@ -5,6 +5,83 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.23.0] - 2026-06-24
+
+Deep-refactor & correctness release: a systematic 7-phase codebase review
+plus 5 audit follow-up fixes. Compiler and devpack are now version-aligned
+at **v0.23.0**. Every change is TDD'd and the full workspace stays green
+(49 test suites, 0 failures; clippy + fmt clean).
+
+### 🔴 Correctness fixes
+
+- **`mulmod(a, b, m)` now uses full 512-bit intermediate precision.** The
+  previous lowering emitted a native NeoVM `MUL` for `a*b`, truncating to
+  256 bits. When `a*b ≥ 2^256`, the result was silently wrong. New
+  `emit_u256_mulmod_512bit_ir` computes the full 512-bit product via 8-column
+  schoolbook multiplication, then reduces mod m via bit-serial shift-subtract
+  (512 iterations). Differential test:
+  `mulmod(2^128, 2^128, 2^256-1) == 1`.
+- **`CheckSig`/`CheckMultisig` default flipped — synthetic hash removed.**
+  The fallback `SHA256(bytecode‖account‖counter)` hash matched no real
+  signature, making uninjected CheckSig results meaningless. Without
+  `override_signing_hash()`, CheckSig/CheckMultisig now deterministically
+  return `false` (reject) — the honest default. Meaningful verification
+  requires explicit hash injection.
+- **`parse_source` no longer silently drops unrecognized `SourceUnitPart`
+  variants** (audit L-FE1). The catch-all `_ => {}` is replaced with an
+  explicit enumeration of all 13 current variants + a hard error for future
+  parser additions. Prevents silent empty-contract compilation when
+  solang-parser adds new grammar constructs.
+- **`getGovernanceInfo()` in `CompleteNEP17Token.sol` now correctly
+  enumerates proposals** (audit L-DEV). The previous `Storage.find("proposal")`
+  iterator never matched the Solidity keccak-keyed mapping slot, so
+  `activeProposals`/`executedProposals` were always 0. Fixed via a parallel
+  `bytes32[] _proposalIds` index.
+
+### 🟡 Testing improvements
+
+- **Optimizer differential extended to cover storage + events** (audit
+  M-TEST3). The O0↔O3 semantic-equivalence proptest previously compared only
+  `return_data`. A peephole pass that reorders `PUT` and `Notify` (observable
+  on-chain) was invisible. Now compares `state_changes` + `logs` in order.
+- **BLS12-381 Gt encoding stability lock** (audit S5). The non-canonical
+  `Debug`-format encoding used for differential pairing tests is now pinned
+  by a `#[cfg(test)]` guard so a future change can't silently break it.
+- **First-ever criterion benchmarks.** Baseline: 460µs (simple contract),
+  2.6ms (ERC20Token.sol 442 LOC, O2), 3.1ms (O3).
+- **Neo-Express CI gate expanded.** 16 compiler-behavior scripts now run
+  per-PR via a 4-way parallel matrix (15-min timeout), up from 5. The 10
+  DeFi/showcase scripts stay nightly.
+
+### 🔵 Architecture & refactor (7 phases, zero behavior change)
+
+- **−2391 LOC net** removed across dead code + dormant files.
+- **8 dead modules deleted** (security.rs, docs.rs, testing.rs,
+  codegen_helpers.rs, validation.rs, warning.rs, types.rs, error.rs) +
+  1491-LOC dormant `uint256_ops.rs` — all verified zero external references.
+- **5 god-object files split** into 19 focused modules. Largest was 2426 LOC;
+  no production file exceeds ~1024 LOC now.
+- **Error pipeline restructured.** The lossy `SolidityError → CompileError`
+  bridge (catch-all `to_string()` → `GENERIC_ERROR`) replaced with 11
+  explicit arms. 25-branch `infer_validation_code` string-matching replaced
+  with codes set at construction time.
+- **All 186 production `include!` calls converted to proper `mod`
+  declarations.** Every module in `src/` now uses Rust's native module system.
+  Only 55 test-only `include!`s remain.
+- **Public API surface tightened.** 9 internal modules are `#[doc(hidden)]`;
+  only `cli` and `neo` are the documented public contract.
+- **Runtime simulator feature-gated** behind `#[cfg(feature = "runtime")]`
+  (default-on). `cargo build --no-default-features --bin neo-solc` skips the
+  17K-LOC simulator and 4 heavy deps (bls12_381, group, p256, dashmap).
+- **Parallel per-contract compilation** via `rayon::into_par_iter` (rayon
+  was already a dormant dependency; types verified Send+Sync).
+
+### v0.22 audit validation
+
+A full validation pass confirmed all 26 v0.21 audit findings claimed fixed
+in v0.22: **19 YES, 7 PARTIAL, 0 NO.** See
+`docs/audits/AUDIT_v0.22_validation.md`.
+
 ## [v0.22.0] - 2026-06-17
 
 Runtime-fidelity & audit-fix release: a full systemic audit (22 findings,
