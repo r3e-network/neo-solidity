@@ -1,6 +1,6 @@
 use super::*;
 
-/// Neo runtime for executing compiled Yul contracts
+/// Neo runtime for executing compiled NeoVM bytecode
 #[derive(Debug)]
 pub struct NeoRuntime {
     pub(crate) execution_context: execution::ExecutionContext,
