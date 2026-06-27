@@ -245,6 +245,12 @@ impl NeoRuntime {
         // that `handle_contract_call` can route `this.someFn()` self external
         // calls to compiled method offsets.
         let self_method_table = build_self_method_table(manifest);
+        // S6 follow-up — install the manifest's call-permissions so the runtime
+        // gates non-self `System.Contract.Call` targets the way Neo N3 does
+        // on-chain. Set once here (it persists across the deploy-prologue and
+        // user-method `initialize` calls, neither of which resets it), so the
+        // deploy constructor is covered too.
+        self.execution_context.set_manifest_permissions(manifest);
 
         // Task #176 — re-arm `pending_caller_account` from the sticky slot
         // so that a single `override_caller_account` call (made BEFORE the

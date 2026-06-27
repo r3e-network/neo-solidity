@@ -198,6 +198,8 @@ pub(crate) fn manifest_abi_method_name_fn<'a>(
 pub(crate) fn build_manifest(
     metadata: &ContractMetadata,
     ir_module: &ir::Module,
+    bytecode: &[u8],
+    tokens: &[crate::neo::MethodToken],
 ) -> Result<serde_json::Value, CompileError> {
     /// True for NeoTypes whose EVM ABI encoding is a single static 32-byte
     /// slot — the member shapes `lower_static_abi_slots_for_expr` supports.
@@ -445,7 +447,7 @@ pub(crate) fn build_manifest(
             msg = diag.message
         );
     }
-    let permissions = infer_permissions(metadata, ir_module);
+    let permissions = infer_permissions(metadata, ir_module, bytecode, tokens);
     // Neo N3 keeps `features` reserved for future use; Neo's manifest parser will
     // reject any populated keys. Keep the object empty for chain compatibility.
     let features = serde_json::Map::new();

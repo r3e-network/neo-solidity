@@ -115,18 +115,46 @@ pub(crate) fn lower_power_expression(
             // 0x11 when the true result exceeds 2^256-1. Either way, canonicalize
             // to the 32-byte two's-complement form via `emit_truncate_u256`.
             if !ctx.in_unchecked_block() {
-                let two256 = BigInt::one() << 256usize;
                 let ok = ctx.next_label();
                 instructions.push(Instruction::LoadLocal(result_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(two256)));
+                // Overflow check: `result >= 2^256` iff `(result >> 255) >= 2`.
+                // (2^255 >> 255 = 1 [in range], 2^256 >> 255 = 2 [overflow].)
+                //
+                // The previous code pushed `2^256` as a literal, but 2^256 is a
+                // 33-byte signed value that real NeoVM rejects (Integer max is
+                // 32 bytes) — `push_integer_bigint` falls back to PUSHDATA+ADD
+                // and the ADD's implicit ByteString→Integer conversion faults
+                // on-chain (`MaxSize of Integer is exceeded: 33/32`, caught by
+                // the neoxp differential harness). Shifting by 255 only pushes
+                // the small literal `255`/`2` (1 byte each) and works on the
+                // BigInt-backed result regardless of width. POW of a non-
+                // negative base is non-negative, so SHR is safe. (`>> 256` is
+                // unusable: NeoVM/EIP-145 collapses any shift ≥ 256 to 0.)
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(255u64),
+                )));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Shr));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(2u64),
+                )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-                // `JumpIf` jumps when the condition is FALSE (result < 2^256 -> ok).
+                // `JumpIf` branches when FALSE — skip the panic when
+                // `(result >> 255) >= 2` is FALSE (i.e. in range).
                 instructions.push(Instruction::JumpIf { target: ok });
                 emit_panic(0x11, instructions);
                 instructions.push(Instruction::Label(ok));
             }
             instructions.push(Instruction::LoadLocal(result_local));
             emit_truncate_u256(instructions);
+            // `emit_truncate_u256` leaves a 32-byte ByteArray (the two's-
+            // complement word). CONVERT it back to an Integer so the result
+            // is a canonical NeoVM Integer — matching the soft-arith Add/Sub/Mul
+            // path (which builds Integers directly) and the `uint256` ABI return
+            // encoding (a real node serializes an Integer return as a decimal
+            // stack value, not a base64 ByteString).
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::Integer,
+            });
             instructions.push(Instruction::StoreLocal(result_local));
         } else if matches!(bits, 8 | 16 | 32 | 64 | 128) {
             let bits_usize = bits as usize;

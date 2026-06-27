@@ -35,6 +35,23 @@ impl ExecutionContext {
                 if bytes.is_empty() {
                     return Ok(StackItem::Integer(0));
                 }
+                // NeoVM CONVERT→Integer rejects ByteStrings wider than 32 bytes
+                // (the signed-256-bit maximum). Real nodes fault here; matching
+                // that behaviour surfaces `[2^255, 2^256-1]`-class lowering bugs
+                // in the simulator instead of letting them slip to on-chain
+                // faults (the POW `**` overflow guard's 33-byte `2^256` literal
+                // was the canonical example — caught by the neoxp differential
+                // harness). Values that legitimately fit (≤ 32 bytes) are
+                // preserved as a signed-LE ByteArray below so the wide BigInt
+                // arithmetic path keeps full precision.
+                if bytes.len() > 32 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: format!(
+                            "CONVERT: ByteString length {} exceeds the 32-byte Integer maximum",
+                            bytes.len()
+                        ),
+                    });
+                }
                 if bytes.len() <= 8 {
                     // Sign-extend from the high bit of the last byte so signed
                     // LE encodings shorter than 8 bytes round-trip correctly.

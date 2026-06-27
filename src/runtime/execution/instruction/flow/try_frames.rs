@@ -45,6 +45,14 @@ impl ExecutionContext {
                             if let Some(snapshot) = callee_frame.storage_snapshot {
                                 self.restore_storage_snapshot(snapshot);
                             }
+                            // S6 fix — restore the flags captured at the
+                            // contract-call boundary. Unwinding may pop
+                            // several frames; restoring in pop order walks
+                            // back through each intermediate flags state to
+                            // the TRY owner's caller flags.
+                            if let Some(caller_flags) = callee_frame.saved_call_flags {
+                                self.active_call_flags = caller_flags;
+                            }
                         }
                     }
                     if let Some(top) = self.try_stack.last_mut() {

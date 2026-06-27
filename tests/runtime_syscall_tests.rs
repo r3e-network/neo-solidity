@@ -566,6 +566,8 @@ fn get_gas_left_reports_remaining() {
 mod s6_call_flags {
     pub const READ_STATES: u8 = 0b0001;
     pub const WRITE_STATES: u8 = 0b0010;
+    pub const ALLOW_CALL: u8 = 0b0100;
+    pub const ALLOW_NOTIFY: u8 = 0b1000;
     pub const ALL: u8 = 0b1111;
 }
 
@@ -647,4 +649,256 @@ fn step_until_halt(ctx: &mut ExecutionContext) -> Result<(), String> {
             Err(e) => return Err(format!("{e:?}")),
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// S6 follow-up — Notify / Log / Contract.Call gates. The Storage.Put gate
+// above only checked WriteStates; the audit (AUDIT_REPORT_v0.21 §S6 and the
+// v0.22 validation §3) named Notify/AllowCall gating + flag propagation as the
+// remaining deferred work. These host-armed raw-bytecode tests pin each gate.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn s6_notify_faults_without_allow_notify_flag() {
+    // Notify(eventName, stateArray) — push two placeholders then SYSCALL.
+    let notify_id = syscall_id("System.Runtime.Notify");
+    let mut code = Vec::new();
+    push_data(&mut code, b"ev"); // state placeholder (top is eventName)
+    push_data(&mut code, b"ev"); // eventName
+    code.push(0x41);
+    code.extend_from_slice(&notify_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    // All flags EXCEPT AllowNotify (0x0F ^ 0x08 = 0x07). Proves the gate is
+    // specifically AllowNotify and not a side-effect of read-only flags.
+    ctx.override_call_flags(s6_call_flags::ALL ^ s6_call_flags::ALLOW_NOTIFY);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "Notify in a context without AllowNotify must FAULT; instead it succeeded. S6 regression."
+    );
+}
+
+#[test]
+fn s6_notify_succeeds_with_allow_notify_flag() {
+    let notify_id = syscall_id("System.Runtime.Notify");
+    let mut code = Vec::new();
+    push_data(&mut code, b"ev");
+    push_data(&mut code, b"ev");
+    code.push(0x41);
+    code.extend_from_slice(&notify_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.override_call_flags(s6_call_flags::ALL);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_ok(),
+        "Notify with AllowNotify flag must succeed; got {:?}",
+        outcome.err()
+    );
+}
+
+#[test]
+fn s6_log_faults_without_allow_notify_flag() {
+    let log_id = syscall_id("System.Runtime.Log");
+    let mut code = Vec::new();
+    push_data(&mut code, b"msg");
+    code.push(0x41);
+    code.extend_from_slice(&log_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.override_call_flags(s6_call_flags::ALL ^ s6_call_flags::ALLOW_NOTIFY);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "Log in a context without AllowNotify must FAULT; instead it succeeded. S6 regression."
+    );
+}
+
+#[test]
+fn s6_contract_call_faults_without_allow_call_flag() {
+    // System.Contract.Call(hash, method, flags, args) — stack order
+    // [args, flags, method, hash]. The AllowCall gate fires before any pop,
+    // so placeholder operands are sufficient.
+    let call_id = syscall_id("System.Contract.Call");
+    let mut code = Vec::new();
+    push_data(&mut code, b"args");
+    code.push(0x11); // PUSH1 flags (placeholder)
+    code.push(0x00);
+    push_data(&mut code, b"method");
+    push_data(&mut code, &[0u8; 20]); // hash placeholder
+    code.push(0x41);
+    code.extend_from_slice(&call_id);
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    // All flags EXCEPT AllowCall (0x0F ^ 0x04 = 0x0B). Proves the gate is
+    // specifically AllowCall and not a side-effect of some other missing bit.
+    ctx.override_call_flags(s6_call_flags::ALL ^ s6_call_flags::ALLOW_CALL);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "Contract.Call in a context without AllowCall must FAULT; instead it \
+         succeeded. S6 regression."
+    );
+}
+
+// ---------------------------------------------------------------------------
+// S6 follow-up — manifest permission gate. Neo N3 faults any non-self
+// `System.Contract.Call` whose (hash, method) is not declared in the calling
+// contract's manifest `permissions` array. The bytecode-level permission
+// derivation (`collect_bytecode_native_permissions`) ensures compiled contracts
+// always carry the entries they need; this gate is the runtime-side oracle.
+// ---------------------------------------------------------------------------
+
+/// Build raw bytecode that issues `System.Contract.Call(hash, "mm", All, "")`
+/// — stack order [args, flags, method, hash] (hash on top).
+fn s6_manifest_call_bytecode(hash_le: &[u8; 20]) -> Vec<u8> {
+    let call_id = syscall_id("System.Contract.Call");
+    let mut code = Vec::new();
+    push_data(&mut code, b""); // params placeholder
+                               // NeoVM PUSH1..PUSH16 are opcodes 0x11..0x20 that push the integer N
+                               // themselves (no immediate byte). PUSH<ALL> pushes CallFlags.All = 15.
+    code.push(0x10 + s6_call_flags::ALL);
+    push_data(&mut code, b"mm"); // method name
+    push_data(&mut code, hash_le); // contract hash (eval-stack LE order)
+    code.push(0x41);
+    code.extend_from_slice(&call_id);
+    code.push(0x40);
+    code
+}
+
+fn hash_be_hex(hash_le: &[u8; 20]) -> String {
+    format!(
+        "0x{}",
+        hex::encode(hash_le.iter().rev().copied().collect::<Vec<u8>>())
+    )
+}
+
+#[test]
+fn s6_manifest_permits_declared_call() {
+    let target_le = [0xA1u8; 20];
+    let code = s6_manifest_call_bytecode(&target_le);
+    let manifest = serde_json::json!({
+        "permissions": [{"contract": hash_be_hex(&target_le), "methods": ["mm"]}]
+    });
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.set_manifest_permissions(&manifest);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_ok(),
+        "A manifest-declared call must NOT be rejected by the permission gate; got {:?}",
+        outcome.err()
+    );
+}
+
+#[test]
+fn s6_manifest_faults_undeclared_call() {
+    let target_le = [0xB2u8; 20];
+    let code = s6_manifest_call_bytecode(&target_le);
+    // Manifest permits a DIFFERENT contract — the target must be rejected.
+    let other_le = [0xC3u8; 20];
+    let manifest = serde_json::json!({
+        "permissions": [{"contract": hash_be_hex(&other_le), "methods": ["mm"]}]
+    });
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.set_manifest_permissions(&manifest);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "A call to a contract NOT declared in the manifest must FAULT; instead \
+         it succeeded. S6 manifest-permission regression."
+    );
+}
+
+#[test]
+fn s6_manifest_faults_declared_contract_wrong_method() {
+    let target_le = [0xD4u8; 20];
+    let code = s6_manifest_call_bytecode(&target_le);
+    // Manifest permits the right contract but the WRONG method.
+    let manifest = serde_json::json!({
+        "permissions": [{"contract": hash_be_hex(&target_le), "methods": ["other"]}]
+    });
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.set_manifest_permissions(&manifest);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "A call to a declared contract but undeclared method must FAULT; \
+         instead it succeeded. S6 manifest-permission regression."
+    );
+}
+
+#[test]
+fn s6_manifest_wildcard_permits_any_call() {
+    let target_le = [0xE5u8; 20];
+    let code = s6_manifest_call_bytecode(&target_le);
+    let manifest = serde_json::json!({
+        "permissions": [{"contract": "*", "methods": "*"}]
+    });
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.set_manifest_permissions(&manifest);
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_ok(),
+        "A wildcard manifest permission must permit any call; got {:?}",
+        outcome.err()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Simulator fidelity — CONVERT→Integer enforces the 32-byte NeoVM max.
+// Real nodes fault on a >32-byte ByteString→Integer conversion (the
+// `[2^255, 2^256-1]` representation limit). The simulator must match so this
+// class of lowering bug surfaces locally instead of only on-chain.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn convert_to_integer_faults_on_oversized_bytestring() {
+    // PUSHDATA1 <33 bytes> ; CONVERT Integer (0xDB 0x21) ; RET
+    let mut code = Vec::new();
+    push_data(&mut code, &[0xAAu8; 33]);
+    code.push(0xDB);
+    code.push(0x21); // StackItemType.Integer
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_err(),
+        "CONVERT→Integer on a 33-byte ByteString must FAULT (NeoVM 32-byte max); \
+         instead it succeeded. Simulator fidelity regression."
+    );
+}
+
+#[test]
+fn convert_to_integer_accepts_32_byte_bytestring() {
+    // The boundary case: exactly 32 bytes must still convert cleanly.
+    let mut code = Vec::new();
+    push_data(&mut code, &[0x01u8; 32]);
+    code.push(0xDB);
+    code.push(0x21); // StackItemType.Integer
+    code.push(0x40);
+
+    let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("ctx");
+    ctx.initialize(&code, &[]).expect("init");
+    let outcome = step_until_halt(&mut ctx);
+    assert!(
+        outcome.is_ok(),
+        "CONVERT→Integer on a 32-byte ByteString must succeed (exactly at the max); \
+         got {:?}",
+        outcome.err()
+    );
 }

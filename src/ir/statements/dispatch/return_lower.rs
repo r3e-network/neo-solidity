@@ -406,6 +406,11 @@ pub(crate) fn wrap_external_single_array_return_value(
     if ctx.is_externally_callable() {
         let return_types = ctx.return_types().to_vec();
         if return_types.len() == 1 && matches!(return_types.first(), Some(ValueType::Array(_))) {
+            // `return_types.len() == 1` (this guard) makes indexing `[0]` safe;
+            // bind the single element once instead of re-`.unwrap()`ing it at
+            // each use site, so a future refactor that relaxes the guard can't
+            // turn a logic error into a panic.
+            let first_ret_type = &return_types[0];
             // Task #185 — nested fixed-size array return (e.g.
             // `uint[3][2] memory`). The EVM canonical encoding is a
             // flat concat of leaf values: `pad32_be(a[0][0]) ||
@@ -421,9 +426,7 @@ pub(crate) fn wrap_external_single_array_return_value(
             let ret_ty_strings = ctx.return_type_strings();
             if let Some(first_ty) = ret_ty_strings.first() {
                 if let Some(dims) = parse_nested_fixed_array_shape(first_ty) {
-                    if let Some(leaf_type) =
-                        array_leaf_static_value_type(return_types.first().unwrap())
-                    {
+                    if let Some(leaf_type) = array_leaf_static_value_type(first_ret_type) {
                         // Cap the unrolled instruction count so a
                         // pathological return type like
                         // `uint[1000000000][1000000000] memory`
@@ -503,12 +506,8 @@ pub(crate) fn wrap_external_single_array_return_value(
                     }
                 }
             }
-            if emit_abi_encode_single_stack_value_for_type(
-                return_types.first().unwrap(),
-                ctx,
-                instructions,
-            )
-            .is_none()
+            if emit_abi_encode_single_stack_value_for_type(first_ret_type, ctx, instructions)
+                .is_none()
             {
                 instructions.push(Instruction::CallBuiltin {
                     builtin: BuiltinCall::AbiEncode,

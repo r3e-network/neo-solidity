@@ -64,6 +64,16 @@ pub struct CallFrame {
     /// that's the path that crosses a virtual contract boundary whose
     /// storage semantics Neo N3 isolates per-call.
     pub storage_snapshot: Option<HashMap<Vec<u8>, OverlayEntry>>,
+    /// S6 fix — saved caller CallFlags, populated only on frames pushed at a
+    /// contract-call boundary (`handle_contract_call`'s self-offsets arm). The
+    /// callee runs with the caller-requested flags (the operand the
+    /// `System.Contract.Call` syscall popped off the stack); on return / unwind
+    /// the caller's prior flags are restored from this slot.
+    ///
+    /// `None` for plain internal function calls (CALL_L) — Solidity internal
+    /// calls do not cross a contract boundary and inherit the caller's flags
+    /// unchanged, so there is nothing to save or restore.
+    pub saved_call_flags: Option<u8>,
 }
 
 impl CallFrame {
@@ -79,6 +89,7 @@ impl CallFrame {
             msg_sender_override: None,
             syscall_result_expected: false,
             storage_snapshot: None,
+            saved_call_flags: None,
         }
     }
 

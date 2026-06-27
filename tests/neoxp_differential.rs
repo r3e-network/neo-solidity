@@ -65,85 +65,117 @@ contract DiffTest {
     function fn_div(uint256 a, uint256 b) public pure returns (uint256) {
         return a / b;
     }
+    // ---- Wide-value probes (large but < 2^255, so representable) ----
+    function pow_wide() public pure returns (uint256) { return uint256(3) ** 100; }
+    function mul_wide() public pure returns (uint256) {
+        return (uint256(1) << 100) * (uint256(3) << 100);
+    }
 }"#;
 
 /// One differential probe: invoke `method` with `args` and expect `expected`.
 /// Values fit comfortably in `i64` so they round-trip through both the
-/// simulator's `StackItem::Integer` and neoxp's JSON integer arguments.
+/// simulator's `StackItem::Integer` and neoxp's JSON integer arguments. The
+/// `expected` is a `BigUint` so boundary probes (values ≥ 2^255) can express
+/// the full uint256 range.
 struct Case {
     method: &'static str,
     args: &'static [i64],
-    expected: u64,
+    expected: BigUint,
 }
 
-const CASES: &[Case] = &[
-    // POW (base ** exp)
-    Case {
-        method: "pow_test",
-        args: &[2, 10],
-        expected: 1024,
-    },
-    Case {
-        method: "pow_test",
-        args: &[3, 4],
-        expected: 81,
-    },
-    // XOR (a ^ b)
-    Case {
-        method: "xor_test",
-        args: &[0xFF, 0x0F],
-        expected: 0xF0,
-    },
-    Case {
-        method: "xor_test",
-        args: &[0xAA, 0x55],
-        expected: 0xFF,
-    },
-    // SHL (a << n)
-    Case {
-        method: "shl_test",
-        args: &[1, 8],
-        expected: 256,
-    },
-    Case {
-        method: "shl_test",
-        args: &[7, 3],
-        expected: 56,
-    },
-    // Nested arithmetic + MOD ((a + b) % c)
-    Case {
-        method: "nested_mod",
-        args: &[100, 23, 50],
-        expected: 23,
-    },
-    Case {
-        method: "nested_mod",
-        args: &[10, 20, 7],
-        expected: 2,
-    },
-    // Complex bitwise ((a & b) | (a ^ b)) == (a | b)
-    Case {
-        method: "bitwise_complex",
-        args: &[0xF0, 0x3C],
-        expected: 0xFC,
-    },
-    Case {
-        method: "bitwise_complex",
-        args: &[0xAA, 0x0F],
-        expected: 0xAF,
-    },
-    // DIV (a / b)
-    Case {
-        method: "fn_div",
-        args: &[100, 7],
-        expected: 14,
-    },
-    Case {
-        method: "fn_div",
-        args: &[255, 16],
-        expected: 15,
-    },
-];
+/// Build the probe set at runtime (`BigUint` is not const-constructible).
+/// `&[...]` arg literals get static-promoted, satisfying `&'static [i64]`.
+fn cases() -> Vec<Case> {
+    vec![
+        // POW (base ** exp)
+        Case {
+            method: "pow_test",
+            args: &[2, 10],
+            expected: BigUint::from(1024u64),
+        },
+        Case {
+            method: "pow_test",
+            args: &[3, 4],
+            expected: BigUint::from(81u64),
+        },
+        // XOR (a ^ b)
+        Case {
+            method: "xor_test",
+            args: &[0xFF, 0x0F],
+            expected: BigUint::from(0xF0u64),
+        },
+        Case {
+            method: "xor_test",
+            args: &[0xAA, 0x55],
+            expected: BigUint::from(0xFFu64),
+        },
+        // SHL (a << n)
+        Case {
+            method: "shl_test",
+            args: &[1, 8],
+            expected: BigUint::from(256u64),
+        },
+        Case {
+            method: "shl_test",
+            args: &[7, 3],
+            expected: BigUint::from(56u64),
+        },
+        // Nested arithmetic + MOD ((a + b) % c)
+        Case {
+            method: "nested_mod",
+            args: &[100, 23, 50],
+            expected: BigUint::from(23u64),
+        },
+        Case {
+            method: "nested_mod",
+            args: &[10, 20, 7],
+            expected: BigUint::from(2u64),
+        },
+        // Complex bitwise ((a & b) | (a ^ b)) == (a | b)
+        Case {
+            method: "bitwise_complex",
+            args: &[0xF0, 0x3C],
+            expected: BigUint::from(0xFCu64),
+        },
+        Case {
+            method: "bitwise_complex",
+            args: &[0xAA, 0x0F],
+            expected: BigUint::from(0xAFu64),
+        },
+        // DIV (a / b)
+        Case {
+            method: "fn_div",
+            args: &[100, 7],
+            expected: BigUint::from(14u64),
+        },
+        Case {
+            method: "fn_div",
+            args: &[255, 16],
+            expected: BigUint::from(15u64),
+        },
+        // ---- Wide-value probes (large but < 2^255, so representable) ----
+        // These exercise the multi-limb / BigInt code paths for values well
+        // beyond i64 but still inside the signed-32-byte range, catching
+        // truncation / encoding divergences a small-value probe can't see.
+        // Values >= 2^255 ([2^255, 2^256-1]) are a KNOWN representation
+        // limitation — they need a 33-byte signed form NeoVM rejects, and the
+        // compiler emits a validation warning for them — so they are
+        // intentionally excluded here (the harness would FAULT on both sides
+        // only if the simulator were also strict; today the simulator is
+        // lenient, so such probes surface as simulator/node divergences that
+        // track the open [2^255, 2^256-1] lowering gap, not new regressions).
+        Case {
+            method: "pow_wide",
+            args: &[],
+            expected: BigUint::from(3u8).pow(100u32),
+        },
+        Case {
+            method: "mul_wide",
+            args: &[],
+            expected: (BigUint::from(1u8) << 100u32) * (BigUint::from(3u8) << 100u32),
+        },
+    ]
+}
 
 // ---------------------------------------------------------------------------
 // Binary resolvers
@@ -451,7 +483,7 @@ fn differential_simulator_matches_real_node() {
     // --- Stand up the real node + deploy once for all cases. ---
     let env = NeoxpEnv::deploy(&nef_path);
 
-    for case in CASES {
+    for case in cases() {
         let sim = run_in_simulator(
             &art.bytecode,
             &art.tokens,
@@ -460,7 +492,6 @@ fn differential_simulator_matches_real_node() {
             case.args,
         );
         let node = env.invoke(case.method, case.args);
-        let expected = BigUint::from(case.expected);
 
         assert_eq!(
             sim, node,
@@ -468,11 +499,11 @@ fn differential_simulator_matches_real_node() {
             case.method, case.args, sim, node
         );
         assert_eq!(
-            sim, expected,
+            sim, case.expected,
             "WRONG RESULT for {}({:?}): got {} expected {} \
              (simulator and node agree but both disagree with the oracle — \
              likely a bad test fixture, not a compiler bug)",
-            case.method, case.args, sim, expected
+            case.method, case.args, sim, case.expected
         );
     }
 }

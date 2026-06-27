@@ -15,6 +15,22 @@ use crate::runtime::{storage, LogEntry};
 use std::collections::{HashMap, HashSet};
 use std::ptr::NonNull;
 
+/// S6 follow-up — a single parsed entry from the executing contract's manifest
+/// `permissions` array. `contract = None` is the wildcard `"*"`; otherwise it
+/// is the target UInt160 in little-endian (the eval-stack byte order, parsed
+/// from the manifest's `"0x<big-endian-hex>"` form by reversing).
+#[derive(Debug, Clone)]
+pub(crate) struct ManifestPermission {
+    pub(crate) contract: Option<[u8; 20]>,
+    pub(crate) methods: ManifestMethods,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum ManifestMethods {
+    All,
+    Some(HashSet<String>),
+}
+
 /// Execution context for runtime operations
 #[derive(Debug)]
 pub struct ExecutionContext {
@@ -137,6 +153,11 @@ pub struct ExecutionContext {
     /// Task #70: args-count for each self method, used to pop the right number of args
     /// from the `StackItem::Array` `params` passed by `handle_contract_call`.
     pub(crate) self_method_arg_counts: HashMap<String, u16>,
+    /// S6 follow-up — parsed `permissions` array from the executing contract's
+    /// manifest. `None` = raw `execute()` path (check skipped for backward
+    /// compat); `Some(vec)` enforces Neo N3 call permissions. Populated by
+    /// `NeoRuntime::call_method` alongside the self-method table.
+    pub(crate) manifest_permissions: Option<Vec<ManifestPermission>>,
     /// Task #70: set by `handle_contract_call` when a self external call
     /// rewires `instruction_pointer` directly to a compiled method offset.
     /// The SYSCALL dispatcher consults this flag to skip its unconditional

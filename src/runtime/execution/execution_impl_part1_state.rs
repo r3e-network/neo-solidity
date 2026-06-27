@@ -1,3 +1,4 @@
+use super::types::context::{ManifestMethods, ManifestPermission};
 use super::*;
 
 impl ExecutionContext {
@@ -128,4 +129,81 @@ impl ExecutionContext {
         self.self_method_offsets.clear();
         self.self_method_arg_counts.clear();
     }
+
+    /// S6 follow-up — parse the manifest's `permissions` array into the
+    /// structured matchers `manifest_permits` consumes. Called by
+    /// `NeoRuntime::call_method` alongside `set_self_method_table`.
+    pub fn set_manifest_permissions(&mut self, manifest: &serde_json::Value) {
+        self.manifest_permissions = Some(parse_manifest_permissions(manifest));
+    }
+
+    /// S6 follow-up — return `true` when the executing contract's manifest
+    /// declares permission to call `target_hash_le`/`method`. Self-calls are
+    /// exempt by construction (the self-offsets arm of `handle_contract_call`
+    /// returns before reaching this check — the compiler deliberately omits
+    /// self-permissions, see `permissions/calls.rs`). When no manifest is
+    /// loaded (`None`, the raw `execute()` path), the check is skipped.
+    pub(crate) fn manifest_permits(&self, target_hash_le: &[u8; 20], method: &str) -> bool {
+        let Some(perms) = &self.manifest_permissions else {
+            return true;
+        };
+        perms.iter().any(|p| {
+            let contract_ok = match &p.contract {
+                None => true,
+                Some(c) => *c == *target_hash_le,
+            };
+            let methods_ok = match &p.methods {
+                ManifestMethods::All => true,
+                ManifestMethods::Some(set) => set.contains(method),
+            };
+            contract_ok && methods_ok
+        })
+    }
+}
+
+/// S6 follow-up — parse `manifest["permissions"]` into structured matchers.
+/// Each entry is `{"contract": "0x<be>" | "*", "methods": ["m1",..] | "*"}`.
+/// The big-endian hex is reversed to little-endian for direct byte comparison
+/// with the eval-stack UInt160. Malformed entries are skipped.
+fn parse_manifest_permissions(manifest: &serde_json::Value) -> Vec<ManifestPermission> {
+    let Some(arr) = manifest["permissions"].as_array() else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(arr.len());
+    for entry in arr {
+        let contract = match entry["contract"].as_str() {
+            Some("*") | None => None,
+            Some(hex_str) => match parse_hash_le(hex_str) {
+                Some(h) => Some(h),
+                None => continue,
+            },
+        };
+        let methods = match &entry["methods"] {
+            serde_json::Value::String(s) if s == "*" => ManifestMethods::All,
+            serde_json::Value::Array(items) => {
+                let set: HashSet<String> = items
+                    .iter()
+                    .filter_map(|m| m.as_str().map(str::to_string))
+                    .collect();
+                ManifestMethods::Some(set)
+            }
+            _ => ManifestMethods::All,
+        };
+        out.push(ManifestPermission { contract, methods });
+    }
+    out
+}
+
+/// Decode `"0x<big-endian-hex>"` into little-endian bytes for direct eval-stack
+/// comparison. Returns `None` for anything that isn't a 20-byte hex string.
+fn parse_hash_le(s: &str) -> Option<[u8; 20]> {
+    let hex = s.strip_prefix("0x").unwrap_or(s);
+    if hex.len() != 40 {
+        return None;
+    }
+    let mut be = [0u8; 20];
+    hex::decode_to_slice(hex, &mut be).ok()?;
+    let mut le = be;
+    le.reverse();
+    Some(le)
 }

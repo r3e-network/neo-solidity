@@ -24,6 +24,7 @@ impl ExecutionContext {
             msg_sender_override: None,
             syscall_result_expected: false,
             storage_snapshot: None,
+            saved_call_flags: None,
         };
 
         self.call_stack.push(frame);
@@ -67,6 +68,12 @@ impl ExecutionContext {
             // Restore caller's local and argument slots
             self.locals = frame.saved_locals;
             self.args = frame.saved_args;
+            // S6 fix — restore the caller's CallFlags when returning from a
+            // contract-call frame. Plain internal CALL_L frames carry
+            // `saved_call_flags = None` and leave the active flags untouched.
+            if let Some(caller_flags) = frame.saved_call_flags {
+                self.active_call_flags = caller_flags;
+            }
             Ok(())
         } else {
             Err(RuntimeError::ExecutionError {

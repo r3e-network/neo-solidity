@@ -73,6 +73,7 @@ impl ExecutionContext {
             next_contract_id: 1,
             self_method_offsets: HashMap::new(),
             self_method_arg_counts: HashMap::new(),
+            manifest_permissions: None,
             syscall_suppress_ip_advance: false,
             strict_arithmetic: config.strict_mode,
 

@@ -148,6 +148,7 @@ impl ExecutionContext {
             msg_sender_override: None,
             syscall_result_expected: false,
             storage_snapshot: None,
+            saved_call_flags: None,
         };
         self.call_stack.push(frame);
         Ok(())

@@ -14,6 +14,127 @@ pub(crate) fn require_native_method(
         .insert(method.to_string());
 }
 
+/// S6 follow-up — record a raw `(hash_le, method)` native-call target
+/// discovered by the bytecode scan into the same `"0x<be>" → {methods}` shape
+/// `collect_native_permissions` produces. The hash is the eval-stack
+/// little-endian UInt160 (reversed to big-endian for the manifest key).
+fn require_raw_native(
+    native_methods: &mut BTreeMap<String, BTreeSet<String>>,
+    hash_le: &[u8],
+    method: &str,
+) {
+    let hash_be: Vec<u8> = hash_le.iter().rev().copied().collect();
+    let contract_str = format!("0x{}", hex::encode(hash_be));
+    native_methods
+        .entry(contract_str)
+        .or_default()
+        .insert(method.to_string());
+}
+
+/// S6 follow-up — bytecode-level native-call permission scan.
+///
+/// The IR-level `collect_native_permissions` only sees native calls that
+/// surface as `BuiltinCall::NativeCall`. A few codegen paths emit native
+/// calls directly to bytecode WITHOUT an IR-level marker — most notably the
+/// storage key-derivation helpers (`keccak256` / `serialize`) reached via
+/// `StoreState(computed_slot)` for fixed-size array elements inside structs.
+/// Their calls show up only as `System.Contract.Call` SYSCALL sites or
+/// `CALLT` (method-token) references in the final script. This pass scans
+/// both surfaces and records every native target so the manifest grants the
+/// permissions Neo N3 would otherwise fault for on-chain.
+pub(crate) fn collect_bytecode_native_permissions(
+    bytecode: &[u8],
+    tokens: &[crate::neo::MethodToken],
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+
+    // CALLT (0x37) — each references a method token by u16 index. The token
+    // carries the exact (hash, method) the VM dispatches, so it is always
+    // authoritative regardless of which IR path emitted it.
+    let mut i = 0;
+    while i < bytecode.len() {
+        if bytecode[i] == 0x37 && i + 2 < bytecode.len() {
+            let idx = u16::from_le_bytes([bytecode[i + 1], bytecode[i + 2]]);
+            if let Some(token) = tokens.get(idx as usize) {
+                if !token.method.is_empty() {
+                    require_raw_native(&mut out, &token.hash, &token.method);
+                }
+            }
+            i += 3;
+            continue;
+        }
+        i += 1;
+    }
+
+    // System.Contract.Call SYSCALL sites. The compiler's lowering pushes
+    // `[args, flags, method, hash]` (hash on top) immediately before the
+    // SYSCALL, so scanning backward from each site finds the 20-byte hash
+    // PUSHDATA and then the method-name string PUSHDATA just beneath it.
+    let scc_id = {
+        let d = sha2::Sha256::digest(b"System.Contract.Call");
+        [d[0], d[1], d[2], d[3]]
+    };
+    let mut i = 0;
+    while i + 4 < bytecode.len() {
+        if bytecode[i] == 0x41 && bytecode[i + 1..i + 5] == scc_id {
+            if let Some((hash_le, method)) = scan_scc_operands(bytecode, i) {
+                require_raw_native(&mut out, &hash_le, &method);
+            }
+            i += 5;
+            continue;
+        }
+        i += 1;
+    }
+
+    out
+}
+
+/// Walk backward from a `System.Contract.Call` SYSCALL at `scc_off` and
+/// recover the `(hash_le, method)` operands the compiler pushed. The hash is
+/// the nearest preceding `PUSHDATA1 0x14` (20-byte UInt160, little-endian as
+/// carried on the eval stack); the method is the nearest preceding short
+/// ASCII-string `PUSHDATA1` before the hash. Returns `None` if either operand
+/// can't be located (e.g. a dynamic target the scan can't statically resolve —
+/// those are already covered by the wildcard fallback in `infer_permissions`).
+fn scan_scc_operands(bytecode: &[u8], scc_off: usize) -> Option<(Vec<u8>, String)> {
+    // Nearest preceding 20-byte PUSHDATA1 = the contract hash.
+    let mut hash_off = None;
+    let mut j = scc_off;
+    while j > 0 {
+        j -= 1;
+        if bytecode[j] == 0x0C && j + 1 < scc_off && bytecode[j + 1] == 0x14 && j + 22 <= scc_off {
+            hash_off = Some(j + 2);
+            break;
+        }
+    }
+    let hash_start = hash_off?;
+    let hash_le = bytecode[hash_start..hash_start + 20].to_vec();
+
+    // Nearest preceding short ASCII PUSHDATA1 before the hash = the method name.
+    let mut method = String::new();
+    let mut j = hash_start - 2; // index of the hash's PUSHDATA1 opcode
+    while j > 0 {
+        j -= 1;
+        if bytecode[j] == 0x0C && j + 1 < hash_start {
+            let len = bytecode[j + 1] as usize;
+            let start = j + 2;
+            if len > 0 && len <= 64 && start + len <= hash_start {
+                if let Ok(s) = std::str::from_utf8(&bytecode[start..start + len]) {
+                    if s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
+                        method = s.to_string();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if method.is_empty() {
+        return None;
+    }
+    Some((hash_le, method))
+}
+
 pub(crate) fn collect_native_permissions(
     ir_module: &ir::Module,
 ) -> BTreeMap<String, BTreeSet<String>> {

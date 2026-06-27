@@ -1,13 +1,36 @@
 use super::*;
+// S6 fix — CallFlags gates + propagation in `handle_contract_call`.
+use super::syscalls::{CALL_FLAG_ALL, CALL_FLAG_ALLOW_CALL};
 
 impl ExecutionContext {
     pub(crate) fn handle_contract_call(&mut self) -> Result<(), RuntimeError> {
+        // S6 fix — AllowCall gate. Neo N3 faults `System.Contract.Call` unless
+        // the active context's CallFlags carry AllowCall (0b0100). A
+        // read-only-shaped context without that bit (e.g. host-armed
+        // ReadStates-only) may not initiate any contract call. The gate fires
+        // before the stack is touched so a rejecting context leaves the eval
+        // stack intact for the fault handler.
+        if self.active_call_flags & CALL_FLAG_ALLOW_CALL == 0 {
+            return Err(RuntimeError::ExecutionError {
+                message: "System.Contract.Call requires CallFlag.AllowCall".to_string(),
+            });
+        }
         // Neo N3 syscall convention: the first argument is at the top of the stack.
         // For System.Contract.Call(hash, method, flags, args), the evaluation stack
         // order is: [args, flags, method, hash].
         let contract_item = self.pop_stack()?;
         let method_item = self.pop_stack()?;
-        let _flags = self.pop_stack()?; // call flags ignored in emulator
+        // S6 fix — the flags operand is the MAXIMUM CallFlags the caller grants
+        // the callee. Neo N3 rejects any value outside the 4-bit mask; the callee
+        // then runs with exactly these flags (see the self-offsets arm below).
+        let requested_flags = Self::stack_item_to_int(self.pop_stack()?) as u8;
+        if requested_flags & !CALL_FLAG_ALL != 0 {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "System.Contract.Call: invalid CallFlags 0x{requested_flags:02X} (exceeds All = 0x0F)"
+                ),
+            });
+        }
         let params = self.pop_stack()?;
 
         let method = String::from_utf8(Self::stack_item_to_bytes(method_item)).unwrap_or_default();
@@ -97,6 +120,10 @@ impl ExecutionContext {
                 // mutable borrow of call_stack below (snapshot_storage_overlay
                 // borrows self too, which would conflict with last_mut).
                 let storage_snapshot = Some(self.snapshot_storage_overlay());
+                // S6 fix — capture the caller's flags BEFORE the mutable borrow
+                // so we can (a) stash them on the frame for restore-on-return
+                // and (b) arm the callee's active flags after the borrow ends.
+                let caller_flags = self.active_call_flags;
                 if let Some(frame) = self.call_stack.last_mut() {
                     frame.msg_sender_override = Some(synthetic_caller);
                     // Task #160 — mark the frame so `return_from_function`
@@ -113,7 +140,20 @@ impl ExecutionContext {
                     frame.syscall_result_expected = true;
                     // S7 fix — attach the snapshot captured above.
                     frame.storage_snapshot = storage_snapshot;
+                    // S6 fix — record the caller's flags so `return_from_function`
+                    // / `dispatch_exception` can restore them when this frame
+                    // unwinds. Only set on contract-call frames (plain CALL_L
+                    // frames stay `None`), so internal Solidity calls never
+                    // disturb the active flags.
+                    frame.saved_call_flags = Some(caller_flags);
                 }
+                // S6 fix — the callee now runs with the caller-granted flags.
+                // This is what makes the Notify/AllowCall/WriteStates gates
+                // fire inside compiler-emitted `view`/`pure` callees (which
+                // carry 0x05 = ReadStates|AllowCall), not just in host-armed
+                // restricted contexts. The caller's flags are restored when the
+                // frame returns or unwinds.
+                self.active_call_flags = requested_flags;
                 // Unpack the params array and push args in reverse so that the
                 // target method's INITSLOT pops them into arg slots in order.
                 for arg in args_vec.iter().rev() {
@@ -126,6 +166,22 @@ impl ExecutionContext {
                 // exactly what the caller (the SYSCALL site) expects.
                 return Ok(());
             }
+        }
+
+        // S6 follow-up — manifest permission check. Neo N3 faults any
+        // `System.Contract.Call` whose target hash + method is not declared in
+        // the calling contract's manifest `permissions` array. Self-calls are
+        // exempt by construction (they took the self-offsets return above; the
+        // compiler deliberately omits self-permissions — see
+        // `permissions/calls.rs`). When no manifest is loaded (raw `execute()`
+        // path) `manifest_permits` short-circuits to `true`.
+        if !self.manifest_permits(&hash, &method) {
+            return Err(RuntimeError::ExecutionError {
+                message: format!(
+                    "System.Contract.Call: manifest does not permit call to {method} on 0x{}",
+                    hex::encode(hash.iter().rev().copied().collect::<Vec<u8>>())
+                ),
+            });
         }
 
         let result = self.invoke_native_contract(&hash, &method, params);

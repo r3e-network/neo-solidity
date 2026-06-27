@@ -1,10 +1,20 @@
 use super::*;
 
 /// S6 fix — Neo N3 CallFlags bitmask constants. See
-/// `ExecutionContext::active_call_flags`. (`READ_STATES` is tracked for the
-/// upcoming Notify/Log + nested-Call gating follow-up; only `WRITE_STATES`
-/// has a consumer today, so we declare just it to keep clippy clean.)
-const CALL_FLAG_WRITE_STATES: u8 = 0b0010;
+/// `ExecutionContext::active_call_flags`. These mirror the
+/// `Neo.SmartContract.CallFlags` enum: a callee's effective flags are the
+/// caller-requested subset, and each mutating/notification/call syscall faults
+/// unless its bit is set in the active context.
+/// ReadStates has no production gate today (storage reads are unconditionally
+/// permitted); declared for parity with the `Neo.SmartContract.CallFlags` enum
+/// and the upcoming read-only-context follow-up.
+#[allow(dead_code)]
+pub(crate) const CALL_FLAG_READ_STATES: u8 = 0b0001;
+pub(crate) const CALL_FLAG_WRITE_STATES: u8 = 0b0010;
+pub(crate) const CALL_FLAG_ALLOW_CALL: u8 = 0b0100;
+pub(crate) const CALL_FLAG_ALLOW_NOTIFY: u8 = 0b1000;
+/// `CallFlags.All` — top-level default. Every gate below is a subset bit.
+pub(crate) const CALL_FLAG_ALL: u8 = 0b1111;
 
 /// Storage syscall implementations for Neo N3 VM compatibility.
 ///

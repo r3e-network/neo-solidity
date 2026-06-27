@@ -258,6 +258,16 @@ pub(crate) fn lower_logical_or(
         return false;
     }
 
+    // M-IR2: normalize the right operand to a canonical Boolean so a non-bool
+    // value (e.g. injected by inline assembly or a frontend type-inference
+    // miss) cannot leak through the short-circuit as the raw operand. Solidity
+    // guarantees `bool` operands, so this CONVERT (0xDB 0x20) is a no-op for
+    // well-typed input and a defensive guard for the rest — matching NeoVM's
+    // own truthiness rule used by the JMPIF that drives the short-circuit.
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Boolean,
+    });
+
     instructions.push(Instruction::Label(end_label));
     true
 }
@@ -282,6 +292,11 @@ pub(crate) fn lower_logical_and(
     if !lower_expression(right, ctx, instructions) {
         return false;
     }
+
+    // M-IR2: bool-normalize the right operand (see lower_logical_or).
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::Boolean,
+    });
 
     instructions.push(Instruction::Jump { target: end_label });
     instructions.push(Instruction::Label(false_label));

@@ -133,6 +133,16 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.Notify" => {
+                // S6 fix — Neo N3 faults Notify unless the active CallFlags
+                // carry AllowNotify (0b1000). A staticcall-shaped read-only
+                // callee (flags 0x05 = ReadStates|AllowCall) must not be able
+                // to emit notifications. The gate fires before any stack
+                // mutation so a rejecting context leaves the eval stack intact.
+                if self.active_call_flags & CALL_FLAG_ALLOW_NOTIFY == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "System.Runtime.Notify requires CallFlag.AllowNotify".to_string(),
+                    });
+                }
                 // Neo N3 signature: `Notify(eventName, stateArray)`.
                 //
                 // The Solidity frontend uses this same syscall to deliver an
@@ -277,6 +287,12 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.Log" => {
+                // S6 fix — Log shares Notify's AllowNotify gate.
+                if self.active_call_flags & CALL_FLAG_ALLOW_NOTIFY == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "System.Runtime.Log requires CallFlag.AllowNotify".to_string(),
+                    });
+                }
                 let msg = Self::stack_item_to_bytes(self.pop_stack()?);
                 self.logs.push(LogEntry {
                     address: self.default_account.clone(),

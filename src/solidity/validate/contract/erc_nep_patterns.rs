@@ -389,51 +389,6 @@ fn check_nep14_multitoken_pattern(
     }
 }
 
-/// Detect large storage operations that could be optimized.
-#[allow(dead_code)]
-fn check_storage_efficiency(
-    all_methods: &[FunctionMetadata],
-    _state_vars: &[&StateVariableMetadata],
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    let mut has_iteration = false;
-
-    for method in all_methods {
-        let name_lower = method.name.to_ascii_lowercase();
-        if name_lower.contains("foreach") || name_lower.contains("iterate") {
-            has_iteration = true;
-        }
-    }
-
-    if has_iteration {
-        diagnostics.push(
-            Diagnostic::warning(
-                "Contract has iteration operations. Be careful with large datasets - \
-             consider using prefix-based iteration or indexes for better performance.",
-            )
-            .with_code("W112")
-            .with_suggestion("Use Storage.find() with prefixes for efficient iteration"),
-        );
-    }
-}
-
-/// Detect potentially unsafe operations with block.gaslimit.
-#[allow(dead_code)]
-fn check_block_gaslimit_usage(
-    _public_methods: &[&FunctionMetadata],
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    // block.gaslimit is mapped to Policy.getExecFeeFactor() automatically
-    diagnostics.push(
-        Diagnostic::warning(
-            "block.gaslimit is not directly available on Neo N3. \
-         It is automatically mapped to Policy.getExecFeeFactor().",
-        )
-        .with_code("W115")
-        .with_suggestion("Use Policy.getExecFeeFactor() for gas cost estimation"),
-    );
-}
-
 /// Detect missing onNEP17Payment in contracts that handle payments.
 fn check_payment_callback(
     _public_methods: &[&FunctionMetadata],
