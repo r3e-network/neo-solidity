@@ -220,18 +220,10 @@ impl ExecutionContext {
     /// decide whether an inner `StackItem::Array` element (a flattened
     /// struct value) is safe to inline as K consecutive 32-byte slots.
     ///
-    /// STATIC-shaped items:
-    ///   * `Integer` / `UnsignedInteger` / `Boolean` / `Null` — always fit.
-    ///   * `ByteArray` of length 16, 20, or 32 — the static widths recognised
-    ///     by `abi_is_dynamic` (PUSHINT128, raw `address`, bytes32/keccak).
-    ///
-    /// DYNAMIC (returns false):
-    ///   * `ByteArray` of any other length — string/bytes payload that would
-    ///     need its own offset+length+padded-data tail.
-    ///   * `Array` / `Map` — nested dynamic containers.
-    fn is_static_struct_field(item: &StackItem) -> bool {
-        !Self::abi_is_dynamic(item)
-    }
+    /// This is just `!abi_is_dynamic(item)`; the policy is documented on
+    /// `abi_is_dynamic` itself, so we inline at the call site rather than
+    /// maintain a 3-line method. See `abi_is_dynamic` for the static vs.
+    /// dynamic policy.
 
     /// Produce the EVM-canonical tail-section bytes for a DYNAMIC ABI arg:
     /// a 32-byte BE length prefix followed by the raw content padded with
@@ -296,7 +288,9 @@ impl ExecutionContext {
                     if let StackItem::Array(fields) = el {
                         let field_items = fields.borrow().clone();
                         if !field_items.is_empty()
-                            && field_items.iter().all(Self::is_static_struct_field)
+                            && field_items
+                                .iter()
+                                .all(|item| !Self::abi_is_dynamic(item))
                         {
                             for field in field_items.iter() {
                                 out.extend_from_slice(&Self::abi_pad32_be(field));

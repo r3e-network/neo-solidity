@@ -158,6 +158,73 @@ pub(crate) enum StorageArrayBound {
 /// appropriate) or a Mapping (no bounds concept). Returns
 /// `Some(bound)` when a bounds guard is required, `None` otherwise.
 ///
+/// Clamp `local` against a constant or dynamic bound. Used by the three
+/// slice-clamp sites in `lower_array_slice_expression` that all share the
+/// same "branch on FALSE (bad case), then jump over the assignment" shape:
+///
+/// ```text
+/// LoadLocal(local)
+/// <bound>            // PushLiteral(0) for lower-zero, LoadLocal(bound) for upper
+/// <cmp>              // Ge for lower, Le for upper
+/// JumpIf(do_assign)  // JMPIFNOT: jumps on FALSE = the bad case
+/// Jump(done)         // cond is TRUE → no clamp needed → skip the store
+/// Label(do_assign)
+/// <bound>            // re-push the same bound
+/// StoreLocal(local)
+/// Label(done)
+/// ```
+///
+/// `ClampKind::LowerZero` clamps `local` to `>= 0`; `ClampKind::Upper`
+/// clamps it to `<= bound_local`. The bound is re-pushed inside the
+/// `do_assign` arm because the comparison already consumed it.
+fn clamp_local(
+    local: usize,
+    kind: ClampKind,
+    ctx: &mut LoweringContext,
+    ins: &mut Vec<Instruction>,
+) {
+    let do_assign = ctx.next_label();
+    let done = ctx.next_label();
+    ins.push(Instruction::LoadLocal(local));
+    match kind {
+        ClampKind::LowerZero => {
+            ins.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            ins.push(Instruction::BinaryOp(BinaryOperator::Ge));
+        }
+        ClampKind::Upper(bound_local) => {
+            ins.push(Instruction::LoadLocal(bound_local));
+            ins.push(Instruction::BinaryOp(BinaryOperator::Le));
+        }
+    }
+    ins.push(Instruction::JumpIf {
+        target: do_assign,
+    });
+    ins.push(Instruction::Jump { target: done });
+    ins.push(Instruction::Label(do_assign));
+    match kind {
+        ClampKind::LowerZero => {
+            ins.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+        }
+        ClampKind::Upper(bound_local) => {
+            ins.push(Instruction::LoadLocal(bound_local));
+        }
+    }
+    ins.push(Instruction::StoreLocal(local));
+    ins.push(Instruction::Label(done));
+}
+
+/// Which bound to clamp against. See `clamp_local`.
+enum ClampKind {
+    /// Clamp `local` to `>= 0` (the lower-zero case for slice start / length).
+    LowerZero,
+    /// Clamp `local` to `<= bound_local` (the upper case for slice end).
+    Upper(usize),
+}
+
 /// Walks the state variable's type chain once per key to mirror what
 /// `resolve_mapping_access` did, stopping one step short of the final
 /// key to inspect the type the last subscript operates on. Also
@@ -571,25 +638,7 @@ pub(crate) fn lower_array_slice_expression(
     instructions.push(Instruction::StoreLocal(end_local));
 
     // Clamp start to >= 0
-    let clamp_start_label = ctx.next_label();
-    let clamp_start_done = ctx.next_label();
-    instructions.push(Instruction::LoadLocal(start_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-        BigInt::zero(),
-    )));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-    instructions.push(Instruction::JumpIf {
-        target: clamp_start_label,
-    });
-    instructions.push(Instruction::Jump {
-        target: clamp_start_done,
-    });
-    instructions.push(Instruction::Label(clamp_start_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-        BigInt::zero(),
-    )));
-    instructions.push(Instruction::StoreLocal(start_local));
-    instructions.push(Instruction::Label(clamp_start_done));
+    clamp_local(start_local, ClampKind::LowerZero, ctx, instructions);
 
     // Clamp end to array length
     let size_local = ctx.allocate_local("__slice_size".to_string(), None);
@@ -597,21 +646,7 @@ pub(crate) fn lower_array_slice_expression(
     instructions.push(Instruction::GetSize);
     instructions.push(Instruction::StoreLocal(size_local));
 
-    let clamp_end_label = ctx.next_label();
-    let clamp_end_done = ctx.next_label();
-    instructions.push(Instruction::LoadLocal(end_local));
-    instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Le));
-    instructions.push(Instruction::JumpIf {
-        target: clamp_end_label,
-    });
-    instructions.push(Instruction::Jump {
-        target: clamp_end_done,
-    });
-    instructions.push(Instruction::Label(clamp_end_label));
-    instructions.push(Instruction::LoadLocal(size_local));
-    instructions.push(Instruction::StoreLocal(end_local));
-    instructions.push(Instruction::Label(clamp_end_done));
+    clamp_local(end_local, ClampKind::Upper(size_local), ctx, instructions);
 
     let len_local = ctx.allocate_local("__slice_len".to_string(), None);
     instructions.push(Instruction::LoadLocal(end_local));
@@ -619,23 +654,7 @@ pub(crate) fn lower_array_slice_expression(
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
     instructions.push(Instruction::StoreLocal(len_local));
 
-    let clamp_label = ctx.next_label();
-    let clamp_done = ctx.next_label();
-    instructions.push(Instruction::LoadLocal(len_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-        BigInt::zero(),
-    )));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-    instructions.push(Instruction::JumpIf {
-        target: clamp_label,
-    });
-    instructions.push(Instruction::Jump { target: clamp_done });
-    instructions.push(Instruction::Label(clamp_label));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-        BigInt::zero(),
-    )));
-    instructions.push(Instruction::StoreLocal(len_local));
-    instructions.push(Instruction::Label(clamp_done));
+    clamp_local(len_local, ClampKind::LowerZero, ctx, instructions);
 
     let element_type = infer_array_element_type(array, ctx).unwrap_or(ValueType::Any);
     let slice_array_type = ValueType::Array(Box::new(element_type.clone()));

@@ -425,6 +425,52 @@ impl YulLoweringState {
     }
 }
 
+/// Lower a slice of yul statements with the standard "stop on first
+/// failure" semantics. Used by the `Block`, `If`, `For` (init / body /
+/// post), and `Switch` (case body, default body) arms of
+/// `lower_yul_statement` — six sites that previously inlined the same
+/// `for s in stmts { if !lower_yul_statement(s, …) { return false; } }`
+/// loop. Returns `true` iff every statement lowered successfully.
+fn lower_yul_block_stmts(
+    stmts: &[solang_parser::pt::YulStatement],
+    state: &mut YulLoweringState,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    for s in stmts {
+        if !lower_yul_statement(s, state, ctx, instructions) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Lower a yul 2-arg arithmetic / bitwise call (`add`/`sub`/`mul` and
+/// `and`/`or`/`xor`) and emit a single `BinaryOp`. The arity check,
+/// recursive argument lowering, and operator lookup were duplicated
+/// across the two match arms. `op_for` returns the `BinaryOperator` for
+/// the matched name; the caller is responsible for restricting `name`
+/// to the set the closure handles.
+fn lower_two_arg_yul_call(
+    call: &solang_parser::pt::YulFunctionCall,
+    state: &mut YulLoweringState,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    op_for: impl Fn(&str) -> BinaryOperator,
+) -> bool {
+    if call.arguments.len() != 2 {
+        return false;
+    }
+    if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
+        return false;
+    }
+    if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
+        return false;
+    }
+    instructions.push(Instruction::BinaryOp(op_for(&call.id.name)));
+    true
+}
+
 pub(crate) fn lower_yul_statement(
     stmt: &solang_parser::pt::YulStatement,
     state: &mut YulLoweringState,
@@ -502,12 +548,7 @@ pub(crate) fn lower_yul_statement(
             lower_yul_function_call_as_statement(call, state, ctx, instructions)
         }
         YulStatement::Block(inner) => {
-            for inner_stmt in &inner.statements {
-                if !lower_yul_statement(inner_stmt, state, ctx, instructions) {
-                    return false;
-                }
-            }
-            true
+            lower_yul_block_stmts(&inner.statements, state, ctx, instructions)
         }
         // Task #200 — yul `if <cond> <body>`. The cond expression evaluates
         // to a yul uint256 (0 ⇒ false, non-zero ⇒ true). The NeoVM IR
@@ -524,10 +565,8 @@ pub(crate) fn lower_yul_statement(
                 return false;
             }
             instructions.push(Instruction::JumpIf { target: end_label });
-            for inner_stmt in &body.statements {
-                if !lower_yul_statement(inner_stmt, state, ctx, instructions) {
-                    return false;
-                }
+            if !lower_yul_block_stmts(&body.statements, state, ctx, instructions) {
+                return false;
             }
             instructions.push(Instruction::Label(end_label));
             true
@@ -545,10 +584,13 @@ pub(crate) fn lower_yul_statement(
             // yul-locals they declare (via `let i := 0`) remain visible
             // to the condition / post / body — which matches yul semantics
             // (`for { let i := 0 } lt(i, n) { i := add(i, 1) } { ... }`).
-            for init_stmt in &for_stmt.init_block.statements {
-                if !lower_yul_statement(init_stmt, state, ctx, instructions) {
-                    return false;
-                }
+            if !lower_yul_block_stmts(
+                &for_stmt.init_block.statements,
+                state,
+                ctx,
+                instructions,
+            ) {
+                return false;
             }
 
             let loop_start = ctx.next_label();
@@ -566,19 +608,25 @@ pub(crate) fn lower_yul_statement(
             // control-flow lowering — land on the right labels. `continue`
             // jumps to `post_label` (run post, then re-check cond).
             ctx.push_loop(post_label, loop_end);
-            for body_stmt in &for_stmt.execution_block.statements {
-                if !lower_yul_statement(body_stmt, state, ctx, instructions) {
-                    ctx.pop_loop();
-                    return false;
-                }
-            }
+            let body_ok = lower_yul_block_stmts(
+                &for_stmt.execution_block.statements,
+                state,
+                ctx,
+                instructions,
+            );
             ctx.pop_loop();
+            if !body_ok {
+                return false;
+            }
 
             instructions.push(Instruction::Label(post_label));
-            for post_stmt in &for_stmt.post_block.statements {
-                if !lower_yul_statement(post_stmt, state, ctx, instructions) {
-                    return false;
-                }
+            if !lower_yul_block_stmts(
+                &for_stmt.post_block.statements,
+                state,
+                ctx,
+                instructions,
+            ) {
+                return false;
             }
             instructions.push(Instruction::Jump { target: loop_start });
             instructions.push(Instruction::Label(loop_end));
@@ -625,10 +673,8 @@ pub(crate) fn lower_yul_statement(
                 instructions.push(Instruction::JumpIf {
                     target: next_case_label,
                 });
-                for body_stmt in &body.statements {
-                    if !lower_yul_statement(body_stmt, state, ctx, instructions) {
-                        return false;
-                    }
+                if !lower_yul_block_stmts(&body.statements, state, ctx, instructions) {
+                    return false;
                 }
                 instructions.push(Instruction::Jump { target: end_label });
                 instructions.push(Instruction::Label(next_case_label));
@@ -639,10 +685,8 @@ pub(crate) fn lower_yul_statement(
                 else {
                     return false;
                 };
-                for body_stmt in &default_body.statements {
-                    if !lower_yul_statement(body_stmt, state, ctx, instructions) {
-                        return false;
-                    }
+                if !lower_yul_block_stmts(&default_body.statements, state, ctx, instructions) {
+                    return false;
                 }
             }
             instructions.push(Instruction::Label(end_label));
@@ -859,28 +903,17 @@ pub(crate) fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::GetSize);
             true
         }
-        "add" | "sub" | "mul" => {
-            if call.arguments.len() != 2 {
-                return false;
-            }
-            if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
-                return false;
-            }
-            if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
-                return false;
-            }
-            let op = match name {
+        "add" | "sub" | "mul" => lower_two_arg_yul_call(
+            call,
+            state,
+            ctx,
+            instructions,
+            |n| match n {
                 "add" => BinaryOperator::Add,
                 "sub" => BinaryOperator::Sub,
-                "mul" => BinaryOperator::Mul,
-                // Unreachable: the enclosing match arm restricts `name` to
-                // "add"|"sub"|"mul". The arm exists only because Rust cannot
-                // prove &str exhaustiveness.
-                _ => unreachable!(),
-            };
-            instructions.push(Instruction::BinaryOp(op));
-            true
-        }
+                _ => BinaryOperator::Mul, // "mul" — the only remaining arm
+            },
+        ),
         "div" | "mod" => {
             // Yul (EVM) semantics: division/modulo by zero yields 0, NOT a fault.
             // (Unlike high-level Solidity, which Panics 0x12 — that guard lives in
@@ -922,28 +955,17 @@ pub(crate) fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::Label(done));
             true
         }
-        "and" | "or" | "xor" => {
-            if call.arguments.len() != 2 {
-                return false;
-            }
-            if !lower_yul_expression(&call.arguments[0], state, ctx, instructions) {
-                return false;
-            }
-            if !lower_yul_expression(&call.arguments[1], state, ctx, instructions) {
-                return false;
-            }
-            let op = match name {
+        "and" | "or" | "xor" => lower_two_arg_yul_call(
+            call,
+            state,
+            ctx,
+            instructions,
+            |n| match n {
                 "and" => BinaryOperator::BitAnd,
                 "or" => BinaryOperator::BitOr,
-                "xor" => BinaryOperator::BitXor,
-                // Unreachable: the enclosing match arm restricts `name` to
-                // "and"|"or"|"xor". The arm exists only because Rust cannot
-                // prove &str exhaustiveness.
-                _ => unreachable!(),
-            };
-            instructions.push(Instruction::BinaryOp(op));
-            true
-        }
+                _ => BinaryOperator::BitXor, // "xor" — the only remaining arm
+            },
+        ),
         "shl" | "shr" => {
             // Yul shift args are (shift_amount, value); NeoVM's BinaryOp
             // Shl/Shr take (value, shift_amount) bottom-up.

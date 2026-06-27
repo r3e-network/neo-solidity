@@ -560,38 +560,55 @@ enum Bound {
 }
 
 impl Bound {
-    fn max(self, other: Self) -> Self {
+    /// Combine two bounds. `same_cmp` decides between two bounds of the
+    /// same variant (`Inclusive/Inclusive`, `Exclusive/Exclusive`);
+    /// `cross_cmp` decides between the mixed pair (`Inclusive` vs
+    /// `Exclusive`). The mixed pair's equal case always returns
+    /// `Exclusive(a)` since `Exclusive` is more restrictive than
+    /// `Inclusive` at the same point (the set `{x | x > a}` is strictly
+    /// smaller than `{x | x >= a}`).
+    ///
+    /// `max` passes `(>=, >)` — picks the more restrictive lower bound
+    /// (the side with the LARGER value), used when intersecting two
+    /// supported-version ranges.
+    /// `min` passes `(<=, <)` — picks the more restrictive upper bound
+    /// (the side with the SMALLER value).
+    fn combine(
+        self,
+        other: Self,
+        same_cmp: impl Fn(&Version, &Version) -> bool,
+        cross_cmp: impl Fn(&Version, &Version) -> bool,
+    ) -> Self {
         use Bound::{Exclusive, Inclusive, Unbounded};
-
         match (self, other) {
             (Unbounded, x) | (x, Unbounded) => x,
             (Inclusive(a), Inclusive(b)) => {
-                if a >= b {
+                if same_cmp(&a, &b) {
                     Inclusive(a)
                 } else {
                     Inclusive(b)
                 }
             }
             (Exclusive(a), Exclusive(b)) => {
-                if a >= b {
+                if same_cmp(&a, &b) {
                     Exclusive(a)
                 } else {
                     Exclusive(b)
                 }
             }
             (Inclusive(a), Exclusive(b)) => {
-                if a > b {
+                if cross_cmp(&a, &b) {
                     Inclusive(a)
-                } else if b > a {
+                } else if cross_cmp(&b, &a) {
                     Exclusive(b)
                 } else {
                     Exclusive(a)
                 }
             }
             (Exclusive(a), Inclusive(b)) => {
-                if a > b {
+                if cross_cmp(&a, &b) {
                     Exclusive(a)
-                } else if b > a {
+                } else if cross_cmp(&b, &a) {
                     Inclusive(b)
                 } else {
                     Exclusive(a)
@@ -600,44 +617,12 @@ impl Bound {
         }
     }
 
-    fn min(self, other: Self) -> Self {
-        use Bound::{Exclusive, Inclusive, Unbounded};
+    fn max(self, other: Self) -> Self {
+        self.combine(other, |a, b| a >= b, |a, b| a > b)
+    }
 
-        match (self, other) {
-            (Unbounded, x) | (x, Unbounded) => x,
-            (Inclusive(a), Inclusive(b)) => {
-                if a <= b {
-                    Inclusive(a)
-                } else {
-                    Inclusive(b)
-                }
-            }
-            (Exclusive(a), Exclusive(b)) => {
-                if a <= b {
-                    Exclusive(a)
-                } else {
-                    Exclusive(b)
-                }
-            }
-            (Inclusive(a), Exclusive(b)) => {
-                if a < b {
-                    Inclusive(a)
-                } else if b < a {
-                    Exclusive(b)
-                } else {
-                    Exclusive(a)
-                }
-            }
-            (Exclusive(a), Inclusive(b)) => {
-                if a < b {
-                    Exclusive(a)
-                } else if b < a {
-                    Inclusive(b)
-                } else {
-                    Exclusive(a)
-                }
-            }
-        }
+    fn min(self, other: Self) -> Self {
+        self.combine(other, |a, b| a <= b, |a, b| a < b)
     }
 }
 

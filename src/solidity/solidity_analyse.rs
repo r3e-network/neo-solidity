@@ -41,6 +41,26 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         contract
     }
 
+    /// The set of method names on `contract` that are part of its public
+    /// ABI surface — free `function`s with `external`/`public` visibility.
+    /// Used for both the interface→primary implementation lookup and the
+    /// reverse primary→interface map; centralising it here keeps the two
+    /// sides in lockstep so a future visibility tweak can't desync them.
+    fn public_external_method_names(contract: &ContractIR) -> std::collections::HashSet<String> {
+        contract
+            .functions
+            .iter()
+            .filter(|f| {
+                matches!(f.ty, FunctionTy::Function)
+                    && matches!(
+                        f.visibility,
+                        VisibilityKind::External | VisibilityKind::Public
+                    )
+            })
+            .map(|f| f.name.clone())
+            .collect()
+    }
+
     fn collect_contract_types(
         contract_map: &std::collections::HashMap<String, ContractIR>,
     ) -> Vec<String> {
@@ -395,22 +415,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         > = pre_merge_contract_map
             .values()
             .filter(|c| matches!(c.kind, ContractKind::Interface))
-            .map(|c| {
-                (
-                    c.name.clone(),
-                    c.functions
-                        .iter()
-                        .filter(|f| {
-                            matches!(f.ty, FunctionTy::Function)
-                                && matches!(
-                                    f.visibility,
-                                    VisibilityKind::External | VisibilityKind::Public
-                                )
-                        })
-                        .map(|f| f.name.clone())
-                        .collect(),
-                )
-            })
+            .map(|c| (c.name.clone(), public_external_method_names(c)))
             .collect();
 
         // Reverse map: interface name → list of primary contracts whose
@@ -422,22 +427,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             std::collections::HashSet<String>,
         > = primary
             .iter()
-            .map(|c| {
-                (
-                    c.name.clone(),
-                    c.functions
-                        .iter()
-                        .filter(|f| {
-                            matches!(f.ty, FunctionTy::Function)
-                                && matches!(
-                                    f.visibility,
-                                    VisibilityKind::External | VisibilityKind::Public
-                                )
-                        })
-                        .map(|f| f.name.clone())
-                        .collect(),
-                )
-            })
+            .map(|c| (c.name.clone(), public_external_method_names(c)))
             .collect();
 
         let interface_impls: std::collections::HashMap<String, Vec<String>> = interface_methods

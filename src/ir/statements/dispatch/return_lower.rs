@@ -221,24 +221,15 @@ pub(crate) fn lower_return_statement(
             {
                 if let Some(expected_bytes) = abi_decode_expected_static_bytes(&abi_decode_args) {
                     if let Some(buffer_expr) = abi_decode_args.first() {
-                        let pre_len = instructions.len();
-                        if lower_expression(buffer_expr, ctx, instructions) {
-                            let decode_ok_label = ctx.next_label();
-                            instructions.push(Instruction::Dup);
-                            instructions.push(Instruction::GetSize);
-                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                                BigInt::from(expected_bytes),
-                            )));
-                            instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
-                            instructions.push(Instruction::JumpIf {
-                                target: decode_ok_label,
-                            });
-                            emit_panic(0x41, instructions);
-                            instructions.push(Instruction::Label(decode_ok_label));
-                            instructions.push(Instruction::Return);
+                        if lower_abi_decode_passthrough_return(
+                            buffer_expr,
+                            expected_bytes,
+                            BinaryOperator::Ne,
+                            ctx,
+                            instructions,
+                        ) {
                             return true;
                         }
-                        instructions.truncate(pre_len);
                     }
                 }
             }
@@ -273,38 +264,21 @@ pub(crate) fn lower_return_statement(
                 && abi_decode_types_match_return_arity_mixed(&abi_decode_args, return_types.len())
             {
                 if let Some(buffer_expr) = abi_decode_args.first() {
-                    let pre_len = instructions.len();
-                    if lower_expression(buffer_expr, ctx, instructions) {
-                        // Minimum buffer size = one 32-byte head slot per
-                        // declared ABI type. Every type (static or dynamic)
-                        // contributes exactly one head slot; the dynamic
-                        // tails live below the head block at the offsets
-                        // declared within the head slots themselves.
-                        let min_bytes: u32 = (return_types.len() as u32).saturating_mul(32);
-                        let decode_ok_label = ctx.next_label();
-                        instructions.push(Instruction::Dup);
-                        instructions.push(Instruction::GetSize);
-                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                            BigInt::from(min_bytes),
-                        )));
-                        // IR `JumpIf` is JMPIFNOT semantics (branches when the
-                        // condition is FALSE), matching the Task #116 static
-                        // case: we emit `size < min_bytes` (the BAD condition),
-                        // then `JumpIf decode_ok` jumps when that condition is
-                        // false — i.e. when `size >= min_bytes` (the GOOD case).
-                        // When the guard fails (size < min_bytes) we fall
-                        // through to panic(0x41), matching Task #84's short-
-                        // buffer Panic(uint256) envelope.
-                        instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-                        instructions.push(Instruction::JumpIf {
-                            target: decode_ok_label,
-                        });
-                        emit_panic(0x41, instructions);
-                        instructions.push(Instruction::Label(decode_ok_label));
-                        instructions.push(Instruction::Return);
+                    // Minimum buffer size = one 32-byte head slot per
+                    // declared ABI type. Every type (static or dynamic)
+                    // contributes exactly one head slot; the dynamic
+                    // tails live below the head block at the offsets
+                    // declared within the head slots themselves.
+                    let min_bytes: u32 = (return_types.len() as u32).saturating_mul(32);
+                    if lower_abi_decode_passthrough_return(
+                        buffer_expr,
+                        min_bytes,
+                        BinaryOperator::Lt,
+                        ctx,
+                        instructions,
+                    ) {
                         return true;
                     }
-                    instructions.truncate(pre_len);
                 }
             }
 
@@ -323,24 +297,18 @@ pub(crate) fn lower_return_statement(
 
                     if matching_single_type && decoded_type.is_some_and(abi_value_type_is_dynamic) {
                         if let Some(buffer_expr) = abi_decode_args.first() {
-                            let pre_len = instructions.len();
-                            if lower_expression(buffer_expr, ctx, instructions) {
-                                let decode_ok_label = ctx.next_label();
-                                instructions.push(Instruction::Dup);
-                                instructions.push(Instruction::GetSize);
-                                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                                    BigInt::from(64u32),
-                                )));
-                                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-                                instructions.push(Instruction::JumpIf {
-                                    target: decode_ok_label,
-                                });
-                                emit_panic(0x41, instructions);
-                                instructions.push(Instruction::Label(decode_ok_label));
-                                instructions.push(Instruction::Return);
+                            // Dynamic single-return: minimum buffer is 64 bytes
+                            // (one 32-byte offset slot + one 32-byte length
+                            // slot for the inner dynamic value's tail header).
+                            if lower_abi_decode_passthrough_return(
+                                buffer_expr,
+                                64u32,
+                                BinaryOperator::Lt,
+                                ctx,
+                                instructions,
+                            ) {
                                 return true;
                             }
-                            instructions.truncate(pre_len);
                         }
                     }
                 }
@@ -628,6 +596,54 @@ pub(crate) fn lower_implicit_return(
         instructions.push(Instruction::Return);
         true
     }
+}
+
+/// Lower `return <buffer_expr>;` straight to a `RET` after a size guard.
+/// Used by the three Task #116 / #127 / single-dynamic paths that
+/// recognise an externally-callable `return abi.decode(buf, types)` whose
+/// canonical byte encoding equals `buf` verbatim:
+///
+/// 1. Lower `buffer_expr` so the buffer sits on the stack.
+/// 2. `Dup; GetSize; Push(expected); <cmp>; JumpIf(ok)` — branches over the
+///    `Panic(0x41)` when the buffer violates the size contract.
+/// 3. `Label(ok); Return` — RET the buffer verbatim.
+///
+/// The size check is `Lt` (size must be ≥ `expected`) for the
+/// at-least-N-head-bytes paths (Task #127 mixed, single-dynamic) and `Ne`
+/// (size must be exactly `expected`) for the static-tuple path
+/// (Task #116). The `cmp` argument is the operator that produces the
+/// BAD condition — the one whose FALSE result makes `JumpIf(ok)` skip the
+/// panic.
+///
+/// On failure of step 1 (expression lowering already recorded the error),
+/// `instructions` is rolled back to its pre-call length so the caller can
+/// continue trying other lowering paths. Returns `true` on success.
+fn lower_abi_decode_passthrough_return(
+    buffer_expr: &Expression,
+    expected_bytes: u32,
+    cmp: BinaryOperator,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    let pre_len = instructions.len();
+    if !lower_expression(buffer_expr, ctx, instructions) {
+        instructions.truncate(pre_len);
+        return false;
+    }
+    let decode_ok_label = ctx.next_label();
+    instructions.push(Instruction::Dup);
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::from(expected_bytes),
+    )));
+    instructions.push(Instruction::BinaryOp(cmp));
+    instructions.push(Instruction::JumpIf {
+        target: decode_ok_label,
+    });
+    emit_panic(0x41, instructions);
+    instructions.push(Instruction::Label(decode_ok_label));
+    instructions.push(Instruction::Return);
+    true
 }
 
 /// Task #116 — true iff `expr` is `abi.decode(buf, types)` (with 2 args)

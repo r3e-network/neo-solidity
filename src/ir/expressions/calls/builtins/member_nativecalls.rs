@@ -15,6 +15,28 @@ pub(crate) struct NativeContractDescriptor {
     name: &'static str,
 }
 
+/// Record the standard "NativeCalls.<name> requires N argument(s), got M"
+/// diagnostic when the actual arg count disagrees, and return `Some(false)`
+/// so callers can early-return. The function returns `Some(false)` (not
+/// `None` / `Option<bool>`) so it composes with the existing
+/// `return Some(false)` shape used by every native-call lowering site
+/// without changing the outer match signature.
+fn check_arg_count(
+    ctx: &mut crate::ir::ir_context::LoweringContext,
+    name: &str,
+    args: &[Expression],
+    expected: usize,
+) -> Option<bool> {
+    if args.len() != expected {
+        ctx.record_error(format!(
+            "NativeCalls.{name} requires {expected} argument(s), got {}",
+            args.len()
+        ));
+        return Some(false);
+    }
+    None
+}
+
 pub(crate) const NATIVE_CONTRACTS: [NativeContractDescriptor; 11] = [
     NativeContractDescriptor {
         hash: [
@@ -167,13 +189,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
 
     match member.name.as_str() {
         "getCommittee" => {
-            if !args.is_empty() {
-                ctx.record_error(format!(
-                    "NativeCalls.getCommittee requires 0 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getCommittee", args, 0) { return Some(false); }
 
             // Neo native contract exposes committee members as ECPoint public keys.
             // The NativeCalls devpack returns `address[]`, so convert to UInt160 standard
@@ -250,13 +266,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isCommittee" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.isCommittee requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "isCommittee", args, 1) { return Some(false); }
 
             // Neo native contract exposes committee members as ECPoint public keys. Derive
             // standard accounts via System.Contract.CreateStandardAccount and compare with
@@ -340,13 +350,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNextBlockValidators" => {
-            if !args.is_empty() {
-                ctx.record_error(format!(
-                    "NativeCalls.getNextBlockValidators requires 0 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getNextBlockValidators", args, 0) { return Some(false); }
 
             // Neo native contract exposes validators as ECPoint public keys.
             // The NativeCalls devpack returns `address[]`, so convert to UInt160 standard
@@ -423,13 +427,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isValidator" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.isValidator requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "isValidator", args, 1) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let account_slot = ctx.allocate_local(
@@ -510,13 +508,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isNativeContract" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.isNativeContract requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "isNativeContract", args, 1) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -533,13 +525,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNativeContractName" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.getNativeContractName requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getNativeContractName", args, 1) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -556,13 +542,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getAllNativeContracts" => {
-            if !args.is_empty() {
-                ctx.record_error(format!(
-                    "NativeCalls.getAllNativeContracts requires 0 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getAllNativeContracts", args, 0) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contracts_slot = ctx.allocate_local(
@@ -593,13 +573,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "estimateNativeCallGas" => {
-            if args.len() != 3 {
-                ctx.record_error(format!(
-                    "NativeCalls.estimateNativeCallGas requires 3 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "estimateNativeCallGas", args, 3) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -761,13 +735,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "batchNativeCalls" => {
-            if args.len() != 3 {
-                ctx.record_error(format!(
-                    "NativeCalls.batchNativeCalls requires 3 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "batchNativeCalls", args, 3) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contracts_slot = ctx.allocate_local(
@@ -961,13 +929,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getContractById" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.getContractById requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getContractById", args, 1) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let state_slot = ctx.allocate_local(
@@ -1059,13 +1021,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNetworkConfiguration" => {
-            if !args.is_empty() {
-                ctx.record_error(format!(
-                    "NativeCalls.getNetworkConfiguration requires 0 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getNetworkConfiguration", args, 0) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let config_slot = ctx.allocate_local(
@@ -1169,13 +1125,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNativeContractManifest" => {
-            if args.len() != 1 {
-                ctx.record_error(format!(
-                    "NativeCalls.getNativeContractManifest requires 1 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "getNativeContractManifest", args, 1) { return Some(false); }
 
             if !lower_expression(&args[0], ctx, instructions) {
                 return Some(false);
@@ -1191,13 +1141,7 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "safeNativeCall" => {
-            if args.len() != 3 {
-                ctx.record_error(format!(
-                    "NativeCalls.safeNativeCall requires 3 argument(s), got {}",
-                    args.len()
-                ));
-                return Some(false);
-            }
+            if let Some(false) = check_arg_count(ctx, "safeNativeCall", args, 3) { return Some(false); }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(

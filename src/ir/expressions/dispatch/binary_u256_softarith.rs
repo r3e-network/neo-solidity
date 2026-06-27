@@ -28,25 +28,34 @@ pub(crate) fn u256_mask64() -> BigInt {
     (BigInt::one() << 64usize) - BigInt::one()
 }
 
-/// `[a, b] -> [a + b mod 2^256]` over two 128-bit limbs (no 33-byte intermediate).
-pub(crate) fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+/// `[a, b] -> [a <op> b mod 2^256]` over two 128-bit limbs (no 33-byte
+/// intermediate). `op` is `Add` or `Sub`; both share the same limb
+/// scaffolding — the only delta is the operator on the low and high
+/// limbs. The carry/borrow propagates through `lo >> 128` so the high
+/// limb gets the spill unconditionally (addition adds the spill,
+/// subtraction folds it back into the result).
+pub(crate) fn emit_u256_limb_op(
+    op: BinaryOperator,
+    ctx: &mut LoweringContext,
+    ins: &mut Vec<Instruction>,
+) {
     let s = ctx.u256_scratch_locals(3);
     let (al, bl, lo) = (s[0], s[1], s[2]);
     ins.push(Instruction::StoreLocal(bl));
     ins.push(Instruction::StoreLocal(al));
-    // lo = (a & M128) + (b & M128)
+    // lo = (a & M128) <op> (b & M128)
     ins.push(Instruction::LoadLocal(al));
     u256_push(ins, u256_mask128());
     u256_bop(ins, BinaryOperator::BitAnd);
     ins.push(Instruction::LoadLocal(bl));
     u256_push(ins, u256_mask128());
     u256_bop(ins, BinaryOperator::BitAnd);
-    u256_bop(ins, BinaryOperator::Add);
+    u256_bop(ins, op);
     ins.push(Instruction::StoreLocal(lo));
-    // hi = (a>>128 & M128) + (b>>128 & M128) + (lo>>128)
+    // hi = (a>>128 & M128) <op> (b>>128 & M128) + (lo>>128)
     emit_u256_hi_limb(ins, al);
     emit_u256_hi_limb(ins, bl);
-    u256_bop(ins, BinaryOperator::Add);
+    u256_bop(ins, op);
     ins.push(Instruction::LoadLocal(lo));
     u256_push(ins, BigInt::from(128u32));
     u256_bop(ins, BinaryOperator::Shr);
@@ -54,30 +63,14 @@ pub(crate) fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Ve
     emit_u256_combine_limbs(ins, lo);
 }
 
-/// `[a, b] -> [a - b mod 2^256]` (borrow folded through the limb boundary).
+/// `[a, b] -> [a + b mod 2^256]` — thin wrapper for the Add case.
+pub(crate) fn emit_u256_unchecked_add_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+    emit_u256_limb_op(BinaryOperator::Add, ctx, ins);
+}
+
+/// `[a, b] -> [a - b mod 2^256]` — thin wrapper for the Sub case.
 pub(crate) fn emit_u256_unchecked_sub_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
-    let s = ctx.u256_scratch_locals(3);
-    let (al, bl, lo) = (s[0], s[1], s[2]);
-    ins.push(Instruction::StoreLocal(bl));
-    ins.push(Instruction::StoreLocal(al));
-    // lo = (a & M128) - (b & M128)
-    ins.push(Instruction::LoadLocal(al));
-    u256_push(ins, u256_mask128());
-    u256_bop(ins, BinaryOperator::BitAnd);
-    ins.push(Instruction::LoadLocal(bl));
-    u256_push(ins, u256_mask128());
-    u256_bop(ins, BinaryOperator::BitAnd);
-    u256_bop(ins, BinaryOperator::Sub);
-    ins.push(Instruction::StoreLocal(lo));
-    // hi = (a>>128 & M128) - (b>>128 & M128) + (lo>>128)
-    emit_u256_hi_limb(ins, al);
-    emit_u256_hi_limb(ins, bl);
-    u256_bop(ins, BinaryOperator::Sub);
-    ins.push(Instruction::LoadLocal(lo));
-    u256_push(ins, BigInt::from(128u32));
-    u256_bop(ins, BinaryOperator::Shr);
-    u256_bop(ins, BinaryOperator::Add);
-    emit_u256_combine_limbs(ins, lo);
+    emit_u256_limb_op(BinaryOperator::Sub, ctx, ins);
 }
 
 /// Push `(loc >> 128) & M128` (the unsigned high 128-bit limb of `loc`).
