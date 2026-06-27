@@ -5,6 +5,141 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.24.0] - 2026-06-27
+
+Hardening & real-node verification release: 5 correctness fixes surfaced by
+the new real-Node differential harness and the famous-contracts runtime
+smoke, plus a focused dedup/refactor pass. Compiler and devpack stay
+version-aligned at **v0.24.0**. 1885 tests green (up from 1844 in v0.23.0),
+clippy + fmt clean, differential harness **14/14 PASS** on real
+Neo-Express 3.9.1.
+
+### 🔴 Correctness fixes (real-node oracle-discovered)
+
+- **`a ** b` on-chain fault fixed.** The previous overflow check compared
+  the loop's accumulated product against a 33-byte `2^256` literal, which
+  pushed a 33-byte `ByteArray` and then coerced to `Integer` —
+  faulting on-chain with `MaxSize of Integer is exceeded: 33/32`. Real
+  NeoVM rejected `2 ** 10` on a fresh deployment. Replaced with
+  `(result >> 255) >= 2` (32-byte shift that real NeoVM accepts, plus a
+  signed-overflow discriminator: `2^255 >> 255 = 1`, `2^256 >> 255 = 2`).
+  Post-truncate result also now `Instruction::Convert { Integer }`-ed so
+  the new CONVERT fidelity gate (see below) catches it locally next time.
+  Diff harness: `pow_test([2, 10])` was FAULT → HALT(1024).
+- **S6 manifest permission gate fully wired (compiler + runtime).**
+  Before, the manifest permission derivation only saw IR-level
+  `BuiltinCall::NativeCall` markers and missed the codegen paths that
+  emit native calls directly to bytecode — most notably the
+  `keccak256` / `serialize` storage-key-derivation helpers reached via
+  `StoreState(computed_slot)` for fixed-size array elements inside
+  structs. Those contracts emitted valid IR but faulted on real nodes
+  with `no permission to call ...`. Added
+  `collect_bytecode_native_permissions` (scans both `CALLT` 0x37 method
+  tokens and `System.Contract.Call` 0x41 syscall sites, extracting
+  `(hash_le, method)` by walking the operand stack) and wired it into
+  `infer_permissions → build_manifest → compile.rs`. Runtime side got a
+  matching `manifest_permits(target_hash_le, method)` check that fires
+  before `invoke_native_contract`. Diff harness: `StructFixed` struct
+  storage contract was `5 × FAULT` → HALT.
+- **S6 CallFlags propagation.** Runtime now declares the full Neo N3
+  `CallFlags` bitmask (ReadStates / WriteStates / AllowCall /
+  AllowNotify / All). Every mutating syscall gates on its bit
+  (`AllowNotify` for `Runtime.Notify` + `Runtime.Log`, `AllowCall` for
+  `System.Contract.Call`, etc.) and the caller's flag set is saved per
+  `CallFrame` and restored on return + on exception unwind so nested
+  calls don't leak permissions across frames. Plus compiler-emitted
+  flags are now validated to fit in `0x0F`.
+- **M-IR2 logical operators normalize.** `||` and `&&` right operands
+  were not always coerced to `Boolean` after short-circuit evaluation,
+  producing a `Integer`-typed result when the LHS was already a
+  boolean. Added `Instruction::Convert { Boolean }` after each
+  right-operand evaluation; +1 structural + behavioral test.
+- **M-DEV1 NEP-11 `mint` to self now reverts with `InvalidReceiver`**
+  when the contract's own `INEP11Receiver.onNEP11Received` reverts.
+  Previously un-deferred `mintToSelf` silently succeeded and the
+  contract ended up owning its own token. New test
+  (`m_dev1_nep11_mint_to_self_succeeds_and_contract_owns_token`)
+  uses a reverting receiver as the failure-mode discriminator.
+
+### 🟢 Safety hardening (silent → loud)
+
+- **`LoweringContext::allocate_local` no longer silently collides**
+  on the (impossible) u16 overflow. The previous
+  `checked_add(1).unwrap_or(self.local_count)` returned the SAME index
+  for two distinct locals when the function hit 65 536 locals, which
+  would have them share a slot and corrupt IR state silently. Now
+  `.expect("...exceeds u16::MAX (65 536) locals")` panics with an
+  actionable message instead. `next_label` got the same treatment for
+  its `usize` counter.
+- **`CONVERT`-to-Integer errors on `bytes.len() > 32`**, matching real
+  NeoVM behavior. Previously the simulator wrapped a >32-byte ByteArray
+  as `ByteArray` silently — a divergence that hid
+  `[2^255, 2^256-1]`-class lowering bugs. Two new
+  `convert_to_integer_*` tests pin the new behavior.
+- **`unwrap()` hardening:** `return_lower.rs::wrap_external_single_array_return_value`
+  had two `return_types.first().unwrap()` sites after a `len() == 1`
+  guard. Replaced with an explicit `first_ret_type = &return_types[0]`
+  binding right after the guard.
+
+### 🟡 Real-node test infrastructure (new)
+
+- **Neo-Express differential harness** (audit gap #1 closed). Compiles
+  Solidity → runs bytecode in BOTH the in-tree simulator AND a real
+  Neo-Express 3.9.1 node → diffs results. 14 probes across 7 pure
+  methods (POW, XOR, SHL, nested MOD, complex bitwise, DIV,
+  pow_wide, mul_wide). 14/14 PASS. Found 2 of the correctness bugs
+  above (`**` and S6 manifest). Gated behind
+  `#![cfg(feature = "neoxp-diff")]` + `#[ignore]`; runs in the
+  dedicated `neoxp-diff` CI job.
+- **Famous-contracts runtime smoke** (`famous_corpus_runtime_smoke`).
+  For every vendored .sol in `third_party/famous-contracts/sources/`
+  (92 contracts from OpenZeppelin, Uniswap V2/V4, Aave V3, Chainlink,
+  Safe, ENS, MakerDAO), compile → deploy to Neo-Express → invoke
+  a representative read-only method (`name`, `symbol`, `decimals`,
+  `totalSupply`, `owner`, `paused`, `get`, `view`) → write a markdown
+  report. First-run: **WETH9** is the only contract that fully passed
+  (compile + deploy + `name()` returned "Wrapped Ether"). The other
+  6 deploy-pass contracts are abstract / library base classes with
+  no zero-arg reads; 2 deploy-faults are constructor-required
+  contracts (VRFConsumerBaseV2, SafeProxy — both fault on no-arg
+  deploy as expected). The 85 compile-failures are missing transitive
+  deps (IERC20.sol, IERC721.sol, …) — leaf-only OZ vendor by design,
+  documented in `famous_contracts_compile.rs`. Per-contract results
+  written to `third_party/famous-contracts/RUNTIME_REPORT.md`.
+- **S7 e2e revert-rollback test** (genuine regression guard — verified
+  by removing the storage-snapshot restore).
+
+### 🔵 Architecture & refactor (Round 4, zero behavior change)
+
+- **−25 LOC net** across 19 files; 5 dedup passes collapsed what were
+  3-5 near-identical definitions into single sources of truth:
+  - `canonical_param_type` (3 duplicates → `crate::utils::canonical_param_type`)
+  - `method_name_from_signature` (5 inline implementations → one helper with doctest)
+  - `BUILTIN_LIBRARY_BASES` (3 inline `matches!` → the canonical `pub(crate)` const in `ir_context`)
+  - `MAX_CLIMB = 16` (2 local consts 36 lines apart → 1 module-level)
+  - `MAX_DECIMAL_EXPONENT = 1024` (now also reused by `power.rs` — was `MAX_LITERAL_POW_EXP`)
+- **`OutputConfig::nef_source()` method** replaces 3 inline
+  `config.nef_source_override.unwrap_or(config.input_file)` fallbacks.
+- **Dead code removed**: orphaned `src/ir/expressions/calls/builtins/helpers.rs`
+  (no `mod helpers;` declaration, zero callers), 2 unused `check_*`
+  validators in `erc_nep_patterns.rs`, dead
+  `SolidityError::is_recoverable`.
+- **Other minor cleanups**: removed 4 dead npm deps + add lean-build
+  CI gate (`e8787df`, `7c733bf`); hardened production `unreachable!`
+  /`expect` to recoverable errors (`2473e5f`); B2+C2+P3 fix batch
+  (restore `from_contract` for tests, fix `multiSigTransfer` API,
+  dedup p256 dep listing — `30d6301`); NEP compliance docs verified
+  (`77aec5a`).
+
+### v0.23 audit validation (back-port pass)
+
+The 10 v0.23 audit items claimed fixed in v0.23.0 all remain green:
+S7, M-DEV1, M-IR2, M-IR3 (deliberately omitted — documented why),
+M-TEST1, M-TEST3, M-INT4, M-INT6, S5, S6. Diff-harness B2+C2
+corrections landed in `30d6301`.
+
+---
+
 ## [v0.23.0] - 2026-06-24
 
 Deep-refactor & correctness release: a systematic 7-phase codebase review

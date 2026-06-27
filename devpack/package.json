@@ -1,6 +1,6 @@
 {
   "name": "@neo-devpack-solidity/contracts",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "description": "Complete Neo N3 development framework for Solidity smart contracts",
   "repository": {
     "type": "git",
