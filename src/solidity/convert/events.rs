@@ -41,19 +41,10 @@ pub(crate) fn normalize_event_signature(
     name: &str,
     params: &[crate::frontend::EventParameterIR],
 ) -> String {
-    fn canonical_param_type(ty: &str) -> String {
-        let mut parts = ty.split_whitespace();
-        match parts.next() {
-            Some("struct" | "enum") => parts.next().unwrap_or_default().to_string(),
-            Some(first) => first.to_string(),
-            None => String::new(),
-        }
-    }
-
     let base = name.trim().to_ascii_lowercase();
     let param_types: Vec<String> = params
         .iter()
-        .map(|param| canonical_param_type(&param.ty).to_ascii_lowercase())
+        .map(|param| crate::utils::canonical_param_type(&param.ty).to_ascii_lowercase())
         .collect();
 
     // `event Foo` with no parameters is valid Solidity syntax (treated as Foo()).

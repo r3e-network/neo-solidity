@@ -19,9 +19,11 @@ pub(crate) fn lower_power_expression(
             // any legal use is well under the cap. Above the cap we
             // fall through to the runtime-loop lowering below, which is
             // bounded by the executing contract's gas budget rather than
-            // the compiler's memory.
-            const MAX_LITERAL_POW_EXP: u32 = 1024;
-            if exp <= MAX_LITERAL_POW_EXP {
+            // the compiler's memory. Reuses `MAX_DECIMAL_EXPONENT` from
+            // `ir::ir_build` (the re-export of `build/literals.rs`) so
+            // the two exponent limits stay in lockstep — a single source
+            // of truth.
+            if exp <= crate::ir::ir_build::MAX_DECIMAL_EXPONENT {
                 let mut result = BigInt::one();
                 for _ in 0..exp {
                     result *= &base;

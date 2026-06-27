@@ -181,13 +181,7 @@ pub(crate) fn resolve_selector_method_name(
             if let Expression::Variable(id) = func.as_ref() {
                 if id.name == "keccak256" && args.len() == 1 {
                     if let Some(signature) = extract_signature_string(&args[0]) {
-                        let name = signature
-                            .split('(')
-                            .next()
-                            .unwrap_or(signature.as_str())
-                            .trim()
-                            .to_string();
-                        if !name.is_empty() {
+                        if let Some(name) = crate::utils::method_name_from_signature(&signature) {
                             return Some(name);
                         }
                     }

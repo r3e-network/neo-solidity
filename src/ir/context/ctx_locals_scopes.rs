@@ -3,7 +3,13 @@ use super::*;
 impl<'a> LoweringContext<'a> {
     pub(crate) fn next_label(&mut self) -> usize {
         let label = self.label_counter;
-        self.label_counter += 1;
+        // `label_counter` is `usize`; a real contract can never generate
+        // 2^64 labels. Use checked_add so the (impossible) overflow path
+        // surfaces with a clear panic rather than wrapping silently.
+        self.label_counter = self
+            .label_counter
+            .checked_add(1)
+            .expect("label counter overflow: contract exceeds usize::MAX labels");
         label
     }
 
@@ -28,7 +34,16 @@ impl<'a> LoweringContext<'a> {
 
     pub(crate) fn allocate_local(&mut self, name: String, value_type: Option<ValueType>) -> usize {
         let index = self.local_count as usize;
-        self.local_count = self.local_count.checked_add(1).unwrap_or(self.local_count);
+        // `local_count` is `u16` (NeoVM stack limit is also bounded), so a
+        // single function exceeding 65 536 locals is unrepresentable on
+        // chain. The previous `.unwrap_or(self.local_count)` silently
+        // returned the SAME index for two distinct locals on overflow,
+        // which would have them share a slot and corrupt state. Now the
+        // impossible case panics with an actionable message instead.
+        self.local_count = self
+            .local_count
+            .checked_add(1)
+            .expect("local slot count overflow: function exceeds u16::MAX (65 536) locals");
         if let Some(scope) = self.scope_stack.last_mut() {
             scope.push(name.clone());
         }

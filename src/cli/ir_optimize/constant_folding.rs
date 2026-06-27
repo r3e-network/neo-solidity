@@ -112,9 +112,10 @@ pub(crate) fn try_identity_elimination(
 }
 
 /// Ceiling (in bits) on the magnitude of any literal produced by constant
-/// folding. Mirrors `MAX_LITERAL_POW_EXP` in src/ir/expressions/power.rs:
-/// without a bound, a one-line source like `return 1 << 18000000000000000000;`
-/// makes the `Shl` fold allocate an exabyte-scale BigInt and abort the whole
+/// folding. Mirrors `MAX_DECIMAL_EXPONENT` in src/ir/build/literals.rs (also
+/// reused by `ir::expressions::power`): without a bound, a one-line source
+/// like `return 1 << 18000000000000000000;` makes the `Shl` fold allocate an
+/// exabyte-scale BigInt and abort the whole
 /// compiler (SIGABRT) at the default `-O2`, and even sub-abort shifts like
 /// `1 << 200000000` balloon the emitted .nef to tens of megabytes. Any legal
 /// uint256/int256 constant (and 512-bit intermediate products) is far below

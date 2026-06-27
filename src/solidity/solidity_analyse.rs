@@ -8,10 +8,7 @@ pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
 
 pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, SolidityError> {
     fn is_builtin_library_name(name: &str) -> bool {
-        matches!(
-            name,
-            "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
-        )
+        crate::ir::ir_context::BUILTIN_LIBRARY_BASES.contains(&name)
     }
 
     fn normalize_library_for_neo(mut contract: ContractIR) -> ContractIR {

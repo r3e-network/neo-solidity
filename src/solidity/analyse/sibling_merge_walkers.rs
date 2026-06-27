@@ -547,17 +547,7 @@ pub(crate) fn extract_static_method_name_from_payload_inner(expr: &Expression) -
                 "encodeWithSignature" => {
                     let first = args.first()?;
                     let signature = extract_static_signature_string(first)?;
-                    let name = signature
-                        .split('(')
-                        .next()
-                        .unwrap_or(signature.as_str())
-                        .trim()
-                        .to_string();
-                    if name.is_empty() {
-                        None
-                    } else {
-                        Some(name)
-                    }
+                    crate::utils::method_name_from_signature(&signature)
                 }
                 "encodeWithSelector" => {
                     let first = args.first()?;
@@ -623,16 +613,7 @@ pub(crate) fn extract_static_selector_method_name_inner(expr: &Expression) -> Op
                 }
                 if id.name == "keccak256" && args.len() == 1 {
                     let signature = extract_static_signature_string(&args[0])?;
-                    let name = signature
-                        .split('(')
-                        .next()
-                        .unwrap_or(signature.as_str())
-                        .trim()
-                        .to_string();
-                    if name.is_empty() {
-                        return None;
-                    }
-                    return Some(name);
+                    return crate::utils::method_name_from_signature(&signature);
                 }
             }
             None

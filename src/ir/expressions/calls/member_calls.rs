@@ -383,10 +383,7 @@ pub(crate) fn try_lower_member_call(
                 // resolution didn't match the member, do not fall back to calling an internal
                 // function with the same name (which can silently miscompile into recursion).
                 if static_library_base.as_deref().is_some_and(|base| {
-                    matches!(
-                        base,
-                        "Runtime" | "abi" | "Storage" | "Syscalls" | "Neo" | "NativeCalls"
-                    )
+                    crate::ir::ir_context::BUILTIN_LIBRARY_BASES.contains(&base)
                 }) {
                     let base = static_library_base.as_deref().unwrap_or("<library>");
                     let mut message =

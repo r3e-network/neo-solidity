@@ -190,18 +190,12 @@ pub(crate) fn parse_low_level_call_data<'a>(
 							.to_string()
 					})?;
 
-                    let name = signature
-                        .split('(')
-                        .next()
-                        .unwrap_or(signature.as_str())
-                        .trim()
-                        .to_string();
-                    if name.is_empty() {
+                    let Some(name) = crate::utils::method_name_from_signature(&signature) else {
                         return Err(
                             "abi.encodeWithSignature signature must include a function name"
                                 .to_string(),
                         );
-                    }
+                    };
                     Ok(Some((name, rest.iter().collect())))
                 }
                 "encodeWithSelector" => {

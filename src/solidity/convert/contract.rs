@@ -115,7 +115,7 @@ pub(crate) fn convert_contract(
                 let param_signatures: Vec<String> = method
                     .parameters
                     .iter()
-                    .map(|param| canonical_param_type(&param.ty))
+                    .map(|param| crate::utils::canonical_param_type(&param.ty))
                     .collect();
                 method.neo_name = if param_signatures.is_empty() {
                     format!("{name}()")
@@ -339,7 +339,7 @@ pub(crate) fn synthesize_public_getters(
         }
         let param_signatures: Vec<String> = parameters
             .iter()
-            .map(|param| canonical_param_type(&param.ty))
+            .map(|param| crate::utils::canonical_param_type(&param.ty))
             .collect();
         let selector = compute_function_selector(&name, &param_signatures);
 

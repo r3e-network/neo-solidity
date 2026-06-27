@@ -67,7 +67,7 @@ pub(crate) fn resolve_builtin_call(expr: &Expression) -> Option<BuiltinCall> {
 
 /// The builtin-library base names the compiler lowers as intrinsics
 /// (their devpack Solidity bodies are never compiled).
-pub const BUILTIN_LIBRARY_BASES: &[&str] = &[
+pub(crate) const BUILTIN_LIBRARY_BASES: &[&str] = &[
     "Runtime",
     "abi",
     "Storage",
@@ -710,11 +710,10 @@ mod devpack_intrinsic_surface_tests {
             let Some(rest) = trimmed.strip_prefix("function ") else {
                 continue;
             };
-            let Some(name) = rest.split('(').next() else {
+            let Some(name) = crate::utils::method_name_from_signature(rest) else {
                 continue;
             };
-            let name = name.trim();
-            if name.is_empty() || name.starts_with('_') {
+            if name.starts_with('_') {
                 continue;
             }
             // The visibility keyword may appear on the declaration line or a
@@ -722,7 +721,7 @@ mod devpack_intrinsic_surface_tests {
             if trimmed.contains(" private ") || trimmed.ends_with(" private") {
                 continue;
             }
-            names.push(name.to_string());
+            names.push(name.clone());
         }
         names
     }

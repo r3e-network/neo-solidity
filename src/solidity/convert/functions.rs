@@ -60,7 +60,7 @@ pub(crate) fn convert_function(
 
         let param_signatures: Vec<String> = parameters
             .iter()
-            .map(|param| canonical_param_type(&param.ty))
+            .map(|param| crate::utils::canonical_param_type(&param.ty))
             .collect();
         let selector = compute_function_selector(&name, &param_signatures);
 
@@ -120,7 +120,7 @@ pub(crate) fn convert_function(
         .iter()
         .map(|param| match &param.neo_type {
             Some(neo_type) => neo_type.canonical_abi_type(),
-            None => canonical_param_type(&param.ty),
+            None => crate::utils::canonical_param_type(&param.ty),
         })
         .collect();
 

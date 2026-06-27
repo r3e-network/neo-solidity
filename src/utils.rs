@@ -32,6 +32,29 @@ pub fn canonical_param_type_simple(ty: &str) -> String {
     ty.split_whitespace().next().unwrap_or_default().to_string()
 }
 
+/// Extract the method name from a `name(args)` signature string.
+///
+/// Returns `None` if the signature is empty after trimming — a missing
+/// name is treated as a malformed input, not a successful empty-string
+/// match. Used by the four call sites that accept Solidity-style
+/// `encodeWithSignature(...)` / `keccak256(...)` arguments and need the
+/// bare method name without the parameter list. Centralising this here
+/// removes five near-identical inline implementations that previously
+/// drifted apart in subtle ways (some returned `""`, some returned
+/// the whole signature, some used `split_once` etc).
+///
+/// # Examples
+/// ```
+/// use neo_devpack_solidity::utils::method_name_from_signature;
+/// assert_eq!(method_name_from_signature("transfer(address,uint256)"), Some("transfer".to_string()));
+/// assert_eq!(method_name_from_signature("name"), Some("name".to_string()));
+/// assert_eq!(method_name_from_signature(""), None);
+/// ```
+pub fn method_name_from_signature(signature: &str) -> Option<String> {
+    let name = signature.split('(').next().unwrap_or(signature).trim();
+    (!name.is_empty()).then(|| name.to_string())
+}
+
 /// Task #106 — Convert a Solidity type string to its EVM-canonical ABI
 /// signature form, expanding struct types into parenthesized tuple
 /// representations.

@@ -1,13 +1,8 @@
 use super::*;
 
-pub(crate) fn canonical_param_type(ty: &str) -> String {
-    let mut parts = ty.split_whitespace();
-    match parts.next() {
-        Some("struct" | "enum") => parts.next().unwrap_or_default().to_string(),
-        Some(first) => first.to_string(),
-        None => String::new(),
-    }
-}
+// `canonical_param_type` lives in `crate::utils`; import it rather than
+// duplicating the body (which used to drift in subtle ways, e.g. when
+// struct/enum special handling was added).
 
 pub(crate) fn compute_function_selector(name: &str, param_types: &[String]) -> [u8; 4] {
     if name.eq_ignore_ascii_case("constructor") {

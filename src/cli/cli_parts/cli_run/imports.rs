@@ -4,6 +4,13 @@ use solang_parser::pt::{Import, ImportPath, SourceUnitPart};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
+/// Bound the `start`-directory upward climb so degenerate paths
+/// (`/a/b/c/...` with hundreds of components) can't make us stat the
+/// filesystem forever. Real-world Solidity projects sit a few
+/// directories deep. Shared by `extend_with_auto_node_modules` and
+/// `extend_with_auto_remappings` so they cannot drift apart.
+const MAX_CLIMB: usize = 16;
+
 #[derive(Debug, Clone)]
 pub(crate) struct ResolvedSoliditySources {
     pub(crate) files: Vec<(PathBuf, String)>,
@@ -425,11 +432,6 @@ pub(crate) fn virtual_dir_under(from_dir: &Path, root: &Path) -> Option<PathBuf>
 /// the whole machine. This mirrors solc / hardhat / foundry's
 /// "search-up-for-node_modules" behaviour for npm-style imports.
 pub(crate) fn extend_with_auto_node_modules(start: &Path, out: &mut Vec<PathBuf>) {
-    // Bound the climb to a sensible depth so degenerate paths (`/a/b/c/...`
-    // with hundreds of components) can't make us stat the filesystem
-    // forever. Real-world Solidity projects sit a few directories deep.
-    const MAX_CLIMB: usize = 16;
-
     let initial = if start.is_file() {
         start.parent().map(Path::to_path_buf)
     } else {
@@ -464,7 +466,6 @@ pub(crate) fn extend_with_auto_node_modules(start: &Path, out: &mut Vec<PathBuf>
 /// package, so `import "permit2/src/..."` from a vendored v4-periphery
 /// contract only resolves once that file is loaded.
 pub(crate) fn extend_with_auto_remappings(start: &Path, out: &mut Vec<ImportRemapping>) {
-    const MAX_CLIMB: usize = 16;
     let initial = if start.is_file() {
         start.parent().map(Path::to_path_buf)
     } else {

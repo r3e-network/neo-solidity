@@ -52,6 +52,16 @@ pub(crate) struct OutputConfig<'a> {
     pub(crate) json_warnings: bool,
 }
 
+impl<'a> OutputConfig<'a> {
+    /// Resolve the source path string written into the emitted NEF header.
+    /// Falls back to the compiled input file when the caller did not
+    /// override it. Centralised so the three format branches below cannot
+    /// drift apart.
+    fn nef_source(&self) -> &str {
+        self.nef_source_override.unwrap_or(self.input_file)
+    }
+}
+
 pub(crate) fn write_contract_outputs(
     artifacts: &[CompilationArtifacts],
     config: &OutputConfig<'_>,
@@ -75,7 +85,7 @@ pub(crate) fn write_contract_outputs(
                     &nef_path,
                     &artifact.bytecode,
                     &artifact.tokens,
-                    config.nef_source_override.unwrap_or(config.input_file),
+                    config.nef_source(),
                     config.json_warnings,
                 ) {
                     Ok(checksum) => checksum,
@@ -123,7 +133,7 @@ pub(crate) fn write_contract_outputs(
                     &nef_path,
                     &artifact.bytecode,
                     &artifact.tokens,
-                    config.nef_source_override.unwrap_or(config.input_file),
+                    config.nef_source(),
                     config.json_warnings,
                 ) {
                     Ok(checksum) => checksum,
@@ -165,7 +175,7 @@ pub(crate) fn write_contract_outputs(
                     &artifact.tokens,
                     &artifact.manifest,
                     &artifact.metadata,
-                    config.nef_source_override.unwrap_or(config.input_file),
+                    config.nef_source(),
                     config.json_warnings,
                 ) {
                     emit_error(&err, "OUTPUT_WRITE_ERROR", config.json_errors);

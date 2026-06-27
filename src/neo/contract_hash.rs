@@ -67,6 +67,14 @@ fn hash160(data: &[u8]) -> [u8; 20] {
     out
 }
 
+/// Emit a NeoVM PUSHDATA1 / PUSHDATA2 / PUSHDATA4 + payload. Bytecode-
+/// identical to `cli::bytecode::bytecode_builtins::data::push_data` but
+/// kept local: exposing it from the `cli` module would widen its
+/// visibility (currently private) just to share 13 lines of stable,
+/// well-tested opcode emission. The duplication risk is small because
+/// the compiler pipeline drives both call sites through the same
+/// deployment path; any divergence would surface immediately in the
+/// `compute_contract_hash` unit tests.
 fn emit_push_bytes(script: &mut Vec<u8>, data: &[u8]) {
     if data.len() <= u8::MAX as usize {
         script.push(0x0C); // PUSHDATA1

@@ -16,7 +16,7 @@ use solang_parser::pt::{
 use std::collections::{HashMap, HashSet};
 
 mod ir_build;
-mod ir_context;
+pub(crate) mod ir_context;
 mod ir_deploy;
 mod ir_expressions;
 mod ir_statements;
