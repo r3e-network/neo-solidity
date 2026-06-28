@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 /// Canonical NeoVM stack-item type for a mapping-key value of the given
 /// Solidity type, or `None` when no canonicalization applies.
@@ -64,10 +65,10 @@ pub(crate) fn emit_mapping_slot(
     push_data(bytecode, &base_slot);
 
     for key_type in key_types {
-        bytecode.push(0x50); // swap slot <-> key
+        bytecode.push(OpCode::SWAP.byte()); // swap slot <-> key
         emit_serialize_key(bytecode, key_type, use_callt, token_patches);
-        bytecode.push(0x50); // swap key_bytes <-> slot
-        bytecode.push(0x8B); // concatenate key and slot
+        bytecode.push(OpCode::SWAP.byte()); // swap key_bytes <-> slot
+        bytecode.push(OpCode::CAT.byte()); // concatenate key and slot
         emit_native_contract_call(
             bytecode,
             ir::NativeContract::CryptoLib,
@@ -98,8 +99,8 @@ pub(crate) fn emit_struct_field_slot(
     );
     for field_key in field_keys {
         push_data(bytecode, field_key);
-        bytecode.push(0x50); // swap slot and field key bytes
-        bytecode.push(0x8B); // concatenate
+        bytecode.push(OpCode::SWAP.byte()); // swap slot and field key bytes
+        bytecode.push(OpCode::CAT.byte()); // concatenate
         emit_native_contract_call(
             bytecode,
             ir::NativeContract::CryptoLib,
@@ -196,7 +197,7 @@ pub(crate) fn emit_store_mapping_array_deep_copy(
     );
     // `emit_mapping_slot` leaves `[array, slot]`; the helper below expects
     // `[slot, array]`.
-    bytecode.push(0x50); // SWAP
+    bytecode.push(OpCode::SWAP.byte());
     emit_store_array_value_deep_copy(bytecode, use_callt, token_patches);
 }
 
@@ -212,22 +213,22 @@ pub(crate) fn emit_store_array_value_deep_copy(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
-    bytecode.push(0x4A); // DUP -> [..., slot, array, array]
-    bytecode.push(0xCA); // SIZE -> [..., slot, array, length]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, array]
+    bytecode.push(OpCode::SIZE.byte()); // SIZE -> [..., slot, array, length]
 
     let loop_start_pos = bytecode.len();
 
-    bytecode.push(0x4A); // DUP -> [..., slot, array, i, i]
-    bytecode.push(0x10); // PUSH0 -> [..., slot, array, i, i, 0]
-    bytecode.push(0x97); // EQUAL -> [..., slot, array, i, (i==0)]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, i, i]
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 -> [..., slot, array, i, i, 0]
+    bytecode.push(OpCode::EQUAL.byte()); // EQUAL -> [..., slot, array, i, (i==0)]
     let jmp_exit_pos = bytecode.len();
-    bytecode.push(0x25); // JMPIF_L
+    bytecode.push(OpCode::JMPIF_L.byte());
     let jmp_exit_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
-    bytecode.push(0x9D); // DEC -> [..., slot, array, current]
+    bytecode.push(OpCode::DEC.byte()); // DEC -> [..., slot, array, current]
 
-    bytecode.push(0x4A); // DUP -> [..., slot, array, current, current]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, current, current]
     emit_serialize_key(
         bytecode,
         &ValueType::Integer {
@@ -237,9 +238,9 @@ pub(crate) fn emit_store_array_value_deep_copy(
         use_callt,
         token_patches,
     );
-    bytecode.push(0x13); // PUSH3
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, current_bytes, slot]
-    bytecode.push(0x8B); // CAT
+    bytecode.push(OpCode::PUSH3.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, current_bytes, slot]
+    bytecode.push(OpCode::CAT.byte());
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::CryptoLib,
@@ -249,18 +250,18 @@ pub(crate) fn emit_store_array_value_deep_copy(
         token_patches,
     );
 
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array]
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array, current]
-    bytecode.push(0xCE); // PICKITEM -> [..., slot, array, current, element_slot, array[current]]
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, element_slot, array]
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, element_slot, array, current]
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [..., slot, array, current, element_slot, array[current]]
 
-    bytecode.push(0x50); // SWAP -> [..., slot, array, current, array[current], element_slot]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [..., slot, array, current, array[current], element_slot]
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");
 
     let jmp_back_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_back_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
     let rel_back = (loop_start_pos as i32)
@@ -274,9 +275,9 @@ pub(crate) fn emit_store_array_value_deep_copy(
         .unwrap_or(0);
     bytecode[jmp_exit_operand..jmp_exit_operand + 4].copy_from_slice(&rel_exit.to_le_bytes());
 
-    bytecode.push(0x45); // DROP -> [..., slot, array]
-    bytecode.push(0xCA); // SIZE -> [..., slot, length]
-    bytecode.push(0x50); // SWAP -> [..., length, slot]
+    bytecode.push(OpCode::DROP.byte()); // DROP -> [..., slot, array]
+    bytecode.push(OpCode::SIZE.byte()); // SIZE -> [..., slot, length]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [..., length, slot]
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");
 }
@@ -309,10 +310,10 @@ pub(crate) fn emit_struct_field_mapping_slot(
     );
     // Stack now: [trailing_keyN, ..., trailing_key0, field_slot].
     for key_type in slot.trailing_key_types {
-        bytecode.push(0x50); // swap slot <-> key
+        bytecode.push(OpCode::SWAP.byte()); // swap slot <-> key
         emit_serialize_key(bytecode, key_type, slot.use_callt, token_patches);
-        bytecode.push(0x50); // swap key_bytes <-> slot
-        bytecode.push(0x8B); // CAT
+        bytecode.push(OpCode::SWAP.byte()); // swap key_bytes <-> slot
+        bytecode.push(OpCode::CAT.byte());
         emit_native_contract_call(
             bytecode,
             ir::NativeContract::CryptoLib,

@@ -1,6 +1,7 @@
 use super::constants::MAX_SOURCE_LENGTH;
 use super::encoding::calculate_checksum;
 use super::*;
+use crate::opcode::OpCode;
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
@@ -19,7 +20,7 @@ fn read_varint(data: &[u8], offset: &mut usize) -> u64 {
         0xFF => {
             let start = *offset + 1;
             *offset += 9;
-            u64::from_le_bytes(data[start..start + 8].try_into().unwrap())
+            u64::from_le_bytes(data[start..start + 8].try_into().unwrap()) as u64
         }
         value => {
             *offset += 1;
@@ -30,7 +31,7 @@ fn read_varint(data: &[u8], offset: &mut usize) -> u64 {
 
 #[test]
 fn builds_nef_payload_matching_spec() {
-    let script = vec![0x0C, 0x01, 0x2A, 0x40];
+    let script = vec![OpCode::PUSHDATA1.byte(), 0x01, 0x2A, OpCode::RET.byte()];
     let token = MethodToken::new([0x11; 20], "transfer", 2, true, 0x07);
     let source = "https://example.com/src.sol";
     let compiler = "neo-devpack-solidity-test";
@@ -104,7 +105,7 @@ fn builds_nef_payload_matching_spec() {
 
 #[test]
 fn rejects_invalid_call_flags() {
-    let script = vec![0x40];
+    let script = vec![OpCode::RET.byte()];
     let bad_token = MethodToken::new([0x22; 20], "x", 0, false, 0x80);
     let result = build_nef_with_tokens(&script, "compiler", "", &[bad_token]);
     assert!(result.is_err(), "expected Err for invalid call flags");
@@ -116,7 +117,7 @@ fn rejects_invalid_call_flags() {
 
 #[test]
 fn clamps_long_source_field() {
-    let script = vec![0x40];
+    let script = vec![OpCode::RET.byte()];
     let long_source = "a".repeat(MAX_SOURCE_LENGTH + 20);
     let nef = build_nef_with_tokens(&script, "compiler", &long_source, &[]).unwrap();
     let mut offset = 4 + 64; // magic + compiler
@@ -140,12 +141,12 @@ fn computes_contract_hash_for_small_checksum_matches_hash160_of_scriptbuilder_pa
     //   PUSH checksum (Integer)
     //   PUSH name (String)
     let mut script = Vec::new();
-    script.push(0x38); // ABORT
-    script.push(0x0C); // PUSHDATA1
+    script.push(OpCode::ABORT.byte());
+    script.push(OpCode::PUSHDATA1.byte());
     script.push(20);
     script.extend_from_slice(&sender);
-    script.push(0x11); // PUSH1
-    script.push(0x0C); // PUSHDATA1
+    script.push(OpCode::PUSH1.byte());
+    script.push(OpCode::PUSHDATA1.byte());
     script.push(name.len() as u8);
     script.extend_from_slice(name.as_bytes());
 
@@ -163,16 +164,16 @@ fn computes_contract_hash_for_large_checksum_matches_hash160_of_scriptbuilder_pa
     let computed = compute_contract_hash(sender, checksum, name);
 
     let mut script = Vec::new();
-    script.push(0x38); // ABORT
-    script.push(0x0C); // PUSHDATA1
+    script.push(OpCode::ABORT.byte());
+    script.push(OpCode::PUSHDATA1.byte());
     script.push(20);
     script.extend_from_slice(&sender);
 
     // u32::MAX does not fit in signed i32, so ScriptBuilder uses a wider PUSHINT.
-    script.push(0x03); // PUSHINT64
+    script.push(OpCode::PUSHINT64.byte());
     script.extend_from_slice(&(checksum as i64).to_le_bytes());
 
-    script.push(0x0C); // PUSHDATA1
+    script.push(OpCode::PUSHDATA1.byte());
     script.push(1);
     script.extend_from_slice(b"C");
 

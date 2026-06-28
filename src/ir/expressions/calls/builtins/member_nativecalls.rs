@@ -189,7 +189,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
 
     match member.name.as_str() {
         "getCommittee" => {
-            if let Some(false) = check_arg_count(ctx, "getCommittee", args, 0) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getCommittee", args, 0) {
+                return Some(false);
+            }
 
             // Neo native contract exposes committee members as ECPoint public keys.
             // The NativeCalls devpack returns `address[]`, so convert to UInt160 standard
@@ -266,7 +268,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isCommittee" => {
-            if let Some(false) = check_arg_count(ctx, "isCommittee", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "isCommittee", args, 1) {
+                return Some(false);
+            }
 
             // Neo native contract exposes committee members as ECPoint public keys. Derive
             // standard accounts via System.Contract.CreateStandardAccount and compare with
@@ -350,7 +354,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNextBlockValidators" => {
-            if let Some(false) = check_arg_count(ctx, "getNextBlockValidators", args, 0) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getNextBlockValidators", args, 0) {
+                return Some(false);
+            }
 
             // Neo native contract exposes validators as ECPoint public keys.
             // The NativeCalls devpack returns `address[]`, so convert to UInt160 standard
@@ -427,7 +433,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isValidator" => {
-            if let Some(false) = check_arg_count(ctx, "isValidator", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "isValidator", args, 1) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let account_slot = ctx.allocate_local(
@@ -508,7 +516,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "isNativeContract" => {
-            if let Some(false) = check_arg_count(ctx, "isNativeContract", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "isNativeContract", args, 1) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -525,7 +535,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNativeContractName" => {
-            if let Some(false) = check_arg_count(ctx, "getNativeContractName", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getNativeContractName", args, 1) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -542,7 +554,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getAllNativeContracts" => {
-            if let Some(false) = check_arg_count(ctx, "getAllNativeContracts", args, 0) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getAllNativeContracts", args, 0) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contracts_slot = ctx.allocate_local(
@@ -573,7 +587,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "estimateNativeCallGas" => {
-            if let Some(false) = check_arg_count(ctx, "estimateNativeCallGas", args, 3) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "estimateNativeCallGas", args, 3) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(
@@ -735,7 +751,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "batchNativeCalls" => {
-            if let Some(false) = check_arg_count(ctx, "batchNativeCalls", args, 3) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "batchNativeCalls", args, 3) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contracts_slot = ctx.allocate_local(
@@ -929,7 +947,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getContractById" => {
-            if let Some(false) = check_arg_count(ctx, "getContractById", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getContractById", args, 1) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let state_slot = ctx.allocate_local(
@@ -1021,7 +1041,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNetworkConfiguration" => {
-            if let Some(false) = check_arg_count(ctx, "getNetworkConfiguration", args, 0) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getNetworkConfiguration", args, 0) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let config_slot = ctx.allocate_local(
@@ -1125,7 +1147,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "getNativeContractManifest" => {
-            if let Some(false) = check_arg_count(ctx, "getNativeContractManifest", args, 1) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "getNativeContractManifest", args, 1) {
+                return Some(false);
+            }
 
             if !lower_expression(&args[0], ctx, instructions) {
                 return Some(false);
@@ -1141,7 +1165,9 @@ pub(crate) fn try_lower_nativecalls_member_builtin(
             Some(true)
         }
         "safeNativeCall" => {
-            if let Some(false) = check_arg_count(ctx, "safeNativeCall", args, 3) { return Some(false); }
+            if let Some(false) = check_arg_count(ctx, "safeNativeCall", args, 3) {
+                return Some(false);
+            }
 
             let tmp_id = ctx.next_label();
             let contract_slot = ctx.allocate_local(

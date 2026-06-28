@@ -1,15 +1,16 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_new_array(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xC3); // NEWARRAY
+    bytecode.push(OpCode::NEWARRAY.byte());
 }
 
 pub(crate) fn emit_array_get(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xCE); // PICKITEM
+    bytecode.push(OpCode::PICKITEM.byte());
 }
 
 pub(crate) fn emit_array_set(bytecode: &mut Vec<u8>) {
-    bytecode.push(0xD0); // SETITEM
+    bytecode.push(OpCode::SETITEM.byte());
 }
 
 pub(crate) fn emit_load_runtime_value(
@@ -43,30 +44,30 @@ pub(crate) fn emit_load_runtime_value(
             // Push CallingScriptHash, then test against EntryScriptHash and
             // ContractManagement.Hash. The result is whether either match.
             emit_syscall(bytecode, "System.Runtime.GetCallingScriptHash");
-            bytecode.push(0x4A); // DUP — keep one copy for the actual return path
+            bytecode.push(OpCode::DUP.byte()); // DUP — keep one copy for the actual return path
 
             // First test: == EntryScriptHash
             emit_syscall(bytecode, "System.Runtime.GetEntryScriptHash");
-            bytecode.push(0x97); // EQUAL
+            bytecode.push(OpCode::EQUAL.byte());
 
             // Second test: == ContractManagement.Hash (LE bytes)
             // Stack: [calling_dup, calling_eq_entry?]
-            bytecode.push(0x50); // SWAP — bring calling_dup back to top
-                                 // PUSHDATA1 0x14 (20-byte hash, LE):
-            bytecode.push(0x0C); // PUSHDATA1
+            bytecode.push(OpCode::SWAP.byte()); // SWAP — bring calling_dup back to top
+                                                // PUSHDATA1 0x14 (20-byte hash, LE):
+            bytecode.push(OpCode::PUSHDATA1.byte());
             bytecode.push(0x14); // length 20
             bytecode.extend_from_slice(&[
                 0xFD, 0xA3, 0xFA, 0x43, 0x46, 0xEA, 0x53, 0x2A, 0x25, 0x8F, 0xC4, 0x97, 0xDD, 0xAD,
                 0xDB, 0x64, 0x37, 0xC9, 0xFD, 0xFF,
             ]);
-            bytecode.push(0x97); // EQUAL — calling == ContractManagement?
+            bytecode.push(OpCode::EQUAL.byte()); // EQUAL — calling == ContractManagement?
 
             // OR the two boolean results.
-            bytecode.push(0xAC); // BOOLOR
+            bytecode.push(OpCode::BOOLOR.byte());
 
             // if !(use_tx_sender) jump to "else" (return CallingScriptHash directly).
             let jmp_if_not_pos = bytecode.len();
-            bytecode.push(0x27); // JMPIFNOT_L
+            bytecode.push(OpCode::JMPIFNOT_L.byte());
             let jmp_if_not_operand = bytecode.len();
             bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -75,11 +76,11 @@ pub(crate) fn emit_load_runtime_value(
             // Neo N3 Transaction stack item layout (devpack order):
             //   [Hash, Version, Nonce, Sender, ...]
             push_integer_bigint(bytecode, &BigInt::from(3u8));
-            bytecode.push(0xCE); // PICKITEM (Transaction.Sender field)
+            bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM (Transaction.Sender field)
 
             // jump to end
             let jmp_end_pos = bytecode.len();
-            bytecode.push(0x23); // JMP_L
+            bytecode.push(OpCode::JMP_L.byte());
             let jmp_end_operand = bytecode.len();
             bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -109,7 +110,7 @@ pub(crate) fn emit_load_runtime_value(
             // `onNEP11Payment`, not as an ambient `msg.value`. So `msg.value`
             // lowers to the conformant constant 0 (PUSH0); contracts that need a
             // received amount must read their payment-callback argument.
-            bytecode.push(0x10); // PUSH0
+            bytecode.push(OpCode::PUSH0.byte());
         }
         ir::RuntimeValue::MsgData => {
             // Solidity `msg.data` == the raw calldata bytes the runtime received at
@@ -120,21 +121,21 @@ pub(crate) fn emit_load_runtime_value(
             // (see src/runtime/execution/syscalls/runtime.rs "GetScriptContainer").
             emit_syscall(bytecode, "System.Runtime.GetScriptContainer");
             push_integer_bigint(bytecode, &BigInt::from(7u8));
-            bytecode.push(0xCE); // PICKITEM — Transaction.Script (input_data)
+            bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM — Transaction.Script (input_data)
         }
         ir::RuntimeValue::TxOrigin => {
             emit_syscall(bytecode, "System.Runtime.GetScriptContainer");
             // Neo N3 Transaction stack item layout (devpack order):
             // [Hash, Version, Nonce, Sender, ...]
             push_integer_bigint(bytecode, &BigInt::from(3u8));
-            bytecode.push(0xCE); // PICKITEM (Transaction.Sender field)
+            bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM (Transaction.Sender field)
         }
         // Neo's System.Runtime.GetTime returns milliseconds since epoch, while Solidity's
         // block.timestamp is seconds. Normalize here to preserve Solidity semantics.
         ir::RuntimeValue::BlockTimestamp => {
             emit_syscall(bytecode, "System.Runtime.GetTime");
             push_integer_bigint(bytecode, &BigInt::from(1000u64));
-            bytecode.push(0xA1); // DIV
+            bytecode.push(OpCode::DIV.byte());
         }
         ir::RuntimeValue::BlockNumber => {
             emit_native_contract_call(

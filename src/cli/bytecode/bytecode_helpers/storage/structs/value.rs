@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_load_struct_value_from_slot(
     bytecode: &mut Vec<u8>,
@@ -9,7 +10,7 @@ pub(crate) fn emit_load_struct_value_from_slot(
     // Stack before: [base_slot]
     // Stack after:  [struct_array]
     push_integer_bigint(bytecode, &BigInt::from(fields.len() as u64));
-    bytecode.push(0xC3); // NEWARRAY
+    bytecode.push(OpCode::NEWARRAY.byte());
 
     // Stack: [base_slot, out_array]
     for (field_index, field) in fields.iter().enumerate() {
@@ -19,14 +20,14 @@ pub(crate) fn emit_load_struct_value_from_slot(
         // stays at `fields.len()` entries and PICKITEM indices remain
         // aligned with the in-memory struct layout.
         if matches!(field.ty, ValueType::Mapping { .. }) {
-            bytecode.push(0x0B); // PUSHNULL
+            bytecode.push(OpCode::PUSHNULL.byte());
         } else {
             // Derive the field slot from the base slot:
             // field_slot = keccak256(field_key || base_slot)
-            bytecode.push(0x4B); // OVER (duplicate base_slot)
+            bytecode.push(OpCode::OVER.byte()); // OVER (duplicate base_slot)
             push_data(bytecode, &field.key);
-            bytecode.push(0x50); // SWAP -> [base_slot, out_array, field_key, base_slot]
-            bytecode.push(0x8B); // CAT
+            bytecode.push(OpCode::SWAP.byte()); // SWAP -> [base_slot, out_array, field_key, base_slot]
+            bytecode.push(OpCode::CAT.byte());
             emit_native_contract_call(
                 bytecode,
                 ir::NativeContract::CryptoLib,
@@ -50,16 +51,16 @@ pub(crate) fn emit_load_struct_value_from_slot(
         }
 
         // Set `out_array[field_index] = field_value`, preserving the array reference.
-        bytecode.push(0x4B); // OVER (duplicate out_array)
-        bytecode.push(0x50); // SWAP -> [base_slot, out_array, out_array, field_value]
+        bytecode.push(OpCode::OVER.byte()); // OVER (duplicate out_array)
+        bytecode.push(OpCode::SWAP.byte()); // SWAP -> [base_slot, out_array, out_array, field_value]
         push_integer_bigint(bytecode, &BigInt::from(field_index as u64));
-        bytecode.push(0x50); // SWAP -> [base_slot, out_array, out_array, idx, value]
-        bytecode.push(0xD0); // SETITEM
+        bytecode.push(OpCode::SWAP.byte()); // SWAP -> [base_slot, out_array, out_array, idx, value]
+        bytecode.push(OpCode::SETITEM.byte());
     }
 
     // Drop base_slot, leaving the struct array.
-    bytecode.push(0x50); // SWAP -> [out_array, base_slot]
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [out_array, base_slot]
+    bytecode.push(OpCode::DROP.byte());
 }
 
 pub(crate) fn emit_store_struct_value_to_slot(
@@ -80,10 +81,10 @@ pub(crate) fn emit_store_struct_value_to_slot(
             continue;
         }
         // Derive field_slot = keccak256(field_key || base_slot)
-        bytecode.push(0x4B); // OVER (duplicate base_slot)
+        bytecode.push(OpCode::OVER.byte()); // OVER (duplicate base_slot)
         push_data(bytecode, &field.key);
-        bytecode.push(0x50); // SWAP
-        bytecode.push(0x8B); // CAT
+        bytecode.push(OpCode::SWAP.byte());
+        bytecode.push(OpCode::CAT.byte());
         emit_native_contract_call(
             bytecode,
             ir::NativeContract::CryptoLib,
@@ -95,9 +96,9 @@ pub(crate) fn emit_store_struct_value_to_slot(
 
         // Stack: [base_slot, struct_array, field_slot]
         // Extract field_value = struct_array[field_index]
-        bytecode.push(0x4B); // OVER (duplicate struct_array)
+        bytecode.push(OpCode::OVER.byte()); // OVER (duplicate struct_array)
         push_integer_bigint(bytecode, &BigInt::from(field_index as u64));
-        bytecode.push(0xCE); // PICKITEM -> [base_slot, struct_array, field_slot, field_value]
+        bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [base_slot, struct_array, field_slot, field_value]
 
         match &field.ty {
             ValueType::Struct { fields, .. } => {
@@ -105,7 +106,7 @@ pub(crate) fn emit_store_struct_value_to_slot(
             }
             _ => {
                 // Store expects [value, key, context], so swap to put value on top of the slot.
-                bytecode.push(0x50); // SWAP -> [base_slot, struct_array, field_value, field_slot]
+                bytecode.push(OpCode::SWAP.byte()); // SWAP -> [base_slot, struct_array, field_value, field_slot]
                 emit_syscall(bytecode, "System.Storage.GetContext");
                 emit_syscall(bytecode, "System.Storage.Put");
             }
@@ -113,6 +114,6 @@ pub(crate) fn emit_store_struct_value_to_slot(
     }
 
     // Drop `[base_slot, struct_array]`.
-    bytecode.push(0x45); // DROP (struct_array)
-    bytecode.push(0x45); // DROP (base_slot)
+    bytecode.push(OpCode::DROP.byte()); // DROP (struct_array)
+    bytecode.push(OpCode::DROP.byte()); // DROP (base_slot)
 }

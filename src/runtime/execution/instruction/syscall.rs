@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 /// S2 fix — per-byte gas surcharge for `Storage.Put`.
 ///
@@ -133,7 +134,9 @@ impl ExecutionContext {
     }
 
     pub(crate) fn execute_syscall_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
-        if opcode != 0x41 {
+        const SYSCALL: u8 = OpCode::SYSCALL.byte();
+
+        if opcode != SYSCALL {
             return Ok(false);
         }
 

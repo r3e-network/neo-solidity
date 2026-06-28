@@ -23,6 +23,14 @@ pub mod cli;
 /// NEF/manifest building, parsing, method tokens, contract hashes.
 pub mod neo;
 
+/// Canonical Neo N3 VM [`OpCode`](opcode::OpCode) definitions.
+///
+/// Single source of truth for every NeoVM opcode byte used by the
+/// compiler, runtime simulator, and disassembler. See [`opcode`] for
+/// the enum and the helper constructors for indexed opcodes
+/// (`PUSH0..PUSH16`, `LDLOC0..LDLOC6`, `PUSHDATA1/2/4`, …).
+pub mod opcode;
+
 // === Internal / test-facing (hidden from docs) ===
 
 #[doc(hidden)]

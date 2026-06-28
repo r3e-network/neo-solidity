@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 use crate::runtime::types::StackItem;
 use hex;
 use proptest::prelude::*;
@@ -12,13 +13,13 @@ fn metadata_script() -> Vec<u8> {
     ];
     let mut script = Vec::with_capacity(syscalls.len() * 5 + 1);
     for name in syscalls {
-        script.push(0x41);
+        script.push(OpCode::SYSCALL.byte());
         let mut hasher = Sha256::new();
         hasher.update(name.as_bytes());
         let digest = hasher.finalize();
         script.extend_from_slice(&[digest[0], digest[1], digest[2], digest[3]]);
     }
-    script.push(0x40); // RET
+    script.push(OpCode::RET.byte());
     script
 }
 
@@ -309,10 +310,10 @@ fn test_override_caller_account_rejects_invalid_hex() {
 #[test]
 fn test_bitwise_not_uint256_zero_returns_all_ones() {
     // Bytecode: PUSHINT256 0 ; INVERT ; RET
-    let mut bytecode = vec![0x05u8];
+    let mut bytecode = vec![OpCode::PUSHINT256.byte()];
     bytecode.extend_from_slice(&[0u8; 32]);
-    bytecode.push(0x90); // INVERT
-    bytecode.push(0x40); // RET
+    bytecode.push(OpCode::INVERT.byte());
+    bytecode.push(OpCode::RET.byte());
 
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime.execute(&bytecode, &[]).expect("host ok");
@@ -334,16 +335,16 @@ fn test_bitwise_not_uint256_zero_returns_all_ones() {
 #[test]
 fn test_bitwise_or_wide_bytearray_accepts_operands() {
     // PUSHINT256 2^63 ; PUSHINT256 1 ; OR ; RET — previously rejected.
-    let mut bytecode = vec![0x05u8];
+    let mut bytecode = vec![OpCode::PUSHINT256.byte()];
     let mut lhs = [0u8; 32];
     lhs[7] = 0x80; // 2^63 in little-endian
     bytecode.extend_from_slice(&lhs);
-    bytecode.push(0x05);
+    bytecode.push(OpCode::PUSHINT256.byte());
     let mut rhs = [0u8; 32];
     rhs[0] = 0x01;
     bytecode.extend_from_slice(&rhs);
-    bytecode.push(0x92); // OR
-    bytecode.push(0x40); // RET
+    bytecode.push(OpCode::OR.byte());
+    bytecode.push(OpCode::RET.byte());
 
     let mut runtime = NeoRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime.execute(&bytecode, &[]).expect("host ok");

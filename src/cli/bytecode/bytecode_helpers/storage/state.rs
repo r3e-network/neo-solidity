@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_load_state(bytecode: &mut Vec<u8>, module: &ir::Module, index: usize) {
     let key = module
@@ -37,22 +38,22 @@ pub(crate) fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) 
     ) {
         // Stack before: [value]
         // After this block: [coerced_or_default]
-        bytecode.push(0x4A); // DUP
-        bytecode.push(0xD8); // ISNULL
+        bytecode.push(OpCode::DUP.byte());
+        bytecode.push(OpCode::ISNULL.byte());
 
         // if !(value is null) -> jump to not_null
         let jmp_not_null_pos = bytecode.len();
-        bytecode.push(0x27); // JMPIFNOT_L
+        bytecode.push(OpCode::JMPIFNOT_L.byte());
         let jmp_not_null_operand = bytecode.len();
         bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
         // null case: drop null and push default
-        bytecode.push(0x45); // DROP
+        bytecode.push(OpCode::DROP.byte());
         default_value(bytecode);
 
         // jump to end
         let jmp_end_pos = bytecode.len();
-        bytecode.push(0x23); // JMP_L
+        bytecode.push(OpCode::JMP_L.byte());
         let jmp_end_operand = bytecode.len();
         bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -61,24 +62,24 @@ pub(crate) fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) 
         // Treat an empty ByteString/Buffer (missing storage entry) as default.
         // Stack before: [value]
         // Stack after:  [value] (if not missing) or [default]
-        bytecode.push(0x4A); // DUP
-        bytecode.push(0xCA); // SIZE
-        bytecode.push(0x10); // PUSH0
-        bytecode.push(0x97); // EQUAL
+        bytecode.push(OpCode::DUP.byte());
+        bytecode.push(OpCode::SIZE.byte());
+        bytecode.push(OpCode::PUSH0.byte());
+        bytecode.push(OpCode::EQUAL.byte());
 
         // if !(size == 0) -> jump to not_missing
         let jmp_not_missing_pos = bytecode.len();
-        bytecode.push(0x27); // JMPIFNOT_L
+        bytecode.push(OpCode::JMPIFNOT_L.byte());
         let jmp_not_missing_operand = bytecode.len();
         bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
         // missing case: drop value and push default
-        bytecode.push(0x45); // DROP
+        bytecode.push(OpCode::DROP.byte());
         default_value(bytecode);
 
         // jump to end
         let jmp_end2_pos = bytecode.len();
-        bytecode.push(0x23); // JMP_L
+        bytecode.push(OpCode::JMP_L.byte());
         let jmp_end2_operand = bytecode.len();
         bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -116,24 +117,24 @@ pub(crate) fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) 
         ValueType::Integer { .. } => {
             with_null_default(
                 bytecode,
-                |bytecode| bytecode.push(0x10), // PUSH0
+                |bytecode| bytecode.push(OpCode::PUSH0.byte()),
                 |bytecode| {
                     // Coerce ByteString -> Integer via CONVERT.
                     // The old `ADD(ByteString, Integer(0))` approach
                     // concatenated on real NeoVM (mixed-type ADD → CAT),
                     // producing a 33-byte ByteString for 32-byte values.
-                    bytecode.push(0xDB); // CONVERT
-                    bytecode.push(0x21); // type = Integer
+                    bytecode.push(OpCode::CONVERT.byte());
+                    bytecode.push(0x21); // StackItem type tag = Integer
                 },
             );
         }
         ValueType::Boolean => {
             with_null_default(
                 bytecode,
-                |bytecode| bytecode.push(0x09), // PUSHF
+                |bytecode| bytecode.push(OpCode::PUSHF.byte()),
                 |bytecode| {
                     // Coerce ByteString -> Boolean via NZ.
-                    bytecode.push(0xB1); // NZ
+                    bytecode.push(OpCode::NZ.byte());
                 },
             );
         }
@@ -164,12 +165,12 @@ pub(crate) fn emit_coerce_storage_value(bytecode: &mut Vec<u8>, ty: &ValueType) 
         ValueType::Array(_) => {
             with_null_default(
                 bytecode,
-                |bytecode| bytecode.push(0x10), // PUSH0
+                |bytecode| bytecode.push(OpCode::PUSH0.byte()),
                 |bytecode| {
                     // Storage arrays store their length at the base slot. `System.Storage.Get` returns a
                     // ByteString, so coerce to Integer to keep slot hashing / arithmetic stable.
-                    bytecode.push(0x10); // PUSH0
-                    bytecode.push(0x9E); // ADD
+                    bytecode.push(OpCode::PUSH0.byte());
+                    bytecode.push(OpCode::ADD.byte());
                 },
             );
         }

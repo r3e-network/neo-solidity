@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn dispatch_exception(&mut self, message: String) -> Result<(), RuntimeError> {
@@ -94,8 +95,14 @@ impl ExecutionContext {
     }
 
     pub(crate) fn execute_flow_try_frames(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const TRY: u8 = OpCode::TRY.byte();
+        const TRY_L: u8 = OpCode::TRY_L.byte();
+        const ENDTRY: u8 = OpCode::ENDTRY.byte();
+        const ENDTRY_L: u8 = OpCode::ENDTRY_L.byte();
+        const ENDFINALLY: u8 = OpCode::ENDFINALLY.byte();
+
         match opcode {
-            0x3B => {
+            TRY => {
                 // TRY CatchOffset(sbyte) FinallyOffset(sbyte)
                 let catch_offset = self.read_i8_offset("TRY")? as i32;
                 let finally_offset = {
@@ -144,7 +151,7 @@ impl ExecutionContext {
 
                 self.instruction_pointer += 3;
             }
-            0x3C => {
+            TRY_L => {
                 // TRY_L CatchOffset(int) FinallyOffset(int)
                 let catch_offset = self.read_i32_offset("TRY_L")?;
                 let finally_offset = {
@@ -197,7 +204,7 @@ impl ExecutionContext {
 
                 self.instruction_pointer += 9;
             }
-            0x3D => {
+            ENDTRY => {
                 // ENDTRY: endOffset(sbyte)
                 if self.try_stack.is_empty() {
                     return Err(RuntimeError::ExecutionError {
@@ -232,7 +239,7 @@ impl ExecutionContext {
                     self.instruction_pointer = end_target;
                 }
             }
-            0x3E => {
+            ENDTRY_L => {
                 // ENDTRY_L: endOffset(int)
                 if self.try_stack.is_empty() {
                     return Err(RuntimeError::ExecutionError {
@@ -267,7 +274,7 @@ impl ExecutionContext {
                     self.instruction_pointer = end_target;
                 }
             }
-            0x3F => {
+            ENDFINALLY => {
                 // ENDFINALLY
                 let Some(frame) = self.try_stack.pop() else {
                     return Err(RuntimeError::ExecutionError {

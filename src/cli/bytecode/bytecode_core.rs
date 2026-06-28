@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CallPatchKind {
@@ -218,7 +219,7 @@ pub(crate) fn generate_contract_bytecode(
     }
 
     if bytecode.is_empty() {
-        bytecode.push(0x40); // RET
+        bytecode.push(OpCode::RET.byte());
     }
 
     let tokens = if use_callt {

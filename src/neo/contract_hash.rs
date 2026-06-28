@@ -1,3 +1,4 @@
+use crate::opcode::OpCode;
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
@@ -16,7 +17,7 @@ use sha2::{Digest, Sha256};
 /// Inputs and outputs use the VM byte order for UInt160 (little-endian 20 bytes).
 pub fn compute_contract_hash(sender_le: [u8; 20], nef_checksum: u32, name: &str) -> [u8; 20] {
     let mut script = Vec::new();
-    script.push(0x38); // ABORT
+    script.push(OpCode::ABORT.byte());
     emit_push_bytes(&mut script, &sender_le);
     emit_push_u32(&mut script, nef_checksum);
     emit_push_bytes(&mut script, name.as_bytes());
@@ -76,43 +77,45 @@ fn hash160(data: &[u8]) -> [u8; 20] {
 /// deployment path; any divergence would surface immediately in the
 /// `compute_contract_hash` unit tests.
 fn emit_push_bytes(script: &mut Vec<u8>, data: &[u8]) {
-    if data.len() <= u8::MAX as usize {
-        script.push(0x0C); // PUSHDATA1
-        script.push(data.len() as u8);
-    } else if data.len() <= u16::MAX as usize {
-        script.push(0x0D); // PUSHDATA2
-        script.extend_from_slice(&(data.len() as u16).to_le_bytes());
-    } else {
-        script.push(0x0E); // PUSHDATA4
-        script.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    script.push(OpCode::push_data(data.len()).byte());
+    match data.len() {
+        len if len <= u8::MAX as usize => {
+            script.push(data.len() as u8);
+        }
+        len if len <= u16::MAX as usize => {
+            script.extend_from_slice(&(data.len() as u16).to_le_bytes());
+        }
+        _ => {
+            script.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        }
     }
     script.extend_from_slice(data);
 }
 
 fn emit_push_u32(script: &mut Vec<u8>, value: u32) {
     if value == 0 {
-        script.push(0x10); // PUSH0
+        script.push(OpCode::PUSH0.byte());
         return;
     }
     if value <= 16 {
-        script.push(0x10 + value as u8);
+        script.push(OpCode::push_small(value as u8).expect("0..=16").byte());
         return;
     }
     if value <= i8::MAX as u32 {
-        script.push(0x00); // PUSHINT8
+        script.push(OpCode::PUSHINT8.byte());
         script.push(value as u8);
         return;
     }
     if value <= i16::MAX as u32 {
-        script.push(0x01); // PUSHINT16
+        script.push(OpCode::PUSHINT16.byte());
         script.extend_from_slice(&(value as i16).to_le_bytes());
         return;
     }
     if value <= i32::MAX as u32 {
-        script.push(0x02); // PUSHINT32
+        script.push(OpCode::PUSHINT32.byte());
         script.extend_from_slice(&(value as i32).to_le_bytes());
         return;
     }
-    script.push(0x03); // PUSHINT64
+    script.push(OpCode::PUSHINT64.byte());
     script.extend_from_slice(&(value as i64).to_le_bytes());
 }

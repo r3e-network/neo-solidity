@@ -1,10 +1,29 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_push_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const PUSHINT256: u8 = OpCode::PUSHINT256.byte();
+        const PUSHINT128: u8 = OpCode::PUSHINT128.byte();
+        const PUSHT: u8 = OpCode::PUSHT.byte();
+        const PUSHF: u8 = OpCode::PUSHF.byte();
+        const PUSHM1: u8 = OpCode::PUSHM1.byte();
+        const PUSHINT8: u8 = OpCode::PUSHINT8.byte();
+        const PUSHINT16: u8 = OpCode::PUSHINT16.byte();
+        const PUSHINT32: u8 = OpCode::PUSHINT32.byte();
+        const PUSHINT64: u8 = OpCode::PUSHINT64.byte();
+        const PUSHA: u8 = OpCode::PUSHA.byte();
+        const PUSHNULL: u8 = OpCode::PUSHNULL.byte();
+        const PUSHDATA1: u8 = OpCode::PUSHDATA1.byte();
+        const PUSHDATA2: u8 = OpCode::PUSHDATA2.byte();
+        const PUSHDATA4: u8 = OpCode::PUSHDATA4.byte();
+        const PUSH0: u8 = OpCode::PUSH0.byte();
+        const PUSH1: u8 = OpCode::PUSH1.byte();
+        const PUSH16: u8 = OpCode::PUSH16.byte();
+
         match opcode {
             // Push operations (0x00-0x4F)
-            0x05 => {
+            PUSHINT256 => {
                 // PUSHINT256
                 if self.instruction_pointer + 32 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -17,7 +36,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::byte_array(value))?;
                 self.instruction_pointer += 33;
             }
-            0x04 => {
+            PUSHINT128 => {
                 // PUSHINT128
                 if self.instruction_pointer + 16 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -30,22 +49,22 @@ impl ExecutionContext {
                 self.push_stack(StackItem::byte_array(value))?;
                 self.instruction_pointer += 17;
             }
-            0x08 => {
+            PUSHT => {
                 // PUSHT
                 self.push_stack(StackItem::Boolean(true))?;
                 self.instruction_pointer += 1;
             }
-            0x09 => {
+            PUSHF => {
                 // PUSHF
                 self.push_stack(StackItem::Boolean(false))?;
                 self.instruction_pointer += 1;
             }
-            0x0F => {
+            PUSHM1 => {
                 // PUSHM1
                 self.push_stack(StackItem::Integer(-1))?;
                 self.instruction_pointer += 1;
             }
-            0x00 => {
+            PUSHINT8 => {
                 // PUSHINT8
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -56,7 +75,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 2;
             }
-            0x01 => {
+            PUSHINT16 => {
                 // PUSHINT16
                 if self.instruction_pointer + 2 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -69,7 +88,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 3;
             }
-            0x02 => {
+            PUSHINT32 => {
                 // PUSHINT32
                 if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -82,7 +101,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 5;
             }
-            0x03 => {
+            PUSHINT64 => {
                 // PUSHINT64
                 if self.instruction_pointer + 8 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -97,7 +116,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 9;
             }
-            0x0A => {
+            PUSHA => {
                 // PUSHA — push a code Pointer. The operand is a SIGNED offset
                 // relative to this opcode, so the absolute target position is
                 // `instruction_pointer + operand` (mirroring real NeoVM's
@@ -108,12 +127,12 @@ impl ExecutionContext {
                 self.push_stack(StackItem::UnsignedInteger(target))?;
                 self.instruction_pointer += 5;
             }
-            0x0B => {
+            PUSHNULL => {
                 // PUSHNULL
                 self.push_stack(StackItem::Null)?;
                 self.instruction_pointer += 1;
             }
-            0x0C => {
+            PUSHDATA1 => {
                 // PUSHDATA1
                 if self.instruction_pointer + 1 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -132,7 +151,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::byte_array(data))?;
                 self.instruction_pointer += 2 + length as u32;
             }
-            0x0D => {
+            PUSHDATA2 => {
                 // PUSHDATA2
                 if self.instruction_pointer + 2 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -153,7 +172,7 @@ impl ExecutionContext {
                 self.push_stack(StackItem::byte_array(data))?;
                 self.instruction_pointer += 3 + length as u32;
             }
-            0x0E => {
+            PUSHDATA4 => {
                 // PUSHDATA4
                 if self.instruction_pointer + 4 >= self.bytecode.len() as u32 {
                     return Err(RuntimeError::ExecutionError {
@@ -184,14 +203,14 @@ impl ExecutionContext {
                 self.push_stack(StackItem::byte_array(data))?;
                 self.instruction_pointer += 5 + length as u32;
             }
-            0x10 => {
+            PUSH0 => {
                 // PUSH0
                 self.push_stack(StackItem::Integer(0))?;
                 self.instruction_pointer += 1;
             }
-            0x11..=0x20 => {
+            PUSH1..=PUSH16 => {
                 // PUSH1-PUSH16
-                let value = (opcode - 0x10) as i64;
+                let value = (opcode - PUSH0) as i64;
                 self.push_stack(StackItem::Integer(value))?;
                 self.instruction_pointer += 1;
             }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_load_struct_array_element(
     bytecode: &mut Vec<u8>,
@@ -23,7 +24,7 @@ pub(crate) fn emit_load_struct_array_element(
     );
 
     // Stack: [index, field_slot]
-    bytecode.push(0x50); // SWAP -> [field_slot, index]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [field_slot, index]
     emit_serialize_key(
         bytecode,
         &ValueType::Integer {
@@ -33,8 +34,8 @@ pub(crate) fn emit_load_struct_array_element(
         use_callt,
         token_patches,
     ); // -> [field_slot, index_bytes]
-    bytecode.push(0x50); // SWAP -> [index_bytes, field_slot]
-    bytecode.push(0x8B); // CAT
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [index_bytes, field_slot]
+    bytecode.push(OpCode::CAT.byte());
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::CryptoLib,
@@ -48,16 +49,16 @@ pub(crate) fn emit_load_struct_array_element(
         ValueType::Struct { fields, .. } => {
             // Construct `[field0, field1, ...]` by loading each field from its derived slot.
             push_integer_bigint(bytecode, &BigInt::from(fields.len() as u64));
-            bytecode.push(0xC3); // NEWARRAY
+            bytecode.push(OpCode::NEWARRAY.byte());
 
             // Stack: [element_slot, out_array]
             for (field_index, field) in fields.iter().enumerate() {
                 // Derive the field slot from the element base slot:
                 // element_field_slot = keccak256(field_key || element_slot)
-                bytecode.push(0x4B); // OVER (duplicate element_slot)
+                bytecode.push(OpCode::OVER.byte()); // OVER (duplicate element_slot)
                 push_data(bytecode, &field.key);
-                bytecode.push(0x50); // SWAP -> [element_slot, out_array, field_key, element_slot]
-                bytecode.push(0x8B); // CAT
+                bytecode.push(OpCode::SWAP.byte()); // SWAP -> [element_slot, out_array, field_key, element_slot]
+                bytecode.push(OpCode::CAT.byte());
                 emit_native_contract_call(
                     bytecode,
                     ir::NativeContract::CryptoLib,
@@ -84,16 +85,16 @@ pub(crate) fn emit_load_struct_array_element(
                 }
 
                 // Set `out_array[field_index] = field_value`, preserving the array reference.
-                bytecode.push(0x4B); // OVER (duplicate out_array)
-                bytecode.push(0x50); // SWAP -> [element_slot, out_array, out_array, field_value]
+                bytecode.push(OpCode::OVER.byte()); // OVER (duplicate out_array)
+                bytecode.push(OpCode::SWAP.byte()); // SWAP -> [element_slot, out_array, out_array, field_value]
                 push_integer_bigint(bytecode, &BigInt::from(field_index as u64));
-                bytecode.push(0x50); // SWAP -> [element_slot, out_array, out_array, idx, value]
-                bytecode.push(0xD0); // SETITEM
+                bytecode.push(OpCode::SWAP.byte()); // SWAP -> [element_slot, out_array, out_array, idx, value]
+                bytecode.push(OpCode::SETITEM.byte());
             }
 
             // Drop element_slot, leaving the struct array.
-            bytecode.push(0x50); // SWAP -> [out_array, element_slot]
-            bytecode.push(0x45); // DROP
+            bytecode.push(OpCode::SWAP.byte()); // SWAP -> [out_array, element_slot]
+            bytecode.push(OpCode::DROP.byte());
         }
         _ => {
             emit_syscall(bytecode, "System.Storage.GetContext");
@@ -124,7 +125,7 @@ pub(crate) fn emit_store_struct_array_element(
     );
 
     // Stack: [value, index, field_slot]
-    bytecode.push(0x50); // SWAP -> [value, field_slot, index]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [value, field_slot, index]
     emit_serialize_key(
         bytecode,
         &ValueType::Integer {
@@ -134,8 +135,8 @@ pub(crate) fn emit_store_struct_array_element(
         use_callt,
         token_patches,
     ); // -> [value, field_slot, index_bytes]
-    bytecode.push(0x50); // SWAP -> [value, index_bytes, field_slot]
-    bytecode.push(0x8B); // CAT
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [value, index_bytes, field_slot]
+    bytecode.push(OpCode::CAT.byte());
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::CryptoLib,
@@ -150,10 +151,10 @@ pub(crate) fn emit_store_struct_array_element(
             for (field_index, field) in fields.iter().enumerate() {
                 // Derive the field slot from the element base slot:
                 // element_field_slot = keccak256(field_key || element_slot)
-                bytecode.push(0x4A); // DUP (element_slot)
+                bytecode.push(OpCode::DUP.byte()); // DUP (element_slot)
                 push_data(bytecode, &field.key);
-                bytecode.push(0x50); // SWAP -> [value, element_slot, field_key, element_slot]
-                bytecode.push(0x8B); // CAT
+                bytecode.push(OpCode::SWAP.byte()); // SWAP -> [value, element_slot, field_key, element_slot]
+                bytecode.push(OpCode::CAT.byte());
                 emit_native_contract_call(
                     bytecode,
                     ir::NativeContract::CryptoLib,
@@ -164,10 +165,10 @@ pub(crate) fn emit_store_struct_array_element(
                 );
 
                 // Extract the field value from the struct array: value[field_index]
-                bytecode.push(0x12); // PUSH2 (duplicate struct value from depth 2)
-                bytecode.push(0x4D); // PICK -> [..., field_slot, value]
+                bytecode.push(OpCode::PUSH2.byte()); // PUSH2 (duplicate struct value from depth 2)
+                bytecode.push(OpCode::PICK.byte()); // PICK -> [..., field_slot, value]
                 push_integer_bigint(bytecode, &BigInt::from(field_index as u64));
-                bytecode.push(0xCE); // PICKITEM -> [..., field_slot, field_value]
+                bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [..., field_slot, field_value]
 
                 match &field.ty {
                     ValueType::Struct { fields, .. } => {
@@ -198,7 +199,7 @@ pub(crate) fn emit_store_struct_array_element(
                     }
                     _ => {
                         // Store `field_value` into `field_slot`.
-                        bytecode.push(0x50); // SWAP -> [..., field_value, field_slot]
+                        bytecode.push(OpCode::SWAP.byte()); // SWAP -> [..., field_value, field_slot]
                         emit_syscall(bytecode, "System.Storage.GetContext");
                         emit_syscall(bytecode, "System.Storage.Put");
                     }
@@ -206,8 +207,8 @@ pub(crate) fn emit_store_struct_array_element(
             }
 
             // Drop `[value, element_slot]`.
-            bytecode.push(0x45); // DROP (element_slot)
-            bytecode.push(0x45); // DROP (value)
+            bytecode.push(OpCode::DROP.byte()); // DROP (element_slot)
+            bytecode.push(OpCode::DROP.byte()); // DROP (value)
         }
         _ => {
             emit_syscall(bytecode, "System.Storage.GetContext");
@@ -237,8 +238,8 @@ fn emit_store_array_field_deep_copy(
 ) {
     // Stack: [..., slot, array]
     // Push length (SIZE on array duplicate).
-    bytecode.push(0x4A); // DUP -> [..., slot, array, array]
-    bytecode.push(0xCA); // SIZE -> [..., slot, array, length]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, array]
+    bytecode.push(OpCode::SIZE.byte()); // SIZE -> [..., slot, array, length]
 
     // The loop walks `i = length` down to `1`, writing `array[i-1]` at the
     // derived per-element slot each iteration. Using a single descending
@@ -250,19 +251,19 @@ fn emit_store_array_field_deep_copy(
     let loop_start_pos = bytecode.len();
 
     // if i == 0, fall through to the length-store path.
-    bytecode.push(0x4A); // DUP -> [..., slot, array, i, i]
-    bytecode.push(0x10); // PUSH0 -> [..., slot, array, i, i, 0]
-    bytecode.push(0x97); // EQUAL -> [..., slot, array, i, (i==0)]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, i, i]
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 -> [..., slot, array, i, i, 0]
+    bytecode.push(OpCode::EQUAL.byte()); // EQUAL -> [..., slot, array, i, (i==0)]
     let jmp_exit_pos = bytecode.len();
-    bytecode.push(0x25); // JMPIF_L (if i==0, jump to length-store)
+    bytecode.push(OpCode::JMPIF_L.byte()); // JMPIF_L (if i==0, jump to length-store)
     let jmp_exit_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // Body: decrement and write `array[i-1]` at `keccak256(serialize(i-1) || slot)`.
-    bytecode.push(0x9D); // DEC -> [..., slot, array, current]  (current = i-1)
+    bytecode.push(OpCode::DEC.byte()); // DEC -> [..., slot, array, current]  (current = i-1)
 
     // Compute element_slot = keccak256(serialize(current) || slot).
-    bytecode.push(0x4A); // DUP -> [..., slot, array, current, current]
+    bytecode.push(OpCode::DUP.byte()); // DUP -> [..., slot, array, current, current]
     emit_serialize_key(
         bytecode,
         &ValueType::Integer {
@@ -273,9 +274,9 @@ fn emit_store_array_field_deep_copy(
         token_patches,
     ); // -> [..., slot, array, current, current_bytes]
        // slot is at depth 3 (top=current_bytes, d1=current, d2=array, d3=slot).
-    bytecode.push(0x13); // PUSH3
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, current_bytes, slot]
-    bytecode.push(0x8B); // CAT -> [..., slot, array, current, (current_bytes||slot)]
+    bytecode.push(OpCode::PUSH3.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, current_bytes, slot]
+    bytecode.push(OpCode::CAT.byte()); // CAT -> [..., slot, array, current, (current_bytes||slot)]
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::CryptoLib,
@@ -287,22 +288,22 @@ fn emit_store_array_field_deep_copy(
 
     // Fetch `array[current]`.
     // After element_slot push: top=element_slot, d1=current, d2=array.
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array]
-                         // Now top=array, d1=element_slot, d2=current.
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0x4D); // PICK -> [..., slot, array, current, element_slot, array, current]
-    bytecode.push(0xCE); // PICKITEM -> [..., slot, array, current, element_slot, array[current]]
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, element_slot, array]
+                                        // Now top=array, d1=element_slot, d2=current.
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [..., slot, array, current, element_slot, array, current]
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [..., slot, array, current, element_slot, array[current]]
 
     // Store: Put pops [value, key, context] (see src/runtime storage.put).
-    bytecode.push(0x50); // SWAP -> [..., slot, array, current, array[current], element_slot]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [..., slot, array, current, array[current], element_slot]
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");
     // Stack: [..., slot, array, current]
 
     // Jump back to loop_start.
     let jmp_back_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_back_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
     let rel_back = (loop_start_pos as i32)
@@ -318,13 +319,13 @@ fn emit_store_array_field_deep_copy(
     bytecode[jmp_exit_operand..jmp_exit_operand + 4].copy_from_slice(&rel_exit.to_le_bytes());
 
     // Stack at exit: [..., slot, array, 0] (i == 0).
-    bytecode.push(0x45); // DROP -> [..., slot, array]
-    bytecode.push(0xCA); // SIZE -> [..., slot, length]
-                         // Store length as the Array "base" value so that the read path's
-                         // `emit_coerce_storage_value` ValueType::Array arm (which coerces to
-                         // Integer) observes the correct `.length`. Put expects
-                         // [value, key, context].
-    bytecode.push(0x50); // SWAP -> [..., length, slot]
+    bytecode.push(OpCode::DROP.byte()); // DROP -> [..., slot, array]
+    bytecode.push(OpCode::SIZE.byte()); // SIZE -> [..., slot, length]
+                                        // Store length as the Array "base" value so that the read path's
+                                        // `emit_coerce_storage_value` ValueType::Array arm (which coerces to
+                                        // Integer) observes the correct `.length`. Put expects
+                                        // [value, key, context].
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [..., length, slot]
     emit_syscall(bytecode, "System.Storage.GetContext");
     emit_syscall(bytecode, "System.Storage.Put");
     // Stack: [...]

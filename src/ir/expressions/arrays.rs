@@ -198,9 +198,7 @@ fn clamp_local(
             ins.push(Instruction::BinaryOp(BinaryOperator::Le));
         }
     }
-    ins.push(Instruction::JumpIf {
-        target: do_assign,
-    });
+    ins.push(Instruction::JumpIf { target: do_assign });
     ins.push(Instruction::Jump { target: done });
     ins.push(Instruction::Label(do_assign));
     match kind {

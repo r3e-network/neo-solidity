@@ -1,12 +1,20 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_arithmetic_numeric_unary(
         &mut self,
         opcode: u8,
     ) -> Result<bool, RuntimeError> {
+        const SIGN: u8 = OpCode::SIGN.byte();
+        const ABS: u8 = OpCode::ABS.byte();
+        const NEGATE: u8 = OpCode::NEGATE.byte();
+        const INC: u8 = OpCode::INC.byte();
+        const DEC: u8 = OpCode::DEC.byte();
+        const SQRT: u8 = OpCode::SQRT.byte();
+
         match opcode {
-            0x99 => {
+            SIGN => {
                 // SIGN
                 let value = self.pop_stack()?;
                 let result = self.sign_stack_item(value)?;
@@ -14,7 +22,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0x9A => {
+            ABS => {
                 // ABS
                 let value = self.pop_stack()?;
                 let result = self.abs_stack_item(value)?;
@@ -22,7 +30,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0x9B => {
+            NEGATE => {
                 // NEGATE
                 let value = self.pop_stack()?;
                 let result = self.negate_stack_item(value)?;
@@ -30,7 +38,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0x9C => {
+            INC => {
                 // INC
                 let value = self.pop_stack()?;
                 let result = self.inc_stack_item(value)?;
@@ -38,7 +46,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0x9D => {
+            DEC => {
                 // DEC
                 let value = self.pop_stack()?;
                 let result = self.dec_stack_item(value)?;
@@ -46,7 +54,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA4 => {
+            SQRT => {
                 // SQRT
                 let value = self.pop_stack()?;
                 let result = self.sqrt_stack_item(value)?;

@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_runtime_notify(
     bytecode: &mut Vec<u8>,
@@ -16,9 +17,9 @@ pub(crate) fn emit_runtime_notify(
         use_callt,
         token_patches,
     );
-    bytecode.push(0x50); // SWAP -> [stateArray, eventName]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [stateArray, eventName]
     emit_syscall(bytecode, "System.Runtime.Notify");
-    bytecode.push(0x11); // PUSH1 (truthy) to satisfy Solidity's expression semantics
+    bytecode.push(OpCode::PUSH1.byte()); // PUSH1 (truthy) to satisfy Solidity's expression semantics
 }
 
 pub(crate) fn emit_runtime_check_witness(bytecode: &mut Vec<u8>) {

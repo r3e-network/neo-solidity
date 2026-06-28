@@ -1,12 +1,18 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_flow_jumps_conditional(
         &mut self,
         opcode: u8,
     ) -> Result<bool, RuntimeError> {
+        const JMPIF: u8 = OpCode::JMPIF.byte();
+        const JMPIF_L: u8 = OpCode::JMPIF_L.byte();
+        const JMPIFNOT: u8 = OpCode::JMPIFNOT.byte();
+        const JMPIFNOT_L: u8 = OpCode::JMPIFNOT_L.byte();
+
         match opcode {
-            0x24 => {
+            JMPIF => {
                 // JMPIF
                 let condition = self.pop_stack()?;
                 let offset = self.read_i8_offset("JMPIF")? as i32;
@@ -19,7 +25,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x25 => {
+            JMPIF_L => {
                 // JMPIF_L
                 let condition = self.pop_stack()?;
                 let offset = self.read_i32_offset("JMPIF_L")?;
@@ -32,7 +38,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x26 => {
+            JMPIFNOT => {
                 // JMPIFNOT
                 let condition = self.pop_stack()?;
                 let offset = self.read_i8_offset("JMPIFNOT")? as i32;
@@ -45,7 +51,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x27 => {
+            JMPIFNOT_L => {
                 // JMPIFNOT_L
                 let condition = self.pop_stack()?;
                 let offset = self.read_i32_offset("JMPIFNOT_L")?;

@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_keccak256(
     bytecode: &mut Vec<u8>,
@@ -29,19 +30,19 @@ pub(crate) fn emit_ecrecover(
     //
     // Stack input (Solidity): [hash32, v, r, s]
     // Build signature: r || s || v (65 bytes), with v normalized to 27..30.
-    bytecode.push(0x8B); // CAT: r||s => [hash32, v, rs]
-    bytecode.push(0x50); // SWAP => [hash32, rs, v]
+    bytecode.push(OpCode::CAT.byte()); // CAT: r||s => [hash32, v, rs]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP => [hash32, rs, v]
 
     // If v < 27, normalize v by adding 27.
-    bytecode.push(0x4A); // DUP
+    bytecode.push(OpCode::DUP.byte());
     push_integer_bigint(bytecode, &BigInt::from(27u8));
-    bytecode.push(0xB5); // LT
+    bytecode.push(OpCode::LT.byte());
     let jmp_skip_add_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_skip_add_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
     push_integer_bigint(bytecode, &BigInt::from(27u8));
-    bytecode.push(0x9E); // ADD
+    bytecode.push(OpCode::ADD.byte());
     let after_add_pos = bytecode.len();
     let rel_after_add = (after_add_pos as i32)
         .checked_sub(jmp_skip_add_pos as i32)
@@ -51,14 +52,14 @@ pub(crate) fn emit_ecrecover(
 
     // Convert v into a single-byte buffer and append to rs.
     // Stack: [hash32, rs, v]
-    bytecode.push(0x11); // PUSH1
-    bytecode.push(0x88); // NEWBUFFER (len=1) => [hash32, rs, v, buf]
-    bytecode.push(0x4A); // DUP => [hash32, rs, v, buf, buf]
-    bytecode.push(0x51); // ROT => [hash32, rs, buf, buf, v]
-    bytecode.push(0x10); // PUSH0 => [hash32, rs, buf, buf, v, 0]
-    bytecode.push(0x50); // SWAP => [hash32, rs, buf, buf, 0, v]
-    bytecode.push(0xD0); // SETITEM (buf[0] = v) => [hash32, rs, buf]
-    bytecode.push(0x8B); // CAT: rs||buf => [hash32, signature]
+    bytecode.push(OpCode::PUSH1.byte());
+    bytecode.push(OpCode::NEWBUFFER.byte()); // NEWBUFFER (len=1) => [hash32, rs, v, buf]
+    bytecode.push(OpCode::DUP.byte()); // DUP => [hash32, rs, v, buf, buf]
+    bytecode.push(OpCode::ROT.byte()); // ROT => [hash32, rs, buf, buf, v]
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 => [hash32, rs, buf, buf, v, 0]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP => [hash32, rs, buf, buf, 0, v]
+    bytecode.push(OpCode::SETITEM.byte()); // SETITEM (buf[0] = v) => [hash32, rs, buf]
+    bytecode.push(OpCode::CAT.byte()); // CAT: rs||buf => [hash32, signature]
 
     // Call CryptoLib.recoverSecp256K1(hash32, signature)
     // Returns the 65-byte uncompressed pubkey (0x04 || x || y) on success,
@@ -73,18 +74,18 @@ pub(crate) fn emit_ecrecover(
     );
 
     // If recovery fails (null), return 0x00..00.
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xD8); // ISNULL
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::ISNULL.byte());
     let jmp_if_not_null_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_if_not_null_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // null path
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::DROP.byte());
     push_data(bytecode, &[0u8; 20]);
     let jmp_end_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_end_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -92,20 +93,20 @@ pub(crate) fn emit_ecrecover(
     // Some invalid signatures return an empty byte string rather than Null;
     // treat any short value as failed recovery before slicing pubkey[1..65].
     let not_null_pos = bytecode.len();
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xCA); // SIZE
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::SIZE.byte());
     push_integer_bigint(bytecode, &BigInt::from(65u8));
-    bytecode.push(0xB5); // LT
+    bytecode.push(OpCode::LT.byte());
     let jmp_if_long_enough_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_if_long_enough_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // short path
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::DROP.byte());
     push_data(bytecode, &[0u8; 20]);
     let jmp_short_end_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_short_end_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -115,7 +116,7 @@ pub(crate) fn emit_ecrecover(
     // Strip the leading 0x04 byte: SUBSTR(pubkey65, 1, 64) => [pubkey64 (x||y)]
     push_integer_bigint(bytecode, &BigInt::from(1u8)); // start offset
     push_integer_bigint(bytecode, &BigInt::from(64u8)); // length
-    bytecode.push(0x8C); // SUBSTR
+    bytecode.push(OpCode::SUBSTR.byte());
 
     // keccak256(x||y) => [hash32]
     emit_native_contract_call(
@@ -129,7 +130,7 @@ pub(crate) fn emit_ecrecover(
 
     // Take last 20 bytes: RIGHT(hash32, 20) => [address20]
     push_integer_bigint(bytecode, &BigInt::from(20u8));
-    bytecode.push(0x8E); // RIGHT
+    bytecode.push(OpCode::RIGHT.byte());
 
     let end_pos = bytecode.len();
 
@@ -192,53 +193,53 @@ pub(crate) fn emit_precompile_ecrecover(
     // Short or non-canonical payloads cannot supply the four ABI words.
     // Match the invalid-signature path and return a zero-padded 32-byte slot
     // instead of faulting before the low-level call can return `(true, out)`.
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xCA); // SIZE
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::SIZE.byte());
     push_integer_bigint(bytecode, &BigInt::from(128u8));
-    bytecode.push(0xB5); // LT
+    bytecode.push(OpCode::LT.byte());
     let jmp_payload_long_enough_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_payload_long_enough_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::DROP.byte());
     push_data(bytecode, &[0u8; 32]);
     let jmp_payload_end_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_payload_end_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     let payload_long_enough_pos = bytecode.len();
 
     // hash = SUBSTR(payload, 0, 32). Dup payload for each slice.
-    bytecode.push(0x4A); // DUP → [payload, payload]
+    bytecode.push(OpCode::DUP.byte()); // DUP → [payload, payload]
     push_integer_bigint(bytecode, &BigInt::from(0u8));
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x8C); // SUBSTR → [payload, hash32]
-    bytecode.push(0x50); // SWAP → [hash32, payload]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → [payload, hash32]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [hash32, payload]
 
     // v slot: SUBSTR(payload, 32, 32). Take the LAST byte (v is 1 byte BE).
-    bytecode.push(0x4A); // DUP → [hash32, payload, payload]
+    bytecode.push(OpCode::DUP.byte()); // DUP → [hash32, payload, payload]
     push_integer_bigint(bytecode, &BigInt::from(32u8));
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x8C); // SUBSTR → [hash32, payload, v_slot]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → [hash32, payload, v_slot]
     push_integer_bigint(bytecode, &BigInt::from(1u8));
-    bytecode.push(0x8E); // RIGHT → [hash32, payload, v_byte]
-    bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x21); // to Integer
-    bytecode.push(0x50); // SWAP → [hash32, v_int, payload]
+    bytecode.push(OpCode::RIGHT.byte()); // RIGHT → [hash32, payload, v_byte]
+    bytecode.push(OpCode::CONVERT.byte());
+    bytecode.push(0x21); // StackItem type tag = Integer
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [hash32, v_int, payload]
 
     // r = SUBSTR(payload, 64, 32)
-    bytecode.push(0x4A); // DUP → [hash32, v_int, payload, payload]
+    bytecode.push(OpCode::DUP.byte()); // DUP → [hash32, v_int, payload, payload]
     push_integer_bigint(bytecode, &BigInt::from(64u8));
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x8C); // SUBSTR → [hash32, v_int, payload, r32]
-    bytecode.push(0x50); // SWAP → [hash32, v_int, r32, payload]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → [hash32, v_int, payload, r32]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [hash32, v_int, r32, payload]
 
     // s = SUBSTR(payload, 96, 32) (payload consumed by final SUBSTR).
     push_integer_bigint(bytecode, &BigInt::from(96u8));
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x8C); // SUBSTR → [hash32, v_int, r32, s32]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → [hash32, v_int, r32, s32]
 
     // Reuse the existing ecrecover lowering. It consumes [hash32, v, r, s]
     // and leaves the 20-byte address on the stack.
@@ -246,8 +247,8 @@ pub(crate) fn emit_precompile_ecrecover(
 
     // Left-pad 20-byte address into a 32-byte slot: prepend 12 zero bytes.
     push_data(bytecode, &[0u8; 12]);
-    bytecode.push(0x50); // SWAP → [pad12, address20]
-    bytecode.push(0x8B); // CAT → [address32]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [pad12, address20]
+    bytecode.push(OpCode::CAT.byte()); // CAT → [address32]
 
     let payload_end_pos = bytecode.len();
     let rel_payload_long_enough = (payload_long_enough_pos as i32)
@@ -286,41 +287,41 @@ pub(crate) fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     // unsupported shape instead of returning a wrong result. (Full
     // variable-width support is a separate enhancement.)
     for &len_byte_offset in &[31u8, 63u8, 95u8] {
-        bytecode.push(0x4A); // DUP payload
+        bytecode.push(OpCode::DUP.byte()); // DUP payload
         push_integer_bigint(bytecode, &BigInt::from(len_byte_offset));
         push_integer_bigint(bytecode, &BigInt::from(1u8));
-        bytecode.push(0x8C); // SUBSTR → length low byte
-        bytecode.push(0xDB); // CONVERT
-        bytecode.push(0x21); // to Integer
+        bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → length low byte
+        bytecode.push(OpCode::CONVERT.byte());
+        bytecode.push(0x21); // StackItem type tag = Integer
         push_integer_bigint(bytecode, &BigInt::from(1u8));
-        bytecode.push(0xB3); // NUMEQUAL → (len_byte == 1)
-        bytecode.push(0x39); // ASSERT — fault when the length is not 1
+        bytecode.push(OpCode::NUMEQUAL.byte()); // NUMEQUAL → (len_byte == 1)
+        bytecode.push(OpCode::ASSERT.byte()); // ASSERT — fault when the length is not 1
     }
     // Stack: [payload] → extract bytes at offsets 96/97/98 as integers.
-    bytecode.push(0x4A); // DUP payload
+    bytecode.push(OpCode::DUP.byte()); // DUP payload
     push_integer_bigint(bytecode, &BigInt::from(96u8));
     push_integer_bigint(bytecode, &BigInt::from(1u8));
-    bytecode.push(0x8C); // SUBSTR → base (1 byte)
-    bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x21); // to Integer
-    bytecode.push(0x50); // SWAP → [base, payload]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → base (1 byte)
+    bytecode.push(OpCode::CONVERT.byte());
+    bytecode.push(0x21); // StackItem type tag = Integer
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [base, payload]
 
-    bytecode.push(0x4A); // DUP payload
+    bytecode.push(OpCode::DUP.byte()); // DUP payload
     push_integer_bigint(bytecode, &BigInt::from(97u8));
     push_integer_bigint(bytecode, &BigInt::from(1u8));
-    bytecode.push(0x8C); // SUBSTR → exp
-    bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x21); // to Integer
-    bytecode.push(0x50); // SWAP → [base, exp, payload]
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → exp
+    bytecode.push(OpCode::CONVERT.byte());
+    bytecode.push(0x21); // StackItem type tag = Integer
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [base, exp, payload]
 
     push_integer_bigint(bytecode, &BigInt::from(98u8));
     push_integer_bigint(bytecode, &BigInt::from(1u8));
-    bytecode.push(0x8C); // SUBSTR → mod (consumes payload)
-    bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x21); // to Integer
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → mod (consumes payload)
+    bytecode.push(OpCode::CONVERT.byte());
+    bytecode.push(0x21); // StackItem type tag = Integer
                          // Stack: [base, exp, mod]
 
-    bytecode.push(0xA6); // MODPOW → [result_int]
+    bytecode.push(OpCode::MODPOW.byte()); // MODPOW → [result_int]
 
     // Encode the result into a stable 32-byte BE slot. A real node's
     // CONVERT→ByteString yields the MINIMAL two's-complement encoding (1 byte
@@ -329,16 +330,16 @@ pub(crate) fn emit_precompile_modexp(bytecode: &mut Vec<u8>, _use_callt: bool) {
     // prepending 32 zeros and keeping the rightmost 32 bytes; this is correct
     // for every result width (incl. zero) and matches the EVM 0x05 contract's
     // 32-byte (`mod_len`-padded) output presentation.
-    bytecode.push(0xDB); // CONVERT
-    bytecode.push(0x28); // to ByteString  (minimal LE; <=1 byte for 1-byte operands)
+    bytecode.push(OpCode::CONVERT.byte());
+    bytecode.push(0x28); // StackItem type tag = ByteString  (minimal LE; <=1 byte for 1-byte operands)
     push_data(bytecode, &[0u8; 32]);
-    bytecode.push(0x50); // SWAP → [zeros32, result_bytes]
-    bytecode.push(0x8B); // CAT → zeros32 || result_bytes  (32 or 33 bytes)
-                         // Right-align: take the LAST 32 bytes so the result sits in byte 31.
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xCA); // SIZE → len
+    bytecode.push(OpCode::SWAP.byte()); // SWAP → [zeros32, result_bytes]
+    bytecode.push(OpCode::CAT.byte()); // CAT → zeros32 || result_bytes  (32 or 33 bytes)
+                                       // Right-align: take the LAST 32 bytes so the result sits in byte 31.
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::SIZE.byte()); // SIZE → len
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x9F); // SUB → len - 32  (start offset)
+    bytecode.push(OpCode::SUB.byte()); // SUB → len - 32  (start offset)
     push_integer_bigint(bytecode, &BigInt::from(32u8));
-    bytecode.push(0x8C); // SUBSTR → last 32 bytes
+    bytecode.push(OpCode::SUBSTR.byte()); // SUBSTR → last 32 bytes
 }

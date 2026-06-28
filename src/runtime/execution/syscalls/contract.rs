@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn handle_contract_syscall(&mut self, name: &str) -> Result<bool, RuntimeError> {
@@ -24,7 +25,7 @@ impl ExecutionContext {
                 // Script = PUSH <pubkey> + SYSCALL System.Crypto.CheckSig
                 let mut script = Vec::with_capacity(2 + pubkey.len() + 1 + 4);
                 Self::append_pushdata(&mut script, &pubkey);
-                script.push(0x41); // SYSCALL
+                script.push(OpCode::SYSCALL.byte());
                 script
                     .extend_from_slice(&crate::interop::interop_id_bytes("System.Crypto.CheckSig"));
 
@@ -80,7 +81,7 @@ impl ExecutionContext {
                     Self::append_pushdata(&mut script, pk);
                 }
                 Self::append_push_int(&mut script, pubkeys.len() as i64);
-                script.push(0x41); // SYSCALL
+                script.push(OpCode::SYSCALL.byte());
                 script.extend_from_slice(&crate::interop::interop_id_bytes(
                     "System.Crypto.CheckMultisig",
                 ));
@@ -104,37 +105,39 @@ impl ExecutionContext {
     /// `UInt160 = RIPEMD160(SHA256(script))` is the on-chain account hash and
     /// any encoding divergence would silently produce a different address.
     pub(crate) fn append_pushdata(script: &mut Vec<u8>, data: &[u8]) {
-        if data.len() <= u8::MAX as usize {
-            script.push(0x0C); // PUSHDATA1
-            script.push(data.len() as u8);
-        } else if data.len() <= u16::MAX as usize {
-            script.push(0x0D); // PUSHDATA2
-            script.extend_from_slice(&(data.len() as u16).to_le_bytes());
-        } else {
-            script.push(0x0E); // PUSHDATA4
-            script.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        script.push(OpCode::push_data(data.len()).byte());
+        match data.len() {
+            len if len <= u8::MAX as usize => {
+                script.push(data.len() as u8);
+            }
+            len if len <= u16::MAX as usize => {
+                script.extend_from_slice(&(data.len() as u16).to_le_bytes());
+            }
+            _ => {
+                script.extend_from_slice(&(data.len() as u32).to_le_bytes());
+            }
         }
         script.extend_from_slice(data);
     }
 
     /// Append a small integer to `script` using the NeoVM `PUSHINT8/16/32/64`
-    /// opcodes (0x00–0x03), little-endian. Used by
+    /// opcodes, little-endian. Used by
     /// [`System.Contract.CreateMultisigAccount`] to emit the `m` and `n`
     /// operands of a multisig verification script the way a real Neo
     /// assembler would, so the derived account hash matches the on-chain
     /// derivation. Values must be non-negative.
     pub(crate) fn append_push_int(script: &mut Vec<u8>, value: i64) {
         if (0..=0xFF).contains(&value) {
-            script.push(0x00); // PUSHINT8
+            script.push(OpCode::PUSHINT8.byte());
             script.push(value as u8);
         } else if (0..=0xFFFF).contains(&value) {
-            script.push(0x01); // PUSHINT16
+            script.push(OpCode::PUSHINT16.byte());
             script.extend_from_slice(&(value as u16).to_le_bytes());
         } else if (0..=0xFFFF_FFFF).contains(&value) {
-            script.push(0x02); // PUSHINT32
+            script.push(OpCode::PUSHINT32.byte());
             script.extend_from_slice(&(value as u32).to_le_bytes());
         } else {
-            script.push(0x03); // PUSHINT64
+            script.push(OpCode::PUSHINT64.byte());
             script.extend_from_slice(&value.to_le_bytes());
         }
     }

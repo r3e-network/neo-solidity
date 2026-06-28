@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_load_parameter(
     bytecode: &mut Vec<u8>,
@@ -6,18 +7,18 @@ pub(crate) fn emit_load_parameter(
     index: usize,
 ) {
     if index <= 6 {
-        bytecode.push(0x78 + index as u8);
+        bytecode.push(OpCode::ldarg(index as u8).byte());
     } else {
-        bytecode.push(0x7F); // LDARG
+        bytecode.push(OpCode::LDARG.byte());
         bytecode.push(index as u8);
     }
 }
 
 pub(crate) fn emit_load_local(bytecode: &mut Vec<u8>, index: usize) {
     match index {
-        0..=6 => bytecode.push(0x68 + index as u8),
+        0..=6 => bytecode.push(OpCode::ldloc(index as u8).byte()),
         _ => {
-            bytecode.push(0x6F); // LDLOC
+            bytecode.push(OpCode::LDLOC.byte());
             bytecode.push(index as u8);
         }
     }
@@ -25,9 +26,9 @@ pub(crate) fn emit_load_local(bytecode: &mut Vec<u8>, index: usize) {
 
 pub(crate) fn emit_store_local(bytecode: &mut Vec<u8>, index: usize) {
     match index {
-        0..=6 => bytecode.push(0x70 + index as u8),
+        0..=6 => bytecode.push(OpCode::stloc(index as u8).byte()),
         _ => {
-            bytecode.push(0x77); // STLOC
+            bytecode.push(OpCode::STLOC.byte());
             bytecode.push(index as u8);
         }
     }
@@ -39,9 +40,9 @@ pub(crate) fn emit_store_local(bytecode: &mut Vec<u8>, index: usize) {
 // the existing load for the same parameter slot.
 pub(crate) fn emit_store_parameter(bytecode: &mut Vec<u8>, index: usize) {
     if index <= 6 {
-        bytecode.push(0x80 + index as u8);
+        bytecode.push(OpCode::starg(index as u8).byte());
     } else {
-        bytecode.push(0x87); // STARG
+        bytecode.push(OpCode::STARG.byte());
         bytecode.push(index as u8);
     }
 }

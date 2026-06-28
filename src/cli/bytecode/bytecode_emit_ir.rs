@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 /// Output of [`emit_ir_function`]: the emitted bytes plus the call / token
 /// patches the caller must still resolve against the full bytecode buffer.
@@ -34,7 +35,7 @@ pub(crate) fn emit_ir_function(
     let arg_count = u8::try_from(flat_arg_count).unwrap_or(u8::MAX);
     let local_count = u8::try_from(function.local_count).unwrap_or(u8::MAX);
     if local_count > 0 || arg_count > 0 {
-        local.push(0x57); // INITSLOT
+        local.push(OpCode::INITSLOT.byte());
         local.push(local_count);
         local.push(arg_count);
     }
@@ -46,7 +47,7 @@ pub(crate) fn emit_ir_function(
     for block in &function.basic_blocks {
         for instruction in &block.instructions {
             match instruction {
-                ir::Instruction::Drop(_) => local.push(0x45),
+                ir::Instruction::Drop(_) => local.push(OpCode::DROP.byte()),
                 ir::Instruction::LoadParameter(index) => {
                     emit_load_parameter(&mut local, method, *index)
                 }
@@ -55,10 +56,12 @@ pub(crate) fn emit_ir_function(
                     push_literal_value(&mut local, literal);
                 }
                 ir::Instruction::BinaryOp(operator) => emit_binary_op(&mut local, *operator),
-                ir::Instruction::Return | ir::Instruction::ReturnVoid => local.push(0x40),
+                ir::Instruction::Return | ir::Instruction::ReturnVoid => {
+                    local.push(OpCode::RET.byte())
+                }
                 ir::Instruction::ReturnDefault(value_type) => {
                     append_default_value(&mut local, value_type);
-                    local.push(0x40);
+                    local.push(OpCode::RET.byte());
                 }
                 ir::Instruction::LoadState(index) => emit_load_state(&mut local, module, *index),
                 ir::Instruction::StoreState(index) => emit_store_state(&mut local, module, *index),
@@ -209,7 +212,7 @@ pub(crate) fn emit_ir_function(
                 ir::Instruction::LoadRuntimeValue(value) => {
                     emit_load_runtime_value(&mut local, value, use_callt, &mut token_patches)
                 }
-                ir::Instruction::GetSize => local.push(0xCA),
+                ir::Instruction::GetSize => local.push(OpCode::SIZE.byte()),
                 ir::Instruction::CallBuiltin { builtin, arg_count } => {
                     emit_builtin_call(
                         &mut local,
@@ -228,12 +231,12 @@ pub(crate) fn emit_ir_function(
                     // order inside the callee.
                     if *arg_count > 1 {
                         push_integer_bigint(&mut local, &BigInt::from(*arg_count));
-                        local.push(0x55); // REVERSEN
+                        local.push(OpCode::REVERSEN.byte());
                     }
                     // NeoVM CALL_L uses a 4-byte signed offset relative to the
                     // beginning of the CALL_L instruction. We always use the
                     // wide form for simplicity.
-                    local.push(0x35); // CALL_L
+                    local.push(OpCode::CALL_L.byte());
                     let patch_pos = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     call_patches.push(CallPatch {
@@ -250,7 +253,7 @@ pub(crate) fn emit_ir_function(
                     // the previous `PUSHINT32` pushed a bare Integer that faults
                     // on-chain ("not a Pointer"), even though the local runtime —
                     // which models CALLA as popping an integer position — masked it.
-                    local.push(0x0A); // PUSHA
+                    local.push(OpCode::PUSHA.byte());
                     let patch_pos = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     call_patches.push(CallPatch {
@@ -278,9 +281,9 @@ pub(crate) fn emit_ir_function(
                     // which INITSLOT pops into slot 0 = arg0, slot 1 = arg1, ...
                     if *arg_count >= 1 {
                         push_integer_bigint(&mut local, &BigInt::from(*arg_count + 1));
-                        local.push(0x55); // REVERSEN
+                        local.push(OpCode::REVERSEN.byte());
                     }
-                    local.push(0x36); // CALLA
+                    local.push(OpCode::CALLA.byte());
                 }
                 ir::Instruction::EmitEvent {
                     event_index,
@@ -293,30 +296,30 @@ pub(crate) fn emit_ir_function(
                 ir::Instruction::IsType { target } => emit_is_type(&mut local, *target),
                 ir::Instruction::NewBuffer => emit_new_buffer(&mut local),
                 ir::Instruction::NewArray { .. } => emit_new_array(&mut local),
-                ir::Instruction::NewMap => local.push(0xC8), // NEWMAP
+                ir::Instruction::NewMap => local.push(OpCode::NEWMAP.byte()),
                 ir::Instruction::ArrayGet => emit_array_get(&mut local),
                 ir::Instruction::ArraySet => emit_array_set(&mut local),
-                ir::Instruction::HasKey => local.push(0xCB), // HASKEY
+                ir::Instruction::HasKey => local.push(OpCode::HASKEY.byte()),
                 ir::Instruction::MemCpy => {
-                    local.push(0x89); // MEMCPY
+                    local.push(OpCode::MEMCPY.byte());
                 }
                 ir::Instruction::Substr => {
-                    local.push(0x8C); // SUBSTR
+                    local.push(OpCode::SUBSTR.byte());
                 }
                 ir::Instruction::ReverseItems => {
-                    local.push(0xD1); // REVERSEITEMS
+                    local.push(OpCode::REVERSEITEMS.byte());
                 }
                 ir::Instruction::BitwiseNot => {
-                    local.push(0x90); // INVERT
+                    local.push(OpCode::INVERT.byte());
                 }
                 ir::Instruction::LogicalNot => {
-                    local.push(0xAA); // NOT (logical boolean negation)
+                    local.push(OpCode::NOT.byte()); // NOT (logical boolean negation)
                 }
                 ir::Instruction::Try { catch_target } => {
                     // NeoVM TRY_L uses 4-byte signed offsets (catch, finally) relative to
                     // the beginning of the TRY_L instruction. We always emit the wide form
                     // and omit `finally` (offset = 0).
-                    local.push(0x3C); // TRY_L
+                    local.push(OpCode::TRY_L.byte());
                     let position = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]); // catch offset placeholder
                     jump_patches.push((position, *catch_target));
@@ -325,7 +328,7 @@ pub(crate) fn emit_ir_function(
                 ir::Instruction::EndTry { target } => {
                     // NeoVM ENDTRY_L uses a 4-byte signed offset relative to the beginning
                     // of the ENDTRY_L instruction. We always emit the wide form.
-                    local.push(0x3E); // ENDTRY_L
+                    local.push(OpCode::ENDTRY_L.byte());
                     let position = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     jump_patches.push((position, *target));
@@ -334,7 +337,7 @@ pub(crate) fn emit_ir_function(
                     // NeoVM JMP_L uses a 4-byte signed offset relative to the
                     // beginning of the JMP_L instruction. We always use the
                     // wide form for simplicity.
-                    local.push(0x23); // JMP_L
+                    local.push(OpCode::JMP_L.byte());
                     let position = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     jump_patches.push((position, *target));
@@ -343,7 +346,7 @@ pub(crate) fn emit_ir_function(
                     // IR JumpIf branches when the condition is false.
                     // NeoVM JMPIFNOT_L uses a 4-byte signed offset relative to the
                     // beginning of the JMPIFNOT_L instruction.
-                    local.push(0x27); // JMPIFNOT_L
+                    local.push(OpCode::JMPIFNOT_L.byte());
                     let position = local.len();
                     local.extend_from_slice(&[0, 0, 0, 0]);
                     jump_patches.push((position, *target));
@@ -352,19 +355,19 @@ pub(crate) fn emit_ir_function(
                     label_offsets.insert(*label, local.len() as u32);
                 }
                 ir::Instruction::AbortMsg => {
-                    local.push(0xE0); // ABORTMSG
+                    local.push(OpCode::ABORTMSG.byte());
                 }
                 ir::Instruction::Abort => {
-                    local.push(0x38); // ABORT
+                    local.push(OpCode::ABORT.byte());
                 }
                 ir::Instruction::Throw => {
-                    local.push(0x3A); // THROW
+                    local.push(OpCode::THROW.byte());
                 }
                 ir::Instruction::Dup => {
-                    local.push(0x4A); // DUP
+                    local.push(OpCode::DUP.byte());
                 }
                 ir::Instruction::Swap => {
-                    local.push(0x50); // SWAP
+                    local.push(OpCode::SWAP.byte());
                 }
             }
         }
@@ -401,10 +404,10 @@ pub(crate) fn emit_ir_function(
 
 pub(crate) fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueType) {
     match value_type {
-        ValueType::Integer { .. } => bytecode.push(0x10),
+        ValueType::Integer { .. } => bytecode.push(OpCode::PUSH0.byte()),
         // Solidity booleans are represented as 0/1 values on the stack. Use PUSH0 for the
         // default `false` to match numeric/ABI semantics.
-        ValueType::Boolean => bytecode.push(0x10), // PUSH0
+        ValueType::Boolean => bytecode.push(OpCode::PUSH0.byte()),
         ValueType::String => push_data(bytecode, &[]),
         ValueType::Address => push_data(bytecode, &[0u8; 20]),
         ValueType::ByteArray { fixed_len } => {
@@ -415,10 +418,10 @@ pub(crate) fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueTyp
                 push_data(bytecode, &[]);
             }
         }
-        ValueType::Array(_) => bytecode.push(0xC2), // NEWARRAY0
-        ValueType::Mapping { .. } => bytecode.push(0xC8), // NEWMAP
-        ValueType::Struct { .. } => bytecode.push(0xC5), // NEWSTRUCT0
-        ValueType::Any => bytecode.push(0x0B),      // NULL
+        ValueType::Array(_) => bytecode.push(OpCode::NEWARRAY0.byte()),
+        ValueType::Mapping { .. } => bytecode.push(OpCode::NEWMAP.byte()),
+        ValueType::Struct { .. } => bytecode.push(OpCode::NEWSTRUCT0.byte()),
+        ValueType::Any => bytecode.push(OpCode::PUSHNULL.byte()),
     }
 }
 

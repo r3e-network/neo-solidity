@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_native_call(
     bytecode: &mut Vec<u8>,
@@ -35,8 +36,8 @@ pub(crate) fn emit_deploy_contract(
         use_callt,
         token_patches,
     );
-    bytecode.push(0x12); // PUSH2 (ContractState.Hash field index)
-    bytecode.push(0xCE); // PICKITEM
+    bytecode.push(OpCode::PUSH2.byte()); // PUSH2 (ContractState.Hash field index)
+    bytecode.push(OpCode::PICKITEM.byte());
 }
 
 pub(crate) fn emit_get_contract(
@@ -59,19 +60,19 @@ pub(crate) fn emit_get_contract(
     );
 
     // Extract hash (index 2)
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0xCE); // PICKITEM -> [state, hash]
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [state, hash]
 
     // Extract nef (index 3)
-    bytecode.push(0x4B); // OVER
-    bytecode.push(0x13); // PUSH3
-    bytecode.push(0xCE); // PICKITEM -> [state, hash, nef]
+    bytecode.push(OpCode::OVER.byte());
+    bytecode.push(OpCode::PUSH3.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [state, hash, nef]
 
     // Extract manifest (index 4) and serialize it
-    bytecode.push(0x4B); // OVER
-    bytecode.push(0x14); // PUSH4
-    bytecode.push(0xCE); // PICKITEM -> [state, hash, nef, manifestStruct]
+    bytecode.push(OpCode::OVER.byte());
+    bytecode.push(OpCode::PUSH4.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [state, hash, nef, manifestStruct]
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
@@ -82,22 +83,22 @@ pub(crate) fn emit_get_contract(
     ); // -> [state, hash, nef, manifestBytes]
 
     // Extract updateCounter (index 1)
-    bytecode.push(0x13); // PUSH3 (duplicate state from depth 3)
-    bytecode.push(0x4D); // PICK -> [state, hash, nef, manifestBytes, state]
-    bytecode.push(0x11); // PUSH1
-    bytecode.push(0xCE); // PICKITEM -> [state, hash, nef, manifestBytes, updateCounter]
+    bytecode.push(OpCode::PUSH3.byte()); // PUSH3 (duplicate state from depth 3)
+    bytecode.push(OpCode::PICK.byte()); // PICK -> [state, hash, nef, manifestBytes, state]
+    bytecode.push(OpCode::PUSH1.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> [state, hash, nef, manifestBytes, updateCounter]
 
     // Drop original state and pack struct
-    bytecode.push(0x14); // PUSH4
-    bytecode.push(0x52); // ROLL -> [..., state]
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::PUSH4.byte());
+    bytecode.push(OpCode::ROLL.byte()); // ROLL -> [..., state]
+    bytecode.push(OpCode::DROP.byte());
 
-    bytecode.push(0x14); // PUSH4
-    bytecode.push(0xC0); // PACK
-                         // PACK reverses stack order; restore the field order expected by the devpack helper:
-                         // [hash, nef, manifestBytes, updateCounter]
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xD1); // REVERSEITEMS
+    bytecode.push(OpCode::PUSH4.byte());
+    bytecode.push(OpCode::PACK.byte());
+    // PACK reverses stack order; restore the field order expected by the devpack helper:
+    // [hash, nef, manifestBytes, updateCounter]
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::REVERSEITEMS.byte());
 }
 
 pub(crate) fn emit_get_contract_script(
@@ -115,8 +116,8 @@ pub(crate) fn emit_get_contract_script(
         use_callt,
         token_patches,
     );
-    bytecode.push(0x13); // PUSH3 (ContractState.Nef field index)
-    bytecode.push(0xCE); // PICKITEM
+    bytecode.push(OpCode::PUSH3.byte()); // PUSH3 (ContractState.Nef field index)
+    bytecode.push(OpCode::PICKITEM.byte());
 }
 
 pub(crate) fn emit_get_neo_account_state(
@@ -139,27 +140,27 @@ pub(crate) fn emit_get_neo_account_state(
     );
 
     // If result is null, replace with [0, 0, "", 0].
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xD8); // ISNULL
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::ISNULL.byte());
     let jmp_if_not_null_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_if_not_null_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // null path
-    bytecode.push(0x45); // DROP
-    bytecode.push(0x10); // PUSH0 (balance)
-    bytecode.push(0x10); // PUSH0 (balanceHeight)
+    bytecode.push(OpCode::DROP.byte());
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 (balance)
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 (balanceHeight)
     push_data(bytecode, &[]); // empty voteTo
-    bytecode.push(0x10); // PUSH0 (lastGasPerVote)
-    bytecode.push(0x14); // PUSH4
-    bytecode.push(0xC0); // PACK
-                         // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xD1); // REVERSEITEMS
+    bytecode.push(OpCode::PUSH0.byte()); // PUSH0 (lastGasPerVote)
+    bytecode.push(OpCode::PUSH4.byte());
+    bytecode.push(OpCode::PACK.byte());
+    // PACK reverses stack order; restore [balance, balanceHeight, voteTo, lastGasPerVote].
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::REVERSEITEMS.byte());
 
     let jmp_end_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_end_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
@@ -167,20 +168,20 @@ pub(crate) fn emit_get_neo_account_state(
     let not_null_pos = bytecode.len();
 
     // If voteTo (index 2) is null, set it to "".
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0x12); // PUSH2
-    bytecode.push(0xCE); // PICKITEM -> voteTo
-    bytecode.push(0xD8); // ISNULL
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::PUSH2.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> voteTo
+    bytecode.push(OpCode::ISNULL.byte());
     let jmp_vote_non_null_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_vote_non_null_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // voteTo is null path: state[2] = ""
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0x12); // PUSH2
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::PUSH2.byte());
     push_data(bytecode, &[]);
-    bytecode.push(0xD0); // SETITEM
+    bytecode.push(OpCode::SETITEM.byte());
 
     let vote_non_null_pos = bytecode.len();
 

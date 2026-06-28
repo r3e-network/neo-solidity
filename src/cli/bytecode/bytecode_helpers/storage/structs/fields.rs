@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_load_struct_field(
     bytecode: &mut Vec<u8>,
@@ -51,7 +52,7 @@ pub(crate) fn emit_store_struct_field(
     );
     match field.ty {
         ValueType::Struct { fields, .. } => {
-            bytecode.push(0x50); // SWAP -> [slot, value]
+            bytecode.push(OpCode::SWAP.byte()); // SWAP -> [slot, value]
             emit_store_struct_value_to_slot(bytecode, fields, use_callt, token_patches);
         }
         _ => {

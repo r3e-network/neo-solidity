@@ -1,49 +1,51 @@
 // ==================== Helper Function Unit Tests ====================
 
+use neo_devpack_solidity::opcode::OpCode;
+
 #[test]
 fn emit_load_local_uses_short_form_for_small_indices() {
     let mut bytecode = Vec::new();
     emit_load_local(&mut bytecode, 0);
-    assert_eq!(bytecode, vec![0x68], "LDLOC0");
+    assert_eq!(bytecode, vec![OpCode::LDLOC0.byte()], "LDLOC0");
 
     bytecode.clear();
     emit_load_local(&mut bytecode, 6);
-    assert_eq!(bytecode, vec![0x6E], "LDLOC6");
+    assert_eq!(bytecode, vec![OpCode::LDLOC6.byte()], "LDLOC6");
 
     bytecode.clear();
     emit_load_local(&mut bytecode, 7);
-    assert_eq!(bytecode, vec![0x6F, 0x07], "LDLOC with index");
+    assert_eq!(bytecode, vec![OpCode::LDLOC.byte(), 0x07], "LDLOC with index");
 }
 
 #[test]
 fn emit_store_local_uses_short_form_for_small_indices() {
     let mut bytecode = Vec::new();
     emit_store_local(&mut bytecode, 0);
-    assert_eq!(bytecode, vec![0x70], "STLOC0");
+    assert_eq!(bytecode, vec![OpCode::STLOC0.byte()], "STLOC0");
 
     bytecode.clear();
     emit_store_local(&mut bytecode, 6);
-    assert_eq!(bytecode, vec![0x76], "STLOC6");
+    assert_eq!(bytecode, vec![OpCode::STLOC6.byte()], "STLOC6");
 
     bytecode.clear();
     emit_store_local(&mut bytecode, 7);
-    assert_eq!(bytecode, vec![0x77, 0x07], "STLOC with index");
+    assert_eq!(bytecode, vec![OpCode::STLOC.byte(), 0x07], "STLOC with index");
 }
 
 #[test]
 fn emit_binary_op_emits_correct_opcodes() {
     let test_cases = [
-        (ir::BinaryOperator::Add, 0x9E),
-        (ir::BinaryOperator::Sub, 0x9F),
-        (ir::BinaryOperator::Mul, 0xA0),
-        (ir::BinaryOperator::Div, 0xA1),
-        (ir::BinaryOperator::Mod, 0xA2),
-        (ir::BinaryOperator::BitAnd, 0x91),
-        (ir::BinaryOperator::BitOr, 0x92),
-        (ir::BinaryOperator::BitXor, 0x93),
-        (ir::BinaryOperator::Lt, 0xB5),
-        (ir::BinaryOperator::Eq, 0x97),
-        (ir::BinaryOperator::Ne, 0x98),
+        (ir::BinaryOperator::Add, OpCode::ADD),
+        (ir::BinaryOperator::Sub, OpCode::SUB),
+        (ir::BinaryOperator::Mul, OpCode::MUL),
+        (ir::BinaryOperator::Div, OpCode::DIV),
+        (ir::BinaryOperator::Mod, OpCode::MOD),
+        (ir::BinaryOperator::BitAnd, OpCode::AND),
+        (ir::BinaryOperator::BitOr, OpCode::OR),
+        (ir::BinaryOperator::BitXor, OpCode::XOR),
+        (ir::BinaryOperator::Lt, OpCode::LT),
+        (ir::BinaryOperator::Eq, OpCode::EQUAL),
+        (ir::BinaryOperator::Ne, OpCode::NOTEQUAL),
     ];
 
     for (op, expected_opcode) in test_cases {
@@ -51,8 +53,9 @@ fn emit_binary_op_emits_correct_opcodes() {
         emit_binary_op(&mut bytecode, op);
         assert_eq!(
             bytecode,
-            vec![expected_opcode],
-            "operator {op:?} should emit opcode 0x{expected_opcode:02X}"
+            vec![expected_opcode.byte()],
+            "operator {op:?} should emit opcode {}",
+            expected_opcode.name()
         );
     }
 }
@@ -62,34 +65,38 @@ fn push_literal_value_handles_all_types() {
     // Boolean true
     let mut bytecode = Vec::new();
     push_literal_value(&mut bytecode, &LiteralValue::Boolean(true));
-    assert_eq!(bytecode, vec![0x08], "PUSHT for true");
+    assert_eq!(bytecode, vec![OpCode::PUSHT.byte()], "PUSHT for true");
 
     // Boolean false
     bytecode.clear();
     push_literal_value(&mut bytecode, &LiteralValue::Boolean(false));
-    assert_eq!(bytecode, vec![0x09], "PUSHF for false");
+    assert_eq!(bytecode, vec![OpCode::PUSHF.byte()], "PUSHF for false");
 
     // Small integer
     bytecode.clear();
     push_literal_value(&mut bytecode, &LiteralValue::Integer(BigInt::from(5)));
-    assert_eq!(bytecode, vec![0x15], "PUSH5");
+    assert_eq!(bytecode, vec![OpCode::PUSH5.byte()], "PUSH5");
 
     // Zero
     bytecode.clear();
     push_literal_value(&mut bytecode, &LiteralValue::Integer(BigInt::from(0)));
-    assert_eq!(bytecode, vec![0x10], "PUSH0");
+    assert_eq!(bytecode, vec![OpCode::PUSH0.byte()], "PUSH0");
 
     // Empty string
     bytecode.clear();
     push_literal_value(&mut bytecode, &LiteralValue::String(vec![]));
-    assert_eq!(bytecode, vec![0x0C, 0x00], "PUSHDATA1 with empty data");
+    assert_eq!(
+        bytecode,
+        vec![OpCode::PUSHDATA1.byte(), 0x00],
+        "PUSHDATA1 with empty data"
+    );
 
     // Short byte array
     bytecode.clear();
     push_literal_value(&mut bytecode, &LiteralValue::ByteArray(vec![0xAB, 0xCD]));
     assert_eq!(
         bytecode,
-        vec![0x0C, 0x02, 0xAB, 0xCD],
+        vec![OpCode::PUSHDATA1.byte(), 0x02, 0xAB, 0xCD],
         "PUSHDATA1 with bytes"
     );
 }
@@ -99,18 +106,24 @@ fn push_integer_bigint_handles_special_values() {
     // Zero
     let mut bytecode = Vec::new();
     push_integer_bigint(&mut bytecode, &BigInt::from(0));
-    assert_eq!(bytecode, vec![0x10], "PUSH0");
+    assert_eq!(bytecode, vec![OpCode::PUSH0.byte()], "PUSH0");
 
     // -1
     bytecode.clear();
     push_integer_bigint(&mut bytecode, &BigInt::from(-1));
-    assert_eq!(bytecode, vec![0x0F], "PUSHM1");
+    assert_eq!(bytecode, vec![OpCode::PUSHM1.byte()], "PUSHM1");
 
     // Small positive (1-16)
     for i in 1..=16u8 {
         bytecode.clear();
         push_integer_bigint(&mut bytecode, &BigInt::from(i));
-        assert_eq!(bytecode, vec![0x10 + i], "PUSH{i}");
+        let expected_opcode = OpCode::push_small(i).expect("0..=16");
+        assert_eq!(
+            bytecode,
+            vec![expected_opcode.byte()],
+            "PUSH{i} should emit {}",
+            expected_opcode.name()
+        );
     }
 
     // Larger positive
@@ -133,7 +146,7 @@ fn push_integer_bigint_coerces_out_of_range_unsigned_literals() {
     let mut bytecode = Vec::new();
     push_integer_bigint(&mut bytecode, &value);
 
-    let mut expected = vec![0x05u8]; // PUSHINT256
+    let mut expected = vec![OpCode::PUSHINT256.byte()];
     expected.extend_from_slice(&[0xFFu8; 32]); // two's-complement of -1
     assert_eq!(
         bytecode, expected,
@@ -152,12 +165,16 @@ fn append_default_value_handles_all_types() {
             bits: 256,
         },
     );
-    assert_eq!(bytecode, vec![0x10], "default integer is 0");
+    assert_eq!(bytecode, vec![OpCode::PUSH0.byte()], "default integer is 0");
 
     // Boolean
     bytecode.clear();
     append_default_value(&mut bytecode, &ValueType::Boolean);
-    assert_eq!(bytecode, vec![0x10], "default boolean is false (0)");
+    assert_eq!(
+        bytecode,
+        vec![OpCode::PUSH0.byte()],
+        "default boolean is false (0)"
+    );
 
     // Array
     bytecode.clear();
@@ -165,7 +182,7 @@ fn append_default_value_handles_all_types() {
         &mut bytecode,
         &ValueType::Array(Box::new(ValueType::Boolean)),
     );
-    assert_eq!(bytecode, vec![0xC2], "NEWARRAY0");
+    assert_eq!(bytecode, vec![OpCode::NEWARRAY0.byte()], "NEWARRAY0");
 
     // Mapping
     bytecode.clear();
@@ -179,12 +196,12 @@ fn append_default_value_handles_all_types() {
             }),
         },
     );
-    assert_eq!(bytecode, vec![0xC8], "NEWMAP");
+    assert_eq!(bytecode, vec![OpCode::NEWMAP.byte()], "NEWMAP");
 
     // Any
     bytecode.clear();
     append_default_value(&mut bytecode, &ValueType::Any);
-    assert_eq!(bytecode, vec![0x0B], "PUSHNULL");
+    assert_eq!(bytecode, vec![OpCode::PUSHNULL.byte()], "PUSHNULL");
 }
 
 #[test]

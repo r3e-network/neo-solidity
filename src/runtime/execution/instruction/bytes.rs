@@ -1,34 +1,42 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_bytes_instruction(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const NEWBUFFER: u8 = OpCode::NEWBUFFER.byte();
+        const MEMCPY: u8 = OpCode::MEMCPY.byte();
+        const CAT: u8 = OpCode::CAT.byte();
+        const SUBSTR: u8 = OpCode::SUBSTR.byte();
+        const LEFT: u8 = OpCode::LEFT.byte();
+        const RIGHT: u8 = OpCode::RIGHT.byte();
+
         match opcode {
-            0x88 => {
+            NEWBUFFER => {
                 // NEWBUFFER
                 self.new_buffer()?;
                 self.instruction_pointer += 1;
             }
-            0x89 => {
+            MEMCPY => {
                 // MEMCPY
                 self.memcpy_bytes()?;
                 self.instruction_pointer += 1;
             }
-            0x8B => {
+            CAT => {
                 // CAT
                 self.concat_bytes()?;
                 self.instruction_pointer += 1;
             }
-            0x8C => {
+            SUBSTR => {
                 // SUBSTR
                 self.substr_bytes()?;
                 self.instruction_pointer += 1;
             }
-            0x8D => {
+            LEFT => {
                 // LEFT
                 self.left_bytes()?;
                 self.instruction_pointer += 1;
             }
-            0x8E => {
+            RIGHT => {
                 // RIGHT
                 self.right_bytes()?;
                 self.instruction_pointer += 1;

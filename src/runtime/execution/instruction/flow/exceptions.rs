@@ -1,15 +1,20 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_flow_exceptions(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const ABORT: u8 = OpCode::ABORT.byte();
+        const ASSERT: u8 = OpCode::ASSERT.byte();
+        const THROW: u8 = OpCode::THROW.byte();
+
         match opcode {
-            0x38 => {
+            ABORT => {
                 // ABORT
                 return Err(RuntimeError::ExecutionError {
                     message: "ABORT instruction executed".to_string(),
                 });
             }
-            0x39 => {
+            ASSERT => {
                 // ASSERT
                 let condition = self.pop_stack()?;
                 if condition.is_truthy() {
@@ -20,7 +25,7 @@ impl ExecutionContext {
                     });
                 }
             }
-            0x3A => {
+            THROW => {
                 // THROW
                 //
                 // Task #27 (runtime slice) — preserve the raw stack-top bytes

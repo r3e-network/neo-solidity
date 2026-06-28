@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_abi_encode(
     bytecode: &mut Vec<u8>,
@@ -16,12 +17,12 @@ pub(crate) fn emit_abi_encode(
 
     let total_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &total_bigint);
-    bytecode.push(0xC0); // PACK
-                         // PACK pops values from the stack and therefore reverses their order.
-                         // For `abi.encode(a, b, c)` we must preserve the original argument order.
+    bytecode.push(OpCode::PACK.byte());
+    // PACK pops values from the stack and therefore reverses their order.
+    // For `abi.encode(a, b, c)` we must preserve the original argument order.
     if arg_count > 1 {
-        bytecode.push(0x4A); // DUP (keep a reference to the array on the stack)
-        bytecode.push(0xD1); // REVERSEITEMS (consumes one reference, reverses in-place)
+        bytecode.push(OpCode::DUP.byte()); // DUP (keep a reference to the array on the stack)
+        bytecode.push(OpCode::REVERSEITEMS.byte()); // REVERSEITEMS (consumes one reference, reverses in-place)
     }
     // Production Neo N3 has no StdLib.abiEncode helper. The high-level IR
     // lowers many static ABI shapes directly before bytecode emission; this
@@ -51,10 +52,10 @@ pub(crate) fn emit_abi_encode_packed(
 
     let total_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &total_bigint);
-    bytecode.push(0xC0); // PACK
+    bytecode.push(OpCode::PACK.byte());
     if arg_count > 1 {
-        bytecode.push(0x4A); // DUP
-        bytecode.push(0xD1); // REVERSEITEMS
+        bytecode.push(OpCode::DUP.byte());
+        bytecode.push(OpCode::REVERSEITEMS.byte());
     }
     // Production Neo N3 has no StdLib.abiEncodePacked helper. Static/narrow
     // packed forms are lowered before this point; use real StdLib.serialize
@@ -103,15 +104,15 @@ pub(crate) fn emit_notify_serialized(
         token_patches,
     );
     // Extract eventName/state via PICKITEM and call Runtime.Notify.
-    bytecode.push(0x4A); // DUP (payload)
-    bytecode.push(0x10); // PUSH0
-    bytecode.push(0xCE); // PICKITEM -> eventName
-    bytecode.push(0x50); // SWAP -> [eventName, payload]
-    bytecode.push(0x4A); // DUP (payload)
-    bytecode.push(0x11); // PUSH1
-    bytecode.push(0xCE); // PICKITEM -> state
-    bytecode.push(0x46); // NIP (drop payload) -> [eventName, state]
-    bytecode.push(0x50); // SWAP -> [state, eventName]
+    bytecode.push(OpCode::DUP.byte()); // DUP (payload)
+    bytecode.push(OpCode::PUSH0.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> eventName
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [eventName, payload]
+    bytecode.push(OpCode::DUP.byte()); // DUP (payload)
+    bytecode.push(OpCode::PUSH1.byte());
+    bytecode.push(OpCode::PICKITEM.byte()); // PICKITEM -> state
+    bytecode.push(OpCode::NIP.byte()); // NIP (drop payload) -> [eventName, state]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [state, eventName]
     emit_syscall(bytecode, "System.Runtime.Notify");
-    bytecode.push(0x11); // PUSH1
+    bytecode.push(OpCode::PUSH1.byte());
 }

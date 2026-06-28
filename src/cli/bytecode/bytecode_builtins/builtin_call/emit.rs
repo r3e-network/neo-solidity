@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_builtin_call(
     bytecode: &mut Vec<u8>,
@@ -64,12 +65,12 @@ pub(crate) fn emit_builtin_call(
             // Args are already on the stack. For N args we need N-1 CAT ops.
             // CAT pops two byte arrays and pushes their concatenation.
             for _ in 1..arg_count {
-                bytecode.push(0x8B); // CAT opcode
+                bytecode.push(OpCode::CAT.byte());
             }
-            // If zero args, push empty byte array.
+            // If zero args, push empty buffer.
             if arg_count == 0 {
-                bytecode.push(0x00); // PUSH0 (empty buffer)
-                bytecode.push(0x28); // NEWBUFFER
+                bytecode.push(OpCode::PUSH0.byte());
+                bytecode.push(OpCode::NEWBUFFER.byte());
             }
         }
     }

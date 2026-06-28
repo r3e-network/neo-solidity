@@ -1,12 +1,23 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_arithmetic_comparison(
         &mut self,
         opcode: u8,
     ) -> Result<bool, RuntimeError> {
+        const NUMEQUAL: u8 = OpCode::NUMEQUAL.byte();
+        const NUMNOTEQUAL: u8 = OpCode::NUMNOTEQUAL.byte();
+        const LT: u8 = OpCode::LT.byte();
+        const LE: u8 = OpCode::LE.byte();
+        const GT: u8 = OpCode::GT.byte();
+        const GE: u8 = OpCode::GE.byte();
+        const MIN: u8 = OpCode::MIN.byte();
+        const MAX: u8 = OpCode::MAX.byte();
+        const WITHIN: u8 = OpCode::WITHIN.byte();
+
         match opcode {
-            0xB3 => {
+            NUMEQUAL => {
                 // NUMEQUAL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -15,7 +26,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB4 => {
+            NUMNOTEQUAL => {
                 // NUMNOTEQUAL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -24,7 +35,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB5 => {
+            LT => {
                 // LT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -33,7 +44,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB6 => {
+            LE => {
                 // LE
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -43,7 +54,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB7 => {
+            GT => {
                 // GT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -52,7 +63,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB8 => {
+            GE => {
                 // GE
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -62,7 +73,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xB9 => {
+            MIN => {
                 // MIN
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -71,7 +82,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xBA => {
+            MAX => {
                 // MAX
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -80,7 +91,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xBB => {
+            WITHIN => {
                 // WITHIN (left inclusive)
                 let max_item = self.pop_stack()?;
                 let min_item = self.pop_stack()?;

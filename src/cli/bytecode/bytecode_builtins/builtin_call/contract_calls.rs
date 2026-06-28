@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn emit_contract_call(
     bytecode: &mut Vec<u8>,
@@ -15,8 +16,8 @@ pub(crate) fn emit_contract_call(
         token_patches,
     );
     push_integer_bigint(bytecode, &BigInt::from(CALLFLAGS_ALL));
-    bytecode.push(0x50); // SWAP -> [contract, method, flags, args]
-    bytecode.push(0x54); // REVERSE4 -> [args, flags, method, contract]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [contract, method, flags, args]
+    bytecode.push(OpCode::REVERSE4.byte()); // REVERSE4 -> [args, flags, method, contract]
     emit_syscall(bytecode, "System.Contract.Call");
     // Neo N3 has no native ABI encoder. Return data must still be executable
     // on-chain, so wrap non-null results with real StdLib.serialize. IR-level
@@ -32,7 +33,7 @@ pub(crate) fn emit_contract_call_with_flags(
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
     // Stack: [contract_hash, method, params(bytes), flags]
-    bytecode.push(0x50); // SWAP -> [contract, method, flags, params]
+    bytecode.push(OpCode::SWAP.byte()); // SWAP -> [contract, method, flags, params]
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,
@@ -41,7 +42,7 @@ pub(crate) fn emit_contract_call_with_flags(
         use_callt,
         token_patches,
     );
-    bytecode.push(0x54); // REVERSE4 -> [args, flags, method, contract]
+    bytecode.push(OpCode::REVERSE4.byte()); // REVERSE4 -> [args, flags, method, contract]
     emit_syscall(bytecode, "System.Contract.Call");
     // Same production-safe serialized wrapping as the non-flags path.
     emit_serialize_single_return(bytecode, use_callt, token_patches);
@@ -60,26 +61,26 @@ pub(crate) fn emit_serialize_single_return(
     // NeoVM uses `Null` for "no return value". Solidity low-level calls
     // surface that as empty returndata, not as an ABI-encoded null sentinel.
     // Short-circuit the null case so void methods surface empty returndata.
-    bytecode.push(0x4A); // DUP
-    bytecode.push(0xD8); // ISNULL
+    bytecode.push(OpCode::DUP.byte());
+    bytecode.push(OpCode::ISNULL.byte());
     let jmp_if_not_null_pos = bytecode.len();
-    bytecode.push(0x27); // JMPIFNOT_L
+    bytecode.push(OpCode::JMPIFNOT_L.byte());
     let jmp_if_not_null_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     // null path -> empty bytes
-    bytecode.push(0x45); // DROP
+    bytecode.push(OpCode::DROP.byte());
     push_data(bytecode, &[]);
     let jmp_end_pos = bytecode.len();
-    bytecode.push(0x23); // JMP_L
+    bytecode.push(OpCode::JMP_L.byte());
     let jmp_end_operand = bytecode.len();
     bytecode.extend_from_slice(&[0, 0, 0, 0]);
 
     let not_null_pos = bytecode.len();
 
     // PUSH1 — arity for PACK.
-    bytecode.push(0x11); // PUSH1
-    bytecode.push(0xC0); // PACK -> [Array([returnValue])]
+    bytecode.push(OpCode::PUSH1.byte());
+    bytecode.push(OpCode::PACK.byte()); // PACK -> [Array([returnValue])]
     emit_native_contract_call(
         bytecode,
         ir::NativeContract::StdLib,

@@ -584,12 +584,7 @@ pub(crate) fn lower_yul_statement(
             // yul-locals they declare (via `let i := 0`) remain visible
             // to the condition / post / body — which matches yul semantics
             // (`for { let i := 0 } lt(i, n) { i := add(i, 1) } { ... }`).
-            if !lower_yul_block_stmts(
-                &for_stmt.init_block.statements,
-                state,
-                ctx,
-                instructions,
-            ) {
+            if !lower_yul_block_stmts(&for_stmt.init_block.statements, state, ctx, instructions) {
                 return false;
             }
 
@@ -620,12 +615,7 @@ pub(crate) fn lower_yul_statement(
             }
 
             instructions.push(Instruction::Label(post_label));
-            if !lower_yul_block_stmts(
-                &for_stmt.post_block.statements,
-                state,
-                ctx,
-                instructions,
-            ) {
+            if !lower_yul_block_stmts(&for_stmt.post_block.statements, state, ctx, instructions) {
                 return false;
             }
             instructions.push(Instruction::Jump { target: loop_start });
@@ -903,17 +893,13 @@ pub(crate) fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::GetSize);
             true
         }
-        "add" | "sub" | "mul" => lower_two_arg_yul_call(
-            call,
-            state,
-            ctx,
-            instructions,
-            |n| match n {
+        "add" | "sub" | "mul" => {
+            lower_two_arg_yul_call(call, state, ctx, instructions, |n| match n {
                 "add" => BinaryOperator::Add,
                 "sub" => BinaryOperator::Sub,
                 _ => BinaryOperator::Mul, // "mul" — the only remaining arm
-            },
-        ),
+            })
+        }
         "div" | "mod" => {
             // Yul (EVM) semantics: division/modulo by zero yields 0, NOT a fault.
             // (Unlike high-level Solidity, which Panics 0x12 — that guard lives in
@@ -955,17 +941,13 @@ pub(crate) fn lower_yul_function_call_as_expression(
             instructions.push(Instruction::Label(done));
             true
         }
-        "and" | "or" | "xor" => lower_two_arg_yul_call(
-            call,
-            state,
-            ctx,
-            instructions,
-            |n| match n {
+        "and" | "or" | "xor" => {
+            lower_two_arg_yul_call(call, state, ctx, instructions, |n| match n {
                 "and" => BinaryOperator::BitAnd,
                 "or" => BinaryOperator::BitOr,
                 _ => BinaryOperator::BitXor, // "xor" — the only remaining arm
-            },
-        ),
+            })
+        }
         "shl" | "shr" => {
             // Yul shift args are (shift_amount, value); NeoVM's BinaryOp
             // Shl/Shr take (value, shift_amount) bottom-up.

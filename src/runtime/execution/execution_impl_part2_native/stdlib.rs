@@ -288,9 +288,7 @@ impl ExecutionContext {
                     if let StackItem::Array(fields) = el {
                         let field_items = fields.borrow().clone();
                         if !field_items.is_empty()
-                            && field_items
-                                .iter()
-                                .all(|item| !Self::abi_is_dynamic(item))
+                            && field_items.iter().all(|item| !Self::abi_is_dynamic(item))
                         {
                             for field in field_items.iter() {
                                 out.extend_from_slice(&Self::abi_pad32_be(field));

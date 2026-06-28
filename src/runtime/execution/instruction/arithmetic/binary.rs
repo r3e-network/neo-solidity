@@ -1,9 +1,19 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_arithmetic_binary(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const ADD: u8 = OpCode::ADD.byte();
+        const SUB: u8 = OpCode::SUB.byte();
+        const MUL: u8 = OpCode::MUL.byte();
+        const DIV: u8 = OpCode::DIV.byte();
+        const MOD: u8 = OpCode::MOD.byte();
+        const POW: u8 = OpCode::POW.byte();
+        const MODMUL: u8 = OpCode::MODMUL.byte();
+        const MODPOW: u8 = OpCode::MODPOW.byte();
+
         match opcode {
-            0x9E => {
+            ADD => {
                 // ADD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -12,7 +22,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0x9F => {
+            SUB => {
                 // SUB
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -21,7 +31,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA0 => {
+            MUL => {
                 // MUL
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -30,7 +40,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA1 => {
+            DIV => {
                 // DIV
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -39,7 +49,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA2 => {
+            MOD => {
                 // MOD
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -48,7 +58,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA3 => {
+            POW => {
                 // POW
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -57,7 +67,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA5 => {
+            MODMUL => {
                 // MODMUL
                 let modulus = self.pop_stack()?;
                 let b = self.pop_stack()?;
@@ -67,7 +77,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA6 => {
+            MODPOW => {
                 // MODPOW
                 let modulus = self.pop_stack()?;
                 let exponent = self.pop_stack()?;

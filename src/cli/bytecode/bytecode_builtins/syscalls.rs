@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 pub(crate) fn is_void_syscall(name: &str) -> bool {
     matches!(
@@ -34,7 +35,7 @@ pub(crate) fn emit_native_contract_call(
                 && method.len() <= neo_devpack_solidity::neo::MAX_TOKEN_METHOD_LENGTH
             {
                 if let Some(has_return_value) = native_method_has_return_value(contract, method) {
-                    bytecode.push(0x37); // CALLT
+                    bytecode.push(OpCode::CALLT.byte());
                     let position = bytecode.len();
                     bytecode.extend_from_slice(&[0, 0]); // token index placeholder
 
@@ -52,7 +53,7 @@ pub(crate) fn emit_native_contract_call(
                     if !has_return_value {
                         // CALLT will not push a return value for void methods; keep stack behavior
                         // consistent with other void builtins by pushing a placeholder item.
-                        bytecode.push(0x11); // PUSH1
+                        bytecode.push(OpCode::PUSH1.byte());
                     }
                     return;
                 }
@@ -63,12 +64,12 @@ pub(crate) fn emit_native_contract_call(
     // Build argument array for System.Contract.Call.
     let arg_count_bigint = BigInt::from(arg_count);
     push_integer_bigint(bytecode, &arg_count_bigint);
-    bytecode.push(0xC0); // PACK
-                         // PACK pops values from the stack and reverses their order. Native contract
-                         // calls must preserve the original argument ordering.
+    bytecode.push(OpCode::PACK.byte());
+    // PACK pops values from the stack and reverses their order. Native contract
+    // calls must preserve the original argument ordering.
     if arg_count > 1 {
-        bytecode.push(0x4A); // DUP (keep a reference to the array on the stack)
-        bytecode.push(0xD1); // REVERSEITEMS (consumes one reference, reverses in-place)
+        bytecode.push(OpCode::DUP.byte()); // DUP (keep a reference to the array on the stack)
+        bytecode.push(OpCode::REVERSEITEMS.byte()); // REVERSEITEMS (consumes one reference, reverses in-place)
     }
 
     // Push call flags, method name, and contract hash.
@@ -271,6 +272,6 @@ pub(crate) fn native_method_has_return_value(
 }
 
 pub(crate) fn emit_syscall(bytecode: &mut Vec<u8>, name: &str) {
-    bytecode.push(0x41);
+    bytecode.push(OpCode::SYSCALL.byte());
     bytecode.extend_from_slice(&crate::interop::interop_id_bytes(name));
 }

@@ -1,9 +1,23 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_flow_jumps_compare(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const JMPEQ: u8 = OpCode::JMPEQ.byte();
+        const JMPEQ_L: u8 = OpCode::JMPEQ_L.byte();
+        const JMPNE: u8 = OpCode::JMPNE.byte();
+        const JMPNE_L: u8 = OpCode::JMPNE_L.byte();
+        const JMPGT: u8 = OpCode::JMPGT.byte();
+        const JMPGT_L: u8 = OpCode::JMPGT_L.byte();
+        const JMPGE: u8 = OpCode::JMPGE.byte();
+        const JMPGE_L: u8 = OpCode::JMPGE_L.byte();
+        const JMPLT: u8 = OpCode::JMPLT.byte();
+        const JMPLT_L: u8 = OpCode::JMPLT_L.byte();
+        const JMPLE: u8 = OpCode::JMPLE.byte();
+        const JMPLE_L: u8 = OpCode::JMPLE_L.byte();
+
         match opcode {
-            0x28 => {
+            JMPEQ => {
                 // JMPEQ
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -17,7 +31,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x29 => {
+            JMPEQ_L => {
                 // JMPEQ_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -31,7 +45,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2A => {
+            JMPNE => {
                 // JMPNE
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -45,7 +59,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2B => {
+            JMPNE_L => {
                 // JMPNE_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -59,7 +73,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2C => {
+            JMPGT => {
                 // JMPGT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -73,7 +87,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2D => {
+            JMPGT_L => {
                 // JMPGT_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -87,7 +101,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2E => {
+            JMPGE => {
                 // JMPGE
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -102,7 +116,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x2F => {
+            JMPGE_L => {
                 // JMPGE_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -117,7 +131,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x30 => {
+            JMPLT => {
                 // JMPLT
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -131,7 +145,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x31 => {
+            JMPLT_L => {
                 // JMPLT_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -145,7 +159,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x32 => {
+            JMPLE => {
                 // JMPLE
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;
@@ -160,7 +174,7 @@ impl ExecutionContext {
                 }
                 Ok(true)
             }
-            0x33 => {
+            JMPLE_L => {
                 // JMPLE_L
                 let b = self.pop_stack()?;
                 let a = self.pop_stack()?;

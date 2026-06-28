@@ -1,9 +1,13 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_arithmetic_shifts(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const SHL: u8 = OpCode::SHL.byte();
+        const SHR: u8 = OpCode::SHR.byte();
+
         match opcode {
-            0xA8 => {
+            SHL => {
                 // SHL
                 let shift = self.pop_stack()?;
                 let value = self.pop_stack()?;
@@ -12,7 +16,7 @@ impl ExecutionContext {
                 self.instruction_pointer += 1;
                 Ok(true)
             }
-            0xA9 => {
+            SHR => {
                 // SHR
                 let shift = self.pop_stack()?;
                 let value = self.pop_stack()?;

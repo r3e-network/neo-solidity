@@ -1,4 +1,5 @@
 use super::*;
+use crate::opcode::OpCode;
 
 /// Wave-#14 Finding #5 — per-byte gas surcharge for CryptoLib hash
 /// methods invoked via `CALLT`. Neo's native hash ops charge roughly
@@ -17,8 +18,13 @@ fn cryptolib_hash_method_per_byte_charge(method: &str) -> bool {
 
 impl ExecutionContext {
     pub(crate) fn execute_flow_calls(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const CALL: u8 = OpCode::CALL.byte();
+        const CALL_L: u8 = OpCode::CALL_L.byte();
+        const CALLA: u8 = OpCode::CALLA.byte();
+        const CALLT: u8 = OpCode::CALLT.byte();
+
         match opcode {
-            0x34 => {
+            CALL => {
                 // CALL (1-byte signed relative offset from instruction start)
                 let offset = self.read_i8_offset("CALL")? as i32;
                 let base = self.instruction_pointer;
@@ -26,7 +32,7 @@ impl ExecutionContext {
                 self.push_call_frame(base + 2)?;
                 self.instruction_pointer = target;
             }
-            0x35 => {
+            CALL_L => {
                 // CALL_L (4-byte signed relative offset from instruction start)
                 let offset = self.read_i32_offset("CALL_L")?;
                 let base = self.instruction_pointer;
@@ -34,7 +40,7 @@ impl ExecutionContext {
                 self.push_call_frame(base + 5)?;
                 self.instruction_pointer = target;
             }
-            0x36 => {
+            CALLA => {
                 // CALLA (absolute address from stack)
                 let target_usize = self.pop_usize("CALLA")?;
                 let target =
@@ -50,7 +56,7 @@ impl ExecutionContext {
                 self.push_call_frame(return_address)?;
                 self.instruction_pointer = target;
             }
-            0x37 => {
+            CALLT => {
                 // CALLT (token-based contract call; u16 token index)
                 let start = self.instruction_pointer as usize + 1;
                 let end = start + 2;

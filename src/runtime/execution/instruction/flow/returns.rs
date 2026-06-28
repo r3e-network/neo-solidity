@@ -1,9 +1,12 @@
 use super::*;
+use crate::opcode::OpCode;
 
 impl ExecutionContext {
     pub(crate) fn execute_flow_returns(&mut self, opcode: u8) -> Result<bool, RuntimeError> {
+        const RET: u8 = OpCode::RET.byte();
+
         match opcode {
-            0x40 => {
+            RET => {
                 // RET
                 if self.call_stack.is_empty() {
                     if let Some(item) = self.stack.last() {
