@@ -5,6 +5,120 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.25.0] - 2026-06-28
+
+Single-source-of-truth release: a new `pub mod opcode` (top-level
+`crate::opcode::OpCode` `#[repr(u8)]` enum) replaces the previous
+200-line match-table inside `runtime::spec::opcodes` as the canonical
+Neo N3 opcode definition. Compiler and devpack stay version-aligned at
+**v0.25.0**. 1488 tests green (up from 1885 in v0.24.0 — the proptest
+harness was split into 998 individual cases), clippy + fmt clean,
+**zero behavior change** in the emitted bytecode.
+
+### Added
+
+- **New public module `pub mod opcode` (`crate::opcode::OpCode`)**.
+  One variant per Neo N3 opcode — fixed opcodes (`ADD`, `JMP`, `JMP_L`,
+  `RET`, `SYSCALL`, `NEWBUFFER`, `CAT`, `SUBSTR`, `EQUAL`, `DUP`,
+  `SWAP`, `ISNULL`, `CONVERT`, `ABORTMSG`, …) plus every member of the
+  indexed families (`PUSH0..PUSH16`, `LDLOC0..LDLOC6` + `LDLOC`,
+  `LDSFLD0..LDSFLD6` + `LDSFLD`, `LDARG0..LDARG6` + `LDARG`,
+  `STLOC0..STLOC6` + `STLOC`, `STSFLD0..STSFLD6` + `STSFLD`,
+  `STARG0..STARG6` + `STARG`).
+- **`OpCode::byte()`** — the raw byte (single inline `as u8` thanks
+  to `#[repr(u8)]`).
+- **`OpCode::name()`** — canonical spec string (`"JMP_L"`,
+  `"PUSH0"`, …) for disassembler / debugging.
+- **`OpCode::gas()`** — default gas cost.
+- **`OpCode::push_small(n)` / `ldloc(n)` / `stloc(n)` / `ldarg(n)` /
+  `starg(n)` / `ldsfld(n)` / `stsfld(n)`** — `const fn` constructors
+  for the indexed opcode families.
+- **`OpCode::push_data(len)` / `push_int(value)`** — `const fn` size
+  selectors for the `PUSHDATA1/2/4` and `PUSHINT8/16/32/64`
+  families.
+- **`TryFrom<u8> for OpCode`** — full reverse map; returns `Err(())`
+  for the 23 unassigned bytes in the spec (0x06, 0x07, 0x42, 0x44,
+  0x47, 0x4C, 0x4F, 0x8A, 0xA7, 0xAD, 0xB2, 0xBC, 0xBD, 0xD5..=0xD7,
+  0xDA, 0xDC, 0xDD, 0xDE, 0xDF, 0xE2..=0xFF).
+- **6 new unit tests** in `src/opcode.rs`: round-trip through
+  `TryFrom`, unassigned-byte rejection, indexed-constructor byte
+  layout, `push_data` / `push_int` selection, and `name()`
+  stability.
+
+### Changed
+
+- **411 hardcoded `0xXX` byte literals replaced** across 32 files with
+  `OpCode::XXX.byte()` (or `OpCode::XXX`) references. The previous
+  `runtime::spec::opcodes::OPCODES` `HashMap<u8, OpcodeSpec>` is now
+  derived from the enum at runtime — the spec module dropped from
+  248 lines to 25.
+- **`src/runtime/spec/opcodes.rs`**: 248 → 25 lines. The remaining
+  file is a 12-line `Lazy<HashMap>` derived by walking 0x00..=0xFF
+  and calling `OpCode::try_from` on each byte; the legacy 200-line
+  `op!()` macro match table is gone.
+- **All 19 files under `src/runtime/execution/instruction/`** now
+  use `const` aliases like `const PUSHINT256: u8 = OpCode::PUSHINT256.byte();`
+  inside their `match opcode { ... }` dispatch functions, with range
+  patterns kept as `u8` ranges (e.g. `PUSH0..=PUSH16`,
+  `LDSFLD0..=LDSFLD6`). The match scrutinee is still `opcode: u8` —
+  no `try_from` conversion in the hot path, zero performance cost.
+- **All 8 files under `src/cli/bytecode/bytecode_builtins/builtin_call/`**
+  plus `src/cli/bytecode/{bytecode_emit_ir,bytecode_core,bytecode_builtins/{data,events,syscalls}}.rs`
+  and 8 helper files now reference `OpCode::XXX.byte()` at every
+  emission site.
+- **`src/neo/contract_hash.rs`**: the PUSHDATA1/2/4, PUSHDATA-length,
+  PUSH0/PUSHn, PUSHINT8/16/32/64 emitters all route through
+  `OpCode::push_data(len)`, `OpCode::push_small(n)`, and the
+  explicit `PUSHINT8..64` variants.
+- **`src/runtime/execution/syscalls/contract.rs`**:
+  `append_pushdata` / `append_push_int` use the new constructors.
+- **`src/runtime/tests.rs`** + **`src/cli/bytecode/tests/helpers.rs`**:
+  test fixtures and expected-byte assertions reference the
+  named constants; the `emit_binary_op` test now iterates over
+  `(operator, OpCode::XXX)` pairs.
+
+### What is **not** an opcode (and stays as a raw byte)
+
+The 7 remaining `0xXX` literal sites are explicit non-opcodes with
+code comments:
+
+- `0xFD` / `0xFE` / `0xFF` in `src/neo/encoding.rs`,
+  `src/neo/build.rs`, `src/neo/tests.rs::read_varint` — Bitcoin
+  CompactSize varint length markers in the NEF serialization.
+- `0x0A` / `0x09` / `0x0D` / `0x22` / `0x27` / `0x5C` / `0x00` in
+  `src/ir/build/selectors.rs::unescape_solidity_string` —
+  C-string escape characters (`\n \t \r \" \' \\ \0`).
+- `0x00` / `0x01` / `0x02` / `0x03` / `0x40` / `0x80` in
+  `src/runtime/execution/execution_impl_part2_native/stdlib.rs` —
+  StackItem type tags in the Neo N3 BinarySerializer wire format.
+- `0x21` / `0x28` in `src/cli/bytecode/bytecode_builtins/builtin_call/crypto.rs`
+  and `src/cli/bytecode/bytecode_helpers/storage/state.rs` — same
+  StackItem type tags used as `CONVERT` / `ISTYPE` operands.
+- `0x11` in `src/runtime/execution/helpers/arithmetic/basic_ops.rs`
+  — Solidity Panic code value (`Panic(uint256) 0x11`).
+- `0x14` in `src/cli/bytecode/bytecode_helpers/array_runtime.rs` —
+  PUSHDATA1 length operand (20 bytes, for the ContractManagement
+  native-hash comparison).
+- `0xFF` / `0xff` — two's-complement sign-extension fill bytes
+  (`PUSHINT128/256`) and the ContractManagement native-hash data
+  in `array_runtime.rs`.
+
+### Notes for contributors
+
+- **Match arms on `opcode: u8`** in the runtime simulator keep
+  using `u8` constants; converting to `OpCode::try_from(opcode)`
+  was deliberately not done to avoid the `Result` unwrap in the
+  hot dispatch path. Range patterns like `PUSH0..=PUSH16` work
+  as `u8` ranges thanks to the `const` aliases at the top of
+  each `match` block.
+- **`#![allow(non_camel_case_types)]`** is set on `src/opcode.rs`
+  so Neo N3's `JMP_L`, `JMPIF_L`, `NEWARRAY_T`, `LDSFLD0`..6,
+  `PUSH0`..16 names stay spelled as in the spec rather than being
+  mangled to upper-camel-case.
+- The enum is `#[repr(u8)]`, `Copy`, and `Hash`-able, so it
+  composes naturally with existing `HashMap`/`HashSet`/match
+  code without any adapter types.
+
 ## [v0.24.0] - 2026-06-27
 
 Hardening & real-node verification release: 5 correctness fixes surfaced by

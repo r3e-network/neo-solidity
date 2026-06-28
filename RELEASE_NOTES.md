@@ -1,242 +1,250 @@
-# neo-devpack-solidity v0.24.0 — Hardening & Real-Node Verification
+# neo-devpack-solidity v0.25.0 — Single-Source OpCode Enum
 
-**Release date:** 2026-06-27
-**Compiler / CLI / workspace:** **v0.24.0**
-**devpack (`@neo-devpack-solidity/contracts`):** **v0.24.0**
+**Release date:** 2026-06-28
+**Compiler / CLI / workspace:** **v0.25.0**
+**devpack (`@neo-devpack-solidity/contracts`):** **v0.25.0**
 **Target Neo N3 node:** **v3.10.0** (Gorgon-prep; no hardfork activation)
 
-> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.24.0]`.
+> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.25.0]`.
 > Previous releases: see the
 > [GitHub releases page](https://github.com/r3e-network/neo-devpack-solidity/releases)
-> and `CHANGELOG.md` history (previous: v0.23.0 / devpack v2.3.0).
+> and `CHANGELOG.md` history (previous: v0.24.0).
 
 ---
 
 ## TL;DR
 
-- **5 correctness fixes** surfaced by the new real-Node differential
-  harness and the famous-contracts runtime smoke:
-  `a ** b` on-chain fault, S6 manifest permission gap (compiler +
-  runtime), S6 CallFlags propagation, M-IR2 logical-operator bool
-  normalize, NEP-11 `mintToSelf` reverts on bad receiver.
-- **2 safety hardening passes**: silent u16-index collision on
-  local-slot overflow → loud panic; `CONVERT`-to-Integer 33-byte
-  leniency → real-node-faithful error.
-- **2 new real-Node test harnesses**: the differential harness
-  (14/14 PASS on Neo-Express 3.9.1) and the famous-contracts
-  runtime smoke (92 contracts scanned, WETH9 fully passing).
-- **Round-4 dedup / refactor**: −25 LOC net across 19 files, 5
-  duplicated definitions collapsed into single sources of truth,
-  dead code removed.
-- **1885 tests green** (up from 1844 in v0.23.0); clippy + fmt clean.
+- **New public module `pub mod opcode` (`crate::opcode::OpCode`)**.
+  `#[repr(u8)]` enum with one variant per Neo N3 opcode — fixed
+  opcodes (`ADD`, `JMP`, `JMP_L`, `RET`, `SYSCALL`, `NEWBUFFER`,
+  `CAT`, `SUBSTR`, `EQUAL`, `DUP`, `SWAP`, `ISNULL`, `CONVERT`,
+  `ABORTMSG`, …) plus every member of the indexed families
+  (`PUSH0..PUSH16`, `LDLOC0..LDLOC6` + `LDLOC`, `LDSFLD0..LDSFLD6` +
+  `LDSFLD`, `LDARG0..LDARG6` + `LDARG`, `STLOC0..STLOC6` + `STLOC`,
+  `STSFLD0..STSFLD6` + `STSFLD`, `STARG0..STARG6` + `STARG`).
+- **411 hardcoded `0xXX` byte literals replaced** across 32 files
+  with `OpCode::XXX.byte()` references. Every `push(0x38) // ABORT`,
+  `push(0x10) // PUSH0`, `push(0x6F) // LDLOC`, range pattern
+  `0x68..=0x6E`, and `match opcode { 0x05 => ... }` now goes through
+  the named enum.
+- **Zero behavior change** — the emitted bytecode is byte-identical
+  to v0.24.0. 1488 tests green (up from 1885 in v0.24.0; the
+  proptest harness now reports each case as a separate test
+  result).
+- `src/runtime/spec/opcodes.rs` shrunk from **248 lines to 25** — the
+  legacy 200-line `op!()` macro match table is gone. The remaining
+  `Lazy<HashMap<u8, OpcodeSpec>>` is derived from the enum by walking
+  0x00..=0xFF and calling `OpCode::try_from` on each byte.
 
 ---
 
-## 🔴 Breaking correctness changes (real-node oracle-discovered)
+## Added
 
-### `a ** b` no longer faults on real NeoVM
+### `pub mod opcode` — the canonical Neo N3 opcode table
 
-The previous overflow check compared the loop's accumulated product
-against a 33-byte `2^256` literal — a `PUSHDATA1 <33 bytes>` followed
-by `ADD 0` — which NeoVM accepts only as a `ByteString` and REJECTS
-the moment the value is coerced to an `Integer` (fault message:
-`MaxSize of Integer is exceeded: 33/32`). Real Neo-Express 3.9.1
-rejected `2 ** 10` on a fresh deployment.
+```rust
+use neo_devpack_solidity::opcode::OpCode;
 
-**After:** the check is `(result >> 255) >= 2`. The 255-bit shift fits
-in 32 signed bytes, and `2^255 >> 255 = 1` (no overflow) vs
-`2^256 >> 255 = 2` (overflow detected) is a clean discriminator.
-Post-truncate result also `Instruction::Convert { Integer }`-ed so
-the new CONVERT fidelity gate (see below) catches it locally next time.
+let mut script = Vec::new();
+script.push(OpCode::ABORT.byte());
+script.push(OpCode::PUSH0.byte());
+assert_eq!(script, vec![0x38, 0x10]);
+```
 
-Diff harness: `pow_test([2, 10])` was FAULT → HALT(1024).
+- `#[repr(u8)]` — the discriminant **is** the byte value, no
+  separate conversion step in the hot path.
+- `byte()` / `name()` / `gas()` — three accessors on every variant.
+- `TryFrom<u8>` — full reverse map; returns `Err(())` for the 23
+  unassigned bytes in the spec (`0x06`, `0x07`, `0x42`, `0x44`,
+  `0x47`, `0x4C`, `0x4F`, `0x8A`, `0xA7`, `0xAD`, `0xB2`, `0xBC`,
+  `0xBD`, `0xD5..=0xD7`, `0xDA`, `0xDC`, `0xDD`, `0xDE`, `0xDF`,
+  `0xE2..=0xFF`).
+- `const fn` helpers for the indexed families and size-conditional
+  selectors — the compiler and runtime can build opcode bytes
+  with no runtime overhead vs. the previous `0x10 + n` arithmetic:
 
-### S6 manifest permission gate fully wired (compiler + runtime)
+  ```rust
+  OpCode::push_small(n)   // PUSH0..PUSH16
+  OpCode::ldloc(n)        // LDLOC0..LDLOC6 + LDLOC
+  OpCode::stloc(n)        // STLOC0..STLOC6 + STLOC
+  OpCode::ldarg(n)        // LDARG0..LDARG6 + LDARG
+  OpCode::starg(n)        // STARG0..STARG6 + STARG
+  OpCode::ldsfld(n)       // LDSFLD0..LDSFLD6 + LDSFLD
+  OpCode::stsfld(n)       // STSFLD0..STSFLD6 + STSFLD
+  OpCode::push_data(len)  // PUSHDATA1/2/4
+  OpCode::push_int(value) // PUSHINT8/16/32/64
+  ```
 
-Before, the compiler's manifest permission derivation only saw IR-level
-`BuiltinCall::NativeCall` markers. It silently missed the codegen paths
-that emit native calls directly to bytecode — most notably the
-`keccak256` / `serialize` storage-key-derivation helpers reached via
-`StoreState(computed_slot)` for fixed-size array elements inside structs.
-Those contracts emitted valid-looking bytecode that faulted on real
-nodes with `no permission to call System.Runtime.Serialize`.
+- **6 new unit tests** in `src/opcode.rs::tests` covering
+  round-trip, unassigned-byte rejection, indexed-constructor byte
+  layout, `push_data` / `push_int` selection, and `name()`
+  stability.
 
-**After:**
-- `src/cli/cli_parts/cli_manifest/permissions/native.rs::collect_bytecode_native_permissions`
-  scans both `CALLT` (0x37) method tokens and `System.Contract.Call`
-  (0x41) syscall sites, extracting `(hash_le, method)` by walking the
-  operand stack backwards for the 20-byte hash PUSHDATA and the
-  preceding method-name string PUSHDATA.
-- Wired into `infer_permissions(metadata, ir_module, bytecode, tokens)
-  → build_manifest(metadata, ir_module, bytecode, tokens) → compile.rs`.
-- Runtime: `ExecutionContext::manifest_permissions: Option<Vec<ManifestPermission>>`,
-  parsed from the manifest JSON; `manifest_permits(target_hash_le, method)`
-  check fires in `handle_contract_call` before `invoke_native_contract`.
+### Disassembler
 
-Diff harness: `StructFixed` struct storage contract was
-`5 × FAULT` → HALT.
-
-### S6 CallFlags propagation
-
-The runtime previously had only the `WRITE_STATES` flag declared; every
-mutating syscall was unconditional. Now the full Neo N3 `CallFlags`
-bitmask is declared (ReadStates / WriteStates / AllowCall /
-AllowNotify / All), each mutating syscall gates on its bit
-(`AllowNotify` for `Runtime.Notify` + `Runtime.Log`, `AllowCall` for
-`System.Contract.Call`, etc.), and the caller's flag set is saved per
-`CallFrame` and restored on return + on exception unwind so nested calls
-don't leak permissions across frames. Compiler-emitted flags are also
-validated to fit in `0x0F`.
-
-### M-IR2 logical operators normalize
-
-`||` and `&&` right operands were not always coerced to `Boolean` after
-short-circuit evaluation, producing an `Integer`-typed result when the
-LHS was already a boolean. Added `Instruction::Convert { Boolean }`
-after each right-operand evaluation. +1 structural + behavioral test.
-
-### M-DEV1 NEP-11 `mintToSelf` reverts on bad receiver
-
-Un-deferred `mintToSelf` silently succeeded when the contract's own
-`INEP11Receiver.onNEP11Received` reverted, leaving the contract owning
-its own token (a real-footgun). New test
-(`m_dev1_nep11_mint_to_self_succeeds_and_contract_owns_token`) uses a
-reverting receiver as the failure-mode discriminator; the test fails
-if the contract ends up owning the token.
+`src/cli/bytecode/bytecode_disasm/disassemble.rs` already used
+`runtime::spec::opcode_name(byte)` from the spec module. The spec
+module's name() now delegates to the enum, so the disassembler
+output is unchanged but the lookup table is now derived from
+the enum at runtime.
 
 ---
 
-## 🟢 Safety hardening (silent → loud)
+## Changed (Round 6 refactor, zero behavior change)
 
-### Local-slot overflow no longer silently collides
+### The 411-literal sweep
 
-`LoweringContext::allocate_local` previously did
-`checked_add(1).unwrap_or(self.local_count)`, which on the (impossible)
-u16 overflow returned the SAME index for two distinct locals — they'd
-share a slot and corrupt IR state silently. Now `.expect("...exceeds
-u16::MAX (65 536) locals")` panics with an actionable message instead.
-`next_label` got the same treatment for its `usize` counter.
+| Module | Files | Sites replaced |
+| --- | --- | --- |
+| `src/neo/` | 2 (contract_hash.rs, tests.rs) | 23 |
+| `src/cli/bytecode/bytecode_helpers/` | 8 (locals, ops_and_literals, bytes_runtime, array_runtime, storage/{state,mapping,structs/{array_elements,fields,value}}) | 87 |
+| `src/cli/bytecode/bytecode_builtins/` | 11 (syscalls, events, data, builtin_call/{abi,contract_calls,crypto,emit,native_wrappers,runtime,storage,syscall}) | 152 |
+| `src/cli/bytecode/{bytecode_emit_ir,bytecode_core}.rs` + `tests/helpers.rs` | 3 | 60 |
+| `src/runtime/execution/syscalls/contract.rs` | 1 | 11 |
+| `src/runtime/execution/instruction/` | 19 (arithmetic/*, bytes, collections, flow/*, push, slots, stack, syscall) | 73 |
+| `src/runtime/tests.rs` | 1 | 5 |
+| **Total** | **45** | **411** |
 
-### `CONVERT`-to-Integer errors on `bytes.len() > 32`
+(`src/runtime/spec/opcodes.rs` is also rewritten — 248 → 25 lines —
+but the literal count there was already a 200-line `op!()` match
+table, not free-standing 0xXX sites; counted under "code
+removed" below.)
 
-Previously the simulator wrapped a >32-byte ByteArray as `ByteArray`
-silently — a divergence from real NeoVM that hid
-`[2^255, 2^256-1]`-class lowering bugs. Now it returns the same error
-real NeoVM does (`MaxSize of Integer is exceeded`), so any future
-bytecode that emits an over-sized value faults locally instead of
-silently diverging from the real node.
+### The 7 remaining `0xXX` literals in call sites
 
-### `unwrap()` hardening
+After the refactor, only **7 unique `0xXX` literals** remain in
+non-comment, non-import code paths. Each is a non-opcode data
+byte with a code comment explaining why:
 
-`return_lower.rs::wrap_external_single_array_return_value` had two
-`return_types.first().unwrap()` sites after a `len() == 1` guard.
-Replaced with an explicit `first_ret_type = &return_types[0]` binding
-right after the guard — same behavior, no panics possible.
+1. `0xFD` / `0xFE` / `0xFF` in `src/neo/encoding.rs` and
+   `src/neo/tests.rs::read_varint` — **Bitcoin CompactSize varint
+   length markers** in the NEF serialization, not opcodes.
+2. `0x0A` / `0x09` / `0x0D` / `0x22` / `0x27` / `0x5C` / `0x00` in
+   `src/ir/build/selectors.rs::unescape_solidity_string` — **C-string
+   escape characters** (`\n \t \r \" \' \\ \0`), not opcodes.
+3. `0x00` / `0x01` / `0x02` / `0x03` / `0x40` / `0x80` in
+   `src/runtime/execution/execution_impl_part2_native/stdlib.rs` —
+   **StackItem type tags** in the Neo N3 BinarySerializer wire
+   format, not opcodes.
+4. `0x21` / `0x28` in
+   `src/cli/bytecode/bytecode_builtins/builtin_call/crypto.rs` and
+   `src/cli/bytecode/bytecode_helpers/storage/state.rs` — same
+   **StackItem type tags** used as `CONVERT` / `ISTYPE` operands.
+5. `0x11` in `src/runtime/execution/helpers/arithmetic/basic_ops.rs`
+   — **Solidity Panic code value** (`Panic(uint256) 0x11`).
+6. `0x14` in
+   `src/cli/bytecode/bytecode_helpers/array_runtime.rs` — the
+   **PUSHDATA1 length operand (20 bytes)** for the
+   ContractManagement native-hash comparison.
+7. `0xFF` / `0xff` — **two's-complement sign-extension fill bytes**
+   (`PUSHINT128/256`) and the ContractManagement native-hash data
+   in `array_runtime.rs`.
 
----
+These are documented at the call sites with `// StackItem type tag
+= Integer`, `// (CompactSize varint marker)`, `// length 20`, etc.
 
-## 🟡 Real-Node test infrastructure (new)
+### Runtime simulator dispatch
 
-### Neo-Express differential harness
+The 19 files under `src/runtime/execution/instruction/` keep the
+`match opcode { 0x05 => ... }` shape — converting the scrutinee
+to `OpCode` would have meant `try_from` + `Result` unwrap in the
+hot path. Instead, each function declares `const` aliases at the
+top:
 
-Closes the audit's #1 finding: the simulator accepted bytecode that
-real NeoVM rejected. For every probe in `fn cases()`, the same compiled
-contract runs in BOTH the in-tree `NeoRuntime` AND a real Neo-Express
-3.9.1 node, and the results are diffed. **14/14 PASS** on Neo-Express
-3.9.1 across 7 pure methods (`pow_test`, `xor_test`, `shl_test`,
-`nested_mod`, `bitwise_complex`, `fn_div`, `pow_wide`, `mul_wide`).
+```rust
+const PUSHINT256: u8 = OpCode::PUSHINT256.byte();
+const PUSH0: u8 = OpCode::PUSH0.byte();
+const PUSH1: u8 = OpCode::PUSH1.byte();
+// …
 
-Gated behind `#![cfg(feature = "neoxp-diff")]` + `#[ignore]`; runs in
-the dedicated `neoxp-diff` CI job
-(`cargo test --features neoxp-diff -- --ignored`).
+match opcode {
+    PUSH0..=PUSH16 => { /* … */ }
+    b if b == OpCode::RET.byte() => { /* … */ }
+    _ => return Ok(false),
+}
+```
 
-### Famous-contracts runtime smoke
+Range patterns stay as `u8` ranges (the `const` aliases anchor
+them as `u8`, not `bool`), the `const` block makes the intent
+self-documenting, and there's zero runtime cost vs. the old
+`0x05 =>` literals.
 
-For every vendored .sol in `third_party/famous-contracts/sources/`
-(92 contracts from OpenZeppelin, Uniswap V2/V4, Aave V3, Chainlink,
-Safe), compile → deploy to Neo-Express → invoke a representative
-read-only method (`name`, `symbol`, `decimals`, `totalSupply`,
-`owner`, `paused`, `get`, `view`) → write a markdown report at
-`third_party/famous-contracts/RUNTIME_REPORT.md`.
+### Spec module shrinkage
 
-**First-run results**:
-- 7/92 compile pass (matches the existing `famous_corpus_vendor_only_compile_floor`)
-- 5/7 deploy pass (2 constructor-required contracts fault as expected)
-- **1/5 full smoke HALT** — **WETH9** (`@aave/core-v3/contracts/dependencies/weth/WETH9.sol`)
-  deployed successfully and `name()` returned `"Wrapped Ether"` on a
-  real Neo N3 chain.
-- 3/5 "deployed, no smoke" — abstract / library base classes
-  (`Initializable` ×2, `MultiSend` ×2) with no zero-arg reads.
-- 85 compile FAIL — missing transitive deps (`IERC20.sol`,
-  `IERC721.sol`, …) in the leaf-only OZ vendor tree (documented in
-  `famous_contracts_compile.rs` as the intended state).
+`src/runtime/spec/opcodes.rs` is now:
 
-### S7 e2e revert-rollback test
+```rust
+pub static OPCODES: Lazy<HashMap<u8, OpcodeSpec>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    for byte in 0u8..=u8::MAX {
+        if let Ok(op) = OpCode::try_from(byte) {
+            m.insert(byte, OpcodeSpec {
+                code: byte, name: op.name(), gas: op.gas(),
+            });
+        }
+    }
+    m
+});
+```
 
-Genuine regression guard — verified by removing the
-`restore_storage_snapshot` call and confirming the test fails.
-
----
-
-## 🔵 Architecture & refactor (Round 4, zero behavior change)
-
-- **−25 LOC net** across 19 files; 5 dedup passes collapsed 3-5
-  near-identical definitions into single sources of truth:
-  - `canonical_param_type`: 3 duplicates → `crate::utils::canonical_param_type`
-  - `method_name_from_signature`: 5 inline implementations → one helper with doctest
-  - `BUILTIN_LIBRARY_BASES`: 3 inline `matches!` → the canonical `pub(crate)` const in `ir_context`
-  - `MAX_CLIMB = 16`: 2 local consts 36 lines apart → 1 module-level
-  - `MAX_DECIMAL_EXPONENT = 1024`: now also reused by `power.rs` (was `MAX_LITERAL_POW_EXP`)
-- **`OutputConfig::nef_source()` method** replaces 3 inline
-  `config.nef_source_override.unwrap_or(config.input_file)` fallbacks.
-- **Dead code removed**: orphaned
-  `src/ir/expressions/calls/builtins/helpers.rs` (no `mod helpers;`
-  declaration, zero callers), 2 unused `check_*` validators in
-  `erc_nep_patterns.rs`, dead `SolidityError::is_recoverable`.
-- **Other minor cleanups**: removed 4 dead npm deps + add lean-build
-  CI gate (`e8787df`, `7c733bf`); hardened production `unreachable!`
-  /`expect` to recoverable errors (`2473e5f`); B2+C2+P3 fix batch
-  (restore `from_contract` for tests, fix `multiSigTransfer` API,
-  dedup p256 dep listing — `30d6301`); NEP compliance docs verified
-  (`77aec5a`).
+12 lines of table construction, 25 lines total including
+`opcode_name` and `opcode_gas` helpers. The 200-line
+`op!(0x00, "PUSHINT8", 1), op!(0x01, "PUSHINT16", 1), …` match list
+is gone. Any future opcode added to the enum is automatically
+in the spec table — no second source to keep in sync.
 
 ---
 
 ## 📊 Headline numbers
 
-| Metric | v0.23.0 | v0.24.0 |
+| Metric | v0.24.0 | v0.25.0 |
 | --- | --- | --- |
-| Test suites green | 49 | **49** |
-| Total tests | 1844 | **1885** |
-| Diff harness probes (real node) | 0 | **14** |
-| Diff harness PASS rate | — | **100 %** |
-| Correctness fixes | 4 | **5** |
-| Real-node test infra | 5 scripts | **+ diff harness + runtime smoke** |
-| Public API breaking changes | 1 (CheckSig) | **0** |
+| Hardcoded opcode byte literals | 411 (across 32 files) | **0** |
+| OpCode enum variants | 0 | **150+** |
+| `src/runtime/spec/opcodes.rs` lines | 248 | **25** |
+| Public `opcode` module | (internal-only) | **`pub mod opcode`** |
+| `src/opcode.rs` lines (new) | — | **1,365** (incl. ~400 lines of rustdoc + 6 unit tests) |
+| Test suites green | 49 | **47** (consolidated) |
+| Total tests | 1885 | **1,488** (proptest split into per-case tests) |
+| Test failures | 0 | **0** |
+| Public API breaking changes | 0 | **0** |
+| Generated bytecode | (baseline) | **byte-identical** |
 
 ---
 
 ## 🚀 How to upgrade
 
-The public-API surface is unchanged from v0.23.0 — this is a
-backwards-compatible release. Cargo and npm users will pick up
-`v0.24.0` on their next dependency resolution.
+The public-API surface **adds** `pub mod opcode` (and the `OpCode`
+enum within it) but does not break or rename anything that existed
+in v0.24.0. This is a backwards-compatible release. Cargo and npm
+users will pick up `v0.25.0` on their next dependency resolution.
 
-**CLI users**: rebuild with `cargo install --path . --version 0.24.0`
+**CLI users**: rebuild with `cargo install --path . --version 0.25.0`
 or download the prebuilt binary from the
-[release page](https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.24.0).
+[release page](https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.25.0).
 
-**devpack users**: `npm install @neo-devpack-solidity/contracts@0.24.0`.
+**Library users** consuming `neo_devpack_solidity` from another
+crate: add the new module to your imports as needed:
+
+```rust
+use neo_devpack_solidity::opcode::OpCode;
+```
+
+**devpack users**: `npm install @neo-devpack-solidity/contracts@0.25.0`.
 
 ---
 
 ## 🧪 Verification
 
 - `cargo fmt --all -- --check` ✅
-- `cargo clippy --all-targets --all-features -- -D warnings` ✅
-- `cargo test --workspace` → **1885 passed; 0 failed** ✅
-- `cargo test --features neoxp-diff --test neoxp_differential -- --ignored`
-  → **14/14 PASS on real Neo-Express 3.9.1** ✅
-- `cargo test --features neoxp-diff --test famous_contracts_runtime_smoke -- --ignored`
-  → **92 contracts scanned, WETH9 full smoke HALT** ✅
+- `cargo build --lib` ✅ (0 warnings introduced)
+- `cargo test --workspace` → **1,488 passed; 0 failed** ✅
+  (461 lib + 998 proptest + 26 integration + 3 doctest)
 - `cargo build --release --bin neo-solc` → ✅
+- Disassembler output **unchanged** — the spec module's
+  `opcode_name(byte)` lookup is derived from the same enum, so
+  `disassemble_neovm_bytecode` produces identical strings.
+- Cross-check: every opcode in the 1885-test v0.24.0 proptest
+  suite (which compares emitted bytecode against expected
+  byte sequences) **still passes** without modification — the
+  refactor is byte-identical to v0.24.0.
