@@ -26,9 +26,20 @@ use super::*;
 /// ```text
 ///   PushLiteral ByteArray([0x4e, 0x48, 0x7b, 0x71])     ; selector
 ///   PushLiteral ByteArray([0x00 * 31, code])           ; 32-byte BE payload
-///   CallBuiltin BytesConcat 2                           ; selector || payload
+///   CallBuiltin BytesConcat 2                           ; selector || payload (CAT -> Buffer)
+///   Convert ByteArray                                   ; Buffer -> ByteString
 ///   Throw
 /// ```
+///
+/// The `Convert` is load-bearing: `BytesConcat` lowers to NeoVM `CAT`, whose
+/// result is a **Buffer** (mutable). A faulting external call delivers this
+/// payload verbatim to the caller's `catch`, where `emit_selector_guard` does
+/// `ISTYPE ByteString` — which is FALSE for a Buffer on a real Neo node, so
+/// `catch Panic(uint code)` would silently fall through to `catch (bytes)` /
+/// the fallback. Normalizing to a ByteString (matching the `Error(string)`
+/// envelope, which is already a ByteString) makes `catch Panic` match on-chain.
+/// The in-repo simulator's lenient CAT/ISTYPE masked this divergence; verified
+/// with a neo-express differential.
 pub(crate) fn emit_panic(code: u8, instructions: &mut Vec<Instruction>) {
     let panic_selector = {
         let mut hasher = Keccak256::new();
@@ -45,6 +56,9 @@ pub(crate) fn emit_panic(code: u8, instructions: &mut Vec<Instruction>) {
     instructions.push(Instruction::CallBuiltin {
         builtin: BuiltinCall::BytesConcat,
         arg_count: 2,
+    });
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
     });
     instructions.push(Instruction::Throw);
 }

@@ -191,6 +191,13 @@ pub(crate) fn emit_selector_guard(
         BigInt::from(4u8),
     )));
     instructions.push(Instruction::Substr);
+    // `SUBSTR` yields a Buffer; `EQUAL` against the ByteString selector below
+    // would be a REFERENCE comparison on a real Neo node (Buffer is not a
+    // primitive), always false — so `catch Panic`/`catch Error` would never
+    // match on-chain. Normalize the slice to a ByteString for value equality.
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
     instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(
         selector.to_vec(),
     )));
