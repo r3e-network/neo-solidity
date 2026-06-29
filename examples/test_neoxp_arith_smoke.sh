@@ -55,6 +55,11 @@ contract ArithSmoke {
     function mulmodLarge()  public pure returns (uint256) { uint256 a = uint256(1) << 200; return mulmod(a, a, 7); } // 2^400 % 7 = 2
     function pow2_200()     public pure returns (uint256) { uint256 b = 2; return b ** 200; }                 // must HALT (no 33-byte fault)
     function shrLarge()     public pure returns (uint256) { uint256 v = uint256(1) << 255; return v >> 1; }   // logical >> -> 2^254
+    // uint256 ** overflow: checked must be a CATCHABLE Panic (not a VM fault),
+    // unchecked must wrap mod 2^256.
+    function uOverflow()    public pure returns (uint256) { uint256 b = 2; return b ** 256; }
+    function uChecked256()  public returns (bool) { try this.uOverflow() returns (uint256) { return false; } catch { return true; } }
+    function uWrap()        public pure returns (bool) { unchecked { uint256 b = 2; return (b ** 256) == 0; } }
 }
 SOL
 
@@ -84,5 +89,7 @@ assert_eq addmod7     2
 assert_eq mulmodLarge 2
 assert_eq pow2_200    1606938044258990275541962092341162602522202993782792835301376
 assert_eq shrLarge    28948022309329048855892746252171976963317496166410141009864396001978282409984
+assert_eq uChecked256 true   # checked 2**256 overflow -> CATCHABLE Panic (was uncatchable fault)
+assert_eq uWrap       true   # unchecked 2**256 wraps to 0
 
 echo "✅ neoxp wide-integer arithmetic smoke test passed"

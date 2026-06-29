@@ -967,6 +967,35 @@ contract C { function f(int256 a, uint256 b) external pure returns (int256) { un
     assert!(ok, "unchecked int256 2**255 must wrap without faulting");
 }
 
+/// #16 — uint256 `**` now uses the soft-arith 256-bit multiply in the loop so
+/// an overflowing intermediate never materializes a >32-byte integer (which
+/// faults uncatchably on a real node). Validates the in-range result and the
+/// unchecked mod-2^256 wrap (the catchable-Panic-vs-fault distinction is only
+/// observable on a real node — see examples/test_neoxp_arith_smoke.sh).
+#[test]
+fn uint256_pow_soft_mul_in_range_and_unchecked_wrap() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function p10() external pure returns (uint256) { uint256 b = 2; return b ** 10; }
+    function wrap() external pure returns (uint256) { unchecked { uint256 b = 2; return b ** 256; } }
+    function p1e18() external pure returns (uint256) { uint256 b = 10; return b ** 18; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data
+    };
+    assert_eq!(le_u128(&call("p10")), 1024, "2**10 == 1024 via soft-arith mul");
+    assert!(call("wrap").iter().all(|&x| x == 0), "unchecked 2**256 wraps to 0");
+    assert_eq!(le_u128(&call("p1e18")), 1_000_000_000_000_000_000, "10**18");
+}
+
 /// #9b (square-and-multiply restructure): the squaring-skip fix that avoids the
 /// overflowing final squaring must not change any result value.
 #[test]

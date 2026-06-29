@@ -28,8 +28,17 @@ pub(crate) fn lower_power_expression(
                 for _ in 0..exp {
                     result *= &base;
                 }
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(result)));
-                return true;
+                // Only constant-fold when the result fits a 32-byte signed push.
+                // A folded value in [2^255, 2^256-1] (a valid uint256) is a
+                // 33-byte POSITIVE BigInt that real NeoVM rejects when pushed as
+                // a literal. Route those (and any out-of-range result) to the
+                // runtime loop below, which applies the width-aware checked
+                // (Panic 0x11) / unchecked (mod 2^N wrap) semantics correctly.
+                let two_255 = BigInt::one() << 255usize;
+                if result < two_255 && result >= -(&two_255) {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(result)));
+                    return true;
+                }
             }
             // exp > MAX_LITERAL_POW_EXP: fall through to the runtime
             // exponentiation loop below. The compiler stays bounded.
@@ -54,6 +63,22 @@ pub(crate) fn lower_power_expression(
         BigInt::one(),
     )));
     instructions.push(Instruction::StoreLocal(result_local));
+
+    // For uint256, the square-and-multiply loop must use the soft-arith 256-bit
+    // multiply (mod 2^256, kept in 32-byte two's-complement form) instead of a
+    // native MUL: a native MUL of an overflowing intermediate produces a >32-byte
+    // BigInteger that real NeoVM FAULTS on (uncatchably), before the post-loop
+    // checked/unchecked handling can run. The soft-arith CHECKED multiply Panics
+    // 0x11 (catchable) on overflow; the unchecked one wraps. Narrow widths keep
+    // native MUL (their intermediates stay <= 32 bytes) + the post-loop ladder.
+    let pow_unsigned256 = matches!(
+        infer_type_from_expression(left, ctx),
+        Some(ValueType::Integer {
+            bits: 256,
+            signed: false
+        })
+    );
+    let pow_checked = !ctx.in_unchecked_block();
 
     let loop_label = ctx.next_label();
     let end_label = ctx.next_label();
@@ -82,7 +107,7 @@ pub(crate) fn lower_power_expression(
     });
     instructions.push(Instruction::LoadLocal(result_local));
     instructions.push(Instruction::LoadLocal(base_local));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    emit_pow_mul(pow_unsigned256, pow_checked, ctx, instructions);
     instructions.push(Instruction::StoreLocal(result_local));
 
     instructions.push(Instruction::Label(skip_mul_label));
@@ -104,7 +129,7 @@ pub(crate) fn lower_power_expression(
     });
     instructions.push(Instruction::LoadLocal(base_local));
     instructions.push(Instruction::LoadLocal(base_local));
-    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    emit_pow_mul(pow_unsigned256, pow_checked, ctx, instructions);
     instructions.push(Instruction::StoreLocal(base_local));
     instructions.push(Instruction::Label(after_square_label));
 
@@ -129,52 +154,10 @@ pub(crate) fn lower_power_expression(
     // silently wrong.) Constant-folded literal powers are handled above.
     if let Some(ValueType::Integer { signed, bits }) = infer_type_from_expression(left, ctx) {
         if bits == 256 && !signed {
-            // uint256 `**`: the square-and-multiply loop above leaves the
-            // un-truncated value. `unchecked` wraps mod 2^256; checked Panics
-            // 0x11 when the true result exceeds 2^256-1. Either way, canonicalize
-            // to the 32-byte two's-complement form via `emit_truncate_u256`.
-            if !ctx.in_unchecked_block() {
-                let ok = ctx.next_label();
-                instructions.push(Instruction::LoadLocal(result_local));
-                // Overflow check: `result >= 2^256` iff `(result >> 255) >= 2`.
-                // (2^255 >> 255 = 1 [in range], 2^256 >> 255 = 2 [overflow].)
-                //
-                // The previous code pushed `2^256` as a literal, but 2^256 is a
-                // 33-byte signed value that real NeoVM rejects (Integer max is
-                // 32 bytes) — `push_integer_bigint` falls back to PUSHDATA+ADD
-                // and the ADD's implicit ByteString→Integer conversion faults
-                // on-chain (`MaxSize of Integer is exceeded: 33/32`, caught by
-                // the neoxp differential harness). Shifting by 255 only pushes
-                // the small literal `255`/`2` (1 byte each) and works on the
-                // BigInt-backed result regardless of width. POW of a non-
-                // negative base is non-negative, so SHR is safe. (`>> 256` is
-                // unusable: NeoVM/EIP-145 collapses any shift ≥ 256 to 0.)
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                    BigInt::from(255u64),
-                )));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Shr));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                    BigInt::from(2u64),
-                )));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Ge));
-                // `JumpIf` branches when FALSE — skip the panic when
-                // `(result >> 255) >= 2` is FALSE (i.e. in range).
-                instructions.push(Instruction::JumpIf { target: ok });
-                emit_panic(0x11, instructions);
-                instructions.push(Instruction::Label(ok));
-            }
-            instructions.push(Instruction::LoadLocal(result_local));
-            emit_truncate_u256(instructions);
-            // `emit_truncate_u256` leaves a 32-byte ByteArray (the two's-
-            // complement word). CONVERT it back to an Integer so the result
-            // is a canonical NeoVM Integer — matching the soft-arith Add/Sub/Mul
-            // path (which builds Integers directly) and the `uint256` ABI return
-            // encoding (a real node serializes an Integer return as a decimal
-            // stack value, not a base64 ByteString).
-            instructions.push(Instruction::Convert {
-                target: ConvertTarget::Integer,
-            });
-            instructions.push(Instruction::StoreLocal(result_local));
+            // uint256 `**` is fully handled INSIDE the loop now: the soft-arith
+            // CHECKED multiply already Panicked 0x11 on overflow, the unchecked
+            // multiply already wrapped mod 2^256, and both leave `result_local`
+            // as a canonical 32-byte two's-complement Integer. Nothing to do.
         } else if bits == 256 && signed {
             // int256 `**`: the result type is `int256`, range
             // [-2^255, 2^255-1]. `unchecked` wraps mod 2^256 then reinterprets
@@ -254,4 +237,30 @@ pub(crate) fn lower_power_expression(
 
     instructions.push(Instruction::LoadLocal(result_local));
     true
+}
+
+/// Emit one square-and-multiply step `[x, y] -> [x * y]` for the pow loop.
+///
+/// For uint256 the native NeoVM `MUL` is replaced with the soft-arith 256-bit
+/// multiply, which keeps the value in 32-byte two's-complement form so an
+/// overflowing intermediate never materializes a >32-byte BigInteger (which a
+/// real node faults on, uncatchably). The CHECKED variant Panics 0x11 on
+/// overflow (catchable); the unchecked variant wraps mod 2^256. Narrow widths
+/// keep the native `MUL` (their intermediates stay within 32 bytes) and are
+/// range-checked/truncated after the loop.
+fn emit_pow_mul(
+    unsigned256: bool,
+    checked: bool,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    if unsigned256 {
+        if checked {
+            emit_u256_checked_arith(ctx, instructions, BinaryOperator::Mul);
+        } else {
+            emit_u256_unchecked_mul_ir(ctx, instructions);
+        }
+    } else {
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+    }
 }
