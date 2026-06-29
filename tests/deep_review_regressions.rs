@@ -605,6 +605,117 @@ contract C {
     assert_eq!(inner, vec![0x01, 0x02, 0x03, 0x04], "packed bytes4 must be exactly 4 BE bytes");
 }
 
+/// #8 — `addmod(a, b, m)` must reduce the TRUE (up to 257-bit) sum mod m. The
+/// old lowering used a native NeoVM Add, which adds the two 32-byte words as
+/// signed two's-complement and discards the carry out of bit 255, so any sum
+/// reaching 2^256 produced a wrong residue.
+#[test]
+fn addmod_reduces_true_sum_not_truncated_sum() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f(uint256 a, uint256 b, uint256 m) external pure returns (uint256) {
+        return addmod(a, b, m);
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    // uint256 max = 2^256-1 — the 32-byte all-ones two's-complement word.
+    let max = StackItem::byte_array(vec![0xFFu8; 32]);
+    let call = |a: StackItem, b: StackItem, m: StackItem| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[a, b, m])
+            .expect("call");
+        assert!(r.success, "addmod faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data
+    };
+    // (2^256-1)+(2^256-1) = 2^257-2 ≡ 0 (mod 5). Truncated sum would give 4.
+    let r = call(max.clone(), max.clone(), StackItem::Integer(5));
+    assert!(r.iter().all(|&x| x == 0), "addmod(max,max,5) must be 0, got {r:?}");
+    // (2^256-1)+1 = 2^256 ≡ 2 (mod 7). Truncated sum would give 0.
+    let r = call(max.clone(), StackItem::Integer(1), StackItem::Integer(7));
+    assert_eq!(r.first().copied(), Some(2), "addmod(max,1,7) must be 2, got {r:?}");
+    // Non-overflowing control: 30 mod 7 == 2.
+    let r = call(StackItem::Integer(10), StackItem::Integer(20), StackItem::Integer(7));
+    assert_eq!(r.first().copied(), Some(2), "addmod(10,20,7) must be 2, got {r:?}");
+    // m == 0 → 0 (Solidity addmod-by-zero returns 0, no panic).
+    let r = call(StackItem::Integer(5), StackItem::Integer(5), StackItem::Integer(0));
+    assert!(r.iter().all(|&x| x == 0), "addmod(_,_,0) must be 0, got {r:?}");
+}
+
+/// Read `return_data` as a little-endian unsigned integer (for moderate values).
+fn le_u128(rd: &[u8]) -> u128 {
+    let mut v = 0u128;
+    for (i, &b) in rd.iter().take(16).enumerate() {
+        v |= (b as u128) << (8 * i);
+    }
+    v
+}
+
+/// #9 (int256 `**`): previously `int256` exponentiation fell through the
+/// type-gating with NO overflow check (checked) and NO mod-2^256 wrap
+/// (unchecked) — only uint256 and narrow widths were handled. Checked overflow
+/// must Panic(0x11); unchecked must wrap; in-range powers must be exact.
+#[test]
+fn int256_pow_checked_panics_unchecked_wraps_inrange_exact() {
+    let checked = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f(int256 a, uint256 b) external pure returns (int256) { return a ** b; } }"#;
+    let unchecked = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f(int256 a, uint256 b) external pure returns (int256) { unchecked { return a ** b; } } }"#;
+    let run = |src: &str, a: i64, b: i64| -> (bool, Vec<u8>) {
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = &arts[0];
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, "f",
+                &[StackItem::Integer(a), StackItem::Integer(b)])
+            .expect("call");
+        (r.success, r.return_data)
+    };
+    // in-range positive: 2**10 = 1024
+    let (ok, rd) = run(checked, 2, 10);
+    assert!(ok, "2**10 must succeed");
+    assert_eq!(le_u128(&rd), 1024, "2**10 == 1024");
+    // in-range negative base: (-2)**3 = -8 (must not fault)
+    let (ok, _) = run(checked, -2, 3);
+    assert!(ok, "(-2)**3 must succeed");
+    // checked overflow: 2**255 > int256 max (2^255-1) -> Panic
+    let (ok, _) = run(checked, 2, 255);
+    assert!(!ok, "checked int256 2**255 must Panic (overflow), not return");
+    // unchecked overflow: 2**255 wraps to int256.min, must NOT fault
+    let (ok, _) = run(unchecked, 2, 255);
+    assert!(ok, "unchecked int256 2**255 must wrap without faulting");
+}
+
+/// #9b (square-and-multiply restructure): the squaring-skip fix that avoids the
+/// overflowing final squaring must not change any result value.
+#[test]
+fn pow_values_preserved_after_squaring_skip() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function f(uint256 b, uint256 e) external pure returns (uint256) { return b ** e; } }"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let run = |b: i64, e: i64| -> u128 {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, "f",
+                &[StackItem::Integer(b), StackItem::Integer(e)])
+            .expect("call");
+        assert!(r.success, "{b}**{e} faulted: {:?}", r.exception.as_ref().map(|x| &x.message));
+        le_u128(&r.return_data)
+    };
+    assert_eq!(run(2, 0), 1, "b**0 == 1");
+    assert_eq!(run(7, 1), 7, "b**1 == b");
+    assert_eq!(run(2, 10), 1024);
+    assert_eq!(run(3, 5), 243);
+    assert_eq!(run(2, 64), 1u128 << 64, "2**64");
+    assert_eq!(run(10, 18), 10u128.pow(18), "10**18 (1e18, common token scale)");
+}
+
 /// Control: a `bytesN` local assigned from a hex literal, then `abi.encode`d.
 /// Confirms whether local-variable binding already canonicalizes (informs the
 /// scope of the fix).

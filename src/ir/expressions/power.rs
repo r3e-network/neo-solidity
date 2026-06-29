@@ -86,10 +86,27 @@ pub(crate) fn lower_power_expression(
     instructions.push(Instruction::StoreLocal(result_local));
 
     instructions.push(Instruction::Label(skip_mul_label));
+    // Square `base` ONLY while more exponent bits remain (current exp > 1).
+    // The final iteration (exp == 1) does its `result *= base` above and then
+    // must NOT square again: that wasted squaring can overshoot NeoVM's 32-byte
+    // integer limit and FAULT on-chain even when the final result is in range
+    // (e.g. `2 ** 200` — result 2^200 fits, but `(2^128)^2 = 2^256` would
+    // fault). The simulator's arbitrary-precision BigInt masked this.
+    let after_square_label = ctx.next_label();
+    instructions.push(Instruction::LoadLocal(exp_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
+    // JumpIf branches when FALSE — skip the squaring when exp <= 1.
+    instructions.push(Instruction::JumpIf {
+        target: after_square_label,
+    });
     instructions.push(Instruction::LoadLocal(base_local));
     instructions.push(Instruction::LoadLocal(base_local));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
     instructions.push(Instruction::StoreLocal(base_local));
+    instructions.push(Instruction::Label(after_square_label));
 
     instructions.push(Instruction::LoadLocal(exp_local));
     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
@@ -158,6 +175,40 @@ pub(crate) fn lower_power_expression(
                 target: ConvertTarget::Integer,
             });
             instructions.push(Instruction::StoreLocal(result_local));
+        } else if bits == 256 && signed {
+            // int256 `**`: the result type is `int256`, range
+            // [-2^255, 2^255-1]. `unchecked` wraps mod 2^256 then reinterprets
+            // the 32-byte word as signed; checked Panics 0x11 when the true
+            // result leaves the range. Mirrors the uint256 arm above and the
+            // narrow signed arm below — previously int256 fell through with NO
+            // handling (no overflow check, no wrap).
+            if ctx.in_unchecked_block() {
+                instructions.push(Instruction::LoadLocal(result_local));
+                emit_truncate_u256(instructions);
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::Integer,
+                });
+                instructions.push(Instruction::StoreLocal(result_local));
+            } else {
+                // int256 bounds are 32-byte literals (0x7f.. / 0x80..), so a
+                // direct Gt/Lt compare is safe (unlike the 33-byte 2^256).
+                let int_max = (BigInt::one() << 255usize) - BigInt::one();
+                let int_min = -(BigInt::one() << 255usize);
+                let after_max = ctx.next_label();
+                instructions.push(Instruction::LoadLocal(result_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int_max)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
+                instructions.push(Instruction::JumpIf { target: after_max });
+                emit_panic(0x11, instructions);
+                instructions.push(Instruction::Label(after_max));
+                let after_min = ctx.next_label();
+                instructions.push(Instruction::LoadLocal(result_local));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int_min)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+                instructions.push(Instruction::JumpIf { target: after_min });
+                emit_panic(0x11, instructions);
+                instructions.push(Instruction::Label(after_min));
+            }
         } else if matches!(bits, 8 | 16 | 32 | 64 | 128) {
             let bits_usize = bits as usize;
             if ctx.in_unchecked_block() {

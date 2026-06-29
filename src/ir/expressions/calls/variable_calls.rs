@@ -133,29 +133,23 @@ pub(crate) fn try_lower_variable_call(
             instructions.push(Instruction::Jump { target: end_label });
 
             instructions.push(Instruction::Label(compute_label));
-            instructions.push(Instruction::LoadLocal(lhs_slot));
-            instructions.push(Instruction::LoadLocal(rhs_slot));
-            // Compute `(a OP b) % m`. `addmod`'s sum is at most 257 bits and
-            // is handled by the 256-bit divmod below. `mulmod`'s product can
-            // be up to 512 bits; a native NeoVM MUL would truncate it to 256
-            // bits and give a wrong residue whenever `a*b >= 2^256`, so it
-            // routes through `emit_u256_mulmod_512bit_ir` which keeps the
-            // full 512-bit intermediate before reducing (bit-serial
-            // shift/subtract; see binary_u256_softarith.rs).
+            // Compute `(a OP b) % m` with FULL-WIDTH intermediates. Both routines
+            // must avoid the native-op truncation at 2^256:
+            //   - `mulmod`'s product can be up to 512 bits; a native MUL would
+            //     truncate it and give a wrong residue whenever `a*b >= 2^256`,
+            //     so it uses the 512-bit schoolbook routine.
+            //   - `addmod`'s sum can be 257 bits; a native ADD adds the two
+            //     32-byte words as SIGNED and discards the carry out of bit 255,
+            //     so it uses `emit_u256_addmod_ir` (reduce-then-carry-correct).
+            // Both keep the modulus reduction UNSIGNED (native MOD is signed and
+            // wrong for moduli >= 2^255).
             if identifier.name == "mulmod" {
+                instructions.push(Instruction::LoadLocal(lhs_slot));
+                instructions.push(Instruction::LoadLocal(rhs_slot));
                 instructions.push(Instruction::LoadLocal(modulus_slot));
                 emit_u256_mulmod_512bit_ir(ctx, instructions);
             } else {
-                // addmod: native Add (sum <= 257 bits, fits) then unsigned
-                // uint256 divmod. M-IR fix: the modulus reduction must use
-                // UNSIGNED uint256 division, not native NeoVM MOD (which is
-                // signed and wrong for moduli >= 2^255). Stack now holds
-                // [sum, modulus], which is exactly the [a, b] convention
-                // `emit_u256_divmod_ir` expects; `want_remainder = true`
-                // selects the `% m` result.
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
-                instructions.push(Instruction::LoadLocal(modulus_slot));
-                emit_u256_divmod_ir(ctx, instructions, true);
+                emit_u256_addmod_ir(ctx, instructions, lhs_slot, rhs_slot, modulus_slot);
             }
             instructions.push(Instruction::Label(end_label));
             return Some(true);
