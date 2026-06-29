@@ -393,3 +393,35 @@ contract C {
     assert_eq!(call0("first"), vec![0x00u8], "ROLE[0] must be the MSB 0x00");
     assert_eq!(call0("last"), vec![0xffu8], "ROLE[31] must be the LSB 0xff");
 }
+
+/// deep-review bytesN bitwise — `&`/`|`/`^` between a runtime bytesN value
+/// (big-endian) and an Integer-backed constant (little-endian) combined bytes
+/// from opposite ends, producing a wrong mask. Fixed by canonicalizing the
+/// constant operand to big-endian bytes (reducing it to the correct
+/// runtime-op-runtime case).
+#[test]
+fn bytesn_bitwise_with_constant_mask_is_correct() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes32 constant MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
+    function withConst(bytes32 x) external pure returns (bytes32) { return x & MASK; }
+    function withRuntime(bytes32 x, bytes32 m) external pure returns (bytes32) { return x & m; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let x: Vec<u8> = (0..32u8).map(|i| 0xA0u8.wrapping_add(i)).collect(); // distinct bytes, BE
+    let mut mask = vec![0u8; 32]; mask[31] = 0xff;
+    let mut expected = vec![0u8; 32]; expected[31] = x[31]; // only last byte survives
+    let runc = |m: &str, args: Vec<StackItem>| -> (bool, Vec<u8>) {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, m, &args).expect("call");
+        (r.success, r.return_data)
+    };
+    let (rs, rr) = runc("withRuntime", vec![StackItem::byte_array(x.clone()), StackItem::byte_array(mask.clone())]);
+    let mut rr32 = rr.clone(); rr32.resize(32, 0);
+    assert!(rs && rr32 == expected, "runtime & runtime must mask correctly: got {}", hex::encode(&rr32));
+    let (cs, cr) = runc("withConst", vec![StackItem::byte_array(x.clone())]);
+    let mut cr32 = cr.clone(); cr32.resize(32, 0);
+    assert!(cs && cr32 == expected, "runtime & CONSTANT must mask correctly (not byte-reversed): got {}", hex::encode(&cr32));
+}

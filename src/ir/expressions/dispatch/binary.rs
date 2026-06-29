@@ -387,6 +387,66 @@ pub(crate) fn emit_arith_with_overflow_ladder(
     }
 }
 
+/// `&` / `|` / `^` between a runtime `bytesN` value (ByteArray-backed,
+/// big-endian) and an INTEGER-backed `bytesN` operand (a hex literal / named
+/// constant, pushed little-endian) operate on byte-MISMATCHED representations —
+/// NeoVM's integer AND/OR/XOR then combine bytes from opposite ends, silently
+/// producing a wrong masked value. Canonicalizing the integer-backed operand to
+/// big-endian bytes makes both sides agree, reducing this to the already-correct
+/// `runtime <op> runtime` case (whose result also round-trips correctly). Gated
+/// like the comparison helper so two integer-backed operands (which already
+/// agree) are left untouched.
+fn lower_bytesn_bitwise_const(
+    left: &Expression,
+    right: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    operator: BinaryOperator,
+) -> Option<bool> {
+    if !matches!(
+        operator,
+        BinaryOperator::BitAnd | BinaryOperator::BitOr | BinaryOperator::BitXor
+    ) {
+        return None;
+    }
+
+    // `left` runtime bytesN, `right` integer-backed bytesN constant/literal.
+    if let Some(ValueType::ByteArray {
+        fixed_len: Some(fixed_len),
+    }) = infer_type_from_expression(left, ctx)
+    {
+        if !is_integer_backed_bytesn_operand(left, ctx) {
+            if let Some(bytes) = fixed_len_bytes_be_from_hex_or_const(right, fixed_len, ctx) {
+                if lower_expression(left, ctx, instructions) {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
+                    instructions.push(Instruction::BinaryOp(operator));
+                    return Some(true);
+                }
+                return Some(false);
+            }
+        }
+    }
+
+    // Symmetric: `right` runtime bytesN, `left` integer-backed constant/literal.
+    if let Some(ValueType::ByteArray {
+        fixed_len: Some(fixed_len),
+    }) = infer_type_from_expression(right, ctx)
+    {
+        if !is_integer_backed_bytesn_operand(right, ctx) {
+            if let Some(bytes) = fixed_len_bytes_be_from_hex_or_const(left, fixed_len, ctx) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
+                if lower_expression(right, ctx, instructions) {
+                    instructions.push(Instruction::BinaryOp(operator));
+                    return Some(true);
+                }
+                return Some(false);
+            }
+        }
+    }
+
+    None
+}
+
 pub(crate) fn lower_binary_expr(
     left: &Expression,
     right: &Expression,
@@ -397,6 +457,10 @@ pub(crate) fn lower_binary_expr(
     if let Some(result) =
         lower_bytes_eq_hex_number_literal(left, right, ctx, instructions, operator)
     {
+        return result;
+    }
+
+    if let Some(result) = lower_bytesn_bitwise_const(left, right, ctx, instructions, operator) {
         return result;
     }
 
