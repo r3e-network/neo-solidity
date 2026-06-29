@@ -82,16 +82,17 @@ pub(crate) fn emit_native_contract_call(
     // (top-of-stack is `hash`, popped first).
     emit_syscall(bytecode, "System.Contract.Call");
 
-    // On a real Neo node `System.Contract.Call` leaves the callee's return
-    // values on the stack — for a VOID native method that is NOTHING. The
-    // statement-position lowering still emits a trailing DROP for the call's
-    // nominal single result, which would then underflow the eval stack and
-    // FAULT. Push a placeholder so the DROP balances, exactly as the CALLT
-    // branch above does. (The in-tree simulator masks this by always pushing a
-    // Null result for void native calls.)
-    if native_method_has_return_value(contract, method) == Some(false) {
-        bytecode.push(OpCode::PUSH1.byte());
-    }
+    // NOTE: do NOT push a placeholder here for void native methods. The dynamic
+    // `System.Contract.Call` ALWAYS leaves exactly one item on the caller's
+    // stack — Neo pushes `Null` when the callee's return type is `Void` — so
+    // the statement-position trailing DROP already balances it. (The in-tree
+    // simulator matches this: `handle_contract_call` unconditionally pushes the
+    // native result, `Null` for a void method.) This differs from the CALLT
+    // branch above, where the method token's `has_return_value` flag sets the
+    // call's RVCount to 0 for a void method — there a `PUSH1` placeholder IS
+    // required. An extra placeholder here would leave a second item that the
+    // strict real-node return-count check rejects with "Return value count
+    // mismatch: expected 0, but got 1" (the lenient simulator masks it).
 }
 
 pub(crate) fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {

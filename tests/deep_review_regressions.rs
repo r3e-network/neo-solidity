@@ -1054,6 +1054,45 @@ contract C { function f(uint256 b, uint256 e) external pure returns (uint256) { 
     assert_eq!(run(10, 18), 10u128.pow(18), "10**18 (1e18, common token scale)");
 }
 
+/// Regression: a VOID native call via the dynamic `System.Contract.Call` path
+/// (e.g. `NativeCalls.updateContract`) must NOT emit a `PUSH1` placeholder
+/// after the syscall. Neo's dynamic call ALWAYS leaves exactly one item on the
+/// caller's stack (a `Null` for a void callee), which the statement-position
+/// `DROP` already balances. A spurious `PUSH1` leaves a second item that the
+/// strict real-node return-count check rejects ("Return value count mismatch:
+/// expected 0, but got 1") — the lenient in-tree simulator masks this, so the
+/// guard is a bytecode-shape assertion, not a runtime call.
+///
+/// (The CALLT path is genuinely different: the method token's `has_return_value`
+/// flag sets RVCount=0 for a void method, so there a `PUSH1` placeholder IS
+/// required. Default CLI optimization does not use CALLT.)
+#[test]
+fn void_native_call_default_path_has_no_push1_placeholder() {
+    use neo_devpack_solidity::cli::disassemble_neovm_bytecode;
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract U {
+    function upd(bytes calldata nef, string calldata manifest) public {
+        NativeCalls.updateContract(nef, manifest, "");
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let asm = disassemble_neovm_bytecode(&arts[0].bytecode);
+    let lines: Vec<&str> = asm.lines().collect();
+    let i = lines
+        .iter()
+        .position(|l| l.contains("SYSCALL System.Contract.Call"))
+        .unwrap_or_else(|| panic!("no System.Contract.Call in disasm:\n{asm}"));
+    // The instruction immediately after the void call must be the statement
+    // DROP, never a PUSH1 placeholder.
+    let next = lines.get(i + 1).copied().unwrap_or("");
+    assert!(
+        next.contains("DROP"),
+        "void native call must be followed directly by DROP (no PUSH1 placeholder), got:\n  {}\n  {}\nfull:\n{asm}",
+        lines[i], next
+    );
+}
+
 /// Control: a `bytesN` local assigned from a hex literal, then `abi.encode`d.
 /// Confirms whether local-variable binding already canonicalizes (informs the
 /// scope of the fix).

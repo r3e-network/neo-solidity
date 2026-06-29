@@ -733,6 +733,17 @@ pub(crate) fn emit_abi_decode_static_slot_at_runtime_offset(
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::Integer,
             });
+            // A `bool` value must be a real Boolean stack item, not an Integer.
+            // `decoded == true` lowers to NeoVM `EQUAL`, which distinguishes
+            // Integer(1) from Boolean(true) and would be false even though the
+            // value is 1. (The simulator masks this with a lenient EQUAL; on a
+            // real node it breaks `abi.decode(..,(bool)) == true`.) Also makes
+            // the returned item match the manifest's declared Boolean type.
+            if matches!(value_type, ValueType::Boolean) {
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::Boolean,
+                });
+            }
         }
         // All-static struct element: decode each field from its consecutive
         // 32-byte slot into a fresh `StackItem::Array` (the Array-of-fields
@@ -794,6 +805,16 @@ pub(crate) fn emit_abi_decode_static_slot_at_runtime_offset(
                 target: ConvertTarget::ByteArray,
             });
             materialize_byte_array_buffer(ctx, instructions, true);
+            // `materialize_byte_array_buffer` leaves a *Buffer* (0x30) on the
+            // stack (NewBuffer + MemCpy + ReverseItems). A decoded address is
+            // routinely compared with `==` against an address literal, which on
+            // a real node lowers to `EQUAL` — and NeoVM's `EQUAL` distinguishes
+            // Buffer from ByteString, so the comparison would be false even when
+            // the bytes match. Coerce back to ByteString. (The in-tree simulator
+            // masks this with a lenient EQUAL.)
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
         }
         ValueType::ByteArray {
             fixed_len: Some(len),
@@ -872,6 +893,14 @@ pub(crate) fn emit_abi_decode_static_slot(
             instructions.push(Instruction::Convert {
                 target: ConvertTarget::Integer,
             });
+            // See the runtime-offset Boolean arm: a decoded `bool` must be a
+            // real Boolean stack item so `decoded == true` (NeoVM `EQUAL`)
+            // matches on a real node and the return matches the manifest type.
+            if matches!(value_type, ValueType::Boolean) {
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::Boolean,
+                });
+            }
         }
         // All-static struct: decode each field from consecutive head slots
         // starting at `index` into a fresh `StackItem::Array` (the
@@ -906,6 +935,12 @@ pub(crate) fn emit_abi_decode_static_slot(
                 target: ConvertTarget::ByteArray,
             });
             materialize_byte_array_buffer(ctx, instructions, true);
+            // Coerce the reversed *Buffer* back to a ByteString so on-chain
+            // `EQUAL` against an address literal matches (see the runtime-offset
+            // Address arm above for the full rationale).
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
         }
         ValueType::ByteArray {
             fixed_len: Some(len),
