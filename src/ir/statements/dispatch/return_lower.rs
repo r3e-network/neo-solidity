@@ -344,6 +344,33 @@ pub(crate) fn lower_return_statement(
             }
         }
 
+        // A bare integer-backed `bytesN` literal/constant returned directly
+        // (`return 0x01020304;`, `return SELECTOR;`) would push its little-endian
+        // Integer form and RET, so an external caller receives an Integer — not
+        // the ByteString the manifest declares for `bytesN` (verified diverging
+        // on a real node: `return 0x01020304` came back as Integer 16909060).
+        // Canonicalize to the big-endian N-byte ByteString, matching the
+        // binding-site canonicalization (`try_lower_bytesn_literal_canonical`)
+        // and the manifest return type. Variables/casts/keccak are already
+        // ByteString-backed, so only the integer-backed literal/constant case
+        // is intercepted here.
+        {
+            let return_types = ctx.return_types();
+            if let [ValueType::ByteArray {
+                fixed_len: Some(n),
+            }] = return_types
+            {
+                let n = *n;
+                if is_integer_backed_bytesn_operand(expression, ctx) {
+                    if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expression, n, ctx) {
+                        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(be)));
+                        instructions.push(Instruction::Return);
+                        return true;
+                    }
+                }
+            }
+        }
+
         if lower_expression(expression, ctx, instructions) {
             // Task #137 — single-value dynamic-array return. For
             // `function f(uint[] memory a) external pure returns (uint[] memory)

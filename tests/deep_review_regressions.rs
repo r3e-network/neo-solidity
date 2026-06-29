@@ -691,6 +691,34 @@ contract C {
     assert_eq!(signed, -1, "int32(bytes4(0xFFFFFFFF)) must be -1, got {rd:?}");
 }
 
+/// #15 — a bare integer-backed `bytesN` literal/constant returned DIRECTLY
+/// (`return 0x01020304;`) must come back as a big-endian ByteString matching the
+/// manifest's `ByteArray` return type — not the little-endian Integer form.
+/// (Real-node verified: pre-fix `return 0x01020304` returned Integer 16909060.)
+#[test]
+fn bare_bytesn_literal_return_is_bytestring() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function b4() external pure returns (bytes4) { return 0x01020304; }
+    bytes4 constant SEL = 0xaabbccdd;
+    function sel() external pure returns (bytes4) { return SEL; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data
+    };
+    // Big-endian ByteString [01,02,03,04] — NOT the LE Integer form [04,03,02,01].
+    assert_eq!(call("b4"), vec![0x01, 0x02, 0x03, 0x04], "bytes4 literal return must be BE ByteString");
+    assert_eq!(call("sel"), vec![0xaa, 0xbb, 0xcc, 0xdd], "bytes4 constant return must be BE ByteString");
+}
+
 /// #14 — try/catch must keep the NeoVM TRY frame balanced: a matched
 /// non-fallback catch now exits via ENDTRY (not a JMP past it), and a `return`
 /// inside a catch body pops the active frame before the RET. The in-repo
