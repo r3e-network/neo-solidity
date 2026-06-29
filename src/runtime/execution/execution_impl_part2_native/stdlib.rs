@@ -215,16 +215,6 @@ impl ExecutionContext {
         }
     }
 
-    /// Task #192 — predicate for "scalar-shaped" stack items that fit in a
-    /// single 32-byte ABI slot. Used by the struct-array tail encoder to
-    /// decide whether an inner `StackItem::Array` element (a flattened
-    /// struct value) is safe to inline as K consecutive 32-byte slots.
-    ///
-    /// This is just `!abi_is_dynamic(item)`; the policy is documented on
-    /// `abi_is_dynamic` itself, so we inline at the call site rather than
-    /// maintain a 3-line method. See `abi_is_dynamic` for the static vs.
-    /// dynamic policy.
-
     /// Produce the EVM-canonical tail-section bytes for a DYNAMIC ABI arg:
     /// a 32-byte BE length prefix followed by the raw content padded with
     /// trailing zeros to the next 32-byte boundary. Used by `abiencode`.

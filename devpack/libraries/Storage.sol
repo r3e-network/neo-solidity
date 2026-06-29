@@ -14,7 +14,8 @@ pragma solidity ^0.8.19;
  *
  * Supported members:
  * - getContext() / getReadOnlyContext() / asReadOnly(context)
- * - put(key, value) / get(key) / remove(key) / find(prefix)
+ * - put(key, value) / get(key) / remove(key)
+ * - find(prefix) / find(prefix, options)
  * - putContractMetadata(name, version, author, extra)
  *
  * Notes:
@@ -95,11 +96,25 @@ library Storage {
     // ========== Iterator Operations ==========
 
     /**
-     * @dev Find all keys with prefix
+     * @dev Find all entries whose key starts with `prefix`, using the default
+     *      `FindOptions.None` (returns key/value pairs with the full key).
      */
     function find(bytes memory prefix) internal view returns (Iterator memory) {
         Syscalls.StorageContext memory context = getReadOnlyContext();
         return Syscalls.storageFind(context, prefix);
+    }
+
+    /**
+     * @dev Find all entries whose key starts with `prefix`, controlling the
+     *      result shape via a Neo N3 `FindOptions` bitmask (e.g.
+     *      `KeysOnly | RemovePrefix == 0x03` to enumerate bare key suffixes).
+     *      The `neo-devpack-solidity` compiler lowers this to
+     *      `System.Storage.Find(context, prefix, options)`; the `NEP11`
+     *      standard relies on it for token enumeration.
+     */
+    function find(bytes memory prefix, uint8 options) internal view returns (Iterator memory) {
+        Syscalls.StorageContext memory context = getReadOnlyContext();
+        return Syscalls.storageFind(context, prefix, options);
     }
 
     // ========== Neo-Specific Extensions ==========

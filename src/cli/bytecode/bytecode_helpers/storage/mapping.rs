@@ -56,6 +56,16 @@ pub(crate) fn emit_mapping_slot(
     use_callt: bool,
     token_patches: &mut Vec<MethodTokenPatch>,
 ) {
+    // `state_index` is always an in-range index into `state_variables` (the IR
+    // builder derives it from the same `state_index_map`). A miss would silently
+    // emit a zero base slot, so storage reads/writes for this mapping would land
+    // on the wrong key — fail loudly in debug/test builds while keeping a
+    // deterministic (never-panicking) fallback for release.
+    debug_assert!(
+        module.state_variables.get(state_index).is_some(),
+        "emit_mapping_slot: state_index {state_index} out of range ({} state variables)",
+        module.state_variables.len()
+    );
     let base_slot = module
         .state_variables
         .get(state_index)

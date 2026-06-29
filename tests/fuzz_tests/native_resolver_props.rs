@@ -300,9 +300,8 @@ contract C {{
     }}
     function f_dec() external view returns (uint8) {{ return NativeCalls.neoDecimals(); }}
     function f_sym() external view returns (string memory) {{ return NativeCalls.neoSymbol(); }}
-    // neoName has no devpack helper, but `name` is in the resolver's NativeCalls
-    // table — this exercises the resolver arm. Skipping the helper avoids a
-    // Solidity-level "function not found" since the devpack doesn't expose it.
+    // No `neoName`/`gasName`: Neo's native NEO/GAS contracts expose no callable
+    // `name` method, so that mapping is intentionally absent from the resolver.
     function f_vote(address a, bytes memory pk) external returns (bool) {{
         return NativeCalls.vote(a, pk);
     }}

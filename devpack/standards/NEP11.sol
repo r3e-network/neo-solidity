@@ -675,27 +675,6 @@ contract NEP11 is INEP11, FrameworkBase {
         emit Approval(ownerOf(tokenId), to, tokenId);
     }
 
-    /**
-     * @dev Check onNEP11Received callback
-     */
-    function _checkOnNEP11Received(
-        address from,
-        address to,
-        bytes memory tokenId,
-        bytes memory data
-    ) private {
-        if (to.code.length > 0) {
-            try INEP11Receiver(to).onNEP11Payment(from, 1, tokenId, data) {
-                return;
-            } catch (bytes memory reason) {
-                // NeoVM Solidity does not support inline assembly or rethrowing raw EVM revert
-                // data. Treat any failure to call `onNEP11Payment` as an invalid receiver.
-                reason; // silence unused variable warning for other toolchains
-                revert NEP11InvalidReceiver(to);
-            }
-        }
-    }
-
     // ========== Neo Integration Functions ==========
 
     /**

@@ -62,6 +62,20 @@ impl<'a> OutputConfig<'a> {
     }
 }
 
+/// The name the chain will use when deriving the deployed contract hash is the
+/// one written into the manifest, which a `@custom:neo.manifest.name` override
+/// can change after `metadata.name` was set. Read it back from the final
+/// manifest so the printed "predicted contract hash" matches what
+/// `ContractManagement.Deploy` computes; fall back to `metadata.name` when the
+/// manifest has no string `name` (it always should).
+fn manifest_name(artifact: &CompilationArtifacts) -> &str {
+    artifact
+        .manifest
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or(artifact.metadata.name.as_str())
+}
+
 pub(crate) fn write_contract_outputs(
     artifacts: &[CompilationArtifacts],
     config: &OutputConfig<'_>,
@@ -102,7 +116,7 @@ pub(crate) fn write_contract_outputs(
                     let predicted = neo_devpack_solidity::neo::compute_contract_hash(
                         sender,
                         checksum,
-                        artifact.metadata.name.as_str(),
+                        manifest_name(artifact),
                     );
                     println!(
                         "   • Predicted contract hash (sender {}, checksum 0x{checksum:08x}): {}",
@@ -154,7 +168,7 @@ pub(crate) fn write_contract_outputs(
                     let predicted = neo_devpack_solidity::neo::compute_contract_hash(
                         sender,
                         checksum,
-                        artifact.metadata.name.as_str(),
+                        manifest_name(artifact),
                     );
                     println!(
                         "   • Predicted contract hash (sender {}, checksum 0x{checksum:08x}): {}",

@@ -23,10 +23,12 @@ pub(crate) fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Neo,
             method: "symbol".to_string(),
         }),
-        "neoName" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::Neo,
-            method: "name".to_string(),
-        }),
+        // NOTE: Neo's native NEO/GAS (`FungibleToken`) contracts expose only the
+        // NEP-17 methods (symbol/decimals/totalSupply/balanceOf/transfer); there
+        // is no callable `name` method (the contract name lives in the manifest,
+        // not the ABI). A `neoName`/`gasName` → native `name` mapping would emit a
+        // `System.Contract.Call` that faults with "method not found" on a real
+        // node, so it is intentionally NOT registered here.
         "vote" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Neo,
             method: "vote".to_string(),
@@ -106,10 +108,7 @@ pub(crate) fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Gas,
             method: "symbol".to_string(),
         }),
-        "gasName" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::Gas,
-            method: "name".to_string(),
-        }),
+        // See the `neoName` note above: native GAS has no callable `name` method.
 
         // ========== ContractManagement native contract ==========
         "deployContract" => Some(BuiltinCall::DeployContract),

@@ -315,7 +315,11 @@ impl<'a> Cursor<'a> {
     }
 
     fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
-        if self.pos + n > self.buf.len() {
+        // `self.pos + n` can overflow `usize` for an adversarial varint length
+        // near `usize::MAX`, wrapping to a small value that passes the bound and
+        // then panics on the slice. Compare against the remaining bytes instead
+        // so the check can never wrap.
+        if n > self.buf.len() - self.pos {
             return Err(format!(
                 "NEF truncated: tried to read {} bytes at offset {}, only {} available",
                 n,

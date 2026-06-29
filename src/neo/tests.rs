@@ -20,7 +20,7 @@ fn read_varint(data: &[u8], offset: &mut usize) -> u64 {
         0xFF => {
             let start = *offset + 1;
             *offset += 9;
-            u64::from_le_bytes(data[start..start + 8].try_into().unwrap()) as u64
+            u64::from_le_bytes(data[start..start + 8].try_into().unwrap())
         }
         value => {
             *offset += 1;
