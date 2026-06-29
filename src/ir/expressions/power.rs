@@ -64,21 +64,61 @@ pub(crate) fn lower_power_expression(
     )));
     instructions.push(Instruction::StoreLocal(result_local));
 
-    // For uint256, the square-and-multiply loop must use the soft-arith 256-bit
+    // For 256-bit types the square-and-multiply loop uses the soft-arith 256-bit
     // multiply (mod 2^256, kept in 32-byte two's-complement form) instead of a
     // native MUL: a native MUL of an overflowing intermediate produces a >32-byte
     // BigInteger that real NeoVM FAULTS on (uncatchably), before the post-loop
-    // checked/unchecked handling can run. The soft-arith CHECKED multiply Panics
-    // 0x11 (catchable) on overflow; the unchecked one wraps. Narrow widths keep
-    // native MUL (their intermediates stay <= 32 bytes) + the post-loop ladder.
-    let pow_unsigned256 = matches!(
-        infer_type_from_expression(left, ctx),
+    // checked/unchecked handling can run. The CHECKED variant Panics 0x11
+    // (catchable) on a product >= 2^256; the unchecked one wraps. int256 is
+    // handled by exponentiating the UNSIGNED magnitude |base| (so the same
+    // unsigned soft-arith path serves both) and re-applying the sign afterward.
+    // Narrow widths keep native MUL (their intermediates stay <= 32 bytes) + the
+    // post-loop range-check/truncate ladder.
+    let pow_ty = infer_type_from_expression(left, ctx);
+    let pow_soft256 = matches!(pow_ty, Some(ValueType::Integer { bits: 256, .. }));
+    let pow_int256 = matches!(
+        pow_ty,
         Some(ValueType::Integer {
             bits: 256,
-            signed: false
+            signed: true
         })
     );
     let pow_checked = !ctx.in_unchecked_block();
+
+    // int256: replace `base` with |base| and record whether the final result is
+    // negative (base < 0 AND exp odd) — computed BEFORE the loop consumes `exp`.
+    // `0 - base` (soft-arith) is the magnitude even for int256.min: 0 - (-2^255)
+    // wraps to 2^255 = 0x80..00, avoiding a NEGATE-of-int_min fault.
+    let result_neg_local = if pow_int256 {
+        let neg = ctx.allocate_local("__pow_result_neg".to_string(), None);
+        let neg_done = ctx.next_label();
+        let keep_zero = ctx.next_label();
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::StoreLocal(neg));
+        instructions.push(Instruction::LoadLocal(base_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Lt)); // base < 0 ?
+        instructions.push(Instruction::JumpIf { target: neg_done }); // base >= 0 -> neg stays 0
+        // base < 0: result_neg = 1 iff exp is odd.
+        instructions.push(Instruction::LoadLocal(exp_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Ne)); // exp odd ?
+        instructions.push(Instruction::JumpIf { target: keep_zero }); // exp even -> neg stays 0
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::StoreLocal(neg));
+        instructions.push(Instruction::Label(keep_zero));
+        // base = |base| = 0 - base (base is < 0 here).
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::LoadLocal(base_local));
+        emit_u256_unchecked_sub_ir(ctx, instructions);
+        instructions.push(Instruction::StoreLocal(base_local));
+        instructions.push(Instruction::Label(neg_done));
+        Some(neg)
+    } else {
+        None
+    };
 
     let loop_label = ctx.next_label();
     let end_label = ctx.next_label();
@@ -107,7 +147,7 @@ pub(crate) fn lower_power_expression(
     });
     instructions.push(Instruction::LoadLocal(result_local));
     instructions.push(Instruction::LoadLocal(base_local));
-    emit_pow_mul(pow_unsigned256, pow_checked, ctx, instructions);
+    emit_pow_mul(pow_soft256, pow_checked, ctx, instructions);
     instructions.push(Instruction::StoreLocal(result_local));
 
     instructions.push(Instruction::Label(skip_mul_label));
@@ -129,7 +169,7 @@ pub(crate) fn lower_power_expression(
     });
     instructions.push(Instruction::LoadLocal(base_local));
     instructions.push(Instruction::LoadLocal(base_local));
-    emit_pow_mul(pow_unsigned256, pow_checked, ctx, instructions);
+    emit_pow_mul(pow_soft256, pow_checked, ctx, instructions);
     instructions.push(Instruction::StoreLocal(base_local));
     instructions.push(Instruction::Label(after_square_label));
 
@@ -159,39 +199,50 @@ pub(crate) fn lower_power_expression(
             // multiply already wrapped mod 2^256, and both leave `result_local`
             // as a canonical 32-byte two's-complement Integer. Nothing to do.
         } else if bits == 256 && signed {
-            // int256 `**`: the result type is `int256`, range
-            // [-2^255, 2^255-1]. `unchecked` wraps mod 2^256 then reinterprets
-            // the 32-byte word as signed; checked Panics 0x11 when the true
-            // result leaves the range. Mirrors the uint256 arm above and the
-            // narrow signed arm below — previously int256 fell through with NO
-            // handling (no overflow check, no wrap).
-            if ctx.in_unchecked_block() {
+            // int256 `**`: the loop ran on the unsigned magnitude |base|, so
+            // `result_local` holds mag = |base|^exp mod 2^256 (the soft-arith
+            // CHECKED multiply already Panicked if any product reached 2^256, so
+            // mag < 2^256). Re-apply the sign and (checked) range-check.
+            let neg = result_neg_local.expect("int256 pow tracks the result sign");
+            if pow_checked {
+                // int256 range: a NEGATIVE result allows |result| <= 2^255
+                // (int256.min); a POSITIVE result allows |result| <= 2^255-1.
+                // Detect via the high bit (mag >> 255) and, for the negative
+                // boundary, whether mag is EXACTLY 2^255 (low 255 bits zero) —
+                // which avoids pushing the 33-byte literal 2^255.
+                let ok = ctx.next_label();
+                let overflow = ctx.next_label();
                 instructions.push(Instruction::LoadLocal(result_local));
-                emit_truncate_u256(instructions);
-                instructions.push(Instruction::Convert {
-                    target: ConvertTarget::Integer,
-                });
-                instructions.push(Instruction::StoreLocal(result_local));
-            } else {
-                // int256 bounds are 32-byte literals (0x7f.. / 0x80..), so a
-                // direct Gt/Lt compare is safe (unlike the 33-byte 2^256).
-                let int_max = (BigInt::one() << 255usize) - BigInt::one();
-                let int_min = -(BigInt::one() << 255usize);
-                let after_max = ctx.next_label();
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(255u64),
+                )));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // hi: 0 if mag<2^255
+                instructions.push(Instruction::JumpIf { target: ok }); // hi == 0 -> in range
+                // mag >= 2^255: a positive result always overflows; a negative
+                // result is in range only if mag == 2^255 (low 255 bits zero).
+                instructions.push(Instruction::LoadLocal(neg));
+                instructions.push(Instruction::JumpIf { target: overflow }); // neg == 0 -> overflow
                 instructions.push(Instruction::LoadLocal(result_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int_max)));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Gt));
-                instructions.push(Instruction::JumpIf { target: after_max });
+                let low_mask = (BigInt::one() << 255usize) - BigInt::one(); // 0x7f.. (32-byte, safe)
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(low_mask)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Eq)); // low == 0 ?
+                instructions.push(Instruction::JumpIf { target: overflow }); // low != 0 -> overflow
+                instructions.push(Instruction::Jump { target: ok }); // mag == 2^255 -> int256.min
+                instructions.push(Instruction::Label(overflow));
                 emit_panic(0x11, instructions);
-                instructions.push(Instruction::Label(after_max));
-                let after_min = ctx.next_label();
-                instructions.push(Instruction::LoadLocal(result_local));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int_min)));
-                instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
-                instructions.push(Instruction::JumpIf { target: after_min });
-                emit_panic(0x11, instructions);
-                instructions.push(Instruction::Label(after_min));
+                instructions.push(Instruction::Label(ok));
             }
+            // Re-apply the sign: result = result_neg ? (0 - mag) : mag.
+            let sign_done = ctx.next_label();
+            instructions.push(Instruction::LoadLocal(neg));
+            instructions.push(Instruction::JumpIf { target: sign_done }); // neg == 0 -> keep mag
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::LoadLocal(result_local));
+            emit_u256_unchecked_sub_ir(ctx, instructions); // 0 - mag
+            instructions.push(Instruction::StoreLocal(result_local));
+            instructions.push(Instruction::Label(sign_done));
         } else if matches!(bits, 8 | 16 | 32 | 64 | 128) {
             let bits_usize = bits as usize;
             if ctx.in_unchecked_block() {

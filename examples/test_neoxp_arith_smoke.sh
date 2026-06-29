@@ -60,6 +60,12 @@ contract ArithSmoke {
     function uOverflow()    public pure returns (uint256) { uint256 b = 2; return b ** 256; }
     function uChecked256()  public returns (bool) { try this.uOverflow() returns (uint256) { return false; } catch { return true; } }
     function uWrap()        public pure returns (bool) { unchecked { uint256 b = 2; return (b ** 256) == 0; } }
+    // int256 ** via unsigned magnitude + sign: negative base, overflow Panic,
+    // and the int256.min boundary ((-2)**255 is in range, must not Panic).
+    function iNeg()         public pure returns (int256) { int256 b = -3; return b ** 5; }       // -243
+    function iMinPow()      public pure returns (bool) { int256 b = -2; return b ** 255 == type(int256).min; }
+    function iOverflow()    public pure returns (int256) { int256 b = 2; return b ** 255; }       // checked -> Panic
+    function iChecked()     public returns (bool) { try this.iOverflow() returns (int256) { return false; } catch { return true; } }
 }
 SOL
 
@@ -91,5 +97,8 @@ assert_eq pow2_200    1606938044258990275541962092341162602522202993782792835301
 assert_eq shrLarge    28948022309329048855892746252171976963317496166410141009864396001978282409984
 assert_eq uChecked256 true   # checked 2**256 overflow -> CATCHABLE Panic (was uncatchable fault)
 assert_eq uWrap       true   # unchecked 2**256 wraps to 0
+assert_eq iNeg        -243   # int256 (-3)**5
+assert_eq iMinPow     true   # int256 (-2)**255 == int256.min (in range)
+assert_eq iChecked    true   # checked int256 2**255 overflow -> CATCHABLE Panic
 
 echo "✅ neoxp wide-integer arithmetic smoke test passed"

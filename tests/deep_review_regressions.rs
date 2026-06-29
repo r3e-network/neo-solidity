@@ -967,6 +967,38 @@ contract C { function f(int256 a, uint256 b) external pure returns (int256) { un
     assert!(ok, "unchecked int256 2**255 must wrap without faulting");
 }
 
+/// #16b — int256 `**` via the unsigned-magnitude approach: exponentiate |base|
+/// with the soft-arith mul, then re-apply the sign. Validates negative bases
+/// (even/odd exponents), the unchecked overflow wrap, and the int256.min
+/// boundary (`(-2)**255 == type(int256).min`, in range — must NOT Panic).
+#[test]
+fn int256_pow_magnitude_sign_and_boundary() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function neg3()   external pure returns (bool) { int256 b = -2; return b ** 3 == -8; }
+    function neg4()   external pure returns (bool) { int256 b = -2; return b ** 4 == 16; }
+    function negOdd() external pure returns (bool) { int256 b = -3; return b ** 5 == -243; }
+    function uWrap()  external pure returns (bool) { unchecked { int256 b = 2; return b ** 255 == type(int256).min; } }
+    function minPow() external pure returns (bool) { int256 b = -2; return b ** 255 == type(int256).min; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str| -> bool {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data.first().copied() == Some(1)
+    };
+    assert!(call("neg3"), "(-2)**3 == -8");
+    assert!(call("neg4"), "(-2)**4 == 16");
+    assert!(call("negOdd"), "(-3)**5 == -243");
+    assert!(call("uWrap"), "unchecked 2**255 wraps to int256.min");
+    assert!(call("minPow"), "(-2)**255 == int256.min (in range, no panic)");
+}
+
 /// #16 — uint256 `**` now uses the soft-arith 256-bit multiply in the loop so
 /// an overflowing intermediate never materializes a >32-byte integer (which
 /// faults uncatchably on a real node). Validates the in-range result and the
