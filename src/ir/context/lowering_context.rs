@@ -169,6 +169,14 @@ pub(crate) struct LoweringContext<'a> {
     /// inside a user loop jumps past the user loop and into the OUTERMOST
     /// modifier wrap's epilogue chain. Innermost wrap sits at the top.
     pub(crate) modifier_break_stack: Vec<usize>,
+    /// Number of enclosing try/catch CATCH bodies currently being lowered. A
+    /// `return` lowered while this is > 0 sits inside an active NeoVM TRY frame
+    /// (state = Catch), so it must emit one `ENDTRY` per active frame to pop the
+    /// try-stack before the RET — otherwise the reference C# NeoVM faults at RET
+    /// ("There is still try in the stack"). Incremented around catch-body
+    /// lowering in `try_catch.rs`; the TRY-body and success-handler run with the
+    /// frame already popped (the success-path `EndTry`), so they are excluded.
+    pub(crate) catch_frame_depth: usize,
     pub(crate) local_index_map: HashMap<String, Vec<usize>>,
     pub(crate) local_types: HashMap<usize, ValueType>,
     pub(crate) scope_stack: Vec<Vec<String>>,
@@ -287,6 +295,7 @@ impl<'a> LoweringContext<'a> {
             inline_return_stack: Vec::new(),
             modifier_return_redirect: None,
             modifier_break_stack: Vec::new(),
+            catch_frame_depth: 0,
             local_index_map: HashMap::new(),
             local_types: HashMap::new(),
             scope_stack: vec![Vec::new()],
@@ -450,6 +459,22 @@ impl<'a> LoweringContext<'a> {
     /// redirecting `return expr;` past user loops.
     pub(crate) fn innermost_modifier_break_label(&self) -> Option<usize> {
         self.modifier_break_stack.last().copied()
+    }
+
+    /// Enter a try/catch CATCH body — see [`Self::catch_frame_depth`].
+    pub(crate) fn enter_catch_frame(&mut self) {
+        self.catch_frame_depth += 1;
+    }
+
+    /// Leave a try/catch CATCH body.
+    pub(crate) fn exit_catch_frame(&mut self) {
+        self.catch_frame_depth = self.catch_frame_depth.saturating_sub(1);
+    }
+
+    /// Number of active TRY frames a `return` must pop (it is lexically inside
+    /// this many enclosing catch bodies).
+    pub(crate) fn active_catch_frames(&self) -> usize {
+        self.catch_frame_depth
     }
 
     /// Returns `true` iff this function was flagged with

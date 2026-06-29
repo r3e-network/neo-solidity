@@ -22,6 +22,22 @@ pub(crate) fn lower_return_statement(
         return true;
     }
 
+    // A `return` lexically inside one or more enclosing catch bodies executes
+    // with those NeoVM TRY frames still live (state = Catch). Returning would
+    // otherwise RET (or, under a modifier epilogue, JMP out of the catch) with a
+    // non-empty try-stack, which the reference C# NeoVM faults on. Pop each
+    // active frame here: ENDTRY pops the innermost frame and jumps to the label
+    // immediately after it, leaving the next frame innermost. ENDTRY only
+    // touches the try-stack (not the evaluation stack or locals), so the return
+    // value lowered below is unaffected. Library-inline returns (handled above)
+    // jump within the catch body and do not exit the function, so they skip
+    // this.
+    for _ in 0..ctx.active_catch_frames() {
+        let after = ctx.next_label();
+        instructions.push(Instruction::EndTry { target: after });
+        instructions.push(Instruction::Label(after));
+    }
+
     // Task #114 — inside a function whose body was expanded with modifier
     // epilogues (`had_modifier_epilogue == true`), redirect `return expr;`
     // into the synthesised return slots + jump to the innermost

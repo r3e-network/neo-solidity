@@ -691,6 +691,62 @@ contract C {
     assert_eq!(signed, -1, "int32(bytes4(0xFFFFFFFF)) must be -1, got {rd:?}");
 }
 
+/// #14 — try/catch must keep the NeoVM TRY frame balanced: a matched
+/// non-fallback catch now exits via ENDTRY (not a JMP past it), and a `return`
+/// inside a catch body pops the active frame before the RET. The in-repo
+/// simulator tolerates an unbalanced frame, so these assert correct BEHAVIOR
+/// (value + no fault) across all three catch exit shapes — the balance fix is
+/// reasoned + structural (real C# NeoVM faults at RET with a live try-stack).
+#[test]
+fn try_catch_frame_balanced_across_exit_shapes() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function willPanic() public pure returns (uint256) { uint256 a = 1; uint256 b = 0; return a / b; }
+    function ok() public pure returns (uint256) { return 7; }
+    // matched non-fallback catch with NO return (falls through, then returns).
+    function fallThrough() external returns (uint256) {
+        uint256 total = 0;
+        try this.willPanic() returns (uint256 r) { total += r; }
+        catch Panic(uint256 code) { total += code; }
+        catch (bytes memory) { total += 100; }
+        return total;
+    }
+    // matched non-fallback catch that RETURNS (return-in-catch).
+    function returnInCatch() external returns (uint256) {
+        try this.willPanic() returns (uint256 r) { return r; }
+        catch Panic(uint256 code) { return code + 1; }
+        catch (bytes memory) { return 100; }
+    }
+    // success path: handler returns (frame already popped on the success edge).
+    function successReturns() external returns (uint256) {
+        try this.ok() returns (uint256 r) { return r + 1; }
+        catch { return 0; }
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "C").expect("C artifact");
+    let call = |m: &str| -> (bool, Vec<u8>) {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        (r.success, r.return_data)
+    };
+    // div-by-zero → Panic 0x12 (=18). fallThrough: total += 18 → 18.
+    let (ok, rd) = call("fallThrough");
+    assert!(ok, "fallThrough must succeed");
+    assert_eq!(rd.first().copied(), Some(18), "fallThrough total must be 0x12 (got {rd:?})");
+    // returnInCatch: code(18) + 1 = 19, returned from inside the catch.
+    let (ok, rd) = call("returnInCatch");
+    assert!(ok, "returnInCatch must succeed");
+    assert_eq!(rd.first().copied(), Some(19), "returnInCatch must return code+1 (got {rd:?})");
+    // successReturns: ok() returns 7 → handler returns 8.
+    let (ok, rd) = call("successReturns");
+    assert!(ok, "successReturns must succeed");
+    assert_eq!(rd.first().copied(), Some(8), "successReturns must return 8 (got {rd:?})");
+}
+
 /// #13 — a side-effecting MODIFIER argument must be evaluated exactly ONCE.
 /// Parameter substitution cloned the argument expression at every parameter
 /// use, so `check(tick())` ran `tick()` once per `v` reference (counter ended

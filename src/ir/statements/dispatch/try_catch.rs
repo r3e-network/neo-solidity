@@ -415,6 +415,11 @@ pub(crate) fn lower_try_statement(
     // Catch handler: bind or drop the thrown value, then execute the matching catch body.
     instructions.push(Instruction::Label(catch_label));
     ctx.enter_scope();
+    // The TRY frame is live (state = Catch) throughout the catch bodies, so a
+    // `return` inside any of them must pop it (one ENDTRY) before the RET. The
+    // success handler runs after the success-path ENDTRY (frame already popped),
+    // so it is intentionally left out of this region.
+    ctx.enter_catch_frame();
 
     if catches.len() == 1 && is_bare_catch_clause(&catches[0]) {
         // Preserve existing compact lowering for a lone `catch { ... }`.
@@ -506,7 +511,14 @@ pub(crate) fn lower_try_statement(
                 }
             }
 
-            instructions.push(Instruction::Jump { target: end_label });
+            // A MATCHED non-fallback catch must exit via ENDTRY, not a plain
+            // JMP: ENDTRY is the only op that pops the NeoVM TRY frame (no
+            // finally in Solidity, so it pops + jumps to `end_label`). A bare
+            // `Jump` here would branch PAST the lone `EndTry` below, leaving the
+            // frame on the try-stack — which the reference C# NeoVM faults on at
+            // RET ("There is still try in the stack"). The fallback/rethrow path
+            // still reaches the `EndTry` at the end of the catch region.
+            instructions.push(Instruction::EndTry { target: end_label });
             instructions.push(Instruction::Label(next_clause_label));
         }
 
@@ -521,6 +533,7 @@ pub(crate) fn lower_try_statement(
         }
     }
 
+    ctx.exit_catch_frame();
     ctx.exit_scope();
     instructions.push(Instruction::EndTry { target: end_label });
 
