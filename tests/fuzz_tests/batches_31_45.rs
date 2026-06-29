@@ -3613,8 +3613,11 @@ contract C {
         "S5 pre-check: keccak256(\"f((uint256,bool))\")[..4] must be 0xc5cba275"
     );
 
-    // When un-ignored (Task #106 landed): run f(p_a, p_b) via call_method,
-    // expect 68 bytes = selector 0xc5cba275 || BE(p.a) || BE(bool).
+    // A struct argument is passed as a SINGLE Array StackItem (the manifest
+    // declares `f` with one `Array` parameter and INITSLOT reserves one arg
+    // slot for it). `abi.encodeCall(this.f, (p))` then expands `p`'s fields by
+    // indexing into that Array, producing 68 bytes = selector 0xc5cba275 ||
+    // BE(p.a) || BE(bool).
     let p_a: u64 = 0x0123_4567_89ab_cdef;
     let p_b: bool = true;
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("S5 rt");
@@ -3624,7 +3627,10 @@ contract C {
             &art.tokens,
             &art.manifest,
             "f",
-            &[StackItem::Integer(p_a as i64), StackItem::Boolean(p_b)],
+            &[StackItem::array(vec![
+                StackItem::Integer(p_a as i64),
+                StackItem::Boolean(p_b),
+            ])],
         )
         .expect("S5 f call");
     assert!(

@@ -270,12 +270,18 @@ pub(crate) fn lower_static_abi_slots_for_expr(
             }
 
             if flatten_struct_params {
-                if let Some((base_slot, field_count)) = resolve_struct_param_flat_slots(expr, ctx) {
+                if let Some((param_slot, field_count)) = resolve_struct_param_flat_slots(expr, ctx) {
                     if field_count != fields.len() {
                         return None;
                     }
+                    // The struct param arrives as a single `Array` (one arg
+                    // slot); read field `index` by indexing into it (PICKITEM).
                     for (index, field) in fields.iter().enumerate() {
-                        instructions.push(Instruction::LoadParameter(base_slot + index));
+                        instructions.push(Instruction::LoadParameter(param_slot));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(index),
+                        )));
+                        instructions.push(Instruction::ArrayGet);
                         emit_expr_static_abi_slot_for_value_type(&field.ty, ctx, instructions)?;
                     }
                     return Some(fields.len());

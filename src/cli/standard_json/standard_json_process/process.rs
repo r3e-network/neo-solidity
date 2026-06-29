@@ -39,7 +39,15 @@ pub(crate) fn process_standard_json_content(
     }
     let mut ordered_sources: Vec<(String, String, String)> = Vec::new();
 
-    for (index, (file_name, source)) in request.sources.iter().enumerate() {
+    // `request.sources` is a HashMap whose iteration order is randomized per
+    // run — that would make the assigned source `id`s, the errors-array order,
+    // and the DFS root order non-deterministic across identical compilations
+    // (Hardhat/Foundry/verification pipelines key on stable source ids). Iterate
+    // in a deterministic, file-name-sorted order instead.
+    let mut sorted_sources: Vec<_> = request.sources.iter().collect();
+    sorted_sources.sort_by(|a, b| a.0.cmp(b.0));
+
+    for (index, (file_name, source)) in sorted_sources.into_iter().enumerate() {
         sources_output.insert(file_name.clone(), json!({ "id": index as u32 }));
         let Some(content) = source.content.as_ref() else {
             let mut message = format!(

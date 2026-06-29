@@ -30,6 +30,27 @@ pub(crate) fn convert_contract(
             && function.name.eq_ignore_ascii_case("onnep17payment")
     });
 
+    // A contract-level `function` declared without a visibility specifier is a
+    // hard error in Solidity 0.5.0+. Capture the offenders now, while the
+    // original `explicit_visibility` flag is available, so validation can
+    // surface them instead of letting the defaulted `internal` visibility drop
+    // them from the ABI. (Constructors/fallback/receive carry no visibility by
+    // rule, and free functions were marked explicit at parse time.)
+    let functions_missing_visibility: Vec<String> = contract
+        .functions
+        .iter()
+        .filter(|function| {
+            matches!(function.ty, FunctionTy::Function)
+                && !function.explicit_visibility
+                // Defensive: compiler-synthesized helpers use a reserved `__`
+                // mangling prefix (e.g. `__ctor__X`, `__super_X`) and are not
+                // user-authored, so they can never be a missing-visibility
+                // mistake even if a future synthetic site forgets the flag.
+                && !function.name.starts_with("__")
+        })
+        .map(|function| function.name.clone())
+        .collect();
+
     let mut methods: Vec<FunctionMetadata> = contract
         .functions
         .into_iter()
@@ -269,6 +290,7 @@ pub(crate) fn convert_contract(
         has_type_definitions: contract.has_type_definitions,
         type_aliases: contract.type_aliases,
         flatten_warnings: Vec::new(),
+        functions_missing_visibility,
         super_method_map: contract.super_method_map,
     }
 }

@@ -147,24 +147,13 @@ pub(crate) fn neovm_bool_optimize(block: &mut ir::BasicBlock) {
         // reach here with a non-bool, so the rewrite was unsound. The EQ
         // instruction is cheap; correctness wins.
 
-        // Pattern: PUSH false, NE → identity for booleans (x != false = x)
-        if i + 1 < block.instructions.len() {
-            if let ir::Instruction::PushLiteral(ir::LiteralValue::Boolean(false)) =
-                &block.instructions[i]
-            {
-                if let ir::Instruction::BinaryOp(ir::BinaryOperator::Ne) =
-                    &block.instructions[i + 1]
-                {
-                    // x != false → x (skip both)
-                    i += 2;
-                    continue;
-                }
-            }
-
-            // Pattern: PUSH true, NE → converts to negation (x != true = !x)
-            // Keep this pattern as-is since we don't have a simple NOT instruction
-            // The codegen will handle it appropriately
-        }
+        // NOTE — the `PUSH false, NE → identity` ("x != false = x") rewrite was
+        // REMOVED for the same reason the symmetric `PUSH true, EQ → identity`
+        // was dropped under M-BC2: for a non-boolean operand (e.g. NeoVM Integer
+        // 5 written via inline assembly), `(5 != false)` must normalize to the
+        // boolean `true` (1), but the rewrite left the raw `5` on the stack,
+        // diverging from a real NOTEQUAL against a Boolean ABI return. The NE
+        // instruction is cheap; correctness wins.
 
         // Pattern: BitwiseNot followed by BitwiseNot → identity (removes both)
         if i + 1 < block.instructions.len()

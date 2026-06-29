@@ -14,25 +14,24 @@ pub(crate) fn emit_ir_function(
     use std::{collections::HashMap, convert::TryFrom};
 
     let mut local = Vec::new();
-    // Task #106 — for externally-callable functions, INITSLOT arg_count must
-    // reflect the FLATTENED struct-field count so Ethereum-style callers
-    // that push tuple fields individually (the canonical ABI encoding of a
-    // struct arg) can deposit each field into its own slot. Without this,
-    // INITSLOT pops only one item for `f(P p)` and the other fields leak
-    // onto the stack, breaking selector/payload round-trips.
+    // INITSLOT's `args` operand is the number of evaluation-stack items the
+    // method pops into its argument slots, which must equal the number of
+    // arguments a conformant caller pushes — i.e. the NOMINAL parameter count.
+    // On Neo N3 a struct argument is passed as a single `Array` StackItem (the
+    // manifest declares it as one `Array` parameter) and the body reads its
+    // fields with `LDARG; PICKITEM`, so it occupies exactly one arg slot.
     //
-    // Internal functions keep the nominal parameter count because they are
-    // called via `CallFunction` which never unpacks structs.
+    // (Earlier, Task #106 set this to the FLATTENED struct-field count on the
+    // theory that EVM-style callers push tuple fields individually. That is the
+    // shape of the `abi.encodeCall` *byte payload*, not Neo's calling
+    // convention — see `member_access.rs`/`abi_structs_notify.rs`, which build
+    // that payload independently of these arg slots. Over-counting made
+    // INITSLOT pop more items than the caller pushes: every external/public
+    // function taking a struct parameter then underflowed the eval stack and
+    // FAULTed on a real node. The in-tree simulator masked it by substituting
+    // `Null` on an empty pop.)
     let nominal_arg_count = method.parameters.len();
-    let flat_arg_count = if matches!(
-        method.visibility,
-        VisibilityKind::External | VisibilityKind::Public
-    ) {
-        flat_param_slot_count_from_value_types(&function.parameters)
-    } else {
-        nominal_arg_count
-    };
-    let arg_count = u8::try_from(flat_arg_count).unwrap_or(u8::MAX);
+    let arg_count = u8::try_from(nominal_arg_count).unwrap_or(u8::MAX);
     let local_count = u8::try_from(function.local_count).unwrap_or(u8::MAX);
     if local_count > 0 || arg_count > 0 {
         local.push(OpCode::INITSLOT.byte());
@@ -425,17 +424,3 @@ pub(crate) fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueTyp
     }
 }
 
-/// Task #106 — count flattened parameter slots for INITSLOT. Struct params
-/// expand to their direct field count; all other types count as 1. Nested
-/// struct fields remain a single slot for now (nested expansion is a
-/// follow-up when the ABI payload path adds recursive field-tuple
-/// canonicalisation).
-fn flat_param_slot_count_from_value_types(param_types: &[ir::ValueType]) -> usize {
-    param_types
-        .iter()
-        .map(|ty| match ty {
-            ir::ValueType::Struct { fields, .. } => fields.len(),
-            _ => 1,
-        })
-        .sum()
-}

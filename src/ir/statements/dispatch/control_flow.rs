@@ -85,8 +85,19 @@ pub(crate) fn lower_do_while_statement(
     // the `modifier_break_stack` so `lower_return_statement` can jump past
     // any intervening user loops and land after the synthetic wrap (i.e.
     // just before the modifier epilogue statements run).
-    let is_modifier_wrap =
-        ctx.in_modifier_epilogue_scope() && matches!(condition, Expression::BoolLiteral(_, false));
+    //
+    // The wrap is identified by the synthetic `Loc::Implicit` the expander
+    // stamps on the condition (`modifiers/expand.rs`). Matching any
+    // `while(false)` here would also capture a USER-written `do { … }
+    // while(false)`, hijacking its `return` redirect so the value lands in the
+    // wrong slot (it returned the value of a *later* `return` instead). The
+    // parser only ever assigns real `Loc::File` spans to user source, so the
+    // implicit marker distinguishes the two.
+    let is_modifier_wrap = ctx.in_modifier_epilogue_scope()
+        && matches!(
+            condition,
+            Expression::BoolLiteral(solang_parser::pt::Loc::Implicit, false)
+        );
 
     instructions.push(Instruction::Label(start_label));
     ctx.push_loop(condition_label, end_label);

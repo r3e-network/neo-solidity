@@ -742,6 +742,11 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 cloned.name = mangled_name;
                 cloned.ty = FunctionTy::Function;
                 cloned.visibility = VisibilityKind::Internal;
+                // Compiler-synthesized helper: its `internal` visibility is set
+                // here by rule, so it must not trip the missing-visibility check
+                // (a constructor carries no specifier, so the clone's flag is
+                // `false`).
+                cloned.explicit_visibility = true;
                 // Base-constructor invocations (`base_or_modifiers`) were
                 // already resolved by `apply_modifiers_and_base_constructors`
                 // in the owning contract's pipeline; clear the residue so the
@@ -910,11 +915,18 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 .parameters
                 .iter()
                 .map(|param| {
-                    match NeoType::from_solidity(
+                    // Resolve user-defined value-type aliases (`type X is Y`) to
+                    // their underlying ABI type, exactly as the authoritative
+                    // manifest selector path does (convert/functions.rs). Without
+                    // this, a UDVT-typed param canonicalized to the bare alias
+                    // name, so `Type.method.selector` / `type(I).interfaceId`
+                    // diverged from the manifest (and on-chain) selector.
+                    match NeoType::from_solidity_with_aliases(
                         &param.ty,
                         &sel_struct_types,
                         &sel_enum_types,
                         &registry_contract_types,
+                        &selector_contract.type_aliases,
                     ) {
                         Ok(neo_type) => neo_type.canonical_abi_type(),
                         // Fall back to the struct-aware string canonicalizer only

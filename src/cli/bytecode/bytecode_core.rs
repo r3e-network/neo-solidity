@@ -142,6 +142,16 @@ pub(crate) fn generate_contract_bytecode(
             ));
         }
 
+        // INITSLOT's `args` operand and LDARG/STARG indices share the same
+        // 0..=255 byte range, so >255 parameters would silently truncate the
+        // operand (as local_count above) and miscompile — fail loudly instead.
+        if method.parameters.len() > u8::MAX as usize {
+            return Err(format!(
+                "function '{method_name}' has {} parameters, exceeding NeoVM's 255-argument limit",
+                method.parameters.len()
+            ));
+        }
+
         let instruction_count: usize = ir_function
             .basic_blocks
             .iter()

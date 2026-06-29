@@ -244,8 +244,6 @@ pub(crate) fn builtin_library_supported_members(base: &str) -> Option<&'static [
             "base58Decode",
             "base58CheckEncode",
             "base58CheckDecode",
-            "hexEncode",
-            "hexDecode",
             "memoryCompare",
             "memorySearch",
             "stringSplit",
@@ -593,7 +591,7 @@ pub(crate) fn resolve_stdlib_member(member: &str) -> Option<BuiltinCall> {
         "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "itoa" | "atoi"
         | "base64Encode" | "base64Decode" | "base64UrlEncode" | "base64UrlDecode"
         | "base58Encode" | "base58Decode" | "base58CheckEncode" | "base58CheckDecode"
-        | "hexEncode" | "hexDecode" | "memoryCompare" | "memorySearch" | "stringSplit"
+        | "memoryCompare" | "memorySearch" | "stringSplit"
         | "strLen" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::StdLib,
             method: member.to_string(),

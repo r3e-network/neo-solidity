@@ -9,7 +9,7 @@
 | ----------------- | --------- | ------------ | ----------------------------------------------------------------------- |
 | ERC-20            | NEP-17    | ✅ Full      | 4-param `transfer`, `onNEP17Payment` callback, `Any` data type          |
 | ERC-721           | NEP-11    | ✅ Full      | ByteString token IDs (dynamic `bytes`, ≤ 64 bytes), iterator-returning `tokensOf`/`tokens` (`InteropInterface`), optional `properties`, `onNEP11Payment` |
-| ERC-2981          | NEP-24    | ✅ Full      | Array return for multiple royalty recipients and computed royalty amounts |
+| ERC-2981          | NEP-24    | ✅ Full      | `royaltyInfo` returns ABI-encoded `bytes` (manifest `ByteArray`), **not** a native NeoVM Array — consumers `abi.decode` it as `(address,uint256)[]` (same deviation as NEP-11 `properties`) |
 | ERC-1155          | —         | ⚠️ Partial   | No direct equivalent; split into NEP-17/NEP-11 or implement NEP-11-divisible-style storage manually |
 | EIP-165           | Manifest  | 🔄 Different | Neo uses manifest `supportedstandards` instead of `supportsInterface()` |
 | EIP-2612 (Permit) | —         | 🔄 Different | Prefer witness-scoped transactions; signed-message ports still need replay controls |

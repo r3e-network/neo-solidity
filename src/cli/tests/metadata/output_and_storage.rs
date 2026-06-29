@@ -102,6 +102,7 @@ fn storage_map_assigns_slots_and_names() {
         has_type_definitions: false,
         type_aliases: std::collections::HashMap::new(),
         flatten_warnings: Vec::new(),
+        functions_missing_visibility: Vec::new(),
         super_method_map: std::collections::HashMap::new(),
     };
 
@@ -226,6 +227,7 @@ fn standard_abi_includes_constructor_and_event() {
         has_type_definitions: false,
         type_aliases: std::collections::HashMap::new(),
         flatten_warnings: Vec::new(),
+        functions_missing_visibility: Vec::new(),
         super_method_map: std::collections::HashMap::new(),
     };
 

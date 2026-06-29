@@ -264,9 +264,34 @@ impl ExecutionContext {
                     })?;
             return Ok(Self::u256_bigint_to_stack_item(x << amount));
         }
+        // Narrow fast path — but `i64/u64::wrapping_shl` silently overflows when
+        // `value << amount` exceeds the type, e.g. `1 << 63` wraps to `i64::MIN`
+        // (= 2^256 - 2^63 as uint256) instead of 2^63. Real NeoVM uses an
+        // arbitrary-precision BigInteger, so widen to i128/u128 to detect the
+        // overflow and fall back to the BigInt path, keeping the cheap path only
+        // when the result genuinely fits the narrow type. (`amount < 64` here, so
+        // the i128/u128 intermediate cannot itself overflow.)
         match value {
-            StackItem::Integer(v) => Ok(StackItem::Integer(v.wrapping_shl(amount))),
-            StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(v.wrapping_shl(amount))),
+            StackItem::Integer(v) => {
+                let shifted = (v as i128) << amount;
+                if (i64::MIN as i128..=i64::MAX as i128).contains(&shifted) {
+                    Ok(StackItem::Integer(shifted as i64))
+                } else {
+                    Ok(Self::u256_bigint_to_stack_item(
+                        num_bigint::BigInt::from(v) << amount,
+                    ))
+                }
+            }
+            StackItem::UnsignedInteger(v) => {
+                let shifted = (v as u128) << amount;
+                if shifted <= u64::MAX as u128 {
+                    Ok(StackItem::UnsignedInteger(shifted as u64))
+                } else {
+                    Ok(Self::u256_bigint_to_stack_item(
+                        num_bigint::BigInt::from(v) << amount,
+                    ))
+                }
+            }
             _ => Err(RuntimeError::ExecutionError {
                 message: "Invalid operands for shift left".to_string(),
             }),

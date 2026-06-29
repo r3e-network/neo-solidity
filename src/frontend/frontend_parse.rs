@@ -86,6 +86,11 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
                 // regardless of what solang-parser surfaces.
                 let mut fn_ir = convert_function(*def, &comment_map);
                 fn_ir.visibility = VisibilityKind::Internal;
+                // File-scope free functions are internal by language rule
+                // (Solidity rejects an explicit visibility here), so their
+                // omitted specifier is not the error the visibility check looks
+                // for.
+                fn_ir.explicit_visibility = true;
                 fn_ir.ty = FunctionTy::Function;
                 file_level_free_functions.push(fn_ir);
             }

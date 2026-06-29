@@ -67,7 +67,7 @@ where
                 // sources like `1e2000000000`.
                 value *= try_pow10(exponent as u32)?;
             } else {
-                let divisor = try_pow10((-exponent) as u32)?;
+                let divisor = try_pow10(exponent.unsigned_abs())?;
                 if (&value % &divisor).is_zero() {
                     value /= divisor;
                 } else {
@@ -114,7 +114,7 @@ where
             if exponent >= 0 {
                 numerator *= try_pow10(exponent as u32)?;
             } else {
-                denominator *= try_pow10((-exponent) as u32)?;
+                denominator *= try_pow10(exponent.unsigned_abs())?;
             }
 
             if let Some(unit) = unit.as_ref() {

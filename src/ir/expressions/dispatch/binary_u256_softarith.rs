@@ -343,6 +343,66 @@ pub(crate) fn emit_u256_logical_shr_ir(
     instructions.push(Instruction::Label(end_label));
 }
 
+/// Emit Solidity `a << n` for a 256-bit left operand `[a, n]` (n on top).
+/// Solidity's `<<` NEVER reverts: it is `a * 2^n` reduced mod 2^256, with the
+/// result reinterpreted in the operand's type — so uint256 and int256 share the
+/// exact same bit operation. Native NeoVM `SHL` instead computes the
+/// full-precision product and FAULTS as soon as it leaves the 32-byte integer
+/// range (any result >= 2^255, or a shift amount > 256). Reproduce the wrapping
+/// semantics as `a * 2^n mod 2^256` through the conformant unchecked-mul limb
+/// routine, clamping `n >= 256` to 0. Uses fresh locals for `n`/`a`/`pow2`; the
+/// values are on the stack before the nested mul runs, so its scratch pool
+/// cannot clobber them.
+pub(crate) fn emit_u256_shl_ir(ctx: &mut LoweringContext, ins: &mut Vec<Instruction>) {
+    let id = ctx.next_label();
+    let n_local = ctx.allocate_local(format!("__shl_n_{id}"), None);
+    let a_local = ctx.allocate_local(format!("__shl_a_{id}"), None);
+    let pow_local = ctx.allocate_local(format!("__shl_pow_{id}"), None);
+    ins.push(Instruction::StoreLocal(n_local)); // pop n
+    ins.push(Instruction::StoreLocal(a_local)); // pop a
+
+    let compute = ctx.next_label();
+    let small_n = ctx.next_label();
+    let have_pow = ctx.next_label();
+    let end = ctx.next_label();
+
+    // n >= 256 (UNSIGNED) -> result 0. `JumpIf` branches when the predicate is
+    // FALSE, so it jumps to `compute` when n < 256 and falls through to push 0
+    // otherwise. An unsigned compare is required because a shift amount
+    // >= 2^255 is stored as a negative-looking word.
+    ins.push(Instruction::LoadLocal(n_local));
+    u256_push(ins, BigInt::from(256u32));
+    emit_u256_unsigned_compare(ins, BinaryOperator::Ge); // [n >=u 256]
+    ins.push(Instruction::JumpIf { target: compute });
+    u256_push(ins, BigInt::zero());
+    ins.push(Instruction::Jump { target: end });
+
+    // n in [0, 255]: pow2 = 2^n.
+    ins.push(Instruction::Label(compute));
+    // `1 << 255` overflows NeoVM's signed 32-byte integer, so special-case it
+    // with the literal 2^255 (the uint256 literal path already emits it as the
+    // 0x80…00 two's-complement sign word). n in [0, 254] uses a native SHL.
+    ins.push(Instruction::LoadLocal(n_local));
+    u256_push(ins, BigInt::from(255u32));
+    u256_bop(ins, BinaryOperator::Eq); // [n == 255]
+    ins.push(Instruction::JumpIf { target: small_n }); // jump when n != 255
+    u256_push(ins, BigInt::one() << 255usize); // pow2 = 2^255
+    ins.push(Instruction::Jump { target: have_pow });
+
+    ins.push(Instruction::Label(small_n));
+    u256_push(ins, BigInt::one());
+    ins.push(Instruction::LoadLocal(n_local));
+    u256_bop(ins, BinaryOperator::Shl); // 1 << n (n <= 254 -> result <= 2^254, safe)
+
+    ins.push(Instruction::Label(have_pow));
+    ins.push(Instruction::StoreLocal(pow_local));
+    // result = a * pow2 mod 2^256
+    ins.push(Instruction::LoadLocal(a_local));
+    ins.push(Instruction::LoadLocal(pow_local));
+    emit_u256_unchecked_mul_ir(ctx, ins); // [result]
+    ins.push(Instruction::Label(end));
+}
+
 // Emit unsigned `a / b` (or `a % b` if `want_remainder`) for uint256 operands
 // `[a, b]`. Native NeoVM DIV/MOD are signed, so they are wrong for operands at
 // or above 2^255. Reduction (Hacker's Delight 9-3): when the divisor is at or

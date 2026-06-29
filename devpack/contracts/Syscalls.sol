@@ -757,24 +757,9 @@ library Syscalls {
         return contractCall(STD_LIB, "base58CheckDecode", params);
     }
 
-    // ========== Hex Utilities ==========
-
-    /**
-     * @dev Hex encode
-     */
-    function hexEncode(bytes memory data) internal view returns (string memory) {
-        bytes memory params = abi.encode(data);
-        bytes memory result = contractCall(STD_LIB, "hexEncode", params);
-        return abi.decode(result, (string));
-    }
-
-    /**
-     * @dev Hex decode
-     */
-    function hexDecode(string memory data) internal view returns (bytes memory) {
-        bytes memory params = abi.encode(data);
-        return contractCall(STD_LIB, "hexDecode", params);
-    }
+    // NOTE: `hexEncode`/`hexDecode` wrappers were removed — Neo's native StdLib
+    // has no such methods, so they faulted with "method not found" on a real
+    // node. Use `itoa(value, 16)` for integers, or implement hex in Solidity.
 
     // ========== Memory and String Utilities ==========
 

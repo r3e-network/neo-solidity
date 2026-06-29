@@ -417,8 +417,19 @@ pub(crate) fn build_manifest(
                             declared.clone()
                         }
                         _ => {
-                            used.insert(fallback.clone());
-                            fallback
+                            // The synthetic `topic{n}` name can itself collide
+                            // with an earlier explicitly-declared param named
+                            // `topic{n}` (or a prior fallback). A duplicate
+                            // param name produces a malformed manifest that a
+                            // node can reject at deploy (its event-descriptor
+                            // parser keys params by name), so suffix until unique.
+                            let mut candidate = fallback.clone();
+                            let mut suffix = 0usize;
+                            while !used.insert(candidate.clone()) {
+                                suffix += 1;
+                                candidate = format!("{fallback}_{suffix}");
+                            }
+                            candidate
                         }
                     };
                     params.push(json!({ "name": name, "type": "ByteArray" }));

@@ -101,6 +101,14 @@ pub struct FunctionIR {
     pub returns: Vec<ParameterIR>,
     pub mutability: MutabilityKind,
     pub visibility: VisibilityKind,
+    /// Whether the source declared an explicit visibility specifier. When
+    /// `false`, `visibility` holds the defaulted value (`Internal`). Solidity
+    /// 0.5.0+ makes an omitted visibility on a contract function a hard error,
+    /// so this lets validation reject it rather than silently demoting the
+    /// function to `internal` (which drops it from the ABI). Synthetic /
+    /// file-level functions set this to `true` because their visibility is
+    /// fixed by rule, not by a missing specifier.
+    pub explicit_visibility: bool,
     /// Whether this function is marked `virtual`.
     pub is_virtual: bool,
     /// Whether this function is marked `override`.

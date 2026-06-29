@@ -306,7 +306,7 @@ pub(crate) fn convert_function(
 ) -> FunctionIR {
     let name = function_name(&function);
     let mutability = extract_mutability(&function);
-    let visibility = extract_visibility(&function);
+    let (visibility, explicit_visibility) = extract_visibility(&function);
     let doc = find_preceding_doc(&function.loc, comment_map);
 
     let mut is_virtual = false;
@@ -331,6 +331,7 @@ pub(crate) fn convert_function(
         returns,
         mutability,
         visibility,
+        explicit_visibility,
         is_virtual,
         is_override,
         base_or_modifiers,
@@ -365,19 +366,24 @@ fn extract_mutability(function: &FunctionDefinition) -> MutabilityKind {
     MutabilityKind::NonPayable
 }
 
-fn extract_visibility(function: &FunctionDefinition) -> VisibilityKind {
+/// Returns the declared visibility and whether a specifier was present. An
+/// absent specifier defaults to `Internal` (matching how an unguarded function
+/// would lower) but reports `false` so validation can reject it for contract
+/// functions, where Solidity 0.5.0+ requires an explicit visibility.
+fn extract_visibility(function: &FunctionDefinition) -> (VisibilityKind, bool) {
     for attribute in &function.attributes {
         if let FunctionAttribute::Visibility(visibility) = attribute {
-            return match visibility {
+            let kind = match visibility {
                 Visibility::External(_) => VisibilityKind::External,
                 Visibility::Public(_) => VisibilityKind::Public,
                 Visibility::Internal(_) => VisibilityKind::Internal,
                 Visibility::Private(_) => VisibilityKind::Private,
             };
+            return (kind, true);
         }
     }
 
-    VisibilityKind::Internal
+    (VisibilityKind::Internal, false)
 }
 
 fn convert_parameters(params: &ParameterList) -> Vec<ParameterIR> {

@@ -40,6 +40,24 @@ pub(crate) fn validate_methods(
         );
     }
 
+    // Solidity 0.5.0+ requires an explicit visibility on every contract
+    // function. Without this, an omitted specifier silently defaults to
+    // `internal`, dropping the function from the ABI — a contract that "compiles
+    // successfully" but exposes none of its intended entrypoints.
+    for name in &metadata.functions_missing_visibility {
+        diagnostics.push(
+            Diagnostic::error(format!(
+                "no visibility specified for function '{name}'; add one of \
+                 external/public/internal/private"
+            ))
+            .with_code("NO_VISIBILITY_SPECIFIER")
+            .with_suggestion(
+                "Solidity 0.5.0+ requires explicit visibility; a missing specifier \
+                 would default to `internal` and drop the function from the ABI",
+            ),
+        );
+    }
+
     for function in &metadata.methods {
         let is_exposed = matches!(
             function.visibility,

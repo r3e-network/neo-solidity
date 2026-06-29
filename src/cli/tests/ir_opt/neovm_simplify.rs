@@ -206,7 +206,12 @@ fn neovm_bool_keeps_eq_true_for_safety() {
 }
 
 #[test]
-fn neovm_bool_removes_ne_false() {
+fn neovm_bool_keeps_ne_false_for_safety() {
+    // Mirror of `neovm_bool_keeps_eq_true_for_safety`: the `PUSH false, NE →
+    // identity` rewrite was REMOVED because for a non-boolean operand (e.g.
+    // NeoVM Integer 5) it left the raw `5` on the stack instead of normalizing
+    // `5 != false` to the boolean `true` (1). The optimizer must now KEEP the
+    // `PUSH false; NE` pair so the runtime performs the real inequality.
     use neo_devpack_solidity::ir::{BinaryOperator, LiteralValue};
 
     let module = Module {
@@ -231,10 +236,18 @@ fn neovm_bool_removes_ne_false() {
 
     let optimized = optimize_ir(module, 3);
     let instrs = &optimized.functions[0].basic_blocks[0].instructions;
-    // x != false should be simplified to just x
-    assert_eq!(instrs.len(), 2);
+    // x != false must NOT be folded to `x`; the PUSH false; NE pair survives.
+    assert_eq!(instrs.len(), 4, "PUSH false; NE must be preserved");
     assert!(matches!(instrs[0], Instruction::LoadLocal(0)));
-    assert!(matches!(instrs[1], Instruction::Return));
+    assert!(matches!(
+        instrs[1],
+        Instruction::PushLiteral(LiteralValue::Boolean(false))
+    ));
+    assert!(matches!(
+        instrs[2],
+        Instruction::BinaryOp(BinaryOperator::Ne)
+    ));
+    assert!(matches!(instrs[3], Instruction::Return));
 }
 
 #[test]

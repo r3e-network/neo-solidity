@@ -157,8 +157,8 @@ pub(crate) fn native_method_has_return_value(
             StdLib,
             "serialize" | "deserialize" | "jsonSerialize" | "jsonDeserialize" | "base64Encode"
             | "base64Decode" | "base64UrlEncode" | "base64UrlDecode" | "base58Encode"
-            | "base58Decode" | "base58CheckEncode" | "base58CheckDecode" | "hexEncode"
-            | "hexDecode" | "itoa" | "atoi" | "memoryCompare" | "memorySearch" | "stringSplit"
+            | "base58Decode" | "base58CheckEncode" | "base58CheckDecode"
+            | "itoa" | "atoi" | "memoryCompare" | "memorySearch" | "stringSplit"
             | "strLen",
         ) => true,
         (

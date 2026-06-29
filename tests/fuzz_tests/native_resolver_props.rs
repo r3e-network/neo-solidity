@@ -61,7 +61,7 @@ fn must_compile(label: &str, src: &str) -> neo_devpack_solidity::cli::Compilatio
 // Methods covered: serialize, deserialize, jsonSerialize, jsonDeserialize,
 // itoa, atoi, base64Encode, base64Decode, base64UrlEncode, base64UrlDecode,
 // base58Encode, base58Decode, base58CheckEncode, base58CheckDecode,
-// hexEncode, hexDecode, memoryCompare, memorySearch, stringSplit, strLen.
+// memoryCompare, memorySearch, stringSplit, strLen.
 // ============================================================================
 
 proptest! {
@@ -125,9 +125,7 @@ contract C {{
     function f_b58d(string memory s) external pure returns (bytes memory) {{ return StdLib.base58Decode(s); }}
     function f_b58ce(bytes memory b) external pure returns (string memory) {{ return StdLib.base58CheckEncode(b); }}
     function f_b58cd(string memory s) external pure returns (bytes memory) {{ return StdLib.base58CheckDecode(s); }}
-    // hex*.
-    function f_hexe(bytes memory b) external pure returns (string memory) {{ return StdLib.hexEncode(b); }}
-    function f_hexd(string memory s) external pure returns (bytes memory) {{ return StdLib.hexDecode(s); }}
+    // (hexEncode/hexDecode removed — native StdLib has no such methods.)
     // memory{{Compare,Search}} (stubbed).
     function f_memcmp(bytes memory a, bytes memory b) external pure returns (int256) {{
         return StdLib.memoryCompare(a, b);

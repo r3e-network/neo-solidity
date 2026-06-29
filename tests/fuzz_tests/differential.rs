@@ -1244,3 +1244,68 @@ contract C {
         }
     }
 }
+
+/// Solidity `<<` never reverts: `x << n` wraps to `(x * 2^n) mod 2^256`. Native
+/// NeoVM `SHL` faults once the full-precision result leaves the 32-byte integer
+/// range, so the compiler lowers a uint256 shift through a software routine.
+/// This pins the routine against the reference value for the exact edge cases
+/// that a bare `SHL` would fault on (operands >= 2^255, shift amounts that push
+/// set bits past bit 255, and shift amounts >= 256). `x` is passed as a 32-byte
+/// little-endian argument (the runtime's representation of a >64-bit integer)
+/// and `n` as a small integer, so constant folding cannot pre-compute the shift.
+#[test]
+fn differential_uint256_shl_wraps_without_faulting() {
+    use num_bigint::BigUint;
+    let modulus = BigUint::from(1u8) << 256u32;
+    let two = |e: u32| BigUint::from(1u8) << e;
+    let max = &modulus - 1u8;
+
+    // (x, n) cases; expected = (x << n) mod 2^256, computed below.
+    let cases: Vec<(BigUint, u32)> = vec![
+        (two(255), 0),
+        (two(255), 1),
+        (max.clone(), 1),
+        (BigUint::from(1u8), 255),
+        (BigUint::from(1u8), 256),
+        (BigUint::from(1u8), 257),
+        (BigUint::from(3u8), 254),
+        (two(200), 100),
+        (two(128), 127),
+        (max.clone(), 128),
+        (BigUint::from(5u8), 3),
+        (max.clone(), 255),
+    ];
+
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f(uint256 x, uint256 n) external pure returns (uint256) {
+        unchecked { return x << n; }
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).unwrap();
+    let art = &arts[0];
+
+    for (x, n) in cases {
+        let expected = (&x << n) % &modulus;
+        let mut le = x.to_bytes_le();
+        le.resize(32, 0);
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).unwrap();
+        let r = rt
+            .call_method(
+                &art.bytecode,
+                &art.tokens,
+                &art.manifest,
+                "f",
+                &[StackItem::byte_array(le), StackItem::Integer(n as i64)],
+            )
+            .unwrap();
+        assert!(
+            r.success,
+            "x << n FAULTED for x={x}, n={n}: {:?}",
+            r.exception.as_ref().map(|e| &e.message)
+        );
+        let got = decode_uint_le(&r.return_data);
+        assert_eq!(got, expected, "x<<n mismatch for x={x}, n={n}");
+    }
+}

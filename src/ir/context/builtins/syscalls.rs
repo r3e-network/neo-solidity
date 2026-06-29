@@ -248,14 +248,11 @@ pub(crate) fn resolve_syscalls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::StdLib,
             method: "base58CheckDecode".to_string(),
         }),
-        "hexEncode" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::StdLib,
-            method: "hexEncode".to_string(),
-        }),
-        "hexDecode" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::StdLib,
-            method: "hexDecode".to_string(),
-        }),
+        // NOTE: Neo's native StdLib has no `hexEncode`/`hexDecode` methods
+        // (its ABI is itoa/atoi/base64*/base58*/json*/serialize/memory*/string*);
+        // mapping them would emit a `System.Contract.Call` that faults with
+        // "method not found" on a real node, so they are intentionally absent.
+        // Hex conversion can be done with `itoa(value, 16)` or in Solidity.
         "memoryCompare" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::StdLib,
             method: "memoryCompare".to_string(),

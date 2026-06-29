@@ -57,6 +57,12 @@ pub struct ContractMetadata {
     pub type_aliases: std::collections::HashMap<String, String>,
     /// Warnings collected during inheritance flattening (e.g. virtual/override checks).
     pub flatten_warnings: Vec<String>,
+    /// Names of contract-level functions declared without an explicit visibility
+    /// specifier. Solidity 0.5.0+ rejects these; collected during conversion
+    /// (where the original `FunctionIR.explicit_visibility` is still available)
+    /// so `validate_methods` can emit a hard error instead of silently
+    /// defaulting them to `internal` and dropping them from the ABI.
+    pub functions_missing_visibility: Vec<String>,
     /// Mapping from original method name to the renamed super-method name.
     /// Populated during inheritance flattening so `super.method()` can resolve.
     pub super_method_map: std::collections::HashMap<String, String>,

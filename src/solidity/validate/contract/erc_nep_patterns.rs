@@ -435,7 +435,10 @@ fn check_nft_payment_callback(
             )
             .with_code("W114")
             .with_suggestion(
-                "Add onNEP11Payment(address from, uint256 amount, bytes32 tokenId, bytes data)",
+                // NEP-11 / NEP-26 token IDs are ByteStrings (`bytes`), not fixed
+                // 32-byte words — the devpack's own INEP11Receiver uses `bytes`,
+                // and `bytes32` would mis-encode any non-32-byte id.
+                "Add onNEP11Payment(address from, uint256 amount, bytes tokenId, bytes data)",
             ),
         );
     }

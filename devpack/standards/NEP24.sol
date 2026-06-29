@@ -14,9 +14,16 @@ pragma solidity ^0.8.19;
 /**
  * @dev NEP-24 royalty interface.
  *
- * NeoVM expects `royaltyInfo` to return an Array where each element is a
- * 2-element Array/Struct:
- *   [royaltyRecipient (Hash160), royaltyAmount (Integer)]
+ * The NEP-24 spec models `royaltyInfo` as returning an Array whose elements are
+ * 2-element `[royaltyRecipient (Hash160), royaltyAmount (Integer)]` tuples.
+ *
+ * DEVPACK DEVIATION (same shape as NEP-11 `properties`): a Solidity array/struct
+ * return lowers to an EVM-canonical **ABI-encoded `bytes`** value (manifest type
+ * `ByteArray`), not a native NeoVM Array — Solidity has no construct that yields
+ * a NeoVM Array return. A spec-conformant NEP-24 consumer must therefore
+ * `abi.decode` the returned bytes as `(address,uint256)[]` rather than iterate a
+ * NeoVM Array. The bytecode and the declared manifest return type are mutually
+ * consistent (`ByteArray`); only the wire *shape* differs from the spec's Array.
  */
 interface INEP24Royalty {
     struct RoyaltyInfo {

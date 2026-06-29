@@ -142,21 +142,18 @@ pub(crate) fn try_lower_member_builtin(
         // Task #66 fix in resolved.rs: follow each leaky cast with
         // `Swap; Drop` to discard the leak before AbiEncode.
         //
-        // Task #106 — when an arg's inferred type is a struct, expand it
-        // into its fields for the payload: emit `LoadParameter(N+i)` for
-        // each flattened field so `abi.encode(p.a, p.b, ...)` is produced.
-        // `p.a` / `p.b` land in separate param slots once the struct arg
-        // is flattened at INITSLOT (see bytecode_emit_ir::emit_ir_function).
-        // If the arg isn't a struct, lower it normally.
+        // Task #106 — when an arg's inferred type is a struct, expand it into
+        // its fields for the payload so `abi.encode(p.a, p.b, ...)` is produced.
+        // The struct param arrives as a single `Array` (one arg slot), so each
+        // field is read by index from that Array. If the arg isn't a struct,
+        // lower it normally.
         let mut success = true;
         let mut flat_arg_count: usize = 0;
         for arg in &payload_args {
             // Detect struct-typed arg whose expression is a bare Variable —
-            // then use `LoadParameter(base+i)` for each flattened field.
-            if let Some((base_slot, field_count)) = resolve_struct_param_flat_slots(arg, ctx) {
-                for i in 0..field_count {
-                    instructions.push(Instruction::LoadParameter(base_slot + i));
-                }
+            // then read each field by index from its loaded Array.
+            if let Some((param_slot, field_count)) = resolve_struct_param_flat_slots(arg, ctx) {
+                emit_struct_param_field_loads(instructions, param_slot, field_count);
                 flat_arg_count += field_count;
                 continue;
             }

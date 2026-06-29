@@ -153,6 +153,18 @@ pub(crate) fn emit_arith_with_overflow_ladder(
         return;
     }
 
+    // uint256 / int256 `<<` must WRAP mod 2^256 and never revert. Native NeoVM
+    // SHL faults once the full-precision result leaves the 32-byte integer range
+    // (any result >= 2^255, or a shift amount > 256), so route both signed and
+    // unsigned 256-bit left shifts through the software `a * 2^n mod 2^256`
+    // routine. (Narrow widths keep the SHL + width-mask path below.)
+    if matches!(operator, BinaryOperator::Shl)
+        && (is_typed_uint256(left, ctx) || is_int256_operand(left, ctx))
+    {
+        emit_u256_shl_ir(ctx, instructions);
+        return;
+    }
+
     let emit_guard = should_emit_u256_arith_guard(left, right, ctx, operator);
     let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(left, right, ctx, operator);
     let emit_narrow_u_bits = if !emit_guard && !emit_i256_guard {
@@ -183,14 +195,27 @@ pub(crate) fn emit_arith_with_overflow_ladder(
     let shl_trunc = shl_narrow_truncation(left, ctx, operator);
     // Narrow SIGNED division overflow: `intN.min / -1` is the only division that
     // overflows (result == 2^(N-1) == intN_max + 1). Unsigned division never
-    // overflows; int256 / i64 min/-1 are caught inside the runtime divmod, so
-    // this covers only the narrow signed widths the runtime leaves un-trapped.
+    // overflows; the int256 case is handled by `div_i256` below (its quotient
+    // exceeds the 32-byte integer, so it needs a PRE-check). This branch covers
+    // only the narrow signed widths, whose quotient still fits a NeoVM integer
+    // and so can be trapped by a POST-check.
     let div_narrow_i =
         if matches!(operator, BinaryOperator::Div) && is_narrow_result(left, right, ctx) {
             narrow_signed_bits(left, right, ctx)
         } else {
             None
         };
+    // int256 SIGNED division overflow: `int256.min / -1` is the only int256
+    // division that overflows (quotient 2^255 needs 33 bytes). Unlike the narrow
+    // widths above — whose quotient still fits NeoVM's 32-byte integer, so a
+    // POST-check works — a native int256 DIV FAULTS before any check can run,
+    // and the fault is UNCATCHABLE (a `try/catch Panic` never binds it). Solidity
+    // requires a catchable Panic(0x11), so int256 division needs a PRE-check.
+    // (uint256 division is routed to the software divmod above and returns;
+    // narrow widths are handled by `div_narrow_i`.)
+    let div_i256 = matches!(operator, BinaryOperator::Div)
+        && div_narrow_i.is_none()
+        && (is_int256_operand(left, ctx) || is_int256_operand(right, ctx));
 
     if emit_guard {
         // The conformant uint256 checked add/sub/mul operate directly on the
@@ -254,6 +279,41 @@ pub(crate) fn emit_arith_with_overflow_ladder(
             instructions.push(Instruction::Label(done));
             instructions.push(Instruction::LoadLocal(result_local));
         }
+    } else if div_i256 {
+        // Operands `[a, b]` are on the stack (b reloaded by the div-by-zero
+        // guard upstream, so b != 0 here). Pre-check the single overflowing
+        // pair `a == int256.min && b == -1` before the native DIV can fault.
+        let tmp_id = ctx.next_label();
+        let b_local = ctx.allocate_local(format!("__i256div_b_{tmp_id}"), None);
+        let a_local = ctx.allocate_local(format!("__i256div_a_{tmp_id}"), None);
+        instructions.push(Instruction::StoreLocal(b_local)); // pop b (rhs)
+        instructions.push(Instruction::StoreLocal(a_local)); // pop a (lhs)
+        let int256_min = -(BigInt::one() << 255usize);
+        let do_div = ctx.next_label();
+        let done = ctx.next_label();
+        // `JumpIf` branches when the condition is FALSE, so each check jumps to
+        // the plain-DIV path as soon as one half of the pair does not match.
+        instructions.push(Instruction::LoadLocal(b_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+        instructions.push(Instruction::JumpIf { target: do_div }); // b != -1 -> DIV
+        instructions.push(Instruction::LoadLocal(a_local));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int256_min.clone())));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+        instructions.push(Instruction::JumpIf { target: do_div }); // a != min -> DIV
+        // Overflow: a == int256.min && b == -1.
+        if ctx.in_unchecked_block() {
+            // `unchecked` wraps mod 2^256: int256.min / -1 == int256.min.
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int256_min)));
+        } else {
+            emit_panic(0x11, instructions); // throws; no fall-through to do_div
+        }
+        instructions.push(Instruction::Jump { target: done });
+        instructions.push(Instruction::Label(do_div));
+        instructions.push(Instruction::LoadLocal(a_local));
+        instructions.push(Instruction::LoadLocal(b_local));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Div));
+        instructions.push(Instruction::Label(done));
     } else {
         instructions.push(Instruction::BinaryOp(operator));
     }
