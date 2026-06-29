@@ -87,6 +87,42 @@ pub(crate) fn fixed_len_bytes_be_from_hex_or_const(
     None
 }
 
+/// Canonicalize an integer-backed `bytesN` literal/constant to its big-endian
+/// `ByteArray` representation at a BINDING site (variable declaration,
+/// assignment, struct field, array element, `encodePacked` arg).
+///
+/// A bare hex literal (or a `bytesN` named constant) is INTEGER-backed — pushed
+/// little-endian — whereas every other `bytesN` value (a `bytesN(..)` cast, a
+/// keccak/sha digest, a storage load, a parameter) is `ByteArray`-backed and
+/// big-endian. When such a literal is *bound to a `bytesN` location*, storing it
+/// in its little-endian integer form means downstream consumers that read it as
+/// a runtime value (`abi.encode`, struct-field/array-element ABI slots, indexing)
+/// see byte-reversed data (N==32) or fault on `GetSize` (N<32). Pushing the
+/// canonical big-endian `ByteArray` here makes the stored value indistinguishable
+/// from the cast/param case, so the whole bytesN value flow becomes uniform.
+///
+/// Returns `true` (and emits the push) when the coercion applies; `false`
+/// otherwise — the caller then lowers `expr` normally.
+pub(crate) fn try_lower_bytesn_literal_canonical(
+    expr: &Expression,
+    target_ty: &ValueType,
+    ctx: &LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if let ValueType::ByteArray {
+        fixed_len: Some(n),
+    } = target_ty
+    {
+        if is_integer_backed_bytesn_operand(expr, ctx) {
+            if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expr, *n, ctx) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(be)));
+                return true;
+            }
+        }
+    }
+    false
+}
+
 pub(crate) fn lower_bytes_eq_hex_number_literal(
     left: &Expression,
     right: &Expression,

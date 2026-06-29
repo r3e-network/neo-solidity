@@ -519,3 +519,107 @@ contract C {
     let mut expect = vec![0u8; 32]; expect[..4].copy_from_slice(&[0x11, 0x22, 0x33, 0x44]);
     assert_eq!(log.topics[1], expect, "indexed bytes4 topic must be left-aligned");
 }
+
+/// A `returns (bytes memory)` method returns the byte payload directly (the
+/// NeoVM ByteString), so the returned `bytes` IS the value under test.
+fn run_returns_bytes(src: &str) -> Vec<u8> {
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[])
+        .expect("call");
+    assert!(r.success, "f faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    r.return_data
+}
+
+/// #7b (struct-field variant): an integer-backed `bytesN` (hex literal) as a
+/// STRUCT FIELD must be ABI-encoded LEFT-aligned. For N<32 the old encoder
+/// FAULTed (SIZE on an Integer stack item); for N==32 it byte-reversed the
+/// literal. Both are fixed by canonicalizing the literal to its big-endian
+/// ByteArray at struct construction.
+#[test]
+fn struct_field_bytes4_literal_is_left_aligned() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct S { bytes4 b; uint256 x; }
+    function f() external pure returns (bytes memory) { return abi.encode(S(0x01020304, 1)); }
+}"#;
+    let inner = run_returns_bytes(src);
+    assert_eq!(inner.len(), 64, "struct (bytes4, uint256) encodes to 64 bytes");
+    let mut expect_b = vec![0u8; 32]; expect_b[..4].copy_from_slice(&[0x01, 0x02, 0x03, 0x04]);
+    assert_eq!(&inner[0..32], expect_b.as_slice(), "bytes4 field must be left-aligned");
+    let mut expect_x = vec![0u8; 32]; expect_x[31] = 1;
+    assert_eq!(&inner[32..64], expect_x.as_slice(), "uint256 field");
+}
+
+#[test]
+fn struct_field_bytes32_literal_is_not_reversed() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct S { bytes32 b; uint256 x; }
+    function f() external pure returns (bytes memory) {
+        return abi.encode(S(0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20, 1));
+    }
+}"#;
+    let inner = run_returns_bytes(src);
+    assert_eq!(inner.len(), 64);
+    let expect_b: Vec<u8> = (1u8..=0x20).collect();
+    assert_eq!(&inner[0..32], expect_b.as_slice(), "bytes32 field must be verbatim, not reversed");
+}
+
+/// #7c (array-element variant): an integer-backed `bytesN` assigned to a
+/// dynamic-array element must encode LEFT-aligned, not fault.
+#[test]
+fn array_element_bytes4_literal_is_left_aligned() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() external pure returns (bytes memory) {
+        bytes4[] memory a = new bytes4[](1);
+        a[0] = 0x01020304;
+        return abi.encode(a);
+    }
+}"#;
+    let inner = run_returns_bytes(src);
+    // abi.encode(bytes4[]) = [offset 0x20][count 1][elem0 left-aligned 32B]
+    assert!(inner.len() >= 96, "got {}", inner.len());
+    let mut expect_e = vec![0u8; 32]; expect_e[..4].copy_from_slice(&[0x01, 0x02, 0x03, 0x04]);
+    assert_eq!(&inner[64..96], expect_e.as_slice(), "array bytes4 element must be left-aligned");
+}
+
+/// #7d (encodePacked variant): a `bytesN` constant packed via
+/// `abi.encodePacked` must emit exactly its N big-endian bytes, not the
+/// little-endian integer backing (which was 8 reversed bytes).
+#[test]
+fn encode_packed_bytes4_constant_is_exact_width_be() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes4 constant SEL = 0x01020304;
+    function f() external pure returns (bytes memory) { return abi.encodePacked(SEL); }
+}"#;
+    let inner = run_returns_bytes(src);
+    assert_eq!(inner, vec![0x01, 0x02, 0x03, 0x04], "packed bytes4 must be exactly 4 BE bytes");
+}
+
+/// Control: a `bytesN` local assigned from a hex literal, then `abi.encode`d.
+/// Confirms whether local-variable binding already canonicalizes (informs the
+/// scope of the fix).
+#[test]
+fn local_bytes4_literal_abi_encode_is_left_aligned() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() external pure returns (bytes memory) {
+        bytes4 x = 0x01020304;
+        return abi.encode(x);
+    }
+}"#;
+    let inner = run_returns_bytes(src);
+    assert_eq!(inner.len(), 32, "abi.encode(bytes4) is one 32-byte slot");
+    let mut expect = vec![0u8; 32]; expect[..4].copy_from_slice(&[0x01, 0x02, 0x03, 0x04]);
+    assert_eq!(inner, expect, "local bytes4 must be left-aligned");
+}

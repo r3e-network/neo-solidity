@@ -154,7 +154,30 @@ pub(crate) fn lower_variable_definition_statement(
                             } else {
                                 false
                             };
-                            if !decoded && lower_expression(initializer, ctx, instructions) {
+                            // Canonicalize an integer-backed `bytesN` literal to
+                            // its big-endian ByteArray when binding to a `bytesN`
+                            // local, so the stored value matches the cast/param
+                            // representation and downstream consumers (abi.encode,
+                            // struct/array slots, indexing) behave.
+                            let mut handled = false;
+                            if !decoded {
+                                if let Some(ty) = inferred_type.as_ref() {
+                                    if try_lower_bytesn_literal_canonical(
+                                        initializer,
+                                        ty,
+                                        ctx,
+                                        instructions,
+                                    ) {
+                                        handled = true;
+                                    }
+                                }
+                                if !handled
+                                    && lower_expression(initializer, ctx, instructions)
+                                {
+                                    handled = true;
+                                }
+                            }
+                            if handled {
                                 instructions.push(Instruction::StoreLocal(slot));
                                 ctx.clear_call_data_local(slot);
                             }

@@ -95,7 +95,12 @@ pub(crate) fn lower_struct_constructor_positional(
             BigInt::from(index as u64),
         )));
         if let Some(arg) = args.get(index) {
-            if !lower_expression(arg, ctx, instructions) {
+            // Canonicalize an integer-backed `bytesN` literal field to its
+            // big-endian ByteArray so the stored field matches the cast/param
+            // representation (else N<32 faults / N==32 reverses on encode).
+            if !try_lower_bytesn_literal_canonical(arg, &field.ty, ctx, instructions)
+                && !lower_expression(arg, ctx, instructions)
+            {
                 push_default_for_value_type(&field.ty, ctx, instructions);
                 success = false;
             }
@@ -165,7 +170,9 @@ pub(crate) fn lower_struct_constructor_named(
             Some(field_ty.clone()),
         );
 
-        if !lower_expression(&arg.expr, ctx, instructions) {
+        if !try_lower_bytesn_literal_canonical(&arg.expr, field_ty, ctx, instructions)
+            && !lower_expression(&arg.expr, ctx, instructions)
+        {
             push_default_for_value_type(field_ty, ctx, instructions);
             success = false;
         }

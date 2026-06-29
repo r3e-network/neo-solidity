@@ -364,18 +364,17 @@ pub(crate) fn emit_expr_static_abi_slot_for_value_type(
         ValueType::ByteArray {
             fixed_len: Some(len),
         } if *len < 32 => {
-            // KNOWN LIMITATION (deep-review #4): a `bytesN` operand may be
-            // ByteArray-backed (already big-endian: keccak/sha output, a
-            // `bytesN(..)` cast, storage, a param) OR Integer-backed (a hex
-            // literal/constant, pushed pre-reversed). The two need OPPOSITE
-            // handling — Integer-backed must be reversed to big-endian, the
-            // ByteArray-backed must not — but this type-only context cannot
-            // tell them apart, so neither a blanket reverse nor a blanket
-            // pass-through is correct. A proper fix needs the lowered value's
-            // backing tracked (or bytesN literals normalized to a ByteArray at
-            // the source). Until then the common keccak/cast/param cases are
-            // correct; Integer-backed bytesN literals encode wrong (N==32) or
-            // fault on `GetSize` (N<32).
+            // This function operates on an already-lowered stack VALUE, so it
+            // cannot see the operand's backing. It relies on every `bytesN`
+            // value reaching it being ByteArray-backed (big-endian): that holds
+            // for keccak/sha output, `bytesN(..)` casts, storage, and params,
+            // and ALSO for hex literals/`bytesN` constants because those are
+            // canonicalized to a big-endian ByteArray at their BINDING site
+            // (`try_lower_bytesn_literal_canonical`: variable declaration,
+            // assignment, struct field, array element). A raw integer-backed
+            // `bytesN` literal passed DIRECTLY (e.g. a top-level `abi.encode`
+            // arg) is intercepted before this point by the integer-backed
+            // special-case in `lower_static_abi_slots_for_expr`.
             emit_abi_bytesn_slot(ctx, instructions, *len as usize);
             Some(())
         }
@@ -389,6 +388,12 @@ pub(crate) fn lower_packed_abi_bytes_for_expr(
     instructions: &mut Vec<Instruction>,
 ) -> Option<bool> {
     let value_type = infer_type_from_expression(expr, ctx)?;
+    // An integer-backed `bytesN` literal/constant packs as exactly its N
+    // big-endian bytes — not the little-endian integer backing (which would be
+    // reversed and the wrong width). Canonicalize before the generic path.
+    if try_lower_bytesn_literal_canonical(expr, &value_type, ctx, instructions) {
+        return Some(true);
+    }
     let pre_len = instructions.len();
     if !lower_expression(expr, ctx, instructions) {
         return Some(false);
