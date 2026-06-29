@@ -1,12 +1,20 @@
 use super::*;
 
+/// Emit per-contract warnings, applying `--Wno-<prefix>` suppression and
+/// `--Werror=<prefix>` promotion. Returns `true` if ANY warning was promoted to
+/// an error, so the caller can fail the build (exit non-zero) and withhold the
+/// artifacts — otherwise `--Werror` would be cosmetic and a CI gate relying on
+/// it (e.g. to block full-wildcard-permission or security-warning contracts)
+/// would silently pass.
+#[must_use]
 pub(crate) fn emit_contract_warnings(
     artifacts: &[CompilationArtifacts],
     json_warnings: bool,
     json_errors: bool,
     suppress_prefixes: &[String],
     promote_prefixes: &[String],
-) {
+) -> bool {
+    let mut promoted_any = false;
     for artifact in artifacts {
         for warning in &artifact.warnings {
             let code = warning.code.as_deref().unwrap_or(match warning.severity {
@@ -28,6 +36,7 @@ pub(crate) fn emit_contract_warnings(
                 .any(|p| code.starts_with(p.as_str()))
             {
                 emit_error(&warning.message, code, json_errors);
+                promoted_any = true;
                 continue;
             }
 
@@ -40,6 +49,7 @@ pub(crate) fn emit_contract_warnings(
             );
         }
     }
+    promoted_any
 }
 
 pub(crate) struct OutputConfig<'a> {

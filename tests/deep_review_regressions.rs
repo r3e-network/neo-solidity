@@ -425,3 +425,43 @@ contract C {
     let mut cr32 = cr.clone(); cr32.resize(32, 0);
     assert!(cs && cr32 == expected, "runtime & CONSTANT must mask correctly (not byte-reversed): got {}", hex::encode(&cr32));
 }
+
+/// deep-review #2 (CRITICAL) — a modifier with an epilogue (e.g. a
+/// `nonReentrant` guard's `locked = 0;` reset) applied to a VOID function must
+/// still run the epilogue on an early `return;`. Previously the redirect was
+/// only installed for functions with declared returns, so a bare `return;` in a
+/// void guarded body emitted ReturnVoid directly and SKIPPED the epilogue —
+/// leaving the guard engaged and bricking the contract.
+#[test]
+fn modifier_epilogue_runs_on_early_return_in_void_function() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    uint256 locked;
+    uint256 public count;
+    modifier guard() { require(locked == 0, "REENTRANT"); locked = 1; _; locked = 0; }
+    function doit(bool early) external guard {
+        count += 1;
+        if (early) return;
+        count += 10;
+    }
+    function lockedVal() external view returns (uint256) { return locked; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    // First call with an early return — the guard epilogue must reset `locked`.
+    let r1 = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "doit", &[StackItem::Boolean(true)])
+        .expect("call doit#1");
+    assert!(r1.success, "doit(true)#1 must succeed: {:?}", r1.exception.as_ref().map(|e| &e.message));
+    let lv = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "lockedVal", &[])
+        .expect("call lockedVal");
+    assert!(lv.return_data.iter().all(|&b| b == 0), "locked must be reset to 0 after early return");
+    // Second call must NOT revert on require(locked == 0) — proves the guard reset.
+    let r2 = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "doit", &[StackItem::Boolean(true)])
+        .expect("call doit#2");
+    assert!(r2.success, "doit(true)#2 must succeed (guard was reset), got fault: {:?}", r2.exception.as_ref().map(|e| &e.message));
+}

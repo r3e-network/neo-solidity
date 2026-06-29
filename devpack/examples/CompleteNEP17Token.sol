@@ -200,8 +200,11 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         
         // Calculate rewards
         uint256 reward = calculateReward(msg.sender);
-        
-        // Update stake
+
+        // Update stake. Advance the reward checkpoint so this accrual window
+        // cannot be claimed again via claimRewards()/unstake() (otherwise the
+        // same rewards mint repeatedly, inflating supply).
+        stakeInfo.lastRewardClaim = block.timestamp;
         stakeInfo.amount -= amount;
         _totalStaked -= amount;
         

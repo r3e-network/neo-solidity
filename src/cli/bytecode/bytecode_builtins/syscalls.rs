@@ -81,6 +81,17 @@ pub(crate) fn emit_native_contract_call(
     // `System.Contract.Call` expects stack order: [args, flags, method, hash]
     // (top-of-stack is `hash`, popped first).
     emit_syscall(bytecode, "System.Contract.Call");
+
+    // On a real Neo node `System.Contract.Call` leaves the callee's return
+    // values on the stack — for a VOID native method that is NOTHING. The
+    // statement-position lowering still emits a trailing DROP for the call's
+    // nominal single result, which would then underflow the eval stack and
+    // FAULT. Push a placeholder so the DROP balances, exactly as the CALLT
+    // branch above does. (The in-tree simulator masks this by always pushing a
+    // Null result for void native calls.)
+    if native_method_has_return_value(contract, method) == Some(false) {
+        bytecode.push(OpCode::PUSH1.byte());
+    }
 }
 
 pub(crate) fn native_method_call_flags(contract: ir::NativeContract, method: &str) -> u8 {

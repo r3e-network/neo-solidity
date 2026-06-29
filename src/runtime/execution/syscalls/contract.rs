@@ -127,15 +127,27 @@ impl ExecutionContext {
     /// assembler would, so the derived account hash matches the on-chain
     /// derivation. Values must be non-negative.
     pub(crate) fn append_push_int(script: &mut Vec<u8>, value: i64) {
-        if (0..=0xFF).contains(&value) {
+        // Match real Neo's `ScriptBuilder.EmitPush` (and the production helper
+        // `emit_push_u32` in src/neo/contract_hash.rs): small integers use the
+        // single-byte `PUSHM1`/`PUSH0..PUSH16` opcodes, NOT `PUSHINT8`. Multisig
+        // `m`/`n` are <= 16, so the previous always-`PUSHINT8` form built a
+        // different verification script and therefore a different account hash
+        // than the chain derives.
+        if value == -1 {
+            script.push(OpCode::PUSHM1.byte());
+        } else if value == 0 {
+            script.push(OpCode::PUSH0.byte());
+        } else if (1..=16).contains(&value) {
+            script.push(OpCode::push_small(value as u8).expect("1..=16").byte());
+        } else if (i8::MIN as i64..=i8::MAX as i64).contains(&value) {
             script.push(OpCode::PUSHINT8.byte());
-            script.push(value as u8);
-        } else if (0..=0xFFFF).contains(&value) {
+            script.push(value as i8 as u8);
+        } else if (i16::MIN as i64..=i16::MAX as i64).contains(&value) {
             script.push(OpCode::PUSHINT16.byte());
-            script.extend_from_slice(&(value as u16).to_le_bytes());
-        } else if (0..=0xFFFF_FFFF).contains(&value) {
+            script.extend_from_slice(&(value as i16).to_le_bytes());
+        } else if (i32::MIN as i64..=i32::MAX as i64).contains(&value) {
             script.push(OpCode::PUSHINT32.byte());
-            script.extend_from_slice(&(value as u32).to_le_bytes());
+            script.extend_from_slice(&(value as i32).to_le_bytes());
         } else {
             script.push(OpCode::PUSHINT64.byte());
             script.extend_from_slice(&value.to_le_bytes());

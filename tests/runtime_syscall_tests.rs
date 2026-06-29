@@ -343,16 +343,23 @@ fn expected_multisig_hash160(m: u64, pubkeys: &[Vec<u8>]) -> [u8; 20] {
     out
 }
 
-/// Mirror the implementation's integer-push encoding so the expected hash is
-/// derived independently but identically.
+/// Mirror real Neo's `ScriptBuilder.EmitPush` (and the implementation's
+/// `append_push_int`): small integers use the single-byte `PUSH0..PUSH16`
+/// opcodes, NOT `PUSHINT8`. Multisig `m`/`n` are <= 16, so this is what the
+/// on-chain verification script — and therefore the derived account hash —
+/// actually uses.
 fn append_push_int(script: &mut Vec<u8>, value: u64) {
-    if value <= 0xFF {
+    if value == 0 {
+        script.push(0x10); // PUSH0
+    } else if value <= 16 {
+        script.push(0x10 + value as u8); // PUSH1..PUSH16
+    } else if value <= i8::MAX as u64 {
         script.push(0x00); // PUSHINT8
         script.push(value as u8);
-    } else if value <= 0xFFFF {
+    } else if value <= i16::MAX as u64 {
         script.push(0x01); // PUSHINT16
         script.extend_from_slice(&(value as u16).to_le_bytes());
-    } else if value <= 0xFFFF_FFFF {
+    } else if value <= i32::MAX as u64 {
         script.push(0x02); // PUSHINT32
         script.extend_from_slice(&(value as u32).to_le_bytes());
     } else {

@@ -114,11 +114,16 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 let Some(value) = parse_json_value(raw, tag) else {
                     continue;
                 };
-                if value.is_array() {
+                // Neo deserializes `supportedstandards` as `string[]`; a non-string
+                // element fails JSON GetString and the node rejects the manifest.
+                if value
+                    .as_array()
+                    .is_some_and(|items| items.iter().all(serde_json::Value::is_string))
+                {
                     manifest["supportedstandards"] = value;
                 } else {
                     eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON array for manifest.supportedstandards"
+                        "warning: ignoring @custom:{tag}; expected a JSON array of strings for manifest.supportedstandards"
                     );
                 }
             }
@@ -126,11 +131,15 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 let Some(value) = parse_json_value(raw, tag) else {
                     continue;
                 };
-                if value.is_array() || value.is_string() {
+                // Neo's `WildcardContainer<ContractPermissionDescriptor>` accepts
+                // a JSON STRING only when it is the wildcard "*"; any other string
+                // (e.g. a single contract hash) is invalid and a node rejects the
+                // manifest at deploy. Otherwise it must be a JSON array.
+                if value.is_array() || value.as_str().map(str::trim) == Some("*") {
                     manifest["trusts"] = value;
                 } else {
                     eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON array or string for manifest.trusts"
+                        "warning: ignoring @custom:{tag}; manifest.trusts must be a JSON array or the \"*\" wildcard string"
                     );
                 }
             }

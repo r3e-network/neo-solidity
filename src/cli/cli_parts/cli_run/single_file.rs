@@ -392,13 +392,19 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
             );
         }
 
-        emit_contract_warnings(
+        let promoted_to_error = emit_contract_warnings(
             &artifacts,
             json_warnings,
             json_errors,
             &warn_suppress,
             &warn_promote,
         );
+        // `--Werror=<prefix>` must FAIL the build: withhold the NEF/manifest and
+        // exit non-zero so a CI gate actually blocks the contract, rather than
+        // just relabeling the warning while emitting the artifacts and exit 0.
+        if promoted_to_error {
+            std::process::exit(1);
+        }
         let output_config = OutputConfig {
             format,
             output_prefix: &output_prefix,

@@ -112,6 +112,14 @@ impl Function {
         // rest of the lowering continues to see `return_slots[i] == Some`
         // uniformly.
         let needs_synth_return_slots = metadata.had_modifier_epilogue && !returns.is_empty();
+        // The modifier-return REDIRECT must be active whenever a modifier
+        // epilogue exists — including for VOID functions and constructors (which
+        // have no return values, so `needs_synth_return_slots` is false). Without
+        // it a bare `return;` in such a body emits `ReturnVoid` directly and
+        // SKIPS the epilogue, e.g. a `nonReentrant` guard's `locked = 0;` never
+        // runs and the contract is bricked. Slot allocation still gates on
+        // `needs_synth_return_slots` (only declared returns need slots).
+        let in_modifier_epilogue = metadata.had_modifier_epilogue;
         for (idx, (ret_param, value_type)) in metadata
             .return_parameters
             .iter()
@@ -153,7 +161,7 @@ impl Function {
         // "store to slots + jump to modifier-break label" instead of a raw
         // RET, so modifier epilogues still run between the body's `return`
         // and the function's actual exit.
-        let modifier_end_label = if needs_synth_return_slots {
+        let modifier_end_label = if in_modifier_epilogue {
             let label = ctx.next_label();
             ctx.set_modifier_return_redirect(return_slots.clone(), label);
             Some(label)
@@ -169,7 +177,7 @@ impl Function {
 
         // Clear the redirect before the trailing fall-through emission so
         // the explicit `Return` we emit below isn't itself redirected.
-        if needs_synth_return_slots {
+        if in_modifier_epilogue {
             ctx.clear_modifier_return_redirect();
             if let Some(end_label) = modifier_end_label {
                 instructions.push(Instruction::Label(end_label));

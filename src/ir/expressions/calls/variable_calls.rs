@@ -37,6 +37,13 @@ pub(crate) fn try_lower_variable_call(
                 },
                 arg_count: 0,
             });
+            // `destroy` is a VOID native method, so the native-call emitter
+            // pushes a PUSH1 placeholder to balance the statement-position DROP
+            // that other void calls get. `selfdestruct` reports no value
+            // (`Some(false)`) and so receives no such DROP — drop the
+            // placeholder here, otherwise it leaks onto the stack and becomes a
+            // spurious return value (e.g. `kill()` returning `1`).
+            instructions.push(Instruction::Drop(ValueType::Any));
             return Some(false); // void — no return value
         }
 
