@@ -320,15 +320,14 @@ contract C {
     );
 }
 
-/// deep-review bytesN-backing cluster (KNOWN-FAILING) — a `bytesN` named
-/// constant is Integer-backed (pushed little-endian / pre-reversed) while a
-/// ByteArray-backed value (keccak/cast/storage/param) is big-endian, so
-/// comparing them emits a raw EQUAL on byte-reversed operands: equal values
-/// compare UNEQUAL. The same backing mismatch makes `b[i]` index the wrong
-/// byte and bitwise ops mix representations. Fixing it needs the lowered
-/// value's backing tracked (the same systemic fix as #4 abi.encode); this test
-/// pins the TARGET behavior — un-ignore it once backing is tracked.
-#[ignore = "deep-review bytesN backing: const(Integer-backed) vs ByteArray-backed compares reversed"]
+/// deep-review bytesN comparison — a `bytesN` named constant is Integer-backed
+/// (pushed little-endian) while a ByteArray-backed value (keccak/cast/storage/
+/// param) is big-endian, so a raw EQUAL compared them byte-reversed and equal
+/// values tested UNEQUAL (e.g. `require(role == ADMIN_ROLE)` silently failing).
+/// Fixed for the common `runtime_value == CONSTANT` shape by canonicalizing the
+/// constant to big-endian bytes when the other operand is not integer-backed.
+/// (Indexing `b[i]` and bitwise on Integer-backed bytesN remain — see the
+/// bytesN-backing note in `binary.rs` / the v0.25 memory.)
 #[test]
 fn bytesn_constant_compares_equal_to_runtime_value() {
     // A bytes32 param (ByteArray-backed) compared against a bytes32 constant
@@ -336,18 +335,34 @@ fn bytesn_constant_compares_equal_to_runtime_value() {
     let src = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 contract C {
-    bytes32 constant ROLE = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
+    bytes32 constant ROLE  = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
+    bytes32 constant ROLE2 = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
     function eq(bytes32 x) external pure returns (bool) { return x == ROLE; }
+    function ne(bytes32 x) external pure returns (bool) { return x != ROLE; }
+    function constEq() external pure returns (bool) { return ROLE == ROLE2; }
 }"#;
     let arts = compile_contracts(src, false, 2).expect("compile");
     let art = &arts[0];
-    // big-endian bytes of ROLE, passed as a 32-byte ByteArray (param backing).
     let role_be =
         hex::decode("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff").unwrap();
+    let call1 = |m: &str, x: Vec<u8>| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[StackItem::byte_array(x)])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data
+    };
+    // runtime (ByteArray, big-endian) == CONSTANT (Integer-backed) for equal values.
+    assert_eq!(call1("eq", role_be.clone()).first().copied(), Some(1u8), "x == ROLE must be true");
+    // != is the logical negation.
+    assert_eq!(call1("ne", role_be.clone()).first().copied(), Some(0u8), "x != ROLE must be false");
+    // a DIFFERENT value must not be equal.
+    let mut other = role_be.clone();
+    other[0] ^= 0xff;
+    assert_eq!(call1("eq", other).first().copied(), Some(0u8), "x == ROLE must be false for a different value");
+    // CONSTANT == CONSTANT (both Integer-backed) must remain correct.
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
-    let r = rt
-        .call_method(&art.bytecode, &art.tokens, &art.manifest, "eq", &[StackItem::byte_array(role_be)])
-        .expect("call");
-    assert!(r.success, "eq faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
-    assert_eq!(r.return_data.first().copied(), Some(1u8), "x == ROLE must be true for equal values");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "constEq", &[]).expect("call");
+    assert!(r.success && r.return_data.first().copied() == Some(1u8), "ROLE == ROLE2 must stay true");
 }

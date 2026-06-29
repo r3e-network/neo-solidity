@@ -36,6 +36,57 @@ pub(crate) fn fixed_len_bytes_be_from_hex_number(
     Some(out)
 }
 
+/// A `bytesN` operand that is INTEGER-backed at runtime: an inline hex-number
+/// literal, or a reference to a `bytesN constant FOO = 0x…;`. Both are pushed
+/// little-endian (pre-reversed), unlike a ByteArray-backed value (keccak/sha
+/// output, a `bytesN(..)` cast, storage, a param) which is big-endian. The two
+/// compare byte-reversed against each other, so the comparison helper only
+/// canonicalizes a constant to big-endian bytes when the OTHER operand is
+/// NOT integer-backed (else two integer-backed operands, which already compare
+/// correctly, would be mismatched).
+fn is_integer_backed_bytesn_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
+    let inner = match expr {
+        Expression::Parenthesis(_, e) => e.as_ref(),
+        other => other,
+    };
+    match inner {
+        Expression::HexNumberLiteral(..) => true,
+        Expression::Variable(id) => ctx
+            .state_index_map
+            .get(&id.name)
+            .and_then(|index| ctx.state_metadata(*index))
+            .map(|meta| meta.is_constant)
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+/// Big-endian fixed-width bytes for a `bytesN` operand that is either an inline
+/// hex-number literal or a `bytesN` named constant (resolved to its initializer
+/// literal). Returns `None` for anything else.
+fn fixed_len_bytes_be_from_hex_or_const(
+    expr: &Expression,
+    fixed_len: u16,
+    ctx: &LoweringContext,
+) -> Option<Vec<u8>> {
+    if let Some(bytes) = fixed_len_bytes_be_from_hex_number(expr, fixed_len) {
+        return Some(bytes);
+    }
+    let inner = match expr {
+        Expression::Parenthesis(_, e) => e.as_ref(),
+        other => other,
+    };
+    if let Expression::Variable(id) = inner {
+        let index = *ctx.state_index_map.get(&id.name)?;
+        let meta = ctx.state_metadata(index)?;
+        if meta.is_constant {
+            let initializer = meta.initializer.clone()?;
+            return fixed_len_bytes_be_from_hex_number(&initializer, fixed_len);
+        }
+    }
+    None
+}
+
 pub(crate) fn lower_bytes_eq_hex_number_literal(
     left: &Expression,
     right: &Expression,
@@ -49,22 +100,28 @@ pub(crate) fn lower_bytes_eq_hex_number_literal(
 
     // Preserve Solidity left-to-right evaluation order while ensuring `bytesN` comparisons work
     // with hex-number literals like `0x01ffc9a7` (commonly used for ERC165 interface IDs).
+    // `left` is the lowered operand; only canonicalize `right` to big-endian
+    // bytes when `left` is NOT itself integer-backed (a literal/constant),
+    // otherwise both sides would be integer-backed and must compare as-is.
     if let Some(ValueType::ByteArray {
         fixed_len: Some(fixed_len),
     }) = infer_type_from_expression(left, ctx)
     {
-        let literal_expr = match right {
-            Expression::Parenthesis(_, inner) => inner.as_ref(),
-            other => other,
-        };
+        if !is_integer_backed_bytesn_operand(left, ctx) {
+            let literal_expr = match right {
+                Expression::Parenthesis(_, inner) => inner.as_ref(),
+                other => other,
+            };
 
-        if let Some(bytes) = fixed_len_bytes_be_from_hex_number(literal_expr, fixed_len) {
-            if lower_expression(left, ctx, instructions) {
-                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
-                instructions.push(Instruction::BinaryOp(operator));
-                return Some(true);
+            if let Some(bytes) = fixed_len_bytes_be_from_hex_or_const(literal_expr, fixed_len, ctx)
+            {
+                if lower_expression(left, ctx, instructions) {
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
+                    instructions.push(Instruction::BinaryOp(operator));
+                    return Some(true);
+                }
+                return Some(false);
             }
-            return Some(false);
         }
     }
 
@@ -72,18 +129,21 @@ pub(crate) fn lower_bytes_eq_hex_number_literal(
         fixed_len: Some(fixed_len),
     }) = infer_type_from_expression(right, ctx)
     {
-        let literal_expr = match left {
-            Expression::Parenthesis(_, inner) => inner.as_ref(),
-            other => other,
-        };
+        if !is_integer_backed_bytesn_operand(right, ctx) {
+            let literal_expr = match left {
+                Expression::Parenthesis(_, inner) => inner.as_ref(),
+                other => other,
+            };
 
-        if let Some(bytes) = fixed_len_bytes_be_from_hex_number(literal_expr, fixed_len) {
-            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
-            if lower_expression(right, ctx, instructions) {
-                instructions.push(Instruction::BinaryOp(operator));
-                return Some(true);
+            if let Some(bytes) = fixed_len_bytes_be_from_hex_or_const(literal_expr, fixed_len, ctx)
+            {
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(bytes)));
+                if lower_expression(right, ctx, instructions) {
+                    instructions.push(Instruction::BinaryOp(operator));
+                    return Some(true);
+                }
+                return Some(false);
             }
-            return Some(false);
         }
     }
 
