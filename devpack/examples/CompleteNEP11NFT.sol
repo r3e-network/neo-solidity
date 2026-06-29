@@ -204,9 +204,11 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         // Set metadata URI
         _setTokenURI(tokenId, metadataURI);
         
-        // Set royalty if specified
+        // Set royalty if specified. Use the internal setter: `mintWithMetadata`
+        // is `onlyMinter`, and the minter is not necessarily the owner, so the
+        // `onlyOwner` public `setTokenRoyalty` would revert when minter!=owner.
         if (royalty.isSet) {
-            setTokenRoyalty(tokenId, royalty.recipient, royalty.percentage);
+            _setTokenRoyalty(tokenId, royalty.recipient, royalty.percentage);
         }
 
         emit TokenMintedWithMetadata(tokenId, to, metadataURI);
@@ -244,15 +246,28 @@ contract CompleteNEP11NFT is NEP11, IOracleServiceReceiver {
         bytes memory tokenId,
         address recipient,
         uint96 percentage
-    ) public onlyOwner tokenExists(tokenId) validRoyalty(percentage) {
+    ) public onlyOwner {
+        _setTokenRoyalty(tokenId, recipient, percentage);
+    }
+
+    /**
+     * @dev Internal royalty setter for the `onlyMinter` mint path, which may be
+     * invoked by a minter that is not the owner. Still validates existence,
+     * the royalty bound, and the recipient.
+     */
+    function _setTokenRoyalty(
+        bytes memory tokenId,
+        address recipient,
+        uint96 percentage
+    ) internal tokenExists(tokenId) validRoyalty(percentage) {
         require(recipient != address(0), "CompleteNEP11: invalid royalty recipient");
-        
+
         _tokenRoyalties[tokenId] = RoyaltyInfo({
             recipient: recipient,
             percentage: percentage,
             isSet: true
         });
-        
+
         emit RoyaltySet(tokenId, recipient, percentage);
     }
     

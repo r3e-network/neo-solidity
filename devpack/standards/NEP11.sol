@@ -503,6 +503,18 @@ contract NEP11 is INEP11, FrameworkBase {
     function setProperties(bytes memory tokenId, bytes memory properties)
         public
         onlyOwner
+    {
+        _setProperties(tokenId, properties);
+    }
+
+    /**
+     * @dev Internal property setter for derived contracts whose callers are
+     * authenticated by their own logic (e.g. an authorized oracle callback or
+     * a quorum-gated curation execution) rather than by `onlyOwner`. Mirrors
+     * the `setTokenURI` / `_setTokenURI` split. Still enforces token existence.
+     */
+    function _setProperties(bytes memory tokenId, bytes memory properties)
+        internal
         tokenExists(tokenId)
     {
         _tokenProperties[tokenId] = properties;

@@ -172,18 +172,38 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         require(lockPeriodDays >= 30 && lockPeriodDays <= 365, "CompleteNEP17: invalid lock period");
         require(balanceOf(msg.sender) >= amount, "CompleteNEP17: insufficient balance");
         
+        // Settle rewards accrued on any EXISTING stake BEFORE moving the
+        // reward checkpoint. Without this, topping up an existing stake
+        // overwrites `lastRewardClaim` and silently destroys all unclaimed
+        // accrual (calculateReward measures from lastRewardClaim).
+        uint256 pending = calculateReward(msg.sender);
+        if (pending > 0) {
+            _mint(msg.sender, pending);
+            _rewards[msg.sender] += pending;
+            emit RewardClaimed(msg.sender, pending);
+        }
+
         // Transfer tokens to contract
         _transfer(msg.sender, address(this), amount, "");
-        
-        // Update stake info
+
+        // Update stake info. A top-up must never SHORTEN an existing lock, so
+        // keep the later of the existing expiry and the new lock's expiry.
         StakeInfo storage stakeInfo = _stakes[msg.sender];
+        uint256 newLock = lockPeriodDays * 1 days;
+        uint256 existingRemaining = 0;
+        if (stakeInfo.amount > 0) {
+            uint256 existingExpiry = stakeInfo.timestamp + stakeInfo.lockPeriod;
+            if (existingExpiry > block.timestamp) {
+                existingRemaining = existingExpiry - block.timestamp;
+            }
+        }
         stakeInfo.amount += amount;
         stakeInfo.timestamp = block.timestamp;
-        stakeInfo.lockPeriod = lockPeriodDays * 1 days;
+        stakeInfo.lockPeriod = newLock > existingRemaining ? newLock : existingRemaining;
         stakeInfo.lastRewardClaim = block.timestamp;
-        
+
         _totalStaked += amount;
-        
+
         emit Stake(msg.sender, amount, lockPeriodDays);
     }
     
@@ -429,7 +449,7 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
         require(signers.length == signatures.length, "CompleteNEP17: array length mismatch");
 
         signatures;
-        
+
         uint256 validSignatures = 0;
         for (uint256 i = 0; i < signers.length; i++) {
             address signer = signers[i];
@@ -445,16 +465,28 @@ contract CompleteNEP17Token is NEP17, IOracleServiceReceiver {
                 }
             }
 
-            if (!duplicate && Runtime.checkWitness(signer)) {
+            // CRITICAL: only count signers in the owner-managed allow-list.
+            // Counting any address that merely passes `checkWitness` lets an
+            // attacker list 3 keys they control, witness the tx with all of
+            // them, forge a quorum, and mint unlimited supply. Mirrors the
+            // authorization model of `multiSigTransfer`.
+            if (!duplicate && isMultisigSigner(signer) && Runtime.checkWitness(signer)) {
                 validSignatures++;
             }
         }
-        
+
         require(validSignatures >= (signers.length * 2) / 3, "CompleteNEP17: insufficient valid signatures");
-        
+
+        // Enforce the supply cap that the public `mint()` enforces — calling the
+        // internal `_mint` directly must not become a cap bypass.
+        require(
+            maxSupply() == 0 || totalSupply() + amount <= maxSupply(),
+            "CompleteNEP17: exceeds max supply"
+        );
+
         // Execute mint
         _mint(to, amount);
-        
+
         emit MultiSigMint(to, amount, signers.length, validSignatures);
     }
     

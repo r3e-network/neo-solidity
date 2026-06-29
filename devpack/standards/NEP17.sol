@@ -378,6 +378,16 @@ contract NEP17 is INEP17, FrameworkBase {
     }
 
     /**
+     * @dev Whether `signer` is in the owner-managed multi-signature allow-list.
+     * Derived contracts MUST gate multi-sig operations on this — counting any
+     * witness that merely passes `Runtime.checkWitness` lets an attacker supply
+     * keys they control and forge a quorum.
+     */
+    function isMultisigSigner(address signer) public view returns (bool) {
+        return _multisigSigners[signer];
+    }
+
+    /**
      * @dev Owner: set the minimum number of authorized witnesses required for
      * a multiSigTransfer (must be at least 2).
      */
