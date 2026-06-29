@@ -117,9 +117,19 @@ pub(crate) fn apply_modifier_calls_to_body_with_epilogue(
             normalized_args.truncate(modifier_def.parameters.len());
         }
 
-        let substitutions =
-            build_parameter_substitutions(&modifier_def.parameters, &normalized_args)?;
-        current = rewrite_statement(modifier_body, &substitutions, Some(&current));
+        // Evaluate each non-trivial modifier argument EXACTLY ONCE into a
+        // synthetic temporary at the top of the inlined modifier body, then
+        // substitute parameter references with that temporary. Without this, a
+        // side-effecting argument (e.g. `check(tick())`) would be cloned at
+        // every parameter use and run once per use, corrupting state.
+        let prefix = next_arg_temp_prefix("modarg");
+        let (substitutions, temp_decls) = build_parameter_substitutions_single_eval(
+            &modifier_def.parameters,
+            &normalized_args,
+            &prefix,
+        )?;
+        let rewritten = rewrite_statement(modifier_body, &substitutions, Some(&current));
+        current = prepend_arg_temp_decls(temp_decls, rewritten);
     }
 
     Ok((current, has_epilogue))

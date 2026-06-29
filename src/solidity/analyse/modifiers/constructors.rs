@@ -234,8 +234,18 @@ pub(crate) fn apply_base_constructors_and_modifiers(
             normalized_args.truncate(base_ctor.parameters.len());
         }
 
-        let substitutions = build_parameter_substitutions(&base_ctor.parameters, &normalized_args)?;
+        // Evaluate each non-trivial base-constructor argument EXACTLY ONCE into
+        // a synthetic temporary, then substitute parameter references with it —
+        // a side-effecting arg (e.g. `Base(side())`) must not run once per use
+        // of the parameter in the base body.
+        let prefix = next_arg_temp_prefix("basearg");
+        let (substitutions, temp_decls) = build_parameter_substitutions_single_eval(
+            &base_ctor.parameters,
+            &normalized_args,
+            &prefix,
+        )?;
         let rewritten = rewrite_statement(&base_wrapped, &substitutions, None);
+        let rewritten = prepend_arg_temp_decls(temp_decls, rewritten);
         prologue.extend(statement_list_from_body(&rewritten));
     }
 

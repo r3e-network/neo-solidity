@@ -691,6 +691,67 @@ contract C {
     assert_eq!(signed, -1, "int32(bytes4(0xFFFFFFFF)) must be -1, got {rd:?}");
 }
 
+/// #13 — a side-effecting MODIFIER argument must be evaluated exactly ONCE.
+/// Parameter substitution cloned the argument expression at every parameter
+/// use, so `check(tick())` ran `tick()` once per `v` reference (counter ended
+/// at 2 instead of 1).
+#[test]
+fn modifier_argument_evaluated_once() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    uint256 public counter;
+    function tick() internal returns (uint256) { counter += 1; return counter; }
+    modifier check(uint256 v) { require(v < 1000000, "x"); require(v < 1000000, "y"); _; }
+    function run() public check(tick()) returns (uint256) { return counter; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "C").expect("C artifact");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("call");
+    assert!(r.success, "run faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(
+        r.return_data.first().copied(),
+        Some(1),
+        "modifier arg tick() must run exactly once (counter==1); got {:?}",
+        r.return_data
+    );
+}
+
+/// #13b — a side-effecting BASE-CONSTRUCTOR argument must be evaluated exactly
+/// ONCE. `Base(side())` ran `side()` once per use of the base parameter (p=1
+/// but q=2 instead of q=1).
+#[test]
+fn base_constructor_argument_evaluated_once() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Base { uint256 public p; uint256 public q; constructor(uint256 v) { p = v; q = v; } }
+contract Derived is Base {
+    uint256 public counter;
+    function side() internal returns (uint256) { counter += 1; return counter; }
+    constructor() Base(side()) {}
+    function pv() external view returns (uint256) { return p; }
+    function qv() external view returns (uint256) { return q; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "Derived").expect("Derived artifact");
+    // The `_deploy` constructor auto-fires on each call (fresh rt → runs once),
+    // setting p and q. With single-eval, side() runs once so p == q == 1; with
+    // the bug, side() ran twice so q == 2.
+    let getv = |m: &str| -> u8 {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data.first().copied().unwrap_or(0)
+    };
+    assert_eq!(getv("pv"), 1, "p must be 1");
+    assert_eq!(getv("qv"), 1, "q must be 1 — base ctor arg side() must run once, not per use");
+}
+
 /// #12 — storage `bytes` `.push(b)` / `.pop()` previously compiled to a SILENT
 /// no-op (the lowering required `ValueType::Array`, bailed for `bytes`, and the
 /// fallback dropped the args and wrote nothing). They must mutate the stored
