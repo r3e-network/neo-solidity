@@ -344,6 +344,18 @@ pub(crate) fn emit_expr_static_abi_slot_for_value_type(
         ValueType::ByteArray {
             fixed_len: Some(len),
         } if *len < 32 => {
+            // KNOWN LIMITATION (deep-review #4): a `bytesN` operand may be
+            // ByteArray-backed (already big-endian: keccak/sha output, a
+            // `bytesN(..)` cast, storage, a param) OR Integer-backed (a hex
+            // literal/constant, pushed pre-reversed). The two need OPPOSITE
+            // handling — Integer-backed must be reversed to big-endian, the
+            // ByteArray-backed must not — but this type-only context cannot
+            // tell them apart, so neither a blanket reverse nor a blanket
+            // pass-through is correct. A proper fix needs the lowered value's
+            // backing tracked (or bytesN literals normalized to a ByteArray at
+            // the source). Until then the common keccak/cast/param cases are
+            // correct; Integer-backed bytesN literals encode wrong (N==32) or
+            // fault on `GetSize` (N<32).
             emit_abi_bytesn_slot(ctx, instructions, *len as usize);
             Some(())
         }

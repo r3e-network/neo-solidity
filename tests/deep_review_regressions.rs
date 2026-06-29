@@ -123,3 +123,84 @@ contract C {
     got.resize(32, 0);
     assert_eq!(got, min_le, "unchecked int256.min / -1 must wrap to int256.min");
 }
+
+/// #4 — `abi.encode` of a `bytesN` value should produce a correct fixed-width,
+/// left-aligned, big-endian 32-byte slot regardless of how the value is backed.
+/// KNOWN-FAILING (deep-review #4): Integer-backed `bytesN` (hex
+/// literals/constants) are byte-reversed for N==32 and fault on `SIZE` for
+/// N<32, while ByteArray-backed values (keccak output) are correct. Fixing it
+/// needs the lowered value's backing tracked — see the limitation note in
+/// `abi_encode.rs`. This test pins the TARGET behavior; un-ignore it once the
+/// backing is tracked.
+#[ignore = "deep-review #4: bytesN abi.encode reversal depends on Integer-vs-ByteArray backing"]
+#[test]
+fn abi_encode_bytesn_produces_correct_fixed_width_slot() {
+    // `z` is a runtime arg so the multi-arg static-slot path is exercised
+    // (and not constant-folded away); the `bytesN` constant flows through the
+    // bytesN ABI-slot encoder under test.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes32 constant FULL  = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
+    bytes32 constant TRAIL = 0xaabbccdd00000000000000000000000000000000000000000000000000000000;
+    bytes4  constant SEL   = 0x01ffc9a7;
+    function encFull(uint8 z)  external pure returns (bytes memory) { return abi.encode(z, FULL); }
+    function encTrail(uint8 z) external pure returns (bytes memory) { return abi.encode(z, TRAIL); }
+    function encSel(uint8 z)   external pure returns (bytes memory) { return abi.encode(z, SEL); }
+    // keccak output is ByteArray-backed (already big-endian) — must round-trip
+    // unchanged (no reversal).
+    function encKeccak(bytes memory d) external pure returns (bytes memory) {
+        return abi.encode(uint8(0), keccak256(d));
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+
+    let call = |method: &str, arg: StackItem| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, method, &[arg])
+            .expect("call");
+        assert!(
+            r.success,
+            "{method} faulted: {:?}",
+            r.exception.as_ref().map(|e| &e.message)
+        );
+        r.return_data
+    };
+
+    // Helper: bytes32 slot is bytes [32..64] of `abi.encode(uint8, bytes32)`.
+    let hexb = |s: &str| hex::decode(s).unwrap();
+
+    let full = call("encFull", StackItem::Integer(0));
+    assert_eq!(full.len(), 64, "abi.encode(uint8,bytes32) is 64 bytes");
+    assert_eq!(
+        &full[32..64],
+        hexb("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff").as_slice(),
+        "bytes32 (full) slot must be the value, big-endian, left-aligned"
+    );
+
+    let trail = call("encTrail", StackItem::Integer(0));
+    assert_eq!(
+        &trail[32..64],
+        hexb("aabbccdd00000000000000000000000000000000000000000000000000000000").as_slice(),
+        "bytes32 with trailing zeros must keep its full 32-byte width (was truncated)"
+    );
+
+    let sel = call("encSel", StackItem::Integer(0));
+    let mut expected_sel = vec![0u8; 32];
+    expected_sel[..4].copy_from_slice(&hexb("01ffc9a7"));
+    assert_eq!(
+        &sel[32..64],
+        expected_sel.as_slice(),
+        "bytes4 must be left-aligned + zero-padded to 32 bytes (was a SIZE fault)"
+    );
+
+    // keccak256("") = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+    let kec = call("encKeccak", StackItem::byte_array(Vec::new()));
+    assert_eq!(
+        &kec[32..64],
+        hexb("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470").as_slice(),
+        "keccak256 (ByteArray-backed) slot must round-trip unchanged (no reversal)"
+    );
+}
