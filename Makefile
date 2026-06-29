@@ -2,7 +2,7 @@
 # Author: Jimmy <jimmy@r3e.network>
 # Repository: https://github.com/r3e-network/neo-devpack-solidity
 
-.PHONY: all build clean test test-all test-all-full test-fuzz-gate test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-evm-compat-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs docs-api docs-site install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
+.PHONY: all build clean test test-all test-all-full test-fuzz-gate test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-struct-param-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-evm-compat-smoke test-deploy-smoke-full test-deploy-wgas-smoke test-deploy-flashloan-smoke test-deploy-amm-smoke test-deploy-vesting-smoke test-deploy-lending-smoke test-deploy-dao-smoke test-deploy-famous-all docs docs-api docs-site install format lint release help install-deps tooling-install tooling-build tooling-test tooling-lint runtime-build runtime-test coverage coverage-ci check-coverage
 .PHONY: test-compile-strict production-gate test-fuzz-start test-fuzz-status test-fuzz-stop test-fuzz-cargo-all test-fuzz-differential test-fuzz-coverage
 
 all: build
@@ -142,6 +142,10 @@ test-deploy-struct-array-element-smoke:
 	@echo "📦 Running Neo-Express struct-array element smoke test..."
 	bash examples/test_neoxp_struct_array_element_smoke.sh
 
+test-deploy-struct-param-smoke:
+	@echo "🧱 Running Neo-Express struct-parameter smoke test..."
+	bash examples/test_neoxp_struct_param_smoke.sh
+
 test-deploy-nested-struct-smoke:
 	@echo "🧬 Running Neo-Express nested struct storage smoke test..."
 	bash examples/test_neoxp_nested_struct_storage_smoke.sh
@@ -158,7 +162,7 @@ test-deploy-evm-compat-smoke:
 	@echo "🌉 Running EVM compatibility adapter smoke test..."
 	bash examples/test_neoxp_evm_compat_smoke.sh
 
-test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-evm-compat-smoke
+test-deploy-smoke-full: test-deploy-smoke test-deploy-callt-smoke test-deploy-constructor-smoke test-deploy-update-smoke test-deploy-permissions-smoke test-deploy-encoding-smoke test-deploy-abortmsg-smoke test-deploy-lowlevel-call-smoke test-deploy-lowlevel-call-failure-smoke test-deploy-external-call-smoke test-deploy-view-readonly-call-smoke test-deploy-compound-assignment-smoke test-deploy-struct-array-element-smoke test-deploy-struct-param-smoke test-deploy-nested-struct-smoke test-deploy-delete-smoke test-deploy-new-showcases-smoke test-deploy-evm-compat-smoke
 	@echo "✅ Neo-Express smoke tests complete"
 
 # ========== Famous DeFi/Web3 contract smoke tests ==========
