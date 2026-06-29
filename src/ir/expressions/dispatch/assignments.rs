@@ -299,13 +299,16 @@ pub(crate) fn lower_delete_storage_array(
         ValueType::Array(element) => (**element).clone(),
         _ => return false,
     };
-    // Struct elements are stored per-field (see `emit_storage_store`'s
-    // Struct branch) and Mapping/Any defaults are `Null` — a raw Put of
-    // those values would fault on real Neo N3. Leave them on the legacy
-    // base-slot-only path rather than make things worse.
+    // Mapping/Any element defaults are `Null` — a raw Put would fault on real
+    // Neo N3 — so leave those on the legacy base-slot-only path. Struct elements
+    // ARE cleared (below) via `StoreStructArrayElement` so the per-field slots a
+    // `push` wrote are actually zeroed; without it `delete ps` left every
+    // `ps[i].field` readable (length-0 array but live field slots), because
+    // `ps[i].field` reads through `LoadStructField` and skips the array bounds
+    // guard.
     if matches!(
         element_type,
-        ValueType::Struct { .. } | ValueType::Mapping { .. } | ValueType::Any
+        ValueType::Mapping { .. } | ValueType::Any
     ) {
         return false;
     }
@@ -394,7 +397,18 @@ pub(crate) fn lower_delete_storage_array(
     for local in key_locals.iter().rev() {
         instructions.push(Instruction::LoadLocal(*local));
     }
-    if matches!(element_type, ValueType::Array(_)) {
+    if matches!(element_type, ValueType::Struct { .. }) {
+        // Struct elements use the per-field layout `push` wrote (the array index
+        // is consumed by the instruction, so `key_types` is the OUTER keys only
+        // and `field_keys` is empty — matching the push path in
+        // `storage_reference.rs` / `state_var.rs`).
+        instructions.push(Instruction::StoreStructArrayElement {
+            state_index: reference.state_index,
+            key_types: reference.key_types.clone(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
+    } else if matches!(element_type, ValueType::Array(_)) {
         instructions.push(Instruction::StoreArrayDeepCopy {
             state_index: reference.state_index,
             key_types: element_key_types.clone(),

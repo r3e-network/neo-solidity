@@ -184,6 +184,27 @@ impl ExecutionContext {
         }
     }
 
+    /// Decode a stack item to a full `BigInt` (the value's true magnitude,
+    /// signed-little-endian for ByteArray-backed wide integers). Static mirror
+    /// of `coerce_item_to_bigint`'s arms for the `&self`-free native handlers.
+    fn stack_item_to_bigint(item: &StackItem) -> num_bigint::BigInt {
+        use num_bigint::BigInt;
+        match item {
+            StackItem::Integer(v) => BigInt::from(*v),
+            StackItem::UnsignedInteger(v) => BigInt::from(*v),
+            StackItem::Boolean(b) => BigInt::from(if *b { 1 } else { 0 }),
+            StackItem::ByteArray(bytes) => {
+                let bytes = bytes.borrow();
+                if bytes.is_empty() {
+                    BigInt::from(0)
+                } else {
+                    BigInt::from_signed_bytes_le(&bytes)
+                }
+            }
+            _ => BigInt::from(0),
+        }
+    }
+
     /// Classify whether a `StackItem` should encode as a DYNAMIC type under
     /// EVM ABI rules. Used by `abiencode` (Tasks #72/#73) to decide whether
     /// the head slot carries the value directly or an offset to a tail.
@@ -552,21 +573,25 @@ impl ExecutionContext {
             "itoa" => {
                 if let StackItem::Array(args) = params {
                     let borrowed = args.borrow();
+                    // Decode the value as a full arbitrary-precision BigInteger,
+                    // NOT via `stack_item_to_int` (which reads only the low 8
+                    // bytes of a ByteArray-backed wide integer). int256/uint256
+                    // values live on the stack as ByteArrays, so the i64 path
+                    // silently formatted the wrong number for magnitudes above
+                    // bit 63 — real Neo's StdLib.itoa formats the whole value.
                     let value = borrowed
                         .first()
-                        .map(|it| Self::stack_item_to_int(it.clone()))
-                        .unwrap_or(0);
+                        .map(Self::stack_item_to_bigint)
+                        .unwrap_or_else(|| num_bigint::BigInt::from(0));
                     let base = borrowed
                         .get(1)
                         .map(|it| Self::stack_item_to_int(it.clone()))
                         .unwrap_or(10);
                     // Hex: uppercase, no `0x`; negatives as `-ABS` (StdLib).
+                    // num-bigint's `UpperHex` already prefixes a `-` and prints
+                    // the magnitude, matching that convention.
                     let text = if base == 16 {
-                        if value < 0 {
-                            format!("-{:X}", (value as i128).unsigned_abs())
-                        } else {
-                            format!("{:X}", value as u64)
-                        }
+                        format!("{value:X}")
                     } else {
                         value.to_string()
                     };

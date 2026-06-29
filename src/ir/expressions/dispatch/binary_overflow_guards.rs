@@ -10,6 +10,18 @@ pub(crate) fn emit_checked_arith_guard_narrow_u(
     operator: BinaryOperator,
     bits: u16,
 ) {
+    // uintN multiply with bits >= 128 overflows NeoVM's 32-byte integer: the
+    // full product `(2^bits-1)^2` needs up to `2*bits+1` signed bits (> 256),
+    // so a bare MUL FAULTS UNCATCHABLY before the range-check below can run.
+    // Detect overflow with a PRE-check that never materializes the full product
+    // — `a != 0 && b > uintN_max / a` — emitting a catchable Panic(0x11). When
+    // it does not overflow the product fits in `bits < 256` and the plain MUL is
+    // safe. (bits < 128 keep the cheaper compute-then-check path below.)
+    if matches!(operator, BinaryOperator::Mul) && bits >= 128 {
+        emit_checked_mul_guard_wide_narrow_u(ctx, instructions, bits);
+        return;
+    }
+
     let tmp_id = ctx.next_label();
     let result_local = ctx.allocate_local(format!("__narith_res_{tmp_id}"), None);
 
@@ -46,6 +58,56 @@ pub(crate) fn emit_checked_arith_guard_narrow_u(
     // Done: push result back onto the stack.
     instructions.push(Instruction::Label(done_label));
     instructions.push(Instruction::LoadLocal(result_local));
+}
+
+/// Checked uintN multiply for bits at or above 128, where a bare MUL would
+/// fault on the over-32-byte full product. Operands `[a, b]`; pushes `a * b` or
+/// Panics(0x11) on overflow. Overflow is detected WITHOUT the full product:
+/// `a != 0 && b > (uintN_max / a)`. Both operands and `uintN_max` are positive
+/// and below 2^255, so the DIV and the compare are plain (unsigned equals signed
+/// here), and the surviving product is at most `uintN_max` (below 2^255), which
+/// fits a 32-byte integer.
+fn emit_checked_mul_guard_wide_narrow_u(
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+    bits: u16,
+) {
+    let tmp_id = ctx.next_label();
+    let a_local = ctx.allocate_local(format!("__wmul_a_{tmp_id}"), None);
+    let b_local = ctx.allocate_local(format!("__wmul_b_{tmp_id}"), None);
+    let uint_max = (BigInt::one() << bits as usize) - BigInt::one();
+
+    instructions.push(Instruction::StoreLocal(b_local)); // pop b
+    instructions.push(Instruction::StoreLocal(a_local)); // pop a
+
+    let a_nonzero = ctx.next_label();
+    let do_mul = ctx.next_label();
+
+    // if a == 0 -> product is 0, no overflow possible; go straight to MUL.
+    // `JumpIf` branches when the condition is FALSE, so it jumps to `a_nonzero`
+    // exactly when `a != 0`.
+    instructions.push(Instruction::LoadLocal(a_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+    instructions.push(Instruction::JumpIf { target: a_nonzero });
+    instructions.push(Instruction::Jump { target: do_mul });
+
+    // a != 0: overflow iff b > uintN_max / a.
+    instructions.push(Instruction::Label(a_nonzero));
+    instructions.push(Instruction::LoadLocal(b_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(uint_max)));
+    instructions.push(Instruction::LoadLocal(a_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Div)); // uintN_max / a
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Gt)); // b > limit
+    instructions.push(Instruction::JumpIf { target: do_mul }); // no overflow -> MUL
+    emit_panic(0x11, instructions); // throws
+
+    instructions.push(Instruction::Label(do_mul));
+    instructions.push(Instruction::LoadLocal(a_local));
+    instructions.push(Instruction::LoadLocal(b_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
 }
 
 /// Bug #16: widen the top-of-stack uint256 operand into a >8-byte ByteArray

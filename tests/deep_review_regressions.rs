@@ -204,3 +204,150 @@ contract C {
         "keccak256 (ByteArray-backed) slot must round-trip unchanged (no reversal)"
     );
 }
+
+/// #8 — uintN multiply (N >= 128) must not fault uncatchably: the full product
+/// exceeds NeoVM's 32-byte integer. Checked overflow → catchable Panic(0x11);
+/// unchecked → wraps mod 2^N. Verified for uint128 via runtime execution.
+#[test]
+fn uint128_mul_checked_panics_and_unchecked_wraps_without_faulting() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function mc(uint128 a, uint128 b) external pure returns (uint128) { return a * b; }
+    function mu(uint128 a, uint128 b) external pure returns (uint128) { unchecked { return a * b; } }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    // 2^e (e < 128) as a 16-byte little-endian uint128 argument; for e <= 100
+    // the high bit is clear, so it's an unambiguous positive value.
+    let pow2_u128 = |e: usize| -> StackItem {
+        let mut le = vec![0u8; 16];
+        le[e / 8] = 1u8 << (e % 8);
+        StackItem::byte_array(le)
+    };
+    let runc = |m: &str, a: StackItem, b: StackItem| {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        rt.call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[a, b])
+            .expect("call")
+    };
+    // checked: 2^100 * 2^100 = 2^200 > 2^128-1 -> overflow Panic (not success).
+    let r = runc("mc", pow2_u128(100), pow2_u128(100));
+    assert!(!r.success, "checked uint128 overflow must Panic, not succeed");
+    // checked: 3 * 5 = 15 fits.
+    let r = runc("mc", StackItem::Integer(3), StackItem::Integer(5));
+    assert!(
+        r.success && r.return_data.first().copied() == Some(15),
+        "checked 3*5 must be 15"
+    );
+    // unchecked: 2^100 * 2^100 = 2^200 -> mod 2^128 = 0, must NOT fault.
+    let r = runc("mu", pow2_u128(100), pow2_u128(100));
+    assert!(
+        r.success,
+        "unchecked uint128 mul must not fault: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert!(
+        r.return_data.iter().all(|&x| x == 0),
+        "2^100 * 2^100 mod 2^128 == 0"
+    );
+}
+
+/// deep-review #4-delete — `delete` of a struct-element storage array must clear
+/// the per-field element slots, not just the length. Previously only the length
+/// slot was zeroed, so `ps[i].field` (which reads via the per-field slot and
+/// skips the array bounds guard) resurrected the pre-delete value.
+#[test]
+fn delete_struct_element_array_clears_field_slots() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct P { uint256 a; uint256 b; }
+    P[] ps;
+    function test() external returns (uint256) {
+        ps.push(P(7, 9));   // ps[0].a = 7
+        delete ps;          // must clear the ps[0].a field slot too
+        return ps[0].a;     // length 0; reads the field slot directly
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "test", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "test() faulted: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    // After `delete ps`, ps[0].a must read as the default 0, not the stale 7.
+    assert!(
+        r.return_data.iter().all(|&x| x == 0),
+        "deleted struct-element field must read as 0, got {:?}",
+        r.return_data
+    );
+}
+
+/// deep-review #1-itoa (simulator) — `StdLib.itoa` must format the full
+/// arbitrary-precision value. The old i64 decode truncated wide (>64-bit)
+/// integers to their low 8 bytes, formatting the wrong number and giving false
+/// confidence to any test asserting itoa output for large values.
+#[test]
+fn stdlib_itoa_formats_full_wide_integer() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+import "devpack/contracts/Syscalls.sol";
+contract C {
+    function f(int256 v) external view returns (bytes memory) { return bytes(Syscalls.itoa(v)); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts
+        .iter()
+        .find(|a| a.metadata.name == "C")
+        .expect("contract C");
+    // 2^100 as a 32-byte little-endian int256 (positive: bit 100, high bit clear).
+    let mut le = vec![0u8; 32];
+    le[12] = 0x10; // bit 100 = byte 12, bit 4
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[StackItem::byte_array(le)])
+        .expect("call");
+    assert!(r.success, "itoa faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(
+        String::from_utf8_lossy(&r.return_data),
+        "1267650600228229401496703205376", // 2^100 in decimal
+        "itoa must format the full 2^100, not a low-8-byte truncation"
+    );
+}
+
+/// deep-review bytesN-backing cluster (KNOWN-FAILING) — a `bytesN` named
+/// constant is Integer-backed (pushed little-endian / pre-reversed) while a
+/// ByteArray-backed value (keccak/cast/storage/param) is big-endian, so
+/// comparing them emits a raw EQUAL on byte-reversed operands: equal values
+/// compare UNEQUAL. The same backing mismatch makes `b[i]` index the wrong
+/// byte and bitwise ops mix representations. Fixing it needs the lowered
+/// value's backing tracked (the same systemic fix as #4 abi.encode); this test
+/// pins the TARGET behavior — un-ignore it once backing is tracked.
+#[ignore = "deep-review bytesN backing: const(Integer-backed) vs ByteArray-backed compares reversed"]
+#[test]
+fn bytesn_constant_compares_equal_to_runtime_value() {
+    // A bytes32 param (ByteArray-backed) compared against a bytes32 constant
+    // with the same value must be equal.
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes32 constant ROLE = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
+    function eq(bytes32 x) external pure returns (bool) { return x == ROLE; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    // big-endian bytes of ROLE, passed as a 32-byte ByteArray (param backing).
+    let role_be =
+        hex::decode("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff").unwrap();
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "eq", &[StackItem::byte_array(role_be)])
+        .expect("call");
+    assert!(r.success, "eq faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(r.return_data.first().copied(), Some(1u8), "x == ROLE must be true for equal values");
+}

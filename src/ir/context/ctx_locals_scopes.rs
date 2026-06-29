@@ -34,16 +34,17 @@ impl<'a> LoweringContext<'a> {
 
     pub(crate) fn allocate_local(&mut self, name: String, value_type: Option<ValueType>) -> usize {
         let index = self.local_count as usize;
-        // `local_count` is `u16` (NeoVM stack limit is also bounded), so a
-        // single function exceeding 65 536 locals is unrepresentable on
-        // chain. The previous `.unwrap_or(self.local_count)` silently
-        // returned the SAME index for two distinct locals on overflow,
-        // which would have them share a slot and corrupt state. Now the
-        // impossible case panics with an actionable message instead.
-        self.local_count = self
-            .local_count
-            .checked_add(1)
-            .expect("local slot count overflow: function exceeds u16::MAX (65 536) locals");
+        // `local_count` is `u16`. A function needing > 65 535 local slots is
+        // unrepresentable, but it is reachable from valid (if pathological)
+        // Solidity — many lowerings allocate fresh per-statement temporaries
+        // (e.g. each Yul `mstore`/`div`, each bytesN pad). A `.expect()` here
+        // would ABORT the whole compiler. Instead SATURATE: `local_count`
+        // pins at `u16::MAX`, which the per-method guard in
+        // `bytecode_core.rs` (`local_count > 255`) turns into the normal
+        // "exceeds NeoVM's 255-slot limit" compile ERROR — the same graceful
+        // path the 256..=65 535 case already takes. (Saturated slots collide,
+        // but the recorded error stops emission before any bytecode is used.)
+        self.local_count = self.local_count.saturating_add(1);
         if let Some(scope) = self.scope_stack.last_mut() {
             scope.push(name.clone());
         }

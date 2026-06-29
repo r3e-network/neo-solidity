@@ -244,8 +244,16 @@ pub(crate) fn emit_arith_with_overflow_ladder(
             }
         }
     } else if let Some(bits) = unchecked_narrow_u {
-        // `unchecked { uintN: a <op> b }` wraps mod 2^N.
-        instructions.push(Instruction::BinaryOp(operator));
+        // `unchecked { uintN: a <op> b }` wraps mod 2^N. For Mul with bits >=
+        // 128 a bare MUL would fault on the >32-byte full product, so compute
+        // the conformant `a*b mod 2^256` with the limb routine first (it never
+        // materializes a >32-byte intermediate), then mask to N bits — the low
+        // N bits of the true product survive mod 2^256 unchanged.
+        if matches!(operator, BinaryOperator::Mul) && bits >= 128 {
+            emit_u256_unchecked_mul_ir(ctx, instructions);
+        } else {
+            instructions.push(Instruction::BinaryOp(operator));
+        }
         emit_truncate_narrow_unsigned(instructions, bits);
     } else if let Some(bits) = unchecked_narrow_i {
         // `unchecked { intN: a <op> b }` wraps mod 2^N (two's complement).

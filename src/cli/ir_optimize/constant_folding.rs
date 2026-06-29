@@ -123,6 +123,29 @@ pub(crate) fn try_identity_elimination(
 /// the exact code `-O0`/`-O1` already emit for the same source.
 const MAX_FOLDED_LITERAL_BITS: u64 = 4096;
 
+/// Decline a folded INTEGER result that does not fit any 32-byte NeoVM integer.
+/// The representable range is the union of `uint256` (stored as 32-byte
+/// two's-complement, so up to `2^256-1`) and `int256` (down to `-2^255`):
+/// `[-2^255, 2^256-1]`. A value outside it would be emitted as a >32-byte
+/// literal that FAULTS the moment it is used as an integer on a real node
+/// (`MaxSize of Integer is exceeded`) — e.g. `uint256(1 << 300)` folding to a
+/// 38-byte `2^300`. Returning `None` leaves the op to the runtime lowering,
+/// which applies the proper mod-2^256 wrap (unchecked) or overflow guard
+/// (checked). Values INSIDE the range (incl. `type(uint256).max` and any
+/// `[2^255, 2^256-1]` magnitude) still fold — `push_integer_bigint` emits them
+/// as the correct 32-byte two's-complement word. Non-integer results pass through.
+fn decline_oversized_integer_fold(folded: Option<ir::LiteralValue>) -> Option<ir::LiteralValue> {
+    if let Some(ir::LiteralValue::Integer(v)) = &folded {
+        let one = num_bigint::BigInt::from(1u32);
+        let max_u256 = (&one << 256u32) - &one; // 2^256 - 1
+        let min_i256 = -(&one << 255u32); // -2^255
+        if *v > max_u256 || *v < min_i256 {
+            return None;
+        }
+    }
+    folded
+}
+
 pub(crate) fn evaluate_binary_literal(
     lhs: &ir::LiteralValue,
     rhs: &ir::LiteralValue,
@@ -131,7 +154,7 @@ pub(crate) fn evaluate_binary_literal(
     use ir::LiteralValue::{Boolean, Integer};
 
     match (lhs, rhs) {
-        (Integer(a), Integer(b)) => match op {
+        (Integer(a), Integer(b)) => decline_oversized_integer_fold(match op {
             ir::BinaryOperator::Add => Some(Integer(a + b)),
             ir::BinaryOperator::Sub => Some(Integer(a - b)),
             ir::BinaryOperator::Mul => {
@@ -183,7 +206,7 @@ pub(crate) fn evaluate_binary_literal(
             ir::BinaryOperator::Ge => Some(Boolean(a >= b)),
             ir::BinaryOperator::Eq => Some(Boolean(a == b)),
             ir::BinaryOperator::Ne => Some(Boolean(a != b)),
-        },
+        }),
         (Boolean(a), Boolean(b)) => match op {
             ir::BinaryOperator::Eq => Some(Boolean(a == b)),
             ir::BinaryOperator::Ne => Some(Boolean(a != b)),
@@ -238,16 +261,32 @@ mod fold_literal_bits_guard_tests {
     }
 
     #[test]
-    fn mul_still_folds_uint256_operands() {
-        // Two max-width uint256 operands: product is 512 bits, well under the
-        // ceiling — legal constant arithmetic must keep folding.
+    fn mul_folds_only_when_the_product_fits_a_32_byte_integer() {
+        // An in-range product (2^100 * 2^100 = 2^200 < 2^256) must keep folding.
+        let a: BigInt = BigInt::from(1) << 100u32;
+        let folded = evaluate_binary_literal(&int(a.clone()), &int(a.clone()), ir::BinaryOperator::Mul)
+            .expect("in-range product must keep folding");
+        assert_eq!(folded, int(&a * &a));
+
+        // Two max-width uint256 operands: the 512-bit product does NOT fit
+        // NeoVM's 32-byte integer and is never a valid uint256 result (a checked
+        // op panics, an unchecked op wraps mod 2^256). It MUST decline to fold
+        // so the runtime applies the proper wrap/guard rather than the emitter
+        // baking a >32-byte literal that faults on a real node.
         let max256: BigInt = (BigInt::from(1) << 256u32) - 1;
-        let result = evaluate_binary_literal(
-            &int(max256.clone()),
-            &int(max256.clone()),
-            ir::BinaryOperator::Mul,
-        )
-        .expect("uint256 product must keep folding");
-        assert_eq!(result, int(&max256 * &max256));
+        assert!(
+            evaluate_binary_literal(&int(max256.clone()), &int(max256), ir::BinaryOperator::Mul)
+                .is_none(),
+            "an over-32-byte product must NOT fold"
+        );
+
+        // type(uint256).max itself (exactly 2^256-1) is a valid 32-byte value
+        // and must still fold through (e.g. as `max & max`).
+        let max256: BigInt = (BigInt::from(1) << 256u32) - 1;
+        assert!(
+            evaluate_binary_literal(&int(max256.clone()), &int(max256), ir::BinaryOperator::BitAnd)
+                .is_some(),
+            "in-range uint256 max must still fold"
+        );
     }
 }
