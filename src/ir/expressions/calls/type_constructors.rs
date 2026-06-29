@@ -226,8 +226,21 @@ pub(crate) fn try_lower_type_constructor_call(
                         BigInt::zero(),
                     )));
                 } else if let Some(arg) = arg {
+                    let arg_type = infer_type_from_expression(arg, ctx);
+                    if matches!(arg_type, Some(ValueType::ByteArray { .. })) {
+                        // `bytesN` is BIG-endian; NeoVM `CONVERT→Integer` reads
+                        // little-endian. Reverse first (via a mutable Buffer —
+                        // REVERSEITEMS rejects ByteString) so the recovered
+                        // magnitude matches the `uintN(bytesN)` path above.
+                        // Without this, `int256(bytes32(uint256(1)))` decoded as
+                        // 2^248 instead of 1, and diverged from `uintN(bytesN)`.
+                        instructions.push(Instruction::Convert {
+                            target: ConvertTarget::ByteArray,
+                        });
+                        materialize_byte_array_buffer(&mut *ctx, instructions, true);
+                    }
                     if matches!(
-                        infer_type_from_expression(arg, ctx),
+                        arg_type,
                         Some(ValueType::ByteArray { .. } | ValueType::Address | ValueType::Boolean)
                     ) {
                         instructions.push(Instruction::Convert {

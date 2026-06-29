@@ -20,27 +20,143 @@ pub(crate) fn try_lower_state_array_helpers(
 
     let state_index = ctx.state_index_map.get(&base.name).copied()?;
 
-    let Some(ValueType::Array(element_type)) = ctx.state_type(state_index).cloned() else {
-        return None;
-    };
-
-    match member.name.as_str() {
-        "push" => Some(lower_state_array_push(
-            state_index,
-            element_type.as_ref(),
-            args,
-            ctx,
-            instructions,
-        )),
-        "pop" => Some(lower_state_array_pop(
-            state_index,
-            element_type.as_ref(),
-            args,
-            ctx,
-            instructions,
-        )),
+    match ctx.state_type(state_index).cloned() {
+        Some(ValueType::Array(element_type)) => match member.name.as_str() {
+            "push" => Some(lower_state_array_push(
+                state_index,
+                element_type.as_ref(),
+                args,
+                ctx,
+                instructions,
+            )),
+            "pop" => Some(lower_state_array_pop(
+                state_index,
+                element_type.as_ref(),
+                args,
+                ctx,
+                instructions,
+            )),
+            _ => None,
+        },
+        // Dynamic `bytes` storage (`string` has no `.push`/`.pop` in Solidity).
+        // Stored as a single ByteString slot, so push/pop is a read-modify-write
+        // of the whole value — NOT the length+element-slot scheme arrays use.
+        // Previously these fell through to the compatibility fallback, which
+        // dropped the args and wrote nothing (silent data loss).
+        Some(ValueType::ByteArray { fixed_len: None }) => match member.name.as_str() {
+            "push" => Some(lower_state_bytes_push(state_index, args, ctx, instructions)),
+            "pop" => Some(lower_state_bytes_pop(state_index, args, ctx, instructions)),
+            _ => None,
+        },
         _ => None,
     }
+}
+
+/// `bytes` storage `.push(b)` — append one byte: `data = data ++ b`. Zero-arg
+/// `.push()` appends a `0x00` byte (Solidity ≥0.8.x). Leaves a truthy value to
+/// match the array-push stack convention (the expression statement drops it).
+pub(crate) fn lower_state_bytes_push(
+    state_index: usize,
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    // Load current bytes (empty ByteString when the slot is unset).
+    instructions.push(Instruction::LoadState(state_index));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+
+    if let Some(arg) = args.first() {
+        // The element type is `bytes1` — canonicalize an integer-backed literal
+        // to its big-endian byte, else lower normally and coerce to ByteString.
+        let b1 = ValueType::ByteArray { fixed_len: Some(1) };
+        if !try_lower_bytesn_literal_canonical(arg, &b1, ctx, instructions) {
+            if !lower_expression(arg, ctx, instructions) {
+                return false;
+            }
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+        }
+    } else {
+        instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![0u8])));
+    }
+
+    // data ++ b  (CAT: top operand appended last).
+    instructions.push(Instruction::CallBuiltin {
+        builtin: BuiltinCall::BytesConcat,
+        arg_count: 2,
+    });
+    instructions.push(Instruction::StoreState(state_index));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Boolean(true)));
+    true
+}
+
+/// `bytes` storage `.pop()` — drop the last byte: `data = data[0 : len-1]`.
+/// Reverts Panic(0x31) on empty (matches Solidity array-pop-underflow). Leaves
+/// the popped byte on the stack (array-pop convention; the statement drops it).
+pub(crate) fn lower_state_bytes_pop(
+    state_index: usize,
+    args: &[Expression],
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if !args.is_empty() {
+        ctx.record_error("bytes pop expects no arguments".to_string());
+        return false;
+    }
+    let buf = ctx.allocate_local("__bytes_pop_buf".to_string(), None);
+    let nm1 = ctx.allocate_local("__bytes_pop_nm1".to_string(), None);
+    let popped = ctx.allocate_local("__bytes_pop_byte".to_string(), None);
+
+    instructions.push(Instruction::LoadState(state_index));
+    instructions.push(Instruction::Convert {
+        target: ConvertTarget::ByteArray,
+    });
+    instructions.push(Instruction::StoreLocal(buf));
+
+    let empty_label = ctx.next_label();
+    let end_label = ctx.next_label();
+
+    // size != 0 ? continue : Panic(0x31). JumpIf branches when FALSE (size == 0).
+    instructions.push(Instruction::LoadLocal(buf));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
+    instructions.push(Instruction::JumpIf {
+        target: empty_label,
+    });
+
+    // nm1 = size - 1
+    instructions.push(Instruction::LoadLocal(buf));
+    instructions.push(Instruction::GetSize);
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
+    instructions.push(Instruction::StoreLocal(nm1));
+
+    // popped = buf[nm1 : nm1+1]
+    instructions.push(Instruction::LoadLocal(buf));
+    instructions.push(Instruction::LoadLocal(nm1));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::StoreLocal(popped));
+
+    // data = buf[0 : nm1]
+    instructions.push(Instruction::LoadLocal(buf));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::LoadLocal(nm1));
+    instructions.push(Instruction::Substr);
+    instructions.push(Instruction::StoreState(state_index));
+
+    instructions.push(Instruction::LoadLocal(popped));
+    instructions.push(Instruction::Jump { target: end_label });
+
+    instructions.push(Instruction::Label(empty_label));
+    emit_panic(0x31, instructions);
+
+    instructions.push(Instruction::Label(end_label));
+    true
 }
 
 pub(crate) fn lower_state_array_push(

@@ -656,22 +656,24 @@ pub(crate) fn emit_abi_decode_dynamic_struct_tail_runtime(
     instructions.push(Instruction::LoadLocal(struct_local));
 }
 
-/// Convert the little-endian byte Buffer on top of the stack into an
-/// UNSIGNED integer.
+/// Convert the little-endian 32-byte slot Buffer on top of the stack into the
+/// canonical NeoVM integer for a decoded `uint256`.
 ///
-/// NeoVM `CONVERT → Integer` interprets byte buffers as SIGNED
-/// little-endian, so a canonical uint256 slot with the top bit set
-/// (value >= 2^255) would decode negative — `abi.decode(abi.encode(
-/// type(uint256).max), (uint256))` yielded -1. When the signed
-/// interpretation is negative we append a single 0x00 sign byte before
-/// the convert, matching the sign-byte discipline the wide bitwise path
-/// already uses (`u256_bigint_to_stack_item` in
-/// `runtime/execution/helpers/bitwise.rs`, Task #118). The append is
-/// CONDITIONAL on negativity so the common case (< 2^255) keeps the
-/// plain 32-byte convert.
+/// The 32-byte little-endian slot IS the conformant uint256 representation: a
+/// 32-byte two's-complement integer. NeoVM `CONVERT → Integer` reads it as a
+/// SIGNED little-endian value, which is exactly the canonical form the rest of
+/// the runtime uses — a `uint256 >= 2^255` reads back as its negative
+/// two's-complement, byte-identical to the same value produced by a literal or
+/// by arithmetic, so `abi.decode(abi.encode(x)) == x` holds across the whole
+/// uint256 domain.
+///
+/// (An earlier revision appended a conditional `0x00` sign byte to force a
+/// POSITIVE 33-byte magnitude — the non-conformant unsigned-magnitude model,
+/// since removed: a real node stores two's-complement, and a 33-byte integer
+/// exceeds NeoVM's 32-byte limit.)
 ///
 /// Stack on entry: `[le_bytes_buffer]`.
-/// Stack on exit:  `[unsigned_integer]`.
+/// Stack on exit:  `[integer]`.
 pub(crate) fn emit_le_buffer_to_unsigned_integer(
     _ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,

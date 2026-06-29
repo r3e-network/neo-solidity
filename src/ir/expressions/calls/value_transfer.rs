@@ -60,10 +60,34 @@ pub(crate) fn try_lower_value_transfer_helpers(
     // equivalent is calling the GAS native contract's `transfer` method.
     if let Expression::MemberAccess(_, inner, member) = func {
         if matches!(member.name.as_str(), "transfer" | "send") && args.len() == 1 {
-            let is_address_target = matches!(
-                infer_type_from_expression(inner.as_ref(), ctx),
-                Some(ValueType::Address)
-            );
+            // A contract/interface handle cast — `IToken(addr).transfer(x)` /
+            // `IMail(addr).send(x)` — also infers as `Address`, but it must lower
+            // to a cross-contract CALL of the interface's own `transfer`/`send`
+            // method, NOT a GAS value send. Decline here so dispatch falls through
+            // to the external-call path (member_calls). A plain `address`/
+            // `payable(x)` target stays a value transfer: `payable` is not a
+            // contract/interface type name, so this guard leaves it untouched.
+            let inner_is_contract_handle = match inner.as_ref() {
+                Expression::FunctionCall(_, cast_func, cast_args) if cast_args.len() == 1 => {
+                    match cast_func.as_ref() {
+                        Expression::Variable(id) => {
+                            ctx.is_contract_type_name(&id.name)
+                                || ctx.is_interface_type_name(&id.name)
+                        }
+                        Expression::MemberAccess(_, _, id) => {
+                            ctx.is_contract_type_name(&id.name)
+                                || ctx.is_interface_type_name(&id.name)
+                        }
+                        _ => false,
+                    }
+                }
+                _ => false,
+            };
+            let is_address_target = !inner_is_contract_handle
+                && matches!(
+                    infer_type_from_expression(inner.as_ref(), ctx),
+                    Some(ValueType::Address)
+                );
 
             if is_address_target {
                 // GAS.transfer(from, to, amount, data)

@@ -644,6 +644,138 @@ contract C {
     assert!(r.iter().all(|&x| x == 0), "addmod(_,_,0) must be 0, got {r:?}");
 }
 
+/// #10 — `intN(bytesN)` must reverse big-endian↔little-endian like `uintN(bytesN)`
+/// does. The signed-cast branch omitted the reversal, so `int256(bytes32(1))`
+/// decoded as 2^248 and diverged from `uint256(bytes32(1))`.
+#[test]
+fn int_cast_of_bytesn_reverses_like_uint_cast() {
+    // int256(b) must equal uint256(b) reinterpreted, and both must equal 1 for
+    // b = bytes32(uint256(1)).
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function asInt(bytes32 b) external pure returns (int256) { return int256(b); }
+    function asUint(bytes32 b) external pure returns (uint256) { return uint256(b); }
+    function narrow(bytes4 b) external pure returns (int32) { return int32(b); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str, arg: StackItem| -> (bool, Vec<u8>) {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[arg])
+            .expect("call");
+        (r.success, r.return_data)
+    };
+    // bytes32(uint256(1)) big-endian = 31 zero bytes then 0x01.
+    let mut b32 = vec![0u8; 32];
+    b32[31] = 1;
+    let (ok, rd) = call("asInt", StackItem::byte_array(b32.clone()));
+    assert!(ok, "int256(bytes32) must succeed");
+    assert_eq!(le_u128(&rd), 1, "int256(bytes32(1)) must be 1, not 2^248");
+    let (ok, rd) = call("asUint", StackItem::byte_array(b32));
+    assert!(ok);
+    assert_eq!(le_u128(&rd), 1, "uint256(bytes32(1)) must be 1 (control)");
+    // bytes4 0xFFFFFFFF as int32 == -1.
+    let (ok, rd) = call("narrow", StackItem::byte_array(vec![0xFFu8; 4]));
+    assert!(ok, "int32(bytes4) must succeed");
+    // -1 little-endian minimal form is 0xFF (one byte); interpret signed.
+    let signed = if rd.is_empty() { 0i128 } else {
+        let mut v = 0i128;
+        for (i, &b) in rd.iter().take(16).enumerate() { v |= (b as i128) << (8 * i); }
+        // sign-extend from the top set byte
+        let bits = rd.len().min(16) * 8;
+        if bits < 128 && (v >> (bits - 1)) & 1 == 1 { v |= -1i128 << bits; }
+        v
+    };
+    assert_eq!(signed, -1, "int32(bytes4(0xFFFFFFFF)) must be -1, got {rd:?}");
+}
+
+/// #12 — storage `bytes` `.push(b)` / `.pop()` previously compiled to a SILENT
+/// no-op (the lowering required `ValueType::Array`, bailed for `bytes`, and the
+/// fallback dropped the args and wrote nothing). They must mutate the stored
+/// ByteString and revert Panic(0x31) on empty-pop.
+#[test]
+fn storage_bytes_push_pop_mutates_and_underflows() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes public data;
+    function add(bytes1 b) external { data.push(b); }
+    function popOne() external { data.pop(); }
+    function len() external view returns (uint256) { return data.length; }
+    function at(uint256 i) external view returns (bytes1) { return data[i]; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.metadata.name == "C").expect("C artifact");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let call = |rt: &mut NeoRuntime, m: &str, args: &[StackItem]| -> (bool, Vec<u8>) {
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, args)
+            .expect("call");
+        (r.success, r.return_data)
+    };
+    // push 0xAB → len 1, data[0] == 0xAB
+    let (ok, _) = call(&mut rt, "add", &[StackItem::byte_array(vec![0xAB])]);
+    assert!(ok, "push 0xAB must succeed");
+    let (_, rd) = call(&mut rt, "len", &[]);
+    assert_eq!(rd.first().copied(), Some(1), "len after one push must be 1 (was a silent no-op)");
+    let (_, rd) = call(&mut rt, "at", &[StackItem::Integer(0)]);
+    assert_eq!(rd, vec![0xAB], "data[0] must be the pushed byte");
+    // push 0xCD → len 2, data[1] == 0xCD
+    call(&mut rt, "add", &[StackItem::byte_array(vec![0xCD])]);
+    let (_, rd) = call(&mut rt, "len", &[]);
+    assert_eq!(rd.first().copied(), Some(2), "len after two pushes must be 2");
+    let (_, rd) = call(&mut rt, "at", &[StackItem::Integer(1)]);
+    assert_eq!(rd, vec![0xCD], "data[1] must be the second pushed byte");
+    // pop → len 1
+    let (ok, _) = call(&mut rt, "popOne", &[]);
+    assert!(ok, "pop must succeed");
+    let (_, rd) = call(&mut rt, "len", &[]);
+    assert_eq!(rd.first().copied(), Some(1), "len after pop must be 1");
+    // pop last → len 0
+    call(&mut rt, "popOne", &[]);
+    let (_, rd) = call(&mut rt, "len", &[]);
+    assert!(rd.iter().all(|&x| x == 0), "len after popping all must be 0");
+    // pop on empty → Panic(0x31) revert
+    let (ok, _) = call(&mut rt, "popOne", &[]);
+    assert!(!ok, "pop on empty bytes must revert Panic(0x31)");
+}
+
+/// #11 — a single-arg interface method named `transfer`/`send` (e.g.
+/// `IToken(t).transfer(100)`) was hijacked into a GAS native value transfer
+/// because interface handles infer as `Address`. It must lower to a
+/// cross-contract CALL of the interface method instead. A plain
+/// `payable(t).send(x)` must STILL be a GAS transfer.
+#[test]
+fn interface_send_is_contract_call_not_gas_native_send() {
+    const GAS_LE: [u8; 20] = [
+        0xcf, 0x76, 0xe2, 0x8b, 0xd0, 0x06, 0x2c, 0x4a, 0x47, 0x8e, 0xe3, 0x55, 0x61, 0x01, 0x13,
+        0x19, 0xf3, 0xcf, 0xa4, 0xd2,
+    ];
+    let references_gas = |src: &str| -> bool {
+        let arts = compile_contracts(src, false, 2).expect("compile");
+        let art = arts.iter().find(|a| a.metadata.name == "C").expect("C artifact");
+        art.bytecode.windows(20).any(|w| w == GAS_LE)
+            || art.tokens.iter().any(|t| t.hash == GAS_LE)
+    };
+    let interface_form = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+interface IMail { function send(uint256 x) external returns (bool); }
+contract C { function run(address t) external returns (bool) { return IMail(t).send(100); } }"#;
+    let plain_form = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C { function run(address t) external returns (bool) { return payable(t).send(100); } }"#;
+    assert!(
+        !references_gas(interface_form),
+        "IMail(t).send(x) must be a cross-contract call, not a GAS native transfer"
+    );
+    assert!(
+        references_gas(plain_form),
+        "payable(t).send(x) must remain a GAS native transfer (control)"
+    );
+}
+
 /// Read `return_data` as a little-endian unsigned integer (for moderate values).
 fn le_u128(rd: &[u8]) -> u128 {
     let mut v = 0u128;
