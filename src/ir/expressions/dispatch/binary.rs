@@ -44,7 +44,7 @@ pub(crate) fn fixed_len_bytes_be_from_hex_number(
 /// canonicalizes a constant to big-endian bytes when the OTHER operand is
 /// NOT integer-backed (else two integer-backed operands, which already compare
 /// correctly, would be mismatched).
-fn is_integer_backed_bytesn_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
+pub(crate) fn is_integer_backed_bytesn_operand(expr: &Expression, ctx: &LoweringContext) -> bool {
     let inner = match expr {
         Expression::Parenthesis(_, e) => e.as_ref(),
         other => other,
@@ -64,7 +64,7 @@ fn is_integer_backed_bytesn_operand(expr: &Expression, ctx: &LoweringContext) ->
 /// Big-endian fixed-width bytes for a `bytesN` operand that is either an inline
 /// hex-number literal or a `bytesN` named constant (resolved to its initializer
 /// literal). Returns `None` for anything else.
-fn fixed_len_bytes_be_from_hex_or_const(
+pub(crate) fn fixed_len_bytes_be_from_hex_or_const(
     expr: &Expression,
     fixed_len: u16,
     ctx: &LoweringContext,

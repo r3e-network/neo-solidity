@@ -306,6 +306,26 @@ pub(crate) fn lower_static_abi_slots_for_expr(
             Some(fields.len())
         }
         other if is_static_abi_type_value(&other) => {
+            // A `bytesN` argument that is INTEGER-backed (a hex literal or a
+            // named `bytesN` constant) is pushed little-endian / pre-reversed,
+            // which the slot encoder would emit byte-reversed (N==32) or fault on
+            // (N<32 via `GetSize`). Resolve it to its big-endian bytes and emit a
+            // left-aligned 32-byte slot directly. ByteArray-backed values
+            // (keccak/cast/storage/param) keep the normal (correct) path.
+            if let ValueType::ByteArray {
+                fixed_len: Some(n),
+            } = other
+            {
+                if is_integer_backed_bytesn_operand(expr, ctx) {
+                    if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expr, n, ctx) {
+                        let mut slot = be; // exactly `n` big-endian bytes
+                        slot.resize(32, 0); // left-aligned, zero-padded to the 32-byte slot
+                        instructions
+                            .push(Instruction::PushLiteral(LiteralValue::ByteArray(slot)));
+                        return Some(1);
+                    }
+                }
+            }
             if !lower_expression(expr, ctx, instructions) {
                 return Some(0);
             }

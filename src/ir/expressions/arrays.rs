@@ -1,5 +1,29 @@
 use super::*;
 
+/// Lower a subscript's array operand. A `bytesN` value that is INTEGER-backed
+/// (a hex literal or a named `bytesN` constant) is pushed little-endian, so
+/// `b[i]` would index the wrong byte — Solidity's `b[0]` is the MOST-significant
+/// byte. Push its big-endian bytes as a ByteString so the PICKITEM below reads
+/// the Solidity byte order. Everything else lowers normally (a runtime bytesN
+/// value is already big-endian, and non-bytesN operands are unaffected).
+fn lower_indexable_array_operand(
+    array: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if let Some(ValueType::ByteArray { fixed_len: Some(n) }) =
+        infer_type_from_expression(array, ctx)
+    {
+        if is_integer_backed_bytesn_operand(array, ctx) {
+            if let Some(be) = fixed_len_bytes_be_from_hex_or_const(array, n, ctx) {
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(be)));
+                return true;
+            }
+        }
+    }
+    lower_expression(array, ctx, instructions)
+}
+
 pub(crate) fn lower_array_subscript_expression(
     expr: &Expression,
     array: &Expression,
@@ -57,7 +81,7 @@ pub(crate) fn lower_array_subscript_expression(
             return false;
         }
         emit_storage_load(&reference, ctx, instructions)
-    } else if lower_expression(array, ctx, instructions)
+    } else if lower_indexable_array_operand(array, ctx, instructions)
         && lower_expression(index, ctx, instructions)
     {
         // Task #107 — emit an explicit bounds guard so array-index-OOB

@@ -124,15 +124,14 @@ contract C {
     assert_eq!(got, min_le, "unchecked int256.min / -1 must wrap to int256.min");
 }
 
-/// #4 — `abi.encode` of a `bytesN` value should produce a correct fixed-width,
+/// #4 — `abi.encode` of a `bytesN` value must produce a correct fixed-width,
 /// left-aligned, big-endian 32-byte slot regardless of how the value is backed.
-/// KNOWN-FAILING (deep-review #4): Integer-backed `bytesN` (hex
-/// literals/constants) are byte-reversed for N==32 and fault on `SIZE` for
-/// N<32, while ByteArray-backed values (keccak output) are correct. Fixing it
-/// needs the lowered value's backing tracked — see the limitation note in
-/// `abi_encode.rs`. This test pins the TARGET behavior; un-ignore it once the
-/// backing is tracked.
-#[ignore = "deep-review #4: bytesN abi.encode reversal depends on Integer-vs-ByteArray backing"]
+/// Fixed: an Integer-backed `bytesN` static arg (hex literal / named constant)
+/// is now resolved to its big-endian bytes and emitted as a left-aligned slot,
+/// instead of the byte-reversed (N==32) / `SIZE`-faulting (N<32) encoder path;
+/// ByteArray-backed values (keccak output) keep their correct path. (A bytesN
+/// constant as a struct FIELD, or alongside a dynamic arg via the head/tail
+/// path, still uses the encoder — rarer, see the abi_encode.rs note.)
 #[test]
 fn abi_encode_bytesn_produces_correct_fixed_width_slot() {
     // `z` is a runtime arg so the multi-arg static-slot path is exercised
@@ -365,4 +364,32 @@ contract C {
     let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
     let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "constEq", &[]).expect("call");
     assert!(r.success && r.return_data.first().copied() == Some(1u8), "ROLE == ROLE2 must stay true");
+}
+
+/// deep-review bytesN indexing — `b[i]` on an Integer-backed `bytesN` (a hex
+/// literal / named constant) indexed the little-endian byte span, returning the
+/// byte from the wrong end. Solidity `b[0]` is the MOST-significant byte. Fixed
+/// by canonicalizing the constant to big-endian bytes before PICKITEM.
+#[test]
+fn bytesn_constant_indexing_uses_solidity_byte_order() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes32 constant ROLE = 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;
+    function first() external pure returns (bytes1) { return ROLE[0]; }
+    function last()  external pure returns (bytes1) { return ROLE[31]; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call0 = |m: &str| -> Vec<u8> {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[])
+            .expect("call");
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        r.return_data
+    };
+    // ROLE[0] is the most-significant byte 0x00; ROLE[31] is the least, 0xff.
+    assert_eq!(call0("first"), vec![0x00u8], "ROLE[0] must be the MSB 0x00");
+    assert_eq!(call0("last"), vec![0xffu8], "ROLE[31] must be the LSB 0xff");
 }
