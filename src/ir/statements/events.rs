@@ -319,6 +319,28 @@ pub(crate) fn lower_emit_evm_shape(
             });
             continue;
         }
+        // A bare hex literal / named constant declared as an indexed `bytesN`
+        // topic is INTEGER-backed; the generic static-slot encoder infers it as
+        // a number and emits a RIGHT-aligned (uint-style) slot, corrupting the
+        // topic. `bytesN` topics are LEFT-aligned, so resolve the literal to its
+        // big-endian bytes and emit a left-aligned 32-byte slot directly
+        // (mirrors the multi-return + abi.encode bytesN fixes).
+        if let Some(n) = info
+            .canonical_type
+            .strip_prefix("bytes")
+            .and_then(|s| s.parse::<u16>().ok())
+            .filter(|n| (1..=32).contains(n))
+        {
+            if is_integer_backed_bytesn_operand(arg, ctx) {
+                if let Some(be) = fixed_len_bytes_be_from_hex_or_const(arg, n, ctx) {
+                    let mut slot = be;
+                    slot.resize(32, 0);
+                    instructions
+                        .push(Instruction::PushLiteral(LiteralValue::ByteArray(slot)));
+                    continue;
+                }
+            }
+        }
         let pre = instructions.len();
         match lower_static_abi_slots_for_expr(arg, ctx, instructions, false) {
             Some(0) => {

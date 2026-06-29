@@ -465,3 +465,57 @@ contract C {
         .expect("call doit#2");
     assert!(r2.success, "doit(true)#2 must succeed (guard was reset), got fault: {:?}", r2.exception.as_ref().map(|e| &e.message));
 }
+
+/// deep-review #7 — a bare hex literal implicitly returned as `bytesN` (in a
+/// multi-return tuple) must be LEFT-aligned in its 32-byte ABI slot (bytesN),
+/// not RIGHT-aligned (uint-style). Previously the literal was encoded as a
+/// uint, corrupting the returned tuple for any ABI decoder.
+#[test]
+fn multi_return_bytesn_literal_is_left_aligned() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function f() external pure returns (bool, bytes4) { return (true, 0x11223344); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[])
+        .expect("call");
+    assert!(r.success, "f faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(r.return_data.len(), 64, "(bool, bytes4) ABI-encodes to 64 bytes");
+    // slot 0: bool true, right-aligned.
+    let mut expect_bool = vec![0u8; 32]; expect_bool[31] = 1;
+    assert_eq!(&r.return_data[0..32], expect_bool.as_slice(), "bool slot");
+    // slot 1: bytes4 0x11223344 LEFT-aligned (not 0x00..0011223344).
+    let mut expect_b4 = vec![0u8; 32]; expect_b4[..4].copy_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+    assert_eq!(&r.return_data[32..64], expect_b4.as_slice(), "bytes4 must be left-aligned");
+}
+
+/// Regression for finding #7 (indexed-event variant): a bare hex-number literal
+/// emitted as an `indexed bytesN` topic was ABI-encoded RIGHT-aligned (uint
+/// style) by the generic static-slot encoder, producing a corrupt EVM topic.
+/// `bytesN` topics must be LEFT-aligned. Verifies the fix in
+/// `lower_emit_evm_shape`.
+#[test]
+fn indexed_event_bytesn_literal_topic_is_left_aligned() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    event Tag(bytes4 indexed t);
+    function f() external { emit Tag(0x11223344); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "f", &[])
+        .expect("call");
+    assert!(r.success, "f faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    let log = r.logs.first().expect("an event must be emitted");
+    // topics[0] = keccak(signature); topics[1] = the indexed bytes4 arg.
+    assert!(log.topics.len() >= 2, "expected topic0 + 1 indexed topic, got {}", log.topics.len());
+    let mut expect = vec![0u8; 32]; expect[..4].copy_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+    assert_eq!(log.topics[1], expect, "indexed bytes4 topic must be left-aligned");
+}

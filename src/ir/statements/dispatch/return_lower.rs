@@ -120,9 +120,22 @@ pub(crate) fn lower_return_statement(
                     .map(|(_, param)| param.as_ref().map(|p| p.ty.clone()))
                     .collect();
                 if let Some(tuple_exprs) = tuple_exprs.as_ref() {
-                    if !tuple_exprs
-                        .iter()
-                        .any(|expr| matches!(expr, Expression::List(_, _)))
+                    // `lower_abi_encode_args_direct_from_slice` encodes each
+                    // element by its INFERRED expression type, which for a bare
+                    // hex literal is a number → a RIGHT-aligned (uint-style)
+                    // slot. When the DECLARED return type is `bytesN`, the slot
+                    // must be LEFT-aligned, so skip this fast path and fall
+                    // through to the declared-type-aware loop below (which
+                    // canonicalizes the literal via `lower_static_abi_return_expr_slot`).
+                    let has_bytesn_literal_mismatch =
+                        return_types.iter().zip(tuple_exprs.iter()).any(|(rt, e)| {
+                            matches!(rt, ValueType::ByteArray { fixed_len: Some(_) })
+                                && is_integer_backed_bytesn_operand(e, ctx)
+                        });
+                    if !has_bytesn_literal_mismatch
+                        && !tuple_exprs
+                            .iter()
+                            .any(|expr| matches!(expr, Expression::List(_, _)))
                     {
                         let original_len = instructions.len();
                         if let Some(ok) =

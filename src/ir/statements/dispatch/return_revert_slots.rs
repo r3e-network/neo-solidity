@@ -138,6 +138,24 @@ pub(crate) fn lower_static_abi_return_expr_slot(
     ctx: &mut LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
+    // A bare hex literal / named constant implicitly returned as `bytesN` is
+    // INTEGER-backed (pushed little-endian), so the generic slot encoder would
+    // emit it RIGHT-aligned (uint-style) — but `bytesN` is LEFT-aligned.
+    // Resolve it to its big-endian bytes against the DECLARED return type and
+    // emit a left-aligned slot directly (mirrors the abi.encode fix).
+    if let ValueType::ByteArray {
+        fixed_len: Some(n),
+    } = value_type
+    {
+        if is_integer_backed_bytesn_operand(expr, ctx) {
+            if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expr, *n, ctx) {
+                let mut slot = be; // exactly `n` big-endian bytes
+                slot.resize(32, 0); // left-aligned, zero-padded to the 32-byte slot
+                instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(slot)));
+                return true;
+            }
+        }
+    }
     if !lower_expression(expr, ctx, instructions) {
         return false;
     }
