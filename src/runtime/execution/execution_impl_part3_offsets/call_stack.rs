@@ -26,6 +26,7 @@ impl ExecutionContext {
             syscall_result_expected: false,
             storage_snapshot: None,
             saved_call_flags: None,
+            expect_revert_guard: None,
         };
 
         self.call_stack.push(frame);
@@ -74,6 +75,13 @@ impl ExecutionContext {
             // `saved_call_flags = None` and leave the active flags untouched.
             if let Some(caller_flags) = frame.saved_call_flags {
                 self.active_call_flags = caller_flags;
+            }
+            // neo-test `vm.expectRevert`: a guarded call that RETURNS (instead
+            // of reverting) violates the expectation — fault so the test fails.
+            if frame.expect_revert_guard.is_some() {
+                return Err(RuntimeError::ExecutionError {
+                    message: "expectRevert: call did not revert".to_string(),
+                });
             }
             Ok(())
         } else {

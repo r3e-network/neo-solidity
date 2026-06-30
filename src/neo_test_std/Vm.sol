@@ -33,6 +33,11 @@ interface Vm {
 
     /// Rejects the current input when `condition` is false (fuzzing helper).
     function assume(bool condition) external;
+
+    /// Expects the NEXT call to revert (for any reason). The test passes if
+    /// that call reverts and continues; if it does NOT revert, the test fails
+    /// with "expectRevert: call did not revert".
+    function expectRevert() external;
 }
 
 /// Base that exposes the cheatcode handle `vm`. `Test` inherits this, so any

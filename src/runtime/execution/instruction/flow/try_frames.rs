@@ -7,6 +7,14 @@ impl ExecutionContext {
 
         loop {
             let Some(frame) = self.try_stack.last().cloned() else {
+                // No try frame catches this revert. If a neo-test
+                // `vm.expectRevert` guard is armed on a call frame, the
+                // expectation is satisfied: swallow the revert there and resume
+                // as if the guarded call had returned. Inert for every normal
+                // execution (no guard armed).
+                if let Some(result) = self.try_satisfy_expect_revert() {
+                    return result;
+                }
                 return Err(RuntimeError::ExecutionError { message });
             };
 
@@ -92,6 +100,67 @@ impl ExecutionContext {
             // Defensive: malformed try frame (no catch or finally).
             self.try_stack.pop();
         }
+    }
+
+    /// neo-test `vm.expectRevert` support. If a call frame carries an armed
+    /// expectation and the in-flight revert matches it, unwind to that frame
+    /// (restoring storage / flags / locals exactly as the catch path does),
+    /// resume as if the guarded call returned `Null`, and report the
+    /// expectation as satisfied (`Some(Ok)`). Returns `None` when there is no
+    /// guard, or the guard required a specific payload that does not match the
+    /// actual revert — in which case the caller lets the revert propagate so
+    /// the test fails with the real (unexpected) reason.
+    fn try_satisfy_expect_revert(&mut self) -> Option<Result<(), RuntimeError>> {
+        // Topmost guarded frame, if any.
+        let guard_depth = self
+            .call_stack
+            .iter()
+            .rposition(|f| f.expect_revert_guard.is_some())?;
+        // `Some(Some(payload))` requires an exact match; `Some(None)` matches
+        // any revert. A mismatch means the call reverted for the wrong reason —
+        // do not swallow.
+        if let Some(expected) = self.call_stack[guard_depth]
+            .expect_revert_guard
+            .clone()
+            .flatten()
+        {
+            if expected != self.revert_payload {
+                return None;
+            }
+        }
+        // Unwind call frames from the top down to AND INCLUDING the guarded
+        // frame, restoring each frame's caller state (mirror of the catch-path
+        // unwinding above).
+        let resume_ip;
+        loop {
+            let Some(callee) = self.call_stack.pop() else {
+                return Some(Err(RuntimeError::ExecutionError {
+                    message: "expectRevert: call-stack underflow".to_string(),
+                }));
+            };
+            self.stack.truncate(callee.stack_base);
+            self.locals = callee.saved_locals;
+            self.args = callee.saved_args;
+            if let Some(snapshot) = callee.storage_snapshot {
+                self.restore_storage_snapshot(snapshot);
+            }
+            if let Some(flags) = callee.saved_call_flags {
+                self.active_call_flags = flags;
+            }
+            if callee.expect_revert_guard.is_some() {
+                resume_ip = callee.return_address;
+                break;
+            }
+        }
+        // The guarded call "returns" — push the single Null result the
+        // external-call caller site expects (same contract as a void callee).
+        if let Err(e) = self.push_stack(StackItem::Null) {
+            return Some(Err(e));
+        }
+        self.uncaught_exception = None;
+        self.revert_payload.clear();
+        self.instruction_pointer = resume_ip;
+        Some(Ok(()))
     }
 
     pub(crate) fn execute_flow_try_frames(&mut self, opcode: u8) -> Result<bool, RuntimeError> {

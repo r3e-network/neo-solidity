@@ -120,8 +120,17 @@ contract VaultTest is Test {
 | `vm.warp(secs)` | Sets `block.timestamp` (seconds). |
 | `vm.roll(n)` | Sets `block.number`. |
 | `vm.deal(addr, amount)` | Sets the account's GAS balance (read via `addr.balance`). |
+| `vm.expectRevert()` | Expects the **next** call to revert; the revert is swallowed and execution continues. Fails the test if the call does not revert. |
 | `vm.label(addr, name)` | Cosmetic; accepted and ignored. |
 | `vm.assume(cond)` | Rejects the current input when `cond` is false. |
+
+```solidity
+function testWithdrawTooMuchReverts() public {
+    vm.expectRevert();
+    vault.withdraw(1 ether);   // reverts (empty vault) -> caught, test passes
+    assertEq(vault.balanceOf(address(this)), 0);  // execution continues
+}
+```
 
 ## Decoded failure reasons
 

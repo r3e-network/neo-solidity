@@ -1567,3 +1567,62 @@ contract C {
         );
     }
 }
+
+/// Regression (neo-test `vm.expectRevert`): arming the cheat makes the next
+/// cross-contract call's revert be SWALLOWED (execution continues) and rolls
+/// back that call's storage; if the guarded call does NOT revert, it's a
+/// violation that faults. The hooks live in the exception path
+/// (try_frames.rs::try_satisfy_expect_revert) + return_from_function, gated on
+/// a per-frame guard that is `None` for every non-expectRevert call.
+#[test]
+fn expect_revert_swallows_and_continues_else_faults() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+interface Vm { function expectRevert() external; }
+contract Target {
+    uint256 public x;
+    function boom() external { require(false, "kaboom"); }
+    function ok() external returns (uint256) { x = 7; return 7; }
+}
+contract Host {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+    Target t;
+    constructor() { t = new Target(); }
+    function expectAndContinue() external returns (uint256) {
+        vm.expectRevert();
+        t.boom();            // reverts -> swallowed by expectRevert
+        return t.ok();       // execution continues -> 7
+    }
+    function expectButNoRevert() external returns (uint256) {
+        vm.expectRevert();
+        return t.ok();       // does NOT revert -> violation -> fault
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let host = arts.iter().find(|a| a.metadata.name == "Host").expect("Host");
+    let be = |rd: &[u8]| rd.iter().take(16).enumerate().fold(0u128, |a, (i, &b)| {
+        a + ((b as u128) << (8 * i))
+    });
+
+    // expectAndContinue: succeeds, returns 7 (continued past the swallow).
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&host.bytecode, &host.tokens, &host.manifest, "expectAndContinue", &[])
+        .expect("expectAndContinue");
+    assert!(
+        r.success,
+        "expectAndContinue must succeed (revert swallowed): {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(be(&r.return_data), 7, "must continue and return 7 (rd={:?})", r.return_data);
+
+    // expectButNoRevert: the guarded call did not revert -> violation -> fault.
+    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("rt2");
+    let r2 = rt2
+        .call_method(&host.bytecode, &host.tokens, &host.manifest, "expectButNoRevert", &[])
+        .expect("expectButNoRevert host-level");
+    assert!(
+        !r2.success,
+        "expectButNoRevert must FAIL: a guarded call that does not revert is a violation"
+    );
+}

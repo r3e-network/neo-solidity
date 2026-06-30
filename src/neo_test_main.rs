@@ -100,6 +100,7 @@ fn print_help() {
          \x20 vm.prank(addr) / startPrank / stopPrank   set msg.sender\n\
          \x20 vm.warp(secs) / vm.roll(n)                set block.timestamp / number\n\
          \x20 vm.deal(addr, amount)                     set GAS balance\n\
+         \x20 vm.expectRevert()                         next call must revert\n\
          \x20 vm.label(addr, name) / vm.assume(cond)"
     );
 }

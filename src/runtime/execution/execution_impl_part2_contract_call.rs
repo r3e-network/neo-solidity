@@ -152,8 +152,13 @@ impl ExecutionContext {
                 // so we can (a) stash them on the frame for restore-on-return
                 // and (b) arm the callee's active flags after the borrow ends.
                 let caller_flags = self.active_call_flags;
+                // neo-test `vm.expectRevert`: transfer a one-shot armed
+                // expectation onto THIS call's frame, so a revert that unwinds
+                // here is swallowed (and a normal return is a violation).
+                let expect_revert_guard = self.expect_revert.take();
                 if let Some(frame) = self.call_stack.last_mut() {
                     frame.msg_sender_override = Some(caller_executing_hash);
+                    frame.expect_revert_guard = expect_revert_guard;
                     // Task #160 — mark the frame so `return_from_function`
                     // synthesises a `StackItem::Null` result for void callees.
                     // The caller site emitted by `try_catch.rs` (and the generic
@@ -362,6 +367,16 @@ impl ExecutionContext {
                         message: "vm.assume(false): rejected input".to_string(),
                     });
                 }
+            }
+            // vm.expectRevert() / vm.expectRevert(bytes) — arm the next-call
+            // revert expectation. `expectRevert()` (no args) matches any
+            // revert; `expectRevert(payload)` requires an exact payload match.
+            "expectRevert" => {
+                self.expect_revert = Some(if args.is_empty() {
+                    None
+                } else {
+                    Some(arg_bytes(0))
+                });
             }
             _ => {}
         }

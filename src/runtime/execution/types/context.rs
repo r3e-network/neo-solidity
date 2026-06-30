@@ -136,6 +136,13 @@ pub struct ExecutionContext {
     /// Persistent `vm.startPrank(addr)` … `vm.stopPrank()`: EVERY subsequent
     /// cross-contract call observes `addr` as `msg.sender` until stopped.
     pub(crate) sticky_prank: Option<Vec<u8>>,
+    /// `vm.expectRevert()` / `vm.expectRevert(bytes)`: armed expectation that
+    /// the NEXT cross-contract call reverts. Transferred onto that call's frame
+    /// (`expect_revert_guard`) when it is pushed, then cleared. `Some(None)` =
+    /// expect any revert; `Some(Some(payload))` = expect this exact revert
+    /// payload. `None` = no expectation (the common case for every existing
+    /// test, so the guard branches below are inert unless a test opts in).
+    pub(crate) expect_revert: Option<Option<Vec<u8>>>,
     /// Task #113: value set by `NeoRuntime::override_value` /
     /// `ExecutionOverrides::value`. Drained into `msg_value` on each
     /// `initialize` call so the override applies to exactly one execution,

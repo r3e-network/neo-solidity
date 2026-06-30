@@ -74,6 +74,14 @@ pub struct CallFrame {
     /// calls do not cross a contract boundary and inherit the caller's flags
     /// unchanged, so there is nothing to save or restore.
     pub saved_call_flags: Option<u8>,
+    /// neo-test `vm.expectRevert`: when a contract-call frame is pushed with an
+    /// armed expectation, it is recorded here. A revert that unwinds to this
+    /// frame is SWALLOWED (the call is treated as having returned), satisfying
+    /// the expectation; a NORMAL return from this frame is a violation (the
+    /// guarded call was expected to revert but didn't). `Some(None)` = expect
+    /// any revert; `Some(Some(payload))` = expect this exact payload. `None`
+    /// (the default for every frame) leaves both paths inert.
+    pub expect_revert_guard: Option<Option<Vec<u8>>>,
 }
 
 impl CallFrame {
@@ -90,6 +98,7 @@ impl CallFrame {
             syscall_result_expected: false,
             storage_snapshot: None,
             saved_call_flags: None,
+            expect_revert_guard: None,
         }
     }
 
