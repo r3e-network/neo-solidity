@@ -190,6 +190,17 @@ pub(crate) fn infer_type_from_expression_inner(
 ) -> Option<ValueType> {
     match expr {
         Expression::Parenthesis(_, inner) => infer_type_from_expression(inner, ctx),
+        // A ternary `c ? a : b` has the common type of its two branches. Without
+        // this arm the result inferred `None`, which silently disabled the
+        // bytesN-vs-hex-literal canonicalization in comparison lowering: e.g.
+        // `(c ? a : b) == 0x..` (bytesN operands) left the literal as an Integer
+        // and emitted a type-strict `EQUAL(ByteString, Integer)` that is always
+        // false on a real node (defeating sentinel/role `!=` guards). Prefer the
+        // then-branch's type, falling back to the else-branch's.
+        Expression::ConditionalOperator(_, _, then_expr, else_expr) => {
+            infer_type_from_expression(then_expr, ctx)
+                .or_else(|| infer_type_from_expression(else_expr, ctx))
+        }
         Expression::BoolLiteral(_, _) => Some(ValueType::Boolean),
         Expression::NumberLiteral(_, _, _, _)
         | Expression::HexNumberLiteral(_, _, _)

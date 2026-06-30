@@ -144,11 +144,22 @@ pub(crate) fn emit_storage_load(
     // push them in the stack order required by the storage slot hashing routine.
     let mut key_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.key_expressions.iter().enumerate() {
+        let key_ty = reference.key_types.get(index).cloned();
         let local = ctx.allocate_local(
             format!("__storage_key_{tmp_id}_{index}"),
-            reference.key_types.get(index).cloned(),
+            key_ty.clone(),
         );
-        if !lower_expression(expr, ctx, instructions) {
+        // Canonicalize an integer-backed bytesN literal key to its full-width
+        // big-endian ByteString so it hashes to the SAME storage slot as a
+        // runtime bytesN key of the same value. Without this, `m[0x..01]` pushes
+        // an Integer that serializes to a short little-endian ByteString and
+        // keccaks to a DIFFERENT slot than a `bytes32` param key, silently
+        // reading/writing the wrong entry on a real node (the simulator masks
+        // it). Address keys are not integer-backed, so they are unaffected.
+        let canon = key_ty
+            .as_ref()
+            .is_some_and(|ty| try_lower_bytesn_literal_canonical(expr, ty, ctx, instructions));
+        if !canon && !lower_expression(expr, ctx, instructions) {
             return false;
         }
         instructions.push(Instruction::StoreLocal(local));
@@ -158,11 +169,17 @@ pub(crate) fn emit_storage_load(
     // Task #82: evaluate trailing (inner-mapping) keys also left-to-right.
     let mut trailing_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.trailing_key_expressions.iter().enumerate() {
+        let trail_ty = reference.trailing_key_types.get(index).cloned();
         let local = ctx.allocate_local(
             format!("__storage_trail_{tmp_id}_{index}"),
-            reference.trailing_key_types.get(index).cloned(),
+            trail_ty.clone(),
         );
-        if !lower_expression(expr, ctx, instructions) {
+        // Same bytesN-literal-key canonicalization as the outer keys above, so an
+        // inner-mapping literal bytesN key hashes to the runtime key's slot.
+        let canon = trail_ty
+            .as_ref()
+            .is_some_and(|ty| try_lower_bytesn_literal_canonical(expr, ty, ctx, instructions));
+        if !canon && !lower_expression(expr, ctx, instructions) {
             return false;
         }
         instructions.push(Instruction::StoreLocal(local));
@@ -274,11 +291,22 @@ pub(crate) fn emit_storage_store(
     // in the correct order for slot hashing.
     let mut key_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.key_expressions.iter().enumerate() {
+        let key_ty = reference.key_types.get(index).cloned();
         let local = ctx.allocate_local(
             format!("__storage_key_{tmp_id}_{index}"),
-            reference.key_types.get(index).cloned(),
+            key_ty.clone(),
         );
-        if !lower_expression(expr, ctx, instructions) {
+        // Canonicalize an integer-backed bytesN literal key to its full-width
+        // big-endian ByteString so it hashes to the SAME storage slot as a
+        // runtime bytesN key of the same value. Without this, `m[0x..01]` pushes
+        // an Integer that serializes to a short little-endian ByteString and
+        // keccaks to a DIFFERENT slot than a `bytes32` param key, silently
+        // reading/writing the wrong entry on a real node (the simulator masks
+        // it). Address keys are not integer-backed, so they are unaffected.
+        let canon = key_ty
+            .as_ref()
+            .is_some_and(|ty| try_lower_bytesn_literal_canonical(expr, ty, ctx, instructions));
+        if !canon && !lower_expression(expr, ctx, instructions) {
             return false;
         }
         instructions.push(Instruction::StoreLocal(local));
@@ -288,11 +316,17 @@ pub(crate) fn emit_storage_store(
     // Task #82: evaluate trailing (inner-mapping) keys also left-to-right.
     let mut trailing_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.trailing_key_expressions.iter().enumerate() {
+        let trail_ty = reference.trailing_key_types.get(index).cloned();
         let local = ctx.allocate_local(
             format!("__storage_trail_{tmp_id}_{index}"),
-            reference.trailing_key_types.get(index).cloned(),
+            trail_ty.clone(),
         );
-        if !lower_expression(expr, ctx, instructions) {
+        // Same bytesN-literal-key canonicalization as the outer keys above, so an
+        // inner-mapping literal bytesN key hashes to the runtime key's slot.
+        let canon = trail_ty
+            .as_ref()
+            .is_some_and(|ty| try_lower_bytesn_literal_canonical(expr, ty, ctx, instructions));
+        if !canon && !lower_expression(expr, ctx, instructions) {
             return false;
         }
         instructions.push(Instruction::StoreLocal(local));

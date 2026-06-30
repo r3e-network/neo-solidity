@@ -72,6 +72,17 @@ pub(crate) fn emit_builtin_call(
                 bytecode.push(OpCode::PUSH0.byte());
                 bytecode.push(OpCode::NEWBUFFER.byte());
             }
+            // CAT (and NEWBUFFER) yield a NeoVM **Buffer** (0x30). Every concat
+            // result — abi.encode/abi.encodePacked, bytes.concat, tuple-return
+            // ABI payloads, selector/revert envelopes — flows through here, and
+            // a Buffer that is later compared with `==`/`!=` (lowered to EQUAL)
+            // against a ByteString literal, ISTYPE-checked, or returned where the
+            // manifest declares ByteArray, mis-behaves on a real node (EQUAL is
+            // type-strict: Buffer != ByteString). Normalize to ByteString (0x28).
+            // The in-tree simulator already treats the concat result as a
+            // ByteString-like byte_array, so this aligns the real node with it.
+            bytecode.push(OpCode::CONVERT.byte());
+            bytecode.push(0x28); // StackItemType::ByteString (CONVERT operand)
         }
     }
 }

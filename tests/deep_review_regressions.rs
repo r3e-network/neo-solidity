@@ -1093,6 +1093,63 @@ contract U {
     );
 }
 
+/// Regression (type-strictness audit, root cause A): a ternary `bytesN`
+/// operand compared to a hex-number literal must canonicalize the literal to a
+/// full-width big-endian ByteString (`PUSHDATA1 len=32`), NOT leave it as an
+/// Integer (`PUSHINT`). Before the fix, `infer_type_from_expression` had no
+/// `ConditionalOperator` arm, so `(c ? a : b)` inferred `None`, the
+/// canonicalization was skipped, and the bytecode emitted a type-strict
+/// `EQUAL(ByteString[32], Integer)` that is always false on a real node
+/// (defeating sentinel/role `!=` guards). The simulator's lenient EQUAL masks
+/// it, so this is a bytecode-shape assertion.
+#[test]
+fn ternary_bytesn_eq_hex_literal_canonicalizes_to_bytestring() {
+    use neo_devpack_solidity::cli::disassemble_neovm_bytecode;
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function f(bool c, bytes32 a, bytes32 b) external pure returns (bool) {
+        return (c ? a : b) == 0x00000000000000000000000000000000000000000000000000000000000000ff;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let asm = disassemble_neovm_bytecode(&arts[0].bytecode);
+    assert!(
+        asm.contains("PUSHDATA1 len=32"),
+        "ternary bytesN==hex literal must push the literal as a 32-byte ByteString \
+         (PUSHDATA1 len=32), not an Integer; disasm:\n{asm}"
+    );
+}
+
+/// Regression (type-strictness audit, root cause B): `abi.encodePacked`/
+/// `abi.encode` results are built with NeoVM `CAT`, which yields a *Buffer*
+/// (0x30). Comparing that with `==` against a ByteString literal — or returning
+/// it where the manifest declares `ByteArray` — mis-behaves on a real node
+/// (`EQUAL` is type-strict). The `BytesConcat` lowering now normalizes the
+/// result to a ByteString (`CONVERT 0x28`) at its single chokepoint. Bytecode-
+/// shape assertion: a `CONVERT` follows the `CAT` chain.
+#[test]
+fn abi_encode_packed_result_is_converted_to_bytestring() {
+    use neo_devpack_solidity::cli::disassemble_neovm_bytecode;
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function f() external pure returns (bool) {
+        return abi.encodePacked(uint8(1), uint8(2)) == hex"0102";
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let asm = disassemble_neovm_bytecode(&arts[0].bytecode);
+    let lines: Vec<&str> = asm.lines().collect();
+    let last_cat = lines.iter().rposition(|l| l.contains("CAT"));
+    assert!(last_cat.is_some(), "expected a CAT in abi.encodePacked lowering:\n{asm}");
+    let after_cat = &lines[last_cat.unwrap()..];
+    assert!(
+        after_cat.iter().any(|l| l.contains("CONVERT")),
+        "abi.encodePacked result (CAT Buffer) must be CONVERTed to ByteString before use; disasm:\n{asm}"
+    );
+}
+
 /// Control: a `bytesN` local assigned from a hex literal, then `abi.encode`d.
 /// Confirms whether local-variable binding already canonicalizes (informs the
 /// scope of the fix).
