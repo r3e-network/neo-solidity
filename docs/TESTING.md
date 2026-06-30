@@ -123,19 +123,37 @@ just as with `neo-solc`.
 `neo-test` exits `0` when every test passes and `1` on any failure or
 compile/import error — drop it straight into CI.
 
+## `msg.sender`, `tx.origin`, and `address(this)`
+
+These resolve the way you expect from Ethereum:
+
+- Inside a test method (the entry frame), `msg.sender == tx.origin` — both are
+  the transaction signer.
+- A contract you `new` and then call **does** observe the calling contract's
+  `address(this)` as its `msg.sender`. So the canonical pattern works:
+
+  ```solidity
+  Vault v = new Vault();
+  v.deposit();                          // deposit(): bal[msg.sender] += 1
+  assertEq(v.balanceOf(address(this)), 1);   // ✓ credited to the test contract
+  ```
+
+- In any nested call, `msg.sender` (the direct caller) differs from `tx.origin`
+  (the entry signer), so "only the direct caller can authorize X" guards behave
+  correctly.
+
+One simulator-model caveat: all contracts compiled into a single test bundle
+execute under the *same* executing script hash, so `address(this)` is identical
+across the test contract and the contracts it `new`s. The load-bearing
+invariants above (callee `msg.sender` == caller `address(this)`, and
+`msg.sender != tx.origin` when nested) still hold; what is *not* modeled is a
+distinct per-instance address for each `new`-deployed contract.
+
 ## Known limitations
 
-The runner executes against the in-tree NeoVM simulator, which today has two
-gaps worth knowing:
-
-- **`msg.sender` across `new`-deployed contracts.** Inside the test contract,
-  `msg.sender` and `address(this)` behave correctly, and cross-contract calls
-  with *explicit* address arguments work (e.g. `token.mint(addr, 100)`). But a
-  contract you `new` and then call does **not yet** observe the test contract as
-  its `msg.sender` — so a callee that keys storage on `bal[msg.sender]` reads a
-  different slot than `bal[address(testContract)]`. Workarounds: test the
-  contract's logic directly (make the test contract *be* or inherit the contract
-  under test), or pass addresses explicitly. (Caller-account propagation for
-  `new`-deployed callees is a tracked follow-up.)
+- **Partial tuple destructure from a cross-contract call** — `(uint256 a, ) =
+  c.f()` / `( , uint256 b) = c.f()` where `c` is a `new`-deployed contract binds
+  the wrong element. Full destructure (`(uint256 a, uint256 b) = c.f()`) works.
+  (Tracked follow-up.)
 - **No cheatcodes yet** (`vm.prank`, `vm.expectRevert`, `vm.warp`, `deal`, …).
   Use `testFail*` for expected-revert tests and `setUp()` for fixtures.

@@ -108,9 +108,14 @@ fn execution_context_reports_default_metadata() {
 
     match context.pop_stack().expect("calling script hash") {
         StackItem::ByteArray(bytes) => {
-            let mut expected =
-                hex::decode("1122334455667788990011223344556677889900").expect("valid hex");
-            expected.reverse();
+            // With no caller override, the entry frame's caller is the
+            // transaction's entry script — a DISTINCT identity from the
+            // executing contract's own hash (see `entry_script_hash`). So
+            // GetCallingScriptHash returns `entry_script_hash`, not the
+            // configured `contract_account`. This split is what lets a nested
+            // call's `msg.sender` (the caller's executing hash) diverge from
+            // `tx.origin` (which stays pinned to this entry caller).
+            let expected = context.entry_script_hash();
             assert_eq!(bytes.borrow().as_slice(), expected.as_slice());
         }
         other => panic!("expected calling script hash bytes, got {other:?}"),

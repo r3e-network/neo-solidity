@@ -1268,3 +1268,89 @@ contract C {
         r.exception.as_ref().map(|e| &e.message)
     );
 }
+
+/// Regression (cross-contract `msg.sender` for `new`-deployed contracts):
+/// a contract you `new` and then call must observe the CALLING contract's
+/// `address(this)` as its `msg.sender` — not a synthetic hash, and not
+/// `tx.origin`. This is what makes the canonical test-runner pattern
+/// `B b = new B(); b.deposit();` (where `deposit` does `bal[msg.sender] += 1`)
+/// credit the caller, so a later `b.balanceOf(address(this))` reads the same
+/// slot. The fix splits the entry-script hash (`GetEntryScriptHash`) from the
+/// executing hash (`GetExecutingScriptHash` / `address(this)`) so the
+/// `msg.sender` lowering's `CallingScriptHash == EntryScriptHash` top-level
+/// short-circuit no longer misfires on an inner contract-to-contract hop —
+/// while `tx.origin` (`Transaction.Sender`) stays pinned to the entry caller.
+#[test]
+fn new_deployed_callee_sees_caller_address_this_as_msg_sender() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Probe {
+    function ctx() external view returns (address, address) {
+        return (msg.sender, tx.origin);
+    }
+}
+contract Host {
+    // forward routes through the 20-byte zero-placeholder self-offsets path.
+    function forward(address c) external view returns (bool) {
+        (address s, address o) = Probe(c).ctx();
+        // msg.sender inside the callee == THIS caller's address(this), and it
+        // diverges from tx.origin (the entry signer).
+        return s == address(this) && s != o;
+    }
+    // Direct entry call: msg.sender and tx.origin coincide (no inner hop).
+    function directEntry() external view returns (bool) {
+        return msg.sender == tx.origin;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let host = arts
+        .iter()
+        .find(|a| a.metadata.name == "Host")
+        .expect("Host artifact");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+
+    // Nested: forward(0x00..00) → Probe(zero).ctx() via self-offsets dispatch.
+    let zero = [0u8; 20];
+    let r = rt
+        .call_method(
+            &host.bytecode,
+            &host.tokens,
+            &host.manifest,
+            "forward",
+            &[StackItem::byte_array(zero.to_vec())],
+        )
+        .expect("forward host-level");
+    assert!(
+        r.success,
+        "forward must succeed: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert!(
+        r.return_data.iter().any(|&b| b != 0),
+        "nested callee msg.sender must equal the caller's address(this) AND \
+         differ from tx.origin; forward returned false (rd={:?})",
+        r.return_data
+    );
+
+    // Direct: msg.sender == tx.origin at the genuine entry frame.
+    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("rt2");
+    let r2 = rt2
+        .call_method(
+            &host.bytecode,
+            &host.tokens,
+            &host.manifest,
+            "directEntry",
+            &[],
+        )
+        .expect("directEntry host-level");
+    assert!(
+        r2.success,
+        "directEntry must succeed: {:?}",
+        r2.exception.as_ref().map(|e| &e.message)
+    );
+    assert!(
+        r2.return_data.iter().any(|&b| b != 0),
+        "direct entry: msg.sender must equal tx.origin (rd={:?})",
+        r2.return_data
+    );
+}

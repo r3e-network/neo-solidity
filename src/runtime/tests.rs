@@ -271,22 +271,27 @@ fn test_runtime_metadata_overrides_apply_once() {
     // fallback-when-no-override path yields that value rather than 0.
     assert_eq!(runtime.execution_context.block_height(), Some(0));
     assert_eq!(runtime.execution_context.timestamp(), Some(1_704_067_200));
+    // With no caller override, the entry frame's caller is the transaction's
+    // entry script — a DISTINCT identity from the executing contract hash (see
+    // `entry_script_hash`). This is what keeps `tx.origin` separate from
+    // `address(this)` so a nested call's `msg.sender` (the caller's executing
+    // hash) can diverge from `tx.origin`. The no-override `caller_account`
+    // therefore falls back to `entry_script_hash`, not `default_account_bytes`.
+    let expected_caller = runtime.execution_context.entry_script_hash();
     assert_eq!(
         runtime.execution_context.caller_account(),
-        Some(runtime.execution_context.default_account_bytes())
+        Some(expected_caller.as_slice())
     );
 
     assert_eq!(second.metadata.block_height, Some(0));
     assert_eq!(second.metadata.timestamp, Some(1_704_067_200));
     // `capture_metadata` formats the caller script hash through
     // `format_uint160_hex_be` (reversing the stored LE bytes to the Neo
-    // display order), so the expected value must do the same. Previously
-    // this test happened to work with the default zero UInt160 because the
-    // reversed hex is still all zeros; once `default_account_bytes` is
-    // derived from bytecode this invariant has to be explicit.
-    let mut default_be = runtime.execution_context.default_account_bytes().to_vec();
-    default_be.reverse();
-    let expected_default = format!("0x{}", hex::encode(default_be));
+    // display order), so the expected value must do the same. The no-override
+    // caller is the distinct `entry_script_hash` (see above).
+    let mut entry_be = runtime.execution_context.entry_script_hash();
+    entry_be.reverse();
+    let expected_default = format!("0x{}", hex::encode(entry_be));
     assert_eq!(
         second.metadata.caller_account.as_deref(),
         Some(expected_default.as_str())

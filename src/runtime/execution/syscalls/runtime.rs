@@ -43,18 +43,36 @@ impl ExecutionContext {
                     self.push_stack(StackItem::byte_array(override_bytes))?;
                     return Ok(true);
                 }
+                // The entry frame's caller is the transaction's entry script,
+                // NOT the contract itself. Defaulting `caller_account` to the
+                // distinct `entry_script_hash` (rather than the contract's own
+                // `default_account_bytes`) is what lets the `msg.sender`
+                // lowering's `CallingScriptHash == EntryScriptHash` test fire
+                // for a genuine top-level call (so `msg.sender == tx.origin`),
+                // while a self-offsets inner hop — whose override is the
+                // bundle's executing hash — does NOT match `EntryScriptHash`
+                // and therefore resolves `msg.sender` to the direct caller.
                 if self.caller_account.is_none() {
-                    self.caller_account = Some(self.default_account_bytes.clone());
+                    self.caller_account = Some(self.entry_script_hash());
                     self.storage_account = Some(self.default_account.clone());
                 }
                 let bytes = self
                     .caller_account
                     .clone()
-                    .unwrap_or_else(|| self.default_account_bytes.clone());
+                    .unwrap_or_else(|| self.entry_script_hash());
                 self.push_stack(StackItem::byte_array(bytes))?;
                 Ok(true)
             }
-            "System.Runtime.GetEntryScriptHash" | "System.Runtime.GetExecutingScriptHash" => {
+            "System.Runtime.GetEntryScriptHash" => {
+                // The transaction's entry-script hash — DISTINCT from the
+                // executing contract hash (see `entry_script_hash`). Keeping
+                // these separate matches Neo N3, where the entry script is the
+                // tx invocation script and never a contract's own hash.
+                self.push_stack(StackItem::byte_array(self.entry_script_hash()))?;
+                Ok(true)
+            }
+            "System.Runtime.GetExecutingScriptHash" => {
+                // `address(this)` — the currently executing contract's hash.
                 self.push_stack(StackItem::byte_array(self.default_account_bytes.clone()))?;
                 Ok(true)
             }
@@ -73,11 +91,16 @@ impl ExecutionContext {
             "System.Runtime.GetScriptContainer" => {
                 // Return a Transaction-like array matching the Neo devpack field order:
                 // [Hash, Version, Nonce, Sender, SystemFee, NetworkFee, ValidUntilBlock, Script]
-                // Only `Sender` is currently used by the Solidity compiler (for msg.sender).
+                // Only `Sender` is currently used by the Solidity compiler (for
+                // msg.sender / tx.origin). It tracks `caller_account` (honouring
+                // any host `override_caller_account`), defaulting to the
+                // distinct `entry_script_hash` so a direct entry call keeps
+                // `tx.origin == msg.sender` while a nested self-offsets hop
+                // (whose `msg.sender` is the bundle's executing hash) diverges.
                 let sender = self
                     .caller_account
                     .clone()
-                    .unwrap_or_else(|| self.default_account_bytes.clone());
+                    .unwrap_or_else(|| self.entry_script_hash());
                 let tx = StackItem::array(vec![
                     StackItem::byte_array(vec![0u8; 32]),
                     StackItem::UnsignedInteger(0),
@@ -306,14 +329,15 @@ impl ExecutionContext {
                 let caller_bytes = self
                     .caller_account
                     .clone()
-                    .unwrap_or_else(|| self.default_account_bytes.clone());
+                    .unwrap_or_else(|| self.entry_script_hash());
 
                 let check_bytes = |bytes: &[u8]| -> bool {
                     // If witness_signers is populated, check against it
                     if !self.witness_signers.is_empty() {
                         return self.witness_signers.iter().any(|s| s == bytes);
                     }
-                    // Fall back to default account / caller check
+                    // Fall back to caller (Transaction.Sender / tx.origin, which
+                    // defaults to entry_script_hash) OR the executing contract.
                     bytes == caller_bytes || bytes == self.default_account_bytes
                 };
 

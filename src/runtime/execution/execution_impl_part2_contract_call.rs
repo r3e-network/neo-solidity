@@ -79,26 +79,33 @@ impl ExecutionContext {
                 // method's compiled offset and raise the `suppress_ip_advance`
                 // flag so the SYSCALL dispatcher skips its post-increment.
                 let return_address = self.instruction_pointer.wrapping_add(5);
-                // Task #123 — compute the synthetic "virtual caller" script
-                // hash BEFORE pushing the frame (needs `&self`). The bundle's
-                // `default_account_bytes` already represents the currently
-                // executing contract (Middleware, in the canonical User →
-                // Middleware → Caller scenario). We derive a distinct
-                // caller-side identity from it so the nested callee's
-                // `CallingScriptHash` reads back a value that differs from
-                // both `EntryScriptHash` (which stays pinned to the bundle
-                // hash) and `Transaction.Sender` (which backs `tx.origin`).
+                // The nested callee's `msg.sender` (`CallingScriptHash`) must
+                // read back the *immediate caller's* `address(this)` — i.e.
+                // the bundle's executing script hash (`default_account_bytes`).
+                // In the merged sibling-dispatch model (Task #83
+                // `analyse_all_sources`), the caller always executes as the
+                // bundle, so its `address(this)` IS `default_account_bytes`.
                 //
-                // Without this override, every self-offsets dispatch collapsed
-                // `CallingScriptHash == EntryScriptHash`, short-circuiting the
-                // `msg.sender` lowering in
-                // `src/cli/bytecode/bytecode_helpers/array_runtime.rs`
-                // (`RuntimeValue::MsgSender`) to `Transaction.Sender` — i.e.
-                // `tx.origin` leaked into `msg.sender` on every nested call,
-                // defeating the whole "only the direct caller can authorise
-                // X" guard that the EVM convention relies on.
-                let synthetic_caller =
-                    Self::derive_self_offsets_caller_hash(&self.default_account_bytes);
+                // This is what makes the canonical test-runner pattern hold:
+                //   B b = new B(); b.deposit();   // bal[msg.sender] += 1
+                //   assert(b.balanceOf(address(this)) == 1);
+                // `msg.sender` inside `deposit` now equals the calling
+                // contract's `address(this)`, so the storage slot keyed on
+                // `msg.sender` is the same slot read back via `address(this)`.
+                //
+                // It also keeps the nested `msg.sender != tx.origin` invariant
+                // honest. `GetEntryScriptHash` is now a DISTINCT entry-script
+                // identity (see `entry_script_hash`), so the `msg.sender`
+                // lowering's `CallingScriptHash == EntryScriptHash` top-level
+                // short-circuit does NOT fire for this inner hop
+                // (`default_account_bytes != entry_script_hash`). Meanwhile
+                // `Transaction.Sender` (which backs `tx.origin`) stays pinned
+                // to the entry caller. So `msg.sender` (the bundle hash) and
+                // `tx.origin` (the entry hash) diverge here exactly as they do
+                // on a real node, where `CallingScriptHash` rolls over to the
+                // direct caller while `EntryScriptHash`/`Transaction.Sender`
+                // remain anchored to the transaction's entry frame.
+                let caller_executing_hash = self.default_account_bytes.clone();
                 // Task #197 — push the call frame BEFORE unpacking args onto
                 // the evaluation stack. The frame's `stack_base` snapshots
                 // `self.stack.len()` at the moment of creation, and
@@ -125,7 +132,7 @@ impl ExecutionContext {
                 // and (b) arm the callee's active flags after the borrow ends.
                 let caller_flags = self.active_call_flags;
                 if let Some(frame) = self.call_stack.last_mut() {
-                    frame.msg_sender_override = Some(synthetic_caller);
+                    frame.msg_sender_override = Some(caller_executing_hash);
                     // Task #160 — mark the frame so `return_from_function`
                     // synthesises a `StackItem::Null` result for void callees.
                     // The caller site emitted by `try_catch.rs` (and the generic
@@ -189,30 +196,39 @@ impl ExecutionContext {
         Ok(())
     }
 
-    /// Task #123 — deterministic derivation of the "virtual caller" script
-    /// hash for a self-offsets dispatch frame.
+    /// The transaction's entry-script hash (`System.Runtime.GetEntryScriptHash`).
     ///
-    /// Neo's native `CallingScriptHash` rolls over whenever the VM crosses a
-    /// real contract boundary. The embedded runtime's self-offsets routing
-    /// (see `handle_contract_call` above and the Task #83 sibling-merge pass
-    /// in `src/solidity/solidity_analyse.rs::analyse_all_sources`) executes a
-    /// simulated boundary *inside* the same compiled bundle, so there is no
-    /// real script-hash rotation to observe. This helper synthesises a
-    /// deterministic callee-facing identity by hashing the bundle's executing
-    /// script hash with a fixed domain tag, guaranteeing it differs from both
-    /// `default_account_bytes` (the entry/executing hash) and any plausible
-    /// `Transaction.Sender` bytes that the host might inject.
+    /// On a real Neo node the entry script hash is the hash of the
+    /// transaction's invocation script — a value that is DISTINCT from any
+    /// deployed contract's own script hash. That distinctness is load-bearing
+    /// for the `msg.sender` lowering in
+    /// `src/cli/bytecode/bytecode_helpers/array_runtime.rs`
+    /// (`RuntimeValue::MsgSender`): it collapses `msg.sender` to
+    /// `Transaction.Sender` only when `CallingScriptHash == EntryScriptHash`,
+    /// which on-chain is true exactly for the genuine top-level entry frame
+    /// (the entry script invoked the contract directly) and false for any
+    /// inner contract-to-contract hop (where `CallingScriptHash` has rolled
+    /// over to the caller contract).
     ///
-    /// Determinism matters: the same bundle invoked with the same dispatch
-    /// path always produces the same 20-byte value, so tests that assert on
-    /// `msg.sender` byte content stay stable across runs.
-    fn derive_self_offsets_caller_hash(executing: &[u8]) -> Vec<u8> {
+    /// The embedded runtime previously conflated entry / executing by
+    /// returning `default_account_bytes` for both syscalls, which made the
+    /// short-circuit misfire whenever the entry contract called a merged
+    /// sibling (`CallingScriptHash` == the bundle hash == `EntryScriptHash`),
+    /// leaking `tx.origin` into a nested `msg.sender`. Deriving a separate,
+    /// deterministic entry identity restores the on-chain relationship.
+    pub fn entry_script_hash(&self) -> Vec<u8> {
+        Self::derive_entry_script_hash(&self.default_account_bytes)
+    }
+
+    /// Deterministic derivation of the distinct entry-script hash from the
+    /// bundle's executing script hash. Domain-separated so it never collides
+    /// with `default_account_bytes` (the executing hash / `address(this)`) nor
+    /// with any other `Hash160` preimage the compiler emits. Determinism keeps
+    /// `tx.origin` / `EntryScriptHash` byte content stable across runs.
+    fn derive_entry_script_hash(executing: &[u8]) -> Vec<u8> {
         use ripemd::Ripemd160;
         use sha2::{Digest, Sha256};
-        // Domain tag keeps the derivation distinct from any other `Hash160`
-        // preimage the compiler emits (address derivation, bytecode hashing,
-        // etc.) so accidental collisions are not possible.
-        const DOMAIN: &[u8] = b"neo-devpack-solidity/self-offsets/msg-sender/v1";
+        const DOMAIN: &[u8] = b"neo-devpack-solidity/entry-script-hash/v1";
         let mut preimage = Vec::with_capacity(DOMAIN.len() + executing.len());
         preimage.extend_from_slice(DOMAIN);
         preimage.extend_from_slice(executing);
