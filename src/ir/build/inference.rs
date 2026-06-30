@@ -463,6 +463,38 @@ pub(crate) fn infer_type_from_expression_inner(
                 });
             }
 
+            // `<address>.balance` is a uint256 (the account's GAS balance).
+            // Guarding on the inner inferring to `Address` excludes struct
+            // fields literally named `balance` (e.g. NativeCalls.AccountState).
+            // Without this, an `address.balance` argument infers to `None`, so
+            // overload resolution of a same-arity overload set (e.g.
+            // `assertEq(uint256,uint256,string)` vs its int/bool/… siblings)
+            // matches nothing and the call traps with "no compiled body".
+            if member.name == "balance"
+                && matches!(
+                    infer_type_from_expression(inner, ctx),
+                    Some(ValueType::Address)
+                )
+            {
+                return Some(ValueType::Integer {
+                    signed: false,
+                    bits: 256,
+                });
+            }
+
+            // `<address>.codehash` is a bytes32; `<address>.code` is bytes.
+            if matches!(
+                infer_type_from_expression(inner, ctx),
+                Some(ValueType::Address)
+            ) {
+                if member.name == "codehash" {
+                    return Some(ValueType::ByteArray { fixed_len: Some(32) });
+                }
+                if member.name == "code" {
+                    return Some(ValueType::ByteArray { fixed_len: None });
+                }
+            }
+
             if member.name == "selector" {
                 return Some(ValueType::ByteArray { fixed_len: Some(4) });
             }

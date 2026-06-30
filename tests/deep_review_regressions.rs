@@ -1626,3 +1626,41 @@ contract Host {
         "expectButNoRevert must FAIL: a guarded call that does not revert is a violation"
     );
 }
+
+/// Regression (overload resolution + address member inference): an
+/// `<address>.balance` argument must infer to `uint256` so a same-arity
+/// overload set resolves to the uint256 candidate. Previously `.balance`
+/// inferred to `None`, so `resolve_overload([None, …])` matched nothing and
+/// the call trapped at runtime with "no compiled body". (Surfaced by neo-test's
+/// `assertEq(addr.balance, x, "msg")` against the value-rich assertion set.)
+#[test]
+fn address_balance_arg_resolves_same_arity_overload() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    // Sentinel returns make the result independent of the actual balance.
+    function pick(uint256 x) internal pure returns (uint256) { x; return 7; }
+    function pick(address a) internal pure returns (uint256) { a; return 100; }
+    function run() external view returns (uint256) {
+        return pick(address(this).balance);   // uint256 arg -> pick(uint256) -> 7
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("run");
+    assert!(
+        r.success,
+        "run() must succeed (no 'no compiled body' trap): {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a, (i, &b)| {
+        a + ((b as u128) << (8 * i))
+    });
+    assert_eq!(
+        v, 7,
+        "must resolve to pick(uint256) (sentinel 7), not pick(address) (100); got {v}"
+    );
+}
