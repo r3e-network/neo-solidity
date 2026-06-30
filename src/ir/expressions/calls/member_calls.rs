@@ -1,5 +1,30 @@
 use super::*;
 
+/// Lower a single call argument, canonicalizing an integer-backed `bytesN`
+/// literal to its big-endian ByteString when the callee's `index`-th parameter
+/// is a known `bytesN`. A `bytesN` literal otherwise reaches the callee as a
+/// little-endian Integer (NeoVM is type-strict — there is no implicit coercion
+/// at the call boundary), so any byte-level operation on it inside the callee —
+/// indexing, comparison, hashing — is wrong on a real node (the simulator's
+/// lenient typing masks it). Falls back to a plain `lower_expression` when the
+/// parameter type is unknown (e.g. an external method on a contract not compiled
+/// in this unit) or is not a `bytesN`.
+pub(crate) fn lower_call_arg_canonical(
+    name: &str,
+    arg_count: usize,
+    index: usize,
+    arg: &Expression,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if let Some(ty) = ctx.callee_param_type(name, arg_count, index) {
+        if try_lower_bytesn_literal_canonical(arg, &ty, ctx, instructions) {
+            return true;
+        }
+    }
+    lower_expression(arg, ctx, instructions)
+}
+
 pub(crate) fn try_lower_member_call(
     func: &Expression,
     args: &[Expression],
@@ -103,8 +128,15 @@ pub(crate) fn try_lower_member_call(
             if let Some(super_name) = ctx.super_method_name(&member.name) {
                 let super_name = super_name.to_string();
                 let mut success = true;
-                for arg in args {
-                    if !lower_expression(arg, ctx, instructions) {
+                for (index, arg) in args.iter().enumerate() {
+                    if !lower_call_arg_canonical(
+                        &member.name,
+                        args.len(),
+                        index,
+                        arg,
+                        ctx,
+                        instructions,
+                    ) {
                         success = false;
                     }
                 }
@@ -125,8 +157,15 @@ pub(crate) fn try_lower_member_call(
 
             if ctx.function_names.contains(&member.name) {
                 let mut success = true;
-                for arg in args {
-                    if !lower_expression(arg, ctx, instructions) {
+                for (index, arg) in args.iter().enumerate() {
+                    if !lower_call_arg_canonical(
+                        &member.name,
+                        args.len(),
+                        index,
+                        arg,
+                        ctx,
+                        instructions,
+                    ) {
                         success = false;
                     }
                 }
@@ -343,7 +382,12 @@ pub(crate) fn try_lower_member_call(
                     BigInt::from(index as u64),
                 )));
 
-                if !lower_expression(arg, ctx, instructions) {
+                // Canonicalize a bytesN literal arg to its BE ByteString using
+                // the callee's parameter type, so a `bytesN` constant passed to
+                // an external/interface method (`ISelf(x).f(0x01..)`) reaches the
+                // callee as the correct bytes, not a little-endian Integer.
+                if !lower_call_arg_canonical(&member.name, args.len(), index, arg, ctx, instructions)
+                {
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                         BigInt::zero(),
                     )));

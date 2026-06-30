@@ -227,8 +227,19 @@ pub(crate) fn try_lower_variable_call(
                 .map(|arg| infer_type_from_expression(arg, ctx))
                 .collect();
             let mut success = true;
-            for arg in args {
-                if !lower_expression(arg, ctx, instructions) {
+            for (index, arg) in args.iter().enumerate() {
+                // Canonicalize a bytesN literal arg to its BE ByteString using
+                // the callee's parameter type (see lower_call_arg_canonical) so
+                // an internal call like `f(0x01..)` delivers the correct bytes,
+                // not a little-endian Integer.
+                if !lower_call_arg_canonical(
+                    &identifier.name,
+                    args.len(),
+                    index,
+                    arg,
+                    ctx,
+                    instructions,
+                ) {
                     success = false;
                 }
             }

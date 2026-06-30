@@ -177,6 +177,34 @@ impl<'a> LoweringContext<'a> {
         self.void_functions.contains(name)
     }
 
+    /// The declared type of the `index`-th parameter of a call to `name` with
+    /// `arg_count` arguments, when it is UNAMBIGUOUS across overloads. Returns
+    /// `None` if the function is unknown (e.g. an external method on a contract
+    /// not compiled in this unit) or if overloads disagree on that parameter's
+    /// type. Used to canonicalize an integer-backed `bytesN` literal argument to
+    /// its big-endian ByteString at call sites — a `bytesN` literal otherwise
+    /// reaches the callee as a little-endian Integer, so any byte-level
+    /// operation on it (indexing, comparison, hashing) is wrong on a real node
+    /// (the simulator's lenient typing masks it).
+    pub(crate) fn callee_param_type(
+        &self,
+        name: &str,
+        arg_count: usize,
+        index: usize,
+    ) -> Option<ValueType> {
+        let overloads = self.function_overloads.get(&(name.to_string(), arg_count))?;
+        let mut found: Option<&ValueType> = None;
+        for (param_types, _neo_name) in overloads {
+            let ty = param_types.get(index)?;
+            match found {
+                None => found = Some(ty),
+                Some(existing) if existing == ty => {}
+                Some(_) => return None, // overloads disagree — don't guess
+            }
+        }
+        found.cloned()
+    }
+
     /// Returns the renamed super-method name for `super.method()` resolution.
     ///
     /// Task #85 — look up the caller-qualified key first

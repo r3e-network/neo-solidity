@@ -279,6 +279,25 @@ pub(crate) fn infer_type_from_expression_inner(
                 }
             }
 
+            // Fall through to user-defined function return-type inference (the
+            // N-arg arm below does the same): a 1-arg call like `this.f(x)` or
+            // `IPool(addr).f(x)` must resolve to its DECLARED return type, not
+            // None — otherwise `call(x) == <bytesN literal/constant>` cannot
+            // canonicalize the literal and the type-strict `EQUAL` is wrong on a
+            // real node. The cast / `Interface(addr)` / `Syscalls.*` fast paths
+            // above already returned, so this only fires for genuine method
+            // calls.
+            if let Expression::Variable(identifier) = func.as_ref() {
+                if let Some(ty) = ctx.get_function_return_type(&identifier.name, args.len()) {
+                    return Some(ty.clone());
+                }
+            }
+            if let Expression::MemberAccess(_, _, method) = func.as_ref() {
+                if let Some(ty) = ctx.get_function_return_type(&method.name, args.len()) {
+                    return Some(ty.clone());
+                }
+            }
+
             None
         }
         // Task #191 — infer a user-defined function's return type from the

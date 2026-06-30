@@ -57,6 +57,8 @@ interface ISelf {
     function getId() external pure returns (bytes32);
     function id01() external pure returns (bytes32);
     function g6(bytes memory a, bytes memory b) external pure returns (bytes memory);
+    function echo(bytes32 b) external pure returns (bytes32);
+    function pick(bytes32 b, uint256 i) external pure returns (bytes1);
 }
 
 contract TypeStrict {
@@ -132,6 +134,23 @@ contract TypeStrict {
         bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
         return uint8(b[1]) == 2; // control: numeric use still correct
     }
+
+    // F: a bytesN literal passed as an external/internal call ARGUMENT must
+    // reach the callee as a big-endian ByteString, not a little-endian Integer.
+    function echo(bytes32 b) public pure returns (bytes32) { return b; }
+    function pick(bytes32 b, uint256 i) public pure returns (bytes1) { return b[i]; }
+    function gEcho(bytes32 b) internal pure returns (bytes32) { return b; }
+    function extArgEcho() public view returns (bool) {
+        return ISelf(address(this)).echo(0x01020304000000000000000000000000000000000000000000000000000000ff)
+            == 0x01020304000000000000000000000000000000000000000000000000000000ff;
+    }
+    function extArgByte() public view returns (bool) {
+        return ISelf(address(this)).pick(0x0102030000000000000000000000000000000000000000000000000000000000, 0) == bytes1(0x01);
+    }
+    function intArgEcho() public pure returns (bool) {
+        return gEcho(0x01020304000000000000000000000000000000000000000000000000000000ff)
+            == 0x01020304000000000000000000000000000000000000000000000000000000ff;
+    }
 }
 SOL
 
@@ -168,5 +187,8 @@ assert byteIdxLit     true
 assert byteIdxNe      true
 assert byteIdxAssign  true
 assert byteIdxUint    true
+assert extArgEcho     true
+assert extArgByte     true
+assert intArgEcho     true
 
 echo "✅ neoxp type-strictness smoke test passed"
