@@ -61,7 +61,12 @@ interface ISelf {
     function pick(bytes32 b, uint256 i) external pure returns (bytes1);
 }
 
+library TSLib {
+    function lpick(bytes32 b) internal pure returns (bytes1) { return b[0]; }
+}
+
 contract TypeStrict {
+    using TSLib for bytes32;
     mapping(bytes32 => uint256) private mb;
 
     // A: ternary bytesN == hex-number literal (must be true)
@@ -151,6 +156,14 @@ contract TypeStrict {
         return gEcho(0x01020304000000000000000000000000000000000000000000000000000000ff)
             == 0x01020304000000000000000000000000000000000000000000000000000000ff;
     }
+    // F (library): a bytesN literal as a namespaced library ARGUMENT and as a
+    // using-for RECEIVER must both reach the library callee as a BE ByteString.
+    function libArgCall() public pure returns (bool) {
+        return TSLib.lpick(0x0102030000000000000000000000000000000000000000000000000000000000) == bytes1(0x01);
+    }
+    function libRecvCall() public pure returns (bool) {
+        return bytes32(0x0102030000000000000000000000000000000000000000000000000000000000).lpick() == bytes1(0x01);
+    }
 }
 SOL
 
@@ -190,5 +203,7 @@ assert byteIdxUint    true
 assert extArgEcho     true
 assert extArgByte     true
 assert intArgEcho     true
+assert libArgCall     true
+assert libRecvCall    true
 
 echo "✅ neoxp type-strictness smoke test passed"

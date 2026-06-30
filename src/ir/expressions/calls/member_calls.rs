@@ -445,8 +445,18 @@ pub(crate) fn try_lower_member_call(
                     return Some(false);
                 }
 
-                for arg in args {
-                    if !lower_expression(arg, ctx, instructions) {
+                // Namespaced library call `Lib.f(0x01..)`: args are parameters
+                // 0.. (no receiver). Canonicalize a bytesN literal arg to its BE
+                // ByteString so the library callee gets the right bytes.
+                for (index, arg) in args.iter().enumerate() {
+                    if !lower_call_arg_canonical(
+                        &member.name,
+                        args.len(),
+                        index,
+                        arg,
+                        ctx,
+                        instructions,
+                    ) {
                         success = false;
                     }
                 }
@@ -647,15 +657,37 @@ pub(crate) fn try_lower_member_call(
                 return Some(success);
             };
 
-            if !lower_expression(inner.as_ref(), ctx, instructions) {
+            // The receiver `inner` is the library function's FIRST parameter
+            // when `use_receiver` (e.g. `(0x01..).f()` via `using ... for`); the
+            // explicit args then follow at parameter indices 1.. . When
+            // `!use_receiver` (a namespaced `Lib.f(...)`) the receiver is just
+            // the library name — lowered then dropped — and the args are
+            // parameters 0.. . Canonicalize a bytesN literal receiver/arg to its
+            // big-endian ByteString so the library callee receives the correct
+            // bytes, not a little-endian Integer (NeoVM is type-strict).
+            let recv_canon = use_receiver
+                && ctx
+                    .callee_param_type(&member.name, arg_count, 0)
+                    .is_some_and(|ty| {
+                        try_lower_bytesn_literal_canonical(inner.as_ref(), &ty, ctx, instructions)
+                    });
+            if !recv_canon && !lower_expression(inner.as_ref(), ctx, instructions) {
                 success = false;
             } else if !use_receiver {
                 // Preserve side effects of receiver evaluation.
                 instructions.push(Instruction::Drop(ValueType::Any));
             }
 
-            for arg in args {
-                if !lower_expression(arg, ctx, instructions) {
+            let arg_param_offset = if use_receiver { 1 } else { 0 };
+            for (index, arg) in args.iter().enumerate() {
+                if !lower_call_arg_canonical(
+                    &member.name,
+                    arg_count,
+                    index + arg_param_offset,
+                    arg,
+                    ctx,
+                    instructions,
+                ) {
                     success = false;
                 }
             }
