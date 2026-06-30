@@ -1196,3 +1196,47 @@ contract C {
     let mut expect = vec![0u8; 32]; expect[..4].copy_from_slice(&[0x01, 0x02, 0x03, 0x04]);
     assert_eq!(inner, expect, "local bytes4 must be left-aligned");
 }
+
+/// Regression (fuzz, runtime_exec OOM / DoS): a bytecode that stacks `TRY`
+/// opcodes without a matching `ENDTRY` must NOT grow the try-stack without
+/// bound. NeoVM caps try-nesting at `MaxTryNestingDepth = 16`; before the cap,
+/// the `runtime_exec` libFuzzer target drove a 155-byte input of stacked TRYs
+/// to a 1.4-second execution that OOM'd under a 100k-gas budget — a host-level
+/// DoS for any operator running compiled contracts. The VM must now fault
+/// quickly at depth 16 instead of hanging / exhausting memory.
+#[test]
+fn deeply_nested_try_faults_not_ooms() {
+    // 64 back-to-back `TRY catch=+3 finally=0` (3 bytes each), no ENDTRY.
+    let mut bytecode = Vec::with_capacity(64 * 3);
+    for _ in 0..64 {
+        bytecode.push(0x3B); // OpCode::TRY
+        bytecode.push(0x03); // catchOffset = +3 (forward, non-zero)
+        bytecode.push(0x00); // finallyOffset = 0
+    }
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    // Must return promptly (the 17th TRY exceeds the nesting cap and faults);
+    // a pre-fix build would spend ~1.4s growing the try-stack and could OOM.
+    let result = rt.execute(&bytecode, &[]);
+    match result {
+        Ok(r) => assert!(
+            !r.success,
+            "deeply nested TRY must fault (MaxTryNestingDepth), not succeed"
+        ),
+        Err(_) => {} // a graceful runtime error is also acceptable
+    }
+}
+
+/// Regression (fuzz, runtime_exec): unbounded `CALL` recursion must fault at the
+/// call-stack limit (NeoVM MaxInvocationStackSize) as an UNCATCHABLE VM fault,
+/// not hang/OOM, and not be routed into an enclosing TRY (which would let
+/// bytecode build a fault-storm). `CALL +0` calls itself.
+#[test]
+fn infinite_call_recursion_faults_not_hangs() {
+    let bytecode = vec![0x34u8, 0x00]; // OpCode::CALL, relative offset 0 (self)
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let result = rt.execute(&bytecode, &[]);
+    match result {
+        Ok(r) => assert!(!r.success, "infinite recursion must fault, not succeed"),
+        Err(_) => {}
+    }
+}

@@ -42,7 +42,17 @@ impl ExecutionContext {
         match self.execute_instruction(opcode) {
             Ok(()) => {}
             Err(e) => {
-                if matches!(e, RuntimeError::OutOfGas { .. }) {
+                // OutOfGas and UNCATCHABLE VM faults (ExecutionEngineLimits
+                // violations like MaxTryNestingDepth) terminate execution — they
+                // are NOT routed into an enclosing TRY/catch, matching real
+                // NeoVM `VMState.FAULT`. Without this, a limit fault is catchable
+                // and bytecode can build a fault-storm (runtime_exec fuzzer OOM).
+                if matches!(
+                    e,
+                    RuntimeError::OutOfGas { .. }
+                        | RuntimeError::VmFault { .. }
+                        | RuntimeError::StackOverflow { .. }
+                ) {
                     return Err(e);
                 }
 

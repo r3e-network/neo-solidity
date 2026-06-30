@@ -139,8 +139,10 @@ impl ExecutionContext {
 
     pub(crate) fn push_call_frame(&mut self, return_address: u32) -> Result<(), RuntimeError> {
         if self.call_stack.len() as u32 >= self.call_stack_limit {
-            return Err(RuntimeError::ExecutionError {
-                message: "Call stack overflow".to_string(),
+            // NeoVM MaxInvocationStackSize — UNCATCHABLE VMState.FAULT (see
+            // `call_function`); prevents a CALL+TRY fault-storm DoS.
+            return Err(RuntimeError::VmFault {
+                message: "Call stack overflow (MaxInvocationStackSize)".to_string(),
             });
         }
 

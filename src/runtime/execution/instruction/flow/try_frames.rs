@@ -100,6 +100,13 @@ impl ExecutionContext {
         const ENDTRY: u8 = OpCode::ENDTRY.byte();
         const ENDTRY_L: u8 = OpCode::ENDTRY_L.byte();
         const ENDFINALLY: u8 = OpCode::ENDFINALLY.byte();
+        // NeoVM ExecutionEngineLimits.MaxTryNestingDepth — a TRY/TRY_L that
+        // would exceed this many ACTIVE try-contexts in the CURRENT execution
+        // context faults. Without it, a `TRY` loop with no matching ENDTRY grows
+        // the try-stack without bound — an O(n) memory + O(n) time-per-op DoS.
+        // (Found by the runtime_exec fuzzer: a bytecode of stacked TRYs ran for
+        // 1.4s and OOM'd under a 100k gas budget.)
+        const MAX_TRY_NESTING_DEPTH: usize = 16;
 
         match opcode {
             TRY => {
@@ -141,6 +148,18 @@ impl ExecutionContext {
                     )?)
                 };
 
+                let current_depth = self
+                    .try_stack
+                    .iter()
+                    .filter(|f| f.owner_call_depth == self.call_stack.len())
+                    .count();
+                if current_depth >= MAX_TRY_NESTING_DEPTH {
+                    return Err(RuntimeError::VmFault {
+                        message: format!(
+                            "TRY: nesting depth exceeds NeoVM MaxTryNestingDepth ({MAX_TRY_NESTING_DEPTH})"
+                        ),
+                    });
+                }
                 self.try_stack.push(TryFrame {
                     catch_target,
                     finally_target,
@@ -194,6 +213,18 @@ impl ExecutionContext {
                     )?)
                 };
 
+                let current_depth = self
+                    .try_stack
+                    .iter()
+                    .filter(|f| f.owner_call_depth == self.call_stack.len())
+                    .count();
+                if current_depth >= MAX_TRY_NESTING_DEPTH {
+                    return Err(RuntimeError::VmFault {
+                        message: format!(
+                            "TRY_L: nesting depth exceeds NeoVM MaxTryNestingDepth ({MAX_TRY_NESTING_DEPTH})"
+                        ),
+                    });
+                }
                 self.try_stack.push(TryFrame {
                     catch_target,
                     finally_target,

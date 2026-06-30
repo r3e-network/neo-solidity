@@ -252,6 +252,14 @@ pub enum RuntimeError {
     #[error("Out of gas: used {used}, limit {limit}")]
     OutOfGas { used: u64, limit: u64 },
 
+    /// An UNCATCHABLE VM fault — a NeoVM `ExecutionEngineLimits` violation
+    /// (e.g. MaxTryNestingDepth) that corresponds to `VMState.FAULT` on a real
+    /// node and must terminate execution immediately, NOT be routed into an
+    /// enclosing `TRY`/catch. (A catchable limit fault lets bytecode build a
+    /// fault-storm — found by the runtime_exec fuzzer.)
+    #[error("VM fault: {message}")]
+    VmFault { message: String },
+
     #[error("Stack overflow at depth {depth}")]
     StackOverflow { depth: u32 },
 

@@ -8,9 +8,10 @@ impl ExecutionContext {
         function_name: Option<String>,
     ) -> Result<(), RuntimeError> {
         if self.call_stack.len() as u32 >= self.call_stack_limit {
-            // Call stack limit
-            return Err(RuntimeError::ExecutionError {
-                message: "Call stack overflow".to_string(),
+            // NeoVM MaxInvocationStackSize — an UNCATCHABLE VMState.FAULT, so a
+            // CALL loop with a surrounding TRY cannot build a fault-storm.
+            return Err(RuntimeError::VmFault {
+                message: "Call stack overflow (MaxInvocationStackSize)".to_string(),
             });
         }
 
