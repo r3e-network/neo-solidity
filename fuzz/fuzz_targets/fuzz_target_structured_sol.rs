@@ -336,6 +336,24 @@ struct StmtBudget {
     revert_remaining: u8,
     /// Remaining try/catch allowance for the current function (typically 1).
     trycatch_remaining: u8,
+    /// Remaining bounded `for`/`while` loop allowance (loop lowering coverage).
+    loop_remaining: u8,
+    /// Remaining local-variable-declaration allowance (slot-alloc coverage).
+    local_remaining: u8,
+    /// Remaining `mapping`/dynamic-array op allowance (storage-collection
+    /// lowering coverage).
+    collection_remaining: u8,
+    /// Monotonic id source for unique loop / local variable names so nested
+    /// scopes never shadow (which neo-solc may reject).
+    next_id: u16,
+}
+
+impl StmtBudget {
+    fn fresh_id(&mut self) -> u16 {
+        let id = self.next_id;
+        self.next_id = self.next_id.wrapping_add(1);
+        id
+    }
 }
 
 /// Generate a small ASCII string literal of `1..=16` chars. All chars are
@@ -372,6 +390,26 @@ enum Stmt {
     /// bytes-catch arm — Panic/Error arms need matching call shapes that
     /// would explode the grammar.
     TryCatch,
+    /// `for (uint256 i_<id> = 0; i_<id> < <count>; i_<id>++) { body }`.
+    /// Drives the loop-lowering codegen (init / cond / incr / back-edge JMP),
+    /// a path the original grammar never reached. `count` is a small literal.
+    ForLoop { id: u16, count: u8, body: Vec<Stmt> },
+    /// `while (state < <count>) { state += 1; <body> }` — guaranteed to
+    /// terminate (monotonic state vs literal bound). Exercises the `while`
+    /// back-edge / pre-test loop shape distinctly from `for`.
+    WhileLoop { count: u8, body: Vec<Stmt> },
+    /// `uint256 v_<id> = uint256(<expr>) & 0xff; state += v_<id>;` — exercises
+    /// local slot allocation + a read-back in the same scope.
+    LocalDecl { id: u16, expr: Expr },
+    /// `sm[uint256(<key>) & 0xff] = uint256(<val>) & 0xff;` — mapping store.
+    MapStore { key: Expr, val: Expr },
+    /// `state += sm[uint256(<key>) & 0xff];` — mapping load.
+    MapLoad { key: Expr },
+    /// `sa.push(uint256(<expr>) & 0xff);` — dynamic-array push.
+    ArrPush { expr: Expr },
+    /// `if (sa.length > 0) { state += sa[sa.length - 1]; sa.pop(); }` —
+    /// guarded array index + pop (exercises bounds + length + pop lowering).
+    ArrPopGuarded,
 }
 
 impl Stmt {
@@ -390,11 +428,11 @@ impl Stmt {
                 _ => Stmt::Require(Expr::leaf(u)?),
             });
         }
-        // Range 0..=7 covers existing kinds 0..=5 plus three new productions
-        // gated on per-function budgets. Roughly ~1-in-8 odds for revert /
-        // require-with-msg / try-catch each, falling back to plain Require
-        // when the budget is exhausted (so probability mass stays sane).
-        Ok(match u.int_in_range::<u8>(0..=7)? {
+        // Range 0..=12 covers the original kinds 0..=7 plus five new
+        // budget-gated productions (loops, locals, mapping/array ops), each
+        // falling back to a benign statement when its budget is exhausted so
+        // probability mass stays sane.
+        Ok(match u.int_in_range::<u8>(0..=12)? {
             0 => {
                 // Block of 0..=2 inner statements.
                 let n = u.int_in_range::<u8>(0..=2)?;
@@ -435,10 +473,80 @@ impl Stmt {
                     Stmt::Require(Expr::arbitrary_with_depth(u, depth + 1, using_for)?)
                 }
             }
-            _ => {
+            7 => {
                 if budget.trycatch_remaining > 0 {
                     budget.trycatch_remaining -= 1;
                     Stmt::TryCatch
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            8 => {
+                if budget.loop_remaining > 0 {
+                    budget.loop_remaining -= 1;
+                    let id = budget.fresh_id();
+                    let count = u.int_in_range::<u8>(0..=4)?;
+                    let n = u.int_in_range::<u8>(0..=2)?;
+                    let mut body = Vec::with_capacity(n as usize);
+                    for _ in 0..n {
+                        body.push(Self::arbitrary_with_depth(u, depth + 1, using_for, budget)?);
+                    }
+                    Stmt::ForLoop { id, count, body }
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            9 => {
+                if budget.loop_remaining > 0 {
+                    budget.loop_remaining -= 1;
+                    let count = u.int_in_range::<u8>(0..=4)?;
+                    let n = u.int_in_range::<u8>(0..=2)?;
+                    let mut body = Vec::with_capacity(n as usize);
+                    for _ in 0..n {
+                        body.push(Self::arbitrary_with_depth(u, depth + 1, using_for, budget)?);
+                    }
+                    Stmt::WhileLoop { count, body }
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            10 => {
+                if budget.local_remaining > 0 {
+                    budget.local_remaining -= 1;
+                    let id = budget.fresh_id();
+                    let expr = Expr::arbitrary_with_depth(u, depth + 1, using_for)?;
+                    Stmt::LocalDecl { id, expr }
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            11 => {
+                if budget.collection_remaining > 0 {
+                    budget.collection_remaining -= 1;
+                    if u.arbitrary::<bool>()? {
+                        Stmt::MapStore {
+                            key: Expr::arbitrary_with_depth(u, depth + 1, using_for)?,
+                            val: Expr::arbitrary_with_depth(u, depth + 1, using_for)?,
+                        }
+                    } else {
+                        Stmt::MapLoad {
+                            key: Expr::arbitrary_with_depth(u, depth + 1, using_for)?,
+                        }
+                    }
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            _ => {
+                if budget.collection_remaining > 0 {
+                    budget.collection_remaining -= 1;
+                    if u.arbitrary::<bool>()? {
+                        Stmt::ArrPush {
+                            expr: Expr::arbitrary_with_depth(u, depth + 1, using_for)?,
+                        }
+                    } else {
+                        Stmt::ArrPopGuarded
+                    }
                 } else {
                     Stmt::StateAdd
                 }
@@ -528,6 +636,76 @@ impl Stmt {
                 }
                 out.push_str("}\n");
             }
+            Stmt::ForLoop { id, count, body } => {
+                let _ = write!(
+                    out,
+                    "for (uint256 i_{0} = 0; i_{0} < {1}; i_{0}++) {{\n",
+                    id, count
+                );
+                for s in body {
+                    s.render(out, indent + 1, param_count, has_return_type);
+                }
+                for _ in 0..indent {
+                    out.push_str("    ");
+                }
+                out.push_str("}\n");
+            }
+            Stmt::WhileLoop { count, body } => {
+                let _ = write!(out, "while (state < {}) {{\n", count);
+                for _ in 0..(indent + 1) {
+                    out.push_str("    ");
+                }
+                // Monotonic increment guarantees termination regardless of body.
+                out.push_str("state += 1;\n");
+                for s in body {
+                    s.render(out, indent + 1, param_count, has_return_type);
+                }
+                for _ in 0..indent {
+                    out.push_str("    ");
+                }
+                out.push_str("}\n");
+            }
+            Stmt::LocalDecl { id, expr } => {
+                let _ = write!(out, "uint256 v_{} = uint256(", id);
+                expr.render(out, param_count);
+                let _ = write!(out, ") & 0xff;\n");
+                for _ in 0..indent {
+                    out.push_str("    ");
+                }
+                let _ = write!(out, "state += v_{};\n", id);
+            }
+            Stmt::MapStore { key, val } => {
+                out.push_str("sm[uint256(");
+                key.render(out, param_count);
+                out.push_str(") & 0xff] = uint256(");
+                val.render(out, param_count);
+                out.push_str(") & 0xff;\n");
+            }
+            Stmt::MapLoad { key } => {
+                out.push_str("state += sm[uint256(");
+                key.render(out, param_count);
+                out.push_str(") & 0xff];\n");
+            }
+            Stmt::ArrPush { expr } => {
+                out.push_str("sa.push(uint256(");
+                expr.render(out, param_count);
+                out.push_str(") & 0xff);\n");
+            }
+            Stmt::ArrPopGuarded => {
+                out.push_str("if (sa.length > 0) {\n");
+                for _ in 0..(indent + 1) {
+                    out.push_str("    ");
+                }
+                out.push_str("state += sa[sa.length - 1];\n");
+                for _ in 0..(indent + 1) {
+                    out.push_str("    ");
+                }
+                out.push_str("sa.pop();\n");
+                for _ in 0..indent {
+                    out.push_str("    ");
+                }
+                out.push_str("}\n");
+            }
         }
     }
 }
@@ -557,6 +735,10 @@ impl Function {
         let mut budget = StmtBudget {
             revert_remaining: 2,
             trycatch_remaining: 1,
+            loop_remaining: 2,
+            local_remaining: 3,
+            collection_remaining: 3,
+            next_id: 0,
         };
         for _ in 0..nstmts {
             body.push(Stmt::arbitrary_with_depth(u, 0, using_for, &mut budget)?);
@@ -750,9 +932,12 @@ impl Source {
             }
             out.push_str(" {\n");
             // Synthetic state + event so renderer of bodies can reference
-            // them identically to the main contract.
+            // them identically to the main contract. `sm`/`sa` back the
+            // mapping / dynamic-array statement productions.
             out.push_str("    uint256 state;\n");
             out.push_str("    event E(uint256);\n");
+            out.push_str("    mapping(uint256 => uint256) sm;\n");
+            out.push_str("    uint256[] sa;\n");
             // Synthetic virtual hook with a fixed signature; main may
             // override it. If `parent` exists, mark hook as `override`
             // virtual (mid overrides base hook but stays virtual).
@@ -799,8 +984,15 @@ impl Source {
             }
         }
         out.push_str(" {\n");
+        // Note: when `bases` is non-empty these re-declare base state and may
+        // produce a shadowing *compile error* — which is fine, the fuzzer only
+        // treats a panic as a finding, and the shadow path is itself coverage.
+        // The frequent no-base case compiles cleanly and drives the new
+        // loop / mapping / array codegen end-to-end.
         out.push_str("    uint256 state;\n");
         out.push_str("    event E(uint256);\n");
+        out.push_str("    mapping(uint256 => uint256) sm;\n");
+        out.push_str("    uint256[] sa;\n");
         if self.using_for {
             out.push_str("    using L for uint256;\n");
         }
