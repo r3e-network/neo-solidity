@@ -1150,6 +1150,34 @@ contract C {
     );
 }
 
+/// Regression (type-strictness audit, root cause D): `return b[i]` where `b` is
+/// `bytesN`/`bytes` and the declared return is `bytes1`. The byte index lowers
+/// to ArrayGet/PICKITEM — an Integer (the byte value) — but the manifest
+/// declares the return as ByteArray, so an external caller comparing the result
+/// against a `bytes1` literal would do EQUAL(Integer, ByteString) → false on a
+/// real node. The return path now coerces the byte to a 1-byte ByteString
+/// (`Convert ByteArray` + the `bytes1(uintN)` cast helper), which is correct for
+/// all byte values incl. 0x00 and ≥0x80. Bytecode-shape assertion: the byte
+/// index return is followed by a CONVERT (and a NEWBUFFER from the coercion),
+/// not a bare PICKITEM→RET.
+#[test]
+fn return_byte_index_as_bytes1_is_coerced_to_bytestring() {
+    use neo_devpack_solidity::cli::disassemble_neovm_bytecode;
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function f(bytes32 b) external pure returns (bytes1) { return b[0]; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let asm = disassemble_neovm_bytecode(&arts[0].bytecode);
+    assert!(
+        asm.contains("NEWBUFFER") && asm.contains("CONVERT"),
+        "return of a byte index as bytes1 must be coerced to a ByteString \
+         (NEWBUFFER + CONVERT from the fixed-byte coercion), not returned as a raw \
+         PICKITEM Integer; disasm:\n{asm}"
+    );
+}
+
 /// Control: a `bytesN` local assigned from a hex literal, then `abi.encode`d.
 /// Confirms whether local-variable binding already canonicalizes (informs the
 /// scope of the fix).
