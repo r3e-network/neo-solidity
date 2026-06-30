@@ -64,6 +64,8 @@ impl ExecutionContext {
             pending_timestamp: None,
             pending_msg_value: None,
             sticky_caller_account: None,
+            pending_prank: None,
+            sticky_prank: None,
             msg_value: None,
             neo_balances: HashMap::new(),
             gas_balances: HashMap::new(),

@@ -93,8 +93,14 @@ fn print_help() {
          \x20 testFail*  passes when the call reverts\n\
          \x20 setUp()    runs before each test (fresh state per test)\n\n\
          STD LIBRARY (bundled, no setup):\n\
-         \x20 import \"neo-std/Test.sol\";     // assertEq / assertTrue / assertGt / fail ...\n\
-         \x20 import \"neo-std/console.sol\";  // console.log(...) debug output"
+         \x20 import \"neo-std/Test.sol\";     // assertEq / assertTrue / assertGt / fail ... + `vm`\n\
+         \x20 import \"neo-std/console.sol\";  // console.log(...) debug output\n\
+         \x20 import \"neo-std/Vm.sol\";       // cheatcodes (auto via `is Test`)\n\n\
+         CHEATCODES (vm.*, available when `is Test`):\n\
+         \x20 vm.prank(addr) / startPrank / stopPrank   set msg.sender\n\
+         \x20 vm.warp(secs) / vm.roll(n)                set block.timestamp / number\n\
+         \x20 vm.deal(addr, amount)                     set GAS balance\n\
+         \x20 vm.label(addr, name) / vm.assume(cond)"
     );
 }
 
@@ -107,6 +113,7 @@ fn setup_std_lib() -> Option<PathBuf> {
     std::fs::create_dir_all(&dir).ok()?;
     std::fs::write(dir.join("Test.sol"), include_str!("neo_test_std/Test.sol")).ok()?;
     std::fs::write(dir.join("console.sol"), include_str!("neo_test_std/console.sol")).ok()?;
+    std::fs::write(dir.join("Vm.sol"), include_str!("neo_test_std/Vm.sol")).ok()?;
     Some(root)
 }
 

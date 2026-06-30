@@ -40,6 +40,17 @@ impl ExecutionContext {
             hash[i] = *b;
         }
 
+        // Foundry-style cheatcodes (neo-test): a call to the well-known HEVM
+        // cheatcode address is intercepted and serviced by the runtime itself
+        // (vm.prank / warp / roll / deal / expectRevert / …). Handled before
+        // the self-offsets, native, and manifest-permission paths so the cheat
+        // address never needs a manifest permission and never collides with a
+        // real contract. Returns one StackItem result, matching the shape the
+        // external-call caller site expects.
+        if Self::is_cheatcode_address(&contract_bytes) {
+            return self.handle_cheatcode(&method, &params);
+        }
+
         // Task #70: route `this.someFn()` self external calls to the
         // compiled method offset from the manifest, so `invoke_native_contract`
         // doesn't return `Null` (silently 0/false for typed returns).
@@ -105,7 +116,17 @@ impl ExecutionContext {
                 // on a real node, where `CallingScriptHash` rolls over to the
                 // direct caller while `EntryScriptHash`/`Transaction.Sender`
                 // remain anchored to the transaction's entry frame.
-                let caller_executing_hash = self.default_account_bytes.clone();
+                // A `vm.prank(addr)` (one-shot) or `vm.startPrank(addr)`
+                // (sticky) overrides the caller identity for this hop, exactly
+                // like Foundry: only `msg.sender` changes, `tx.origin`
+                // (Transaction.Sender) stays pinned to the entry caller.
+                let caller_executing_hash = if let Some(p) = self.pending_prank.take() {
+                    p
+                } else if let Some(s) = self.sticky_prank.clone() {
+                    s
+                } else {
+                    self.default_account_bytes.clone()
+                };
                 // Task #197 — push the call frame BEFORE unpacking args onto
                 // the evaluation stack. The frame's `stack_base` snapshots
                 // `self.stack.len()` at the moment of creation, and
@@ -253,5 +274,100 @@ impl ExecutionContext {
             }
         }
         None
+    }
+
+    /// The well-known Foundry/HEVM cheatcode address,
+    /// `0x7109709ECfa91a80626fF3989D68f67F5b1DD12D`. neo-test's `Vm` interface
+    /// (bundled `neo-std/Vm.sol`) is bound to this address; the runtime
+    /// services calls to it directly (see `handle_cheatcode`).
+    const CHEATCODE_ADDRESS: [u8; 20] = [
+        0x71, 0x09, 0x70, 0x9E, 0xCF, 0xA9, 0x1A, 0x80, 0x62, 0x6F, 0xF3, 0x98, 0x9D, 0x68, 0xF6,
+        0x7F, 0x5B, 0x1D, 0xD1, 0x2D,
+    ];
+
+    /// Whether `bytes` is the cheatcode address in either byte order (the
+    /// compiler may push an address literal big-endian or little-endian
+    /// depending on the call shape; matching both keeps the cheat robust).
+    fn is_cheatcode_address(bytes: &[u8]) -> bool {
+        if bytes.len() < 20 {
+            return false;
+        }
+        let head = &bytes[..20];
+        if head == Self::CHEATCODE_ADDRESS {
+            return true;
+        }
+        let mut reversed = Self::CHEATCODE_ADDRESS;
+        reversed.reverse();
+        head == reversed
+    }
+
+    /// Service a Foundry-style cheatcode call. Mutates runtime state for the
+    /// recognised cheats and always pushes exactly one `StackItem` result
+    /// (cheats return `void`, so `Null`), matching the shape the external-call
+    /// caller site expects. Unknown cheats are accepted as no-ops so a newer
+    /// `Vm.sol` surface never faults an older runtime.
+    fn handle_cheatcode(&mut self, method: &str, params: &StackItem) -> Result<(), RuntimeError> {
+        let args: Vec<StackItem> = match params {
+            StackItem::Array(items) => items.borrow().clone(),
+            _ => Vec::new(),
+        };
+        let arg_int = |i: usize| -> i64 {
+            args.get(i)
+                .map(|a| Self::stack_item_to_int(a.clone()))
+                .unwrap_or(0)
+        };
+        let arg_bytes = |i: usize| -> Vec<u8> {
+            args.get(i)
+                .map(|a| Self::stack_item_to_bytes(a.clone()))
+                .unwrap_or_default()
+        };
+
+        match method {
+            // vm.warp(uint256) — set block.timestamp (SECONDS, Foundry
+            // semantics) for subsequent reads. Neo's `GetTime` is milliseconds
+            // and the `block.timestamp` lowering divides by 1000, so store
+            // seconds * 1000 to round-trip exactly.
+            "warp" => {
+                self.timestamp = Some((arg_int(0).max(0) as u64).saturating_mul(1000));
+            }
+            // vm.roll(uint256) — set block.number / Ledger.currentIndex.
+            "roll" => {
+                self.block_height = Some(arg_int(0).max(0) as u64);
+            }
+            // vm.prank(address) — the NEXT cross-contract call observes
+            // `address` as msg.sender (one-shot). tx.origin is unaffected.
+            "prank" => {
+                self.pending_prank = Some(arg_bytes(0));
+            }
+            // vm.startPrank(address) — every subsequent call until stopPrank.
+            "startPrank" => {
+                self.sticky_prank = Some(arg_bytes(0));
+            }
+            // vm.stopPrank() — clear both prank modes.
+            "stopPrank" => {
+                self.pending_prank = None;
+                self.sticky_prank = None;
+            }
+            // vm.deal(address, uint256) — set the account's GAS balance.
+            "deal" => {
+                self.gas_balances.insert(arg_bytes(0), arg_int(1).max(0) as u64);
+            }
+            // vm.label(address, string) — cosmetic in Foundry; accept + ignore.
+            "label" => {}
+            // vm.assume(bool) — reject the current input when false. In the
+            // non-fuzzing runner this surfaces as a revert the runner reports.
+            "assume" => {
+                if arg_int(0) == 0 {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "vm.assume(false): rejected input".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        // Cheats return void — push one Null to match the external-call shape.
+        self.push_stack(StackItem::Null)?;
+        Ok(())
     }
 }

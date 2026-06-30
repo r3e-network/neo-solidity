@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "neo-std/Vm.sol";
+
 /// @title neo-test standard test base (forge-std-style)
-/// @notice Inherit `Test` in your `*.t.sol` contracts to get assertions.
-/// A test PASSES when it does not revert; an assertion that fails calls
-/// `revert(reason)`, which `neo-test` reports as `[FAIL] name (revert: reason)`.
+/// @notice Inherit `Test` in your `*.t.sol` contracts to get assertions and the
+/// cheatcode handle `vm` (from `CheatVm`). A test PASSES when it does not
+/// revert; an assertion that fails calls `revert(reason)`, which `neo-test`
+/// reports as `[FAIL] name (revert: reason)`.
 ///
 ///   import "neo-std/Test.sol";
 ///   contract MyTest is Test {
 ///       function setUp() public { /* ... */ }
-///       function testThing() public { assertEq(1 + 1, 2); }
+///       function testThing() public { vm.warp(1000); assertEq(1 + 1, 2); }
 ///   }
-abstract contract Test {
+abstract contract Test is CheatVm {
     // ---- boolean ----
     function assertTrue(bool condition) internal pure {
         if (!condition) revert("assertTrue: expected true");

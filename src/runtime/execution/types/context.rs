@@ -129,6 +129,13 @@ pub struct ExecutionContext {
     /// — breaking mapping-by-sender invariants (`balances[alice]` keyed under
     /// `alice` on deposit, re-keyed under `default` on withdraw).
     pub(crate) sticky_caller_account: Option<Vec<u8>>,
+    /// Foundry-style cheatcodes (neo-test). One-shot `vm.prank(addr)`: the
+    /// NEXT cross-contract (self-offsets) call observes `addr` as its
+    /// `msg.sender`, then this clears. Takes precedence over `sticky_prank`.
+    pub(crate) pending_prank: Option<Vec<u8>>,
+    /// Persistent `vm.startPrank(addr)` … `vm.stopPrank()`: EVERY subsequent
+    /// cross-contract call observes `addr` as `msg.sender` until stopped.
+    pub(crate) sticky_prank: Option<Vec<u8>>,
     /// Task #113: value set by `NeoRuntime::override_value` /
     /// `ExecutionOverrides::value`. Drained into `msg_value` on each
     /// `initialize` call so the override applies to exactly one execution,

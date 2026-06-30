@@ -91,6 +91,38 @@ automatically (no remapping or install needed):
   Under the hood it emits `System.Runtime.Log`, so the same calls surface as
   application logs on a real node.
 
+## Cheatcodes (`vm.*`)
+
+Inherit `Test` and you get the Foundry-style cheatcode handle `vm` (no import
+beyond `neo-std/Test.sol`). Calls to `vm.*` are serviced by the runtime — the
+same HEVM cheatcode-address mechanism Foundry uses — so no contract is deployed
+and no manifest permission is needed:
+
+```solidity
+contract VaultTest is Test {
+    Vault v;
+    address alice = address(0x1111111111111111111111111111111111111111);
+
+    function setUp() public { v = new Vault(); }
+
+    function testDepositCreditsCaller() public {
+        vm.prank(alice);          // the NEXT call's msg.sender is alice
+        v.deposit();              // bal[alice] += 1
+        assertEq(v.balanceOf(alice), 1);
+    }
+}
+```
+
+| Cheatcode | Effect |
+|-----------|--------|
+| `vm.prank(addr)` | Sets `msg.sender` for the **next** call only. `tx.origin` unaffected. |
+| `vm.startPrank(addr)` / `vm.stopPrank()` | Sets `msg.sender` for **all** calls until stopped. |
+| `vm.warp(secs)` | Sets `block.timestamp` (seconds). |
+| `vm.roll(n)` | Sets `block.number`. |
+| `vm.deal(addr, amount)` | Sets the account's GAS balance (read via `addr.balance`). |
+| `vm.label(addr, name)` | Cosmetic; accepted and ignored. |
+| `vm.assume(cond)` | Rejects the current input when `cond` is false. |
+
 ## Decoded failure reasons
 
 `neo-test` decodes the on-chain revert payload, so failures read clearly:

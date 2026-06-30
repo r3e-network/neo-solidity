@@ -1422,3 +1422,81 @@ contract Host {
         );
     }
 }
+
+/// Regression (neo-test cheatcodes): Foundry-style `vm.*` cheats are serviced
+/// by the runtime when a contract calls the well-known HEVM cheatcode address
+/// (0x7109709ECfa91a80626fF3989D68f67F5b1DD12D). `vm.prank` rewrites the next
+/// call's msg.sender; `vm.warp`/`vm.roll` set block.timestamp/number;
+/// `vm.deal` sets a GAS balance. Validated end-to-end: a host contract drives a
+/// `new`-deployed Target and observes the cheat effects.
+#[test]
+fn cheatcodes_prank_warp_roll_deal() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+interface Vm {
+    function warp(uint256) external;
+    function roll(uint256) external;
+    function prank(address) external;
+    function deal(address, uint256) external;
+}
+contract Target {
+    function ping() external view returns (address) { return msg.sender; }
+    function ts() external view returns (uint256) { return block.timestamp; }
+    function bn() external view returns (uint256) { return block.number; }
+    function bal(address a) external view returns (uint256) { return a.balance; }
+}
+contract Host {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+    Target t;
+    constructor() { t = new Target(); }
+    function prankOk(address who) external returns (bool) {
+        vm.prank(who);
+        return t.ping() == who;
+    }
+    function warpOk(uint256 s) external returns (bool) {
+        vm.warp(s);
+        return t.ts() == s;
+    }
+    function rollOk(uint256 n) external returns (bool) {
+        vm.roll(n);
+        return t.bn() == n;
+    }
+    function dealOk(address who, uint256 amt) external returns (bool) {
+        vm.deal(who, amt);
+        return t.bal(who) == amt;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let host = arts
+        .iter()
+        .find(|a| a.metadata.name == "Host")
+        .expect("Host artifact");
+    let alice = vec![0x11u8; 20];
+    let truthy = |rd: &[u8]| rd.iter().any(|&b| b != 0);
+
+    let cases: Vec<(&str, Vec<StackItem>)> = vec![
+        ("prankOk", vec![StackItem::byte_array(alice.clone())]),
+        ("warpOk", vec![StackItem::Integer(123_456)]),
+        ("rollOk", vec![StackItem::Integer(999)]),
+        (
+            "dealOk",
+            vec![StackItem::byte_array(alice.clone()), StackItem::Integer(5_000_000)],
+        ),
+    ];
+    for (method, args) in cases {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(&host.bytecode, &host.tokens, &host.manifest, method, &args)
+            .unwrap_or_else(|e| panic!("{method}: {e:?}"));
+        assert!(
+            r.success,
+            "{method} must succeed: {:?}",
+            r.exception.as_ref().map(|e| &e.message)
+        );
+        assert!(
+            truthy(&r.return_data),
+            "{method}: cheatcode effect not observed (rd={:?})",
+            r.return_data
+        );
+    }
+}
