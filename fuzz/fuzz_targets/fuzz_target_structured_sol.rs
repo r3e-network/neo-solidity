@@ -343,6 +343,9 @@ struct StmtBudget {
     /// Remaining `mapping`/dynamic-array op allowance (storage-collection
     /// lowering coverage).
     collection_remaining: u8,
+    /// Remaining devpack-framework call allowance (`Runtime.*` / `Storage.*`
+    /// auto-resolution + syscall lowering coverage).
+    devpack_remaining: u8,
     /// Monotonic id source for unique loop / local variable names so nested
     /// scopes never shadow (which neo-solc may reject).
     next_id: u16,
@@ -410,6 +413,11 @@ enum Stmt {
     /// `if (sa.length > 0) { state += sa[sa.length - 1]; sa.pop(); }` —
     /// guarded array index + pop (exercises bounds + length + pop lowering).
     ArrPopGuarded,
+    /// A devpack-framework call. `Runtime.*` / `Storage.*` auto-resolve to Neo
+    /// syscalls with no import, so emitting them here fuzzes the devpack
+    /// resolution + lowering paths (`src/ir/context/builtins/resolve.rs`).
+    /// `kind` selects the concrete call shape (see `render`).
+    Devpack { kind: u8, expr: Expr, id: u16, msg: String },
 }
 
 impl Stmt {
@@ -428,11 +436,11 @@ impl Stmt {
                 _ => Stmt::Require(Expr::leaf(u)?),
             });
         }
-        // Range 0..=12 covers the original kinds 0..=7 plus five new
-        // budget-gated productions (loops, locals, mapping/array ops), each
-        // falling back to a benign statement when its budget is exhausted so
-        // probability mass stays sane.
-        Ok(match u.int_in_range::<u8>(0..=12)? {
+        // Range 0..=13 covers the original kinds 0..=7 plus six new
+        // budget-gated productions (loops, locals, mapping/array ops, devpack
+        // calls), each falling back to a benign statement when its budget is
+        // exhausted so probability mass stays sane.
+        Ok(match u.int_in_range::<u8>(0..=13)? {
             0 => {
                 // Block of 0..=2 inner statements.
                 let n = u.int_in_range::<u8>(0..=2)?;
@@ -537,7 +545,7 @@ impl Stmt {
                     Stmt::StateAdd
                 }
             }
-            _ => {
+            12 => {
                 if budget.collection_remaining > 0 {
                     budget.collection_remaining -= 1;
                     if u.arbitrary::<bool>()? {
@@ -546,6 +554,19 @@ impl Stmt {
                         }
                     } else {
                         Stmt::ArrPopGuarded
+                    }
+                } else {
+                    Stmt::StateAdd
+                }
+            }
+            _ => {
+                if budget.devpack_remaining > 0 {
+                    budget.devpack_remaining -= 1;
+                    Stmt::Devpack {
+                        kind: u.int_in_range::<u8>(0..=8)?,
+                        expr: Expr::arbitrary_with_depth(u, depth + 1, using_for)?,
+                        id: budget.fresh_id(),
+                        msg: arb_short_string(u)?,
                     }
                 } else {
                     Stmt::StateAdd
@@ -706,6 +727,31 @@ impl Stmt {
                 }
                 out.push_str("}\n");
             }
+            Stmt::Devpack { kind, expr, id, msg } => match kind % 9 {
+                0 => out.push_str("state += Runtime.getTime();\n"),
+                1 => out.push_str("state += Runtime.gasLeft();\n"),
+                2 => out.push_str("state += Runtime.getInvocationCounter();\n"),
+                3 => out.push_str("state += Runtime.getRandom();\n"),
+                4 => out.push_str("state += uint256(Runtime.getNetwork());\n"),
+                5 => {
+                    let _ = write!(out, "Runtime.log(\"{}\");\n", msg);
+                }
+                6 => out.push_str("if (Runtime.checkWitness(msg.sender)) { state += 1; }\n"),
+                7 => {
+                    out.push_str("Storage.put(abi.encodePacked(uint256(");
+                    expr.render(out, param_count);
+                    out.push_str(") & 0xff), abi.encodePacked(state));\n");
+                }
+                _ => {
+                    let _ = write!(out, "bytes memory g_{} = Storage.get(abi.encodePacked(uint256(", id);
+                    expr.render(out, param_count);
+                    let _ = write!(out, ") & 0xff));\n");
+                    for _ in 0..indent {
+                        out.push_str("    ");
+                    }
+                    let _ = write!(out, "state += g_{}.length;\n", id);
+                }
+            },
         }
     }
 }
@@ -738,6 +784,7 @@ impl Function {
             loop_remaining: 2,
             local_remaining: 3,
             collection_remaining: 3,
+            devpack_remaining: 3,
             next_id: 0,
         };
         for _ in 0..nstmts {
