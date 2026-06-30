@@ -371,38 +371,10 @@ pub(crate) fn lower_return_statement(
             }
         }
 
-        // A `bytesN`/`bytes` byte index returned as `bytes1` (`return b[i];`)
-        // lowers `b[i]` to an Integer (PICKITEM byte value), but the manifest
-        // declares the return as ByteArray. An external caller comparing the
-        // bytes1 result against a literal would then do EQUAL(Integer,
-        // ByteString) — type-strict false on a real node (the simulator masks
-        // it). Coerce the byte to a 1-byte ByteString, mirroring the
-        // `bytes1(uintN)` cast (Convert ByteArray + coerce_to_fixed_bytes with
-        // reverse=true). The byte-index lowering still runs first, preserving
-        // its Panic(0x32) bounds guard. Gated on the base being a contiguous
-        // bytes value (`ByteArray`) so element returns of a `bytes1[]` (whose
-        // elements are already ByteStrings) are not touched.
-        if matches!(
-            ctx.return_types(),
-            [ValueType::ByteArray {
-                fixed_len: Some(1)
-            }]
-        ) {
-            if let Expression::ArraySubscript(_, base, Some(_)) = expression {
-                let base_is_bytes = matches!(
-                    infer_type_from_expression(base, ctx),
-                    Some(ValueType::ByteArray { .. })
-                );
-                if base_is_bytes && lower_expression(expression, ctx, instructions) {
-                    instructions.push(Instruction::Convert {
-                        target: ConvertTarget::ByteArray,
-                    });
-                    coerce_to_fixed_bytes(1, true, ctx, instructions);
-                    instructions.push(Instruction::Return);
-                    return true;
-                }
-            }
-        }
+        // NOTE: `return b[i]` (a byte index of bytes/bytesN returned as `bytes1`)
+        // is handled at the SOURCE — `try_lower_expression_primary` coerces a
+        // byte index to a 1-byte ByteString — so the generic path below returns
+        // the correct ByteString without a special case here.
 
         if lower_expression(expression, ctx, instructions) {
             // Task #137 — single-value dynamic-array return. For

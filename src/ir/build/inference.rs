@@ -380,6 +380,20 @@ pub(crate) fn infer_type_from_expression_inner(
             } else if let Some(ValueType::Array(inner)) = infer_type_from_expression(array, ctx) {
                 // Value expression: `arr[i]`
                 Some(*inner.clone())
+            } else if matches!(
+                infer_type_from_expression(array, ctx),
+                Some(ValueType::ByteArray { .. })
+            ) {
+                // A byte index of `bytes`/`bytesN` (`b[i]`) is a `bytes1` value.
+                // The lowering coerces it to a 1-byte ByteString (see
+                // `try_lower_expression_primary`), so report `bytes1` here too:
+                // this makes `b[i] == <hex literal>` canonicalize the literal to
+                // a ByteString (otherwise it stays an Integer and the type-strict
+                // `EQUAL(ByteString, Integer)` is false on a real node) and keeps
+                // cast / abi-encode paths consistent with the runtime type.
+                Some(ValueType::ByteArray {
+                    fixed_len: Some(1),
+                })
             } else if is_type_expression(array) {
                 // Task #185: Fixed-size array type expression `T[N]` (e.g. the outer
                 // element type of a multi-dim declaration `uint[3][2] memory a;`).

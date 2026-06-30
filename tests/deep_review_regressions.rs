@@ -1150,16 +1150,16 @@ contract C {
     );
 }
 
-/// Regression (type-strictness audit, root cause D): `return b[i]` where `b` is
-/// `bytesN`/`bytes` and the declared return is `bytes1`. The byte index lowers
-/// to ArrayGet/PICKITEM — an Integer (the byte value) — but the manifest
-/// declares the return as ByteArray, so an external caller comparing the result
-/// against a `bytes1` literal would do EQUAL(Integer, ByteString) → false on a
-/// real node. The return path now coerces the byte to a 1-byte ByteString
-/// (`Convert ByteArray` + the `bytes1(uintN)` cast helper), which is correct for
-/// all byte values incl. 0x00 and ≥0x80. Bytecode-shape assertion: the byte
-/// index return is followed by a CONVERT (and a NEWBUFFER from the coercion),
-/// not a bare PICKITEM→RET.
+/// Regression (type-strictness audit, root causes D + E): a byte index `b[i]`
+/// of a `bytes`/`bytesN` is a Solidity `bytes1`, but lowers to ArrayGet/PICKITEM
+/// — a NeoVM Integer (the byte value). Because NeoVM `EQUAL` is type-strict,
+/// leaving it an Integer made `b[i] == bytes1(x)` / `!=`, `return b[i]`, and
+/// assign-then-compare all wrong on a real node (the lenient simulator masks
+/// it). `try_lower_expression_primary` now coerces a byte index to a 1-byte
+/// ByteString AT THE SOURCE (`Convert ByteArray` + the `bytes1(uintN)` cast
+/// helper `coerce_to_fixed_bytes`, correct for all byte values incl. 0x00 and
+/// ≥0x80), so every consumer sees the right type. Bytecode-shape assertion: a
+/// byte-index `return` is coerced (NEWBUFFER + CONVERT), not a bare PICKITEM→RET.
 #[test]
 fn return_byte_index_as_bytes1_is_coerced_to_bytestring() {
     use neo_devpack_solidity::cli::disassemble_neovm_bytecode;

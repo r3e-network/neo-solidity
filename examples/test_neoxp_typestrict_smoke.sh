@@ -107,6 +107,31 @@ contract TypeStrict {
     function extEncodedEq() public view returns (bool) {
         return ISelf(address(this)).g6(hex"01", hex"02") == hex"0102";
     }
+
+    // E: a byte index `b[i]` is a bytes1 (1-byte ByteString) — comparisons,
+    // bare-literal comparisons, and assign-then-compare must all hold on a real
+    // node (b[i] used to lower to an Integer → type-strict EQUAL false).
+    function byteIdxEq() public pure returns (bool) {
+        bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
+        return b[0] == bytes1(0x01);
+    }
+    function byteIdxLit() public pure returns (bool) {
+        bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
+        return b[1] == 0x02;
+    }
+    function byteIdxNe() public pure returns (bool) {
+        bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
+        return b[0] != bytes1(0x02);
+    }
+    function byteIdxAssign() public pure returns (bool) {
+        bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
+        bytes1 x = b[2];
+        return x == bytes1(0x03);
+    }
+    function byteIdxUint() public pure returns (bool) {
+        bytes32 b = 0x0102030000000000000000000000000000000000000000000000000000000000;
+        return uint8(b[1]) == 2; // control: numeric use still correct
+    }
 }
 SOL
 
@@ -138,5 +163,10 @@ assert keySlot        true
 assert packedEq       true
 assert packedBytes1Eq true
 assert extEncodedEq   true
+assert byteIdxEq      true
+assert byteIdxLit     true
+assert byteIdxNe      true
+assert byteIdxAssign  true
+assert byteIdxUint    true
 
 echo "✅ neoxp type-strictness smoke test passed"
