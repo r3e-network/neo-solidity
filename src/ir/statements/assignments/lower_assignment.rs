@@ -352,29 +352,43 @@ pub(crate) fn lower_assignment(
             // suitable for the compile-time EVM ABI-decode path. Any miss
             // (Ignore/Invalid/nested/dynamic-type) falls back to the legacy
             // destructure.
-            let target_static_types: Option<Vec<ValueType>> = params
+            // Per-slot static types. A SKIPPED tuple slot — `(a, ) = f()` or
+            // `( , b) = f()` — has no LHS parameter; represent it as an inner
+            // `None` so it is left undecoded (and ignored by the destructure
+            // below). Previously `param.as_ref()?` short-circuited the entire
+            // `collect()` to `None` on the first skipped slot, so a partial
+            // destructure fell through to the legacy PICKITEM path — which
+            // indexes the ABI ByteString as an Array and reads back garbage
+            // (each well-aligned BE slot looks like 0x00 bytes). Each static
+            // slot is decoded at head offset `index * 32` independently (see
+            // `emit_abi_decode_slot_slice`), so skipped slots never shift the
+            // offsets of the slots we keep. A KEPT slot that is dynamic or
+            // un-inferable still bails to the legacy path (outer `None`).
+            let slot_types: Option<Vec<Option<ValueType>>> = params
                 .iter()
-                .map(|(_, param)| {
-                    let parameter = param.as_ref()?;
-                    let ty = infer_type_from_expression(&parameter.ty, ctx)?;
-                    if abi_static_slot_count(&ty) == Some(1) {
-                        Some(ty)
-                    } else {
-                        None
+                .map(|(_, param)| match param.as_ref() {
+                    None => Some(None),
+                    Some(parameter) => {
+                        let ty = infer_type_from_expression(&parameter.ty, ctx)?;
+                        if abi_static_slot_count(&ty) == Some(1) {
+                            Some(Some(ty))
+                        } else {
+                            None
+                        }
                     }
                 })
                 .collect();
-            if let Some(static_types) = target_static_types {
-                // Stack top: ABI-encoded ByteString of `static_types.len() * 32` bytes.
+            if let Some(slot_types) = slot_types {
+                // Stack top: ABI-encoded ByteString of `slot_types.len() * 32` bytes.
                 let buffer_local = ctx.allocate_local(
                     "__this_tuple_abi_buf".to_string(),
                     Some(ValueType::ByteArray { fixed_len: None }),
                 );
                 instructions.push(Instruction::StoreLocal(buffer_local));
 
-                // Materialise a fresh Array of the same arity as the LHS.
+                // Materialise a fresh Array of the same arity as the LHS tuple.
                 instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                    BigInt::from(static_types.len() as u64),
+                    BigInt::from(slot_types.len() as u64),
                 )));
                 instructions.push(Instruction::NewArray {
                     element_type: ValueType::Any,
@@ -385,14 +399,23 @@ pub(crate) fn lower_assignment(
                 );
                 instructions.push(Instruction::StoreLocal(array_local));
 
-                // For each slot, decode in-place from the buffer.
-                for (index, value_type) in static_types.iter().enumerate() {
-                    instructions.push(Instruction::LoadLocal(array_local));
-                    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                        BigInt::from(index as u64),
-                    )));
-                    emit_abi_decode_static_slot(buffer_local, index, value_type, ctx, instructions);
-                    instructions.push(Instruction::ArraySet);
+                // Decode each KEPT static slot in-place from the buffer; skipped
+                // slots stay `Null` (the destructure below ignores them).
+                for (index, slot) in slot_types.iter().enumerate() {
+                    if let Some(value_type) = slot {
+                        instructions.push(Instruction::LoadLocal(array_local));
+                        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                            BigInt::from(index as u64),
+                        )));
+                        emit_abi_decode_static_slot(
+                            buffer_local,
+                            index,
+                            value_type,
+                            ctx,
+                            instructions,
+                        );
+                        instructions.push(Instruction::ArraySet);
+                    }
                 }
 
                 // Hand the populated Array to the legacy tuple-destructure below.

@@ -1354,3 +1354,71 @@ contract Host {
         r2.return_data
     );
 }
+
+/// Regression (partial tuple destructure from a cross-contract call): binding
+/// a subset of a multi-return external call — `(uint256 a, ) = c.f()` or
+/// `( , uint256 b) = c.f()` — must select the correct ABI slot. The
+/// `this`/external multi-return decode path keyed its slot types off the LHS
+/// tuple parameters; a SKIPPED slot (`,`) has no LHS parameter, so the
+/// `param.as_ref()?` short-circuited the whole `collect()` to `None`, skipping
+/// the ABI-decode and letting the legacy `PICKITEM`-on-a-ByteString path read
+/// the ABI buffer as an Array (garbage). Skipped slots are now represented as
+/// `None` entries and left undecoded; each kept static slot is decoded at its
+/// own `index * 32` head offset. Full destructure already worked.
+#[test]
+fn partial_tuple_destructure_from_cross_contract_call_selects_right_slot() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Probe {
+    function pair() external pure returns (uint256, uint256) { return (11, 22); }
+}
+contract Host {
+    function firstOf(address c) external view returns (uint256) {
+        (uint256 a, ) = Probe(c).pair();
+        return a;
+    }
+    function secondOf(address c) external view returns (uint256) {
+        ( , uint256 b) = Probe(c).pair();
+        return b;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let host = arts
+        .iter()
+        .find(|a| a.metadata.name == "Host")
+        .expect("Host artifact");
+    let zero = [0u8; 20];
+    // Host-level uint256 returns come back as raw little-endian NeoVM integer
+    // bytes (low byte first), e.g. 11 -> [0x0B, 0x00, ...]. Decode LE.
+    let le = |rd: &[u8]| {
+        rd.iter()
+            .take(16)
+            .enumerate()
+            .fold(0u128, |acc, (i, &b)| acc + ((b as u128) << (8 * i)))
+    };
+
+    for (method, want) in [("firstOf", 11u128), ("secondOf", 22u128)] {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt
+            .call_method(
+                &host.bytecode,
+                &host.tokens,
+                &host.manifest,
+                method,
+                &[StackItem::byte_array(zero.to_vec())],
+            )
+            .unwrap_or_else(|e| panic!("{method} call: {e:?}"));
+        assert!(
+            r.success,
+            "{method} must succeed: {:?}",
+            r.exception.as_ref().map(|e| &e.message)
+        );
+        assert_eq!(
+            le(&r.return_data),
+            want,
+            "{method}: partial destructure bound the wrong cross-contract \
+             return slot (rd={:?})",
+            r.return_data
+        );
+    }
+}

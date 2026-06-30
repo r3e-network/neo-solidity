@@ -151,9 +151,5 @@ distinct per-instance address for each `new`-deployed contract.
 
 ## Known limitations
 
-- **Partial tuple destructure from a cross-contract call** — `(uint256 a, ) =
-  c.f()` / `( , uint256 b) = c.f()` where `c` is a `new`-deployed contract binds
-  the wrong element. Full destructure (`(uint256 a, uint256 b) = c.f()`) works.
-  (Tracked follow-up.)
 - **No cheatcodes yet** (`vm.prank`, `vm.expectRevert`, `vm.warp`, `deal`, …).
   Use `testFail*` for expected-revert tests and `setUp()` for fixtures.
