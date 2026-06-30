@@ -699,6 +699,15 @@ pub(crate) fn try_lower_member_call(
                 });
             }
 
+            // A VOID library/receiver function (e.g. `x.assertEq(4)` via a
+            // `using ... for` directive, where `assertEq` returns nothing)
+            // pushes no value. Report `false` so the statement-position lowering
+            // does not emit a trailing DROP against an empty stack — a
+            // "Stack underflow" VM fault. Mirrors the namespaced `Lib.f(...)`
+            // void path above.
+            if ctx.is_void_function(&member.name) {
+                return Some(false);
+            }
             return Some(success);
         }
 

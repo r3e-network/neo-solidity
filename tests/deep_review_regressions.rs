@@ -1240,3 +1240,31 @@ fn infinite_call_recursion_faults_not_hangs() {
         Err(_) => {}
     }
 }
+
+/// Regression (dev-env / neo-test): a VOID library function invoked via a
+/// `using ... for` directive as a STATEMENT (`x.check(4);`) must not emit a
+/// trailing DROP against an empty stack. Before the fix the using-for receiver
+/// path in member_calls.rs returned `Some(true)` for a void library function,
+/// so the statement-position lowering dropped a value that was never pushed →
+/// a "Stack underflow" VM fault. (Found by the `neo-test` runner exercising an
+/// `assertEq`-style helper called as `x.assertEq(4)`.)
+#[test]
+fn using_for_void_library_call_statement_no_stack_underflow() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+library L { function check(uint256 a, uint256 b) internal pure { require(a == b, "ne"); } }
+contract C {
+    using L for uint256;
+    function ok() public pure returns (bool) { uint256 x = 4; x.check(4); return true; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&arts[0].bytecode, &arts[0].tokens, &arts[0].manifest, "ok", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "void using-for library call as a statement must not underflow: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+}

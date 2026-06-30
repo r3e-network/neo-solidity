@@ -106,6 +106,10 @@ debug = true
 name = "neo-solc"
 path = "src/main.rs"
 
+[[bin]]
+name = "neo-test"
+path = "src/neo_test_main.rs"
+
 [[bench]]
 name = "compile"
 harness = false

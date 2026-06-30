@@ -9,6 +9,8 @@ pub(crate) use args::*;
 #[path = "cli_run/imports.rs"]
 mod imports;
 pub(crate) use imports::*;
+// Public, file-based import resolution for external tools (neo-test, editors).
+pub use imports::resolve_source_with_imports;
 #[path = "cli_run/standard_json.rs"]
 mod standard_json;
 pub(crate) use standard_json::*;

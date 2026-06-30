@@ -38,6 +38,24 @@ pub(crate) fn resolve_solidity_sources_with_imports(
     resolve_solidity_sources_with_options(entry_file, include_paths, &[])
 }
 
+/// Resolve a Solidity entry file's `import` directives from disk (Foundry-style
+/// remappings, auto-discovered `node_modules`, and `remappings.txt`) and return
+/// the single combined source string ready to hand to [`compile_contracts`].
+///
+/// `compile_contracts` itself takes a source STRING and performs no filesystem
+/// import resolution, so tools that compile a FILE — e.g. the `neo-test` runner
+/// or any editor/CI integration — need this to support multi-file projects
+/// (`import "./Token.sol"`, `import "@openzeppelin/..."`, a shared test base).
+///
+/// `include_paths` are extra roots to resolve non-relative imports against
+/// (in addition to the entry file's directory and auto-discovered node_modules).
+pub fn resolve_source_with_imports(
+    entry_file: &Path,
+    include_paths: &[PathBuf],
+) -> Result<String, String> {
+    resolve_solidity_sources_with_options(entry_file, include_paths, &[]).map(|r| r.combined_source)
+}
+
 pub(crate) fn resolve_solidity_sources_with_options(
     entry_file: &Path,
     include_paths: &[PathBuf],

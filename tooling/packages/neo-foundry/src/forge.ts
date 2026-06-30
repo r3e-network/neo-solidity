@@ -1,7 +1,40 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { spawn } from "child_process";
 import chalk from "chalk";
 import { ConfigManager } from "./config.js";
+
+/**
+ * Resolve the `neo-test` runner binary: the `NEO_TEST` env var wins, otherwise
+ * `neo-test` is expected on `PATH`. (Build it from this repo with
+ * `cargo build --release --bin neo-test`.)
+ */
+function resolveNeoTestBin(): string {
+  return process.env.NEO_TEST || "neo-test";
+}
+
+function runNeoTest(bin: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { stdio: "inherit" });
+    child.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") {
+        reject(
+          new Error(
+            `neo-test binary not found ('${bin}'). Build it with ` +
+              "`cargo build --release --bin neo-test` and put it on PATH, " +
+              "or set the NEO_TEST environment variable to its path."
+          )
+        );
+      } else {
+        reject(err);
+      }
+    });
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`neo-test exited with code ${code ?? "unknown"}`));
+    });
+  });
+}
 
 /**
  * Neo-Forge - Foundry-like UX for Neo DevPack for Solidity projects.
@@ -54,21 +87,22 @@ export class NeoForge {
   } = {}): Promise<void> {
     await this.config.loadConfig();
     const profile = this.config.getProfile(options.profile || this.profileName);
+    const testDir = profile.test || "test";
 
-    console.log(chalk.blue("🧪 neo-forge test (scaffold)"));
-    console.log(`  test dir: ${profile.test}`);
-
-    if (options.pattern) console.log(`  pattern: ${options.pattern}`);
-    if (options.gasReport) console.log("  gas report: enabled (placeholder)");
-    if (options.coverage) console.log("  coverage: enabled (placeholder)");
-    if (options.forkUrl) console.log(`  fork url: ${options.forkUrl}`);
-    if (typeof options.forkBlockNumber === "number") {
-      console.log(`  fork block: ${options.forkBlockNumber}`);
+    // Delegate to the native `neo-test` runner: it compiles each *.t.sol with
+    // neo-solc and executes every test*()/setUp() on the in-tree NeoVM.
+    const args: string[] = [testDir];
+    if (options.pattern) args.push("--match-test", options.pattern);
+    if (options.gasReport) args.push("--gas");
+    if (options.verbose) args.push("-v");
+    if (options.coverage) {
+      console.log(chalk.yellow("  (coverage is not yet supported by neo-test — ignoring --coverage)"));
+    }
+    if (options.forkUrl || typeof options.forkBlockNumber === "number") {
+      console.log(chalk.yellow("  (forking is not yet supported by neo-test — ignoring --fork-*)"));
     }
 
-    throw new Error(
-      "neo-forge test is not implemented yet. Neo VM test execution is still on the roadmap."
-    );
+    await runNeoTest(resolveNeoTestBin(), args);
   }
 
   async clean(profileName?: string): Promise<void> {
