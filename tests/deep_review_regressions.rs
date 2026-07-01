@@ -1873,3 +1873,36 @@ contract C {
     let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
     assert_eq!(v, 207, "arr.push();push();arr[1]=7 -> len=2,arr[0]=0,arr[1]=7 -> 207; got {v}");
 }
+
+/// Regression (bug-hunt #23): a contract's own event declarations must survive
+/// when another primary contract references it by type (`new Emitter()`). The
+/// sibling-merge pass pulls `Emitter.doSimple` into the referencing host `E`;
+/// without carrying `Emitter`'s event declarations too, the merged `doSimple`
+/// body's `emit Simple(...)` fails the "no resolved declaration" guard and the
+/// whole compile errors. Both the owner (`Emitter`) AND the host (`E`) must
+/// declare `Simple` in their manifests so the notification validates on Neo
+/// nodes >= 3.6.
+#[test]
+fn sibling_referenced_contract_keeps_its_events() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract Emitter {
+    event Simple(uint256 a);
+    uint256 public counter;
+    function doSimple() public { emit Simple(42); counter += 1; }
+}
+contract E {
+    Emitter e;
+    function run() public returns (uint256) { e = new Emitter(); e.doSimple(); return e.counter(); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("sibling-referenced events must compile");
+    let has_simple = |name: &str| {
+        arts.iter()
+            .find(|a| a.manifest["name"].as_str() == Some(name))
+            .and_then(|a| a.manifest["abi"]["events"].as_array())
+            .map(|evs| evs.iter().any(|e| e["name"].as_str() == Some("Simple")))
+            .unwrap_or(false)
+    };
+    assert!(has_simple("Emitter"), "Emitter must keep its own Simple event");
+    assert!(has_simple("E"), "host E (merged doSimple) must declare Simple so the notification validates");
+}

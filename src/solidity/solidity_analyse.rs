@@ -342,6 +342,19 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             .iter()
             .map(|c| (c.name.clone(), c.state_variables.clone()))
             .collect();
+        // Task #23 — parallel event-declaration map. When a sibling's external
+        // body is merged into a host (above), any `emit Foo(...)` in that body
+        // resolves `Foo` against the HOST contract's event table during IR
+        // lowering (`event_evm_signature`). If the host never declared `Foo`,
+        // the emit fails the "no resolved declaration" guard and the whole
+        // compile errors — even though the sibling that owns `doSimple`
+        // declares `Foo` perfectly well. Mirror the sibling function/state/
+        // modifier merges by also carrying each sibling's event declarations so
+        // the merged bodies can resolve their own events against the host.
+        let sibling_event_map: std::collections::HashMap<String, Vec<EventIR>> = primary
+            .iter()
+            .map(|c| (c.name.clone(), c.events.clone()))
+            .collect();
         // Task #198 — parallel constructor map. For `new Child(x, y)` inside a
         // Parent contract, the compiled Child lives in a separate artifact, so
         // the Parent's runtime invocation of its own `_deploy` never runs the
@@ -655,6 +668,22 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                         contract.has_using_for_star || sibling_contract.has_using_for_star;
                     contract.has_using_function_list = contract.has_using_function_list
                         || sibling_contract.has_using_function_list;
+                }
+                // Task #23 — merge the sibling's event declarations so a merged
+                // external body's `emit Foo(...)` resolves against the host's
+                // event table. Dedup by event name; a host event of the same
+                // name already covers the declaration (matching manifest
+                // dedup), so we only append events the host doesn't declare.
+                if let Some(sibling_events) = sibling_event_map.get(sibling_name) {
+                    for sibling_event in sibling_events {
+                        if !contract
+                            .events
+                            .iter()
+                            .any(|e| e.name == sibling_event.name)
+                        {
+                            contract.events.push(sibling_event.clone());
+                        }
+                    }
                 }
             }
 
