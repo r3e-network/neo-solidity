@@ -2789,3 +2789,27 @@ contract B { A token; constructor() { token = new A(); } function go(address s) 
     assert!(has_approval("A"), "A must declare its inherited Approval event");
     assert!(has_approval("B"), "host B (merged A.approve) must declare Approval so the notification validates");
 }
+
+/// Regression (famous-contracts eval): `new X{salt: s}(args)` (CREATE2-style
+/// salted creation, used by Uniswap Trident / 0x / Seaport ConduitController
+/// factories) must compile. Neo N3 has no CREATE2, so the salt option is
+/// evaluated for side effects then ignored and the contract is deployed as a
+/// normal `new` — rather than failing "unsupported `new` expression".
+#[test]
+fn new_with_salt_option_compiles() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract Pair { uint256 public x; function init(uint256 v) external { x = v; } }
+contract Factory {
+    function create(bytes32 salt) external returns (address) {
+        Pair p = new Pair{salt: salt}();
+        p.init(7);
+        return address(p);
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("new X{salt: s}() must compile");
+    assert!(
+        arts.iter().any(|a| a.manifest["name"].as_str() == Some("Factory")),
+        "Factory must be produced"
+    );
+}

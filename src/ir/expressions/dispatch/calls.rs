@@ -70,6 +70,42 @@ pub(crate) fn lower_new_expression(
 ) -> bool {
     match expr {
         Expression::FunctionCall(_, func, args) => {
+            // `new X{salt: s}(args)` — CREATE2-style salted creation. solang-parser
+            // represents the `{...}` options as a `FunctionCallBlock` wrapping the
+            // type expression. Neo N3 has no CREATE2 (deployment is an external
+            // transaction, and a deterministic address can't be derived from a
+            // salt here), so evaluate the option values for side effects, warn
+            // they're ignored, and lower as a plain `new X(args)` — mirroring the
+            // `{gas: ...}` / `{value: ...}` handling for ordinary method calls.
+            if let Expression::FunctionCallBlock(_, inner, block) = func.as_ref() {
+                if let Statement::Args(_, named_args) = block.as_ref() {
+                    let names: Vec<String> =
+                        named_args.iter().map(|a| a.name.name.clone()).collect();
+                    ctx.record_warning_with_suggestion(
+                        format!(
+                            "call options ({}) on `new` are ignored on Neo N3; the contract is \
+                             deployed as a normal `new` (Neo N3 has no CREATE2 salt).",
+                            names.join(", ")
+                        ),
+                        "A deterministic address is not derived from the salt here; use a factory \
+                         / ContractManagement if you need the deployed contract hash.",
+                    );
+                    for a in named_args {
+                        if lower_expression(&a.expr, ctx, instructions) {
+                            instructions.push(Instruction::Drop(ValueType::Any));
+                        }
+                    }
+                }
+                return lower_new_expression(
+                    &Expression::FunctionCall(
+                        Default::default(),
+                        inner.clone(),
+                        args.clone(),
+                    ),
+                    ctx,
+                    instructions,
+                );
+            }
             // `new bytes(n)` / `new string(n)`
             if matches!(
                 func.as_ref(),
