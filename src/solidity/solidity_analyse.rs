@@ -1020,6 +1020,25 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                     .extend(lib.state_variables.clone());
                 flattened.structs.extend(lib.structs.clone());
                 flattened.enums.extend(lib.enums.clone());
+                // Carry the library's OWN event declarations so an inlined
+                // library body's `emit Foo(...)` resolves against the host's
+                // event table. Real-world case: Aave v3 `library ReserveLogic`
+                // declares `event ReserveDataUpdated` (a copy of `IPool`'s) and
+                // emits it unqualified; once the helper is inlined into `Pool`
+                // the emit resolves `ReserveDataUpdated` against `Pool`'s events,
+                // which previously lacked it -> "emit references event ... which
+                // has no resolved declaration" and the whole compile failed.
+                // Dedup by name: the host may already declare/inherit the same
+                // event. Mirrors the sibling-contract event merge (Task #23).
+                for lib_event in &lib.events {
+                    if !flattened
+                        .events
+                        .iter()
+                        .any(|e| e.name == lib_event.name)
+                    {
+                        flattened.events.push(lib_event.clone());
+                    }
+                }
                 // Merge the library's own `using` directives into the host.
                 // Library function bodies are inlined verbatim above, so any
                 // member-style call resolved by a library-scope `using` (e.g.

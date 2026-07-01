@@ -2694,3 +2694,36 @@ contract C {
         "internal call to public array returner must decode (len=3, m[1]=200)"
     );
 }
+
+/// Regression (famous-contracts eval, library-event-merge — extends #23): a
+/// `library` that DECLARES its own event and emits it (Aave v3 ReserveLogic
+/// declares `event ReserveDataUpdated` and emits it unqualified) must carry
+/// that event into the consuming contract's manifest when the library helper
+/// is inlined. Previously the merged emit failed "event ... has no resolved
+/// declaration" and the whole compile errored, blocking ~15 Aave contracts.
+#[test]
+fn library_declared_event_is_carried_into_consuming_contract() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.10;
+library ReserveLogic {
+    event ReserveDataUpdated(address indexed reserve, uint256 rate);
+    function updateRates(address r) internal { emit ReserveDataUpdated(r, 100); }
+}
+contract Pool {
+    using ReserveLogic for address;
+    function touch(address r) external { ReserveLogic.updateRates(r); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("library-emitted event must compile");
+    let pool = arts
+        .iter()
+        .find(|a| a.manifest["name"].as_str() == Some("Pool"))
+        .expect("Pool artifact");
+    let has_event = pool.manifest["abi"]["events"]
+        .as_array()
+        .map(|evs| evs.iter().any(|e| e["name"].as_str() == Some("ReserveDataUpdated")))
+        .unwrap_or(false);
+    assert!(
+        has_event,
+        "Pool manifest must declare the inlined library's ReserveDataUpdated event"
+    );
+}
