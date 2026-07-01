@@ -192,16 +192,25 @@ pub(crate) fn lower_state_array_push(
         return true;
     }
 
-    if args.len() != 1 {
-        ctx.record_error("array push expects exactly one argument");
+    if args.len() > 1 {
+        ctx.record_error("array push expects at most one argument");
         return false;
+    }
+
+    // Solidity >= 0.6: a zero-arg `arr.push()` appends a zero-initialized
+    // element (its value is a reference the caller then mutates). Push the
+    // element type's default instead of erroring.
+    if args.is_empty() {
+        push_default_for_value_type(element_type, ctx, instructions);
     }
 
     // Canonicalize an integer-backed `bytesN` literal to its big-endian
     // ByteString for a `bytesN[]` element (otherwise `arr.push(0x..)` stores
     // the hex literal little-endian and reads back byte-reversed) — same class
     // as the scalar state-var / struct-field / call-arg / mapping-key fixes.
-    let pushed = if matches!(element_type, ValueType::ByteArray { fixed_len: Some(_) }) {
+    let pushed = if args.is_empty() {
+        true // default already pushed above
+    } else if matches!(element_type, ValueType::ByteArray { fixed_len: Some(_) }) {
         super::super::super::dispatch::try_lower_bytesn_literal_canonical(
             &args[0],
             element_type,

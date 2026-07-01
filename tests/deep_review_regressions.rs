@@ -1823,3 +1823,53 @@ contract C {
     assert!(ru.success, "runUint must not trap: {:?}", ru.exception.as_ref().map(|e| &e.message));
     assert_eq!(le(&ru.return_data), 13, "g(uint y=10, 3) must pick uint overload -> 10+3=13 (rd={:?})", ru.return_data);
 }
+
+/// Regression (bug-hunt #22): a `bytesN` CONSTANT initialized with an implicit
+/// (un-cast) hex literal must fold to its big-endian ByteString, so
+/// `uint16(B2)` / `uint32(B4)` read the face value — not the byte-reversed
+/// little-endian Integer the raw hex literal lowers to.
+#[test]
+fn bytesn_constant_implicit_hex_is_big_endian() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    bytes2 constant B2 = 0x1234;
+    bytes4 constant B4 = 0xdeadbeef;
+    function b2() external pure returns (uint256) { return uint256(uint16(B2)); }
+    function b4() external pure returns (uint256) { return uint256(uint32(B4)); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let be = |rd: &[u8]| rd.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    for (m, want) in [("b2", 0x1234u128), ("b4", 0xdeadbeef)] {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[]).expect("call");
+        assert!(r.success, "{m}: {:?}", r.exception.as_ref().map(|e| &e.message));
+        assert_eq!(be(&r.return_data), want, "{m}: bytesN constant not big-endian; got {:#x} want {want:#x}", be(&r.return_data));
+    }
+}
+
+/// Regression (bug-hunt #26/#27): zero-arg `arr.push()` (Solidity >= 0.6)
+/// appends a zero-initialized element to a state-var dynamic array, rather
+/// than being rejected at compile time.
+#[test]
+fn zero_arg_array_push_appends_default() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    uint256[] arr;
+    function run() external returns (uint256) {
+        arr.push();
+        arr.push();
+        arr[1] = 7;
+        return arr.length * 100 + arr[0] * 10 + arr[1];
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "zero-arg push must compile+run: {:?}", r.exception.as_ref().map(|e| &e.message));
+    let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    assert_eq!(v, 207, "arr.push();push();arr[1]=7 -> len=2,arr[0]=0,arr[1]=7 -> 207; got {v}");
+}

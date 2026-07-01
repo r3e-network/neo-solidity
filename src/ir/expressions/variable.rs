@@ -61,6 +61,23 @@ pub(crate) fn lower_variable_expression(
                 }
             }
 
+            // Canonicalize a `bytesN` constant whose initializer is an
+            // integer-backed literal (e.g. `bytes2 constant B = 0x1234`) to its
+            // big-endian ByteString, so `uint16(B)` / byte indexing read the
+            // face value — not the byte-reversed little-endian Integer the raw
+            // hex literal would lower to (same class as the scalar / struct /
+            // array / mapping-key bytesN canonicalization fixes).
+            if let Some(ty @ ValueType::ByteArray { fixed_len: Some(_) }) = state_type.as_ref() {
+                if super::dispatch::try_lower_bytesn_literal_canonical(
+                    &initializer,
+                    ty,
+                    ctx,
+                    instructions,
+                ) {
+                    return true;
+                }
+            }
+
             return lower_expression(&initializer, ctx, instructions);
         }
 
