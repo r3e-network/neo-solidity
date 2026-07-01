@@ -201,6 +201,21 @@ pub(crate) fn infer_type_from_expression_inner(
             infer_type_from_expression(then_expr, ctx)
                 .or_else(|| infer_type_from_expression(else_expr, ctx))
         }
+        // A bitwise `a & b` / `a | b` / `a ^ b` has the common type of its
+        // operands. Without this arm the result inferred `None`, which for
+        // `bytesN` operands suppressed the byte-reversal in a following
+        // `uint256(a | b)` / `int256(a & b)` cast: the bitwise op leaves a
+        // byte-REVERSED word (NeoVM AND/OR/XOR read the big-endian ByteString
+        // as a little-endian integer), and the cast's reverse is what recovers
+        // the value — but only fires when the cast argument infers to `bytesN`.
+        // Prefer the left operand's type, falling back to the right (bug-hunt
+        // #14). Integer operands infer to `Integer`, so integer bitwise flows
+        // are unchanged (no reverse added).
+        Expression::BitwiseAnd(_, left, right)
+        | Expression::BitwiseOr(_, left, right)
+        | Expression::BitwiseXor(_, left, right) => {
+            infer_type_from_expression(left, ctx).or_else(|| infer_type_from_expression(right, ctx))
+        }
         Expression::BoolLiteral(_, _) => Some(ValueType::Boolean),
         Expression::NumberLiteral(_, _, _, _)
         | Expression::HexNumberLiteral(_, _, _)

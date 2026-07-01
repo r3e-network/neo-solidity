@@ -266,7 +266,27 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                             // IR-lowering time by emitting a runtime trap
                             // instead of a compile error.)
                             let _ = is_abstract_internal;
-                            is_named_external || is_fallback_like
+                            // Task #18/#20 — a merged PUBLIC body may CALL_L into
+                            // its own contract's CONCRETE internal/private helper
+                            // (e.g. `H.pub()` calls `H.helper()` which does
+                            // `c += 10`, or `Base.f()` dispatches to an internal
+                            // implementation). Those helpers are not entrypoints,
+                            // so they were dropped from the merge and lowered to
+                            // a PUSH0 placeholder — the SSTORE never ran and the
+                            // callee's writes vanished. Merge body-bearing
+                            // internals too so the CALL_L target is real. They
+                            // still never reach the manifest ABI (export gates on
+                            // Public|External) nor `self_method_offsets`; they are
+                            // reachable only via the merged public method's
+                            // internal CALL_L, matching EVM semantics. Abstract
+                            // (bodyless) internals stay excluded (body.is_some()).
+                            let is_concrete_internal = matches!(f.ty, FunctionTy::Function)
+                                && f.body.is_some()
+                                && matches!(
+                                    f.visibility,
+                                    VisibilityKind::Internal | VisibilityKind::Private
+                                );
+                            is_named_external || is_fallback_like || is_concrete_internal
                         })
                         .cloned()
                         .collect::<Vec<_>>(),

@@ -1952,3 +1952,85 @@ contract C {
     let rc = call("checkedNegMin256");
     assert!(!rc.success, "checked -int256.min must Panic, not succeed");
 }
+
+/// Regression (bug-hunt #14): bitwise `&`/`|`/`^` on `bytes32` values read back
+/// through `uint256(...)` must yield the true value, not a byte-reversed word.
+/// NeoVM AND/OR/XOR treat the big-endian ByteString as a little-endian integer;
+/// the `uint256(bytesN)` cast's reverse recovers it, but only when `a|b` infers
+/// to `bytesN` (the fix adds that inference arm).
+#[test]
+fn bytes32_bitwise_read_as_uint256_is_true_value() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function orv() external pure returns (uint256) { bytes32 a=bytes32(uint256(1)); bytes32 b=bytes32(uint256(4)); return uint256(a | b); }
+    function andv() external pure returns (uint256) { bytes32 a=bytes32(uint256(7)); bytes32 b=bytes32(uint256(5)); return uint256(a & b); }
+    function xorv() external pure returns (uint256) { bytes32 a=bytes32(uint256(7)); bytes32 b=bytes32(uint256(5)); return uint256(a ^ b); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str| {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        rt.call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[]).expect("call")
+    };
+    for (m, want) in [("orv", 5u8), ("andv", 5), ("xorv", 2)] {
+        let r = call(m);
+        assert!(r.success, "{m} faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+        assert_eq!(r.return_data.first().copied(), Some(want), "{m} must equal {want}");
+    }
+}
+
+/// Regression (bug-hunt #8): a storage struct passed by reference to an internal
+/// function must ALIAS the slot — the callee's field mutation persists. Was
+/// lost because the positional call materialized a detached struct copy.
+#[test]
+fn storage_struct_ref_param_aliases_and_persists() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct Acct { uint256 bal; uint256 nonce; }
+    mapping(address => Acct) accts;
+    function _bump(Acct storage x) internal { x.nonce += 1; }
+    function run() external returns (uint256) {
+        address a = address(0x3);
+        accts[a].nonce = 5;
+        _bump(accts[a]);
+        return accts[a].nonce; // must be 6
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(r.return_data.first().copied(), Some(6u8), "storage ref param mutation must persist");
+}
+
+/// Regression (bug-hunt #18/#20): a merged public method that CALL_Ls into its
+/// own contract's concrete internal helper must reach a real body — the helper
+/// used to be dropped from the sibling-merge and lowered to PUSH0, so its state
+/// write vanished. `new H(); w.pub()` (pub calls internal helper() { c += 10 })
+/// must leave c == 10.
+#[test]
+fn sibling_merge_includes_concrete_internal_helpers() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract H {
+    uint256 public c;
+    function helper() internal { c += 10; }
+    function pub() public { helper(); }
+}
+contract T {
+    function run() external returns (uint256) {
+        H w = new H();
+        w.pub();
+        return w.c(); // must be 10
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.manifest["name"].as_str() == Some("T")).expect("T artifact");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(r.return_data.first().copied(), Some(10u8), "merged internal helper write must persist");
+}

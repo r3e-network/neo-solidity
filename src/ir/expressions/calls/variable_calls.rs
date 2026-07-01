@@ -212,6 +212,33 @@ pub(crate) fn try_lower_variable_call(
         }
 
         if ctx.function_names.contains(&identifier.name) {
+            // Task #8 — storage-pointer receiver inlining for a PLAIN positional
+            // call `f(accts[a])` where `f`'s first parameter is `T storage`. A
+            // regular `CallFunction` materialises the storage struct into a
+            // detached NeoVM copy and the callee's `x.nonce += 1` mutates that
+            // copy, which is discarded on return (the field write is lost).
+            // Mirror the member-call storage-pointer path (member_calls.rs:615)
+            // by inlining the body with the first param aliased to the caller's
+            // `StorageReference`, so field stores write through to the real slot.
+            // Keyed by (name, args.len()) because the storage pointer is the
+            // FIRST positional arg here (vs. the implicit receiver in `x.f(..)`).
+            if !args.is_empty() {
+                if let Some(body_info) =
+                    ctx.library_storage_body(&identifier.name, args.len()).cloned()
+                {
+                    if let Some(reference) = resolve_storage_reference(&args[0], ctx) {
+                        let produces_value = body_info.return_type.is_some();
+                        let _ = inline_library_storage_call(
+                            body_info,
+                            reference,
+                            &args[1..],
+                            ctx,
+                            instructions,
+                        );
+                        return Some(produces_value);
+                    }
+                }
+            }
             // Infer argument types BEFORE lowering (lowering consumes the
             // expressions onto the stack) so a same-arity overload can be
             // resolved by type.
