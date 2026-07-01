@@ -87,7 +87,26 @@ pub(crate) fn try_lower_length_property(
     if let Expression::Variable(base) = inner {
         if let Some(state_index) = ctx.state_index_map.get(&base.name) {
             if matches!(ctx.state_type(*state_index), Some(ValueType::Array(_))) {
-                // Storage array length is stored at the base slot.
+                // FIXED-SIZE storage array `T[N]` (feature audit): the IR
+                // collapses `T[N]` and `T[]` into one Array ValueType, and the
+                // base slot is only maintained for DYNAMIC arrays (push/pop/
+                // assign write it). A fixed array never writes the slot, so
+                // `LoadState` read 0 — silently no-op'ing
+                // `for (i = 0; i < a.length; ...)` loops and always-reverting
+                // `require(a.length == N)`. The declared bound is a compile-
+                // time constant: recover it from the state variable's declared
+                // type string (`uint256[3]` → outer dim 3) and push it.
+                if let Some(meta) = ctx.state_metadata(*state_index) {
+                    if let Some(dims) = parse_nested_fixed_array_shape(&meta.ty) {
+                        if let Some(outer) = dims.first() {
+                            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                                BigInt::from(*outer as u64),
+                            )));
+                            return Some(true);
+                        }
+                    }
+                }
+                // Dynamic storage array: length is stored at the base slot.
                 instructions.push(Instruction::LoadState(*state_index));
                 return Some(true);
             }

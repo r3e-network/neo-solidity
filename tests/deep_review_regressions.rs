@@ -2847,3 +2847,44 @@ contract C {
         "contract C must be produced"
     );
 }
+
+/// Regression (feature audit): `.length` of a FIXED-SIZE storage array `T[N]`
+/// must be the declared compile-time bound N — not a read of the (never
+/// written) base slot, which returned 0 and silently no-op'd
+/// `for (i = 0; i < a.length; i++)` loops. Dynamic arrays keep the slot read.
+#[test]
+fn fixed_size_storage_array_length_is_declared_bound() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    uint256[3] fixedArr;
+    uint256[] dynArr;
+    function run() external returns (uint256) {
+        for (uint256 i = 0; i < fixedArr.length; i++) { fixedArr[i] = i + 1; }
+        dynArr.push(9);
+        // fixed len=3, sum=6, dyn len=1 -> 3*1000 + 6*10 + 1 = 3061
+        return fixedArr.length * 1000 + (fixedArr[0] + fixedArr[1] + fixedArr[2]) * 10 + dynArr.length;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "faulted: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    let v = r
+        .return_data
+        .iter()
+        .take(16)
+        .enumerate()
+        .fold(0u128, |a, (i, &b)| a + ((b as u128) << (8 * i)));
+    assert_eq!(
+        v, 3061,
+        "fixed .length must be 3, loop must run, dyn .length must stay slot-backed (got {v})"
+    );
+}
