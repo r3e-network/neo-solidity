@@ -2727,3 +2727,38 @@ contract Pool {
         "Pool manifest must declare the inlined library's ReserveDataUpdated event"
     );
 }
+
+/// Regression (famous-contracts eval, abstract-virtual): a concrete contract
+/// that merely HOLDS a field of an `abstract contract` type must NOT be forced
+/// to implement that abstract's virtuals. Compound v2 (CToken/Comptroller hold
+/// PriceOracle / InterestRateModel abstract-typed fields) was rejected with
+/// "N unimplemented function(s) but not declared abstract" because the
+/// sibling-merge injected the abstract's bodyless virtual into the host's
+/// method table. Bodyless externals are no longer merged (no body to dispatch).
+#[test]
+fn concrete_contract_referencing_abstract_typed_field_is_not_abstract() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+abstract contract PriceOracle { function getPrice(address a) external virtual returns (uint256); }
+contract Market {
+    PriceOracle oracle;
+    function px(address a) external returns (uint256) { return oracle.getPrice(a); }
+}"#;
+    let arts = compile_contracts(src, false, 2)
+        .expect("concrete contract with abstract-typed field must compile");
+    let market = arts
+        .iter()
+        .find(|a| a.manifest["name"].as_str() == Some("Market"))
+        .expect("Market artifact");
+    let methods: Vec<&str> = market.manifest["abi"]["methods"]
+        .as_array()
+        .expect("methods")
+        .iter()
+        .filter_map(|m| m["name"].as_str())
+        .collect();
+    assert!(methods.contains(&"px"), "Market must expose px");
+    assert!(
+        !methods.contains(&"getPrice"),
+        "Market must NOT absorb the abstract's virtual getPrice"
+    );
+}

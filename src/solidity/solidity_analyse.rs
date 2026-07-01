@@ -249,11 +249,26 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                             // runtime's unknown-method path would silently
                             // return Null rather than propagating the fallback's
                             // revert back to the caller's catch clause.
+                            // Only merge external/public methods that have a
+                            // BODY. A bodyless external/public method is an
+                            // abstract virtual (an abstract contract's interface
+                            // surface). Merging it into a host that merely
+                            // *references* the abstract type — e.g. a
+                            // `PriceOracle oracle;` / `InterestRateModel`-typed
+                            // field (Compound v2 CToken/Comptroller) — has no
+                            // dispatch value (there is no body to route to) and
+                            // wrongly trips the host's "N unimplemented
+                            // function(s) but not declared abstract" check
+                            // (validate_abstract_contract). Calls through such a
+                            // field are real cross-contract calls, not
+                            // self-offsets dispatch. Same reasoning as the
+                            // is_abstract_internal exclusion below.
                             let is_named_external = matches!(f.ty, FunctionTy::Function)
                                 && matches!(
                                     f.visibility,
                                     VisibilityKind::External | VisibilityKind::Public
-                                );
+                                )
+                                && f.body.is_some();
                             let is_fallback_like =
                                 matches!(f.ty, FunctionTy::Fallback | FunctionTy::Receive);
                             // (We deliberately do NOT include
