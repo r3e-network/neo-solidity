@@ -881,7 +881,7 @@ pub(crate) fn emit_u256_addmod_ir(
     ins.push(Instruction::LoadLocal(m_slot));
     emit_u256_unsigned_compare(ins, BinaryOperator::Ge);
     ins.push(Instruction::JumpIf { target: do_else }); // s>=m false -> result = s
-    // s>=m true -> fall through to subtract.
+                                                       // s>=m true -> fall through to subtract.
 
     ins.push(Instruction::Label(do_sub));
     // result = (s - m) mod 2^256 — exact, since the true (a'+b') - m is in

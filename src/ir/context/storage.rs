@@ -145,10 +145,7 @@ pub(crate) fn emit_storage_load(
     let mut key_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.key_expressions.iter().enumerate() {
         let key_ty = reference.key_types.get(index).cloned();
-        let local = ctx.allocate_local(
-            format!("__storage_key_{tmp_id}_{index}"),
-            key_ty.clone(),
-        );
+        let local = ctx.allocate_local(format!("__storage_key_{tmp_id}_{index}"), key_ty.clone());
         // Canonicalize an integer-backed bytesN literal key to its full-width
         // big-endian ByteString so it hashes to the SAME storage slot as a
         // runtime bytesN key of the same value. Without this, `m[0x..01]` pushes
@@ -292,10 +289,7 @@ pub(crate) fn emit_storage_store(
     let mut key_locals: Vec<usize> = Vec::new();
     for (index, expr) in reference.key_expressions.iter().enumerate() {
         let key_ty = reference.key_types.get(index).cloned();
-        let local = ctx.allocate_local(
-            format!("__storage_key_{tmp_id}_{index}"),
-            key_ty.clone(),
-        );
+        let local = ctx.allocate_local(format!("__storage_key_{tmp_id}_{index}"), key_ty.clone());
         // Canonicalize an integer-backed bytesN literal key to its full-width
         // big-endian ByteString so it hashes to the SAME storage slot as a
         // runtime bytesN key of the same value. Without this, `m[0x..01]` pushes

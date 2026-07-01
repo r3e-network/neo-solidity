@@ -107,7 +107,9 @@ pub(crate) fn emit_struct_param_field_loads(
 ) {
     for i in 0..field_count {
         instructions.push(Instruction::LoadParameter(param_slot));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(i))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(i),
+        )));
         instructions.push(Instruction::ArrayGet);
     }
 }

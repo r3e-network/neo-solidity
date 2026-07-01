@@ -386,8 +386,14 @@ pub(crate) fn try_lower_member_call(
                 // the callee's parameter type, so a `bytesN` constant passed to
                 // an external/interface method (`ISelf(x).f(0x01..)`) reaches the
                 // callee as the correct bytes, not a little-endian Integer.
-                if !lower_call_arg_canonical(&member.name, args.len(), index, arg, ctx, instructions)
-                {
+                if !lower_call_arg_canonical(
+                    &member.name,
+                    args.len(),
+                    index,
+                    arg,
+                    ctx,
+                    instructions,
+                ) {
                     instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                         BigInt::zero(),
                     )));

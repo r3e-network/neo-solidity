@@ -140,42 +140,41 @@ pub(crate) fn lower_variable_definition_statement(
                             // instead. Only fires for an unshadowed state-var
                             // array initializer (a shadowing local/param/alias is
                             // a memory array, whose `=` aliasing is EVM-correct).
-                            let materialized = if let (
-                                Some(ValueType::Array(elem)),
-                                Expression::Variable(id),
-                            ) = (inferred_type.as_ref(), initializer)
-                            {
-                                let shadowed = ctx.storage_alias(&id.name).is_some()
-                                    || ctx.param_index_map.contains_key(&id.name)
-                                    || ctx.resolve_local(&id.name).is_some();
-                                let sidx = if shadowed {
-                                    None
-                                } else {
-                                    ctx.state_index_map.get(&id.name).copied()
-                                };
-                                match sidx {
-                                    Some(sidx)
-                                        if matches!(
-                                            ctx.state_type(sidx),
-                                            Some(ValueType::Array(_))
-                                        ) =>
-                                    {
-                                        let elem_ty = (**elem).clone();
-                                        lower_storage_array_read_to_memory(
-                                            sidx,
-                                            elem_ty,
-                                            slot,
-                                            ctx,
-                                            instructions,
-                                        );
-                                        ctx.clear_call_data_local(slot);
-                                        true
+                            let materialized =
+                                if let (Some(ValueType::Array(elem)), Expression::Variable(id)) =
+                                    (inferred_type.as_ref(), initializer)
+                                {
+                                    let shadowed = ctx.storage_alias(&id.name).is_some()
+                                        || ctx.param_index_map.contains_key(&id.name)
+                                        || ctx.resolve_local(&id.name).is_some();
+                                    let sidx = if shadowed {
+                                        None
+                                    } else {
+                                        ctx.state_index_map.get(&id.name).copied()
+                                    };
+                                    match sidx {
+                                        Some(sidx)
+                                            if matches!(
+                                                ctx.state_type(sidx),
+                                                Some(ValueType::Array(_))
+                                            ) =>
+                                        {
+                                            let elem_ty = (**elem).clone();
+                                            lower_storage_array_read_to_memory(
+                                                sidx,
+                                                elem_ty,
+                                                slot,
+                                                ctx,
+                                                instructions,
+                                            );
+                                            ctx.clear_call_data_local(slot);
+                                            true
+                                        }
+                                        _ => false,
                                     }
-                                    _ => false,
-                                }
-                            } else {
-                                false
-                            };
+                                } else {
+                                    false
+                                };
                             if materialized {
                                 // fully handled (materialize + store into slot)
                                 return false;
@@ -226,9 +225,7 @@ pub(crate) fn lower_variable_definition_statement(
                                         handled = true;
                                     }
                                 }
-                                if !handled
-                                    && lower_expression(initializer, ctx, instructions)
-                                {
+                                if !handled && lower_expression(initializer, ctx, instructions) {
                                     handled = true;
                                 }
                             }

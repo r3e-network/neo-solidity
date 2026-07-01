@@ -264,8 +264,9 @@ mod fold_literal_bits_guard_tests {
     fn mul_folds_only_when_the_product_fits_a_32_byte_integer() {
         // An in-range product (2^100 * 2^100 = 2^200 < 2^256) must keep folding.
         let a: BigInt = BigInt::from(1) << 100u32;
-        let folded = evaluate_binary_literal(&int(a.clone()), &int(a.clone()), ir::BinaryOperator::Mul)
-            .expect("in-range product must keep folding");
+        let folded =
+            evaluate_binary_literal(&int(a.clone()), &int(a.clone()), ir::BinaryOperator::Mul)
+                .expect("in-range product must keep folding");
         assert_eq!(folded, int(&a * &a));
 
         // Two max-width uint256 operands: the 512-bit product does NOT fit
@@ -284,8 +285,12 @@ mod fold_literal_bits_guard_tests {
         // and must still fold through (e.g. as `max & max`).
         let max256: BigInt = (BigInt::from(1) << 256u32) - 1;
         assert!(
-            evaluate_binary_literal(&int(max256.clone()), &int(max256), ir::BinaryOperator::BitAnd)
-                .is_some(),
+            evaluate_binary_literal(
+                &int(max256.clone()),
+                &int(max256),
+                ir::BinaryOperator::BitAnd
+            )
+            .is_some(),
             "in-range uint256 max must still fold"
         );
     }

@@ -306,10 +306,7 @@ pub(crate) fn lower_delete_storage_array(
     // `ps[i].field` readable (length-0 array but live field slots), because
     // `ps[i].field` reads through `LoadStructField` and skips the array bounds
     // guard.
-    if matches!(
-        element_type,
-        ValueType::Mapping { .. } | ValueType::Any
-    ) {
+    if matches!(element_type, ValueType::Mapping { .. } | ValueType::Any) {
         return false;
     }
 

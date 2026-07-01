@@ -48,8 +48,7 @@ pub(crate) fn lower_array_store(
             Some(ValueType::Array(e)) => Some(*e),
             _ => None,
         };
-        if lower_expression(array, ctx, instructions)
-            && lower_expression(index, ctx, instructions)
+        if lower_expression(array, ctx, instructions) && lower_expression(index, ctx, instructions)
         {
             let coerced = elem_ty
                 .as_ref()
@@ -98,7 +97,9 @@ fn lower_storage_bytes_element_store(
 
     // head = buf[0 : idx]
     instructions.push(Instruction::LoadLocal(buf));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(idx));
     instructions.push(Instruction::Substr);
 
@@ -120,12 +121,16 @@ fn lower_storage_bytes_element_store(
     // tail = buf[idx+1 : len-(idx+1)]
     instructions.push(Instruction::LoadLocal(buf));
     instructions.push(Instruction::LoadLocal(idx));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add)); // start = idx+1
     instructions.push(Instruction::LoadLocal(buf));
     instructions.push(Instruction::GetSize);
     instructions.push(Instruction::LoadLocal(idx));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub)); // count = len - (idx+1)
     instructions.push(Instruction::Substr);

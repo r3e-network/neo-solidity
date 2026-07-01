@@ -223,8 +223,9 @@ pub(crate) fn try_lower_variable_call(
             // Keyed by (name, args.len()) because the storage pointer is the
             // FIRST positional arg here (vs. the implicit receiver in `x.f(..)`).
             if !args.is_empty() {
-                if let Some(body_info) =
-                    ctx.library_storage_body(&identifier.name, args.len()).cloned()
+                if let Some(body_info) = ctx
+                    .library_storage_body(&identifier.name, args.len())
+                    .cloned()
                 {
                     if let Some(reference) = resolve_storage_reference(&args[0], ctx) {
                         let produces_value = body_info.return_type.is_some();
@@ -271,9 +272,12 @@ pub(crate) fn try_lower_variable_call(
                     .iter()
                     .map(|a| matches!(a, Expression::NumberLiteral(..)))
                     .collect();
-                if let Some(neo_name) =
-                    ctx.resolve_overload(&identifier.name, args.len(), &arg_types, &arg_is_int_literal)
-                {
+                if let Some(neo_name) = ctx.resolve_overload(
+                    &identifier.name,
+                    args.len(),
+                    &arg_types,
+                    &arg_is_int_literal,
+                ) {
                     instructions.push(Instruction::CallFunction {
                         name: neo_name,
                         arg_count: args.len(),

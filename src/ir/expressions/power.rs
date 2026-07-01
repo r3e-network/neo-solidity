@@ -93,24 +93,36 @@ pub(crate) fn lower_power_expression(
         let neg = ctx.allocate_local("__pow_result_neg".to_string(), None);
         let neg_done = ctx.next_label();
         let keep_zero = ctx.next_label();
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::StoreLocal(neg));
         instructions.push(Instruction::LoadLocal(base_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Lt)); // base < 0 ?
         instructions.push(Instruction::JumpIf { target: neg_done }); // base >= 0 -> neg stays 0
-        // base < 0: result_neg = 1 iff exp is odd.
+                                                                     // base < 0: result_neg = 1 iff exp is odd.
         instructions.push(Instruction::LoadLocal(exp_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::one(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Ne)); // exp odd ?
         instructions.push(Instruction::JumpIf { target: keep_zero }); // exp even -> neg stays 0
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::one(),
+        )));
         instructions.push(Instruction::StoreLocal(neg));
         instructions.push(Instruction::Label(keep_zero));
         // base = |base| = 0 - base (base is < 0 here).
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::zero(),
+        )));
         instructions.push(Instruction::LoadLocal(base_local));
         emit_u256_unchecked_sub_ir(ctx, instructions);
         instructions.push(Instruction::StoreLocal(base_local));
@@ -218,15 +230,17 @@ pub(crate) fn lower_power_expression(
                 )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Shr)); // hi: 0 if mag<2^255
                 instructions.push(Instruction::JumpIf { target: ok }); // hi == 0 -> in range
-                // mag >= 2^255: a positive result always overflows; a negative
-                // result is in range only if mag == 2^255 (low 255 bits zero).
+                                                                       // mag >= 2^255: a positive result always overflows; a negative
+                                                                       // result is in range only if mag == 2^255 (low 255 bits zero).
                 instructions.push(Instruction::LoadLocal(neg));
                 instructions.push(Instruction::JumpIf { target: overflow }); // neg == 0 -> overflow
                 instructions.push(Instruction::LoadLocal(result_local));
                 let low_mask = (BigInt::one() << 255usize) - BigInt::one(); // 0x7f.. (32-byte, safe)
                 instructions.push(Instruction::PushLiteral(LiteralValue::Integer(low_mask)));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::BitAnd));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::zero(),
+                )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Eq)); // low == 0 ?
                 instructions.push(Instruction::JumpIf { target: overflow }); // low != 0 -> overflow
                 instructions.push(Instruction::Jump { target: ok }); // mag == 2^255 -> int256.min
@@ -238,7 +252,9 @@ pub(crate) fn lower_power_expression(
             let sign_done = ctx.next_label();
             instructions.push(Instruction::LoadLocal(neg));
             instructions.push(Instruction::JumpIf { target: sign_done }); // neg == 0 -> keep mag
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
             instructions.push(Instruction::LoadLocal(result_local));
             emit_u256_unchecked_sub_ir(ctx, instructions); // 0 - mag
             instructions.push(Instruction::StoreLocal(result_local));

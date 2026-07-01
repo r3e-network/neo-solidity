@@ -207,7 +207,9 @@ impl<'a> LoweringContext<'a> {
         arg_count: usize,
         index: usize,
     ) -> Option<ValueType> {
-        let overloads = self.function_overloads.get(&(name.to_string(), arg_count))?;
+        let overloads = self
+            .function_overloads
+            .get(&(name.to_string(), arg_count))?;
         let mut found: Option<&ValueType> = None;
         for (param_types, _neo_name) in overloads {
             let ty = param_types.get(index)?;

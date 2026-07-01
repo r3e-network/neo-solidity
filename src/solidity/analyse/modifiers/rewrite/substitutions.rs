@@ -11,7 +11,10 @@ static ARG_TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 /// A fresh, collision-free prefix for a modifier/constructor invocation's
 /// argument temporaries, e.g. `__modarg_7` or `__basearg_7`.
 pub(crate) fn next_arg_temp_prefix(kind: &str) -> String {
-    format!("__{kind}_{}", ARG_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed))
+    format!(
+        "__{kind}_{}",
+        ARG_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 pub(crate) fn build_parameter_substitutions(

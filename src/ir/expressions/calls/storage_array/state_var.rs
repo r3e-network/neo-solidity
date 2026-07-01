@@ -122,7 +122,9 @@ pub(crate) fn lower_state_bytes_pop(
     // size != 0 ? continue : Panic(0x31). JumpIf branches when FALSE (size == 0).
     instructions.push(Instruction::LoadLocal(buf));
     instructions.push(Instruction::GetSize);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Ne));
     instructions.push(Instruction::JumpIf {
         target: empty_label,
@@ -131,20 +133,26 @@ pub(crate) fn lower_state_bytes_pop(
     // nm1 = size - 1
     instructions.push(Instruction::LoadLocal(buf));
     instructions.push(Instruction::GetSize);
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Sub));
     instructions.push(Instruction::StoreLocal(nm1));
 
     // popped = buf[nm1 : nm1+1]
     instructions.push(Instruction::LoadLocal(buf));
     instructions.push(Instruction::LoadLocal(nm1));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::Substr);
     instructions.push(Instruction::StoreLocal(popped));
 
     // data = buf[0 : nm1]
     instructions.push(Instruction::LoadLocal(buf));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::LoadLocal(nm1));
     instructions.push(Instruction::Substr);
     instructions.push(Instruction::StoreState(state_index));

@@ -423,4 +423,3 @@ pub(crate) fn append_default_value(bytecode: &mut Vec<u8>, value_type: &ValueTyp
         ValueType::Any => bytecode.push(OpCode::PUSHNULL.byte()),
     }
 }
-

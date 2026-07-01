@@ -113,7 +113,11 @@ fn setup_std_lib() -> Option<PathBuf> {
     let dir = root.join("neo-std");
     std::fs::create_dir_all(&dir).ok()?;
     std::fs::write(dir.join("Test.sol"), include_str!("neo_test_std/Test.sol")).ok()?;
-    std::fs::write(dir.join("console.sol"), include_str!("neo_test_std/console.sol")).ok()?;
+    std::fs::write(
+        dir.join("console.sol"),
+        include_str!("neo_test_std/console.sol"),
+    )
+    .ok()?;
     std::fs::write(dir.join("Vm.sol"), include_str!("neo_test_std/Vm.sol")).ok()?;
     Some(root)
 }
@@ -173,10 +177,15 @@ fn main() -> ExitCode {
     for file in &files {
         // Resolve `import` directives from disk so multi-file projects work
         // (the contract under test, a shared test base, OpenZeppelin, etc.).
-        let src = match neo_devpack_solidity::cli::resolve_source_with_imports(file, &include_paths) {
+        let src = match neo_devpack_solidity::cli::resolve_source_with_imports(file, &include_paths)
+        {
             Ok(s) => s,
             Err(e) => {
-                println!("{} {}", paint.red("Import resolution failed:"), file.display());
+                println!(
+                    "{} {}",
+                    paint.red("Import resolution failed:"),
+                    file.display()
+                );
                 println!("  {}", e.replace('\n', "\n  "));
                 any_compile_error = true;
                 continue;
@@ -186,11 +195,7 @@ fn main() -> ExitCode {
         let artifacts = match compile_contracts(&src, false, 2) {
             Ok(a) => a,
             Err(e) => {
-                println!(
-                    "{} {}",
-                    paint.red("Compilation failed:"),
-                    file.display()
-                );
+                println!("{} {}", paint.red("Compilation failed:"), file.display());
                 println!("  {}", format!("{e:?}").replace('\n', "\n  "));
                 any_compile_error = true;
                 continue;
@@ -246,7 +251,12 @@ fn main() -> ExitCode {
                 } else {
                     contract_fail += 1;
                     let why = r.fail_reason(expect_revert);
-                    println!("  {} {} {}", paint.red("[FAIL]"), tname, paint.dim(&format!("({why})")));
+                    println!(
+                        "  {} {} {}",
+                        paint.red("[FAIL]"),
+                        tname,
+                        paint.dim(&format!("({why})"))
+                    );
                 }
 
                 if opts.verbose || !passed {
@@ -359,7 +369,13 @@ fn run_one_test(
         }
     }
 
-    match rt.call_method(&art.bytecode, &art.tokens, &art.manifest, test_name, &no_args) {
+    match rt.call_method(
+        &art.bytecode,
+        &art.tokens,
+        &art.manifest,
+        test_name,
+        &no_args,
+    ) {
         Ok(r) => TestOutcome {
             success: r.success,
             gas_used: r.gas_used,
@@ -577,10 +593,16 @@ fn walk_sol(dir: &Path, out: &mut Vec<PathBuf>) {
     };
     for e in entries.flatten() {
         let p = e.path();
-        let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
         if p.is_dir() {
             // Skip the usual noise directories.
-            if matches!(name.as_str(), "node_modules" | "target" | ".git" | "out" | "dist") {
+            if matches!(
+                name.as_str(),
+                "node_modules" | "target" | ".git" | "out" | "dist"
+            ) {
                 continue;
             }
             walk_sol(&p, out);

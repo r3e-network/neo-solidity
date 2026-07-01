@@ -109,10 +109,7 @@ pub(crate) fn try_lower_bytesn_literal_canonical(
     ctx: &LoweringContext,
     instructions: &mut Vec<Instruction>,
 ) -> bool {
-    if let ValueType::ByteArray {
-        fixed_len: Some(n),
-    } = target_ty
-    {
+    if let ValueType::ByteArray { fixed_len: Some(n) } = target_ty {
         if is_integer_backed_bytesn_operand(expr, ctx) {
             if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expr, *n, ctx) {
                 instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(be)));
@@ -398,14 +395,18 @@ pub(crate) fn emit_arith_with_overflow_ladder(
         // `JumpIf` branches when the condition is FALSE, so each check jumps to
         // the plain-DIV path as soon as one half of the pair does not match.
         instructions.push(Instruction::LoadLocal(b_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(-1),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
         instructions.push(Instruction::JumpIf { target: do_div }); // b != -1 -> DIV
         instructions.push(Instruction::LoadLocal(a_local));
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int256_min.clone())));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            int256_min.clone(),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
         instructions.push(Instruction::JumpIf { target: do_div }); // a != min -> DIV
-        // Overflow: a == int256.min && b == -1.
+                                                                   // Overflow: a == int256.min && b == -1.
         if ctx.in_unchecked_block() {
             // `unchecked` wraps mod 2^256: int256.min / -1 == int256.min.
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(int256_min)));

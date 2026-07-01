@@ -659,15 +659,17 @@ pub(crate) fn lower_assignment(
                         // (otherwise the hex literal is stored little-endian and
                         // reads back byte-reversed) — same class as the scalar
                         // state-var, call-arg, and mapping-key fixes.
-                        let lowered = if matches!(
-                            &field_ty,
-                            ValueType::ByteArray { fixed_len: Some(_) }
-                        ) {
-                            try_lower_bytesn_literal_canonical(rhs, &field_ty, ctx, instructions)
-                                || lower_expression(rhs, ctx, instructions)
-                        } else {
-                            lower_expression(rhs, ctx, instructions)
-                        };
+                        let lowered =
+                            if matches!(&field_ty, ValueType::ByteArray { fixed_len: Some(_) }) {
+                                try_lower_bytesn_literal_canonical(
+                                    rhs,
+                                    &field_ty,
+                                    ctx,
+                                    instructions,
+                                ) || lower_expression(rhs, ctx, instructions)
+                            } else {
+                                lower_expression(rhs, ctx, instructions)
+                            };
                         if !lowered {
                             // Leave the half-built frame balanced: we've pushed
                             // base + index; drop them to keep the stack clean.
@@ -883,7 +885,9 @@ pub(crate) fn lower_storage_array_read_to_memory(
     let cond_label = ctx.next_label();
     let end_label = ctx.next_label();
     let idx_local = ctx.allocate_local("__arr_copy_idx".to_string(), Some(uint256.clone()));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::zero(),
+    )));
     instructions.push(Instruction::StoreLocal(idx_local));
 
     instructions.push(Instruction::Label(cond_label));
@@ -914,7 +918,9 @@ pub(crate) fn lower_storage_array_read_to_memory(
 
     // idx += 1
     instructions.push(Instruction::LoadLocal(idx_local));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(idx_local));
     instructions.push(Instruction::Jump { target: cond_label });

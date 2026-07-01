@@ -437,9 +437,7 @@ pub(crate) fn infer_type_from_expression_inner(
                 // a ByteString (otherwise it stays an Integer and the type-strict
                 // `EQUAL(ByteString, Integer)` is false on a real node) and keeps
                 // cast / abi-encode paths consistent with the runtime type.
-                Some(ValueType::ByteArray {
-                    fixed_len: Some(1),
-                })
+                Some(ValueType::ByteArray { fixed_len: Some(1) })
             } else if is_type_expression(array) {
                 // Task #185: Fixed-size array type expression `T[N]` (e.g. the outer
                 // element type of a multi-dim declaration `uint[3][2] memory a;`).
@@ -515,7 +513,9 @@ pub(crate) fn infer_type_from_expression_inner(
                 Some(ValueType::Address)
             ) {
                 if member.name == "codehash" {
-                    return Some(ValueType::ByteArray { fixed_len: Some(32) });
+                    return Some(ValueType::ByteArray {
+                        fixed_len: Some(32),
+                    });
                 }
                 if member.name == "code" {
                     return Some(ValueType::ByteArray { fixed_len: None });

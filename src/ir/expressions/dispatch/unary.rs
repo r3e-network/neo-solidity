@@ -120,7 +120,9 @@ pub(crate) fn lower_negate_expression(
             emit_panic(0x11, instructions);
             instructions.push(Instruction::Label(safe_label));
         }
-        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+            BigInt::from(-1),
+        )));
         instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
         return true;
     }
@@ -151,7 +153,9 @@ pub(crate) fn lower_negate_expression(
                 instructions.push(Instruction::JumpIf { target: negate });
                 instructions.push(Instruction::Jump { target: end });
                 instructions.push(Instruction::Label(negate));
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(-1),
+                )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
                 instructions.push(Instruction::Label(end));
                 return true;
@@ -160,7 +164,9 @@ pub(crate) fn lower_negate_expression(
                 // < 2^255), but `-(intN.min) = +2^(N-1)` overflows the declared
                 // width. Truncate/sign-extend back into range so it wraps to
                 // `intN.min`, matching the already-correct narrow `0 - x` path.
-                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                    BigInt::from(-1),
+                )));
                 instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
                 emit_truncate_narrow_signed(ctx, instructions, bits);
                 return true;

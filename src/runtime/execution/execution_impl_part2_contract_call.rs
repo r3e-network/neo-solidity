@@ -355,7 +355,8 @@ impl ExecutionContext {
             }
             // vm.deal(address, uint256) — set the account's GAS balance.
             "deal" => {
-                self.gas_balances.insert(arg_bytes(0), arg_int(1).max(0) as u64);
+                self.gas_balances
+                    .insert(arg_bytes(0), arg_int(1).max(0) as u64);
             }
             // vm.label(address, string) — cosmetic in Foundry; accept + ignore.
             "label" => {}

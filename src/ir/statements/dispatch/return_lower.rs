@@ -356,10 +356,7 @@ pub(crate) fn lower_return_statement(
         // is intercepted here.
         {
             let return_types = ctx.return_types();
-            if let [ValueType::ByteArray {
-                fixed_len: Some(n),
-            }] = return_types
-            {
+            if let [ValueType::ByteArray { fixed_len: Some(n) }] = return_types {
                 let n = *n;
                 if is_integer_backed_bytesn_operand(expression, ctx) {
                     if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expression, n, ctx) {

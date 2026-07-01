@@ -335,8 +335,7 @@ pub(crate) fn lower_emit_evm_shape(
                 if let Some(be) = fixed_len_bytes_be_from_hex_or_const(arg, n, ctx) {
                     let mut slot = be;
                     slot.resize(32, 0);
-                    instructions
-                        .push(Instruction::PushLiteral(LiteralValue::ByteArray(slot)));
+                    instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(slot)));
                     continue;
                 }
             }

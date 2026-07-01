@@ -143,10 +143,7 @@ pub(crate) fn lower_static_abi_return_expr_slot(
     // emit it RIGHT-aligned (uint-style) — but `bytesN` is LEFT-aligned.
     // Resolve it to its big-endian bytes against the DECLARED return type and
     // emit a left-aligned slot directly (mirrors the abi.encode fix).
-    if let ValueType::ByteArray {
-        fixed_len: Some(n),
-    } = value_type
-    {
+    if let ValueType::ByteArray { fixed_len: Some(n) } = value_type {
         if is_integer_backed_bytesn_operand(expr, ctx) {
             if let Some(be) = fixed_len_bytes_be_from_hex_or_const(expr, *n, ctx) {
                 let mut slot = be; // exactly `n` big-endian bytes

@@ -696,11 +696,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 // dedup), so we only append events the host doesn't declare.
                 if let Some(sibling_events) = sibling_event_map.get(sibling_name) {
                     for sibling_event in sibling_events {
-                        if !contract
-                            .events
-                            .iter()
-                            .any(|e| e.name == sibling_event.name)
-                        {
+                        if !contract.events.iter().any(|e| e.name == sibling_event.name) {
                             contract.events.push(sibling_event.clone());
                         }
                     }
