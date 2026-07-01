@@ -1,5 +1,10 @@
 #[test]
-fn low_level_call_serializes_exception_into_return_data() {
+fn low_level_call_stores_raw_exception_into_return_data() {
+    // Bug-hunt #28/#29 — the catch handler must store the RAW revert payload
+    // (the EVM ABI Error/Panic/custom-error envelope the runtime pushes) as the
+    // `bytes returndata`, NOT wrap it in `StdLib.serialize` (which prepended a
+    // Neo `[tag, varint(len)]` frame, corrupting the returndata and turning an
+    // empty revert non-empty). It coerces to ByteArray to pin the declared type.
     let source = r#"
     pragma solidity ^0.8.19;
 
@@ -37,7 +42,7 @@ fn low_level_call_serializes_exception_into_return_data() {
         .map(|offset| catch_index + 1 + offset)
         .expect("expected low-level call catch block to end with ENDTRY");
 
-    let serialize_calls: Vec<_> = instrs[catch_index + 1..catch_end]
+    let serialize_calls = instrs[catch_index + 1..catch_end]
         .iter()
         .filter(|instr| {
             matches!(
@@ -48,12 +53,23 @@ fn low_level_call_serializes_exception_into_return_data() {
                 } if *contract == ir::NativeContract::StdLib && method == "serialize"
             )
         })
-        .collect();
-
+        .count();
     assert_eq!(
-        serialize_calls.len(),
-        1,
-        "expected low-level call catch handler to serialize exception into return data"
+        serialize_calls, 0,
+        "catch handler must NOT StdLib.serialize the exception (bug #28/#29)"
+    );
+
+    let has_bytearray_coerce = instrs[catch_index + 1..catch_end].iter().any(|instr| {
+        matches!(
+            instr,
+            ir::Instruction::Convert {
+                target: ir::ConvertTarget::ByteArray
+            }
+        )
+    });
+    assert!(
+        has_bytearray_coerce,
+        "catch handler must coerce the raw exception to ByteArray before storing"
     );
 }
 
