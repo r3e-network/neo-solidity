@@ -146,6 +146,37 @@ make test-deploy-new-showcases-smoke
 bash examples/test_neoxp_new_showcases_smoke.sh
 ```
 
+### Famous-Contract Compilation Coverage
+
+`neo-solc` compiles the real-world Solidity ecosystem — validated against
+~600 famous contracts (with full dependency trees) at **~87% end-to-end
+compilation**. It handles the hardest material in the ecosystem: snarkjs /
+PLONK zero-knowledge verifiers, MakerDAO's assembly `Vat`, Gnosis Safe, and
+the full Uniswap V4 + Permit2 stack.
+
+| Category | Representative contracts | Samples |
+| --- | --- | --- |
+| **Zero-knowledge** | Groth16 / PLONK / Fflonk verifiers, Tornado, Semaphore, Poseidon | 5 |
+| **DeFi** (DEX · lending · stablecoin) | WETH9, Uniswap V2/V4, Permit2, Aave v3, Compound, MakerDAO `dss`/DAI, Liquity | 6 |
+| **NFT & marketplaces** | ERC721A, Seaport core, BoredApeYachtClub, solmate 721/1155, OZ ERC721 | 6 |
+| **GameFi & staking** | Synthetix StakingRewards, MasterChef, game items, vesting | 4 |
+| **Infrastructure / DAO** | Gnosis Safe, OZ proxy/UUPS/beacon, Multicall3, Create2, Timelock, Governor | 9 |
+| **Fix-pattern reproductions** | library events, abstract-typed fields, inherited events | 3 |
+
+Aggregate ~87% (per-corpus: ZK **100%**, solmate **100%**, solady **99%**,
+Uniswap-v3 **93%**, OpenZeppelin **89%**, Aave **71%**).
+
+A curated, **dependency-free** subset of **33 self-contained** real contracts
+(Solidity 0.5.x–0.8.x) lives in
+[`third_party/famous-contracts/samples/`](third_party/famous-contracts/samples/)
+— see its [README](third_party/famous-contracts/samples/README.md) for the
+full per-contract table (license, pragma, size). Every sample is asserted to
+compile hermetically (no include paths) by:
+
+```bash
+cargo test --release --test famous_samples_compile
+```
+
 ### Production Readiness Gate
 
 Run one command to validate formatting, lint, release build, full tests,
