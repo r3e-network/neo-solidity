@@ -238,8 +238,14 @@ pub(crate) fn try_lower_variable_call(
             }
 
             if success {
+                // A positive integer literal arg is convertible to any integer
+                // param (Solidity), so mark it for the overload resolver.
+                let arg_is_int_literal: Vec<bool> = args
+                    .iter()
+                    .map(|a| matches!(a, Expression::NumberLiteral(..)))
+                    .collect();
                 if let Some(neo_name) =
-                    ctx.resolve_overload(&identifier.name, args.len(), &arg_types)
+                    ctx.resolve_overload(&identifier.name, args.len(), &arg_types, &arg_is_int_literal)
                 {
                     instructions.push(Instruction::CallFunction {
                         name: neo_name,

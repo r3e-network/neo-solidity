@@ -421,8 +421,16 @@ pub(crate) fn try_lower_named_function_call(
     }
 
     if success {
-        if let Some(neo_name) = ctx.resolve_overload(&identifier.name, named_args.len(), &arg_types)
-        {
+        let arg_is_int_literal: Vec<bool> = ordered_exprs
+            .iter()
+            .map(|e| matches!(e, Expression::NumberLiteral(..)))
+            .collect();
+        if let Some(neo_name) = ctx.resolve_overload(
+            &identifier.name,
+            named_args.len(),
+            &arg_types,
+            &arg_is_int_literal,
+        ) {
             instructions.push(Instruction::CallFunction {
                 name: neo_name,
                 arg_count: named_args.len(),

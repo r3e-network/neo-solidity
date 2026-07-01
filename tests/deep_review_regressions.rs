@@ -1794,3 +1794,32 @@ contract C {
     assert_eq!(r.return_data.first().copied(), Some(1),
         "mulmod(max,max,7) must be 1, got {:?}", r.return_data);
 }
+
+/// Regression (bug-hunt #4/#24): a positive integer LITERAL arg is convertible
+/// to any integer type, so `f(intVar, 3)` must resolve to the `int` overload
+/// (and `f(uintVar, 3)` to the `uint` overload) rather than leaving
+/// `[int256, uint256]` — which matched NEITHER same-arity overload and trapped
+/// at runtime with "no compiled body". Fix: resolve_overload treats an integer
+/// literal as matching any integer param; non-literal args still disambiguate.
+#[test]
+fn overload_resolution_integer_literal_matches_any_int() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function g(uint256 a, uint256 b) internal pure returns (uint256) { return a + b; }
+    function g(int256 a, int256 b) internal pure returns (int256)  { return a - b; }
+    function runInt() external pure returns (int256)  { int256 x = 10;  int256 r = g(x, 3);  return r; }
+    function runUint() external pure returns (uint256) { uint256 y = 10; uint256 r = g(y, 3); return r; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let le = |rd: &[u8]| rd.iter().take(16).enumerate().fold(0i128, |a,(i,&b)| a + ((b as i128)<<(8*i)));
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let ri = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "runInt", &[]).expect("runInt");
+    assert!(ri.success, "runInt must not trap 'no compiled body': {:?}", ri.exception.as_ref().map(|e| &e.message));
+    assert_eq!(le(&ri.return_data), 7, "g(int x=10, 3) must pick int overload -> 10-3=7 (rd={:?})", ri.return_data);
+    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("rt2");
+    let ru = rt2.call_method(&art.bytecode, &art.tokens, &art.manifest, "runUint", &[]).expect("runUint");
+    assert!(ru.success, "runUint must not trap: {:?}", ru.exception.as_ref().map(|e| &e.message));
+    assert_eq!(le(&ru.return_data), 13, "g(uint y=10, 3) must pick uint overload -> 10+3=13 (rd={:?})", ru.return_data);
+}

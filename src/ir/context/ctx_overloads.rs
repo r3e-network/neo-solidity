@@ -40,6 +40,7 @@ impl<'a> LoweringContext<'a> {
         name: &str,
         arg_count: usize,
         arg_types: &[Option<ValueType>],
+        arg_is_int_literal: &[bool],
     ) -> Option<String> {
         let bucket = self
             .function_overloads
@@ -54,7 +55,21 @@ impl<'a> LoweringContext<'a> {
             }
             let mut score = 0usize;
             let mut compatible = true;
-            for (param, arg) in params.iter().zip(arg_types.iter()) {
+            for (i, (param, arg)) in params.iter().zip(arg_types.iter()).enumerate() {
+                // A positive integer LITERAL is convertible to any integer type
+                // (Solidity implicit literal conversion), so it matches any
+                // integer param regardless of signedness. Without this,
+                // `f(intVar, 3)` — where `3` infers to uint256 — leaves
+                // `[int256, uint256]`, which disqualifies BOTH the (uint,uint)
+                // and (int,int) overloads (exact-signedness match) and the call
+                // traps at runtime with "no compiled body". The non-literal args
+                // still disambiguate by exact type.
+                if arg_is_int_literal.get(i).copied().unwrap_or(false)
+                    && matches!(param, ValueType::Integer { .. })
+                {
+                    score += 1;
+                    continue;
+                }
                 match arg {
                     Some(arg) if overload_arg_matches(arg, param) => score += 1,
                     Some(_) => {
