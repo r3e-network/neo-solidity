@@ -113,26 +113,20 @@ pub(crate) fn try_lower_variable_call(
             }
             instructions.push(Instruction::StoreLocal(modulus_slot));
 
-            let compute_label = ctx.next_label();
-            let end_label = ctx.next_label();
+            let ok_label = ctx.next_label();
 
             instructions.push(Instruction::LoadLocal(modulus_slot));
             instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                 BigInt::zero(),
             )));
             instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
-            // In this IR, JumpIf branches when the condition is false.
-            // Jump to compute branch when modulus != 0.
-            instructions.push(Instruction::JumpIf {
-                target: compute_label,
-            });
-
-            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
-                BigInt::zero(),
-            )));
-            instructions.push(Instruction::Jump { target: end_label });
-
-            instructions.push(Instruction::Label(compute_label));
+            // JumpIf branches when the condition is FALSE (modulus != 0) -> skip
+            // the panic and compute normally.
+            instructions.push(Instruction::JumpIf { target: ok_label });
+            // Solidity >= 0.5.0: zero modulus reverts Panic(0x12) (not the raw
+            // EVM opcode's 0). `emit_panic` throws and diverges.
+            emit_panic(0x12, instructions);
+            instructions.push(Instruction::Label(ok_label));
             // Compute `(a OP b) % m` with FULL-WIDTH intermediates. Both routines
             // must avoid the native-op truncation at 2^256:
             //   - `mulmod`'s product can be up to 512 bits; a native MUL would
@@ -151,7 +145,6 @@ pub(crate) fn try_lower_variable_call(
             } else {
                 emit_u256_addmod_ir(ctx, instructions, lhs_slot, rhs_slot, modulus_slot);
             }
-            instructions.push(Instruction::Label(end_label));
             return Some(true);
         }
 

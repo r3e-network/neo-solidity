@@ -197,7 +197,21 @@ pub(crate) fn lower_state_array_push(
         return false;
     }
 
-    if !lower_expression(&args[0], ctx, instructions) {
+    // Canonicalize an integer-backed `bytesN` literal to its big-endian
+    // ByteString for a `bytesN[]` element (otherwise `arr.push(0x..)` stores
+    // the hex literal little-endian and reads back byte-reversed) — same class
+    // as the scalar state-var / struct-field / call-arg / mapping-key fixes.
+    let pushed = if matches!(element_type, ValueType::ByteArray { fixed_len: Some(_) }) {
+        super::super::super::dispatch::try_lower_bytesn_literal_canonical(
+            &args[0],
+            element_type,
+            ctx,
+            instructions,
+        ) || lower_expression(&args[0], ctx, instructions)
+    } else {
+        lower_expression(&args[0], ctx, instructions)
+    };
+    if !pushed {
         return false;
     }
     let value_local = ctx.allocate_local("__array_push_value".to_string(), None);

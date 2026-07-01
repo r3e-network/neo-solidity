@@ -399,6 +399,18 @@ pub(crate) fn infer_type_from_expression_inner(
             } else if let Some(ValueType::Array(inner)) = infer_type_from_expression(array, ctx) {
                 // Value expression: `arr[i]`
                 Some(*inner.clone())
+            } else if let Some(ValueType::Mapping { value, .. }) =
+                infer_type_from_expression(array, ctx)
+            {
+                // Value expression: `m[key]` -> the mapping's declared VALUE
+                // type. Without this, a `mapping(K => uintN)` read (N < 256)
+                // inferred to `None`, so the downstream arithmetic lowering
+                // treated the operand as full-width and skipped both the
+                // checked-overflow Panic(0x11) guard and the `unchecked`
+                // mod-2^N truncation — a silent-overflow divergence from
+                // Solidity 0.8. Array elements / struct fields / locals already
+                // carry their width, so only the mapping-read path was affected.
+                Some(*value.clone())
             } else if matches!(
                 infer_type_from_expression(array, ctx),
                 Some(ValueType::ByteArray { .. })

@@ -639,9 +639,27 @@ contract C {
     // Non-overflowing control: 30 mod 7 == 2.
     let r = call(StackItem::Integer(10), StackItem::Integer(20), StackItem::Integer(7));
     assert_eq!(r.first().copied(), Some(2), "addmod(10,20,7) must be 2, got {r:?}");
-    // m == 0 → 0 (Solidity addmod-by-zero returns 0, no panic).
-    let r = call(StackItem::Integer(5), StackItem::Integer(5), StackItem::Integer(0));
-    assert!(r.iter().all(|&x| x == 0), "addmod(_,_,0) must be 0, got {r:?}");
+    // m == 0 → Panic(0x12). Solidity >= 0.5.0 asserts the modulus is non-zero:
+    // addmod/mulmod-by-zero REVERTS (division/modulo by zero), it does NOT
+    // return 0 like the raw EVM ADDMOD/MULMOD opcodes. (bug-hunt #3)
+    let mut rt0 = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r0 = rt0
+        .call_method(
+            &art.bytecode,
+            &art.tokens,
+            &art.manifest,
+            "f",
+            &[
+                StackItem::Integer(5),
+                StackItem::Integer(5),
+                StackItem::Integer(0),
+            ],
+        )
+        .expect("call");
+    assert!(
+        !r0.success,
+        "addmod(_,_,0) must Panic(0x12), not return 0 (Solidity >= 0.5 semantics)"
+    );
 }
 
 /// #10 — `intN(bytesN)` must reverse big-endian↔little-endian like `uintN(bytesN)`
@@ -1663,4 +1681,116 @@ contract C {
         v, 7,
         "must resolve to pick(uint256) (sentinel 7), not pick(address) (100); got {v}"
     );
+}
+
+/// Regression (bug-hunt #1): a `mapping(K => uintN)` value read (N < 256) must
+/// carry its declared width into arithmetic — checked overflow Panics(0x11),
+/// unchecked wraps mod 2^N. Previously the mapping-index-access type inferred
+/// to `None`, so the operand was treated as full-width and BOTH the checked
+/// guard and the unchecked truncation were skipped (silent overflow).
+#[test]
+fn mapping_narrow_value_arithmetic_carries_width() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    mapping(uint256 => uint8) m;
+    function checkedOverflow() external returns (uint256) { m[1] = 255; return m[1] + 1; }
+    function uncheckedWrap() external returns (uint256) { m[1] = 255; unchecked { return m[1] + 1; } }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "checkedOverflow", &[]).expect("call");
+    assert!(!r.success, "checked mapping uint8 255+1 must Panic(0x11), not silently yield 256");
+    let mut rt2 = NeoRuntime::new(RuntimeConfig::default()).expect("rt2");
+    let r2 = rt2.call_method(&art.bytecode, &art.tokens, &art.manifest, "uncheckedWrap", &[]).expect("call2");
+    assert!(r2.success, "unchecked wrap must not fault: {:?}", r2.exception.as_ref().map(|e| &e.message));
+    assert!(r2.return_data.iter().all(|&b| b == 0), "unchecked uint8 255+1 must wrap to 0 (rd={:?})", r2.return_data);
+}
+
+/// Regression (bug-hunt #5/#7): a `bytesN` hex literal assigned to a `bytesN`
+/// STATE variable must be canonicalized to its big-endian ByteString before
+/// StoreState. Previously the hex literal lowered to a little-endian Integer
+/// and was persisted byte-reversed, so `uint256(v)` / byte indexing read back a
+/// corrupted value.
+#[test]
+fn bytesn_literal_to_storage_is_big_endian() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    struct S { bytes32 h; }
+    bytes32 b32;
+    bytes4 b4;
+    S s;
+    bytes32[] arr;
+    function set32() external returns (uint256) {
+        b32 = 0x00000000000000000000000000000000000000000000000000000000000000aa;
+        return uint256(b32);
+    }
+    function set4hi() external returns (uint256) {
+        b4 = 0xaabbccdd;
+        return uint32(b4);
+    }
+    function setStructField() external returns (uint256) {
+        s.h = 0x00000000000000000000000000000000000000000000000000000000000000aa;
+        return uint256(s.h);
+    }
+    function pushArr() external returns (uint256) {
+        arr.push(0x0000000000000000000000000000000000000000000000000000000000000005);
+        return uint256(arr[0]);
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let be = |rd: &[u8]| rd.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    let call = |method: &str| -> (bool, u128) {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, method, &[]).expect("call");
+        (r.success, be(&r.return_data))
+    };
+    // scalar state var, struct field, and dynamic-array element bytesN literals
+    // all persist big-endian (read back as their face value, not byte-reversed).
+    for (m, want) in [("set32", 0xaau128), ("set4hi", 0xaabbccdd), ("setStructField", 0xaa), ("pushArr", 5)] {
+        let (ok, v) = call(m);
+        assert!(ok, "{m} must succeed");
+        assert_eq!(v, want, "{m}: bytesN storage literal not big-endian; got {v:#x} want {want:#x}");
+    }
+}
+
+/// Regression (bug-hunt #3): `addmod`/`mulmod` with a ZERO modulus REVERT with
+/// Panic(0x12) (division/modulo by zero) per Solidity >= 0.5.0 — they do NOT
+/// return 0 like the raw EVM opcodes. A non-zero modulus (including full-width
+/// 2^256-1 operands) still computes the correct residue.
+#[test]
+fn addmod_mulmod_by_zero_panics_else_computes() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+contract C {
+    function am(uint256 a, uint256 b, uint256 m) external pure returns (uint256) { return addmod(a, b, m); }
+    function mm(uint256 a, uint256 b, uint256 m) external pure returns (uint256) { return mulmod(a, b, m); }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let max = || StackItem::byte_array(vec![0xFFu8; 32]);
+    let run = |method: &str, a: StackItem, b: StackItem, m: StackItem| {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        rt.call_method(&art.bytecode, &art.tokens, &art.manifest, method, &[a, b, m])
+            .expect("call")
+    };
+    // Zero modulus -> Panic (both addmod and mulmod).
+    for method in ["am", "mm"] {
+        let r = run(method, StackItem::Integer(5), StackItem::Integer(5), StackItem::Integer(0));
+        assert!(!r.success, "{method}(_,_,0) must Panic(0x12), not return 0");
+    }
+    // Non-zero modulus still computes, including full-width operands:
+    // addmod(2^256-1, 2^256-1, 5) = (2^257-2) % 5 = 0.
+    let r = run("am", max(), max(), StackItem::Integer(5));
+    assert!(r.success && r.return_data.iter().all(|&x| x == 0),
+        "addmod(max,max,5) must be 0 (success={}, rd={:?})", r.success, r.return_data);
+    // mulmod(2^256-1, 2^256-1, 7): 2^256 ≡ 2 (mod 7) so (2^256-1) ≡ 1 (mod 7),
+    // and 1*1 ≡ 1 (mod 7).
+    let r = run("mm", max(), max(), StackItem::Integer(7));
+    assert!(r.success, "mulmod(max,max,7) must succeed: rd={:?}", r.return_data);
+    assert_eq!(r.return_data.first().copied(), Some(1),
+        "mulmod(max,max,7) must be 1, got {:?}", r.return_data);
 }

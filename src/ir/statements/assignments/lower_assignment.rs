@@ -113,7 +113,22 @@ pub(crate) fn lower_assignment(
             }
         }
 
-        let success = lower_expression(rhs, ctx, instructions);
+        // Canonicalize an integer-backed `bytesN` literal RHS to its big-endian
+        // ByteString when the storage target (struct field, or mapping/array
+        // element) is a `bytesN` — otherwise the hex literal is stored
+        // little-endian and reads back byte-reversed. The target type is the
+        // deepest struct field when present, else the reference's value type.
+        let target_ty = reference
+            .field_path
+            .last()
+            .map(|f| f.ty.clone())
+            .unwrap_or_else(|| reference.value_type.clone());
+        let success = if matches!(&target_ty, ValueType::ByteArray { fixed_len: Some(_) }) {
+            try_lower_bytesn_literal_canonical(rhs, &target_ty, ctx, instructions)
+                || lower_expression(rhs, ctx, instructions)
+        } else {
+            lower_expression(rhs, ctx, instructions)
+        };
         if success {
             if !emit_storage_store(&reference, ctx, instructions) {
                 instructions.push(Instruction::Drop(ValueType::Any));
@@ -524,7 +539,21 @@ pub(crate) fn lower_assignment(
                 lower_storage_array_assign_from_memory(index, rhs, ctx, instructions);
                 return;
             }
-            if lower_expression(rhs, ctx, instructions) {
+            // Canonicalize an integer-backed `bytesN` literal RHS to its
+            // big-endian ByteString for a `bytesN` state var. Without this the
+            // hex literal lowers to a little-endian Integer and StoreState
+            // persists it byte-reversed, so `uint256(top)` / byte indexing read
+            // back a corrupted value (the same class of bug already fixed for
+            // call args, struct fields, and mapping keys).
+            let state_ty = ctx.state_type(index).cloned();
+            let lowered = match state_ty.as_ref() {
+                Some(ty @ ValueType::ByteArray { fixed_len: Some(_) }) => {
+                    try_lower_bytesn_literal_canonical(rhs, ty, ctx, instructions)
+                        || lower_expression(rhs, ctx, instructions)
+                }
+                _ => lower_expression(rhs, ctx, instructions),
+            };
+            if lowered {
                 if ctx.ensure_state_writable(index) {
                     instructions.push(Instruction::StoreState(index));
                 } else {
@@ -601,11 +630,12 @@ pub(crate) fn lower_assignment(
     if let Expression::MemberAccess(_, inner, member) = lhs {
         if let Expression::Variable(base) = inner.as_ref() {
             if let Some(ValueType::Struct { fields, .. }) = infer_type_from_expression(inner, ctx) {
-                if let Some((field_index, _field)) = fields
+                if let Some((field_index, field)) = fields
                     .iter()
                     .enumerate()
                     .find(|(_, field)| field.name == member.name)
                 {
+                    let field_ty = field.ty.clone();
                     let load_base = ctx
                         .resolve_local(&base.name)
                         .map(Instruction::LoadLocal)
@@ -624,7 +654,21 @@ pub(crate) fn lower_assignment(
                         instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
                             BigInt::from(field_index as u64),
                         )));
-                        if !lower_expression(rhs, ctx, instructions) {
+                        // Canonicalize an integer-backed `bytesN` literal RHS to
+                        // its big-endian ByteString for a `bytesN` struct field
+                        // (otherwise the hex literal is stored little-endian and
+                        // reads back byte-reversed) — same class as the scalar
+                        // state-var, call-arg, and mapping-key fixes.
+                        let lowered = if matches!(
+                            &field_ty,
+                            ValueType::ByteArray { fixed_len: Some(_) }
+                        ) {
+                            try_lower_bytesn_literal_canonical(rhs, &field_ty, ctx, instructions)
+                                || lower_expression(rhs, ctx, instructions)
+                        } else {
+                            lower_expression(rhs, ctx, instructions)
+                        };
+                        if !lowered {
                             // Leave the half-built frame balanced: we've pushed
                             // base + index; drop them to keep the stack clean.
                             instructions.push(Instruction::Drop(ValueType::Any));
