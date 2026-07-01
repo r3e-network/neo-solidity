@@ -863,9 +863,22 @@ pub(crate) fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringCo
     let Expression::FunctionCall(_, func, _) = rhs else {
         return false;
     };
-    let Expression::MemberAccess(_, inner, _member) = func.as_ref() else {
+    let Expression::MemberAccess(_, inner, member) = func.as_ref() else {
         return false;
     };
+
+    // Bug-hunt #21 — a low-level `addr.call/.staticcall/.delegatecall/.callcode`
+    // already produces a NeoVM `[bool ok, bytes data]` Array (see
+    // try_lower_low_level_address_call). It must NEVER be re-interpreted as a
+    // `this.method()` ABI-return buffer: doing so ran the encoded-bytes decode
+    // over the tuple and mis-read `ok` (reported ok=true for a reverting call).
+    // Reject these members up front.
+    if matches!(
+        member.name.as_str(),
+        "call" | "staticcall" | "delegatecall" | "callcode"
+    ) {
+        return false;
+    }
 
     // Shape 1 — `this.method()`.
     if matches!(inner.as_ref(), Expression::Variable(id) if id.name == "this") {

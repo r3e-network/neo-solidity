@@ -810,14 +810,17 @@ pub(crate) fn try_lower_low_level_address_call(
                     instructions.push(Instruction::EndTry { target: end_label });
 
                     instructions.push(Instruction::Label(catch_label));
-                    // NeoVM pushes the exception object onto the stack for the catch block.
-                    // Preserve it by serializing the exception value into the returned `bytes`.
-                    instructions.push(Instruction::CallBuiltin {
-                        builtin: BuiltinCall::NativeCall {
-                            contract: NativeContract::StdLib,
-                            method: "serialize".to_string(),
-                        },
-                        arg_count: 1,
+                    // The catch stack top is ALREADY the raw revert payload — the
+                    // EVM-canonical ABI envelope (`Error(string)` / `Panic(uint)` /
+                    // custom-error selector||abi.encode) pushed by the runtime
+                    // (try_frames.rs). Store it directly as the `bytes returndata`.
+                    // The old `StdLib.serialize` wrapped it in Neo binary framing
+                    // (`[0x28, varint(len), …]`) so `(bool ok, bytes data)` saw a
+                    // corrupted, prefixed blob (bug #28) and a no-reason revert came
+                    // back non-empty (bug #29). Coerce to ByteArray to pin the type
+                    // (matches the normal `catch (bytes)` binding in try_catch.rs).
+                    instructions.push(Instruction::Convert {
+                        target: ConvertTarget::ByteArray,
                     });
                     instructions.push(Instruction::StoreLocal(data_local));
 
@@ -910,12 +913,11 @@ pub(crate) fn try_lower_low_level_address_call(
                 instructions.push(Instruction::EndTry { target: end_label });
 
                 instructions.push(Instruction::Label(catch_label));
-                instructions.push(Instruction::CallBuiltin {
-                    builtin: BuiltinCall::NativeCall {
-                        contract: NativeContract::StdLib,
-                        method: "serialize".to_string(),
-                    },
-                    arg_count: 1,
+                // Store the raw revert payload directly (see the mirror handler
+                // above): the runtime already pushes the EVM ABI envelope, so
+                // `StdLib.serialize` only added spurious Neo framing (bug #28/#29).
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::ByteArray,
                 });
                 instructions.push(Instruction::StoreLocal(data_local));
 

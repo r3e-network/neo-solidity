@@ -2034,3 +2034,71 @@ contract T {
     assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
     assert_eq!(r.return_data.first().copied(), Some(10u8), "merged internal helper write must persist");
 }
+
+/// Regression (bug-hunt #11/#13): element write to a storage `bytes`
+/// (`data[i] = v`) must persist. `bytes` is ByteArray{fixed_len:None}, which
+/// resolve_storage_reference doesn't model, so it took a copy-and-discard path;
+/// now it does a read-modify-write into the slot.
+#[test]
+fn storage_bytes_element_write_persists() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    bytes data;
+    function run() external returns (uint256) {
+        data.push(0x11);
+        data.push(0x22);
+        data[0] = 0xaa;
+        data[1] = 0xbb;
+        return uint256(uint8(data[0])) * 256 + uint256(uint8(data[1])); // 0xaabb = 43707
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    assert_eq!(v, 0xaabb, "storage bytes element writes must persist (got {v:#x})");
+}
+
+/// Regression (bug-hunt #21/#28/#29): a low-level `(bool ok, bytes data) =
+/// addr.call(...)` to a reverting callee must report `ok == false` (not be
+/// re-decoded as a this.method() ABI buffer), and its returndata must be the
+/// RAW EVM envelope (reason-carrying revert starts with the Error selector
+/// 0x08c379a0 and has no Neo serialize framing; a no-reason revert is empty).
+#[test]
+fn low_level_call_revert_ok_false_and_raw_returndata() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract Callee {
+    function reqMsg() external pure { require(false, "hi"); }
+    function reqNoMsg() external pure { require(false); }
+    function ok() external pure returns (uint256) { return 7; }
+}
+contract T {
+    // returns: bit0 = (msg-revert ok==false), bit1 = data starts 0x08c3,
+    //          bit2 = (no-msg revert ok==false), bit3 = (no-msg data empty),
+    //          bit4 = (success ok==true)
+    function run() external returns (uint256) {
+        Callee c = new Callee();
+        uint256 flags = 0;
+        (bool ok1, bytes memory d1) = address(c).call(abi.encodeWithSignature("reqMsg()"));
+        if (!ok1) flags |= 1;
+        if (d1.length >= 2 && uint8(d1[0]) == 0x08 && uint8(d1[1]) == 0xc3) flags |= 2;
+        (bool ok2, bytes memory d2) = address(c).call(abi.encodeWithSignature("reqNoMsg()"));
+        if (!ok2) flags |= 4;
+        if (d2.length == 0) flags |= 8;
+        (bool ok3, ) = address(c).call(abi.encodeWithSignature("ok()"));
+        if (ok3) flags |= 16;
+        return flags;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = arts.iter().find(|a| a.manifest["name"].as_str() == Some("T")).expect("T artifact");
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    assert_eq!(r.return_data.first().copied(), Some(0b11111u8),
+        "all low-level-call revert-handling flags must hold (got {:?})", r.return_data.first());
+}

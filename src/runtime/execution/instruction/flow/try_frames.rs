@@ -75,8 +75,18 @@ impl ExecutionContext {
                     // would leak the `"THROW: …"` prefix and the lossy U+FFFD
                     // replacements for non-UTF-8 payload bytes into the
                     // caller, breaking ABI decoding.
+                    // Bug-hunt #29 — a bare no-reason revert (`require(false)` /
+                    // `revert()`) lowers to `PUSH null; THROW`, which sets an
+                    // empty revert_payload and the internal marker message
+                    // "THROW". EVM returndata for a no-reason revert is EMPTY, so
+                    // the catch must see zero bytes — not the 5-byte marker. Only
+                    // the bare "THROW" marker maps to empty; genuine VM-fault
+                    // messages (e.g. "index out of bounds") are preserved for
+                    // `catch (bytes)` fidelity.
                     let payload = if !self.revert_payload.is_empty() {
                         self.revert_payload.clone()
+                    } else if message == "THROW" {
+                        Vec::new()
                     } else {
                         message.as_bytes().to_vec()
                     };
