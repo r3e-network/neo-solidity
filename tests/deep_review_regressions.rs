@@ -2762,3 +2762,30 @@ contract Market {
         "Market must NOT absorb the abstract's virtual getPrice"
     );
 }
+
+/// Regression (famous-contracts eval, inherited-event sibling-merge — completes
+/// #23 + 8fe413b): when a host does `new A()` and A's method is merged in, the
+/// merge must carry events A INHERITS (from interface/base declarations), not
+/// just A's directly-declared events. `contract A is IERC20` emits IERC20's
+/// `Approval`; the sibling-event map now walks A's FULL base closure (including
+/// interface bases, which the storage/ctor linearization omits). Blocked
+/// USDC/FRAX/MasterChef/PublicResolver-style contracts.
+#[test]
+fn sibling_merge_carries_inherited_events_from_interface_base() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+interface IERC20 { event Approval(address indexed o, address indexed s, uint256 v); }
+contract A is IERC20 { function approve(address s, uint256 v) external { emit Approval(msg.sender, s, v); } }
+contract B { A token; constructor() { token = new A(); } function go(address s) external { token.approve(s, 1); } }"#;
+    let arts = compile_contracts(src, false, 2)
+        .expect("sibling that emits an inherited interface event must compile");
+    let has_approval = |name: &str| {
+        arts.iter()
+            .find(|a| a.manifest["name"].as_str() == Some(name))
+            .and_then(|a| a.manifest["abi"]["events"].as_array())
+            .map(|evs| evs.iter().any(|e| e["name"].as_str() == Some("Approval")))
+            .unwrap_or(false)
+    };
+    assert!(has_approval("A"), "A must declare its inherited Approval event");
+    assert!(has_approval("B"), "host B (merged A.approve) must declare Approval so the notification validates");
+}

@@ -386,9 +386,42 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         // declares `Foo` perfectly well. Mirror the sibling function/state/
         // modifier merges by also carrying each sibling's event declarations so
         // the merged bodies can resolve their own events against the host.
+        //
+        // The event set must include events the sibling INHERITS, not just its
+        // directly-declared ones: e.g. `contract A is IERC20 { function approve()
+        // { emit Approval(); } }` where `Approval` lives in `IERC20`. When a host
+        // does `new A()` and A's `approve` is merged in, carrying only `A.events`
+        // would drop the inherited `Approval` and the merged emit would fail "no
+        // resolved declaration". We must walk the FULL base closure — including
+        // INTERFACE bases, which `contract_linearization_base_to_derived`
+        // deliberately omits (interfaces don't affect storage/ctor order) but
+        // which are the usual home of event declarations (IERC20, IPool). BFS
+        // every transitive base regardless of kind.
         let sibling_event_map: std::collections::HashMap<String, Vec<EventIR>> = primary
             .iter()
-            .map(|c| (c.name.clone(), c.events.clone()))
+            .map(|c| {
+                let mut seen: std::collections::HashMap<String, EventIR> =
+                    std::collections::HashMap::new();
+                let mut visited: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
+                let mut queue: Vec<String> = vec![c.name.clone()];
+                while let Some(name) = queue.pop() {
+                    if !visited.insert(name.clone()) {
+                        continue;
+                    }
+                    if let Some(contract) = pre_merge_contract_map.get(&name) {
+                        for e in &contract.events {
+                            seen.entry(e.name.clone()).or_insert_with(|| e.clone());
+                        }
+                        for base in &contract.bases {
+                            if let Some(base_name) = base_last_name(base) {
+                                queue.push(base_name);
+                            }
+                        }
+                    }
+                }
+                (c.name.clone(), seen.into_values().collect::<Vec<_>>())
+            })
             .collect();
         // Task #198 — parallel constructor map. For `new Child(x, y)` inside a
         // Parent contract, the compiled Child lives in a separate artifact, so
