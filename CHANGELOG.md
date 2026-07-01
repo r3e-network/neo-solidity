@@ -5,6 +5,89 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.26.0] - 2026-07-01
+
+Dev-environment & deep-correctness release. Ships a native **`neo-test`**
+Foundry-style Solidity test runner (executing directly on the in-tree
+NeoVM) with Foundry cheatcodes, plus a large wave of neo-test-dogfooded
+and fuzz-found correctness fixes across arithmetic, `bytesN`, storage,
+ABI, low-level calls, events, inheritance and `try/catch`. Compiler /
+CLI / workspace and devpack stay version-aligned at **v0.26.0**. Full
+suite green: **1952 tests across 54 targets** (integration + lib unit +
+cargo-fuzz/proptest), clippy + fmt clean.
+
+### Added
+
+- **`neo-test` — native Foundry-style Solidity test runner.** Executes
+  `test*` / `testFail*` / `setUp()` directly on the in-tree NeoVM with
+  per-test state isolation, cross-contract `new`, decoded `revert` /
+  `Panic` reasons, `console.log`, and gas reporting. Bundles
+  `neo-std/{Test,console,Vm}.sol`. Wired into `neo-forge test`; see
+  `docs/TESTING.md`.
+- **Foundry cheatcodes** (via the HEVM address, no compiler change):
+  `vm.prank` / `startPrank` / `stopPrank` / `warp` / `roll` / `deal` /
+  `label` / `assume` and `vm.expectRevert()`.
+- **Value-rich assertion failures** — `assertEq failed: 3 != 5` style
+  messages carrying the actual operands.
+- **Expanded structured-Solidity fuzz grammar** — loops, locals,
+  mappings, arrays and devpack-framework calls (`Runtime.*` / `Storage.*`)
+  in the `structured_sol` generator.
+
+### Fixed
+
+- **Arithmetic** — unchecked `-type(intN).min` / `0 - min` now WRAP
+  two's-complement instead of yielding the out-of-range `+2^(N-1)`
+  (which also faulted NeoVM's 256-bit integer) [bug-hunt #2/#25/#31];
+  `addmod(a,b,0)` / `mulmod(a,b,0)` Panic(0x12) instead of returning 0;
+  `addmod` full-width carry; `int256 **` / `uint256 **` use soft-arith
+  magnitude (catchable Panic / wrap, no 33-byte fault); `uint128` mul
+  overflow; `mapping(K => uintN)` value width (was silently dropping the
+  checked-overflow Panic and the mod-2^N wrap).
+- **`bytesN` / byte semantics** — integer-backed `bytesN` literals are
+  canonicalized to big-endian `ByteString` at EVERY binding site
+  (scalar / struct field / array push / mapping key / call argument /
+  return / `constant` / multi-return tuple / indexed event topic);
+  `bytesN` bitwise `& | ^` read back through `uint256(...)` correctly
+  [bug-hunt #14]; byte index `b[i]` is a 1-byte `bytes1`; `intN(bytesN)`
+  endianness; `bytesN` constant comparison (fixes a byte-reversed
+  access-control check).
+- **Storage** — a storage `struct` passed by reference to an internal
+  function now ALIASES the slot (field writes persist) [bug-hunt #8];
+  `T[] memory m = storageArr` deep-copies [bug-hunt #10]; storage
+  `bytes` element write `data[i] = v` persists [bug-hunt #11/#13];
+  storage `bytes` push/pop.
+- **ABI / calls** — a plain internal call to a public array/`bytes`/
+  `string`-returning function decodes the ABI blob instead of binding
+  the raw bytes [bug-hunt #9]; low-level `.call` returndata is the raw
+  EVM ABI envelope (no Neo serialize framing) and a no-reason revert
+  yields empty returndata; `(bool ok, ) = addr.call(...)` reports
+  `ok = false` for a reverting call [bug-hunt #21/#28/#29]; `abi.decode`
+  type fidelity (EQUAL is type-strict); `abi.encode` / `abi.encodePacked`
+  return a proper `ByteString`; partial tuple destructure from a
+  cross-contract call selects the right slot.
+- **Events / inheritance / merge** — a contract's own event declarations
+  survive when another contract references it by type [bug-hunt #23];
+  a `new`-deployed contract's public method that calls its own concrete
+  internal helper now reaches a real body (was dropped → `PUSH0` → the
+  write vanished) [bug-hunt #18/#20]; cross-contract `msg.sender` for
+  `new`-deployed callees.
+- **`try/catch` & control flow** — bound `TRY` nesting depth (fixes a VM
+  DoS) and make `ExecutionEngineLimits` faults uncatchable; `catch Panic`
+  / `catch Error` match real-node call faults (Buffer vs ByteString);
+  the NeoVM `TRY` frame stays balanced across every catch exit; modifier
+  / base-constructor arguments are evaluated exactly once.
+- **Type resolution** — overload resolution lets a positive integer
+  literal match any integer parameter; `address.balance` / `.code` /
+  `.codehash` inference; NeoVM `EQUAL` type-strictness (ternary `bytesN`
+  compare, `bytesN` mapping-key slot).
+- **devpack** — authorize `multiSigMint`, settle stake rewards, unblock
+  NEP-11 oracle / curation and minter-royalty paths.
+
+### Changed
+
+- Compiler / CLI / workspace and devpack (`@neo-devpack-solidity/contracts`)
+  version-aligned at **v0.26.0**.
+
 ## [v0.25.0] - 2026-06-28
 
 Single-source-of-truth release: a new `pub mod opcode` (top-level
