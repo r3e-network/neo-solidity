@@ -2813,3 +2813,26 @@ contract Factory {
         "Factory must be produced"
     );
 }
+
+/// Regression (latest-feature audit): a contract using Solidity 0.8.19
+/// user-defined operators (`using {add as +} for T global`) still COMPILES
+/// (neo-solc surfaces a W_USER_DEFINED_OPERATOR warning that the operators are
+/// not dispatched — verified separately — but must not fail the compile). This
+/// pins the using-directive metadata plumbing that carries the operator
+/// symbols to the validator.
+#[test]
+fn user_defined_operator_directive_still_compiles() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+type Int is int256;
+using {addI as +} for Int global;
+function addI(Int a, Int b) pure returns (Int) { return Int.wrap(Int.unwrap(a) + Int.unwrap(b)); }
+contract C {
+    function f(Int a, Int b) external pure returns (Int) { return a + b; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("UDVT-operator contract must still compile");
+    assert!(
+        arts.iter().any(|a| a.manifest["name"].as_str() == Some("C")),
+        "contract C must be produced"
+    );
+}

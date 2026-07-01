@@ -81,6 +81,13 @@ pub struct UsingDirectiveIR {
     /// `None` means library-form directive (`using Lib for T`) where all compatible
     /// library functions are available.
     pub function_names: Option<Vec<String>>,
+    /// Operator symbols bound by a user-defined-operator directive
+    /// (`using {add as +, eq as ==} for T global`, Solidity 0.8.19+). Empty for
+    /// ordinary member-style `using`. neo-solc does NOT yet dispatch operator
+    /// overloads (the operand's user-defined-value-type identity is erased to
+    /// its underlying type before operator lowering), so a diagnostic is
+    /// surfaced from these — see `validate_using_directives`.
+    pub overloaded_operators: Vec<String>,
 }
 
 /// Classification of contract kinds.

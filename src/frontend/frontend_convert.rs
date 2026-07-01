@@ -44,6 +44,29 @@ fn using_function_library_name(function: &UsingFunction) -> Option<String> {
     )
 }
 
+/// The operator symbol bound by a `using {f as <op>} for T` user-defined
+/// operator directive (Solidity 0.8.19+).
+fn user_defined_operator_symbol(op: &solang_parser::pt::UserDefinedOperator) -> &'static str {
+    use solang_parser::pt::UserDefinedOperator;
+    match op {
+        UserDefinedOperator::BitwiseAnd => "&",
+        UserDefinedOperator::BitwiseNot => "~",
+        UserDefinedOperator::BitwiseOr => "|",
+        UserDefinedOperator::BitwiseXor => "^",
+        UserDefinedOperator::Add => "+",
+        UserDefinedOperator::Divide => "/",
+        UserDefinedOperator::Modulo => "%",
+        UserDefinedOperator::Multiply => "*",
+        UserDefinedOperator::Subtract | UserDefinedOperator::Negate => "-",
+        UserDefinedOperator::Equal => "==",
+        UserDefinedOperator::More => ">",
+        UserDefinedOperator::MoreEqual => ">=",
+        UserDefinedOperator::Less => "<",
+        UserDefinedOperator::LessEqual => "<=",
+        UserDefinedOperator::NotEqual => "!=",
+    }
+}
+
 /// Convert a `solang_parser::pt::Using` directive into the IR-level state that
 /// `ContractIR` tracks. Used by both `convert_contract` (for contract-scope
 /// `using`) and `parse_source` (for file-scope `using`, Solidity 0.8.13+).
@@ -86,10 +109,23 @@ fn convert_using_directive(using: &Using) -> (UsingDirectiveIR, Vec<String>, boo
         _ => None,
     };
 
+    let overloaded_operators: Vec<String> = match &using.list {
+        UsingList::Functions(functions) => functions
+            .iter()
+            .filter_map(|f| {
+                f.oper
+                    .as_ref()
+                    .map(|op| user_defined_operator_symbol(op).to_string())
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+
     (
         UsingDirectiveIR {
             target_type,
             function_names,
+            overloaded_operators,
         },
         library_names,
         has_for_star,

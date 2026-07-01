@@ -77,6 +77,10 @@ pub struct UsingDirectiveMetadata {
     /// `None` means library-form directive (`using Lib for T`) where all compatible
     /// library functions are eligible.
     pub function_names: Option<Vec<String>>,
+    /// Operator symbols bound by a user-defined-operator directive
+    /// (`using {add as +} for T global`, 0.8.19+); empty otherwise. neo-solc
+    /// does not dispatch these yet — `validate_using_directives` warns.
+    pub overloaded_operators: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

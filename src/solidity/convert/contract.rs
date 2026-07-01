@@ -284,6 +284,7 @@ pub(crate) fn convert_contract(
                 UsingDirectiveMetadata {
                     target_type: resolved_target,
                     function_names: directive.function_names.clone(),
+                    overloaded_operators: directive.overloaded_operators.clone(),
                 }
             })
             .collect(),

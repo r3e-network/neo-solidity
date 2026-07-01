@@ -28,10 +28,36 @@ pub fn validate_contract(metadata: &ContractMetadata) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn validate_using_directives(_metadata: &ContractMetadata, _diagnostics: &mut [Diagnostic]) {
-    // `using` directives are validated during IR lowering where receiver type,
-    // member name, and lowered function overload information are all available.
-    // Keep this hook so future frontend-only `using` diagnostics can be added.
+fn validate_using_directives(metadata: &ContractMetadata, diagnostics: &mut Vec<Diagnostic>) {
+    // Member-style `using` (`x.f()`) is validated during IR lowering where the
+    // receiver type and overload information are available. Here we surface a
+    // frontend-only diagnostic for USER-DEFINED OPERATORS (Solidity 0.8.19+,
+    // `using {add as +, eq as ==} for T global`): these parse and compile, but
+    // neo-solc does NOT dispatch them — the operand's user-defined-value-type
+    // identity is erased to its underlying type before operator lowering, so
+    // `a + b` emits RAW arithmetic on the underlying representation instead of
+    // a call to the bound function. Warn loudly so the result is never a
+    // silent wrong value (a known gap; the alternative is a dangerous
+    // accept-but-miscompile).
+    for directive in &metadata.using_directives {
+        if directive.overloaded_operators.is_empty() {
+            continue;
+        }
+        let ops = directive.overloaded_operators.join(", ");
+        let target = directive.target_type.as_deref().unwrap_or("*");
+        diagnostics.push(
+            Diagnostic::warning(format!(
+                "user-defined operator overloading (`using {{ … as {ops} }} for {target}`) is not \
+                 dispatched on NeoVM: operators on `{target}` compile to raw arithmetic on the \
+                 underlying representation, NOT calls to the bound function(s)"
+            ))
+            .with_code("W_USER_DEFINED_OPERATOR")
+            .with_suggestion(
+                "call the bound function explicitly (e.g. `add(a, b)` instead of `a + b`) until \
+                 operator dispatch is supported",
+            ),
+        );
+    }
 }
 
 fn validate_type_definitions(_metadata: &ContractMetadata, _diagnostics: &mut [Diagnostic]) {
