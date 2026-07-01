@@ -50,6 +50,7 @@ fn lower_emit_pushes_event_name_before_args() {
     let using_function_list_scope_targets: Vec<Option<String>> = Vec::new();
     let function_param_names: HashMap<(String, usize), Vec<String>> = HashMap::new();
     let void_functions = HashSet::new();
+    let externally_callable_functions: HashSet<(String, usize)> = HashSet::new();
     let state_types: Vec<ValueType> = Vec::new();
     let defined_struct_types: Vec<ValueType> = Vec::new();
     let struct_fixed_array_bounds: HashMap<(String, String), u64> = HashMap::new();
@@ -86,6 +87,7 @@ fn lower_emit_pushes_event_name_before_args() {
         &using_function_list_scope_targets,
         &function_param_names,
         &void_functions,
+        &externally_callable_functions,
         &super_method_map,
         &library_storage_bodies,
         &storage_pointer_returning_fns,

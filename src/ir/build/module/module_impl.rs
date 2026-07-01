@@ -123,6 +123,22 @@ impl Module {
             .map(|method| method.name.clone())
             .collect();
 
+        // Bug-hunt #9 — externally-callable (Public/External) functions keyed by
+        // (name, arity). Their body ABI-encodes a single dynamic-array/bytes/
+        // string return, so a plain internal call to one must decode the blob.
+        let externally_callable_functions: HashSet<(String, usize)> = metadata
+            .methods
+            .iter()
+            .filter(|method| {
+                matches!(
+                    method.visibility,
+                    crate::frontend::VisibilityKind::External
+                        | crate::frontend::VisibilityKind::Public
+                )
+            })
+            .map(|method| (method.name.clone(), method.parameters.len()))
+            .collect();
+
         // `(name, arity)` → every overload sharing that key, each carrying its
         // full parameter ValueTypes and the (already type-mangled) neo_name.
         // Solidity allows overloading by parameter TYPE at the same arity
@@ -356,6 +372,7 @@ impl Module {
                 &using_function_list_scope_targets,
                 &function_param_names,
                 &void_functions,
+                &externally_callable_functions,
                 &metadata.super_method_map,
                 &library_storage_bodies,
                 &storage_pointer_returning_fns,
@@ -402,6 +419,7 @@ impl Module {
                 &using_function_list_scope_targets,
                 &function_param_names,
                 &void_functions,
+                &externally_callable_functions,
                 &metadata.super_method_map,
                 &library_storage_bodies,
                 &storage_pointer_returning_fns,

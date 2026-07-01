@@ -2131,3 +2131,32 @@ contract C {
     let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
     assert_eq!(v, 1_999_002, "deep copy: arr[0]=1, m[0]=999, m[1]=2 (got {v})");
 }
+
+/// Regression (bug-hunt #9): a plain internal call to a PUBLIC function
+/// returning `T[] memory` must yield the array, not the ABI-encoded blob. The
+/// public callee ABI-encodes its single dynamic return; the caller now decodes
+/// it (reusing the this.method() decode chain). An `internal` callee already
+/// worked (no ABI encoding).
+#[test]
+fn internal_call_to_public_array_returner_decodes() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function makeMem() public pure returns (uint256[] memory) {
+        uint256[] memory m = new uint256[](3);
+        m[0] = 100; m[1] = 200; m[2] = 300;
+        return m;
+    }
+    function run() external pure returns (uint256) {
+        uint256[] memory m = makeMem();
+        return m.length * 1000 + m[1]; // 3*1000 + 200 = 3200
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    assert_eq!(v, 3200, "internal call to public array returner must decode (len=3, m[1]=200)");
+}

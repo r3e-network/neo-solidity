@@ -1014,6 +1014,53 @@ pub(crate) fn is_this_external_tuple_call(rhs: &Expression, ctx: &mut LoweringCo
 /// dispatch lowering elsewhere in the call chain. Dynamic types are the
 /// novel case: their wire shape (head-offset + length + payload) needs
 /// the dedicated walker.
+/// Bug-hunt #9 — a PLAIN same-contract call `f(args)` to a Public/External
+/// function returning a single dynamic array / `bytes` / `string`. The callee
+/// body ABI-encodes that return (the external calling convention), so binding
+/// the raw call result would store the EVM `offset||length||elements` blob
+/// (e.g. `m.length` reads 160 instead of 3). Decode the blob back into the
+/// value — the same fix the `this.method()` path already applies, but keyed on
+/// `is_externally_callable_fn` since a plain call has no `this.`/cast receiver.
+/// (An `internal` callee does NOT ABI-encode and already binds correctly.)
+pub(crate) fn try_lower_plain_external_dynamic_assign(
+    slot: usize,
+    rhs: &Expression,
+    dst_type: &ValueType,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) -> bool {
+    if !abi_dynamic_decode_value_type_is_supported(dst_type) {
+        return false;
+    }
+    // `rhs` must be a plain call `f(args)` to an externally-callable function
+    // of THIS contract (not a member/`this.`/cast call — those go through
+    // try_lower_this_external_dynamic_assign).
+    let Expression::FunctionCall(_, func, args) = rhs else {
+        return false;
+    };
+    let Expression::Variable(id) = func.as_ref() else {
+        return false;
+    };
+    if !ctx.is_externally_callable_fn(&id.name, args.len()) {
+        return false;
+    }
+
+    let pre_len = instructions.len();
+    if !lower_expression(rhs, ctx, instructions) {
+        instructions.truncate(pre_len);
+        return false;
+    }
+    let buffer_local = ctx.allocate_local(
+        "__plain_dyn_abi_buf".to_string(),
+        Some(ValueType::ByteArray { fixed_len: None }),
+    );
+    instructions.push(Instruction::StoreLocal(buffer_local));
+    emit_abi_decode_dynamic_top_level(buffer_local, dst_type, ctx, instructions);
+    instructions.push(Instruction::StoreLocal(slot));
+    ctx.clear_call_data_local(slot);
+    true
+}
+
 pub(crate) fn try_lower_this_external_dynamic_assign(
     slot: usize,
     rhs: &Expression,

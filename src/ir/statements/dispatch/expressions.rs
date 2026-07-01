@@ -199,6 +199,12 @@ pub(crate) fn lower_variable_definition_statement(
                                     dst_type,
                                     ctx,
                                     instructions,
+                                ) || try_lower_plain_external_dynamic_assign(
+                                    slot,
+                                    initializer,
+                                    dst_type,
+                                    ctx,
+                                    instructions,
                                 )
                             } else {
                                 false

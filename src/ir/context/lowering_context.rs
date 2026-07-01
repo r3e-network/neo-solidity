@@ -122,6 +122,12 @@ pub(crate) struct LoweringContext<'a> {
     /// Functions that return void (empty return_parameters). Used to avoid
     /// emitting DROP after calling a void internal function as a statement.
     pub(crate) void_functions: &'a HashSet<String>,
+    /// Bug-hunt #9 — same-contract functions that are externally callable
+    /// (Public/External), keyed by (name, arity). Their body ABI-encodes a
+    /// single dynamic-array/`bytes`/`string` return (the external calling
+    /// convention), so a PLAIN internal call to one must decode that blob back
+    /// into the value instead of binding the raw ByteString.
+    pub(crate) externally_callable_functions: &'a HashSet<(String, usize)>,
     /// Mapping from original method name to renamed super-method name.
     /// Used to resolve `super.method()` calls during IR lowering.
     pub(crate) super_method_map: &'a HashMap<String, String>,
@@ -253,6 +259,7 @@ impl<'a> LoweringContext<'a> {
         using_function_list_scope_targets: &'a [Option<String>],
         function_param_names: &'a HashMap<(String, usize), Vec<String>>,
         void_functions: &'a HashSet<String>,
+        externally_callable_functions: &'a HashSet<(String, usize)>,
         super_method_map: &'a HashMap<String, String>,
         library_storage_bodies: &'a HashMap<(String, usize), LibraryStorageBody>,
         storage_pointer_returning_fns: &'a HashMap<String, String>,
@@ -289,6 +296,7 @@ impl<'a> LoweringContext<'a> {
             using_function_list_scope_targets,
             function_param_names,
             void_functions,
+            externally_callable_functions,
             super_method_map,
             library_storage_bodies,
             storage_pointer_returning_fns,
@@ -495,6 +503,14 @@ impl<'a> LoweringContext<'a> {
 
     pub(crate) fn is_externally_callable(&self) -> bool {
         self.is_externally_callable
+    }
+
+    /// Bug-hunt #9 — true when `name`/`arity` names a same-contract function
+    /// that is externally callable (Public/External) and therefore ABI-encodes
+    /// a single dynamic return value in its body.
+    pub(crate) fn is_externally_callable_fn(&self, name: &str, arity: usize) -> bool {
+        self.externally_callable_functions
+            .contains(&(name.to_string(), arity))
     }
 
     pub(crate) fn record_error(&mut self, message: impl Into<String>) {
