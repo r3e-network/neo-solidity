@@ -15,6 +15,36 @@ pub(crate) fn is_literal_number(expr: &Expression) -> bool {
     )
 }
 
+/// True when `expr` is the compile-time integer literal `0`, unwrapping
+/// parentheses and integer type casts (`int256(0)`, `int8(0)`, `uint256(0)`).
+/// Used to recognise the `0 - x` negation idiom so it can share the unary
+/// negate wrap path (bug-hunt #2). A hex/decimal literal whose digits are all
+/// zero counts; anything runtime-computed does not.
+pub(crate) fn is_zero_literal(expr: &Expression) -> bool {
+    match expr {
+        Expression::Parenthesis(_, inner) => is_zero_literal(inner),
+        Expression::FunctionCall(_, func, args)
+            if args.len() == 1
+                && matches!(
+                    func.as_ref(),
+                    Expression::Type(_, PtType::Int(_)) | Expression::Type(_, PtType::Uint(_))
+                ) =>
+        {
+            is_zero_literal(&args[0])
+        }
+        Expression::NumberLiteral(_, integer, exp, _) => {
+            integer.trim_start_matches('0').is_empty()
+                && exp.trim_start_matches(['+', '-', '0']).is_empty()
+        }
+        Expression::HexNumberLiteral(_, value, _) => value
+            .trim_start_matches("0x")
+            .trim_start_matches("0X")
+            .trim_start_matches('0')
+            .is_empty(),
+        _ => false,
+    }
+}
+
 /// Infer whether an operand is `uint256` (256-bit unsigned integer). Defaults
 /// to `true` for literal numbers because Solidity number literals have type
 /// `uint256` by default.

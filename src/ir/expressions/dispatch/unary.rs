@@ -93,6 +93,12 @@ pub(crate) fn lower_negate_expression(
     // the pre-lowered AST).
     let emit_guard = should_emit_negate_guard(inner, ctx);
     let intn_min = signed_intn_min_literal(inner, ctx);
+    // Signed operand width, needed to pick the unchecked wrap strategy below.
+    let signed_bits = match infer_type_from_expression(inner, ctx) {
+        Some(ValueType::Integer { signed: true, bits }) => Some(bits),
+        _ => None,
+    };
+    let unchecked = ctx.in_unchecked_block();
 
     if !lower_expression(inner, ctx, instructions) {
         return false;
@@ -113,6 +119,52 @@ pub(crate) fn lower_negate_expression(
             instructions.push(Instruction::JumpIf { target: safe_label });
             emit_panic(0x11, instructions);
             instructions.push(Instruction::Label(safe_label));
+        }
+        instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+        instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+        return true;
+    }
+
+    // UNCHECKED signed negation must WRAP two's-complement, matching EVM
+    // (`unchecked { -x }` where `x == type(intN).min` yields `intN.min`, not a
+    // Panic or the out-of-range positive `+2^(N-1)`). Bug-hunt #2/#25/#31.
+    if unchecked {
+        if let (Some(bits), Some(min_value)) = (signed_bits, intn_min.clone()) {
+            if bits >= 256 {
+                // int256: `-(int256.min)` mathematically is `+2^255`, which is
+                // OUT of the int256 range AND exceeds NeoVM's 256-bit signed
+                // integer capacity (it would fault the MUL on a real node). The
+                // wrapped result is `int256.min` itself, so SUBSTITUTE it
+                // directly for that one input instead of computing `x * -1`.
+                // NOTE: IR `JumpIf` branches when the condition is FALSE
+                // (JMPIFNOT_L), so `x == min` FALLS THROUGH and `x != min`
+                // jumps to the negate path.
+                //   DUP; PUSH min; EQ; JMPIFNOT negate;  (x != min -> negate)
+                //   JMP end;                              (x == min -> leave x)
+                //   negate: PUSH -1; MUL;
+                //   end:
+                let negate = ctx.next_label();
+                let end = ctx.next_label();
+                instructions.push(Instruction::Dup);
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(min_value)));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+                instructions.push(Instruction::JumpIf { target: negate });
+                instructions.push(Instruction::Jump { target: end });
+                instructions.push(Instruction::Label(negate));
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+                instructions.push(Instruction::Label(end));
+                return true;
+            } else {
+                // Narrow intN: `x * -1` is in NeoVM range (|result| <= 2^(N-1)
+                // < 2^255), but `-(intN.min) = +2^(N-1)` overflows the declared
+                // width. Truncate/sign-extend back into range so it wraps to
+                // `intN.min`, matching the already-correct narrow `0 - x` path.
+                instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::from(-1))));
+                instructions.push(Instruction::BinaryOp(BinaryOperator::Mul));
+                emit_truncate_narrow_signed(ctx, instructions, bits);
+                return true;
+            }
         }
     }
 

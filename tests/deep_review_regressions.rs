@@ -1906,3 +1906,49 @@ contract E {
     assert!(has_simple("Emitter"), "Emitter must keep its own Simple event");
     assert!(has_simple("E"), "host E (merged doSimple) must declare Simple so the notification validates");
 }
+
+/// Regression (bug-hunt #2/#25/#31): `unchecked` negation of `type(intN).min`
+/// must WRAP two's-complement to `intN.min` (matching EVM), not fault or yield
+/// the out-of-range `+2^(N-1)`. Covers unary `-x` at int256 (substitute-min,
+/// since `+2^255` overflows NeoVM's 256-bit integer) and narrow widths
+/// (truncate/sign-extend), plus the `0 - x` idiom which reroutes to the same
+/// unary wrap. The checked path must still Panic(0x11) on `-int256.min`.
+#[test]
+fn unchecked_intn_min_negation_wraps() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function negMin256() external pure returns (bool) {
+        unchecked { int256 x = type(int256).min; return -x == type(int256).min; }
+    }
+    function zeroSubMin256() external pure returns (bool) {
+        unchecked { int256 x = type(int256).min; return int256(0) - x == type(int256).min; }
+    }
+    function negMin128() external pure returns (bool) {
+        unchecked { int128 x = type(int128).min; return -x == type(int128).min; }
+    }
+    function negMin8() external pure returns (bool) {
+        unchecked { int8 x = type(int8).min; return -x == type(int8).min; }
+    }
+    function checkedNegMin256() external pure returns (int256) {
+        int256 x = type(int256).min; return -x; // must Panic(0x11)
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let call = |m: &str| {
+        let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+        rt.call_method(&art.bytecode, &art.tokens, &art.manifest, m, &[]).expect("call")
+    };
+    for m in ["negMin256", "zeroSubMin256", "negMin128", "negMin8"] {
+        let r = call(m);
+        assert!(
+            r.success && r.return_data.first().copied() == Some(1u8),
+            "{m}: unchecked -min must wrap to min (true); success={} data={:?} exc={:?}",
+            r.success, r.return_data.first(), r.exception.as_ref().map(|e| &e.message)
+        );
+    }
+    // The checked path is unchanged: negating int256.min still faults (Panic 0x11).
+    let rc = call("checkedNegMin256");
+    assert!(!rc.success, "checked -int256.min must Panic, not succeed");
+}
