@@ -2102,3 +2102,32 @@ contract T {
     assert_eq!(r.return_data.first().copied(), Some(0b11111u8),
         "all low-level-call revert-handling flags must hold (got {:?})", r.return_data.first());
 }
+
+/// Regression (bug-hunt #10): `T[] memory m = storageArr;` deep-copies. A
+/// storage dynamic array holds only its length in the state slot, so the old
+/// path bound the Integer length to `m` and `m[i] = v` faulted `SETITEM:
+/// unsupported target Integer`. Now it materializes a fresh array; writes to
+/// `m` must not touch the storage array.
+#[test]
+fn storage_array_to_memory_is_deep_copied() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    uint256[] arr;
+    function run() external returns (uint256) {
+        arr.push(1);
+        arr.push(2);
+        uint256[] memory m = arr;
+        m[0] = 999;
+        // arr[0] must stay 1 (deep copy); m[0]==999, m[1]==2
+        return arr[0] * 1_000_000 + m[0] * 1000 + m[1];
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt.call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[]).expect("call");
+    assert!(r.success, "faulted: {:?}", r.exception.as_ref().map(|e| &e.message));
+    let v = r.return_data.iter().take(16).enumerate().fold(0u128, |a,(i,&b)| a + ((b as u128)<<(8*i)));
+    assert_eq!(v, 1_999_002, "deep copy: arr[0]=1, m[0]=999, m[1]=2 (got {v})");
+}

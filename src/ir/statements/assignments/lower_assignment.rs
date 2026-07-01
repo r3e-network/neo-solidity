@@ -847,6 +847,80 @@ pub(crate) fn lower_storage_array_assign_from_memory(
     instructions.push(Instruction::Label(delete_end_label));
 }
 
+/// Bug-hunt #10 — materialize a storage array into a FRESH in-memory NeoVM
+/// array bound to `dst_slot`, so `T[] memory m = storageArr;` is a DEEP COPY
+/// (subsequent `m[i] = v` touches only the copy, and `arr[i]` is unchanged).
+/// Storage dynamic arrays keep only the length scalar in the state slot (the
+/// elements live in derived `LoadMappingElement` slots), so a bare `LoadState`
+/// yields an Integer — writing through it faults `SETITEM: unsupported target
+/// Integer`. Mirror-image of `lower_storage_array_assign_from_memory`: read
+/// each element via the same slot layout the writer used and SETITEM it into
+/// the new array. Leaves nothing on the stack (stores into `dst_slot` itself).
+pub(crate) fn lower_storage_array_read_to_memory(
+    state_index: usize,
+    element_type: ValueType,
+    dst_slot: usize,
+    ctx: &mut LoweringContext,
+    instructions: &mut Vec<Instruction>,
+) {
+    let uint256 = ValueType::Integer {
+        signed: false,
+        bits: 256,
+    };
+    // len = length scalar in the state slot.
+    let len_local = ctx.allocate_local("__arr_copy_len".to_string(), Some(uint256.clone()));
+    instructions.push(Instruction::LoadState(state_index));
+    instructions.push(Instruction::StoreLocal(len_local));
+
+    // dst = new array[len] (zero-initialized; overwritten below).
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::NewArray {
+        element_type: element_type.clone(),
+    });
+    instructions.push(Instruction::StoreLocal(dst_slot));
+
+    // for (i = 0; i < len; i++) { dst[i] = storage[i] }
+    let cond_label = ctx.next_label();
+    let end_label = ctx.next_label();
+    let idx_local = ctx.allocate_local("__arr_copy_idx".to_string(), Some(uint256.clone()));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::zero())));
+    instructions.push(Instruction::StoreLocal(idx_local));
+
+    instructions.push(Instruction::Label(cond_label));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(len_local));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Lt));
+    // IR JumpIf branches when the condition is FALSE → exit once idx >= len.
+    instructions.push(Instruction::JumpIf { target: end_label });
+
+    // dst[idx] = storage[idx]  (SETITEM pops value, index, array).
+    instructions.push(Instruction::LoadLocal(dst_slot));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::LoadLocal(idx_local));
+    if matches!(element_type, ValueType::Struct { .. }) {
+        instructions.push(Instruction::LoadStructArrayElement {
+            state_index,
+            key_types: Vec::new(),
+            field_keys: Vec::new(),
+            element_type: element_type.clone(),
+        });
+    } else {
+        instructions.push(Instruction::LoadMappingElement {
+            state_index,
+            key_types: vec![uint256.clone()],
+        });
+    }
+    instructions.push(Instruction::ArraySet);
+
+    // idx += 1
+    instructions.push(Instruction::LoadLocal(idx_local));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
+    instructions.push(Instruction::StoreLocal(idx_local));
+    instructions.push(Instruction::Jump { target: cond_label });
+    instructions.push(Instruction::Label(end_label));
+}
+
 /// True if `rhs` is an external-target member call that, at the lowered
 /// bytecode level, goes through `System.Contract.Call` and therefore
 /// leaves an EVM-canonical ABI-encoded ByteString on the stack for

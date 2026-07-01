@@ -131,6 +131,55 @@ pub(crate) fn lower_variable_definition_statement(
                             }
                         }
                         Ok(None) => {
+                            // Bug-hunt #10 — `T[] memory m = storageArr;` is a
+                            // DEEP COPY. A storage dynamic array keeps only its
+                            // length in the state slot, so lowering the bare
+                            // Variable yields an Integer; `m[i] = v` then faults
+                            // `SETITEM: unsupported target Integer`. Materialize a
+                            // fresh in-memory array from the slot's elements
+                            // instead. Only fires for an unshadowed state-var
+                            // array initializer (a shadowing local/param/alias is
+                            // a memory array, whose `=` aliasing is EVM-correct).
+                            let materialized = if let (
+                                Some(ValueType::Array(elem)),
+                                Expression::Variable(id),
+                            ) = (inferred_type.as_ref(), initializer)
+                            {
+                                let shadowed = ctx.storage_alias(&id.name).is_some()
+                                    || ctx.param_index_map.contains_key(&id.name)
+                                    || ctx.resolve_local(&id.name).is_some();
+                                let sidx = if shadowed {
+                                    None
+                                } else {
+                                    ctx.state_index_map.get(&id.name).copied()
+                                };
+                                match sidx {
+                                    Some(sidx)
+                                        if matches!(
+                                            ctx.state_type(sidx),
+                                            Some(ValueType::Array(_))
+                                        ) =>
+                                    {
+                                        let elem_ty = (**elem).clone();
+                                        lower_storage_array_read_to_memory(
+                                            sidx,
+                                            elem_ty,
+                                            slot,
+                                            ctx,
+                                            instructions,
+                                        );
+                                        ctx.clear_call_data_local(slot);
+                                        true
+                                    }
+                                    _ => false,
+                                }
+                            } else {
+                                false
+                            };
+                            if materialized {
+                                // fully handled (materialize + store into slot)
+                                return false;
+                            }
                             // Wave-#28 fix: `T[] memory got = this.method();`
                             // (and the interface-cast / address-typed shapes
                             // covered by `is_this_external_tuple_call`) must
