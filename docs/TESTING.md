@@ -190,7 +190,15 @@ invariants above (callee `msg.sender` == caller `address(this)`, and
 `msg.sender != tx.origin` when nested) still hold; what is *not* modeled is a
 distinct per-instance address for each `new`-deployed contract.
 
+## `neo-forge test`
+
+If you drive your project through Neo Foundry, `neo-forge test` delegates to
+`neo-test` — the same runner, conventions, cheatcodes, and output described
+above — so `test/*.t.sol` behaves identically whether you invoke `neo-test`
+directly or through `neo-forge`.
+
 ## Known limitations
 
-- **No cheatcodes yet** (`vm.prank`, `vm.expectRevert`, `vm.warp`, `deal`, …).
-  Use `testFail*` for expected-revert tests and `setUp()` for fixtures.
+- **No distinct per-instance address** for each `new`-deployed contract in a
+  single test bundle (see the `address(this)` note above). The load-bearing
+  `msg.sender` / `tx.origin` invariants still hold.

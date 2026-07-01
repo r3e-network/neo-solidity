@@ -7,6 +7,37 @@ description: "Writing Your Own Tests from Testing Contracts."
 
 [Back to Testing Contracts](/basics/testing-contracts)
 
+## Testing your contract with `neo-test` (Foundry-style)
+
+To test a contract *you* are writing (as opposed to adding a test to the compiler's own suite), reach for **`neo-test`** — the native Foundry-style runner. Write a Solidity test file and run it directly on the in-tree NeoVM:
+
+```solidity
+// test/Counter.t.sol
+import "neo-std/Test.sol";       // assertions (bundled, no setup)
+import "neo-std/console.sol";    // console.log (bundled)
+
+contract CounterTest is Test {
+    Counter c;
+
+    function setUp() public { c = new Counter(); }   // fresh state before EACH test
+
+    function testIncrements() public {
+        c.inc();
+        console.log("count", c.count());
+        assertEq(c.count(), 1);
+    }
+
+    function testFailUnderflow() public { c.dec(); } // passes iff the call reverts
+}
+```
+
+```bash
+neo-test test/Counter.t.sol --gas    # or `neo-test` to scan ./test for *.t.sol
+neo-forge test                       # Neo Foundry delegates to the same runner
+```
+
+`test*` passes when it does not revert; `testFail*` passes when it does; `setUp()` runs before each test against fresh state. You also get decoded revert/`Panic` reasons, `console.log`, gas reporting, and Foundry cheatcodes (`vm.prank` / `startPrank` / `stopPrank` / `warp` / `roll` / `deal` / `label` / `assume` / `expectRevert`). See [**Testing on Neo with `neo-test`**](/TESTING) for the full reference.
+
 ## Adding a Compilation Test
 
 1. Create a new Solidity file in `examples/` or `examples/new/`.

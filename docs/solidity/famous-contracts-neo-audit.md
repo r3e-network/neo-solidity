@@ -1,10 +1,16 @@
 # Famous Solidity Contracts on NeoVM: Compatibility Audit
 
+> **Update (2026-07-02, v0.26.0) — read this first.** The `92 / 92` figures below are the **old deps-STRIPPED** vendored corpus (each contract flattened, so they are not the real capability signal). The current, honest end-to-end signal is measured against **~600 real Ethereum contracts with their FULL dependency trees**: roughly **87% end-to-end compilation (522/601)**. Per-corpus breakdown — zero-knowledge **100%**, solmate **100%**, solady **99%**, Uniswap-v3 **93%**, OpenZeppelin **89%**, Aave v3 **85%**. It handles the hardest material in the wild: snarkjs / PLONK / Fflonk ZK verifiers, MakerDAO's assembly `Vat`, Gnosis Safe, and the full Uniswap V4 + Permit2. Categories covered span DeFi, NFT, GameFi, zero-knowledge, and infrastructure/DAO.
+>
+> For a hermetic, self-contained set you can compile locally, see the **sample corpus** at `third_party/famous-contracts/samples/` — **33 famous contracts** across `defi/`, `nft/`, `gamefi/`, `zkp/`, `infra-dao/`, and `patterns/`, each compiling with no external dependencies. `cargo test --release --test famous_samples_compile` asserts **100%** of the sample set compiles.
+
 - Generated at (UTC): `2026-02-15T08:56:34.043Z`
 - Snapshot scope: historical compatibility output; rerun `npm run audit:famous-contracts` before treating these results as current release evidence.
 - Contracts shown in this report (upstream, vendored in repo): `92`
 - Compile success: `92`
 - Compile failed: `0`
+
+> The `92` numbers on the three lines above are the deps-stripped vendored corpus; see the **2026-07-02** note at the top of this file for the real full-dependency ~87% signal.
 
 Primary navigation for original upstream contracts: [Original Famous Contracts (Per Contract)](/solidity/original-contracts/).
 

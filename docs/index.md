@@ -30,9 +30,9 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo DevPack for Solidity v0.18.1</h3>
-    <p>Version 0.18.1 is the current compiler line reflected by the checked-in Rust package metadata. It continues the stability work with expanded runtime/property coverage, stricter manifest and permission handling, Standard JSON support, and clearer diagnostics for Neo-specific behavior such as blocked <code>delegatecall</code>/<code>callcode</code> and source-compatible <code>new Contract(...)</code> lowering. See the support matrix and fuzz guide for the current validation surface.</p>
-    <a href="https://github.com/r3e-network/neo-devpack-solidity/releases" target="_blank">Read the full release notes &rarr;</a>
+    <h3>Neo DevPack for Solidity v0.26.0</h3>
+    <p>Version 0.26.0 (compiler / CLI / workspace and devpack aligned) ships <strong><code>neo-test</code></strong>, a native Foundry-style Solidity test runner that executes <code>test*</code>/<code>testFail*</code>/<code>setUp()</code> directly on the in-tree NeoVM with per-test isolation, cross-contract <code>new</code>, decoded reverts/<code>Panic</code>, <code>console.log</code>, gas reporting, and Foundry cheatcodes (<code>vm.prank</code>/<code>warp</code>/<code>roll</code>/<code>deal</code>/<code>expectRevert</code>…). It adds a deep correctness wave — validated against ~600 famous Ethereum contracts (DeFi, NFT, GameFi, zero-knowledge, infrastructure/DAO) at roughly <strong>87% end-to-end compilation</strong>, including snarkjs/PLONK verifiers, MakerDAO's assembly <code>Vat</code>, Gnosis Safe, and the full Uniswap V4 + Permit2 stack — across Solidity <strong>0.5.x–0.8.x</strong>. Full suite: <strong>1,956 tests / 55 targets green</strong>. Targets Neo N3 <strong>v3.10.0</strong>.</p>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.26.0" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
 
@@ -169,7 +169,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.18.1<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.26.0<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

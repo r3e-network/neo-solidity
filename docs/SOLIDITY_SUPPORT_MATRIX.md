@@ -1,8 +1,9 @@
-# Solidity 0.8.x Support Matrix
+# Solidity Support Matrix
 
-> **Compiler**: neo-devpack-solidity v0.18.1
+> **Compiler**: neo-devpack-solidity v0.26.0
 > **Parser**: foundry-solang-parser 0.3.9
-> **Target**: NeoVM (Neo N3)
+> **Target**: NeoVM (Neo N3, node v3.10.0)
+> **Solidity versions**: 0.5.x–0.8.x accepted (0.8.x primary/best-supported)
 > **Audit date**: 2026-04-30
 
 Legend:
@@ -13,9 +14,10 @@ Legend:
 - 🚫 Intentionally blocked with diagnostic error
 
 Scope note: this matrix describes neo-solc support on NeoVM, not full EVM
-compatibility. Features marked supported may still have Neo-specific semantics.
-For migration guidance and production validation gaps, see
-`docs/internals/parity-and-limitations.md`.
+compatibility. The compiler accepts Solidity 0.5.x–0.8.x source (0.8.x is the
+primary, best-supported line). Features marked supported may still have
+Neo-specific semantics. For migration guidance and production validation gaps,
+see `docs/internals/parity-and-limitations.md`.
 
 ---
 
@@ -126,13 +128,14 @@ For migration guidance and production validation gaps, see
 | Single inheritance   | ✅     | C3 linearization with `flatten_contract_inheritance`                                                                                                     |
 | Multiple inheritance | ✅     | Diamond inheritance detected; constructor arg conflicts reported                                                                                         |
 | `interface`          | ✅     | Interface types tracked; methods validated                                                                                                               |
-| `abstract contract`  | ✅     | Fully validated; unimplemented functions detected; non-abstract contracts get actionable errors                                                          |
+| `abstract contract`  | ✅     | Fully validated; unimplemented functions detected; non-abstract contracts get actionable errors. A concrete contract holding an abstract-contract-typed field is not forced to implement that field's virtuals |
 | `library`            | ⚠️     | Builtin devpack libraries are compiler intrinsics; user-defined libraries are merged/inlined, but still cannot model deployable library state or linking |
 | `using X for Y`      | ✅     | Library member-call syntax fully supported; `using X for *` and `using {f,g} for T` included                                                             |
 | `super` keyword      | ✅     | Supported via inheritance flattening with `__super_` method preservation                                                                                 |
 | `is` (inheritance)   | ✅     | Inheritance specifiers fully processed                                                                                                                   |
 | Constructor chaining | ✅     | Base constructor arguments resolved from inheritance specifiers                                                                                          |
-| Event inheritance    | ✅     | Interface events collected recursively via `collect_interface_events_recursive`                                                                          |
+| Event inheritance    | ✅     | Interface events collected recursively via `collect_interface_events_recursive`; a sibling's INHERITED (interface/base) events are carried through the sibling-merge and via cross-contract `new` |
+| Library-declared events | ✅  | Events declared inside a `library` are inlined into the consuming contract's ABI when emitted                                                            |
 
 ---
 
@@ -153,6 +156,7 @@ For migration guidance and production validation gaps, see
 | `new bytes(n)` / `new string(n)` | ✅     | Buffer allocation via `NEWBUFFER`                                     |
 | `new T[](n)`                     | ✅     | Dynamic array allocation via `NEWARRAY`                               |
 | `new Contract(...)`              | ⚠️     | Does not deploy a child contract; constructor-like logic is inlined/simulated and a zero-address placeholder is produced. Use `ContractManagement.deploy(...)` for real deployment |
+| `new X{salt: s}()` (CREATE2)     | ⚠️     | Salted creation is accepted (parses and compiles); the `salt` is ignored because Neo N3 has no CREATE2. Same inline/simulate model as `new Contract(...)` |
 
 ---
 
@@ -246,16 +250,16 @@ Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callb
 | B. Expressions      | 16      | 5      | 0     | 0     |
 | C. Statements       | 17      | 1      | 0     | 0     |
 | D. Functions        | 9       | 4      | 0     | 0     |
-| E. OOP Features     | 9       | 1      | 0     | 0     |
-| F. Storage & Memory | 12      | 1      | 0     | 0     |
+| E. OOP Features     | 10      | 1      | 0     | 0     |
+| F. Storage & Memory | 12      | 2      | 0     | 0     |
 | G. Error Handling   | 11      | 0      | 0     | 0     |
 | H. EVM-Specific     | 21      | 11     | 0     | 1     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **114** | **29** | **2** | **1** |
+| **Total**           | **115** | **30** | **2** | **1** |
 
-**Total features audited: 146**
+**Total features audited: 148**
 
-- ✅ Fully supported: 114 (78%)
-- ⚠️ Partial support: 29 (20%)
+- ✅ Fully supported: 115 (78%)
+- ⚠️ Partial support: 30 (20%)
 - ❌ Not supported: 2 (1%)
 - 🚫 Intentionally blocked: 1 (1%)
