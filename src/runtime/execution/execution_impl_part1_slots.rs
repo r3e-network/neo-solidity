@@ -1,11 +1,15 @@
 use super::*;
 
 impl ExecutionContext {
+    // PERF: the load accessors run on every LDLOC/LDARG/LDSFLD — among the most
+    // frequent opcodes in compiled Solidity (every variable read). Use
+    // `ok_or_else` so the out-of-bounds error String is only allocated when the
+    // slot is actually missing, not eagerly formatted on every in-bounds load.
     pub(crate) fn get_local(&self, index: usize) -> Result<StackItem, RuntimeError> {
         self.locals
             .get(index)
             .cloned()
-            .ok_or(RuntimeError::ExecutionError {
+            .ok_or_else(|| RuntimeError::ExecutionError {
                 message: format!("Local index {index} out of bounds"),
             })
     }
@@ -25,7 +29,7 @@ impl ExecutionContext {
         self.args
             .get(index)
             .cloned()
-            .ok_or(RuntimeError::ExecutionError {
+            .ok_or_else(|| RuntimeError::ExecutionError {
                 message: format!("Argument index {index} out of bounds"),
             })
     }
@@ -45,7 +49,7 @@ impl ExecutionContext {
         self.static_fields
             .get(index)
             .cloned()
-            .ok_or(RuntimeError::ExecutionError {
+            .ok_or_else(|| RuntimeError::ExecutionError {
                 message: format!("Static field index {index} out of bounds"),
             })
     }

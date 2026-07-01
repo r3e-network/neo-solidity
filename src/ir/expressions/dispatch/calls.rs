@@ -97,11 +97,7 @@ pub(crate) fn lower_new_expression(
                     }
                 }
                 return lower_new_expression(
-                    &Expression::FunctionCall(
-                        Default::default(),
-                        inner.clone(),
-                        args.clone(),
-                    ),
+                    &Expression::FunctionCall(Default::default(), inner.clone(), args.clone()),
                     ctx,
                     instructions,
                 );

@@ -31,10 +31,35 @@ pub static OPCODES: Lazy<HashMap<u8, OpcodeSpec>> = Lazy::new(|| {
     m
 });
 
+// PERF: `opcode_gas` is consulted once per executed instruction (the very top
+// of `execute_instruction`) and `opcode_name` on every debug/disassembly step.
+// Back them with flat 256-entry arrays — a bounds-free `[u8 as usize]` index —
+// instead of hashing into the `HashMap` above, which costs a hash + probe per
+// instruction. The arrays are derived from the same `OpCode` enum once.
+static OPCODE_NAME: Lazy<[Option<&'static str>; 256]> = Lazy::new(|| {
+    let mut t = [None; 256];
+    for byte in 0u8..=u8::MAX {
+        if let Ok(op) = OpCode::try_from(byte) {
+            t[byte as usize] = Some(op.name());
+        }
+    }
+    t
+});
+
+static OPCODE_GAS: Lazy<[Option<u64>; 256]> = Lazy::new(|| {
+    let mut t = [None; 256];
+    for byte in 0u8..=u8::MAX {
+        if let Ok(op) = OpCode::try_from(byte) {
+            t[byte as usize] = Some(op.gas());
+        }
+    }
+    t
+});
+
 pub fn opcode_name(code: u8) -> Option<&'static str> {
-    OPCODES.get(&code).map(|op| op.name)
+    OPCODE_NAME[code as usize]
 }
 
 pub fn opcode_gas(code: u8) -> Option<u64> {
-    OPCODES.get(&code).map(|op| op.gas)
+    OPCODE_GAS[code as usize]
 }

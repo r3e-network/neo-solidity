@@ -1079,11 +1079,7 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
                 // Dedup by name: the host may already declare/inherit the same
                 // event. Mirrors the sibling-contract event merge (Task #23).
                 for lib_event in &lib.events {
-                    if !flattened
-                        .events
-                        .iter()
-                        .any(|e| e.name == lib_event.name)
-                    {
+                    if !flattened.events.iter().any(|e| e.name == lib_event.name) {
                         flattened.events.push(lib_event.clone());
                     }
                 }

@@ -75,11 +75,7 @@ fn compile_hermetic(source: &Path) -> Result<(), String> {
 #[test]
 fn famous_samples_compile_hermetically() {
     let root = samples_root();
-    assert!(
-        root.exists(),
-        "sample corpus missing at {}",
-        root.display()
-    );
+    assert!(root.exists(), "sample corpus missing at {}", root.display());
     let compiler = compiler();
     assert!(
         compiler.exists(),

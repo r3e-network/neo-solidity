@@ -405,18 +405,20 @@ pub(crate) fn infer_type_from_expression_inner(
             infer_literal_array_element_type(elements),
         ))),
         Expression::ArraySubscript(_, array, index) => {
+            // PERF: infer the base type ONCE. The fall-through chain below
+            // previously re-called `infer_type_from_expression(array, ctx)` in
+            // each `else if` arm — up to 4 full re-descents of the same
+            // sub-tree, exponential in nesting depth for `a[i][j][k]`.
+            let array_ty = infer_type_from_expression(array, ctx);
             // Type expression: `T[]` (dynamic array) is represented by solang-parser as an
             // ArraySubscript with a missing index expression. Use this to infer array element
             // types for locals/parameters so struct member access can be lowered correctly.
             if index.is_none() {
-                infer_type_from_expression(array, ctx)
-                    .map(|inner| ValueType::Array(Box::new(inner)))
-            } else if let Some(ValueType::Array(inner)) = infer_type_from_expression(array, ctx) {
+                array_ty.map(|inner| ValueType::Array(Box::new(inner)))
+            } else if let Some(ValueType::Array(inner)) = &array_ty {
                 // Value expression: `arr[i]`
-                Some(*inner.clone())
-            } else if let Some(ValueType::Mapping { value, .. }) =
-                infer_type_from_expression(array, ctx)
-            {
+                Some((**inner).clone())
+            } else if let Some(ValueType::Mapping { value, .. }) = &array_ty {
                 // Value expression: `m[key]` -> the mapping's declared VALUE
                 // type. Without this, a `mapping(K => uintN)` read (N < 256)
                 // inferred to `None`, so the downstream arithmetic lowering
@@ -425,11 +427,8 @@ pub(crate) fn infer_type_from_expression_inner(
                 // mod-2^N truncation — a silent-overflow divergence from
                 // Solidity 0.8. Array elements / struct fields / locals already
                 // carry their width, so only the mapping-read path was affected.
-                Some(*value.clone())
-            } else if matches!(
-                infer_type_from_expression(array, ctx),
-                Some(ValueType::ByteArray { .. })
-            ) {
+                Some((**value).clone())
+            } else if matches!(array_ty, Some(ValueType::ByteArray { .. })) {
                 // A byte index of `bytes`/`bytesN` (`b[i]`) is a `bytes1` value.
                 // The lowering coerces it to a 1-byte ByteString (see
                 // `try_lower_expression_primary`), so report `bytes1` here too:
@@ -448,8 +447,7 @@ pub(crate) fn infer_type_from_expression_inner(
                 // `ArraySubscript(type_expr, _)`), wrap the inferred base type in
                 // `Array(..)` so inner-dimension `new T[N]` allocations receive the
                 // correct element type.
-                infer_type_from_expression(array, ctx)
-                    .map(|inner| ValueType::Array(Box::new(inner)))
+                array_ty.map(|inner| ValueType::Array(Box::new(inner)))
             } else {
                 None
             }

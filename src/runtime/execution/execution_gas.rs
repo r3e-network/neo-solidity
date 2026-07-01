@@ -1,26 +1,31 @@
 use super::*;
 
+/// Named-operation fallback fee (in GAS fractions) for the legacy
+/// `consume_gas(op, None)` path. The primary interpreter charges per-opcode
+/// via `spec::opcode_gas`, so this table is only a compatibility fallback —
+/// a static `match` instead of the previous per-instance
+/// `HashMap<String, u64>` that allocated 9 key Strings on every
+/// `GasTracker::new`.
+fn named_operation_cost(operation: &str) -> u64 {
+    match operation {
+        // NeoVM opcode fees
+        "ADD" | "SUB" | "MUL" | "DIV" => 8,
+        "PUSH" | "POP" => 1,
+        // Syscall fees
+        "CALL" => 512,
+        "SSTORE" => 200,
+        "SLOAD" => 100,
+        _ => 1,
+    }
+}
+
 impl GasTracker {
     /// Create new gas tracker
     pub fn new(limit: u64) -> Self {
-        let mut operation_costs = HashMap::new();
-        // NeoVM opcode fees (in GAS fractions)
-        operation_costs.insert("ADD".to_string(), 8);
-        operation_costs.insert("SUB".to_string(), 8);
-        operation_costs.insert("MUL".to_string(), 8);
-        operation_costs.insert("DIV".to_string(), 8);
-        operation_costs.insert("PUSH".to_string(), 1);
-        operation_costs.insert("POP".to_string(), 1);
-        // Syscall fees
-        operation_costs.insert("CALL".to_string(), 512);
-        operation_costs.insert("SSTORE".to_string(), 200);
-        operation_costs.insert("SLOAD".to_string(), 100);
-
         Self {
             limit,
             used: 0,
             base_cost: 0, // NeoVM has no base transaction cost in execution context
-            operation_costs,
         }
     }
 
@@ -36,7 +41,7 @@ impl GasTracker {
         operation: &str,
         amount: Option<u64>,
     ) -> Result<(), RuntimeError> {
-        let cost = amount.unwrap_or_else(|| *self.operation_costs.get(operation).unwrap_or(&1));
+        let cost = amount.unwrap_or_else(|| named_operation_cost(operation));
 
         if self.used + cost > self.limit {
             return Err(RuntimeError::OutOfGas {

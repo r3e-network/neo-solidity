@@ -2720,7 +2720,10 @@ contract Pool {
         .expect("Pool artifact");
     let has_event = pool.manifest["abi"]["events"]
         .as_array()
-        .map(|evs| evs.iter().any(|e| e["name"].as_str() == Some("ReserveDataUpdated")))
+        .map(|evs| {
+            evs.iter()
+                .any(|e| e["name"].as_str() == Some("ReserveDataUpdated"))
+        })
         .unwrap_or(false);
     assert!(
         has_event,
@@ -2786,8 +2789,14 @@ contract B { A token; constructor() { token = new A(); } function go(address s) 
             .map(|evs| evs.iter().any(|e| e["name"].as_str() == Some("Approval")))
             .unwrap_or(false)
     };
-    assert!(has_approval("A"), "A must declare its inherited Approval event");
-    assert!(has_approval("B"), "host B (merged A.approve) must declare Approval so the notification validates");
+    assert!(
+        has_approval("A"),
+        "A must declare its inherited Approval event"
+    );
+    assert!(
+        has_approval("B"),
+        "host B (merged A.approve) must declare Approval so the notification validates"
+    );
 }
 
 /// Regression (famous-contracts eval): `new X{salt: s}(args)` (CREATE2-style
@@ -2809,7 +2818,8 @@ contract Factory {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("new X{salt: s}() must compile");
     assert!(
-        arts.iter().any(|a| a.manifest["name"].as_str() == Some("Factory")),
+        arts.iter()
+            .any(|a| a.manifest["name"].as_str() == Some("Factory")),
         "Factory must be produced"
     );
 }
@@ -2832,7 +2842,8 @@ contract C {
 }"#;
     let arts = compile_contracts(src, false, 2).expect("UDVT-operator contract must still compile");
     assert!(
-        arts.iter().any(|a| a.manifest["name"].as_str() == Some("C")),
+        arts.iter()
+            .any(|a| a.manifest["name"].as_str() == Some("C")),
         "contract C must be produced"
     );
 }

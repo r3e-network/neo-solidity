@@ -21,13 +21,29 @@ impl ExecutionContext {
         self.breakpoints.remove(&address);
     }
 
-    /// Step through one instruction
+    /// Step through one instruction.
+    ///
+    /// PERF: `step()` runs once per executed instruction. The `opcode` name
+    /// String and the full evaluation-stack clone in the returned `StepResult`
+    /// exist only for debug tracing (the driver pushes them into a
+    /// `StackFrame` when debugging is enabled; nothing else reads them), so
+    /// they are computed ONLY when `debugging_enabled` — the hot path returns
+    /// alloc-free `String::new()` / `Vec::new()` placeholders instead of a
+    /// per-instruction heap String + up-to-2048-item stack clone.
     pub fn step(&mut self) -> Result<StepResult, RuntimeError> {
         if self.instruction_pointer as usize >= self.bytecode.len() {
             return Ok(StepResult {
                 instruction_pointer: self.instruction_pointer,
-                opcode: "HALT".to_string(),
-                stack_items: self.stack.clone(),
+                opcode: if self.debugging_enabled {
+                    "HALT".to_string()
+                } else {
+                    String::new()
+                },
+                stack_items: if self.debugging_enabled {
+                    self.stack.clone()
+                } else {
+                    Vec::new()
+                },
                 gas_used: self.gas_used,
                 memory_changes: Vec::new(),
                 halted: true,
@@ -35,7 +51,11 @@ impl ExecutionContext {
         }
 
         let opcode = self.bytecode[self.instruction_pointer as usize];
-        let opcode_name = self.get_opcode_name(opcode);
+        let opcode_name = if self.debugging_enabled {
+            self.get_opcode_name(opcode)
+        } else {
+            String::new()
+        };
         let old_gas = self.gas_used;
 
         // Execute the current instruction
@@ -71,7 +91,11 @@ impl ExecutionContext {
         Ok(StepResult {
             instruction_pointer: self.instruction_pointer,
             opcode: opcode_name,
-            stack_items: self.stack.clone(),
+            stack_items: if self.debugging_enabled {
+                self.stack.clone()
+            } else {
+                Vec::new()
+            },
             gas_used: self.gas_used - old_gas,
             memory_changes: Vec::new(), // Would track actual changes
             halted,
