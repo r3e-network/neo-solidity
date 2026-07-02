@@ -289,7 +289,7 @@ pub(crate) fn emit_arith_with_overflow_ladder(
                 BinaryOperator::Shl => {
                     emit_u256_shl_ir(ctx, instructions);
                     if n < 32 {
-                        emit_truncate_narrow_unsigned(instructions, (n as u16) * 8);
+                        emit_truncate_narrow_unsigned(instructions, n * 8);
                     }
                 }
                 _ => emit_u256_logical_shr_ir(ctx, instructions),
