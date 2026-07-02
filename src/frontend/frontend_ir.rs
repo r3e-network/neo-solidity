@@ -194,6 +194,10 @@ pub struct StateVariableIR {
     pub ty: String,
     pub is_constant: bool,
     pub is_immutable: bool,
+    /// `transient` data location (Solidity 0.8.28+, EIP-1153). NeoVM has no
+    /// transient store — the variable compiles to REGULAR persistent storage,
+    /// so `validate_state_variables` surfaces a loud warning.
+    pub is_transient: bool,
     pub visibility: Option<String>,
     pub has_initializer: bool,
     pub initializer: Option<Expression>,

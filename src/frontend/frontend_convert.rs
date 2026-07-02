@@ -500,6 +500,7 @@ fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {
     let mut visibility = None;
     let mut is_constant = false;
     let mut is_immutable = false;
+    let mut is_transient = false;
 
     for attr in def.attrs {
         match attr {
@@ -520,6 +521,11 @@ fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {
             VariableAttribute::Immutable(_) => {
                 is_immutable = true;
             }
+            // `uint256 transient t;` (0.8.28+). Captured so the validator can
+            // warn that NeoVM persists it (no EIP-1153 transient store).
+            VariableAttribute::StorageLocation(StorageLocation::Transient(_)) => {
+                is_transient = true;
+            }
             _ => {}
         }
     }
@@ -528,6 +534,7 @@ fn convert_state_variable(def: VariableDefinition) -> StateVariableIR {
         name,
         ty,
         is_constant,
+        is_transient,
         is_immutable,
         visibility,
         has_initializer: initializer.is_some(),

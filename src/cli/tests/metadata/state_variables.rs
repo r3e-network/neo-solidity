@@ -30,6 +30,7 @@ fn constant_address_state(name: &str) -> StateVariableMetadata {
     StateVariableMetadata {
         name: Some(name.to_string()),
         ty: "address".to_string(),
+        is_transient: false,
         is_constant: true,
         is_immutable: false,
         visibility: Some("internal".to_string()),
@@ -43,6 +44,7 @@ fn constant_uint_state(name: &str) -> StateVariableMetadata {
     StateVariableMetadata {
         name: Some(name.to_string()),
         ty: "uint256".to_string(),
+        is_transient: false,
         is_constant: true,
         is_immutable: false,
         visibility: Some("internal".to_string()),
@@ -59,6 +61,7 @@ fn storage_uint_state(name: &str) -> StateVariableMetadata {
     StateVariableMetadata {
         name: Some(name.to_string()),
         ty: "uint256".to_string(),
+        is_transient: false,
         is_constant: false,
         is_immutable: false,
         visibility: Some("internal".to_string()),

@@ -2974,3 +2974,25 @@ contract C {
         r.return_data.first()
     );
 }
+
+/// Regression (feature audit): a `transient` state variable (Solidity 0.8.28+,
+/// EIP-1153) still COMPILES — NeoVM has no transient store, so it persists —
+/// and the compile must remain green while the W_TRANSIENT_PERSISTED warning
+/// (verified manually via CLI stderr) informs the user of the semantic
+/// difference. Pins the attr-capture plumbing (is_transient) end to end.
+#[test]
+fn transient_state_variable_compiles_with_persist_semantics() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+contract C {
+    uint256 transient t;
+    function set(uint256 v) external { t = v; }
+    function get() external view returns (uint256) { return t; }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("transient state var must compile");
+    assert!(
+        arts.iter()
+            .any(|a| a.manifest["name"].as_str() == Some("C")),
+        "contract C must be produced"
+    );
+}

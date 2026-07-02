@@ -64,7 +64,8 @@ fn storage_map_assigns_slots_and_names() {
             StateVariableMetadata {
                 name: Some("alpha".to_string()),
                 ty: "uint256".to_string(),
-                is_constant: false,
+                is_transient: false,
+        is_constant: false,
                 is_immutable: false,
                 visibility: Some("public".to_string()),
                 neo_type: None,
@@ -74,7 +75,8 @@ fn storage_map_assigns_slots_and_names() {
             StateVariableMetadata {
                 name: None,
                 ty: "address".to_string(),
-                is_constant: false,
+                is_transient: false,
+        is_constant: false,
                 is_immutable: false,
                 visibility: Some("internal".to_string()),
                 neo_type: None,
@@ -84,7 +86,8 @@ fn storage_map_assigns_slots_and_names() {
             StateVariableMetadata {
                 name: Some("gamma".to_string()),
                 ty: "bool".to_string(),
-                is_constant: false,
+                is_transient: false,
+        is_constant: false,
                 is_immutable: false,
                 visibility: None,
                 neo_type: None,

@@ -167,6 +167,8 @@ pub struct StateVariableMetadata {
     pub ty: String,
     pub is_constant: bool,
     pub is_immutable: bool,
+    /// `transient` data location (0.8.28+). Persisted on NeoVM; warned.
+    pub is_transient: bool,
     pub visibility: Option<String>,
     pub neo_type: Option<NeoType>,
     pub has_initializer: bool,

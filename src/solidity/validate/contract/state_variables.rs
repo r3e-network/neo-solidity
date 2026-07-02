@@ -97,6 +97,23 @@ pub(crate) fn validate_state_variables(
     let mut warned_conflicting_constant_duplicates: HashSet<String> = HashSet::new();
 
     for state in &metadata.state_variables {
+        // `transient` data location (Solidity 0.8.28+, EIP-1153): NeoVM has no
+        // transient store, so the variable compiles to REGULAR persistent
+        // storage — it is NOT auto-cleared at the end of the transaction. A
+        // transient-reentrancy-guard would stay locked forever; warn loudly so
+        // the silent semantic difference is never a surprise (feature audit).
+        if state.is_transient {
+            let name = state.name.as_deref().unwrap_or("<unnamed>");
+            diagnostics.push(
+                Diagnostic::warning(format!(
+                    "state variable '{name}' is declared `transient` but NeoVM has no transient storage (EIP-1153): it compiles to regular PERSISTENT storage and is NOT cleared at the end of the transaction"
+                ))
+                .with_code("W_TRANSIENT_PERSISTED")
+                .with_suggestion(
+                    "clear the variable manually at the end of every entry point (e.g. a reentrancy guard must reset its flag), or use ordinary storage semantics",
+                ),
+            );
+        }
         match &state.name {
             Some(name) => {
                 let current_non_constant = !state.is_constant;

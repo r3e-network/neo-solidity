@@ -408,6 +408,7 @@ pub(crate) fn convert_state_variable(
         ty,
         is_constant: var.is_constant,
         is_immutable: var.is_immutable,
+        is_transient: var.is_transient,
         visibility: var.visibility,
         neo_type,
         has_initializer: initializer.is_some(),
