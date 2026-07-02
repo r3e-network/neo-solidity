@@ -1,147 +1,164 @@
-# neo-devpack-solidity v0.26.0 — neo-test Dev Environment & Deep Correctness
+# neo-devpack-solidity v0.27.0 — Real-World Compatibility & Performance
 
-**Release date:** 2026-07-01
-**Compiler / CLI / workspace:** **v0.26.0**
-**devpack (`@neo-devpack-solidity/contracts`):** **v0.26.0**
+**Release date:** 2026-07-02
+**Compiler / CLI / workspace:** **v0.27.0**
+**devpack (`@neo-devpack-solidity/contracts`):** **v0.27.0**
 **Target Neo N3 node:** **v3.10.0** (Gorgon-prep; no hardfork activation)
 
-> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.26.0]`.
+> Canonical change list: [`CHANGELOG.md`](./CHANGELOG.md) `[v0.27.0]`.
 > Previous releases: see the
 > [GitHub releases page](https://github.com/r3e-network/neo-devpack-solidity/releases)
-> and `CHANGELOG.md` history (previous: v0.25.0).
+> and `CHANGELOG.md` history (previous: v0.26.0).
 
 ---
 
 ## TL;DR
 
-- **`neo-test`** — a native, Foundry-style Solidity **test runner** that
-  executes `test*` / `testFail*` / `setUp()` directly on the in-tree
-  NeoVM, with per-test state isolation, cross-contract `new`, decoded
-  `revert` / `Panic` reasons, `console.log` and gas reporting. Bundles
-  `neo-std/{Test,console,Vm}.sol`, wired into `neo-forge test`. See
-  [`docs/TESTING.md`](./docs/TESTING.md).
-- **Foundry cheatcodes** — `vm.prank` / `startPrank` / `stopPrank` /
-  `warp` / `roll` / `deal` / `label` / `assume` and `vm.expectRevert()`
-  (via the HEVM address; no compiler change).
-- **A large correctness wave**, dogfooded through `neo-test` and
-  cargo-fuzz/proptest: arithmetic wrap/overflow, `bytesN` byte-order at
-  every binding site, storage aliasing & deep-copy, low-level `.call`
-  returndata, ABI encode/decode fidelity, event/inheritance merge, and
-  `try/catch` semantics — **1952 tests across 54 targets, 0 failures.**
+- **Real-world contract compatibility** — driven by a ~600-contract
+  famous-contract evaluation (full dependency trees), the merge/inheritance
+  gaps that blocked flagship protocols are fixed: Aave v3 went **71% → 85%**
+  (every deployable implementation — `Pool`, `PoolConfigurator`, `AToken` —
+  compiles), the Compound v2 core stack is unblocked, and USDC/MasterChef/ENS
+  -style inherited-event patterns resolve. `new X{salt: s}()` (CREATE2 sugar)
+  is accepted.
+- **Latest-Solidity semantics** — a 168-probe runtime audit of 0.8.x features
+  drove fixes for `bytesN` shifts (big-endian face value), unchecked `int256`
+  two's-complement wrap, fixed-size array `.length`, and free-function
+  overloads — plus **loud warnings** where NeoVM cannot honor EVM semantics
+  (`W_USER_DEFINED_OPERATOR` for 0.8.19 operator overloading,
+  `W_TRANSIENT_PERSISTED` for 0.8.28 transient storage) instead of silent
+  miscompiles.
+- **~1.9× faster in-tree NeoVM** on compute-heavy workloads (per-instruction
+  stack-clone/String-alloc elimination, static opcode tables, allocation-free
+  slot loads) plus compiler-side inference and sibling-merge complexity wins.
+- **33-contract hermetic sample corpus** (`third_party/famous-contracts/samples/`)
+  asserted at 100% by `cargo test --release --test famous_samples_compile`.
+- **Zero-regression validation** — a 63-repro matrix re-verified every issue
+  identified across the campaign: **54 verified fixed, 0 regressions**; all
+  deferred items fail exactly as documented.
 
 ---
 
-## 🧪 The headline: `neo-test`
+## 🌍 Real-world contract compatibility
 
-Neo now has a first-class, Foundry-shaped testing story that runs on the
-same NeoVM the compiler targets — no external node required for the inner
-loop:
+The famous-contract evaluation compiled ~600 real Ethereum contracts with
+their full dependency trees (~87% end-to-end; zero-knowledge **100%**,
+solmate **100%**, solady **99%**, Uniswap-v3 **93%**, OpenZeppelin **89%**,
+Aave v3 **85%**). The fixes in this release close the highest-frequency
+gaps it found:
 
-- Write tests in Solidity: `function testTransfer() public { ... }`,
-  `testFail*` for expected-revert, `setUp()` for per-test fixtures.
-- **Per-test state isolation** and **cross-contract `new`** so multi-
-  contract flows (Vault/deposit, factory patterns) work out of the box.
-- **Decoded failures** — `revert("msg")`, `require`, custom errors and
-  `Panic(0xNN)` come back as human-readable reasons, not raw bytes.
-- **`console.log` / `console.logBytes`**, **gas accounting**, and
-  **value-rich assertions** (`assertEq failed: 3 != 5`).
-- **Cheatcodes** through the standard HEVM address: `vm.prank`,
-  `startPrank`/`stopPrank`, `warp`, `roll`, `deal`, `label`, `assume`,
-  and `vm.expectRevert()`.
+- **Library-declared events** are carried into the consuming contract, so
+  Aave v3's `library ReserveLogic { event ReserveDataUpdated(...) }` pattern
+  compiles (previously: "emit references event … which has no resolved
+  declaration").
+- **Abstract-typed fields** — a concrete contract holding a field of an
+  `abstract contract` type (Compound v2's `PriceOracle` /
+  `InterestRateModel`) is no longer forced to implement that abstract's
+  virtuals.
+- **Inherited events through cross-contract `new`** — the sibling-merge now
+  walks the full base/interface closure, so `contract A is IERC20` emitting
+  `IERC20.Approval` resolves when a factory does `new A()` (USDC FiatToken,
+  SushiSwap MasterChef, ENS PublicResolver).
+- **`new X{salt: s}(args)`** — CREATE2-style salted creation compiles; the
+  salt is evaluated and ignored with a warning (Neo N3 has no CREATE2).
 
-`neo-forge test` now delegates to `neo-test`. The bundled `neo-std`
-(`Test.sol`, `console.sol`, `Vm.sol`) ships in-tree via `include_str!`.
+A curated, dependency-free subset — **33 self-contained famous contracts**
+across DeFi / NFT / GameFi / zero-knowledge / infrastructure-DAO, spanning
+Solidity **0.5.x–0.8.x** — now lives in-tree with a hermetic-compile test
+asserting 100%.
 
----
+## 🎯 Latest-Solidity semantics
 
-## 🔧 Correctness fixes (highlights)
+A 168-probe **runtime-semantic** audit (assertions on EVM-correct values,
+not just "does it parse") drove this wave:
 
-Grouped; full list in [`CHANGELOG.md`](./CHANGELOG.md) `[v0.26.0]`. Many
-were found by dogfooding `neo-test` and by the fuzz harness, then
-verified against a real `neoxp` node.
+- `bytesN << k` / `>> k` shift the **big-endian face value** with EVM
+  truncation (previously faulted for N<32 or read the bytes little-endian).
+- `unchecked { int256 }` Add/Sub/Mul wraps two's-complement mod 2^256
+  (`type(int256).max + 1 == type(int256).min`); checked mode still
+  Panics(0x11).
+- Fixed-size storage arrays report `.length == N` (previously 0 — silently
+  skipping `for (i = 0; i < a.length; i++)` loops).
+- File-scope free-function **overloads** are all callable (previously only
+  the first survived).
+- **Honest diagnostics over silent miscompiles**: user-defined operators
+  (0.8.19) warn `W_USER_DEFINED_OPERATOR` (raw arithmetic is emitted, not
+  the bound function); `transient` state variables (0.8.28) warn
+  `W_TRANSIENT_PERSISTED` (persisted — NeoVM has no EIP-1153 store).
 
-- **Arithmetic** — unchecked `-type(intN).min` / `0 - min` now WRAP
-  two's-complement (previously produced the out-of-range `+2^(N-1)`,
-  which also faulted NeoVM's 256-bit integer); `addmod(a,b,0)` /
-  `mulmod(a,b,0)` Panic(0x12); `addmod` full-width carry; `int256`/
-  `uint256 **` via soft-arith magnitude (catchable Panic / wrap, no
-  33-byte fault); `mapping(K => uintN)` value width.
-- **`bytesN` / byte semantics** — integer-backed `bytesN` literals are
-  big-endian at *every* binding site (scalar, struct field, array push,
-  mapping key, call arg, return, `constant`, multi-return tuple, indexed
-  event topic); `bytesN` bitwise read-back via `uint256(...)`; `b[i]` is
-  a `bytes1`; `intN(bytesN)` endianness; `bytesN` constant comparison
-  (fixed a byte-reversed access-control check).
-- **Storage** — storage `struct` passed by reference to an internal
-  function aliases the slot; `T[] memory m = storageArr` deep-copies;
-  storage `bytes` element write `data[i] = v` persists; `bytes`
-  push/pop.
-- **ABI & low-level calls** — internal call to a public array/`bytes`/
-  `string` returner decodes the ABI blob; low-level `.call` returndata
-  is the raw EVM ABI envelope (no Neo serialize framing), a no-reason
-  revert is empty, and `(bool ok, )` reports `false` on revert; strict
-  `abi.decode` type fidelity; `abi.encode`/`encodePacked` `ByteString`;
-  partial tuple destructure from a cross-contract call.
-- **Events / inheritance / merge** — a contract keeps its own event
-  declarations when another references it by type; a `new`-deployed
-  contract's public method reaches its own concrete internal helper
-  (was dropped → `PUSH0` → write lost); cross-contract `msg.sender` for
-  `new`-deployed callees.
-- **`try/catch` & control flow** — bounded `TRY` nesting (VM-DoS fix) +
-  uncatchable `ExecutionEngineLimits`; `catch Panic`/`catch Error`
-  matching against real-node faults; balanced `TRY` frame on every catch
-  exit; modifier/base-constructor args evaluated exactly once.
-- **Type resolution & devpack** — integer-literal overload resolution;
-  `address.balance`/`.code`/`.codehash` inference; NeoVM `EQUAL`
-  type-strictness; devpack `multiSigMint` authorization, stake-reward
-  settlement, NEP-11 oracle/curation/minter-royalty paths.
+## ⚡ Performance
 
-### Known limitations (tracked for a follow-up)
+- **In-tree NeoVM interpreter ~1.9× faster** on a compute-heavy benchmark
+  (1.91s → 0.99s): the per-instruction hot path no longer clones the entire
+  evaluation stack nor allocates an opcode-name String (debug-tracing only,
+  now gated behind `enable_debugging`); opcode gas/name lookups index static
+  `[_; 256]` tables; slot loads (`LDLOC`/`LDARG`/`LDSFLD`) are
+  allocation-free on the success path.
+- Compiler front-end: subscript type-inference no longer re-descends the
+  same sub-tree up to 4× (exponential in `a[i][j][k]` depth); the
+  sibling-merge transitive closure computes each contract's reference walk
+  once per pass (byte-identical output verified).
 
-A handful of deep sim-fidelity / model-level items are documented but not
-yet fixed: `abi.encodeWithSignature` used as raw bytes vs. the Neo
-method-name `.call` optimization; `abi.encode` of fixed-size arrays
-(`uintN[K]`) using dynamic layout; nested struct-array-member storage
-keys; inherited-getter dispatch and inherited base-constructor state when
-a contract is instantiated via `new` in the in-tree simulator.
+## ✅ Validation
+
+- **63-repro validation matrix** re-ran every issue identified across the
+  bug-hunt backlog, the feature audit, and the famous-contract evaluation
+  against this release: **54 verified fixed, 0 regressions, 0 surprises**;
+  8 deferred items fail exactly as documented (each root-caused in-tree for
+  follow-up), 1 known simulator-model artifact behaves as documented.
+- Full suite: **1,964 tests across 55 targets** green (integration + lib
+  unit + cargo-fuzz/proptest); `cargo clippy -D warnings` + `cargo fmt`
+  clean; CI (Core + Neo-Express Differential + Fuzz) green.
+
+### Known limitations (tracked, documented in-tree)
+
+User-defined operator **dispatch** (0.8.19) and true transient storage
+(EIP-1153) need type-system/VM work and currently warn; `abi.encodeCall` /
+`abi.encodeWithSignature` produce Neo-native call descriptors rather than
+raw EVM calldata; `bytesN` bitwise compound-assign (`r |= x`) stores a
+byte-reversed value (bitwise reads are correct); nested struct-array-member
+`push`, one inherited-getter dispatch shape, and `abi.encode` of fixed-size
+arrays remain deferred with root causes documented.
 
 ---
 
 ## 📊 Headline numbers
 
-| Metric | v0.25.0 | v0.26.0 |
+| Metric | v0.26.0 | v0.27.0 |
 | --- | --- | --- |
-| Native Solidity test runner | — | **`neo-test`** |
-| Foundry cheatcodes | — | **9** (prank/warp/roll/deal/label/assume/expectRevert/…) |
-| Test suites green | 47 | **54** |
-| Total tests | 1,488 | **1,952** |
+| Famous-contract compilation (full deps) | ~87% baseline established | merge gaps fixed; **Aave 71% → 85%** |
+| Hermetic sample corpus | — | **33 contracts, 100% compile-tested** |
+| Interpreter speed (compute-heavy) | baseline | **~1.9×** |
+| Latest-Solidity semantic fixes | — | bytesN shifts, int256 wrap, `T[N].length`, free-fn overloads |
+| Silent-miscompile guards | — | `W_USER_DEFINED_OPERATOR`, `W_TRANSIENT_PERSISTED` |
+| Fix-validation matrix | — | **63 repros, 54 fixed, 0 regressions** |
+| Total tests | 1,952 | **1,964** (55 targets) |
 | Test failures | 0 | **0** |
-| Backlog compiler bugs fixed this cycle | — | **30+** |
 
 ---
 
 ## 🚀 How to upgrade
 
 Backwards-compatible release — no public-API breaks or renames. Cargo and
-npm users pick up `v0.26.0` on their next dependency resolution.
+npm users pick up `v0.27.0` on their next dependency resolution.
 
-**CLI users**: rebuild with `cargo install --path . --version 0.26.0`
+**CLI users**: rebuild with `cargo install --path . --version 0.27.0`
 or download the prebuilt binary from the
-[release page](https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.26.0).
+[release page](https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.27.0).
 
 **Library users** consuming `neo_devpack_solidity` from another crate:
-pick up `0.26.0` via `cargo update`.
+pick up `0.27.0` via `cargo update`.
 
-**devpack users**: `npm install @neo-devpack-solidity/contracts@0.26.0`.
+**devpack users**: `npm install @neo-devpack-solidity/contracts@0.27.0`.
 
-**Test authors**: write Solidity tests and run `neo-test <file>.sol`
-(or `neo-forge test`). See [`docs/TESTING.md`](./docs/TESTING.md).
+**Sample corpus**: browse `third_party/famous-contracts/samples/` and verify
+locally with `cargo test --release --test famous_samples_compile`.
 
 ---
 
 ## 🧪 Verification
 
-- `cargo test --release` ✅ **1,952 passed / 54 targets / 0 failed**
-  (integration + lib unit + cargo-fuzz/proptest)
+- `cargo test --release` ✅ **1,964 tests / 55 targets / 0 failed**
+- `cargo clippy --all-targets --all-features -- -D warnings` ✅
 - `cargo fmt --all -- --check` ✅
-- `cargo clippy` ✅
+- 63-repro fix-validation matrix ✅ **0 regressions**

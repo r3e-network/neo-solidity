@@ -90,7 +90,7 @@ neo-solc --version
 ```
 
 Output format:
-`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.26.0`).
+`neo-solc <major>.<minor>.<patch>` (e.g., `neo-solc 0.27.0`).
 
 When debugging or reporting issues on GitHub, please always include the exact version string produced by this command.
 

@@ -30,9 +30,9 @@ hero:
 
 <div class="alert-box">
   <div class="alert-content">
-    <h3>Neo DevPack for Solidity v0.26.0</h3>
-    <p>Version 0.26.0 (compiler / CLI / workspace and devpack aligned) ships <strong><code>neo-test</code></strong>, a native Foundry-style Solidity test runner that executes <code>test*</code>/<code>testFail*</code>/<code>setUp()</code> directly on the in-tree NeoVM with per-test isolation, cross-contract <code>new</code>, decoded reverts/<code>Panic</code>, <code>console.log</code>, gas reporting, and Foundry cheatcodes (<code>vm.prank</code>/<code>warp</code>/<code>roll</code>/<code>deal</code>/<code>expectRevert</code>…). It adds a deep correctness wave — validated against ~600 famous Ethereum contracts (DeFi, NFT, GameFi, zero-knowledge, infrastructure/DAO) at roughly <strong>87% end-to-end compilation</strong>, including snarkjs/PLONK verifiers, MakerDAO's assembly <code>Vat</code>, Gnosis Safe, and the full Uniswap V4 + Permit2 stack — across Solidity <strong>0.5.x–0.8.x</strong>. Full suite: <strong>1,956 tests / 55 targets green</strong>. Targets Neo N3 <strong>v3.10.0</strong>.</p>
-    <a href="https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.26.0" target="_blank">Read the full release notes &rarr;</a>
+    <h3>Neo DevPack for Solidity v0.27.0</h3>
+    <p>Version 0.27.0 (compiler / CLI / workspace and devpack aligned) is the <strong>real-world compatibility &amp; performance</strong> release. The merge/inheritance gaps that blocked flagship protocols are fixed — Aave v3 compilation went <strong>71% → 85%</strong> (every deployable implementation compiles), the Compound v2 core stack is unblocked, and <code>new X{salt: s}()</code> is accepted. Latest-Solidity semantics hardened: <code>bytesN</code> shifts on the big-endian face value, unchecked <code>int256</code> two's-complement wrap, fixed-size array <code>.length</code>, free-function overloads, plus loud <code>W_USER_DEFINED_OPERATOR</code>/<code>W_TRANSIENT_PERSISTED</code> warnings instead of silent miscompiles. The in-tree NeoVM is <strong>~1.9× faster</strong> on compute-heavy tests, a <strong>33-contract hermetic famous-sample corpus</strong> ships in-tree, and a 63-repro validation matrix confirms <strong>zero regressions</strong>. Full suite: <strong>1,964 tests / 55 targets green</strong>. Targets Neo N3 <strong>v3.10.0</strong>.</p>
+    <a href="https://github.com/r3e-network/neo-devpack-solidity/releases/tag/v0.27.0" target="_blank">Read the full release notes &rarr;</a>
   </div>
 </div>
 
@@ -169,7 +169,7 @@ contract SimpleStorage {
     <div class="output-tab">Manifest</div>
     
     <div class="output-content">
-      <strong>Compiler version:</strong> neo-solc 0.26.0<br/><br/>
+      <strong>Compiler version:</strong> neo-solc 0.27.0<br/><br/>
       ✅ Compilation successful.<br/><br/>
       <strong>Methods:</strong><br/>
       - _deploy(any, bool)<br/>

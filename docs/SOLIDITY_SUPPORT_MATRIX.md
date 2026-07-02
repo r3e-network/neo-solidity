@@ -1,6 +1,6 @@
 # Solidity Support Matrix
 
-> **Compiler**: neo-devpack-solidity v0.26.0
+> **Compiler**: neo-devpack-solidity v0.27.0
 > **Parser**: foundry-solang-parser 0.3.9
 > **Target**: NeoVM (Neo N3, node v3.10.0)
 > **Solidity versions**: 0.5.x–0.8.x accepted (0.8.x primary/best-supported)

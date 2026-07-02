@@ -5,6 +5,103 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.27.0] - 2026-07-02
+
+Real-world-compatibility & performance release. Driven by two systematic
+audits — a ~600-contract famous-contract compilation evaluation (full
+dependency trees; DeFi / NFT / GameFi / zero-knowledge / infrastructure)
+and a 168-probe **runtime-semantic** audit of the latest Solidity 0.8.x
+features — every reproducible, deployment-blocking gap found was fixed,
+and a 63-repro validation matrix re-verified the entire campaign with
+**zero regressions**. The in-tree NeoVM interpreter is ~**1.9× faster**
+on compute-heavy workloads. Compiler / CLI / workspace and devpack stay
+version-aligned at **v0.27.0**.
+
+### Added
+
+- **Famous-contract sample corpus** — 33 self-contained, real-world
+  contracts (WETH9, UniswapV2ERC20, DAI, ERC721A, BoredApeYachtClub,
+  Synthetix StakingRewards, MasterChef, PLONK/Semaphore verifiers,
+  ETHTornado, Multicall3, TimelockController, …) vendored under
+  `third_party/famous-contracts/samples/` across
+  `defi/nft/gamefi/zkp/infra-dao/patterns`, each compiling hermetically
+  (no include paths). `tests/famous_samples_compile.rs` asserts **100%**.
+- **`W_USER_DEFINED_OPERATOR`** — user-defined operators
+  (`using {add as +} for T global`, Solidity 0.8.19) are accepted but NOT
+  dispatched (the bound function is not called); the compiler now warns
+  loudly instead of silently emitting raw arithmetic.
+- **`W_TRANSIENT_PERSISTED`** — `transient` state variables
+  (Solidity 0.8.28, EIP-1153) compile to regular PERSISTENT storage
+  (NeoVM has no transient store); the compiler now warns loudly instead
+  of silently persisting.
+- README famous-contract compilation coverage table (~87% across ~600
+  contracts; zero-knowledge 100%, solmate 100%, solady 99%, Uniswap-v3
+  93%, OpenZeppelin 89%, Aave v3 85%).
+
+### Fixed
+
+- **Famous-contract merge compatibility** — a `library`'s own event
+  declarations are carried into the consuming contract (Aave v3
+  `ReserveLogic.ReserveDataUpdated`); a concrete contract holding an
+  `abstract contract`-typed field is no longer forced to implement that
+  abstract's virtuals (Compound v2 `PriceOracle`/`InterestRateModel`
+  fields); the sibling-merge carries a sibling's INHERITED
+  (interface/base) events through cross-contract `new` (USDC FiatToken,
+  SushiSwap MasterChef, ENS PublicResolver); `new X{salt: s}()`
+  CREATE2-style salted creation is accepted (salt ignored with a warning
+  — Neo N3 has no CREATE2). Aave v3 compilation coverage: 71% → **85%**,
+  with every deployable implementation (Pool / PoolConfigurator / AToken)
+  compiling.
+- **`bytesN` shifts** — `bytesN << k` / `>> k` now operate on the
+  BIG-endian face value with EVM truncation. Previously the BE ByteString
+  reached native NeoVM SHL/SHR, which rejected it ("Invalid operands",
+  N < 32) or read it little-endian (`bytes32(0x100) >> 8` returned
+  2^232). Includes the shift-expression type-inference arm so
+  `uint256(b32 >> 8)` applies the cast's byte-reversal.
+- **Unchecked `int256` arithmetic** — `unchecked` int256 Add/Sub/Mul now
+  wraps two's-complement mod 2^256 (`type(int256).max + 1 ==
+  type(int256).min`); previously the unbounded-BigInt native op produced
+  an unrepresentable 33-byte value. Checked mode still Panics(0x11).
+- **Fixed-size storage arrays** — `T[N].length` returns the declared
+  compile-time bound N; previously it read the (never-written) base slot
+  and returned 0, silently no-op'ing `for (i = 0; i < a.length; i++)`
+  loops and always-reverting `require(a.length == N)`.
+- **Free-function overloads** — file-scope free-function overloads are
+  all injected (dedup by name+arity); previously every overload after the
+  first was dropped and calls aborted "has no compiled body".
+
+### Performance
+
+- **Interpreter hot path ~1.9× faster** (compute-heavy neo-test: 1.91s →
+  0.99s): `step()` no longer clones the entire eval stack nor allocates
+  an opcode-name String per executed instruction (debug-tracing only,
+  now gated); per-instruction opcode gas/name lookups use static
+  `[_; 256]` tables instead of a `HashMap<u8, _>`; slot getters
+  (`LDLOC`/`LDARG`/`LDSFLD`) no longer eagerly format error Strings;
+  `GasTracker` no longer allocates a 9-String map per construction.
+- `infer_type_from_expression` no longer re-descends the same subscript
+  base up to 4× per fall-through arm (exponential in `a[i][j][k]`
+  nesting depth).
+- Sibling-merge transitive closure memoizes each contract's
+  direct-reference walk — O(primaries × edges) full-AST walks reduced to
+  one walk per contract (byte-identical output verified on a 24-contract
+  unit).
+
+### Validation
+
+- 63-repro fix-validation matrix re-ran every issue identified across the
+  bug-hunt backlog, feature audit, and famous-contract evaluation against
+  HEAD: **54 verified fixed, 0 regressions**; the 8 deferred items fail
+  exactly as documented (all root-caused in-tree for follow-up), and the
+  known simulator merged-context artifact reproduces as documented.
+- Full suite green: **1,964 tests across 55 targets** (integration + lib
+  unit + cargo-fuzz/proptest), clippy `-D warnings` + fmt clean.
+
+### Changed
+
+- Compiler / CLI / workspace and devpack (`@neo-devpack-solidity/contracts`)
+  version-aligned at **v0.27.0**.
+
 ## [v0.26.0] - 2026-07-01
 
 Dev-environment & deep-correctness release. Ships a native **`neo-test`**
