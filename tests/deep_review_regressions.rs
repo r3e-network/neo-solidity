@@ -2996,3 +2996,37 @@ contract C {
         "contract C must be produced"
     );
 }
+
+/// Regression (feature audit): file-scope free-function OVERLOADS must all be
+/// callable. The injection pass deduped by bare NAME, so every overload after
+/// the first was dropped and calls aborted "'pick'/2 has no compiled body".
+#[test]
+fn free_function_overloads_all_compile() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+function pick(uint256 a) pure returns (uint256) { return a + 1; }
+function pick(uint256 a, uint256 b) pure returns (uint256) { return a + b; }
+contract C {
+    function run() external pure returns (uint256) {
+        return pick(41) * 100 + pick(40, 2); // 42*100 + 42 = 4242
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "faulted: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    let v = r
+        .return_data
+        .iter()
+        .take(16)
+        .enumerate()
+        .fold(0u128, |a, (i, &b)| a + ((b as u128) << (8 * i)));
+    assert_eq!(v, 4242, "both free-fn overloads must dispatch (got {v})");
+}

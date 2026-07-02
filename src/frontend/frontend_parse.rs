@@ -203,11 +203,16 @@ pub fn parse_source(source: &str) -> Result<Vec<ContractIR>, FrontendError> {
     if !file_level_free_functions.is_empty() {
         for contract in &mut contracts {
             for free_fn in &file_level_free_functions {
-                if !contract
-                    .functions
-                    .iter()
-                    .any(|existing| existing.name == free_fn.name)
-                {
+                // Dedup by (name, arity), not bare name: free-function
+                // OVERLOADS (`pick(uint)` / `pick(uint,uint)`) are distinct
+                // callables, and a bare-name check dropped every overload
+                // after the first — the call site then aborted with
+                // "'pick'/2 has no compiled body" (feature audit).
+                // Contract-scope still wins per arity.
+                if !contract.functions.iter().any(|existing| {
+                    existing.name == free_fn.name
+                        && existing.parameters.len() == free_fn.parameters.len()
+                }) {
                     contract.functions.push(free_fn.clone());
                 }
             }
