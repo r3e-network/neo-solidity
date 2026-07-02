@@ -216,11 +216,14 @@ pub(crate) fn infer_type_from_expression_inner(
         | Expression::BitwiseXor(_, left, right) => {
             infer_type_from_expression(left, ctx).or_else(|| infer_type_from_expression(right, ctx))
         }
-        // A shift's type is its LEFT operand's type (the shift amount does not
-        // participate, per Solidity). Without this arm `uint256(b32 >> 8)`
-        // inferred `None`, so the cast skipped the BE-bytes reversal and read
-        // the shifted bytes32 little-endian (same class as the bitwise arm
-        // above / bug-hunt #14).
+        // A bytesN shift keeps the bytesN type of its LEFT operand (the shift
+        // amount doesn't participate). This is scoped to bytesN ONLY: without
+        // it `uint256(b32 >> 8)` inferred `None`, so the cast skipped the
+        // BE-bytes reversal and read the shifted bytes32 little-endian (same
+        // class as the bitwise arm above / bug-hunt #14). Integer shifts keep
+        // inferring `None` here — reporting `uintN` would flip the reverse
+        // decision of a wrapping `bytesN(uint256 << k)` cast (whose shift
+        // output is not a plain integer) and byte-corrupt it.
         Expression::ShiftLeft(_, left, _) | Expression::ShiftRight(_, left, _) => {
             infer_type_from_expression(left, ctx)
         }

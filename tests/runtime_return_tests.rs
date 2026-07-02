@@ -5,6 +5,10 @@ use neo_devpack_solidity::runtime::RuntimeConfig;
 fn ret_without_value_clears_return_data() {
     let mut ctx = ExecutionContext::new(&RuntimeConfig::default()).expect("context init");
     ctx.initialize(&[0x40], &[]).expect("init");
+    // The StepResult opcode name is only populated when debugging is enabled
+    // (the hot path skips the per-instruction String alloc); this test
+    // inspects it, so opt in.
+    ctx.enable_debugging();
 
     let step = ctx.step().expect("step RET");
     assert_eq!(step.opcode, "RET");
