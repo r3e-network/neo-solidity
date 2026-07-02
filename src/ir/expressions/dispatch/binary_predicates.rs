@@ -329,9 +329,6 @@ pub(crate) fn should_widen_unchecked_u256(
     if is_literal_number(left) && is_literal_number(right) {
         return false;
     }
-    if is_int256_operand(left, ctx) || is_int256_operand(right, ctx) {
-        return false;
-    }
     // Pure-narrow `unchecked` arithmetic truncates mod 2^N (N<256), not mod
     // 2^256; the narrow unchecked-truncation path owns it. Without this, the
     // literal's uint256 default would widen `unchecked { uint8 x; x + 1 }` to
@@ -341,7 +338,18 @@ pub(crate) fn should_widen_unchecked_u256(
     if is_narrow_result(left, right, ctx) {
         return false;
     }
-    is_uint256_operand(left, ctx) || is_uint256_operand(right, ctx)
+    // int256 is accepted too (feature audit): `unchecked { int256 }` Add/Sub/
+    // Mul must wrap two's-complement mod 2^256, but previously fell through to
+    // the bare native op, whose unbounded-BigInt result never wraps (max+1
+    // yielded the un-representable +2^255 instead of int256.min). The limb
+    // routines mask operands mod 2^256 (a negative input is its unsigned
+    // alias) and emit the canonical sign-extended 32-byte result via
+    // `emit_u256_combine_limbs`, so the same emitters produce the correct
+    // signed wrap for free.
+    is_uint256_operand(left, ctx)
+        || is_uint256_operand(right, ctx)
+        || is_int256_operand(left, ctx)
+        || is_int256_operand(right, ctx)
 }
 
 /// `unchecked` narrow unsigned (uintN, N<256) Add/Sub/Mul truncation gate. Same

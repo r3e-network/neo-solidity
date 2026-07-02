@@ -2930,3 +2930,47 @@ contract C {
         .fold(0u128, |a, (i, &b)| a + ((b as u128) << (8 * i)));
     assert_eq!(v, 256120, "shl=256 shr=1 b1<<1=2 trunc=0 (got {v})");
 }
+
+/// Regression (feature audit): `unchecked` int256 Add/Sub/Mul wraps
+/// two's-complement mod 2^256 (EVM). Previously it fell through to the bare
+/// native op whose unbounded-BigInt result never wraps (max+1 produced the
+/// unrepresentable +2^255). Routed through the u256 limb emitters, whose
+/// canonical sign-extended 32-byte output IS the signed wrap.
+#[test]
+fn unchecked_int256_add_sub_mul_wrap_twos_complement() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    function run() external pure returns (uint256) {
+        uint256 flags = 0;
+        int256 mx = type(int256).max;
+        int256 mn = type(int256).min;
+        unchecked {
+            if (mx + 1 == mn) flags |= 1;          // max+1 -> min
+            if (mn - 1 == mx) flags |= 2;          // min-1 -> max
+            if (mx * 2 == -2) flags |= 4;          // max*2 -> -2
+            int256 a = -3;
+            if (a * mn == mn) flags |= 8;          // odd * min -> min (mod 2^256)
+            if (a + 5 == 2) flags |= 16;           // plain small values unaffected
+        }
+        return flags;
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "faulted: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    assert_eq!(
+        r.return_data.first().copied(),
+        Some(0b11111u8),
+        "all unchecked int256 wrap identities must hold (got {:?})",
+        r.return_data.first()
+    );
+}
