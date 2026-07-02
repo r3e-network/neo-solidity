@@ -542,6 +542,17 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         let interface_names: std::collections::HashSet<String> =
             interface_methods.keys().cloned().collect();
 
+        // PERF: lazily-built memo of each sibling's DIRECT contract references,
+        // shared across the whole per-primary loop below. The transitive
+        // closure used to re-walk a sibling's full AST once per (primary, pop);
+        // `collect_direct_sibling_contract_refs` depends only on tables that
+        // are fixed across the loop, so each contract needs walking at most
+        // once for the entire merge pass.
+        let mut direct_sibling_refs_memo: std::collections::HashMap<
+            String,
+            std::collections::HashSet<String>,
+        > = std::collections::HashMap::new();
+
         for contract in primary.iter_mut() {
             let mut referenced: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
@@ -645,24 +656,36 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             // artifact must carry both `wrap` and `fail`. Without this
             // closure, the grandchild call silently falls through
             // `handle_contract_call`'s zero-hash branch and returns `Null`.
+            //
+            // PERF: the direct-reference set of each sibling is MEMOIZED in
+            // `direct_sibling_refs_memo` (computed lazily, shared across the
+            // whole per-primary outer loop). Previously every pop re-walked
+            // the sibling's full statement/expression tree via
+            // `collect_direct_sibling_contract_refs` — O(primaries × edges)
+            // full-AST walks on multi-contract units; its inputs are all
+            // fixed across the outer loop, so one walk per contract suffices.
             let mut transitive_queue: Vec<String> = referenced.iter().cloned().collect();
             while let Some(sibling_name) = transitive_queue.pop() {
                 let Some(sibling_contract) = primary_contract_map.get(&sibling_name) else {
                     continue;
                 };
-                let transitive_refs = collect_direct_sibling_contract_refs(
-                    sibling_contract,
-                    &primary_names,
-                    &interface_names,
-                    &interface_impls,
-                    &primary_method_names,
-                );
-                for transitive in transitive_refs {
-                    if transitive == contract.name {
+                let transitive_refs = direct_sibling_refs_memo
+                    .entry(sibling_name.clone())
+                    .or_insert_with(|| {
+                        collect_direct_sibling_contract_refs(
+                            sibling_contract,
+                            &primary_names,
+                            &interface_names,
+                            &interface_impls,
+                            &primary_method_names,
+                        )
+                    });
+                for transitive in transitive_refs.iter() {
+                    if transitive == &contract.name {
                         continue;
                     }
                     if referenced.insert(transitive.clone()) {
-                        transitive_queue.push(transitive);
+                        transitive_queue.push(transitive.clone());
                     }
                 }
             }
