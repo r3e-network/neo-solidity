@@ -258,6 +258,50 @@ pub(crate) fn emit_arith_with_overflow_ladder(
         return;
     }
 
+    // `bytesN << k` / `bytesN >> k` (feature audit): a bytesN value is a
+    // BIG-endian ByteString at runtime, but native NeoVM SHL/SHR either
+    // rejects it ("Invalid operands", N < 32) or reads it as a LITTLE-endian
+    // integer (`bytes32(0x100) >> 8` returned 2^232). EVM semantics shift the
+    // big-endian face value and truncate to N bytes. Normalize: reverse the
+    // BE bytes and convert to Integer (the exact `intN(bytesN)` cast idiom),
+    // soft-shift (wrap mod 2^256 for `<<`; logical, sign-safe for `>>`),
+    // truncate to 2^(8N) for narrow widths, then re-encode as an N-byte BE
+    // ByteString via the `bytesN(uint)` cast helper. Integer-backed constant
+    // operands already hold the face value and skip the reversal.
+    if matches!(operator, BinaryOperator::Shl | BinaryOperator::Shr) {
+        if let Some(ValueType::ByteArray { fixed_len: Some(n) }) =
+            infer_type_from_expression(left, ctx)
+        {
+            let int_backed = is_integer_backed_bytesn_operand(left, ctx);
+            // Stack: [bytes, shift] → convert the value under the shift amount.
+            instructions.push(Instruction::Swap);
+            if !int_backed {
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::ByteArray,
+                });
+                materialize_byte_array_buffer(&mut *ctx, instructions, true);
+                instructions.push(Instruction::Convert {
+                    target: ConvertTarget::Integer,
+                });
+            }
+            instructions.push(Instruction::Swap); // [face_value:int, shift]
+            match operator {
+                BinaryOperator::Shl => {
+                    emit_u256_shl_ir(ctx, instructions);
+                    if n < 32 {
+                        emit_truncate_narrow_unsigned(instructions, (n as u16) * 8);
+                    }
+                }
+                _ => emit_u256_logical_shr_ir(ctx, instructions),
+            }
+            instructions.push(Instruction::Convert {
+                target: ConvertTarget::ByteArray,
+            });
+            coerce_to_fixed_bytes(n as usize, true, ctx, instructions);
+            return;
+        }
+    }
+
     let emit_guard = should_emit_u256_arith_guard(left, right, ctx, operator);
     let emit_i256_guard = !emit_guard && should_emit_i256_arith_guard(left, right, ctx, operator);
     let emit_narrow_u_bits = if !emit_guard && !emit_i256_guard {

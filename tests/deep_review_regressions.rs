@@ -2888,3 +2888,45 @@ contract C {
         "fixed .length must be 3, loop must run, dyn .length must stay slot-backed (got {v})"
     );
 }
+
+/// Regression (feature audit): bytesN shifts operate on the BIG-endian face
+/// value with EVM truncation. Previously the BE ByteString reached native
+/// SHL/SHR, which rejected it ("Invalid operands", N<32) or read it as a
+/// LITTLE-endian integer (bytes32(0x100) >> 8 returned 2^232). Also pins the
+/// shift-expression type inference (uint256(b >> 8) must reverse the result).
+#[test]
+fn bytesn_shifts_use_big_endian_face_value() {
+    let src = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+contract C {
+    bytes32 stored;
+    function run() external returns (uint256) {
+        stored = bytes32(uint256(1));
+        bytes32 a = bytes32(uint256(0x100));
+        bytes1 b = bytes1(uint8(1));
+        uint256 shl = uint256(stored << 8);   // 256
+        uint256 shr = uint256(a >> 8);        // 1
+        uint256 b1 = uint8(b << 1);           // 2
+        uint256 trunc = uint8(bytes1(uint8(0x80)) << 1); // 0x100 truncated to 1 byte -> 0
+        return shl * 1000 + shr * 100 + b1 * 10 + trunc; // 256120
+    }
+}"#;
+    let arts = compile_contracts(src, false, 2).expect("compile");
+    let art = &arts[0];
+    let mut rt = NeoRuntime::new(RuntimeConfig::default()).expect("rt");
+    let r = rt
+        .call_method(&art.bytecode, &art.tokens, &art.manifest, "run", &[])
+        .expect("call");
+    assert!(
+        r.success,
+        "faulted: {:?}",
+        r.exception.as_ref().map(|e| &e.message)
+    );
+    let v = r
+        .return_data
+        .iter()
+        .take(16)
+        .enumerate()
+        .fold(0u128, |a, (i, &b)| a + ((b as u128) << (8 * i)));
+    assert_eq!(v, 256120, "shl=256 shr=1 b1<<1=2 trunc=0 (got {v})");
+}
