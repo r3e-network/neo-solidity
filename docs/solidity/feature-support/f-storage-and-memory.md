@@ -18,17 +18,17 @@ description: "F. Storage and Memory from Solidity Feature Support."
 | Nested mappings                  |   ✅   | `mapping(K1 => mapping(K2 => V))` with composite storage keys.         |
 | Struct in storage                |   ✅   | Serialized/deserialized via `StdLib.serialize`/`StdLib.deserialize`.   |
 | Array `.push()` / `.pop()`       |   ✅   | Storage array operations supported.                                    |
-| Array `.length`                  |   ✅   | Both memory and storage arrays.                                        |
+| Array `.length`                  |   ✅   | Both memory and storage arrays. Fixed-size storage arrays `T[N]` report the declared bound `N`. |
 | `new bytes(n)` / `new string(n)` |   ✅   | Buffer allocation via `NEWBUFFER`.                                     |
 | `new T[](n)`                     |   ✅   | Dynamic array allocation via `NEWARRAY`.                               |
 | `new Contract(...)`              |   ⚠️   | Does not deploy on Neo; constructor-like logic is inlined/simulated and a zero-address placeholder is produced. Use `ContractManagement.deploy(...)` for real deployment. |
-| `new X{salt: s}()`               |   ⚠️   | CREATE2 salted-creation syntax compiles; the salt is ignored because Neo has no CREATE2. Same inline/simulate lowering as `new Contract(...)`. |
+| `new X{salt: s}()`               |   ⚠️   | CREATE2 salted-creation syntax compiles; the salt is evaluated then ignored with a warning — Neo has no CREATE2. Same inline/simulate lowering as `new Contract(...)`. |
 
 ## Contract creation via `new`
 
 `new Contract(...)` is accepted for source compatibility, but it does not perform Neo contract deployment. The current lowering inlines/simulates constructor-like logic when the contract is available in the compilation graph and returns a zero-address placeholder. For real child-contract deployment, compile the target contract separately and call `ContractManagement.deploy(nef, manifest, data)`.
 
-The CREATE2 salted form `new X{salt: s}()` also compiles — the salt argument is parsed and accepted so contracts written against CREATE2 patterns build unchanged, but the salt is ignored because Neo has no CREATE2 deterministic-address mechanism. The lowering is otherwise identical to `new Contract(...)`.
+The CREATE2 salted form `new X{salt: s}()` also compiles — the salt expression is evaluated (so its side effects still run) and then ignored, with a warning, because Neo has no CREATE2 deterministic-address mechanism. Contracts written against CREATE2 patterns build unchanged; the lowering is otherwise identical to `new Contract(...)`.
 
 ## Storage key derivation
 

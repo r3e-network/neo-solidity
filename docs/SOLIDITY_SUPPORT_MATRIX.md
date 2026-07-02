@@ -4,7 +4,7 @@
 > **Parser**: foundry-solang-parser 0.3.9
 > **Target**: NeoVM (Neo N3, node v3.10.0)
 > **Solidity versions**: 0.5.x–0.8.x accepted (0.8.x primary/best-supported)
-> **Audit date**: 2026-04-30
+> **Audit date**: 2026-07-02
 
 Legend:
 
@@ -37,7 +37,7 @@ see `docs/internals/parity-and-limitations.md`.
 | `struct`                                 | ✅     | Full struct support with nested fields; `StructDefinition` converted  |
 | `mapping(K => V)`                        | ✅     | Storage mappings with Neo StorageMap; key type validation enforced    |
 | `T[]` (dynamic array)                    | ✅     | `new T[](n)` allocation supported                                     |
-| `T[N]` (fixed array)                     | ⚠️     | Parsed; `new T[N]` supported when `N` is compile-time constant        |
+| `T[N]` (fixed array)                     | ✅     | Parsed; `new T[N]` supported when `N` is compile-time constant; `.length` returns the declared bound `N` (including storage arrays) |
 | `fixed` / `ufixed`                       | ❌     | Not supported (also unsupported in mainline Solidity)                 |
 | User-defined value types (`type X is Y`) | ✅     | Transparent type aliases; `wrap`/`unwrap` compile to no-ops           |
 | `bytes.concat(...)`                      | ✅     | Chains NeoVM CAT opcodes; zero args produce empty byte array          |
@@ -55,7 +55,7 @@ see `docs/internals/parity-and-limitations.md`.
 | Arithmetic (`+`, `-`, `*`, `/`, `%`)          | ✅     | Binary ops via `try_lower_expression_binary_ops`                                                                |
 | Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) | ✅     | Via `try_lower_expression_comparisons`                                                                          |
 | Logical (`&&`, `\|\|`, `!`)                   | ✅     | Short-circuit evaluation in `logical.rs`                                                                        |
-| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support                                                                                            |
+| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`)     | ✅     | Full bitwise support; `bytesN` `<<` / `>>` shift the big-endian face value with EVM truncation semantics (all widths). Known gap: `bytesN` bitwise compound-assign (`\|=` etc.) stores byte-reversed; reads are correct |
 | Unary (`++`, `--`, `-`, `!`)                  | ✅     | Pre/post increment/decrement                                                                                    |
 | Ternary (`? :`)                               | ✅     | `ConditionalOperator` lowered with labels                                                                       |
 | Assignment (`=`, `+=`, `-=`, etc.)            | ✅     | Compound assignments in `assignments/compound.rs`                                                               |
@@ -92,7 +92,7 @@ see `docs/internals/parity-and-limitations.md`.
 | `revert CustomError(...)` | ✅     | Named revert with args; `RevertNamedArgs` also handled                                                      |
 | Variable declaration      | ✅     | Local variable definitions with optional initializer                                                        |
 | Block `{ ... }`           | ✅     | Scoped statement blocks                                                                                     |
-| `unchecked { ... }`       | ✅     | Suppresses Solidity 0.8 checked-arithmetic guards inside the block; supported fixed-width arithmetic wraps |
+| `unchecked { ... }`       | ✅     | Suppresses Solidity 0.8 checked-arithmetic guards inside the block; fixed-width arithmetic wraps, including `int256` add/sub/mul two's-complement wrap mod 2^256 (`type(int256).max + 1 == type(int256).min`). Checked mode still panics (0x11) |
 | `assembly { ... }`        | ⚠️     | Limited Yul subset lowering; unsupported EVM-only operations warn and emit no assembly logic for that block |
 | `try` / `catch`           | ✅     | Maps to NeoVM TRY/ENDTRY; single catch clause preferred                                                     |
 | `catch Error(string)`     | ✅     | Named catch with parameter binding                                                                          |
@@ -106,6 +106,7 @@ see `docs/internals/parity-and-limitations.md`.
 | Feature                          | Status | Notes                                                                                                                                           |
 | -------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Regular functions                | ✅     | Public, external, internal, private                                                                                                             |
+| Free functions (file-scope)      | ✅     | Functions declared outside any contract are callable; overloads deduplicated by name+arity, and all overloads are callable                      |
 | Constructor                      | ✅     | Single constructor; multiple constructors rejected                                                                                              |
 | `view` / `pure`                  | ✅     | State mutability tracked and enforced at IR level                                                                                               |
 | `payable`                        | ⚠️     | Parsed; `payable` on non-receive functions warns (Neo has no native gas payment)                                                                |
@@ -131,6 +132,7 @@ see `docs/internals/parity-and-limitations.md`.
 | `abstract contract`  | ✅     | Fully validated; unimplemented functions detected; non-abstract contracts get actionable errors. A concrete contract holding an abstract-contract-typed field is not forced to implement that field's virtuals |
 | `library`            | ⚠️     | Builtin devpack libraries are compiler intrinsics; user-defined libraries are merged/inlined, but still cannot model deployable library state or linking |
 | `using X for Y`      | ✅     | Library member-call syntax fully supported; `using X for *` and `using {f,g} for T` included                                                             |
+| User-defined operators (`using {f as +} for T`) | ⚠️     | Solidity 0.8.19 operator binding compiles with warning `W_USER_DEFINED_OPERATOR`, but operators are NOT dispatched to the bound function — raw arithmetic runs on the underlying representation. Call the bound function explicitly |
 | `super` keyword      | ✅     | Supported via inheritance flattening with `__super_` method preservation                                                                                 |
 | `is` (inheritance)   | ✅     | Inheritance specifiers fully processed                                                                                                                   |
 | Constructor chaining | ✅     | Base constructor arguments resolved from inheritance specifiers                                                                                          |
@@ -146,6 +148,7 @@ see `docs/internals/parity-and-limitations.md`.
 | State variables                  | ✅     | Mapped to Neo Storage with prefix-based keys                          |
 | `constant`                       | ✅     | Compile-time constants inlined                                        |
 | `immutable`                      | ✅     | Tracked via `is_immutable` flag; modification blocked at compile time |
+| `transient` state variables      | ⚠️     | Solidity 0.8.28 (EIP-1153) `transient` compiles to regular PERSISTENT storage with warning `W_TRANSIENT_PERSISTED` (NeoVM has no transient store); values are NOT cleared at transaction end — clear manually at every entry point |
 | `memory` keyword                 | ✅     | Parsed; NeoVM is stack-based so memory is implicit                    |
 | `storage` keyword                | ✅     | Storage references for mappings and state variables                   |
 | `calldata` keyword               | ✅     | Parsed; treated as `memory` (correct for NeoVM — no calldata region)  |
@@ -246,20 +249,20 @@ Neo N3 uses the `onNEP17Payment(address from, uint256 amount, bytes data)` callb
 
 | Category            | ✅      | ⚠️     | ❌    | 🚫    |
 | ------------------- | ------- | ------ | ----- | ----- |
-| A. Types            | 16      | 2      | 2     | 0     |
+| A. Types            | 17      | 1      | 2     | 0     |
 | B. Expressions      | 16      | 5      | 0     | 0     |
 | C. Statements       | 17      | 1      | 0     | 0     |
-| D. Functions        | 9       | 4      | 0     | 0     |
-| E. OOP Features     | 10      | 1      | 0     | 0     |
-| F. Storage & Memory | 12      | 2      | 0     | 0     |
+| D. Functions        | 10      | 4      | 0     | 0     |
+| E. OOP Features     | 10      | 2      | 0     | 0     |
+| F. Storage & Memory | 12      | 3      | 0     | 0     |
 | G. Error Handling   | 11      | 0      | 0     | 0     |
 | H. EVM-Specific     | 21      | 11     | 0     | 1     |
 | I. ERC-NEP Mapping  | 3       | 4      | 0     | 0     |
-| **Total**           | **115** | **30** | **2** | **1** |
+| **Total**           | **117** | **31** | **2** | **1** |
 
-**Total features audited: 148**
+**Total features audited: 151**
 
-- ✅ Fully supported: 115 (78%)
-- ⚠️ Partial support: 30 (20%)
+- ✅ Fully supported: 117 (77%)
+- ⚠️ Partial support: 31 (21%)
 - ❌ Not supported: 2 (1%)
 - 🚫 Intentionally blocked: 1 (1%)

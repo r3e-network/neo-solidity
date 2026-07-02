@@ -16,13 +16,15 @@ This document provides a comprehensive reference for error and warning codes pro
 
 ### Warning Codes
 
-| Code                         | Description                  | Example                          |
-| ---------------------------- | ---------------------------- | -------------------------------- |
-| `COMPILER_WARNING`           | General compiler warning     | Unused function parameter        |
-| `NEF_SOURCE_TRUNCATED`       | NEF source field truncated   | Source exceeds 240 bytes         |
-| `MANIFEST_FULL_WILDCARD`     | Full wildcard permission     | `{"contract":"*","methods":"*"}` |
-| `MANIFEST_WILDCARD_CONTRACT` | Wildcard contract permission | `{"contract":"*",...}`           |
-| `MANIFEST_WILDCARD_METHODS`  | Wildcard method permission   | `{...,"methods":"*"}`            |
+| Code                         | Description                                   | Example                           |
+| ---------------------------- | --------------------------------------------- | --------------------------------- |
+| `COMPILER_WARNING`           | General compiler warning                      | Unused function parameter         |
+| `NEF_SOURCE_TRUNCATED`       | NEF source field truncated                    | Source exceeds 240 bytes          |
+| `MANIFEST_FULL_WILDCARD`     | Full wildcard permission                      | `{"contract":"*","methods":"*"}`  |
+| `MANIFEST_WILDCARD_CONTRACT` | Wildcard contract permission                  | `{"contract":"*",...}`            |
+| `MANIFEST_WILDCARD_METHODS`  | Wildcard method permission                    | `{...,"methods":"*"}`             |
+| `W_USER_DEFINED_OPERATOR`    | User-defined operators not dispatched         | `using {add as +} for Int global` |
+| `W_TRANSIENT_PERSISTED`      | `transient` state variable persisted on NeoVM | `uint256 transient t;`            |
 
 ## Common Errors and Solutions
 

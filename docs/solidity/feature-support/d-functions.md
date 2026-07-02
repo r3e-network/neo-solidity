@@ -10,6 +10,7 @@ description: "D. Functions from Solidity Feature Support."
 | Feature                          | Status | Notes                                                                                                                   |
 | -------------------------------- | :----: | ----------------------------------------------------------------------------------------------------------------------- |
 | Regular functions                |   ✅   | `public`, `external`, `internal`, `private` visibility.                                                                 |
+| File-scope (free) functions      |   ✅   | Callable from contracts. Overloaded free functions are deduplicated by name + arity, so every overload is callable.     |
 | Constructor                      |   ✅   | Single constructor. Multiple constructors rejected.                                                                     |
 | `view` / `pure`                  |   ✅   | State mutability tracked and enforced at IR level.                                                                      |
 | `payable`                        |   ⚠️   | Parsed. `payable` on non-receive functions warns — Neo has no native gas payment in function calls.                     |

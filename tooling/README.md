@@ -6,7 +6,7 @@ A complete toolchain under active development for Neo DevPack for Solidity. Some
 > - `@neo-devpack-solidity/hardhat-solc-neo`: compile/clean/verify tasks work; advanced Hardhat integration is still evolving.  
 > - `@neo-devpack-solidity/hardhat-neo-deployer`: builds/signs/sends real Neo N3 deploy transactions (NEF + manifest); still experimental.  
 > - The Hardhat plugins currently target Hardhat 2.28.x. Hardhat 3 uses a different plugin/runtime model and needs a dedicated migration before it can be supported.
-> - `@neo-devpack-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real; build/test/deploy flows remain scaffolding.  
+> - `@neo-devpack-solidity/neo-foundry` (`neo-forge`, `neo-cast`, `neo-anvil`): `init` is real, and `neo-forge test` delegates to the native `neo-test` runner (see `docs/TESTING.md`); build/deploy flows remain scaffolding.  
 > - `@neo-devpack-solidity/abi-router`, `@neo-devpack-solidity/cli-tools`: usable for ABI/CLI composition, but still not full end-to-end deployment frameworks.
 > - `@neo-devpack-solidity/templates`, `@neo-devpack-solidity/integration-tests`: now wired into the workspace and covered by the tooling test/lint/typecheck pipeline.
 
@@ -87,7 +87,8 @@ script = "script"
 out = "out"
 
 # Build and test
-# `init` is implemented; build/test remain scaffold-only today.
+# `init` is implemented; `test` delegates to the native `neo-test` runner
+# (build it with `cargo build --release --bin neo-test`); `build` remains scaffold-only today.
 neo-forge build
 neo-forge test
 ```
@@ -189,10 +190,10 @@ Experimental Hardhat plugin for deploying Neo N3 contracts. It builds/signs/send
 ### Foundry Integration
 
 #### `@neo-devpack-solidity/neo-foundry`
-Foundry-style tooling for Neo. `neo-forge init` now creates a working project layout and config; build/test/transaction flows remain scaffold-only.
+Foundry-style tooling for Neo. `neo-forge init` creates a working project layout and config, and `neo-forge test` delegates to the native `neo-test` runner (Foundry-style `test*`/`testFail*`/`setUp`, cheatcodes, decoded reverts — see `docs/TESTING.md`); build/transaction flows remain scaffold-only.
 
 **Tools:**
-- `neo-forge` - Build/test CLI (prints stub messages today)
+- `neo-forge` - Project/test CLI (`init` + `test` real; `build` prints stub messages today)
 - `neo-cast` - Contract interaction tool (WIP)
 - `neo-anvil` - Local Neo blockchain stub
 
@@ -200,6 +201,8 @@ Foundry-style tooling for Neo. `neo-forge init` now creates a working project la
 ```bash
 # Build system (WIP)
 neo-forge build --watch
+
+# Testing (delegates to the native `neo-test` runner)
 neo-forge test --gas-report
 neo-forge clean
 

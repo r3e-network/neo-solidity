@@ -9,7 +9,7 @@ CLI utility scaffolding for the Neo DevPack for Solidity toolchain. The package 
 | `solc-neo` / `neo-sol` compile (`CompilerCLI`) | ⚠️ Constructs JSON input and shells out to `neo-solc`, but the surrounding task runner (artifact persistence, plugin integration) is still under construction |
 | CLI framework (`NeoDevpackSolidityCLI`) | ✅ Usable to register commands/log/spinners and returns structured success/failure results |
 | Utility helpers in `src/cli-framework.ts` | ✅ Logging/spinner/progress abstractions |
-| Higher-level CLI commands (forge/cast/anvil wrappers) | ⚠️ Each prints placeholder output and throws “not implemented yet”. |
+| Higher-level forge/cast/anvil flows | ⚠️ Live in `@neo-devpack-solidity/neo-foundry`, not this package. There, `neo-forge test` delegates to the native `neo-test` runner; the remaining flows still print placeholder output and throw “not implemented yet”. |
 
 ## Installation
 

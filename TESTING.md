@@ -22,6 +22,25 @@ cargo test runtime_flow_tests
 cargo test --release
 ```
 
+### Testing Solidity Contracts with `neo-test`
+
+`neo-test` is a Foundry-style test runner for Solidity contracts that executes
+on the in-tree NeoVM (no node required). It supports `test*`/`testFail*`
+functions, `setUp()`, per-test isolation, cheatcodes (`vm.prank`, `vm.warp`,
+`vm.roll`, `vm.deal`, `vm.expectRevert`, ...), decoded reverts/Panic codes,
+`console.log`, and gas reporting:
+
+```bash
+# Build the runner
+cargo build --release --bin neo-test
+
+# Run Solidity tests (scans ./test, then ., for *.t.sol when no path is given)
+./target/release/neo-test test/Counter.t.sol --gas
+```
+
+See [`docs/TESTING.md`](docs/TESTING.md) for the full guide (assertions,
+cheatcodes, `neo-std/Test.sol`, and `neo-forge test` integration).
+
 ### Running Neo-Express Smoke Tests
 
 The project includes comprehensive deployment tests using Neo-Express:

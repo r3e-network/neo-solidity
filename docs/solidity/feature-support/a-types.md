@@ -28,11 +28,14 @@ description: "A. Types from Solidity Feature Support."
 | `string.concat(...)`      |   ✅   | Same implementation as `bytes.concat` via `CAT` opcode chain.                                                                 |
 | Contract types (`IERC20`) |   ✅   | Resolved to Neo UInt160 address. Interface types tracked.                                                                     |
 | Tuple types               |   ✅   | Represented as NeoVM arrays internally.                                                                                       |
+| `transient` state variables |  ⚠️  | Solidity 0.8.28 (EIP-1153). Compiles to regular **persistent** storage — NeoVM has no transient store. Warns `W_TRANSIENT_PERSISTED`. |
 | Function types            |   ❌   | `function(...) internal/external` is not representable on NeoVM. State variables, locals, parameters, and return types of function type are rejected with an "unsupported type" diagnostic. Use named functions and inheritance instead of function pointers. |
 
 ## Partial type details
 
 **`address payable`** — The type is accepted and treated identically to `address`. On Neo, `.transfer(amount)` / `.send(amount)` compile via GAS NEP-17 transfer lowering (`transfer(from,to,amount,data)`), so behavior is close but not identical to EVM attached-value calls.
+
+**`transient` state variables** — NeoVM has no transient storage (EIP-1153), so a `transient` state variable compiles to ordinary persistent storage and is **not** cleared at the end of the transaction. The compiler emits warning `W_TRANSIENT_PERSISTED`. A transient-style reentrancy guard would stay locked forever unless reset — clear the variable manually at the end of every entry point, or use ordinary storage semantics deliberately.
 
 **`T[N]` (fixed array)** — Fixed-size arrays compile when the size `N` is a compile-time constant. Runtime-computed sizes require dynamic arrays (`T[]`).
 

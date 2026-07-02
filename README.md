@@ -16,9 +16,10 @@
 
 ## 🎯 At a Glance
 
-- **Solidity → NeoVM**: Compile Solidity 0.8.x to Neo N3 (`.nef` + `.manifest.json`).
+- **Solidity → NeoVM**: Compile Solidity 0.5.x–0.8.x (0.8.x primary) to Neo N3 (`.nef` + `.manifest.json`).
 - **Primary Implementation**: Rust-based compiler (production-focused) with archived Go reference implementation.
 - **EVM semantics**: ABI-compatible selectors and metadata; NEP standard detection (NEP-11/17/24).
+- **Real-world proven**: ~87% end-to-end compilation across ~600 famous contracts (full dependency trees), plus `neo-test`, a Foundry-style Solidity test runner.
 - **Optimized output**: Multi-level optimizer, Neo-specific lowering, manifest generation.
 - **Tooling friendly**: CLI first, with active Hardhat/Foundry-adjacent workspace packages for compilation, deployment, scaffolding, and cross-package smoke coverage.
 - **Quality-focused**: Unit/integration/runtime tests, clear diagnostics.
@@ -164,7 +165,7 @@ the full Uniswap V4 + Permit2 stack.
 | **Fix-pattern reproductions** | library events, abstract-typed fields, inherited events | 3 |
 
 Aggregate ~87% (per-corpus: ZK **100%**, solmate **100%**, solady **99%**,
-Uniswap-v3 **93%**, OpenZeppelin **89%**, Aave **71%**).
+Uniswap-v3 **93%**, OpenZeppelin **89%**, Aave v3 **85%**).
 
 A curated, **dependency-free** subset of **33 self-contained** real contracts
 (Solidity 0.5.x–0.8.x) lives in
@@ -555,7 +556,7 @@ neo-forge build
 # Run tests
 neo-forge test
 
-`neo-forge init` is implemented and writes a starter project layout. Build/test/deploy flows remain scaffold-level today; use `neo-solc` + Neo tooling (`neoxp` / `neo-cli`) for real deployment.
+`neo-forge init` is implemented and writes a starter project layout. `neo-forge test` delegates to the native `neo-test` runner (build it with `cargo build --release --bin neo-test`; see [docs/TESTING.md](./docs/TESTING.md)). Build/deploy flows remain scaffold-level today; use `neo-solc` + Neo tooling (`neoxp` / `neo-cli`) for compilation and real deployment.
 ```
 
 #### Direct Integration
@@ -893,7 +894,7 @@ git push origin vX.Y.Z
 - ✅ Error handling and reporting
 - ✅ CLI interface with file, Standard JSON, manifest-policy, diagnostics, and analysis modes
 - ✅ Neo N3 native formats (.nef and .manifest.json)
-- ✅ Broad Solidity 0.8.x support; see `docs/SOLIDITY_SUPPORT_MATRIX.md` for current feature status
+- ✅ Broad Solidity 0.5.x–0.8.x support (0.8.x primary); see `docs/SOLIDITY_SUPPORT_MATRIX.md` for current feature status
 - ✅ Variable handling with proper index-based storage
 - ✅ Loop control (break/continue) with context tracking
 - ✅ Function overloading support with Neo ABI name mangling for same-arity overloads
@@ -958,7 +959,7 @@ git push origin vX.Y.Z
 - **⚡ Performance**: Optimized code generation with multi-level optimization
 - **🔒 Security**: Basic security analysis; external audit recommended for production
 - **📚 Documentation**: Comprehensive guides and reference documentation
-- **🛠️ Compatibility**: Solidity 0.8.x on NeoVM 3.0+; see `docs/SOLIDITY_SUPPORT_MATRIX.md` for the current feature audit
+- **🛠️ Compatibility**: Solidity 0.5.x–0.8.x on NeoVM 3.0+; see `docs/SOLIDITY_SUPPORT_MATRIX.md` for the current feature audit
 
 ### **🎯 Production Readiness**
 
