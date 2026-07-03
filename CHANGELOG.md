@@ -5,6 +5,69 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.28.0] - 2026-07-03
+
+Precision & correctness release. Four deep architecture improvements from a
+systematic P3 audit — enriching the embedded NeoVM simulator's type system to
+distinguish `ByteString` from `Buffer`, adding arithmetic operand-size gas
+scaling, implementing lazy streaming storage iteration, and enriching Oracle
+`getrequest` responses to match the real NeoVM wire format.
+
+### Added
+
+- **ByteString / Buffer type distinction** — `StackItem::ByteArray` now carries
+  a `type_tag` (`ByteString = 0x28` / `Buffer = 0x30`). `NEWBUFFER`, `CAT`,
+  `SUBSTR`, `LEFT`, `RIGHT` emit `Buffer`-tagged byte arrays; `CONVERT` tags
+  output by the target type code. This brings the simulator's type model in
+  line with the NeoVM, where `Buffer ≠ ByteString` even with identical bytes.
+  `StackItem::byte_array()` (ByteString-tagged) and `StackItem::buffer()`
+  (Buffer-tagged) constructors added; 40+ match arms updated.
+- **Type-strict EQUAL** — `stack_items_equal()` now compares `type_tag` before
+  comparing bytes. `ByteArray(a)` `EQUAL` `ByteArray(a)` returns **false** when
+  the tags differ, matching NeoVM semantics.
+- **ISTYPE split** — `ISTYPE(0x28)` now correctly distinguishes ByteString
+  from `ISTYPE(0x30)` Buffer; the two type codes were previously conflated.
+- **REVERSEITEMS restriction** — ByteString-tagged arrays are rejected
+  (only Buffer / Array arrays may be reversed), matching NeoVM behaviour.
+- **MEMCPY restriction** — requires a Buffer-tagged destination; a
+  ByteString-tagged target is rejected.
+- **Arithmetic operand-size gas scaling** — `MUL`, `DIV`, `MOD`, `POW`,
+  `MODMUL`, `MODPOW` now charge `max(byte_len(a), byte_len(b)) × 3` extra gas
+  (`ARITH_PER_BYTE_GAS = 3`) on top of the base opcode cost, reflecting
+  big-integer computational complexity.
+- **Streaming storage iterator** — `IteratorState` redesigned with a
+  `StreamingCursor` (prefix, options, `last_key`, `exhausted`, `page_size=50`)
+  for lazy batch-on-demand fetching. `System.Storage.Find` now allocates a
+  small pre-fetched buffer; `Iterator.Next` triggers `refill_iterator_buffer()`
+  when the buffer is exhausted. Per-page overlay merging (`shape_raw_entries`)
+  computes the correct `last_key` after merge, enabling accurate cursor
+  pagination across overlay-modified key ranges.
+- **Oracle `getrequest` response** — added a `"getrequest"` match arm in
+  `invoke_native_oracle` that returns a structured NeoVM Map with 7 fields
+  (`OriginalTxid`, `GasForResponse`, `Url`, `Filter`, `CallbackContract`,
+  `CallbackMethod`, `UserData`), matching the real Oracle contract's wire
+  format.
+
+### Changed
+
+- **Simplified `consume_gas` signature** — changed from
+  `consume_gas(name, amount: Option<u64>)` to `consume_gas(name, amount: u64)`.
+  All 26 bridge call sites batch-updated (`None` → `3`; `Some(N)` → `N`).
+- **Removed dead `named_operation_cost()`** — the 9-arm EVM-style cost table
+  was never used; the `operation_cost()` path is always taken.
+- **`StorageQuery` cursor support** — added `start_after_key: Option<Vec<u8>>`
+  field for cursor-based pagination; `StorageManager::query()` sorts results
+  before applying the cursor filter.
+
+### Fixed
+
+- **Buffer-producing opcodes** — `NEWBUFFER`, `CAT`, `SUBSTR`, `LEFT`, `RIGHT`
+  now correctly emit `Buffer`-tagged `ByteArray` items (previously emitted
+  `ByteString`-tagged), matching NeoVM semantics.
+- **CONVERT type tagging** — the output of `CONVERT` is now tagged by the
+  target type code (`0x28` → ByteString, `0x30` → Buffer) instead of always
+  emitting ByteString.
+
 ## [v0.27.0] - 2026-07-02
 
 Real-world-compatibility & performance release. Driven by two systematic
@@ -2409,7 +2472,9 @@ Solidity 0.8.x feature matrix plus Neo N3 integration.
 
 ---
 
-[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.28.0...HEAD
+[v0.28.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.27.0...v0.28.0
+[v0.27.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.26.0...v0.27.0
 [v0.22.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.21.0...v0.22.0
 [v0.19.0]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.1...v0.19.0
 [v0.18.1]: https://github.com/r3e-network/neo-devpack-solidity/compare/v0.18.0...v0.18.1
