@@ -15,12 +15,10 @@ pragma solidity ^0.8.19;
  */
 
 import "../contracts/FrameworkBase.sol";
+import "../contracts/Types.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
 import "../libraries/Storage.sol";
-
-/// @dev Neo N3 Any type - represents any stack item type in NeoVM
-type Any is bytes;
 
 /**
  * @title INEP17

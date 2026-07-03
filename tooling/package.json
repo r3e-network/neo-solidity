@@ -50,12 +50,6 @@
       "minimatch": "5.1.8",
       "serialize-javascript": "7.0.5"
     },
-    "@ethersproject/bignumber": {
-      "bn.js": "5.2.3"
-    },
-    "@ethersproject/signing-key": {
-      "bn.js": "5.2.3"
-    },
     "elliptic": {
       "bn.js": "4.12.3"
     },

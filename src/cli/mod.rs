@@ -25,23 +25,20 @@
 //! neo-solc --standard-json --input input.json --output output.json
 //! ```
 
-use clap::{Arg, ArgAction, Command};
-use neo_devpack_solidity::frontend::VisibilityKind;
+// The non-test CLI code imports what it needs inside each `cli_parts`
+// submodule. These names are pulled into scope only for the `#[cfg(test)]
+// mod tests;` tree below, whose modules reach them via `use super::*`.
+// Gating them on `cfg(test)` keeps the release build free of unused imports.
+#[cfg(test)]
 use neo_devpack_solidity::ir;
-use neo_devpack_solidity::neo::{
-    build_nef_with_tokens, clamp_nef_source_with_flag, NEF_SOURCE_MAX_BYTES,
-};
-use neo_devpack_solidity::semantic_model::build_semantic_model;
+#[cfg(test)]
 use neo_devpack_solidity::solidity::{
-    analyse_all_sources, validate_contract, ContractMetadata, DiagnosticSeverity, EventMetadata,
-    FunctionKind, FunctionMetadata, NatspecDoc, ParameterMetadata, StateMutability,
+    validate_contract, ContractMetadata, FunctionKind, FunctionMetadata,
 };
-use neo_devpack_solidity::type_system::NeoType;
+#[cfg(test)]
 use serde_json::{json, Value};
+#[cfg(test)]
 use sha3::{Digest, Keccak256};
-use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::path::Path;
 
 mod bytecode;
 #[cfg(test)]
@@ -85,31 +82,15 @@ pub fn fuzz_process_standard_json_content(input: &[u8]) -> Result<(), String> {
     process_standard_json_content(input_str, None, options)
 }
 
-#[path = "cli_parts/cli_analyze.rs"]
-mod cli_analyze;
-#[path = "cli_parts/cli_compile.rs"]
-mod cli_compile;
-#[path = "cli_parts/cli_defs.rs"]
-mod cli_defs;
-#[path = "cli_parts/cli_deploy.rs"]
-mod cli_deploy;
-#[path = "cli_parts/cli_diagnostics.rs"]
-mod cli_diagnostics;
-#[path = "cli_parts/cli_manifest.rs"]
-mod cli_manifest;
-#[path = "cli_parts/cli_output.rs"]
-mod cli_output;
-#[path = "cli_parts/cli_run.rs"]
-mod cli_run;
-
-pub(crate) use cli_analyze::*;
-pub use cli_compile::*;
-pub use cli_defs::*;
-pub(crate) use cli_deploy::*;
-pub(crate) use cli_diagnostics::*;
-pub(crate) use cli_manifest::*;
-pub(crate) use cli_output::*;
-pub use cli_run::*;
+mod cli_parts;
+pub(crate) use cli_parts::cli_analyze::*;
+pub use cli_parts::cli_compile::*;
+pub use cli_parts::cli_defs::*;
+pub(crate) use cli_parts::cli_deploy::*;
+pub(crate) use cli_parts::cli_diagnostics::*;
+pub(crate) use cli_parts::cli_manifest::*;
+pub(crate) use cli_parts::cli_output::*;
+pub use cli_parts::cli_run::*;
 
 #[cfg(test)]
 mod tests;

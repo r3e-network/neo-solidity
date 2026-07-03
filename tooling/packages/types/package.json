@@ -25,7 +25,6 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@ethersproject/bignumber": "^5.7.0",
     "ethers": "^6.16.0"
   },
   "devDependencies": {

@@ -33,7 +33,12 @@ import "../contracts/Syscalls.sol";
 library Storage {
     using Syscalls for *;
 
-    // Events for storage operations
+    // IMPORTANT: Events declared in this library are for documentation purposes
+    // only. Storage is a compiler intrinsic — the compiler lowers supported
+    // members directly to System.Storage.* syscalls and NEVER executes the
+    // Solidity bodies below. Therefore, emit StorageOperation(...) NEVER fires
+    // at runtime on Neo N3. Developers should NOT rely on these events for
+    // off-chain monitoring.
     event StorageOperation(string indexed operation, bytes key, uint256 size);
 
     // ========== Context ==========

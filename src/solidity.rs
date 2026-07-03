@@ -21,16 +21,14 @@
 //! ```
 
 use crate::frontend::{
-    parse_source, ContractIR, ContractKind, EnumIR, ErrorIR, EventIR, FunctionIR, MutabilityKind,
+    parse_source, ContractIR, ContractKind, EnumIR, EventIR, FunctionIR, MutabilityKind,
     NatspecDocIR, ParameterIR, StateVariableIR, StructIR, VisibilityKind,
 };
 use crate::type_system::{
     EnumTypeMetadata, NeoType, StructFieldMetadata as NeoStructFieldMetadata, StructTypeMetadata,
 };
 use sha3::{Digest, Keccak256};
-use solang_parser::pt::{
-    Base, CatchClause, Expression, FunctionTy, Identifier, Loc, NamedArgument, Parameter, Statement,
-};
+use solang_parser::pt::{CatchClause, Expression, FunctionTy, Identifier, Parameter, Statement};
 use thiserror::Error;
 
 mod solidity_analyse;
@@ -49,15 +47,8 @@ pub(crate) use solidity_metadata::*;
 pub(crate) use solidity_validate::*;
 pub(crate) use upgrade::*;
 
-#[path = "solidity/analyse/inheritance.rs"]
-mod inheritance;
-pub(crate) use inheritance::*;
-#[path = "solidity/analyse/modifiers.rs"]
-mod modifiers;
-pub(crate) use modifiers::*;
-#[path = "solidity/analyse/sibling_merge_walkers.rs"]
-mod sibling_merge_walkers;
-pub(crate) use sibling_merge_walkers::*;
-#[path = "solidity/analyse/merge_helpers.rs"]
-mod merge_helpers;
-pub(crate) use merge_helpers::*;
+mod analyse;
+pub(crate) use analyse::inheritance::*;
+pub(crate) use analyse::merge_helpers::*;
+pub(crate) use analyse::modifiers::*;
+pub(crate) use analyse::siblings::*;

@@ -89,11 +89,14 @@ library Precompiles {
     // ========== 0x05: MODEXP ==========
 
     /**
+     * @notice NOT EIP-198 compliant — only handles uint256 values, not variable-length byte arrays
      * @dev Modular exponentiation: base^exp % mod.
      * @notice NeoVM uses arbitrary-precision BigInteger natively, so this
      * operation is performed using standard arithmetic operators. This helper
-     * accepts typed uint256 values and does not implement EIP-198's raw input
-     * byte layout, variable-length operands, or gas schedule.
+     * accepts typed uint256 values and does NOT implement EIP-198's raw input
+     * byte layout, variable-length operands, or gas schedule. Porting EVM
+     * cryptography code that uses the EIP-198 byte-payload format will produce
+     * incorrect results unless adapted.
      * @param base The base value
      * @param exp The exponent
      * @param mod The modulus (must be non-zero)

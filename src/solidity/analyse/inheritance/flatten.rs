@@ -1,4 +1,5 @@
 use super::*;
+use crate::solidity::rewrite_statement;
 
 pub(crate) fn flatten_contract_inheritance(
     contract: ContractIR,

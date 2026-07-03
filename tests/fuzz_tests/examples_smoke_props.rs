@@ -92,6 +92,21 @@ fn has_import(src: &str) -> bool {
     })
 }
 
+/// Detect a source that declares no compilable top-level unit — only free
+/// functions, `using` directives, or user-defined value types (e.g.
+/// `devpack/contracts/Types.sol`, which just exports `type Any is bytes;` for
+/// other files to import). Such a file compiles cleanly but produces zero
+/// artifacts by design, which is not a regression.
+fn has_no_compilable_unit(src: &str) -> bool {
+    !src.lines().any(|line| {
+        let t = line.trim_start();
+        t.starts_with("contract ")
+            || t.starts_with("library ")
+            || t.starts_with("interface ")
+            || t.starts_with("abstract contract ")
+    })
+}
+
 /// Files that intentionally fail compilation — they showcase rejection of
 /// unsupported Solidity features on NeoVM. See the ".sol" filename convention
 /// in `examples/new/`: any file ending in `Error.sol` OR beginning with
@@ -219,9 +234,15 @@ fn compile_one(path: &Path) -> CompileOutcome {
                 // smoke gate).
                 CompileOutcome::SkippedNegativeTest
             } else if artifacts.is_empty() {
-                CompileOutcome::UnexpectedFailure {
-                    path: path.to_path_buf(),
-                    error: "compiled OK but produced zero artifacts".into(),
+                if has_no_compilable_unit(&src) {
+                    // A type/util-only header (no contract/library/interface) —
+                    // zero artifacts is correct, not a regression.
+                    CompileOutcome::SkippedImport
+                } else {
+                    CompileOutcome::UnexpectedFailure {
+                        path: path.to_path_buf(),
+                        error: "compiled OK but produced zero artifacts".into(),
+                    }
                 }
             } else {
                 CompileOutcome::Compiled {

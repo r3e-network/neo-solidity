@@ -78,11 +78,16 @@ library Neo {
     }
 
     /**
-     * @dev Check if transaction exists (lowered to `Ledger.getTransaction`;
-     *      a missing transaction yields a null/falsy result)
+     * @dev Check if transaction exists (lowered to `Ledger.getTransactionHeight`;
+     *      -1 indicates a missing/unknown transaction on Neo N3)
+     *
+     * NOTE: Relies on signed integer semantics — Ledger.getTransactionHeight
+     * returns int256(-1) for unknown transactions. The explicit comparison
+     * against -1 is robust against changes in return encoding behavior.
      */
     function transactionExists(bytes32 txHash) internal view returns (bool) {
-        return Syscalls.getTransactionHeight(txHash) >= 0;
+        int256 height = Syscalls.getTransactionHeight(txHash);
+        return height >= 0;
     }
 
     // ========== Account and Balance Management ==========
@@ -187,9 +192,21 @@ library Neo {
 
     /**
      * @dev Get current network fee per byte (lowered to `Policy.getFeePerByte`)
+     *
+     * NOTE: This was previously named getGasPrice(), which was misleading
+     * because Neo N3's "gas price" is determined by getExecFeeFactor() and
+     * getExecPicoFeeFactor(), not the fee-per-byte. The new name accurately
+     * reflects that it returns Policy.getFeePerByte().
+     */
+    function getFeePerByte() internal view returns (uint256) {
+        return NativeCalls.getFeePerByte();
+    }
+
+    /**
+     * @dev Deprecated: use getFeePerByte() instead.
      */
     function getGasPrice() internal view returns (uint256) {
-        return NativeCalls.getFeePerByte();
+        return getFeePerByte();
     }
 
     /**

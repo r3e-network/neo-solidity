@@ -1,19 +1,19 @@
 import type { NeoHardhatNetworkConfig } from '@neo-devpack-solidity/types';
-import { ethers } from 'ethers';
-import { EventEmitter } from 'events';
-import * as fs from 'fs-extra';
-import * as path from 'path';
+import Debug from "debug";
 
-export class NetworkManager extends EventEmitter {
+const debug = Debug("hardhat:neo-solc:network");
+
+/**
+ * Network manager for Neo N3 — uses Neo JSON-RPC methods, NOT Ethereum
+ * JsonRpcProvider. This was previously implemented with ethers.js which
+ * calls eth_* methods incompatible with Neo N3 nodes.
+ */
+export class NetworkManager {
   private networks: Map<string, NeoHardhatNetworkConfig> = new Map();
-  private providers: Map<string, ethers.Provider> = new Map();
-  private signers: Map<string, ethers.Signer> = new Map();
+  private rpcClients: Map<string, NeoRpcClient> = new Map();
   private currentNetwork?: string;
 
   constructor(networks: { [networkName: string]: NeoHardhatNetworkConfig }) {
-    super();
-    
-    // Register networks
     for (const [name, config] of Object.entries(networks)) {
       this.addNetwork(name, config);
     }
@@ -21,22 +21,14 @@ export class NetworkManager extends EventEmitter {
 
   // Network Management
   addNetwork(name: string, config: NeoHardhatNetworkConfig): void {
-    // Validate network configuration
     this.validateNetworkConfig(config);
-    
     this.networks.set(name, config);
-    this.emit('networkAdded', { name, config });
   }
 
   removeNetwork(name: string): boolean {
-    if (this.networks.has(name)) {
-      this.networks.delete(name);
-      this.providers.delete(name);
-      this.signers.delete(name);
-      this.emit('networkRemoved', { name });
-      return true;
-    }
-    return false;
+    const removed = this.networks.delete(name);
+    this.rpcClients.delete(name);
+    return removed;
   }
 
   getNetwork(name: string): NeoHardhatNetworkConfig | undefined {
@@ -51,456 +43,217 @@ export class NetworkManager extends EventEmitter {
     return this.currentNetwork;
   }
 
-  // Provider Management
-  async getProvider(networkName: string): Promise<ethers.Provider> {
-    if (!this.providers.has(networkName)) {
+  // RPC Client Management
+  private getRpcClient(networkName: string): NeoRpcClient {
+    let client = this.rpcClients.get(networkName);
+    if (!client) {
       const network = this.networks.get(networkName);
       if (!network) {
-        throw new Error(`Network ${networkName} not found`);
+        throw new Error(`Network "${networkName}" not found`);
       }
-
-      const provider = await this.createProvider(network);
-      this.providers.set(networkName, provider);
+      client = new NeoRpcClient(network);
+      this.rpcClients.set(networkName, client);
     }
-
-    return this.providers.get(networkName)!;
+    return client;
   }
 
-  async getSigner(networkName: string, accountIndex: number = 0): Promise<ethers.Signer> {
-    const signerKey = `${networkName}:${accountIndex}`;
-    
-    if (!this.signers.has(signerKey)) {
-      const network = this.networks.get(networkName);
-      if (!network) {
-        throw new Error(`Network ${networkName} not found`);
-      }
+  // Neo N3 RPC Methods
+  /**
+   * Get current block count (Neo RPC: getblockcount)
+   */
+  async getBlockCount(networkName: string): Promise<number> {
+    const client = this.getRpcClient(networkName);
+    return client.call<number>("getblockcount");
+  }
 
-      const provider = await this.getProvider(networkName);
-      const signer = await this.createSigner(network, provider, accountIndex);
-      this.signers.set(signerKey, signer);
-    }
+  /**
+   * Get best block hash (Neo RPC: getbestblockhash)
+   */
+  async getBestBlockHash(networkName: string): Promise<string> {
+    const client = this.getRpcClient(networkName);
+    return client.call<string>("getbestblockhash");
+  }
 
-    return this.signers.get(signerKey)!;
+  /**
+   * Get NEP-17 balances for an address (Neo RPC: getnep17balances)
+   */
+  async getBalance(networkName: string, address: string): Promise<Array<{ assethash: string; symbol: string; amount: string }>> {
+    const client = this.getRpcClient(networkName);
+    const result = await client.call<{ balance: Array<{ assethash: string; symbol: string; decimals: number; amount: string }> }>("getnep17balances", [address]);
+    return result.balance || [];
+  }
+
+  /**
+   * Get GAS balance for an address
+   */
+  async getGasBalance(networkName: string, address: string): Promise<string> {
+    const balances = await this.getBalance(networkName, address);
+    // GAS native contract hash on Neo N3
+    const gasBalance = balances.find(
+      b => b.assethash.toLowerCase() === "0xd2a4cff31913016155e38e474a2c06d08be276cf"
+    );
+    return gasBalance?.amount || "0";
+  }
+
+  /**
+   * Send raw transaction (Neo RPC: sendrawtransaction)
+   */
+  async sendRawTransaction(networkName: string, signedTx: string): Promise<{ hash: string }> {
+    const client = this.getRpcClient(networkName);
+    const result = await client.call<any>("sendrawtransaction", [signedTx]);
+    if (typeof result === "string") return { hash: result };
+    if (result?.hash) return { hash: result.hash };
+    throw new Error(`sendrawtransaction returned unexpected result: ${JSON.stringify(result)}`);
+  }
+
+  /**
+   * Invoke function (read-only, Neo RPC: invokefunction)
+   */
+  async invokeFunction(
+    networkName: string,
+    scriptHash: string,
+    method: string,
+    params: any[] = []
+  ): Promise<any> {
+    const client = this.getRpcClient(networkName);
+    return client.call("invokefunction", [scriptHash, method, params]);
+  }
+
+  /**
+   * Get transaction height (Neo RPC: gettransactionheight)
+   */
+  async getTransactionHeight(networkName: string, txHash: string): Promise<number> {
+    const client = this.getRpcClient(networkName);
+    return client.call<number>("gettransactionheight", [txHash]);
+  }
+
+  /**
+   * Get application log (Neo RPC: getapplicationlog)
+   */
+  async getApplicationLog(networkName: string, txHash: string): Promise<any> {
+    const client = this.getRpcClient(networkName);
+    return client.call("getapplicationlog", [txHash]);
   }
 
   // Network Connection
   async connectToNetwork(networkName: string): Promise<void> {
     const network = this.networks.get(networkName);
     if (!network) {
-      throw new Error(`Network ${networkName} not found`);
+      throw new Error(`Network "${networkName}" not found`);
     }
 
-    this.emit('networkConnecting', { networkName });
-
     try {
-      // Test connection
-      const provider = await this.getProvider(networkName);
-      const blockNumber = await provider.getBlockNumber();
-      
+      const blockCount = await this.getBlockCount(networkName);
       this.currentNetwork = networkName;
-      this.emit('networkConnected', { networkName, blockNumber });
+      debug(`Connected to ${networkName} (block #${blockCount})`);
     } catch (error) {
-      this.emit('networkConnectionFailed', { networkName, error });
-      throw error;
+      throw new Error(`Failed to connect to "${networkName}": ${error}`);
     }
   }
 
   async disconnectFromNetwork(): Promise<void> {
-    if (this.currentNetwork) {
-      this.emit('networkDisconnected', { networkName: this.currentNetwork });
-      this.currentNetwork = undefined;
-    }
+    this.currentNetwork = undefined;
   }
 
   // Network Status
   async getNetworkStatus(networkName: string): Promise<{
     connected: boolean;
-    blockNumber: number;
-    chainId: number;
-    gasPrice: string;
+    blockCount: number;
     peerCount?: number;
-    sync?: {
-      syncing: boolean;
-      currentBlock?: number;
-      highestBlock?: number;
-    };
   }> {
     try {
-      const provider = await this.getProvider(networkName);
-      const network = await provider.getNetwork();
-      const blockNumber = await provider.getBlockNumber();
-      const feeData = await provider.getFeeData();
-
+      const client = this.getRpcClient(networkName);
+      const [blockCount, peers] = await Promise.all([
+        client.call<number>("getblockcount"),
+        client.call<{ connected?: any[] }>("getpeers").catch(() => ({} as { connected?: any[] })),
+      ]);
       return {
         connected: true,
-        blockNumber,
-        chainId: Number(network.chainId),
-        gasPrice: feeData.gasPrice?.toString() || '0'
+        blockCount,
+        peerCount: peers?.connected?.length || 0,
       };
-    } catch (_error) {
-      return {
-        connected: false,
-        blockNumber: 0,
-        chainId: 0,
-        gasPrice: '0'
-      };
+    } catch {
+      return { connected: false, blockCount: 0 };
     }
   }
 
-  async waitForConnection(networkName: string, timeout: number = 30000): Promise<void> {
-    const startTime = Date.now();
-    
-    while (Date.now() - startTime < timeout) {
-      try {
-        await this.connectToNetwork(networkName);
-        return;
-      } catch (_error) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+  async healthCheck(networkName: string): Promise<{
+    healthy: boolean;
+    checks: Array<{ name: string; status: "pass" | "fail" | "warn"; message: string }>;
+  }> {
+    const checks: Array<{ name: string; status: "pass" | "fail" | "warn"; message: string }> = [];
+
+    try {
+      const blockCount = await this.getBlockCount(networkName);
+      checks.push({ name: "connection", status: "pass", message: `Connected, block #${blockCount}` });
+    } catch (error) {
+      checks.push({ name: "connection", status: "fail", message: `Connection failed: ${error}` });
     }
 
-    throw new Error(`Failed to connect to ${networkName} within ${timeout}ms`);
+    return { healthy: checks.every(c => c.status !== "fail"), checks };
   }
 
-  // Account Management
-  async getAccounts(networkName: string): Promise<string[]> {
-    const network = this.networks.get(networkName);
-    if (!network) {
-      throw new Error(`Network ${networkName} not found`);
-    }
-
-    if (Array.isArray(network.accounts)) {
-      return network.accounts.map((privateKey) => {
-        const wallet = new ethers.Wallet(privateKey);
-        return wallet.address;
-      });
-    } else if (network.accounts.mnemonic) {
-      const accounts: string[] = [];
-      for (let i = 0; i < network.accounts.count; i++) {
-        const wallet = ethers.HDNodeWallet.fromPhrase(
-          network.accounts.mnemonic,
-          "",
-          `${network.accounts.path}/${i}`
-        );
-        accounts.push(wallet.address);
-      }
-      return accounts;
-    }
-
-    return [];
+  // Configuration helpers
+  getNeoAddressVersion(networkName: string): number {
+    return this.networks.get(networkName)?.addressVersion || 53;
   }
 
-  async getBalance(networkName: string, address: string): Promise<string> {
-    const provider = await this.getProvider(networkName);
-    const balance = await provider.getBalance(address);
-    return ethers.formatEther(balance);
+  getMagicNumber(networkName: string): number {
+    return this.networks.get(networkName)?.magic || 860833102;
   }
 
-  async getTransactionCount(networkName: string, address: string): Promise<number> {
-    const provider = await this.getProvider(networkName);
-    return provider.getTransactionCount(address);
-  }
-
-  // Neo-specific Features
-  async getNeoBlockHeight(networkName: string): Promise<number> {
-    const provider = await this.getProvider(networkName);
-    return provider.getBlockNumber();
-  }
-
-  async getNeoAddressVersion(networkName: string): Promise<number> {
-    const network = this.networks.get(networkName);
-    return network?.addressVersion || 53;
-  }
-
-  async getMagicNumber(networkName: string): Promise<number> {
-    const network = this.networks.get(networkName);
-    return network?.magic || 860833102;
-  }
-
-  // Configuration Management
-  async saveNetworkConfig(filePath: string): Promise<void> {
-    const config: { [name: string]: NeoHardhatNetworkConfig } = {};
-    
-    for (const [name, network] of this.networks.entries()) {
-      // Remove sensitive data
-      const safeConfig = { ...network };
-      if (Array.isArray(safeConfig.accounts)) {
-        safeConfig.accounts = safeConfig.accounts.map(() => '<private_key>');
-      } else if (safeConfig.accounts.mnemonic) {
-        safeConfig.accounts.mnemonic = '<mnemonic>';
-      }
-      
-      config[name] = safeConfig;
-    }
-
-    await fs.writeJson(filePath, config, { spaces: 2 });
-  }
-
-  async loadNetworkConfig(filePath: string): Promise<void> {
-    if (!await fs.pathExists(filePath)) {
-      throw new Error(`Network config file not found: ${filePath}`);
-    }
-
-    const config = await fs.readJson(filePath);
-    
-    for (const [name, networkConfig] of Object.entries(config)) {
-      this.addNetwork(name, networkConfig as NeoHardhatNetworkConfig);
-    }
-  }
-
-  // Monitoring
-  startNetworkMonitoring(networkName: string, interval: number = 10000): void {
-    const monitoringId = setInterval(async () => {
-      try {
-        const status = await this.getNetworkStatus(networkName);
-        this.emit('networkStatus', { networkName, status });
-      } catch (error) {
-        this.emit('networkError', { networkName, error });
-      }
-    }, interval);
-
-    this.once('networkDisconnected', () => {
-      clearInterval(monitoringId);
-    });
-  }
-
-  // Private Implementation
   private validateNetworkConfig(config: NeoHardhatNetworkConfig): void {
     if (!config.rpc?.url) {
-      throw new Error('Network RPC URL is required');
+      throw new Error("Network RPC URL is required");
     }
-
     if (!config.magic) {
-      throw new Error('Network magic number is required');
+      throw new Error("Network magic number is required");
     }
-
     if (!config.addressVersion) {
-      throw new Error('Network address version is required');
+      throw new Error("Network address version is required");
     }
-
     try {
       new URL(config.rpc.url);
     } catch {
-      throw new Error('Invalid RPC URL format');
+      throw new Error("Invalid RPC URL format");
     }
   }
+}
 
-  private async createProvider(network: NeoHardhatNetworkConfig): Promise<ethers.Provider> {
-    const providerOptions: any = {
-      timeout: network.rpc.timeout || 30000
-    };
+/**
+ * Minimal Neo JSON-RPC client used by NetworkManager.
+ * Uses raw fetch() to avoid requiring @neo-devpack-solidity/hardhat-neo-deployer
+ * as a dependency of @neo-devpack-solidity/hardhat-solc-neo.
+ */
+class NeoRpcClient {
+  private url: string;
+  private requestId = 1;
 
-    if (network.rpc.headers) {
-      providerOptions.headers = network.rpc.headers;
-    }
-
-    return new ethers.JsonRpcProvider(network.rpc.url, undefined, providerOptions);
+  constructor(config: NeoHardhatNetworkConfig) {
+    this.url = config.rpc.url;
   }
 
-  private async createSigner(
-    network: NeoHardhatNetworkConfig,
-    provider: ethers.Provider,
-    accountIndex: number
-  ): Promise<ethers.Signer> {
-    if (Array.isArray(network.accounts)) {
-      if (accountIndex >= network.accounts.length) {
-        throw new Error(`Account index ${accountIndex} out of range`);
-      }
-      
-      return new ethers.Wallet(network.accounts[accountIndex], provider);
-    } else if (network.accounts.mnemonic) {
-      const derivationPath = `${network.accounts.path}/${network.accounts.initialIndex + accountIndex}`;
-      return ethers.HDNodeWallet.fromPhrase(network.accounts.mnemonic, "", derivationPath).connect(provider);
-    } else {
-      throw new Error('No accounts configured for network');
-    }
-  }
+  async call<T = any>(method: string, params: any[] = []): Promise<T> {
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method,
+        params,
+        id: this.requestId++,
+      }),
+    });
 
-  // Utilities
-  async estimateGas(
-    networkName: string,
-    transaction: any
-  ): Promise<{
-    gasLimit: string;
-    gasPrice: string;
-    totalCost: string;
-  }> {
-    const provider = await this.getProvider(networkName);
-    
-    const gasLimit = await provider.estimateGas(transaction);
-    const feeData = await provider.getFeeData();
-    const gasPrice = feeData.gasPrice || BigInt(0);
-    const totalCost = gasLimit * gasPrice;
-
-    return {
-      gasLimit: gasLimit.toString(),
-      gasPrice: gasPrice.toString(),
-      totalCost: totalCost.toString()
-    };
-  }
-
-  async sendTransaction(
-    networkName: string,
-    transaction: any,
-    accountIndex: number = 0
-  ): Promise<{
-    hash: string;
-    wait: (confirmations?: number) => Promise<any>;
-  }> {
-    const signer = await this.getSigner(networkName, accountIndex);
-    const tx = await signer.sendTransaction(transaction);
-    
-    return {
-      hash: tx.hash,
-      wait: async (confirmations = 1) => {
-        const receipt = await tx.wait(confirmations);
-        this.emit('transactionConfirmed', { 
-          networkName, 
-          hash: tx.hash, 
-          receipt 
-        });
-        return receipt;
-      }
-    };
-  }
-
-  // Network Discovery
-  async discoverNetworks(): Promise<string[]> {
-    // This could discover networks from common configuration files
-    const discoveries: string[] = [];
-    
-    // Check for Hardhat config
-    const hardhatConfigPath = path.join(process.cwd(), 'hardhat.config.js');
-    if (await fs.pathExists(hardhatConfigPath)) {
-      discoveries.push('hardhat');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    // Check for Foundry config
-    const foundryConfigPath = path.join(process.cwd(), 'foundry.toml');
-    if (await fs.pathExists(foundryConfigPath)) {
-      discoveries.push('foundry');
+    const data = await response.json() as { error?: { message?: string; code?: number }; result?: T };
+    if (data.error) {
+      throw new Error(`Neo RPC error: ${data.error.message} (code ${data.error.code})`);
     }
 
-    return discoveries;
-  }
-
-  async autoConfigureFromHardhat(configPath?: string): Promise<void> {
-    const hardhatPath = configPath || path.join(process.cwd(), 'hardhat.config.js');
-    
-    if (!await fs.pathExists(hardhatPath)) {
-      throw new Error('Hardhat config not found');
-    }
-
-    try {
-      // This would parse the Hardhat config and extract networks
-      // For now, add a default local network
-      this.addNetwork('hardhat', {
-        magic: 860833102,
-        addressVersion: 53,
-        rpc: {
-          url: 'http://127.0.0.1:8545'
-        },
-        accounts: [],
-        gasLimit: '9007199254740991',
-        gasPrice: '0',
-        blockGasLimit: '9007199254740991'
-      });
-    } catch (error) {
-      throw new Error(`Failed to parse Hardhat config: ${error}`);
-    }
-  }
-
-  async autoConfigureFromFoundry(configPath?: string): Promise<void> {
-    const foundryPath = configPath || path.join(process.cwd(), 'foundry.toml');
-    
-    if (!await fs.pathExists(foundryPath)) {
-      throw new Error('Foundry config not found');
-    }
-
-    try {
-      // This would parse the Foundry TOML config
-      // For now, add a default local network
-      this.addNetwork('anvil', {
-        magic: 860833102,
-        addressVersion: 53,
-        rpc: {
-          url: 'http://127.0.0.1:8545'
-        },
-        accounts: [],
-        gasLimit: '9007199254740991',
-        gasPrice: '0',
-        blockGasLimit: '9007199254740991'
-      });
-    } catch (error) {
-      throw new Error(`Failed to parse Foundry config: ${error}`);
-    }
-  }
-
-  // Health Checks
-  async healthCheck(networkName: string): Promise<{
-    healthy: boolean;
-    checks: Array<{
-      name: string;
-      status: 'pass' | 'fail' | 'warn';
-      message: string;
-      duration?: number;
-    }>;
-  }> {
-    const checks: Array<{
-      name: string;
-      status: 'pass' | 'fail' | 'warn';
-      message: string;
-      duration?: number;
-    }> = [];
-
-    // Connection check
-    const startTime = Date.now();
-    try {
-      await this.getNetworkStatus(networkName);
-      checks.push({
-        name: 'connection',
-        status: 'pass',
-        message: 'Successfully connected to network',
-        duration: Date.now() - startTime
-      });
-    } catch (error) {
-      checks.push({
-        name: 'connection',
-        status: 'fail',
-        message: `Connection failed: ${error}`,
-        duration: Date.now() - startTime
-      });
-    }
-
-    // Account balance check
-    try {
-      const accounts = await this.getAccounts(networkName);
-      if (accounts.length > 0) {
-        const balance = await this.getBalance(networkName, accounts[0]);
-        if (parseFloat(balance) > 0) {
-          checks.push({
-            name: 'balance',
-            status: 'pass',
-            message: `Account has balance: ${balance} ETH`
-          });
-        } else {
-          checks.push({
-            name: 'balance',
-            status: 'warn',
-            message: 'Account has zero balance'
-          });
-        }
-      }
-    } catch (error) {
-      checks.push({
-        name: 'balance',
-        status: 'fail',
-        message: `Balance check failed: ${error}`
-      });
-    }
-
-    const healthy = checks.every(check => check.status !== 'fail');
-    
-    return { healthy, checks };
+    return data.result as T;
   }
 }

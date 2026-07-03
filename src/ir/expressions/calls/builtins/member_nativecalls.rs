@@ -1,4 +1,5 @@
 use super::*;
+use crate::ir::ir_context::DiagnosticContext;
 
 // Native Contract Call Handling
 //
@@ -22,7 +23,7 @@ pub(crate) struct NativeContractDescriptor {
 /// `return Some(false)` shape used by every native-call lowering site
 /// without changing the outer match signature.
 fn check_arg_count(
-    ctx: &mut crate::ir::ir_context::LoweringContext,
+    ctx: &mut impl DiagnosticContext,
     name: &str,
     args: &[Expression],
     expected: usize,

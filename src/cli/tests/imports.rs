@@ -1,4 +1,5 @@
 use super::*;
+use std::fs;
 
 #[test]
 fn single_file_compilation_resolves_relative_imports() {

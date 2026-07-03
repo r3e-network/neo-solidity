@@ -17,7 +17,6 @@ import {
   BytecodeMetadata,
   SecurityAnalysis
 } from '@neo-devpack-solidity/types';
-import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import * as crypto from 'crypto';
 
@@ -155,7 +154,10 @@ export class NeoContractVerifier extends EventEmitter implements ContractVerifie
   // Private Implementation Methods
 
   private async validateRequest(request: VerificationRequest): Promise<void> {
-    if (!request.contractAddress || !ethers.isAddress(request.contractAddress)) {
+    // Neo N3 addresses are 20-byte hex strings (40 hex chars).
+    // They may be prefixed with "0x" or not.
+    const addr = (request.contractAddress || "").replace("0x", "").replace("0X", "");
+    if (!/^[0-9a-fA-F]{40}$/.test(addr)) {
       throw new Error('Invalid contract address');
     }
 

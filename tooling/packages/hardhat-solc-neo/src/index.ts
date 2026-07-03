@@ -45,14 +45,10 @@ const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
         "*": {
           "*": [
             "abi",
-            "evm.bytecode",
-            "evm.deployedBytecode", 
-            "evm.methodIdentifiers",
-            "evm.gasEstimates",
             "metadata",
             "storageLayout",
-            "evm.assembly",
-            "evm.legacyAssembly"
+            "neo.nef",
+            "neo.manifest"
           ]
         }
       },

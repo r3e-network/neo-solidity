@@ -40,16 +40,17 @@ export interface TransactionProfile {
   trace?: ExecutionTrace;
 }
 
+// Neo N3 shape. A Neo node exposes per-transaction GAS consumed
+// (getapplicationlog) but not EVM-style deployment-cost / code-size /
+// storage-slot accounting, so the contract profile is aggregated from the
+// transactions attributed to the contract.
 export interface ContractProfile {
   address: string;
   name?: string;
-  deploymentCost: string;
   totalGasUsed: string;
-  functionCalls: FunctionCallProfile[];
-  storage: StorageProfile;
-  codeSize: number;
-  runtimeSize: number;
-  optimizationLevel: number;
+  transactionCount: number;
+  averageGasPerTransaction: string;
+  functionProfiles: FunctionCallProfile[];
 }
 
 export interface FunctionCallProfile {
@@ -88,33 +89,28 @@ export interface StorageLayoutProfile {
   gasPerWrite: string;
 }
 
+// Neo N3 shape: a notification is an event name plus a NeoVM stack-item
+// state array (no EVM indexed-topics / data / logIndex split).
 export interface EventProfile {
-  eventName: string;
-  topics: string[];
-  data: string;
-  gasUsed: string;
-  logIndex: number;
+  name: string;
+  args: any[];
 }
 
+// Neo N3 shape: a Neo node reports only the total GAS consumed per
+// execution (getapplicationlog), not the EVM per-category split
+// (intrinsic / storage / refund / …). `byCategory` is kept open for any
+// coarse attribution a caller can derive.
 export interface GasBreakdown {
-  intrinsic: string;
-  execution: string;
-  storage: string;
-  logs: string;
-  calls: string;
-  creates: string;
-  memory: string;
-  returnData: string;
-  refund: string;
+  total: string;
+  byCategory: Record<string, string>;
+  summary: string;
 }
 
+// Neo N3 shape: Neo nodes do not expose per-opcode traces by default, so a
+// trace carries whatever steps are available plus the aggregate breakdown.
 export interface ExecutionTrace {
   steps: TraceStep[];
-  totalSteps: number;
-  gasUsed: string;
-  failed: boolean;
-  returnValue?: string;
-  errorMessage?: string;
+  gasBreakdown: GasBreakdown;
 }
 
 export interface TraceStep {
@@ -178,7 +174,7 @@ export interface UsagePattern {
 }
 
 export interface OptimizationSuggestion {
-  type: 'storage' | 'computation' | 'memory' | 'call' | 'loop';
+  type: 'storage' | 'computation' | 'memory' | 'call' | 'loop' | 'execution';
   severity: 'low' | 'medium' | 'high' | 'critical';
   title: string;
   description: string;

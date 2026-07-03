@@ -1,4 +1,5 @@
 use super::*;
+use crate::solidity::{base_last_name, inheritance_contract_chain};
 
 pub(crate) fn apply_base_constructors_and_modifiers(
     contract: &ContractIR,

@@ -1,5 +1,8 @@
 use super::*;
 
+#[path = "context/diagnostic_context.rs"]
+mod diagnostic_context;
+pub(crate) use diagnostic_context::*;
 #[path = "context/types.rs"]
 mod types;
 pub(crate) use types::*;

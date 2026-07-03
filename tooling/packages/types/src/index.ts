@@ -33,6 +33,7 @@ export type {
   OptimizationSuggestion,
   GasBreakdown,
   ExecutionTrace,
+  ReportFormat,
   PerformanceProfiler,
   PerformanceProfile,
 } from './profiler';

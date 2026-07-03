@@ -25,15 +25,10 @@ pragma solidity ^0.8.19;
  */
 
 import "../contracts/FrameworkBase.sol";
+import "../contracts/Types.sol";
 import "../libraries/Neo.sol";
 import "../libraries/Runtime.sol";
 import "../libraries/Storage.sol";
-
-/// @dev Neo N3 `Any` type — represents any stack item type in NeoVM.
-/// NEP-11 types the `transfer`/`onNEP11Payment` `data` parameter as `Any`;
-/// this alias makes the compiler emit manifest type `Any` (spec-conformant)
-/// while behaving as `bytes` in Solidity. Mirrors devpack/standards/NEP17.sol.
-type Any is bytes;
 
 /**
  * @title INEP11

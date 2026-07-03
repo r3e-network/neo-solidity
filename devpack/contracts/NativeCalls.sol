@@ -852,10 +852,13 @@ library NativeCalls {
     }
     
     struct ContractState {
+        // Matches Syscalls.sol's ContractStateNative field order:
+        // ContractManagement.getContract returns [id, updateCounter, hash, nef, manifest]
+        int256 id;
+        uint256 updateCounter;
         address hash;
         bytes nef;
         bytes manifest;
-        uint256 updateCounter;
     }
 
     struct WhitelistedContract {
@@ -1006,22 +1009,37 @@ library NativeCalls {
     
     /**
      * @dev Get next block validators
+     *
+     * Neo N3: `NeoToken.getNextBlockValidators()` returns `ECPoint[]` (33-byte
+     * public keys), NOT `address[]` (20-byte script hashes). Callers that need
+     * addresses must hash the public keys to obtain script hashes.
      */
-    function getNextBlockValidators() internal view returns (address[] memory) {
+    function getNextBlockValidators() internal view returns (bytes[] memory) {
         bytes memory result = Syscalls.contractCall(NEO_CONTRACT, "getNextBlockValidators", "");
-        return abi.decode(result, (address[]));
+        return abi.decode(result, (bytes[]));
     }
     
     /**
-     * @dev Check if address is committee member
+     * @dev Check if address matches the committee multi-sig address
+     *
+     * NOTE: This only checks if `account` equals the committee multi-sig
+     * address returned by NeoToken.getCommitteeAddress(). It does NOT check
+     * individual committee membership. For individual membership verification
+     * at invocation time, use `Runtime.checkWitness(account)`.
+     *
+     * Previously named `isCommittee`, which was misleading because it
+     * suggested individual membership checking.
+     */
+    function isCommitteeMultisigAddress(address account) internal view returns (bool) {
+        address committeeAddr = getCommitteeAddress();
+        return account == committeeAddr;
+    }
+
+    /**
+     * @dev Deprecated: use isCommitteeMultisigAddress() instead.
      */
     function isCommittee(address account) internal view returns (bool) {
-        // Delegate to committee address check - verifies if account
-        // matches the committee multi-sig address
-        address committeeAddr = getCommitteeAddress();
-        if (account == committeeAddr) return true;
-        // For individual member check, use witness verification
-        return false;
+        return isCommitteeMultisigAddress(account);
     }
     
     /**

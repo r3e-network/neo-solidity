@@ -1,4 +1,5 @@
 use super::*;
+use crate::solidity::base_last_name;
 
 pub(crate) fn build_modifier_definition_map(
     contract: &ContractIR,

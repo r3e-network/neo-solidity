@@ -622,3 +622,19 @@ impl<'a> LoweringContext<'a> {
         self.local_types.get(&index)
     }
 }
+
+impl<'a> DiagnosticContext for LoweringContext<'a> {
+    // The trait exposes only `record_error` (its sole consumer,
+    // member_nativecalls, is generic over `DiagnosticContext` and reports
+    // errors). Direct callers use the richer inherent methods on
+    // `LoweringContext` (record_warning_with_suggestion, etc.), which win
+    // method resolution over any trait method anyway.
+    fn record_error(&mut self, message: impl Into<String>) {
+        self.errors.push(IrDiagnostic {
+            function_name: self.function_name.clone(),
+            message: message.into(),
+            suggestion: None,
+            code: None,
+        });
+    }
+}

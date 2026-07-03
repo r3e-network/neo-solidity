@@ -127,7 +127,7 @@ contract OracleService is FrameworkBase {
     function oracleCallback(
         string calldata url,
         bytes calldata userData,
-        uint256 code,
+        int256 code,
         bytes calldata result
     ) external onlyOracleNative {
         uint256 requestId = abi.decode(userData, (uint256));

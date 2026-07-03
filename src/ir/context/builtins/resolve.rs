@@ -379,6 +379,7 @@ pub(crate) fn builtin_library_supported_members(base: &str) -> Option<&'static [
             "deployContract",
             "getNeoBalance",
             "getGasBalance",
+            "getFeePerByte",
             "getGasPrice",
             "getStoragePrice",
             "getCommittee",
@@ -510,6 +511,12 @@ pub(crate) fn resolve_neo_member(member: &str) -> Option<BuiltinCall> {
         "getGasBalance" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Gas,
             method: "balanceOf".to_string(),
+        }),
+        // Canonical name; `getGasPrice` below is the deprecated alias and
+        // resolves to the same Policy.getFeePerByte native.
+        "getFeePerByte" => Some(BuiltinCall::NativeCall {
+            contract: NativeContract::Policy,
+            method: "getFeePerByte".to_string(),
         }),
         "getGasPrice" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Policy,

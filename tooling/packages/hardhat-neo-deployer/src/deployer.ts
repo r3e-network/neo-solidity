@@ -13,7 +13,6 @@ import {
 import { HardhatPluginError } from "hardhat/plugins";
 import chalk from "chalk";
 import Debug from "debug";
-import { BigNumber } from "@ethersproject/bignumber";
 import { createHash } from "crypto";
 
 import { NeoRpcClient } from "./rpc-client";
@@ -160,8 +159,8 @@ function toNeoTransaction(transaction: NeoTransaction, hash: string): any {
     hash,
     version: exported.version,
     nonce: exported.nonce,
-    systemFee: BigNumber.from(exported.systemFee),
-    networkFee: BigNumber.from(exported.networkFee),
+    systemFee: BigInt(exported.systemFee),
+    networkFee: BigInt(exported.networkFee),
     validUntilBlock: exported.validUntilBlock,
     signers: (exported.signers ?? []).map((signer: any) => ({
       account: "0x" + strip0x(String(signer.account ?? "")),
@@ -371,7 +370,7 @@ export class NeoDeployer {
           signer,
         });
 
-        return BigNumber.from(estimate.systemFee).add(estimate.networkFee);
+        return BigInt(estimate.systemFee) + BigInt(estimate.networkFee);
       },
     });
 
@@ -613,7 +612,7 @@ export class NeoDeployer {
       throw error;
     }
 
-    const gasUsed = BigNumber.from(estimate.systemFee).add(estimate.networkFee);
+    const gasUsed = BigInt(estimate.systemFee) + BigInt(estimate.networkFee);
 
     return {
       address: contractAddress,
@@ -662,16 +661,16 @@ export class NeoDeployer {
     const vmStateRaw = execution?.vmstate ?? execution?.vmState ?? fallback?.state ?? fallback?.vmstate ?? fallback?.vmState;
     const vmState = normalizeVmState(vmStateRaw);
 
-    const systemFee = BigNumber.from(
-      parseRpcIntegerLike(
-        execution?.gasconsumed ??
-          execution?.gasConsumed ??
-          fallback?.gasconsumed ??
-          fallback?.gasConsumed ??
-          estimate.systemFee
-      )
-    );
-    const networkFee = BigNumber.from(estimate.networkFee);
+	    const systemFee = BigInt(
+	      parseRpcIntegerLike(
+	        execution?.gasconsumed ??
+	          execution?.gasConsumed ??
+	          fallback?.gasconsumed ??
+	          fallback?.gasConsumed ??
+	          estimate.systemFee
+	      )
+	    );
+	    const networkFee = BigInt(estimate.networkFee);
 
     const receipt = {
       transactionHash: txHash,
@@ -680,8 +679,8 @@ export class NeoDeployer {
       transactionIndex: 0,
       from,
       contractAddress,
-      gasUsed: systemFee.add(networkFee),
-      effectiveGasPrice: BigNumber.from(0),
+	      gasUsed: systemFee + networkFee,
+	      effectiveGasPrice: 0n,
       status: vmState === "HALT" ? "success" : "failed",
       events: [],
       neo: {

@@ -1,5 +1,3 @@
-import { BigNumber } from '@ethersproject/bignumber';
-
 /**
  * Contract deployment result
  */
@@ -13,7 +11,7 @@ export interface ContractDeployment {
   /** Block number */
   blockNumber: number;
   /** Gas used */
-  gasUsed: BigNumber;
+  gasUsed: bigint;
   /** Deployment receipt */
   receipt: DeploymentReceipt;
   /** Contract instance */
@@ -37,9 +35,9 @@ export interface DeploymentReceipt {
   /** Contract address */
   contractAddress: string;
   /** Gas used */
-  gasUsed: BigNumber;
+  gasUsed: bigint;
   /** Effective gas price */
-  effectiveGasPrice: BigNumber;
+  effectiveGasPrice: bigint;
   /** Status */
   status: 'success' | 'failed';
   /** Events emitted */
@@ -55,9 +53,9 @@ export interface DeploymentReceipt {
     /** Notifications */
     notifications: NeoNotification[];
     /** System fee */
-    systemFee: BigNumber;
+    systemFee: bigint;
     /** Network fee */
-    networkFee: BigNumber;
+    networkFee: bigint;
   };
 }
 
@@ -104,7 +102,7 @@ export interface ContractMethod {
   /** Invoke the method (write) */
   invoke: (...args: any[]) => Promise<TransactionResult>;
   /** Estimate gas for the method */
-  estimateGas: (...args: any[]) => Promise<BigNumber>;
+  estimateGas: (...args: any[]) => Promise<bigint>;
 }
 
 /**
@@ -188,9 +186,9 @@ export interface NeoTransaction {
   /** Nonce */
   nonce: number;
   /** System fee */
-  systemFee: BigNumber;
+  systemFee: bigint;
   /** Network fee */
-  networkFee: BigNumber;
+  networkFee: bigint;
   /** Valid until block */
   validUntilBlock: number;
   /** Signers */
@@ -246,11 +244,11 @@ export interface CallOptions {
   /** From address */
   from?: string;
   /** Gas limit */
-  gasLimit?: BigNumber;
+  gasLimit?: bigint;
   /** Gas price */
-  gasPrice?: BigNumber;
+  gasPrice?: bigint;
   /** Value to send */
-  value?: BigNumber;
+  value?: bigint;
   /** Block number for historical calls */
   blockTag?: number | string;
 }
@@ -268,7 +266,7 @@ export interface ContractFactory {
   /** Deploy contract */
   deploy: (...args: any[]) => Promise<ContractDeployment>;
   /** Estimate deployment gas */
-  estimateDeployGas: (...args: any[]) => Promise<BigNumber>;
+  estimateDeployGas: (...args: any[]) => Promise<bigint>;
   /** Get deployment data */
   getDeploymentData: (...args: any[]) => string;
 }
@@ -297,8 +295,8 @@ export interface InteractionOptions {
   from?: string;
   /** Gas settings */
   gas?: {
-    limit?: BigNumber;
-    price?: BigNumber;
+    limit?: bigint;
+    price?: bigint;
   };
   /** Retry settings */
   retry?: {
