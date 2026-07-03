@@ -48,10 +48,20 @@ pub(crate) fn try_lower_variable_call(
         }
 
         if identifier.name == "blockhash" {
-            // Neo N3 auto-compat: blockhash(n) → Ledger.getBlockHash(n)
+            // Neo N3 auto-compat: blockhash(n) → Ledger.getBlock(n).hash.
+            //
+            // The live LedgerContract native ABI has NO `getBlockHash` method
+            // (only getBlock/getTransaction/... — verified against mainnet
+            // getnativecontracts), so the previous lowering to a
+            // `getBlockHash` native call compiled clean but FAULTED
+            // method-not-found on a real node for every blockhash() use.
+            // Instead call the real `getBlock(index)` (returns the Block array,
+            // whose field 0 is the block hash) and read index 0, matching
+            // EVM's "0 for an unavailable block" by returning bytes32(0) when
+            // getBlock yields Null (out-of-range / future index).
             ctx.record_warning_with_suggestion(
-                "blockhash() auto-mapped to Ledger.getBlockHash() on Neo N3.",
-                "Use Ledger.getBlockHash(index) explicitly in Neo-native Solidity.",
+                "blockhash() maps to Ledger.getBlock(n).hash on Neo N3.",
+                "Use Ledger.getBlock(index) explicitly in Neo-native Solidity.",
             );
             if args.len() == 1 {
                 if !lower_expression(&args[0], ctx, instructions) {
@@ -64,10 +74,35 @@ pub(crate) fn try_lower_variable_call(
             instructions.push(Instruction::CallBuiltin {
                 builtin: BuiltinCall::NativeCall {
                     contract: NativeContract::Ledger,
-                    method: "getBlockHash".to_string(),
+                    method: "getBlock".to_string(),
                 },
                 arg_count: 1,
             });
+            // Null-guard the Block array: [block_or_null].
+            let notnull_label = ctx.next_label();
+            let end_label = ctx.next_label();
+            instructions.push(Instruction::Dup);
+            instructions.push(Instruction::PushLiteral(LiteralValue::Null));
+            instructions.push(Instruction::BinaryOp(BinaryOperator::Eq));
+            // JumpIf branches when the condition is FALSE (block != null) ->
+            // extract the hash; otherwise fall through to the null case.
+            instructions.push(Instruction::JumpIf {
+                target: notnull_label,
+            });
+            // Null: drop it and yield bytes32(0).
+            instructions.push(Instruction::Drop(ValueType::Any));
+            instructions.push(Instruction::PushLiteral(LiteralValue::ByteArray(vec![
+                0u8;
+                32
+            ])));
+            instructions.push(Instruction::Jump { target: end_label });
+            // Not null: Block field 0 is the hash.
+            instructions.push(Instruction::Label(notnull_label));
+            instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+                BigInt::zero(),
+            )));
+            instructions.push(Instruction::ArrayGet);
+            instructions.push(Instruction::Label(end_label));
             return Some(true);
         }
 

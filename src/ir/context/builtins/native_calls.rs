@@ -289,10 +289,10 @@ pub(crate) fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Ledger,
             method: "getBlock".to_string(),
         }),
-        "getBlockHash" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::Ledger,
-            method: "getBlockHash".to_string(),
-        }),
+        // NOTE: no `getBlockHash` — the live LedgerContract native ABI has no
+        // such method (verified against mainnet getnativecontracts); it would
+        // fault method-not-found on a real node. Use `blockhash(n)` (the EVM
+        // global, lowered to getBlock(n).hash) or `getBlock(n)` directly.
         "getBlockByIndex" => Some(BuiltinCall::NativeCall {
             contract: NativeContract::Ledger,
             method: "getBlock".to_string(),
@@ -321,10 +321,9 @@ pub(crate) fn resolve_native_calls_member(member: &str) -> Option<BuiltinCall> {
             contract: NativeContract::Ledger,
             method: "getTransactionVMState".to_string(),
         }),
-        "getBlockSystemFee" => Some(BuiltinCall::NativeCall {
-            contract: NativeContract::Ledger,
-            method: "getBlockSystemFee".to_string(),
-        }),
+        // NOTE: no `getBlockSystemFee` — no such method exists on the live
+        // LedgerContract native ABI (nor any block-system-fee getter); the old
+        // registration compiled to a native call that faults on a real node.
 
         // ========== Helpers ==========
         "externalNativeCall" => Some(BuiltinCall::ContractCall),

@@ -1041,7 +1041,7 @@ fn test_evm_compat_block_auto_mapped() {
     assert_compiles("new/EvmCompatBlockErrors.sol");
 }
 
-// blockhash() is now auto-mapped to Ledger.getBlockHash() with warning.
+// blockhash() is now auto-mapped to Ledger.getBlock(n).hash with warning.
 #[test]
 fn test_evm_compat_blockhash_auto_mapped() {
     assert_compiles("new/EvmCompatBlockhashError.sol");
@@ -1051,7 +1051,7 @@ fn test_evm_compat_blockhash_auto_mapped() {
 fn test_evm_compat_blockhash_warning() {
     assert_compile_warns(
         "new/EvmCompatBlockhashError.sol",
-        "blockhash() auto-mapped to Ledger.getBlockHash() on Neo N3",
+        "blockhash() maps to Ledger.getBlock(n).hash on Neo N3",
     );
 }
 

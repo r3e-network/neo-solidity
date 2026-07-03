@@ -2262,7 +2262,7 @@ contract C { event Transfer(address indexed from, address indexed to, uint256 va
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(10))]
 
-    // Harness #1 — Build a NEF with up to MAX_METHOD_TOKENS (512) entries and
+    // Harness #1 — Build a NEF with up to MAX_METHOD_TOKENS (128) entries and
     // round-trip via `parse_nef`. All tokens reuse the same 20-byte hash and
     // method name "m" — this is the simplest way to hit the capacity edge
     // without blowing up script size or introducing per-token variance that
@@ -2270,24 +2270,25 @@ proptest! {
     // `1..=MAX_METHOD_TOKENS`; every count in that range MUST round-trip.
     //
     // Observed behaviour on this codebase:
-    //   - MAX_METHOD_TOKENS = 512 (NEF3 spec maximum, src/neo/constants.rs:9)
-    //   - `build_nef_with_tokens` accepts exactly 512 tokens, rejects 513
-    //   - `parse_nef` round-trips all 512 token entries byte-for-byte
+    //   - MAX_METHOD_TOKENS = 128 (real Neo N3 NefFile.cs hard-caps token
+    //     deserialization at 128; src/neo/constants.rs)
+    //   - `build_nef_with_tokens` accepts exactly 128 tokens, rejects 129
+    //   - `parse_nef` round-trips all 128 token entries byte-for-byte
     //
     // Status: ACTIVE. If the build-side or parse-side caps ever drift out of
     // sync, this harness fires at the exact boundary count and surfaces the
     // disagreement.
     #[test]
     fn nef_roundtrips_with_max_tokens(
-        count in 1usize..=512usize,
+        count in 1usize..=128usize,
     ) {
         use neo_devpack_solidity::neo::{build_nef_with_tokens, parse_nef, MethodToken};
 
-        // MAX_METHOD_TOKENS is 512 on this codebase (src/neo/constants.rs:9),
-        // matching the NEF3 spec maximum. We parametrise `count` over the
-        // full legal range so proptest hits the boundary (512) in at least
-        // a few of its 10 cases.
-        const MAX: usize = 512;
+        // MAX_METHOD_TOKENS is 128 on this codebase (src/neo/constants.rs),
+        // matching the real Neo N3 node's NefFile deserialization cap. We
+        // parametrise `count` over the full legal range so proptest hits the
+        // boundary (128) in at least a few of its 10 cases.
+        const MAX: usize = 128;
         prop_assert!(count <= MAX,
             "fuzz precondition: count must be <= MAX_METHOD_TOKENS={}", MAX);
 

@@ -1,9 +1,11 @@
 use super::*;
 
-/// NeoVM `ExecutionEngineLimits.MaxItemSize` (0xFFFF). A ByteString/Buffer
+/// NeoVM `ExecutionEngineLimits.MaxItemSize` = `ushort.MaxValue * 2` = 131070
+/// (verified against neo-vm ExecutionEngineLimits.cs). A ByteString/Buffer
 /// whose length exceeds this FAULTs on a real node; NEWBUFFER, CAT and
-/// integer/byte growth past it throw "MaxItemSize exceeded".
-pub(crate) const NEOVM_MAX_ITEM_SIZE: usize = 0xFFFF;
+/// integer/byte growth past it throw "MaxItemSize exceeded". Distinct from
+/// the 65535-byte MaxStorageValueSize cap enforced separately in storage.rs.
+pub(crate) const NEOVM_MAX_ITEM_SIZE: usize = u16::MAX as usize * 2;
 
 impl ExecutionContext {
     pub(crate) fn new_buffer(&mut self) -> Result<(), RuntimeError> {

@@ -8,9 +8,11 @@ impl ExecutionContext {
                 Ok(true)
             }
             "System.Runtime.GetTrigger" => {
-                // Default to Application trigger (0x10) for the embedded runtime.
-                // This matches the most common execution context for deployed contracts.
-                self.push_stack(StackItem::Integer(0x10))?;
+                // Application trigger = 0x40 in Neo N3's TriggerType enum
+                // (OnPersist 0x01, PostPersist 0x02, Verification 0x20,
+                // Application 0x40). The embedded runtime models the common
+                // deployed-contract case, which executes under Application.
+                self.push_stack(StackItem::Integer(0x40))?;
                 Ok(true)
             }
             "System.Runtime.Platform" => {

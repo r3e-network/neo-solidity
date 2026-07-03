@@ -862,7 +862,7 @@ contract C {
 // without faulting and return sensible values.
 //
 //   MMM2_1: `block.coinbase` auto-maps to address(0) and returns 20 zero bytes.
-//   MMM2_2: `blockhash(block.number - 1)` auto-maps to Ledger.getBlockHash()
+//   MMM2_2: `blockhash(block.number - 1)` auto-maps to Ledger.getBlock(n).hash
 //            and returns 32 bytes on success (or empty on unknown index).
 //   MMM2_3: `tx.origin` auto-maps and returns a 20-byte address.
 //   MMM2_4: `block.basefee` auto-maps to Policy.getFeePerByte() and returns uint.
@@ -925,7 +925,7 @@ contract C {
     assert!(
         r.success,
         "MMM2_2 blockhash(block.number - 1) must succeed (auto-mapped to \
-         Ledger.getBlockHash()); exc={:?}.",
+         Ledger.getBlock(n).hash); exc={:?}.",
         r.exception.as_ref().map(|e| &e.message)
     );
     // Accept either 32-byte hash or empty (genesis block has no prior).
