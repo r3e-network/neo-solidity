@@ -1,8 +1,13 @@
-import { promises as fs } from "fs";
+import { Dirent, promises as fs } from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import chalk from "chalk";
+import type { CompilationInput } from "@neo-devpack-solidity/types";
 import { ConfigManager } from "./config.js";
+import { CompilerInvoker } from "./compiler-invoker.js";
+import { ArtifactCollector, NeoForgeBuildArtifact } from "./artifact-collector.js";
+import { BuildCache } from "./build-cache.js";
+import { NeoForgeBuildError } from "./build-error.js";
 
 /**
  * Resolve the `neo-test` runner binary: the `NEO_TEST` env var wins, otherwise
@@ -36,11 +41,23 @@ function runNeoTest(bin: string, args: string[]): Promise<void> {
   });
 }
 
+export interface BuildOptions {
+  force?: boolean;
+  watch?: boolean;
+  profile?: string;
+  quiet?: boolean;
+}
+
+export interface BuildResult {
+  artifacts: NeoForgeBuildArtifact[];
+  cached: boolean;
+}
+
 /**
  * Neo-Forge - Foundry-like UX for Neo DevPack for Solidity projects.
  *
- * This package is intentionally a scaffold: the CLI shows the intended workflow
- * and validates configuration, but does not yet wire into a compiler + test VM.
+ * `build()` is the primary entry point: it discovers sources, invokes
+ * `neo-solc --standard-json`, and writes `.nef`/`.manifest.json` artifacts.
  */
 export class NeoForge {
   private readonly config: ConfigManager;
@@ -51,19 +68,13 @@ export class NeoForge {
     this.profileName = profileName;
   }
 
-  async build(options: {
-    force?: boolean;
-    watch?: boolean;
-    profile?: string;
-    quiet?: boolean;
-  } = {}): Promise<void> {
-    const config = await this.config.loadConfig();
+  async build(options: BuildOptions = {}): Promise<BuildResult> {
+    await this.config.loadConfig();
     const profile = this.config.getProfile(options.profile || this.profileName);
 
-    void config;
-
     if (!options.quiet) {
-      console.log(chalk.blue("🔧 neo-forge build (scaffold)"));
+      console.log(chalk.blue("🔧 neo-forge build"));
+      console.log(`  profile: ${options.profile || this.profileName}`);
       console.log(`  src: ${profile.src}`);
       console.log(`  out: ${profile.out}`);
       if (options.watch) {
@@ -71,9 +82,77 @@ export class NeoForge {
       }
     }
 
-    throw new Error(
-      "neo-forge build is not implemented yet. Use `neo-solc` directly (or the Hardhat plugin) to compile."
-    );
+    const projectRoot = process.cwd();
+    const srcDir = path.resolve(projectRoot, profile.src);
+    const outDir = path.resolve(projectRoot, profile.out);
+    const cacheDir = path.resolve(projectRoot, profile.build.cacheDir);
+
+    const sourceFiles = await this.discoverSources(srcDir);
+    if (sourceFiles.length === 0) {
+      throw new NeoForgeBuildError(
+        `NSH-7010: no Solidity source files found in ${profile.src}.`,
+        { code: "NSH-7010" }
+      );
+    }
+
+    if (!options.quiet) {
+      console.log(chalk.blue(`📝 Compiling ${sourceFiles.length} files...`));
+    }
+
+    const cache = new BuildCache(cacheDir);
+    const expectedArtifacts = await this.estimateArtifactPaths(sourceFiles, srcDir, outDir);
+
+    if (!options.force && profile.build.incremental) {
+      const upToDate = await cache.isUpToDate(sourceFiles, expectedArtifacts);
+      if (upToDate) {
+        if (!options.quiet) {
+          console.log(chalk.green("✅ Build is up to date"));
+        }
+        return {
+          artifacts: sourceFiles.map((sourceFile) => {
+            const contractName = path.basename(sourceFile, ".sol");
+            const sourceName = path.relative(srcDir, sourceFile).split(path.sep).join("/");
+            const contractOutDir = path.join(outDir, path.dirname(sourceName), contractName);
+            return {
+              contractName,
+              sourceName,
+              nefPath: path.join(contractOutDir, `${contractName}.nef`),
+              manifestPath: path.join(contractOutDir, `${contractName}.manifest.json`),
+            };
+          }),
+          cached: true,
+        };
+      }
+    }
+
+    const sources = await this.readSources(sourceFiles, srcDir);
+    const input: CompilationInput = {
+      language: "Solidity",
+      sources,
+      settings: {
+        optimizer: profile.neoSolc.optimizer,
+      },
+    };
+
+    const invoker = new CompilerInvoker();
+    const output = await invoker.invoke(input, { cwd: projectRoot, verbose: !options.quiet });
+
+    const collector = new ArtifactCollector();
+    const artifacts = await collector.collect(output, outDir);
+
+    if (profile.build.incremental) {
+      const artifactPaths = artifacts.map((a) => [a.nefPath, a.manifestPath]).flat();
+      await cache.update(sourceFiles, artifactPaths);
+    }
+
+    if (!options.quiet) {
+      console.log(chalk.green(`✅ Successfully compiled ${artifacts.length} contract(s)`));
+      for (const artifact of artifacts) {
+        console.log(`  ${artifact.contractName}: ${path.relative(projectRoot, artifact.nefPath)}`);
+      }
+    }
+
+    return { artifacts, cached: false };
   }
 
   async test(options: {
@@ -145,6 +224,66 @@ export class NeoForge {
 
     console.log(chalk.blue(`🔎 neo-forge inspect (scaffold): ${contract}`));
     throw new Error("neo-forge inspect is not implemented yet.");
+  }
+
+  private async discoverSources(srcDir: string): Promise<string[]> {
+    const files: string[] = [];
+
+    async function scan(dir: string) {
+      let entries: Dirent[];
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return;
+        }
+        throw error;
+      }
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === "node_modules" || entry.name === ".git") {
+            continue;
+          }
+          await scan(fullPath);
+        } else if (entry.name.endsWith(".sol")) {
+          files.push(fullPath);
+        }
+      }
+    }
+
+    await scan(srcDir);
+    return files.sort((a, b) => a.localeCompare(b));
+  }
+
+  private async readSources(
+    sourceFiles: string[],
+    srcDir: string
+  ): Promise<Record<string, { content: string }>> {
+    const sources: Record<string, { content: string }> = {};
+    for (const filePath of sourceFiles) {
+      const content = await fs.readFile(filePath, "utf-8");
+      const relativePath = path.relative(srcDir, filePath).split(path.sep).join("/");
+      sources[relativePath] = { content };
+    }
+    return sources;
+  }
+
+  private async estimateArtifactPaths(
+    sourceFiles: string[],
+    srcDir: string,
+    outDir: string
+  ): Promise<string[]> {
+    const paths: string[] = [];
+    for (const sourceFile of sourceFiles) {
+      const contractName = path.basename(sourceFile, ".sol");
+      const sourceName = path.relative(srcDir, sourceFile).split(path.sep).join("/");
+      const contractOutDir = path.join(outDir, path.dirname(sourceName), contractName);
+      paths.push(path.join(contractOutDir, `${contractName}.nef`));
+      paths.push(path.join(contractOutDir, `${contractName}.manifest.json`));
+    }
+    return paths;
   }
 
   private async rmrf(dir: string): Promise<void> {

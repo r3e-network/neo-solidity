@@ -4,6 +4,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import { NeoForge } from "./forge.js";
+import { NeoForgeBuildError } from "./build-error.js";
 import { ConfigManager } from "./config.js";
 
 const program = new Command();
@@ -26,7 +27,26 @@ program
       const forge = new NeoForge(undefined, options.profile);
       await forge.build(options);
     } catch (error) {
-      console.error(chalk.red("Build failed:"), error);
+      if (error instanceof NeoForgeBuildError) {
+        console.error(chalk.red(`Build failed: ${error.message}`));
+        for (const diagnostic of error.diagnostics) {
+          const loc = diagnostic.sourceLocation?.file
+            ? ` ${diagnostic.sourceLocation.file}${
+                diagnostic.sourceLocation.start !== undefined
+                  ? ":" + diagnostic.sourceLocation.start
+                  : ""
+              }`
+            : "";
+          const prefix = diagnostic.code ? `${diagnostic.code}: ` : "";
+          const color = diagnostic.severity === "error" ? chalk.red : chalk.yellow;
+          console.error(color(`  ${diagnostic.severity}${loc}: ${prefix}${diagnostic.message}`));
+          if (diagnostic.formattedMessage && diagnostic.formattedMessage !== diagnostic.message) {
+            console.error(color(`    ${diagnostic.formattedMessage}`));
+          }
+        }
+      } else {
+        console.error(chalk.red("Build failed:"), error);
+      }
       process.exit(1);
     }
   });

@@ -19,16 +19,6 @@ export interface TestOptions {
 }
 
 /**
- * Build options
- */
-export interface BuildOptions {
-  force?: boolean;
-  watch?: boolean;
-  profile?: string;
-  quiet?: boolean;
-}
-
-/**
  * Forge script options
  */
 export interface ScriptOptions {
@@ -148,18 +138,6 @@ export interface TestSuiteResult {
   passed: number;
   failed: number;
   skipped: number;
-}
-
-/**
- * Build result
- */
-export interface BuildResult {
-  success: boolean;
-  duration: number;
-  contracts: number;
-  warnings: number;
-  errors: string[];
-  artifacts: string[];
 }
 
 /**

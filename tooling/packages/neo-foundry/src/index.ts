@@ -12,3 +12,7 @@ export * from './deployer.js';
 export * from './verifier.js';
 export * from './formatter.js';
 export * from './types.js';
+export * from './compiler-invoker.js';
+export * from './artifact-collector.js';
+export * from './build-cache.js';
+export * from './build-error.js';
