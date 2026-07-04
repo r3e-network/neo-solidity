@@ -217,7 +217,7 @@ fn standard_json_exposes_neo_method_map_for_same_arity_overloads() {
     let output_path = temp.path().join("out.json");
 
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract OverloadedApi {
         function foo(uint256 value) public pure returns (uint256) {

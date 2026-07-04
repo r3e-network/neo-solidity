@@ -44,7 +44,7 @@ fn address_code_length_uses_contract_management_iscontract() {
 #[test]
 fn address_code_uses_contract_management_get_contract_script() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract CodeHarness {
         function codeOf(address account) public view returns (bytes memory) {

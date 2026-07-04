@@ -25,7 +25,7 @@ fn non_builtin_libraries_are_merged_for_internal_calls() {
 #[test]
 fn non_builtin_libraries_allow_external_static_calls() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     library MathLib {
         function bump(uint256 x) external pure returns (uint256) {
@@ -47,7 +47,7 @@ fn non_builtin_libraries_allow_external_static_calls() {
 #[test]
 fn non_builtin_libraries_allow_external_member_calls_via_using() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     library MathLib {
         function bump(uint256 self, uint256 delta) external pure returns (uint256) {

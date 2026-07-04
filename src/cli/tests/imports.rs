@@ -362,7 +362,7 @@ fn single_file_compilation_resolves_aliased_encode_call_function_reference() {
     fs::write(
         &iface_path,
         r#"
-        pragma solidity ^0.8.34;
+        pragma solidity ^0.8.19;
 
         interface IFoo {
             function bar(uint256 x) external;
@@ -374,7 +374,7 @@ fn single_file_compilation_resolves_aliased_encode_call_function_reference() {
     fs::write(
         &entry_path,
         r#"
-        pragma solidity ^0.8.34;
+        pragma solidity ^0.8.19;
         import { IFoo as FooIface } from "./IFoo.sol";
 
         contract Entry {
@@ -403,7 +403,7 @@ fn single_file_compilation_resolves_wildcard_namespace_encode_call_function_refe
     fs::write(
         &iface_path,
         r#"
-        pragma solidity ^0.8.34;
+        pragma solidity ^0.8.19;
 
         interface IFoo {
             function bar(uint256 x) external;
@@ -415,7 +415,7 @@ fn single_file_compilation_resolves_wildcard_namespace_encode_call_function_refe
     fs::write(
         &entry_path,
         r#"
-        pragma solidity ^0.8.34;
+        pragma solidity ^0.8.19;
         import * as FooNS from "./IFoo.sol";
 
         contract Entry {

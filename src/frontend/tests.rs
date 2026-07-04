@@ -129,7 +129,7 @@ contract Test {
 fn parse_source_accepts_supported_solidity_pragma() {
     let source = r#"
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 contract Test {
     function value() public pure returns (uint256) {

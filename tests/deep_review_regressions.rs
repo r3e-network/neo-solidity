@@ -2983,7 +2983,7 @@ contract C {
 #[test]
 fn transient_state_variable_compiles_with_persist_semantics() {
     let src = r#"// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.27;
 contract C {
     uint256 transient t;
     function set(uint256 v) external { t = v; }

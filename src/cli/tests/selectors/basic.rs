@@ -57,7 +57,7 @@ fn interface_method_selector_lowers_to_bytes4_literal() {
 #[test]
 fn msg_sig_lowers_to_current_function_selector_literal() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract MsgSigHarness {
         function getSelector() public pure returns (bytes4) {

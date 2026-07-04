@@ -1,3 +1,21 @@
+//! Solidity version / semver helpers used by the parser.
+
+/// Canonical Solidity version range supported by this compiler.
+///
+/// Keep this in sync with the TypeScript tooling constant in
+/// `tooling/packages/types/src/compiler.ts`. Marked `#[allow(dead_code)]`
+/// because it is exported for external tooling and documentation rather than
+/// consumed inside this crate; `MIN_SUPPORTED_SOLIDITY_VERSION` and
+/// `MAX_EXCLUDED_SOLIDITY_VERSION` are used for the actual range checks.
+#[allow(dead_code)]
+pub const SUPPORTED_SOLIDITY_RANGE: &str = ">=0.8.19 <0.8.28";
+
+/// Minimum supported Solidity version (inclusive).
+pub const MIN_SUPPORTED_SOLIDITY_VERSION: &str = "0.8.19";
+
+/// Maximum excluded Solidity version (exclusive).
+pub const MAX_EXCLUDED_SOLIDITY_VERSION: &str = "0.8.28";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Version {
     pub(crate) major: u64,
@@ -227,23 +245,11 @@ pub(crate) fn parse_plain_version(raw: &str) -> Option<Version> {
 }
 
 pub(crate) fn intersects_supported_neo_range(lower: Bound, upper: Bound) -> bool {
-    // Supported upstream Solidity ranges for this compiler compatibility layer.
-    (5u64..=8).any(|minor| {
-        intersects_semver_window(
-            lower,
-            upper,
-            Version {
-                major: 0,
-                minor,
-                patch: 0,
-            },
-            Version {
-                major: 0,
-                minor: minor + 1,
-                patch: 0,
-            },
-        )
-    })
+    let min = parse_plain_version(MIN_SUPPORTED_SOLIDITY_VERSION)
+        .expect("MIN_SUPPORTED_SOLIDITY_VERSION must be valid");
+    let max = parse_plain_version(MAX_EXCLUDED_SOLIDITY_VERSION)
+        .expect("MAX_EXCLUDED_SOLIDITY_VERSION must be valid");
+    intersects_semver_window(lower, upper, min, max)
 }
 
 pub(crate) fn intersects_semver_window(

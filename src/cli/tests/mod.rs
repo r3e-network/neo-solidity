@@ -4,6 +4,7 @@ pub mod common;
 
 mod callt;
 mod error_bridge;
+mod error_regression;
 mod imports;
 mod integration;
 mod ir_codegen;

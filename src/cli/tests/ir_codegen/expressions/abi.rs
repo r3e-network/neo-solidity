@@ -31,7 +31,7 @@ fn msg_data_lowers_to_runtime_input_data_with_arguments() {
     // contain exactly one `LoadRuntimeValue(MsgData)` and no argument-synthesis
     // (no selector push, no AbiEncode, no BytesConcat for this access).
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract MsgDataHarness {
         function payload(uint256 a, address b) public pure returns (bytes memory) {
@@ -88,7 +88,7 @@ fn msg_data_lowers_to_runtime_input_data_with_arguments() {
 #[test]
 fn msg_data_with_no_params_lowers_to_runtime_input_data() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract MsgDataHarness {
         function payload() public pure returns (bytes memory) {
@@ -133,7 +133,7 @@ fn msg_data_with_no_params_lowers_to_runtime_input_data() {
 #[test]
 fn on_nep11_payment_msg_data_uses_param_3() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract Nep11PaymentHarness {
         function onNEP11Payment(address from, uint256 amount, bytes32 tokenId, bytes memory data) external {
@@ -172,7 +172,7 @@ fn on_nep11_payment_msg_data_uses_param_3() {
 #[test]
 fn abi_encode_with_signature_lowers_to_selector_prefix_plus_encoded_args() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     contract EncodeSigHarness {
         function payload() public pure returns (bytes memory) {
@@ -237,7 +237,7 @@ fn abi_encode_with_signature_lowers_to_selector_prefix_plus_encoded_args() {
 #[test]
 fn abi_encode_with_selector_lowers_to_selector_prefix_plus_encoded_args() {
     let source = r#"
-    pragma solidity ^0.8.34;
+    pragma solidity ^0.8.19;
 
     interface IFoo {
         function bar(uint256 x) external returns (bool);
