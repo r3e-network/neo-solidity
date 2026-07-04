@@ -52,12 +52,15 @@ impl ExecutionContext {
                         ),
                     });
                 }
+                if bytes.is_empty() {
+                    return Ok(StackItem::Integer(0.into()));
+                }
                 if bytes.len() <= 8 {
                     // Sign-extend from the high bit of the last byte so signed
                     // LE encodings shorter than 8 bytes round-trip correctly.
                     let mut buf = [0u8; 8];
                     buf[..bytes.len()].copy_from_slice(&bytes);
-                    let sign = *bytes.last().unwrap() & 0x80;
+                    let sign = *bytes.last().expect("guarded by non-empty check") & 0x80;
                     if sign != 0 {
                         for byte in buf.iter_mut().skip(bytes.len()) {
                             *byte = 0xFF;

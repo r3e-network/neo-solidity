@@ -1,10 +1,12 @@
 use super::*;
 
-fn parse_json_value(raw: &str, tag: &str) -> Option<Value> {
+fn parse_json_value(raw: &str, tag: &str, warnings: &mut Vec<String>) -> Option<Value> {
     match serde_json::from_str::<Value>(raw) {
         Ok(value) => Some(value),
         Err(err) => {
-            eprintln!("warning: ignoring @custom:{tag} because its value is not valid JSON: {err}");
+            warnings.push(format!(
+                "ignoring @custom:{tag} because its value is not valid JSON: {err}"
+            ));
             None
         }
     }
@@ -56,7 +58,11 @@ fn extract_declared_supportedstandards(metadata: &ContractMetadata) -> Vec<Strin
     Vec::new()
 }
 
-fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMetadata) {
+fn apply_manifest_custom_overrides(
+    manifest: &mut Value,
+    metadata: &ContractMetadata,
+    warnings: &mut Vec<String>,
+) {
     for (tag, raw_value) in &metadata.documentation.custom {
         let raw = raw_value.trim();
         if raw.is_empty() {
@@ -80,38 +86,38 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 manifest["name"] = Value::String(name);
             }
             "groups" => {
-                let Some(value) = parse_json_value(raw, tag) else {
+                let Some(value) = parse_json_value(raw, tag, warnings) else {
                     continue;
                 };
                 if value.is_array() {
                     manifest["groups"] = value;
                 } else {
-                    eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON array for manifest.groups"
-                    );
+                    warnings.push(format!(
+                        "ignoring @custom:{tag}; expected a JSON array for manifest.groups"
+                    ));
                 }
             }
             "features" => {
-                let Some(value) = parse_json_value(raw, tag) else {
+                let Some(value) = parse_json_value(raw, tag, warnings) else {
                     continue;
                 };
                 if !value.is_object() {
-                    eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON object for manifest.features"
-                    );
+                    warnings.push(format!(
+                        "ignoring @custom:{tag}; expected a JSON object for manifest.features"
+                    ));
                 } else if value
                     .as_object()
                     .is_some_and(|features| features.is_empty())
                 {
                     manifest["features"] = value;
                 } else {
-                    eprintln!(
-                        "warning: ignoring @custom:{tag}; Neo N3 requires manifest.features to be an empty object"
-                    );
+                    warnings.push(format!(
+                        "ignoring @custom:{tag}; Neo N3 requires manifest.features to be an empty object"
+                    ));
                 }
             }
             "supportedstandards" => {
-                let Some(value) = parse_json_value(raw, tag) else {
+                let Some(value) = parse_json_value(raw, tag, warnings) else {
                     continue;
                 };
                 // Neo deserializes `supportedstandards` as `string[]`; a non-string
@@ -122,13 +128,13 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 {
                     manifest["supportedstandards"] = value;
                 } else {
-                    eprintln!(
-                        "warning: ignoring @custom:{tag}; expected a JSON array of strings for manifest.supportedstandards"
-                    );
+                    warnings.push(format!(
+                        "ignoring @custom:{tag}; expected a JSON array of strings for manifest.supportedstandards"
+                    ));
                 }
             }
             "trusts" => {
-                let Some(value) = parse_json_value(raw, tag) else {
+                let Some(value) = parse_json_value(raw, tag, warnings) else {
                     continue;
                 };
                 // Neo's `WildcardContainer<ContractPermissionDescriptor>` accepts
@@ -138,9 +144,9 @@ fn apply_manifest_custom_overrides(manifest: &mut Value, metadata: &ContractMeta
                 if value.is_array() || value.as_str().map(str::trim) == Some("*") {
                     manifest["trusts"] = value;
                 } else {
-                    eprintln!(
-                        "warning: ignoring @custom:{tag}; manifest.trusts must be a JSON array or the \"*\" wildcard string"
-                    );
+                    warnings.push(format!(
+                        "ignoring @custom:{tag}; manifest.trusts must be a JSON array or the \"*\" wildcard string"
+                    ));
                 }
             }
             _ => {
@@ -209,6 +215,7 @@ pub(crate) fn build_manifest(
     ir_module: &ir::Module,
     bytecode: &[u8],
     tokens: &[crate::neo::MethodToken],
+    warnings: &mut Vec<String>,
 ) -> Result<serde_json::Value, super::ManifestError> {
     /// True for NeoTypes whose EVM ABI encoding is a single static 32-byte
     /// slot — the member shapes `lower_static_abi_slots_for_expr` supports.
@@ -461,11 +468,11 @@ pub(crate) fn build_manifest(
             StandardsDiagnosticLevel::Warning => "warning",
             StandardsDiagnosticLevel::Info => "info",
         };
-        eprintln!(
+        warnings.push(format!(
             "[{prefix}][{standard}] {msg}",
             standard = diag.standard,
             msg = diag.message
-        );
+        ));
     }
     let permissions = infer_permissions(metadata, ir_module, bytecode, tokens);
     // Neo N3 keeps `features` reserved for future use; Neo's manifest parser will
@@ -491,7 +498,7 @@ pub(crate) fn build_manifest(
         }
     });
 
-    apply_manifest_custom_overrides(&mut manifest, metadata);
+    apply_manifest_custom_overrides(&mut manifest, metadata, warnings);
 
     // Task #28: when the user EXPLICITLY advertises a NEP standard via
     // `@custom:neo.manifest.supportedstandards`, required methods and the

@@ -22,7 +22,8 @@
 
 ## Key Conventions
 - No `#[path = "..."]` anti-pattern — all modules use standard Rust layout (0 remaining)
-- Maximum directory depth target: ≤7 levels (was 10)
+- Maximum directory depth target: ≤4 levels (was 10, currently at 5 in some runtime paths)
+- Files >800 lines: 10 remaining. Monolithic pipelines (assembly, solidity_analyse) resist mechanical splitting
 - Files >800 lines: 13 remaining. Monolithic pipelines (assembly, solidity_analyse) resist mechanical splitting
 - Test files follow Rust conventions: `tests/mod.rs` for integration tests, `#[cfg(test)] mod tests;` for unit tests
 - Solidity contracts use `^0.8.19` pragma (minimum) or `>=0.8.19 <0.8.28` for compiler-supported range
@@ -49,6 +50,10 @@
 - Solidity 0.8.29+ feature additions (function types, fixed/ufixed) — feature work
 
 ## Version History
+- **v0.30.0** (2026-07-04): Architecture Phase 4 — file refactoring
+  - Split 3 largest files: assembly.rs (1440→5 files), frontend_parse.rs (1037→5 files), lower_assignment.rs (1140→2 files)
+  - Files >800 lines reduced from 13 to 10
+  - Remaining 10 are monolithic match chains requiring surgical refactoring
 - **v0.29.1** (2026-07-04): Architecture Phase 1 complete — manifest extraction
   - Extracted `src/manifest/` (11 files) from `src/cli/cli_parts/cli_manifest/`
   - Broke bidirectional dependency (moved `solidity_to_manifest_type` to manifest)

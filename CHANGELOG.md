@@ -5,6 +5,47 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.30.1] - 2026-07-04
+
+Code quality fixes from team capability improvement plan. Addresses error
+handling and unsafe code issues identified in the code quality audit.
+
+### Fixed
+
+**Manifest `eprintln!` elimination** (7 calls → 0):
+- `manifest/build.rs`: All 7 `eprintln!` warning calls replaced with a
+  `warnings: &mut Vec<String>` collector parameter. Warnings are now
+  returned to the caller (`compile.rs`) and added to the compilation
+  warnings list as `Diagnostic::warning()` entries, instead of being
+  printed directly to stderr.
+
+**Runtime `unwrap()` hardening** (3 risky instances → 0):
+- `execution_impl_part3_conversion.rs`: Added empty-bytes guard before
+  `bytes.last().expect(...)` — previously could panic on empty ByteString.
+- `execution_impl_part3_offsets/call_stack.rs`: Changed `unwrap()` to
+  `expect()` with documented invariant.
+- `execution_impl_part2_native/stdlib.rs`: Changed `unwrap()` to
+  `expect()` with documented invariant.
+
+**Unsafe block documentation** (1 block → 2 documented):
+- `storage_ops.rs` line 164: Added `# Safety` comment explaining the
+  soundness argument (single-threaded execution, exclusive access,
+  pointer valid for context lifetime).
+
+### Remaining `unwrap()`/`expect()` in production code
+All remaining instances (30+) are documented invariants:
+- `resolve.rs` (7): Hardcoded table lookups with matching arms
+- `upgrade.rs` (10): `Regex::new()` on compile-time constant patterns
+- `ctx_locals_scopes.rs` (1): `checked_add` with impossible-overflow comment
+- `power.rs` (1): Sign-tracking variable always set before use
+- `contract_hash.rs` (1): Guarded by `value <= 16` check
+- `input.rs` (1): 32-byte read with documented memory_limit guarantee
+
+### Verification
+- `cargo check`: 0 errors, 0 warnings
+- `cargo clippy`: 0 warnings
+- `cargo test`: 965 tests passed, 0 failed (zero regressions)
+
 ## [v0.30.0] - 2026-07-04
 
 Architecture Phase 4: file refactoring. Splits 3 of the largest monolithic

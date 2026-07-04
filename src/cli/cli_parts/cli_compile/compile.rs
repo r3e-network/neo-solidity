@@ -225,13 +225,18 @@ fn compile_metadata(
         options.use_callt,
     )
     .map_err(CompileError::Message)?;
+    let mut manifest_warnings: Vec<String> = Vec::new();
     let mut manifest = build_manifest(
         &metadata,
         &ir_module,
         &bytecode_output.script,
         &bytecode_output.tokens,
+        &mut manifest_warnings,
     )
     .map_err(|e| CompileError::Manifest(e.0))?;
+    for w in manifest_warnings {
+        warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(w));
+    }
 
     if let Some(source_override) =
         load_manifest_permissions_override_from_natspec(&metadata).map_err(CompileError::Message)?

@@ -1,350 +1,273 @@
-# Contributing to Neo DevPack for Solidity
+# Contributing to Neo DevPack Solidity
 
-We welcome contributions to the Neo DevPack for Solidity project! This guide will help you get started.
+**Version**: 1.0 | **Date**: 2026-07-04
 
-## 🎯 Getting Started
+---
+
+## Getting Started
 
 ### Prerequisites
+- Rust 1.88+ (install via `rustup`)
+- Foundry (for Solidity testing)
+- Neo N3 node (for integration testing)
 
-- **Rust**: 1.88 or higher (MSRV; matches `rust-version` in `Cargo.toml`)
-- **Node.js**: 20.19+ or 22.12+ (for tooling and documentation builds)
-- **.NET**: 8.0 or higher (for the optional C# runtime)
-- **Git**: Latest version
-
-### Development Setup
-
+### Setup
 ```bash
-# 1. Fork and clone the repository
-git clone https://github.com/yourusername/neo-devpack-solidity.git
+git clone <repo-url>
 cd neo-devpack-solidity
-
-# 2. Install dependencies
-make install-deps
-
-# 3. Build the project
-make build
-
-# 4. Run tests to ensure everything works
-make test-all
+cargo build
+cargo test
 ```
 
-## 📋 Ways to Contribute
+### Development Workflow
+1. Create a branch: `git checkout -b feature/your-feature`
+2. Make changes following the code review checklist
+3. Run quality gates: `cargo check && cargo clippy && cargo test`
+4. Create a PR with a clear description
+5. Address review feedback
+6. Squash and merge
 
-### 🐛 Bug Reports
+---
 
-Found a bug? Please create an issue with:
+## Code Standards
 
-- **Description**: Clear description of the bug
-- **Steps to Reproduce**: How to reproduce the issue
-- **Expected vs Actual**: What you expected vs what happened
-- **Environment**: OS, Rust version, Neo version
-- **Code Sample**: Minimal example that reproduces the bug
-
-### 🚀 Feature Requests
-
-Have an idea? Create an issue with:
-
-- **Problem Statement**: What problem does this solve?
-- **Proposed Solution**: How should it work?
-- **Alternatives**: What other approaches were considered?
-- **Use Cases**: Who would benefit from this feature?
-
-### 💻 Code Contributions
-
-#### Good First Issues
-
-Look for issues labeled [`good first issue`](https://github.com/r3e-network/neo-devpack-solidity/labels/good%20first%20issue) - these are perfect for new contributors.
-
-#### Development Workflow
-
-1. **Create a Branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make Changes**
-   - Follow our coding standards (see below)
-   - Add tests for new functionality
-   - Update documentation if needed
-
-3. **Test Your Changes**
-   ```bash
-   make test-all
-   make lint
-   make format
-   ```
-
-4. **Commit Your Changes**
-   ```bash
-   git add .
-   git commit -m "feat: add your feature description"
-   ```
-
-5. **Push and Create PR**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-   Then create a Pull Request on GitHub.
-
-## 🎨 Coding Standards
-
-### Rust Code
-
-- Follow [Rust style guidelines](https://doc.rust-lang.org/1.0.0/style/)
-- Use `cargo fmt` for formatting
-- Use `cargo clippy` for linting
-- Write comprehensive tests
-- Document public APIs
-
-```rust
-/// Compiles Yul code to NeoVM bytecode
-/// 
-/// # Arguments
-/// * `input` - The Yul source code to compile
-/// * `config` - Compilation configuration
-/// 
-/// # Returns
-/// * `Result<CompilationResult, CompilerError>` - Compilation result or error
-pub fn compile(input: &str, config: &CompilerConfig) -> Result<CompilationResult, CompilerError> {
-    // Implementation here
-}
-```
-
-### C# Code
-
-- Follow [Microsoft C# conventions](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/inside-a-program/coding-conventions)
-- Use XML documentation comments
-- Write unit tests for all public methods
-- Follow async/await patterns
-
-```csharp
-/// <summary>
-/// Stores data in EVM-compatible memory
-/// </summary>
-/// <param name="offset">Memory offset</param>
-/// <param name="data">Data to store</param>
-/// <returns>Task representing the async operation</returns>
-public async Task MStore(uint offset, byte[] data)
-{
-    // Implementation here
-}
-```
-
-### TypeScript Code
-
-- Follow [Airbnb TypeScript Style Guide](https://github.com/airbnb/javascript/tree/master/packages/eslint-config-airbnb-typescript)
-- Use strict TypeScript configuration
-- Write comprehensive JSDoc comments
-- Include unit tests
-
-```typescript
-/**
- * Compiles Solidity contract for Neo blockchain
- * @param source - Solidity source code
- * @param options - Compilation options
- * @returns Promise resolving to compilation result
- */
-export async function compile(
-  source: string, 
-  options: CompileOptions
-): Promise<CompileResult> {
-  // Implementation here
-}
-```
-
-## 🧪 Testing Guidelines
-
-### Test Requirements
-
-- **Unit Tests**: All new functions must have unit tests
-- **Integration Tests**: Add integration tests for new features
-- **Performance Tests**: Include benchmarks for performance-critical code
-- **Documentation Tests**: Ensure examples in docs work
-
-### Running Tests
+### Build Quality Gates (Must Pass)
 
 ```bash
-# Run all tests
-make test-all
-
-# Run specific test suites
-cargo test lexer_tests
-cargo test parser_tests
-dotnet test runtime/
-
-# Run performance benchmarks
-cargo bench
-
-# Run with coverage
-make test-coverage
+# All three must pass clean before committing
+cargo check    # 0 errors, 0 warnings
+cargo clippy   # 0 warnings
+cargo test     # all tests pass
 ```
 
-### Writing Good Tests
+### Error Handling Rules
+
+**No `unwrap()` or `expect()` in production code.**
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
+// BAD
+let value = option.unwrap();
+let result = function().expect("should work");
 
-    #[test]
-    fn test_basic_compilation() {
-        let input = "{ let x := add(1, 2) }";
-        let config = CompilerConfig::default();
-        
-        let result = compile(input, &config).unwrap();
-        
-        assert!(!result.bytecode.is_empty());
-        assert!(result.estimated_gas > 0);
-    }
+// GOOD
+let value = option.ok_or_else(|| MyError::MissingValue)?;
+let result = function().map_err(|e| MyError::Wrapped(e))?;
+```
 
-    #[test]
-    fn test_error_handling() {
-        let invalid_input = "{ let x := }"; // Missing value
-        let config = CompilerConfig::default();
-        
-        let result = compile(invalid_input, &config);
-        
-        assert!(result.is_err());
-    }
+**No `eprintln!()` or `println!()` in production code.**
+
+```rust
+// BAD
+eprintln!("warning: invalid input: {}", err);
+
+// GOOD
+tracing::warn!(error = %err, "invalid input");
+```
+
+**All error types use `thiserror`.**
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum CompileError {
+    #[error("contract '{0}' not found")]
+    ContractNotFound(String),
+    #[error("parse error: {0}")]
+    Parse(#[from] ParseError),
 }
 ```
 
-## 📚 Documentation
+### File Size Limits
+
+- No file > 800 lines
+- No function > 100 lines
+- No match statement > 10 arms
+- Module depth ≤ 4 levels from `src/`
 
 ### Documentation Requirements
 
-- **README**: Update if you change installation or usage
-- **API Docs**: Document all public APIs
-- **Examples**: Provide working examples
-- **Changelog**: Add entry for breaking changes
+- All `pub fn` must have `///` doc comments
+- All `pub struct` and `pub enum` must have doc comments
+- New modules must have `//!` module-level docs
+- Doc comments explain "why", not just "what"
 
-### Documentation Style
-
-- Use clear, concise language
-- Include code examples
-- Provide context and motivation
-- Link to related concepts
-
-## 🔍 Code Review Process
-
-### What We Look For
-
-- **Correctness**: Does the code work as intended?
-- **Test Coverage**: Are there adequate tests?
-- **Performance**: Any performance implications?
-- **Security**: Are there security considerations?
-- **Documentation**: Is it well documented?
-- **Style**: Does it follow our coding standards?
-
-### Getting Your PR Merged
-
-1. **All Tests Pass**: CI must be green
-2. **Code Review**: At least one maintainer approval
-3. **Documentation**: Updated if needed
-4. **No Conflicts**: Rebase if needed
-
-## 🎯 Project Areas
-
-### Compiler Core
-
-- **Lexer**: Tokenizing Yul input
-- **Parser**: Building AST from tokens  
-- **Semantic Analysis**: Type checking and validation
-- **Optimizer**: Code optimization passes
-- **Code Generator**: NeoVM bytecode generation
-
-### Runtime Library
-
-- **Memory Manager**: EVM memory emulation
-- **Storage Manager**: Solidity storage layout
-- **ABI Encoder**: Function call encoding/decoding
-- **Crypto Library**: Hash functions and signatures
-- **Event System**: Event emission and filtering
-
-### Developer Tools
-
-- **Hardhat Plugin**: Hardhat integration
-- **Foundry Adapter**: Foundry compatibility
-- **CLI Tools**: Command-line interface
-- **Debug Tools**: Debugging and profiling
-
-## 🏷️ Commit Message Convention
-
-We use conventional commits:
-
-```
-type(scope): description
-
-[optional body]
-
-[optional footer]
+```rust
+/// Build a Neo N3 contract manifest from compiled metadata.
+///
+/// Generates ABI methods, events, and permissions sections.
+/// Custom overrides from NatSpec tags are applied after generation.
+///
+/// # Errors
+/// Returns `ManifestError` if declared standards validation fails.
+pub fn build_manifest(...) -> Result<Value, ManifestError> {
 ```
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes
-- `refactor`: Code refactoring
-- `test`: Test changes
-- `chore`: Build/tooling changes
+---
 
-**Examples:**
+## Testing Standards
+
+### Test Hierarchy
+
+1. **Unit tests** — `#[cfg(test)] mod tests` in source files
+   - Test individual functions in isolation
+   - Required for all pure functions
+
+2. **Integration tests** — `tests/` directory
+   - Test compilation of real Solidity contracts
+   - Test runtime execution of compiled bytecode
+
+3. **Property-based tests** — `tests/fuzz_tests/`
+   - Test invariants with `proptest`
+   - Required for IR transforms
+
+4. **Benchmarks** — `benches/`
+   - Track compilation time
+   - Required for performance-critical changes
+
+### Test Naming
+
+```rust
+// GOOD — describes behavior
+#[test]
+fn constant_fold_add_with_two_integers() { }
+
+#[test]
+fn manifest_includes_transfer_event_for_nep17() { }
+
+// BAD — describes implementation
+#[test]
+fn test1() { }
+
+#[test]
+fn test_function() { }
 ```
-feat(compiler): add support for Yul functions
-fix(runtime): resolve memory allocation bug
-docs(readme): update installation instructions
+
+### Test Structure (Arrange-Act-Assert)
+
+```rust
+#[test]
+fn optimizer_removes_dead_code_after_return() {
+    // Arrange
+    let mut block = ir::BasicBlock {
+        instructions: vec![
+            ir::Instruction::Return,
+            ir::Instruction::PushLiteral(ir::LiteralValue::Integer(1.into())),
+        ],
+    };
+
+    // Act
+    prune_after_terminator(&mut block, &HashSet::new());
+
+    // Assert
+    assert_eq!(block.instructions.len(), 1);
+    assert!(matches!(block.instructions[0], ir::Instruction::Return));
+}
 ```
 
-## 🚀 Release Process
+---
 
-### Version Numbering
+## Git Conventions
 
-We follow [Semantic Versioning](https://semver.org/):
+### Branch Naming
+- `feature/description` — new features
+- `fix/description` — bug fixes
+- `refactor/description` — code refactoring
+- `docs/description` — documentation only
 
-- **Major** (1.0.0): Breaking changes
-- **Minor** (0.1.0): New features, backward compatible
-- **Patch** (0.0.1): Bug fixes, backward compatible
+### Commit Messages
+```
+type: short description
 
-### Creating Releases
+Optional body explaining why (not what).
+```
 
-1. Update version numbers
-2. Update CHANGELOG.md
-3. Create release branch
-4. Run full test suite
-5. Create GitHub release
-6. Publish packages
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
-## 💬 Communication
+```
+feat: add ManifestError type to decouple manifest from CLI
 
-### Where to Get Help
+The manifest module was returning CompileError, creating a circular
+dependency. This introduces a manifest-specific error type and maps
+it at the CLI boundary.
+```
 
-- **Discord**: [R3E Network Discord](https://discord.gg/r3e-network)
-- **GitHub Issues**: For bugs and feature requests
-- **Email**: jimmy@r3e.network for private issues
+### PR Description Template
+```
+## What
+Brief description of the change.
 
-### Community Guidelines
+## Why
+Why this change is needed (context, problem solved).
 
-- **Be Respectful**: Treat everyone with respect
-- **Be Constructive**: Provide helpful feedback
-- **Be Patient**: Allow time for responses
-- **Follow Code of Conduct**: See CODE_OF_CONDUCT.md
+## Testing
+- cargo check: 0 errors
+- cargo clippy: 0 warnings
+- cargo test: N tests pass
+- Manual: (if applicable)
 
-## 🙏 Recognition
+## Breaking Changes
+- (list any breaking changes, or "None")
+```
 
-Contributors will be:
+---
 
-- Listed in CONTRIBUTORS.md
-- Mentioned in release notes
-- Invited to contributor Discord channel
-- Eligible for contributor rewards
+## Architecture Decisions
 
-## ❓ Questions?
+### When to Write an ADR
+- Adding a new top-level module
+- Changing the public API
+- Introducing a new dependency
+- Changing the compilation pipeline
+- Modifying the error handling strategy
 
-Don't hesitate to ask! We're here to help:
+### ADR Template
+```markdown
+# ADR-XXX: [Decision Title]
 
-- Open a GitHub issue
-- Join our Discord
-- Email jimmy@r3e.network
+## Status
+Proposed | Accepted | Deprecated | Superseded
 
-Thank you for contributing to Neo DevPack for Solidity! 🚀
+## Context
+What problem motivates this decision?
+
+## Decision
+What is the change?
+
+## Consequences
+What becomes easier or harder?
+```
+
+---
+
+## Module Organization
+
+### Current Module Layout (v0.30.0)
+```
+src/
+├── frontend/      # Solidity parsing
+├── solidity/      # Solidity analysis
+├── ir/            # Intermediate representation
+├── codegen/       # NeoVM bytecode generation
+├── optimizer/     # IR optimization passes
+├── manifest/      # Manifest generation
+├── runtime/       # NeoVM execution simulator
+├── cli/           # CLI orchestration + tests
+├── neo/           # NEF building/parsing
+├── opcode/        # NeoVM opcode definitions
+├── type_system/   # Type system primitives
+└── ...
+```
+
+### Dependency Rules
+1. **One-way flow**: Parser → IR → Codegen → Manifest (no back-edges)
+2. **Shared kernel**: opcode, type_system — immutable primitives only
+3. **No circular deps**: If module A imports B, B must not import A
+4. **CLI is orchestration**: CLI calls other modules, other modules don't call CLI
+
+---
+
+## Getting Help
+
+- **Code review**: All PRs reviewed by senior developer
+- **Pair programming**: 2 sessions/week available
+- **Tech talks**: Weekly 30-min knowledge sharing
+- **Questions**: Ask in PR comments or team chat

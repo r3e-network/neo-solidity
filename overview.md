@@ -1,39 +1,45 @@
-# v0.30.0 — Architecture Phase 4: File Refactoring
+# v0.30.1 — Code Quality Fixes
 
 ## What was done
 
-Split 3 of the largest monolithic files (>800 lines) into smaller, domain-focused submodules. Reduces the count of non-test files exceeding 800 lines from 13 to 10.
+Fixed error handling and unsafe code issues identified in the team capability improvement plan's code quality audit.
 
-### Files split
+## Fixes Applied
 
-| File | Before | After | Strategy |
-|------|--------|-------|----------|
-| `assembly.rs` | 1440 lines | 5 files (10 + 190 + 289 + 562 + 407) | Domain separation: extsload vs Yul, then Yul dispatch vs opcodes |
-| `frontend_parse.rs` | 1037 lines | 5 files (13 + 246 + 312 + 304 + 184) | Domain separation: parse vs pragma vs semver vs natspec |
-| `lower_assignment.rs` | 1140 lines | 2 files (728 + 413) | Section extraction: storage array ops separated from main lowering |
+### 1. Manifest `eprintln!` elimination (7 → 0)
 
-### Remaining files >800 lines (10)
+All 7 `eprintln!` calls in `manifest/build.rs` were replaced with a `warnings: &mut Vec<String>` collector parameter. Warnings are now:
+- Collected during manifest building
+- Returned to the caller (`compile.rs`)
+- Converted to `Diagnostic::warning()` entries
+- Added to the compilation warnings list
 
-These are monolithic match chains or dispatchers that resist mechanical splitting:
+This means manifest warnings now flow through the standard diagnostic pipeline instead of being printed directly to stderr.
 
-| File | Lines | Type |
-|------|-------|------|
-| `stdlib.rs` | 1372 | Monolithic match dispatch |
-| `solidity_analyse.rs` | 1207 | Monolithic pipeline (1 fn, 5 stages) |
-| `low_level.rs` | 1103 | Monolithic dispatch |
-| `abi_encode.rs` | 1017 | Monomorphic encoder |
-| `abi_decode.rs` | 979 | Monomorphic decoder |
-| `resolve.rs` | 944 | Monolithic resolver |
-| `arrays.rs` | 918 | Monolithic handler |
-| `member_calls.rs` | 912 | Monolithic dispatch |
-| `binary_u256_softarith.rs` | 897 | Monolithic handler |
-| `return_lower.rs` | 866 | Monolithic handler |
+### 2. Runtime `unwrap()` hardening (3 risky instances → 0)
 
-These require surgical refactoring — each match arm may have implicit dependencies on shared locals or fallthrough behavior.
+| File | Before | After |
+|------|--------|-------|
+| `execution_impl_part3_conversion.rs` | `bytes.last().unwrap()` (could panic on empty) | Empty-bytes guard + `expect()` |
+| `execution_impl_part3_offsets/call_stack.rs` | `.unwrap()` | `.expect("guarded by len > stack_base")` |
+| `execution_impl_part2_native/stdlib.rs` | `.unwrap()` | `.expect("guarded by len() == 1")` |
 
-### Verification
+### 3. Unsafe block documentation (1 undocumented → 0)
+
+Added `# Safety` comment to `storage_ops.rs` line 164 explaining the soundness argument.
+
+## Remaining Items
+
+All remaining `unwrap()`/`expect()` (30+ instances) are documented invariants:
+- Hardcoded table lookups with matching arms
+- `Regex::new()` on compile-time constant patterns (idiomatic Rust)
+- `checked_add` with impossible-overflow comments
+- Value-range-guarded lookups
+
+CLI `eprintln!` calls (in `single_file.rs`, `standard_json.rs`, `cli_analyze.rs`) are legitimate CLI stderr output — fatal errors followed by `exit(1)`. This is the standard pattern for CLI tools.
+
+## Verification
 
 - `cargo check`: 0 errors, 0 warnings
 - `cargo clippy`: 0 warnings
 - `cargo test`: **965 tests passed, 0 failed** — zero regressions
-- Public API unchanged

@@ -587,7 +587,7 @@ impl ExecutionContext {
                         })
                         .collect();
                     if slots.len() == 1 {
-                        slots.into_iter().next().unwrap()
+                        slots.into_iter().next().expect("guarded by len() == 1")
                     } else {
                         StackItem::array(slots)
                     }

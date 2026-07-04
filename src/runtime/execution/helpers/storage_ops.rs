@@ -161,6 +161,12 @@ impl ExecutionContext {
     ) -> Result<(Vec<StackItem>, Option<Vec<u8>>), RuntimeError> {
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
         if let (Some(mut ptr), Some(account)) = (self.storage_host, self.storage_account.as_ref()) {
+            // # Safety
+            //
+            // The storage_host pointer is valid for the execution context lifetime.
+            // We only borrow mutably for the duration of this single operation.
+            // No other code can access storage during this call since we're in a
+            // single-threaded execution model with exclusive access to the context.
             let storage = unsafe { ptr.as_mut() };
             let query = storage::StorageQuery {
                 account: account.clone(),
