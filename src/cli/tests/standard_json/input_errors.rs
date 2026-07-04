@@ -409,9 +409,9 @@ fn standard_json_ir_errors_preserve_code_and_suggestion() {
         .find(|err| err["type"] == "IrGeneration")
         .expect("IR generation error");
 
-    assert_eq!(error["code"], "IR_GENERATION_ERROR");
+    assert_eq!(error["code"], "NSH-3000");
     assert!(
-        error["suggestion"]
+        error["suggestions"][0]["message"]
             .as_str()
             .unwrap_or_default()
             .contains("use super.methodName()"),
@@ -474,7 +474,7 @@ fn standard_json_manifest_errors_include_code() {
         .find(|err| err["type"] == "ManifestGeneration")
         .expect("manifest generation error");
 
-    assert_eq!(error["code"], "MANIFEST_GENERATION_ERROR");
+    assert_eq!(error["code"], "NSH-6001");
 }
 
 #[test]
@@ -535,7 +535,7 @@ fn standard_json_generic_errors_include_code() {
         .find(|err| err["type"] == "ParseError")
         .expect("parse error");
 
-    assert_eq!(error["code"], "PARSE_ERROR");
+    assert_eq!(error["code"], "NSH-1000");
     let loc = &error["sourceLocation"];
     assert!(
         loc.get("start").and_then(Value::as_u64).is_some()

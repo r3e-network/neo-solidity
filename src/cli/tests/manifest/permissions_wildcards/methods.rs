@@ -29,7 +29,9 @@ fn deny_wildcard_methods_rejects_dynamic_method_permissions() {
     .expect_err("expected manifest wildcard method error");
 
     match err {
-        CompileError::Manifest(message) => {
+        CompileError::Manifest(diag) => {
+            let message = diag.message;
+
             assert!(
                 message
                     .to_ascii_lowercase()
@@ -146,7 +148,9 @@ fn manifest_permissions_replace_wildcards_rejects_empty_override_for_dynamic_cal
     .expect_err("expected empty replace-wildcards override to fail");
 
     match err {
-        CompileError::Manifest(message) => {
+        CompileError::Manifest(diag) => {
+            let message = diag.message;
+
             assert!(
                 message
                     .to_ascii_lowercase()
@@ -185,7 +189,9 @@ fn deny_full_wildcard_permissions_rejects_fully_dynamic_calls() {
     .expect_err("expected full wildcard permission error");
 
     match err {
-        CompileError::Manifest(message) => {
+        CompileError::Manifest(diag) => {
+            let message = diag.message;
+
             assert!(
                 message
                     .to_ascii_lowercase()
@@ -364,7 +370,9 @@ fn deny_wildcard_methods_rejects_wildcard_from_merge_override() {
     .expect_err("expected wildcard methods in override to be rejected");
 
     match err {
-        CompileError::Manifest(message) => {
+        CompileError::Manifest(diag) => {
+            let message = diag.message;
+
             assert!(
                 message
                     .to_ascii_lowercase()

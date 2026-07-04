@@ -42,17 +42,23 @@ fn apply_manifest_permissions_override(
             let is_empty = override_permissions.permissions.is_empty();
 
             if !had_wildcards && !is_empty {
-                return Err(CompileError::Manifest(format!(
-                    "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the inferred manifest has no wildcards to replace. Use `merge` mode to append explicit entries, or `replace-wildcards` only for dynamically-calling contracts.",
-                    metadata.name
-                )));
+                return Err(CompileError::Manifest(Box::new(Diagnostic::error(
+                    ErrorCode::Nsh6001,
+                    format!(
+                        "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the inferred manifest has no wildcards to replace. Use `merge` mode to append explicit entries, or `replace-wildcards` only for dynamically-calling contracts.",
+                        metadata.name
+                    ),
+                ))));
             }
 
             if had_wildcards && is_empty {
-                return Err(CompileError::Manifest(format!(
-                    "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the override is empty. An explicit permission allowlist must be provided to replace the dynamic wildcards.",
-                    metadata.name
-                )));
+                return Err(CompileError::Manifest(Box::new(Diagnostic::error(
+                    ErrorCode::Nsh6001,
+                    format!(
+                        "contract '{}' specifies a --manifest-permissions override with `replace-wildcards` mode, but the override is empty. An explicit permission allowlist must be provided to replace the dynamic wildcards.",
+                        metadata.name
+                    ),
+                ))));
             }
 
             inferred.retain(|contract, methods| contract != "*" && !methods.is_wildcard());
@@ -81,7 +87,7 @@ pub fn compile_contracts_with_options(
     // elsewhere will make this match non-exhaustive and force an update here.
     let metadatas = analyse_all_sources(source).map_err(|err| match err {
         SolidityError::Frontend(FrontendError::ParseDiagnostics(diags)) => {
-            CompileError::ParseErrors(diags)
+            CompileError::from_parse_diagnostics(diags)
         }
         SolidityError::Frontend(FrontendError::Parse(msg)) => {
             CompileError::Message(format!("Solidity parsing failed:\n{msg}"))
@@ -178,11 +184,15 @@ fn compile_metadata(
     }
 
     if !errors.is_empty() {
-        return Err(CompileError::Diagnostics(errors));
+        return Err(CompileError::Diagnostics(
+            errors.into_iter().map(Diagnostic::from).collect(),
+        ));
     }
 
     if let Err(diags) = build_semantic_model(&metadata) {
-        return Err(CompileError::Semantic(diags));
+        return Err(CompileError::Semantic(
+            diags.into_iter().map(Diagnostic::from).collect(),
+        ));
     }
 
     ensure_deploy_stub(&mut metadata)?;
@@ -192,7 +202,9 @@ fn compile_metadata(
         .any(|m| matches!(m.kind, FunctionKind::Constructor) && !m.parameters.is_empty());
 
     let (ir_module, ir_warnings) =
-        ir::Module::from_contract_with_warnings(&metadata).map_err(CompileError::Ir)?;
+        ir::Module::from_contract_with_warnings(&metadata).map_err(|diags| {
+            CompileError::from_ir_diagnostics(diags)
+        })?;
     warnings.extend(ir_warnings);
     let ir_module = optimize_ir(ir_module, optimizer_level);
 
@@ -233,7 +245,7 @@ fn compile_metadata(
         &bytecode_output.tokens,
         &mut manifest_warnings,
     )
-    .map_err(|e| CompileError::Manifest(e.0))?;
+    .map_err(|e| CompileError::Manifest(Box::new(Diagnostic::error(ErrorCode::Nsh6000, e.0))))?;
     for w in manifest_warnings {
         warnings.push(neo_devpack_solidity::solidity::Diagnostic::warning(w));
     }
@@ -323,7 +335,10 @@ fn compile_metadata(
             || options.deny_wildcard_contracts
             || options.deny_wildcard_methods
         {
-            return Err(CompileError::Manifest(message));
+            return Err(CompileError::Manifest(Box::new(Diagnostic::error(
+                ErrorCode::Nsh6001,
+                message,
+            ))));
         }
         warnings.push(
             neo_devpack_solidity::solidity::Diagnostic::warning(message)
@@ -336,7 +351,10 @@ fn compile_metadata(
                 metadata.name
             );
             if options.deny_wildcard_contracts && !wildcard_contract_only_nep_callbacks {
-                return Err(CompileError::Manifest(message));
+                return Err(CompileError::Manifest(Box::new(Diagnostic::error(
+                    ErrorCode::Nsh6001,
+                    message,
+                ))));
             }
             if !wildcard_contract_only_nep_callbacks {
                 warnings.push(
@@ -352,7 +370,10 @@ fn compile_metadata(
                 metadata.name
             );
             if options.deny_wildcard_methods {
-                return Err(CompileError::Manifest(message));
+                return Err(CompileError::Manifest(Box::new(Diagnostic::error(
+                    ErrorCode::Nsh6001,
+                    message,
+                ))));
             }
             warnings.push(
                 neo_devpack_solidity::solidity::Diagnostic::warning(message)

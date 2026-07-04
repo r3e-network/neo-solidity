@@ -49,7 +49,7 @@ fn standard_json_emits_codes_for_validation_errors() {
     assert!(
         errors
             .iter()
-            .any(|err| err["code"] == "DUPLICATE_SIGNATURE"),
+            .any(|err| err["code"] == "NSH-2000" && err["message"].as_str().unwrap_or("").to_ascii_lowercase().contains("duplicate")),
         "expected duplicate signature error code"
     );
 }
@@ -104,7 +104,7 @@ fn standard_json_codes_for_invalid_storage_param() {
     assert!(
         errors
             .iter()
-            .any(|err| err["code"] == "INVALID_STORAGE_PARAM"),
+            .any(|err| err["code"] == "NSH-3000" && err["message"].as_str().unwrap_or("").to_ascii_lowercase().contains("storage")),
         "expected invalid storage param code"
     );
 }
@@ -159,7 +159,7 @@ fn standard_json_codes_for_unsafe_external_type() {
     assert!(
         errors
             .iter()
-            .any(|err| err["code"] == "INVALID_STORAGE_PARAM"),
+            .any(|err| err["code"] == "NSH-3000" && err["message"].as_str().unwrap_or("").to_ascii_lowercase().contains("storage")),
         "expected invalid storage param code"
     );
 }

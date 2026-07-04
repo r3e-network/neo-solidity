@@ -193,7 +193,9 @@ fn deny_wildcard_contracts_rejects_dynamic_target_permissions() {
     .expect_err("expected manifest wildcard contract error");
 
     match err {
-        CompileError::Manifest(message) => {
+        CompileError::Manifest(diag) => {
+            let message = diag.message;
+
             assert!(
                 message
                     .to_ascii_lowercase()

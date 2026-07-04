@@ -17,6 +17,14 @@ extern crate self as neo_devpack_solidity;
 
 // === Public API (documented) ===
 
+/// Compiler diagnostics: `Diagnostic`, `ErrorCode`, `SourceSpan`, `Severity`,
+/// `Suggestion`, and `CompilerResult`.
+///
+/// Unified error representation used across the parser, semantic analysis,
+/// IR lowering, optimizer, codegen, and manifest stages. Every user-facing
+/// error carries a stable `NSH-XXXX` code and an optional source location.
+pub mod diagnostics;
+
 /// Compiler CLI: `compile_contracts`, `disassemble_neovm_bytecode`, standard-JSON.
 pub mod cli;
 

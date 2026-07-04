@@ -183,67 +183,68 @@ pub(crate) fn build_upgrade_report(
             }
             Err(CompileError::Diagnostics(diags)) => {
                 for diag in diags {
+                    let severity = match diag.severity {
+                        Severity::Info => UpgradeSeverity::Info,
+                        Severity::Warning => UpgradeSeverity::Warning,
+                        Severity::Error => UpgradeSeverity::Error,
+                    };
                     findings.push(UpgradeFinding::new(
                         "validation",
-                        match diag.severity {
-                            DiagnosticSeverity::Warning => UpgradeSeverity::Warning,
-                            DiagnosticSeverity::Error => UpgradeSeverity::Error,
-                        },
-                        diag.code
-                            .as_deref()
-                            .map(classify_upgrade_category)
-                            .unwrap_or_else(|| classify_upgrade_category(&diag.message)),
-                        diag.code,
+                        severity,
+                        classify_upgrade_category(&diag.code.to_string()),
+                        Some(diag.code.to_string()),
                         None::<String>,
                         diag.message,
-                        diag.suggestion,
+                        diag.suggestions.first().map(|s| s.message.clone()),
                     ));
                 }
                 false
             }
             Err(CompileError::Semantic(diags)) => {
                 for diag in diags {
+                    let severity = match diag.severity {
+                        Severity::Info => UpgradeSeverity::Info,
+                        Severity::Warning => UpgradeSeverity::Warning,
+                        Severity::Error => UpgradeSeverity::Error,
+                    };
                     findings.push(UpgradeFinding::new(
                         "semantic",
-                        match diag.severity {
-                            DiagnosticSeverity::Warning => UpgradeSeverity::Warning,
-                            DiagnosticSeverity::Error => UpgradeSeverity::Error,
-                        },
+                        severity,
                         classify_upgrade_category(&diag.message),
-                        diag.code,
+                        Some(diag.code.to_string()),
                         None::<String>,
                         diag.message,
-                        diag.suggestion,
+                        diag.suggestions.first().map(|s| s.message.clone()),
                     ));
                 }
                 false
             }
-            Err(CompileError::Ir(errors)) => {
-                for error in errors {
+            Err(CompileError::Ir(diags)) => {
+                for diag in diags {
                     findings.push(UpgradeFinding::new(
                         "ir",
                         UpgradeSeverity::Error,
-                        classify_upgrade_category(&error.message),
-                        error.code,
+                        classify_upgrade_category(&diag.message),
+                        Some(diag.code.to_string()),
                         None::<String>,
-                        format!("function '{}': {}", error.function_name, error.message),
-                        error.suggestion,
+                        diag.message,
+                        diag.suggestions.first().map(|s| s.message.clone()),
                     ));
                 }
                 false
             }
-            Err(CompileError::Manifest(message)) => {
+            Err(CompileError::Manifest(diag)) => {
                 findings.push(UpgradeFinding::new(
-                "manifest",
-                UpgradeSeverity::Error,
-                UpgradeCategory::ManifestReview,
-                Some("MANIFEST_GENERATION_ERROR"),
-                None::<String>,
-                message,
-                Some(
-                    "Review the inferred Neo permissions and contract metadata before deployment.",
-                ),
-            ));
+                    "manifest",
+                    UpgradeSeverity::Error,
+                    UpgradeCategory::ManifestReview,
+                    Some(diag.code.to_string()),
+                    None::<String>,
+                    diag.message,
+                    Some(
+                        "Review the inferred Neo permissions and contract metadata before deployment.",
+                    ),
+                ));
                 false
             }
             Err(CompileError::ParseErrors(diags)) => {
@@ -253,10 +254,10 @@ pub(crate) fn build_upgrade_report(
                         "compile",
                         UpgradeSeverity::Error,
                         category,
-                        Some("PARSE_ERROR"),
+                        Some(diag.code.to_string()),
                         None::<String>,
                         diag.message,
-                        None::<String>,
+                        diag.suggestions.first().map(|s| s.message.clone()),
                     ));
                 }
                 false
@@ -266,9 +267,21 @@ pub(crate) fn build_upgrade_report(
                     "compile",
                     UpgradeSeverity::Error,
                     classify_upgrade_category(&message),
-                    Some("GENERIC_ERROR"),
+                    Some(ErrorCode::Nsh0000.to_string()),
                     None::<String>,
                     message,
+                    None::<String>,
+                ));
+                false
+            }
+            Err(CompileError::Io { path, source }) => {
+                findings.push(UpgradeFinding::new(
+                    "compile",
+                    UpgradeSeverity::Error,
+                    UpgradeCategory::ManualMigration,
+                    Some(ErrorCode::Nsh0002.to_string()),
+                    None::<String>,
+                    format!("failed to access '{}': {source}", path.display()),
                     None::<String>,
                 ));
                 false

@@ -36,6 +36,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
+// Re-export the unified diagnostic types so every CLI sub-module can render
+// errors with stable NSH-XXXX codes without importing them individually.
+pub use crate::diagnostics::{Diagnostic, ErrorCode, Severity};
+
 pub(crate) mod cli_analyze;
 pub(crate) mod cli_compile;
 pub(crate) mod cli_defs;
