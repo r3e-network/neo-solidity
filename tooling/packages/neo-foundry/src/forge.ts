@@ -82,7 +82,7 @@ export class NeoForge {
       }
     }
 
-    const projectRoot = process.cwd();
+    const projectRoot = this.config.getConfigDir();
     const srcDir = path.resolve(projectRoot, profile.src);
     const outDir = path.resolve(projectRoot, profile.out);
     const cacheDir = path.resolve(projectRoot, profile.build.cacheDir);

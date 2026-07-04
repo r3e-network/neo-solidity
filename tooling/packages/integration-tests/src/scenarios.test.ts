@@ -180,7 +180,12 @@ describe("Integration Test Scenarios", () => {
     expect(counterContract).toContain("pragma solidity ^0.8.19;");
     expect(counterTest).toContain("pragma solidity ^0.8.19;");
 
-    await expect(forge.build({ quiet: true })).rejects.toThrow(/not implemented yet/i);
+    const buildResult = await forge.build({ quiet: true });
+    expect(buildResult.artifacts.length).toBeGreaterThan(0);
+    const counterArtifact = buildResult.artifacts.find((a) => a.contractName === "Counter");
+    expect(counterArtifact).toBeDefined();
+    expect(await fs.pathExists(counterArtifact!.nefPath)).toBe(true);
+    expect(await fs.pathExists(counterArtifact!.manifestPath)).toBe(true);
   });
 
   it("enforces the supported Solidity version range in neo-foundry configuration", async () => {

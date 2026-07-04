@@ -218,6 +218,13 @@ export class ConfigManager {
   }
 
   /**
+   * Get the directory containing the configuration file.
+   */
+  getConfigDir(): string {
+    return path.resolve(path.dirname(this.configPath));
+  }
+
+  /**
    * Get profile configuration
    */
   getProfile(profileName?: string): NeoFoundryConfig["profile"][string] {
