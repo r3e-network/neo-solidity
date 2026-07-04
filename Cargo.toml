@@ -1,6 +1,6 @@
 [package]
 name = "neo-devpack-solidity"
-version = "0.28.0"
+version = "0.28.1"
 edition = "2021"
 rust-version = "1.88"
 description = "Production-focused Solidity-to-NeoVM compilation system"
@@ -20,7 +20,7 @@ readme = "README.md"
 # `--no-default-features` for a leaner binary that skips the simulator.
 [features]
 default = ["runtime"]
-runtime = ["dep:bls12_381", "dep:group", "dep:p256", "dep:dashmap"]
+runtime = ["dep:bls12_381", "dep:group", "dep:p256", "dep:dashmap", "dep:bs58", "dep:ed25519-dalek"]
 # Real-node differential harness (`tests/neoxp_differential.rs`). Requires the
 # .NET SDK + Neo-Express plus a pre-built `neo-solc`; the tests are also
 # `#[ignore]`. Runs only via the dedicated `neoxp-diff` CI job:
@@ -71,6 +71,14 @@ bls12_381 = { version = "0.8", optional = true }
 # Transitive of bls12_381; re-exported here so the runtime can use
 # `Group::generator()` and `Group::identity()` for BLS12-381 curve constants.
 group = { version = "0.13", optional = true }
+# Base58 codec backing the runtime's `StdLib.base58Encode/Decode` and
+# `StdLib.base58CheckEncode/Decode` native handlers
+# (src/runtime/execution/execution_impl_part2_native/stdlib.rs).
+bs58 = { version = "0.5", optional = true }
+# Ed25519 signature verification backing the runtime's
+# `CryptoLib.verifyWithEd25519` native handler
+# (src/runtime/execution/execution_impl_part2_native/crypto.rs).
+ed25519-dalek = { version = "2.1", optional = true, features = ["std"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

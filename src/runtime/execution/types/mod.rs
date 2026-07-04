@@ -25,6 +25,6 @@ pub use gas::GasTracker;
 pub use stack::StackItem;
 pub use state::{
     ContractState, IsolatedStorageKey, IteratorState, LedgerBlock, LedgerTransaction,
-    NotaryDeposit, OracleRequest, OverlayEntry, StorageOverlayEntries, TransactionSigner,
-    WhitelistedFeeContract,
+    NotaryDeposit, OracleRequest, OverlayEntry, StorageOverlayEntries, StreamingCursor,
+    TransactionSigner, WhitelistedFeeContract,
 };

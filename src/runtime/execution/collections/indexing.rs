@@ -39,7 +39,7 @@ impl ExecutionContext {
                         message: "PICKITEM: index out of bounds".to_string(),
                     })
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let index = match key {
                     StackItem::Integer(i) if i >= 0 => i as usize,
                     StackItem::UnsignedInteger(u) => u as usize,
@@ -99,7 +99,7 @@ impl ExecutionContext {
                 items[index] = value;
                 Ok(())
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let index = match key {
                     StackItem::Integer(i) if i >= 0 => i as usize,
                     StackItem::UnsignedInteger(u) => u as usize,
@@ -116,7 +116,7 @@ impl ExecutionContext {
                     });
                 }
                 let as_byte = match value {
-                    StackItem::ByteArray(v) => {
+                    StackItem::ByteArray { data: v, .. } => {
                         let v = v.borrow();
                         if v.len() == 1 {
                             v[0]

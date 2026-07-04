@@ -94,7 +94,7 @@ impl ExecutionContext {
                 // Compare contract hash bytewise against CryptoLib's.
                 // The hash arrives as a 20-byte ByteArray.
                 let hash_matches_cryptolib = match hash_item {
-                    StackItem::ByteArray(bytes) => {
+                    StackItem::ByteArray { data: bytes, .. } => {
                         let b = bytes.borrow();
                         b.len() == 20 && b.as_slice() == &CRYPTOLIB_CONTRACT_HASH[..]
                     }
@@ -107,7 +107,7 @@ impl ExecutionContext {
                 // Decode method name (utf8 ByteArray) and check
                 // membership in the per-byte-charge set.
                 let method_bytes = match method_item {
-                    StackItem::ByteArray(b) => b.borrow().clone(),
+                    StackItem::ByteArray { data: b, .. } => b.borrow().clone(),
                     _ => return 0,
                 };
                 let Ok(method_str) = std::str::from_utf8(&method_bytes) else {
@@ -214,7 +214,7 @@ impl ExecutionContext {
 /// let an attacker substitute an Array wrapper to dodge the surcharge.
 fn stack_item_byte_len(item: &StackItem) -> usize {
     match item {
-        StackItem::ByteArray(bytes) => bytes.borrow().len(),
+        StackItem::ByteArray { data: bytes, .. } => bytes.borrow().len(),
         StackItem::Integer(_) | StackItem::UnsignedInteger(_) => 8,
         StackItem::Boolean(_) => 1,
         StackItem::Null => 0,

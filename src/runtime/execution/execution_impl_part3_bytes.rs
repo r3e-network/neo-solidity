@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::execution::types::stack::ByteArrayType;
 
 /// NeoVM `ExecutionEngineLimits.MaxItemSize` = `ushort.MaxValue * 2` = 131070
 /// (verified against neo-vm ExecutionEngineLimits.cs). A ByteString/Buffer
@@ -31,7 +32,7 @@ impl ExecutionContext {
                 ),
             });
         }
-        self.push_stack(StackItem::byte_array(vec![0u8; len]))
+        self.push_stack(StackItem::buffer(vec![0u8; len]))
     }
 
     pub(crate) fn memcpy_bytes(&mut self) -> Result<(), RuntimeError> {
@@ -44,7 +45,14 @@ impl ExecutionContext {
         let dst_item = self.pop_stack()?;
 
         match dst_item {
-            StackItem::ByteArray(dst) => {
+            StackItem::ByteArray { data: dst, type_tag } => {
+                // NeoVM MEMCPY only accepts Buffer (0x30) as destination;
+                // copying into a ByteString (0x28) is disallowed on a real node.
+                if type_tag == ByteArrayType::ByteString {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "MEMCPY: destination must be a Buffer, not a ByteString".to_string(),
+                    });
+                }
                 let src_end =
                     src_offset
                         .checked_add(count)
@@ -91,7 +99,7 @@ impl ExecutionContext {
             });
         }
         a.extend_from_slice(&b);
-        self.push_stack(StackItem::byte_array(a))
+        self.push_stack(StackItem::buffer(a))
     }
 
     pub(crate) fn substr_bytes(&mut self) -> Result<(), RuntimeError> {
@@ -111,7 +119,7 @@ impl ExecutionContext {
                 message: "SUBSTR: out of bounds".to_string(),
             });
         }
-        self.push_stack(StackItem::byte_array(data[index..end].to_vec()))
+        self.push_stack(StackItem::buffer(data[index..end].to_vec()))
     }
 
     pub(crate) fn left_bytes(&mut self) -> Result<(), RuntimeError> {
@@ -122,7 +130,7 @@ impl ExecutionContext {
                 message: "LEFT: out of bounds".to_string(),
             });
         }
-        self.push_stack(StackItem::byte_array(data[..count].to_vec()))
+        self.push_stack(StackItem::buffer(data[..count].to_vec()))
     }
 
     pub(crate) fn right_bytes(&mut self) -> Result<(), RuntimeError> {
@@ -133,6 +141,6 @@ impl ExecutionContext {
                 message: "RIGHT: out of bounds".to_string(),
             });
         }
-        self.push_stack(StackItem::byte_array(data[data.len() - count..].to_vec()))
+        self.push_stack(StackItem::buffer(data[data.len() - count..].to_vec()))
     }
 }

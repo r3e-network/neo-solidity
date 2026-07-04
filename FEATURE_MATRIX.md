@@ -17,5 +17,7 @@ Current summary:
 | Intentionally blocked | 1 |
 | Total audited features | 146 |
 
+*Last audited: 2026-07-03. The compiler supports Solidity 0.5.x–0.8.x source, targeting Neo N3 NeoVM (node v3.10.0+).*
+
 For migration limits and NeoVM-specific behavior, also see
 [`docs/internals/parity-and-limitations.md`](./docs/internals/parity-and-limitations.md).

@@ -3,6 +3,20 @@ use super::*;
 impl ExecutionContext {
     pub(crate) fn invoke_native_cryptolib(method: &str, params: StackItem) -> StackItem {
         match method {
+            "sha1" => {
+                if let StackItem::Array(args) = params {
+                    let value = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(value);
+                    let digest = sha1::Sha1::digest(&bytes);
+                    StackItem::byte_array(digest[..].to_vec())
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
             "sha256" => {
                 if let StackItem::Array(args) = params {
                     let value = args
@@ -61,7 +75,7 @@ impl ExecutionContext {
                     let seed_u32 = match seed {
                         StackItem::UnsignedInteger(u) => u as u32,
                         StackItem::Integer(i) => i as u32,
-                        StackItem::ByteArray(b) => {
+                        StackItem::ByteArray { data: b, .. } => {
                             let mut buf = [0u8; 4];
                             for (i, byte) in b.borrow().iter().take(4).enumerate() {
                                 buf[i] = *byte;
@@ -97,7 +111,7 @@ impl ExecutionContext {
                 let curve = match borrowed.get(3) {
                     Some(StackItem::Integer(n)) => *n,
                     Some(StackItem::UnsignedInteger(n)) => *n as i64,
-                    Some(StackItem::ByteArray(b)) => {
+                    Some(StackItem::ByteArray { data: b, .. }) => {
                         b.borrow().first().copied().unwrap_or(0) as i64
                     }
                     _ => 0,
@@ -234,6 +248,39 @@ impl ExecutionContext {
             "bls12381g2add" => Self::bls12381_g2_add_handler(params),
             "bls12381g2mul" => Self::bls12381_g2_mul_handler(params),
             "bls12381g2neg" => Self::bls12381_g2_neg_handler(params),
+            // CryptoLib.verifyWithEd25519(message, pubkey, signature) —
+            // Ed25519 signature verification. `pubkey` is 32 bytes, `signature`
+            // is 64 bytes. Returns Boolean true on valid signature, false
+            // otherwise (including malformed inputs).
+            "verifywithed25519" => {
+                let StackItem::Array(args) = params else {
+                    return StackItem::Boolean(false);
+                };
+                let borrowed = args.borrow();
+                let message =
+                    Self::stack_item_to_bytes(borrowed.first().cloned().unwrap_or(StackItem::Null));
+                let pubkey =
+                    Self::stack_item_to_bytes(borrowed.get(1).cloned().unwrap_or(StackItem::Null));
+                let signature =
+                    Self::stack_item_to_bytes(borrowed.get(2).cloned().unwrap_or(StackItem::Null));
+                if pubkey.len() != 32 || signature.len() != 64 {
+                    return StackItem::Boolean(false);
+                }
+                use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+                let mut pk = [0u8; 32];
+                pk.copy_from_slice(&pubkey);
+                let mut sig_arr = [0u8; 64];
+                sig_arr.copy_from_slice(&signature);
+                let ok = VerifyingKey::from_bytes(&pk)
+                    .ok()
+                    .and_then(|vk| {
+                        Signature::from_slice(&sig_arr)
+                            .ok()
+                            .map(|sig| vk.verify(&message, &sig).is_ok())
+                    })
+                    .unwrap_or(false);
+                StackItem::Boolean(ok)
+            }
             _ => StackItem::Null,
         }
     }
@@ -330,7 +377,7 @@ impl ExecutionContext {
             Some(StackItem::Boolean(b)) => *b,
             Some(StackItem::Integer(i)) => *i != 0,
             Some(StackItem::UnsignedInteger(u)) => *u != 0,
-            Some(StackItem::ByteArray(b)) => b.borrow().iter().any(|x| *x != 0),
+            Some(StackItem::ByteArray { data: b, .. }) => b.borrow().iter().any(|x| *x != 0),
             _ => false,
         }
     }

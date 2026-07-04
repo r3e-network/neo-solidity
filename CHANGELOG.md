@@ -5,6 +5,73 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.28.1] - 2026-07-03
+
+Audit-driven patch release. Fixes all P2 and P3 issues identified in the
+comprehensive v0.28.0 audit report — nested EQUAL type-strictness, ContractState
+type mismatch, 20 missing runtime handlers, dead code removal, clippy warnings,
+DevPack import hygiene, and 14 missing Solidity wrappers for runtime methods.
+
+### Fixed
+
+- **Nested EQUAL type-strictness** (P2-1) — `stack_items_equal()` now recursively
+  calls itself for Array and Map element comparison instead of delegating to
+  `PartialEq`, which ignored `type_tag`. `EQUAL` on arrays containing
+  `ByteString` vs `Buffer` elements with identical bytes now correctly returns
+  `false`. The `PartialEq` impl for `ByteArray` also now checks `type_tag`.
+- **NativeTypes.ContractState type mismatch** (P2-2) — `hash` changed from
+  `bytes32` to `address`, `id` from `uint16` to `int256`, `updateCounter` from
+  `uint8` to `uint256`, matching the NeoVM ContractState wire format.
+- **20 missing runtime handlers** (P2-3) — implemented:
+  - NEO (5): `getAllCandidates`, `getCandidateVote`, `getRegisterPrice`,
+    `setRegisterPrice`, `unclaimedGas`
+  - ContractManagement (4): `destroyContract`, `getContractById`,
+    `listContracts`, `setMinimumDeploymentFee`
+  - StdLib (10): `base64UrlEncode`, `base64UrlDecode`, `base58Encode`,
+    `base58Decode`, `base58CheckEncode`, `base58CheckDecode`, `memoryCompare`,
+    `memorySearch`, `stringSplit`, `strLen`
+  - CryptoLib (1): `verifyWithEd25519` (Ed25519 signature verification via
+    `ed25519-dalek`)
+- **Dead code removal** (P2-4/P2-5) — removed `build_storage_entries` and
+  `allocate_iterator` from `storage_ops.rs` (remnants of v0.28.0 streaming
+  iterator refactor). Fixed `VMBridge::eq_stack_items` to check `type_tag`.
+- **7 clippy warnings** (P3-1) — fixed `redundant_closure`, `absurd_extreme_comparison`,
+  `iter_kv_map`, `empty_line_after_doc_comment`, and `borrowed expression` warnings.
+  `cargo clippy` now reports 0 warnings.
+
+### Changed
+
+- **DevPack import hygiene** (P3-2) — removed 10 unused imports:
+  - `SyscallsTypes.sol` from `SyscallsCrypto.sol`, `SyscallsPolicy.sol`,
+    `SyscallsRole.sol`
+  - `NativeTypes.sol` from `NativeOracle.sol`, `NativeNotary.sol`,
+    `NativeGAS.sol`, `NativeLedger.sol`, `NativeTreasury.sol`,
+    `NativePolicy.sol`, `NativeRole.sol`
+- **Removed 9 unused `using Syscalls for *;` directives** (P3-3) — all 9 native
+  library files used qualified `Syscalls.contractCall(...)` calls, making the
+  `using` directive unnecessary.
+- **Pragma consistency** (P3-4) — `compat/EVMContractFactory.sol`,
+  `EVMFallbackDispatcher.sol`, `EVMNativeAssetAdapter.sol` changed from
+  `^0.8.20` to `^0.8.19` to match the rest of the codebase.
+- **Fixed compile-time bug** — removed dead `CONTRACTMGMT_CONTRACT` constant in
+  `NativeContractMgmt.sol` that referenced a non-existent constant name
+  (`NativeContracts.CONTRACTMGMT_CONTRACT`); methods use
+  `NativeContracts.CONTRACT_MANAGEMENT` directly.
+
+### Added
+
+- **14 missing Solidity wrappers** (P3-5) — added wrappers for runtime methods
+  that had Rust handlers but no Solidity interface:
+  - CryptoLib (7): `sha1`, `bls12381G1Add`, `bls12381G1Mul`, `bls12381G1Neg`,
+    `bls12381G2Add`, `bls12381G2Mul`, `bls12381G2Neg`
+  - Oracle (1): `getOracleRequest(uint256 requestId)`
+  - Syscalls (6): `getMsgValue`, `getNetwork`, `getAddressVersion`,
+    `getInvocationCounter`, `getRandom`, `burnGas`
+  - Added to both domain libraries and the `Syscalls.sol` aggregate.
+- **New runtime dependencies** — `bs58 = "0.5"` and `ed25519-dalek = "2.1"`
+  added as optional dependencies under the `runtime` feature for base58 and
+  Ed25519 handler implementations.
+
 ## [v0.28.0] - 2026-07-03
 
 Precision & correctness release. Four deep architecture improvements from a

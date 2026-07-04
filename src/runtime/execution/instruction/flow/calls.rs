@@ -171,7 +171,7 @@ impl ExecutionContext {
 /// pushes (the handler converts them to bytes anyway).
 fn stack_item_byte_len_for_hash(item: &StackItem) -> usize {
     match item {
-        StackItem::ByteArray(bytes) => bytes.borrow().len(),
+        StackItem::ByteArray { data: bytes, .. } => bytes.borrow().len(),
         StackItem::Integer(_) | StackItem::UnsignedInteger(_) => 8,
         StackItem::Boolean(_) => 1,
         StackItem::Null => 0,

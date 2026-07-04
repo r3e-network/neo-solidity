@@ -204,8 +204,26 @@ impl ExecutionContext {
                 let prefix = Self::stack_item_to_bytes(self.pop_stack()?);
                 let options = Self::stack_item_to_int(self.pop_stack()?);
 
-                let entries = self.build_storage_entries(prefix, options)?;
-                let token = self.allocate_iterator(entries);
+                Self::validate_find_options(options)?;
+
+                const STREAMING_PAGE_SIZE: usize = 50;
+                let cursor = StreamingCursor {
+                    prefix: prefix.clone(),
+                    options,
+                    last_key: None,
+                    exhausted: false,
+                    page_size: STREAMING_PAGE_SIZE,
+                };
+                let (entries, last_key) = self.query_storage_page(&cursor)?;
+                let exhausted = entries.len() < STREAMING_PAGE_SIZE;
+                let cursor = StreamingCursor {
+                    prefix,
+                    options: cursor.options,
+                    last_key,
+                    exhausted,
+                    page_size: STREAMING_PAGE_SIZE,
+                };
+                let token = self.allocate_streaming_iterator(entries, cursor);
                 self.push_stack(token)?;
                 Ok(true)
             }

@@ -107,7 +107,7 @@ fn execution_context_reports_default_metadata() {
     }
 
     match context.pop_stack().expect("calling script hash") {
-        StackItem::ByteArray(bytes) => {
+        StackItem::ByteArray { data: bytes, .. } => {
             // With no caller override, the entry frame's caller is the
             // transaction's entry script — a DISTINCT identity from the
             // executing contract's own hash (see `entry_script_hash`). So
@@ -161,7 +161,7 @@ fn execution_context_applies_metadata_overrides() {
     }
 
     match context.pop_stack().expect("caller hash") {
-        StackItem::ByteArray(bytes) => {
+        StackItem::ByteArray { data: bytes, .. } => {
             let mut expected =
                 hex::decode("0102030405060708090a0102030405060708090a").expect("valid hex");
             expected.reverse();

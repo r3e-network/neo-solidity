@@ -25,7 +25,6 @@ pragma solidity ^0.8.19;
  */
 
 import "./FrameworkBase.sol";
-import "../libraries/Neo.sol";
 
 contract Framework is FrameworkBase {
     /**

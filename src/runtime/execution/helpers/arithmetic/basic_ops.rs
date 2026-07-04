@@ -152,7 +152,7 @@ impl ExecutionContext {
             StackItem::UnsignedInteger(value) => Some(BigInt::from(*value)),
             StackItem::Boolean(value) => Some(BigInt::from(if *value { 1 } else { 0 })),
             StackItem::Null => Some(BigInt::from(0)),
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let bytes = bytes.borrow();
                 if bytes.is_empty() {
                     Some(BigInt::from(0))
@@ -169,7 +169,7 @@ impl ExecutionContext {
     /// route through `coerce_item_to_bigint` in that case.
     pub(crate) fn cmp_needs_bigint_path(&self, a: &StackItem, b: &StackItem) -> bool {
         let is_wide = |item: &StackItem| -> bool {
-            if let StackItem::ByteArray(bytes) = item {
+            if let StackItem::ByteArray { data: bytes, .. } = item {
                 bytes.borrow().len() > 8
             } else {
                 false
@@ -184,7 +184,7 @@ impl ExecutionContext {
             StackItem::UnsignedInteger(value) => i64::try_from(*value).ok(),
             StackItem::Boolean(value) => Some(if *value { 1 } else { 0 }),
             StackItem::Null => Some(0),
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let bytes = bytes.borrow();
                 if bytes.is_empty() {
                     return Some(0);
@@ -214,7 +214,7 @@ impl ExecutionContext {
             }
             StackItem::Boolean(value) => Some(if *value { 1 } else { 0 }),
             StackItem::Null => Some(0),
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let bytes = bytes.borrow();
                 if bytes.is_empty() {
                     return Some(0);

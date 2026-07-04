@@ -1,4 +1,34 @@
+//! ## Native StdLib & ABI Runtime
+//!
+//! This module implements the Neo N3 `StdLib` native contract interface and
+//! the EVM-canonical ABI encoding layer used by the embedded NeoVM runtime
+//! simulator.
+//!
+//! ### Layout
+//!
+//! | Section | Lines | Purpose |
+//! |---------|-------|---------|
+//! | ABI encoding | 1–778 | `abi.encode` / `abi.encodePacked` / `abi.decode` head+tail layout, Base64/itoa/atoi |
+//! | BinarySerializer | 808–981 | Neo N3 wire format `serialize`/`deserialize` (type-tagged LE) |
+//! | Tests | 983–1123 | Round-trip & format-correctness assertions |
+//!
+//! ### Architecture note
+//!
+//! The two sections live in **separate `impl ExecutionContext` blocks** because
+//! the ABI helpers (`abi_pad32_be`, `abi_dynamic_tail_bytes`, …) are `&self`-free
+//! static functions called from within `invoke_native_stdlib`, while the
+//! BinarySerializer functions (`neo_binary_serialize_into`, …) are also
+//! `&self`-free and used by the `serialize`/`deserialize` dispatch arms.
+//!
+//! Heuristic note: the Solidity source type is **lost by runtime dispatch time**,
+//! so the ABI layer classifies `StackItem` variants by their byte-shape
+//! (length, trailing-zero patterns) rather than by the original Solidity type.
+
 use super::*;
+
+// ============================================================================
+// Section 1 — ABI Encoding Layer (EVM-canonical head+tail layout)
+// ============================================================================
 
 impl ExecutionContext {
     /// Convert a single ABI element into a 32-byte big-endian slot, matching
@@ -43,7 +73,7 @@ impl ExecutionContext {
             StackItem::Boolean(b) => {
                 slot[31] = if *b { 1 } else { 0 };
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let b = bytes.borrow();
                 if b.len() >= 32 {
                     // Address-slot normalisation: detect the 20-byte LE address
@@ -142,7 +172,7 @@ impl ExecutionContext {
             StackItem::Integer(_) | StackItem::UnsignedInteger(_) | StackItem::Null => {
                 Self::abi_pad32_be(item).to_vec()
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 // Dynamic bytes/strings (`bytes`, `string`): raw concat per the
                 // EVM `abi.encodePacked` spec — no length prefix, no padding.
                 // `abi_is_dynamic` classifies any ByteArray whose length is
@@ -193,7 +223,7 @@ impl ExecutionContext {
             StackItem::Integer(v) => BigInt::from(*v),
             StackItem::UnsignedInteger(v) => BigInt::from(*v),
             StackItem::Boolean(b) => BigInt::from(if *b { 1 } else { 0 }),
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let bytes = bytes.borrow();
                 if bytes.is_empty() {
                     BigInt::from(0)
@@ -228,7 +258,7 @@ impl ExecutionContext {
             | StackItem::UnsignedInteger(_)
             | StackItem::Boolean(_)
             | StackItem::Null => false,
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let len = bytes.borrow().len();
                 !matches!(len, 16 | 20 | 32)
             }
@@ -252,7 +282,7 @@ impl ExecutionContext {
     ///   the existing fallback semantics for Map / Null).
     fn abi_dynamic_tail_bytes(item: &StackItem) -> Vec<u8> {
         match item {
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let content = bytes.borrow().clone();
                 let len = content.len();
                 let padded_len = len.div_ceil(32) * 32;
@@ -676,6 +706,232 @@ impl ExecutionContext {
                     StackItem::byte_array(Vec::new())
                 }
             }
+            // StdLib.base64UrlEncode(bytes): RFC 4648 base64url variant
+            // (URL-safe alphabet: `-` and `_` instead of `+` and `/`, no padding).
+            "base64urlencode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let encoded = Self::base64_encode(&bytes);
+                    let url_safe = encoded
+                        .replace('+', "-")
+                        .replace('/', "_")
+                        .trim_end_matches('=')
+                        .to_string();
+                    StackItem::byte_array(url_safe.into_bytes())
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.base64UrlDecode(string): inverse of base64UrlEncode.
+            "base64urldecode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let s = std::str::from_utf8(&bytes).unwrap_or("");
+                    // Restore standard alphabet and padding for the decoder.
+                    let standard = s
+                        .replace('-', "+")
+                        .replace('_', "/");
+                    let padded = match standard.len() % 4 {
+                        2 => format!("{standard}=="),
+                        3 => format!("{standard}="),
+                        _ => standard,
+                    };
+                    StackItem::byte_array(Self::base64_decode(&padded).unwrap_or_default())
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.base58Encode(bytes): Bitcoin base58 encoding.
+            "base58encode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let encoded = bs58::encode(&bytes).into_string();
+                    StackItem::byte_array(encoded.into_bytes())
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.base58Decode(string): Bitcoin base58 decoding.
+            "base58decode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let s = std::str::from_utf8(&bytes).unwrap_or("");
+                    match bs58::decode(s).into_vec() {
+                        Ok(decoded) => StackItem::byte_array(decoded),
+                        Err(_) => StackItem::byte_array(Vec::new()),
+                    }
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.base58CheckEncode(bytes): base58 with 4-byte SHA256
+            // double-hash checksum appended.
+            "base58checkencode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let hash1 = Sha256::digest(&bytes);
+                    let hash2 = Sha256::digest(hash1);
+                    let mut payload = bytes;
+                    payload.extend_from_slice(&hash2[..4]);
+                    let encoded = bs58::encode(&payload).into_string();
+                    StackItem::byte_array(encoded.into_bytes())
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.base58CheckDecode(string): inverse of base58CheckEncode.
+            // Verifies the 4-byte checksum; returns empty on mismatch.
+            "base58checkdecode" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    let s = std::str::from_utf8(&bytes).unwrap_or("");
+                    match bs58::decode(s).into_vec() {
+                        Ok(decoded) if decoded.len() >= 4 => {
+                            let data_len = decoded.len() - 4;
+                            let hash1 = Sha256::digest(&decoded[..data_len]);
+                            let hash2 = Sha256::digest(hash1);
+                            if decoded[data_len..] == hash2[..4] {
+                                StackItem::byte_array(decoded[..data_len].to_vec())
+                            } else {
+                                StackItem::byte_array(Vec::new())
+                            }
+                        }
+                        _ => StackItem::byte_array(Vec::new()),
+                    }
+                } else {
+                    StackItem::byte_array(Vec::new())
+                }
+            }
+            // StdLib.memoryCompare(str1, str2): lexicographic byte comparison.
+            // Returns -1 if str1 < str2, 0 if equal, 1 if str1 > str2.
+            "memorycompare" => {
+                if let StackItem::Array(args) = params {
+                    let borrowed = args.borrow();
+                    let a = borrowed
+                        .first()
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    let b = borrowed
+                        .get(1)
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    let result = match a.cmp(&b) {
+                        std::cmp::Ordering::Less => -1,
+                        std::cmp::Ordering::Equal => 0,
+                        std::cmp::Ordering::Greater => 1,
+                    };
+                    StackItem::Integer(result)
+                } else {
+                    StackItem::Integer(0)
+                }
+            }
+            // StdLib.memorySearch(haystack, needle[, start]): finds the first
+            // occurrence of needle in haystack starting from `start`.
+            // Returns the index or -1 if not found.
+            "memorysearch" => {
+                if let StackItem::Array(args) = params {
+                    let borrowed = args.borrow();
+                    let haystack = borrowed
+                        .first()
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    let needle = borrowed
+                        .get(1)
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    let start = borrowed
+                        .get(2)
+                        .map(Self::extract_first_int)
+                        .unwrap_or(0) as usize;
+                    if needle.is_empty() {
+                        return StackItem::Integer(start as i64);
+                    }
+                    if start >= haystack.len() {
+                        return StackItem::Integer(-1);
+                    }
+                    match haystack[start..]
+                        .windows(needle.len())
+                        .position(|w| w == needle.as_slice())
+                    {
+                        Some(idx) => StackItem::Integer((start + idx) as i64),
+                        None => StackItem::Integer(-1),
+                    }
+                } else {
+                    StackItem::Integer(-1)
+                }
+            }
+            // StdLib.stringSplit(str, separator): splits the string by the
+            // separator and returns an Array of parts. An empty separator
+            // returns the original string as a single-element Array.
+            "stringsplit" => {
+                if let StackItem::Array(args) = params {
+                    let borrowed = args.borrow();
+                    let input = borrowed
+                        .first()
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    let sep = borrowed
+                        .get(1)
+                        .map(|it| Self::stack_item_to_bytes(it.clone()))
+                        .unwrap_or_default();
+                    if sep.is_empty() {
+                        return StackItem::array(vec![StackItem::byte_array(input)]);
+                    }
+                    let s = String::from_utf8_lossy(&input);
+                    let sep_str = String::from_utf8_lossy(&sep);
+                    let parts: Vec<StackItem> = s
+                        .split(sep_str.as_ref())
+                        .map(|part| StackItem::byte_array(part.as_bytes().to_vec()))
+                        .collect();
+                    StackItem::array(parts)
+                } else {
+                    StackItem::array(Vec::new())
+                }
+            }
+            // StdLib.strLen(str): returns the byte length of the input string.
+            "strlen" => {
+                if let StackItem::Array(args) = params {
+                    let input = args
+                        .borrow()
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| StackItem::byte_array(Vec::new()));
+                    let bytes = Self::stack_item_to_bytes(input);
+                    StackItem::Integer(bytes.len() as i64)
+                } else {
+                    StackItem::Integer(0)
+                }
+            }
             _ => StackItem::Null,
         }
     }
@@ -778,32 +1034,25 @@ impl ExecutionContext {
 }
 
 // ============================================================================
-// S1 fix — Neo N3 BinarySerializer format for StdLib.serialize/deserialize.
+// Section 2 — Neo N3 BinarySerializer (StdLib.serialize / deserialize)
+// ============================================================================
 //
-// Before this module existed, `serialize` ran the StackItem through
-// `serde_json`, producing `{"type":"ByteArray","value":[...]}`. That round-
-// trips inside the simulator but is byte-incompatible with real Neo N3 nodes
-// (storage keys derived from serialized values, length checks, and inter-
-// contract interop all silently diverged on-chain). This module implements the
-// Neo N3 BinarySerializer wire format used by `StdLib.serialize` on-chain, so
-// the simulator's output matches what a real node produces byte-for-byte.
+// Before the S1 fix, `serialize` ran the StackItem through `serde_json`,
+// producing `{"type":"ByteArray","value":[...]}`. That round-trips inside the
+// simulator but is byte-incompatible with real Neo N3 nodes (storage keys,
+// length checks, and inter-contract interop all silently diverge on-chain).
 //
-// Format (from neo-project/neo StackItem.SerializeAs):
+// Format (neo-project/neo StackItem.SerializeAs):
 //   0x00 ByteArray : varint(len) || bytes
 //   0x01 Boolean   : 1 byte (0/1)
-//   0x02 Integer   : 8 bytes little-endian signed
+//   0x02 Integer   : 8 bytes LE signed
 //   0x03 Null      : (no payload)
-//   0x40 Array     : varint(count) || item...     (each item recursively)
-//   0x80 Map       : varint(count) || (key value)... (each recursively)
+//   0x40 Array     : varint(count) || item…     (recursive)
+//   0x80 Map       : varint(count) || (key value)… (recursive)
 //
-// `varint` is Neo's 7-bit-group big-endian continuation encoding (same shape
+// `varint` = Neo's 7-bit-group big-endian continuation encoding (same shape
 // as `WriteVarBytes` in neo-vm): high bit set on every byte except the last;
-// groups are emitted most-significant-group-first.
-//
-// Only the StackItem variants the embedded runtime models are handled; an
-// unknown shape serializes as Null (defensive — every runtime StackItem is
-// one of the seven known variants, so this branch is unreachable in practice).
-// ============================================================================
+// groups emitted most-significant-group-first.
 
 impl ExecutionContext {
     /// Encode `value` in the Neo N3 BinarySerializer wire format.
@@ -815,7 +1064,7 @@ impl ExecutionContext {
 
     fn neo_binary_serialize_into(value: &StackItem, out: &mut Vec<u8>) {
         match value {
-            StackItem::ByteArray(rc) => {
+            StackItem::ByteArray { data: rc, .. } => {
                 let bytes = rc.borrow();
                 out.push(0x00); // ByteArray
                 Self::neo_write_varint(out, bytes.len() as u64);

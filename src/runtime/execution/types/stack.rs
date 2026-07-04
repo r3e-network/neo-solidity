@@ -5,12 +5,23 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Distinguishes ByteString (0x28) from Buffer (0x30) within `StackItem::ByteArray`.
+/// NeoVM's EQUAL is type-strict: equal bytes with different type tags are NOT equal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteArrayType {
+    ByteString, // 0x28 — immutable, CONVERT output, ABI params, storage reads
+    Buffer,     // 0x30 — mutable, NEWBUFFER, CAT, SUBSTR, LEFT, RIGHT output
+}
+
 /// Stack item in execution context
 #[derive(Debug, Clone)]
 pub enum StackItem {
     Integer(i64),
     UnsignedInteger(u64),
-    ByteArray(std::rc::Rc<std::cell::RefCell<Vec<u8>>>),
+    ByteArray {
+        data: std::rc::Rc<std::cell::RefCell<Vec<u8>>>,
+        type_tag: ByteArrayType,
+    },
     Array(std::rc::Rc<std::cell::RefCell<Vec<StackItem>>>),
     Map(std::rc::Rc<std::cell::RefCell<std::collections::HashMap<Vec<u8>, StackItem>>>),
     Boolean(bool),
@@ -18,8 +29,40 @@ pub enum StackItem {
 }
 
 impl StackItem {
+    /// Create a ByteString-tagged ByteArray (0x28). This is the common case
+    /// for most byte values (ABI parameters, storage reads, literals, etc.).
     pub fn byte_array(bytes: Vec<u8>) -> Self {
-        Self::ByteArray(std::rc::Rc::new(std::cell::RefCell::new(bytes)))
+        Self::ByteArray {
+            data: std::rc::Rc::new(std::cell::RefCell::new(bytes)),
+            type_tag: ByteArrayType::ByteString,
+        }
+    }
+
+    /// Create a Buffer-tagged ByteArray (0x30). Use for mutable buffer
+    /// results (NEWBUFFER, CAT, SUBSTR, LEFT, RIGHT).
+    pub fn buffer(bytes: Vec<u8>) -> Self {
+        Self::ByteArray {
+            data: std::rc::Rc::new(std::cell::RefCell::new(bytes)),
+            type_tag: ByteArrayType::Buffer,
+        }
+    }
+
+    /// Read the byte content of any ByteArray regardless of type tag.
+    pub fn as_bytes(&self) -> Option<std::cell::Ref<'_, Vec<u8>>> {
+        match self {
+            Self::ByteArray { data, .. } => Some(data.borrow()),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a Buffer-tagged ByteArray.
+    pub fn is_buffer(&self) -> bool {
+        matches!(self, Self::ByteArray { type_tag: ByteArrayType::Buffer, .. })
+    }
+
+    /// Check if this is a ByteString-tagged ByteArray.
+    pub fn is_byte_string(&self) -> bool {
+        matches!(self, Self::ByteArray { type_tag: ByteArrayType::ByteString, .. })
     }
 
     pub fn array(items: Vec<StackItem>) -> Self {
@@ -69,7 +112,7 @@ impl StackItemSerde {
                     StackItemSerde::UnsignedInteger(*value)
                 }
             }
-            StackItem::ByteArray(bytes) => StackItemSerde::ByteArray(bytes.borrow().clone()),
+            StackItem::ByteArray { data, .. } => StackItemSerde::ByteArray(data.borrow().clone()),
             StackItem::Array(items) => StackItemSerde::Array(
                 items
                     .borrow()
@@ -135,7 +178,9 @@ impl PartialEq for StackItem {
             (StackItem::UnsignedInteger(a), StackItem::UnsignedInteger(b)) => a == b,
             (StackItem::Boolean(a), StackItem::Boolean(b)) => a == b,
             (StackItem::Null, StackItem::Null) => true,
-            (StackItem::ByteArray(a), StackItem::ByteArray(b)) => a.borrow().eq(&*b.borrow()),
+            (StackItem::ByteArray { data: a, type_tag: ta }, StackItem::ByteArray { data: b, type_tag: tb }) => {
+                ta == tb && a.borrow().eq(&*b.borrow())
+            }
             (StackItem::Array(a), StackItem::Array(b)) => a.borrow().eq(&*b.borrow()),
             (StackItem::Map(a), StackItem::Map(b)) => a.borrow().eq(&*b.borrow()),
             _ => false,

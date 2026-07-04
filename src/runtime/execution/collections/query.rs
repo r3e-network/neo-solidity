@@ -6,7 +6,7 @@ impl ExecutionContext {
         let size = match item {
             StackItem::Array(items) => items.borrow().len(),
             StackItem::Map(map) => map.borrow().len(),
-            StackItem::ByteArray(bytes) => bytes.borrow().len(),
+            StackItem::ByteArray { data: bytes, .. } => bytes.borrow().len(),
             StackItem::Integer(_)
             | StackItem::UnsignedInteger(_)
             | StackItem::Boolean(_)
@@ -32,7 +32,7 @@ impl ExecutionContext {
                 let key_bytes = Self::stack_item_to_bytes(key);
                 map.borrow().contains_key(&key_bytes)
             }
-            StackItem::ByteArray(bytes) => match key {
+            StackItem::ByteArray { data: bytes, .. } => match key {
                 StackItem::Integer(i) if i >= 0 => (i as usize) < bytes.borrow().len(),
                 StackItem::UnsignedInteger(u) => (u as usize) < bytes.borrow().len(),
                 _ => false,
@@ -66,7 +66,7 @@ impl ExecutionContext {
         let values = match collection {
             StackItem::Map(map) => StackItem::array(map.borrow().values().cloned().collect()),
             StackItem::Array(items) => StackItem::Array(items),
-            StackItem::ByteArray(bytes) => StackItem::array(
+            StackItem::ByteArray { data: bytes, .. } => StackItem::array(
                 bytes
                     .borrow()
                     .iter()
@@ -86,7 +86,7 @@ impl ExecutionContext {
         let collection = self.pop_stack()?;
         let items = match collection {
             StackItem::Array(items) => items.borrow().clone(),
-            StackItem::ByteArray(bytes) => bytes
+            StackItem::ByteArray { data: bytes, .. } => bytes
                 .borrow()
                 .iter()
                 .map(|b| StackItem::byte_array(vec![*b]))

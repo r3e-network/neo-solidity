@@ -1,4 +1,34 @@
+//! ## Source-Level Solidity Analysis Pipeline
+//!
+//! This module is the **entry point** for Solidity source analysis. It takes
+//! raw Solidity source text and produces validated `ContractMetadata` structs
+//! ready for IR lowering and bytecode generation.
+//!
+//! ### Pipeline stages (in `analyse_all_sources`)
+//!
+//! | Stage | Description |
+//! |-------|-------------|
+//! | 1 — Parse & classify | Parse sources, separate primary (contract/abstract) from fallback (library/interface) |
+//! | 2 — Library validation | Pre-merge struct pools, normalize libraries, validate each |
+//! | 3 — Sibling merge | Merge sibling primary functions/modifiers/state/events/ctors into each primary (Task #83) |
+//! | 4 — Type sharing | Cross-contract struct/enum namespace sharing |
+//! | 5 — Inheritance & conversion | Flatten inheritance, expand modifiers, convert to metadata |
+//!
+//! ### Related tasks
+//!
+//! - **Task #83**: `new B()` sibling dispatch → merge target functions into caller
+//! - **Task #115**: Interface casts → match interface methods to sibling primaries
+//! - **Task #126**: `fallback()` as universal dispatcher for sibling merge
+//! - **Task #194**: Low-level `.call()` selector resolution
+//! - **Task #197**: Sibling state-variable merge
+//! - **Task #198**: Sibling constructor inline
+//! - **Task #206**: Transitive sibling reference closure
+
 use super::*;
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 #[allow(dead_code)]
 pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
@@ -6,84 +36,97 @@ pub fn analyse_source(source: &str) -> Result<ContractMetadata, SolidityError> {
     Ok(contracts.swap_remove(0))
 }
 
+// ---------------------------------------------------------------------------
+// Contract classification helpers (file-level — zero captures from caller)
+// ---------------------------------------------------------------------------
+
+fn is_builtin_library_name(name: &str) -> bool {
+    crate::ir::ir_context::BUILTIN_LIBRARY_BASES.contains(&name)
+}
+
+fn normalize_library_for_neo(mut contract: ContractIR) -> ContractIR {
+    if !matches!(contract.kind, ContractKind::Library) {
+        return contract;
+    }
+
+    // Neo N3 libraries are inlined into contracts; treat externally visible
+    // library functions as internal helper functions to avoid exposing them
+    // through the contract ABI.
+    for function in &mut contract.functions {
+        if !matches!(function.ty, FunctionTy::Function) {
+            continue;
+        }
+        if matches!(
+            function.visibility,
+            VisibilityKind::External | VisibilityKind::Public
+        ) {
+            function.visibility = VisibilityKind::Internal;
+        }
+    }
+
+    // Keep merged library state as internal implementation detail.
+    // Public library constants would otherwise synthesize contract-level
+    // getters and create ABI/name collisions in the consuming contract.
+    for state in &mut contract.state_variables {
+        state.visibility = Some("internal".to_string());
+    }
+
+    contract
+}
+
+/// The set of method names on `contract` that are part of its public
+/// ABI surface — free `function`s with `external`/`public` visibility.
+/// Used for both the interface→primary implementation lookup and the
+/// reverse primary→interface map; centralising it here keeps the two
+/// sides in lockstep so a future visibility tweak can't desync them.
+fn public_external_method_names(contract: &ContractIR) -> std::collections::HashSet<String> {
+    contract
+        .functions
+        .iter()
+        .filter(|f| {
+            matches!(f.ty, FunctionTy::Function)
+                && matches!(
+                    f.visibility,
+                    VisibilityKind::External | VisibilityKind::Public
+                )
+        })
+        .map(|f| f.name.clone())
+        .collect()
+}
+
+fn collect_contract_types(
+    contract_map: &std::collections::HashMap<String, ContractIR>,
+) -> Vec<String> {
+    let mut contract_types: Vec<String> = Vec::new();
+    let mut seen_contract_types = std::collections::HashSet::new();
+
+    for contract in contract_map.values() {
+        let include_as_contract_type = match contract.kind {
+            ContractKind::Contract | ContractKind::AbstractContract | ContractKind::Interface => {
+                true
+            }
+            ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
+        };
+
+        if include_as_contract_type
+            && seen_contract_types.insert(contract.name.to_ascii_lowercase())
+        {
+            contract_types.push(contract.name.clone());
+        }
+    }
+
+    contract_types
+}
+
+// ============================================================================
+// analyse_all_sources — Main pipeline
+// ============================================================================
+
 pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, SolidityError> {
-    fn is_builtin_library_name(name: &str) -> bool {
-        crate::ir::ir_context::BUILTIN_LIBRARY_BASES.contains(&name)
-    }
-
-    fn normalize_library_for_neo(mut contract: ContractIR) -> ContractIR {
-        if !matches!(contract.kind, ContractKind::Library) {
-            return contract;
-        }
-
-        // Neo N3 libraries are inlined into contracts; treat externally visible
-        // library functions as internal helper functions to avoid exposing them
-        // through the contract ABI.
-        for function in &mut contract.functions {
-            if !matches!(function.ty, FunctionTy::Function) {
-                continue;
-            }
-            if matches!(
-                function.visibility,
-                VisibilityKind::External | VisibilityKind::Public
-            ) {
-                function.visibility = VisibilityKind::Internal;
-            }
-        }
-
-        // Keep merged library state as internal implementation detail.
-        // Public library constants would otherwise synthesize contract-level
-        // getters and create ABI/name collisions in the consuming contract.
-        for state in &mut contract.state_variables {
-            state.visibility = Some("internal".to_string());
-        }
-
-        contract
-    }
-
-    /// The set of method names on `contract` that are part of its public
-    /// ABI surface — free `function`s with `external`/`public` visibility.
-    /// Used for both the interface→primary implementation lookup and the
-    /// reverse primary→interface map; centralising it here keeps the two
-    /// sides in lockstep so a future visibility tweak can't desync them.
-    fn public_external_method_names(contract: &ContractIR) -> std::collections::HashSet<String> {
-        contract
-            .functions
-            .iter()
-            .filter(|f| {
-                matches!(f.ty, FunctionTy::Function)
-                    && matches!(
-                        f.visibility,
-                        VisibilityKind::External | VisibilityKind::Public
-                    )
-            })
-            .map(|f| f.name.clone())
-            .collect()
-    }
-
-    fn collect_contract_types(
-        contract_map: &std::collections::HashMap<String, ContractIR>,
-    ) -> Vec<String> {
-        let mut contract_types: Vec<String> = Vec::new();
-        let mut seen_contract_types = std::collections::HashSet::new();
-
-        for contract in contract_map.values() {
-            let include_as_contract_type = match contract.kind {
-                ContractKind::Contract
-                | ContractKind::AbstractContract
-                | ContractKind::Interface => true,
-                ContractKind::Library => !is_builtin_library_name(contract.name.as_str()),
-            };
-
-            if include_as_contract_type
-                && seen_contract_types.insert(contract.name.to_ascii_lowercase())
-            {
-                contract_types.push(contract.name.clone());
-            }
-        }
-
-        contract_types
-    }
+    // -----------------------------------------------------------------------
+    // Stage 1 — Parse sources and separate primary (contract/abstract) from
+    // fallback (library/interface) contracts.
+    // -----------------------------------------------------------------------
 
     let mut primary = Vec::new();
     let mut fallback = Vec::new();
@@ -107,6 +150,12 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         .map(|contract| (contract.name.clone(), contract.clone()))
         .collect();
     let contract_types = collect_contract_types(&pre_merge_contract_map);
+
+    // -------------------------------------------------------------------
+    // Stage 2 — Validate and normalize user libraries before merging them
+    // into primary contracts. Pre-populates a cross-library struct/enum
+    // pool so cross-references between libraries resolve correctly.
+    // -------------------------------------------------------------------
 
     let raw_libraries: Vec<ContractIR> = if has_primary {
         fallback
@@ -874,6 +923,13 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
         }
     }
 
+    // -------------------------------------------------------------------
+    // Stage 4 — Cross-contract struct/enum namespace sharing.
+    // Make non-inherited type definitions visible across compilation
+    // units so expressions like `Enum.Operation.DelegateCall` resolve
+    // even when the defining type lives in another contract file.
+    // -------------------------------------------------------------------
+
     // Make non-inherited enum/struct namespaces visible across compilation
     // units so expressions like `Enum.Operation.DelegateCall` can resolve even
     // when the defining type lives in another top-level contract/library file.
@@ -924,6 +980,11 @@ pub fn analyse_all_sources(source: &str) -> Result<Vec<ContractMetadata>, Solidi
             }
         }
     }
+
+    // -------------------------------------------------------------------
+    // Stage 5 — Build selector registry, flatten inheritance, expand
+    // modifiers, and convert each contract to ContractMetadata.
+    // -------------------------------------------------------------------
 
     // Build a lookup map for inheritance flattening and modifier expansion.
     let contract_map: std::collections::HashMap<String, ContractIR> = primary

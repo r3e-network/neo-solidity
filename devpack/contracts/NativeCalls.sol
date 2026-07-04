@@ -20,6 +20,23 @@ pragma solidity ^0.8.19;
  * CryptoLib and StdLib methods are exposed through `Syscalls.sol` directly
  * (e.g. `Syscalls.sha256()`, `Syscalls.serialize()`, `Syscalls.base64Encode()`).
  * Their contract hash constants are defined here for reference.
+ *
+ * DOMAIN-SPECIFIC LIBRARIES: For better code organization, this library has been
+ * split into focused domain modules under `native/`:
+ *
+ *   native/NativeNEO.sol           — NEO token & governance
+ *   native/NativeGAS.sol           — GAS token
+ *   native/NativeContractMgmt.sol  — Contract deployment & management
+ *   native/NativePolicy.sol        — Network policy parameters
+ *   native/NativeOracle.sol        — Oracle services
+ *   native/NativeRole.sol          — Role management
+ *   native/NativeLedger.sol        — Blockchain data access
+ *   native/NativeNotary.sol        — Notary deposit services
+ *   native/NativeTreasury.sol      — Treasury funds management
+ *   native/NativeTypes.sol         — Data structure definitions
+ *
+ * Import domain libraries directly for finer-grained dependencies:
+ *   import "./native/NativeNEO.sol";
  */
 
 import "./Syscalls.sol";
@@ -962,7 +979,10 @@ library NativeCalls {
         bytes[] memory /*params*/
     ) internal pure returns (bytes[] memory /*results*/) {
         revert(
-            "NativeCalls: batchNativeCalls is disabled in strict-manifest mode; call explicit native wrappers"
+            "NativeCalls: batchNativeCalls is handled by the compiler as a builtin lowering "
+            "(with 10-call cap and safety checks). This Solidity wrapper is intentionally disabled "
+            "to avoid wildcard manifest permissions. Use individual native wrapper functions or "
+            "let the compiler handle batchNativeCalls() calls directly."
         );
     }
     
@@ -1037,6 +1057,15 @@ library NativeCalls {
 
     /**
      * @dev Deprecated: use isCommitteeMultisigAddress() instead.
+     *
+     * WARNING: This function checks whether `account` equals the committee
+     * multi-signature address (the aggregate address derived from the committee
+     * members' public keys). It does NOT check whether `account` is an
+     * individual committee member.
+     *
+     * For individual committee membership check, use Neo.isCommittee(account)
+     * which maps ECPoint[] committee keys to their UInt160 addresses and
+     * performs a proper membership test.
      */
     function isCommittee(address account) internal view returns (bool) {
         return isCommitteeMultisigAddress(account);

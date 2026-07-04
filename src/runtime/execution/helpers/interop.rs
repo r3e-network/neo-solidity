@@ -3,7 +3,7 @@ use super::*;
 impl ExecutionContext {
     pub(crate) fn stack_item_to_bytes(item: StackItem) -> Vec<u8> {
         match item {
-            StackItem::ByteArray(bytes) => bytes.borrow().clone(),
+            StackItem::ByteArray { data: bytes, .. } => bytes.borrow().clone(),
             StackItem::Integer(value) => value.to_le_bytes().to_vec(),
             StackItem::UnsignedInteger(value) => value.to_le_bytes().to_vec(),
             StackItem::Boolean(value) => vec![value as u8],
@@ -20,7 +20,7 @@ impl ExecutionContext {
             StackItem::Integer(v) => v,
             StackItem::UnsignedInteger(v) => v as i64,
             StackItem::Boolean(v) => v as i64,
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let b = bytes.borrow();
                 let mut buf = [0u8; 8];
                 for (i, byte) in b.iter().take(8).enumerate() {
@@ -40,7 +40,7 @@ impl ExecutionContext {
                 return match item {
                     StackItem::UnsignedInteger(v) => *v,
                     StackItem::Integer(v) => *v as u64,
-                    StackItem::ByteArray(bytes) => {
+                    StackItem::ByteArray { data: bytes, .. } => {
                         let b = bytes.borrow();
                         let mut buf = [0u8; 8];
                         for (i, byte) in b.iter().take(8).enumerate() {

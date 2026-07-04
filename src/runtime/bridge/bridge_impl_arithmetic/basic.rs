@@ -8,7 +8,7 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("ADD", None)
+        gas.consume_gas("ADD", 3)
             .map_err(|e| VMBridgeError::BridgeError {
                 message: e.to_string(),
             })?;
@@ -41,7 +41,7 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("SUB", None)
+        gas.consume_gas("SUB", 3)
             .map_err(|e| VMBridgeError::BridgeError {
                 message: e.to_string(),
             })?;
@@ -74,7 +74,7 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MUL", None)
+        gas.consume_gas("MUL", 3)
             .map_err(|e| VMBridgeError::BridgeError {
                 message: e.to_string(),
             })?;
@@ -107,7 +107,7 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("DIV", None)
+        gas.consume_gas("DIV", 3)
             .map_err(|e| VMBridgeError::BridgeError {
                 message: e.to_string(),
             })?;
@@ -140,7 +140,7 @@ impl VMBridge {
         _storage: &mut storage::StorageManager,
         gas: &mut execution::GasTracker,
     ) -> Result<(), VMBridgeError> {
-        gas.consume_gas("MOD", None)
+        gas.consume_gas("MOD", 3)
             .map_err(|e| VMBridgeError::BridgeError {
                 message: e.to_string(),
             })?;

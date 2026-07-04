@@ -1,14 +1,9 @@
 //! Solidity analysis sub-modules for contract metadata extraction.
 //!
-//! This module groups the analysis files that were previously included via
-//! `#[path = "..."]` attributes in `solidity.rs`. Converting to a standard
-//! `mod` declaration fixes IDE navigation, rust-analyzer support, and
-//! refactoring tooling.
-//!
 //! Each sub-module handles a specific phase of Solidity contract analysis:
 //! - `inheritance` — C3 linearization, flattening, interface collection
 //! - `modifiers` — modifier expansion, rewriting, and application
-//! - `sibling_merge_walkers` — sibling contract merge detection
+//! - `siblings` — sibling contract merge detection
 //! - `merge_helpers` — state variable type normalization for merge checks
 
 // Re-export types and functions needed by the sub-modules (they use `use super::*`).

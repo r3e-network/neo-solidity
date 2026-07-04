@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 /// @title NameService - Decentralized name registration for Neo N3
 /// @author Neo DevPack for Solidity Team

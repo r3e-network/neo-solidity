@@ -28,7 +28,7 @@ impl ExecutionContext {
     /// (`Neo.SmartContract.ApplicationEngine.Storage`): unknown bits fault,
     /// `KeysOnly` excludes the value-shaping flags, `PickField*` are mutually
     /// exclusive and require `DeserializeValues`.
-    fn validate_find_options(options: i64) -> Result<(), RuntimeError> {
+    pub(crate) fn validate_find_options(options: i64) -> Result<(), RuntimeError> {
         use find_options::*;
         let fail = |message: String| Err(RuntimeError::ExecutionError { message });
         if options & !ALL != 0 {
@@ -93,47 +93,117 @@ impl ExecutionContext {
         StackItem::array(vec![StackItem::byte_array(key), value_item])
     }
 
-    pub(crate) fn build_storage_entries(
+    /// Allocate a streaming iterator that lazy-fetches pages from the host.
+    ///
+    /// The initial `entries` batch is placed in the buffer; subsequent pages
+    /// are fetched by `refill_iterator_buffer` when `Iterator.Next` exhausts
+    /// the buffer and a `StreamingCursor` is still active.
+    pub(crate) fn allocate_streaming_iterator(
+        &mut self,
+        entries: Vec<StackItem>,
+        cursor: StreamingCursor,
+    ) -> StackItem {
+        let id = self.next_iterator_id;
+        self.next_iterator_id = self.next_iterator_id.saturating_add(1);
+        self.iterators.insert(
+            id,
+            IteratorState { entries, index: 0, cursor: Some(cursor) },
+        );
+        StackItem::byte_array(id.to_le_bytes().to_vec())
+    }
+
+    /// Called by `Iterator.Next` when the buffer is exhausted and a streaming
+    /// cursor exists. Fetches the next page from the storage host, merges
+    /// pending overlay entries, and appends shaped items to the iterator's
+    /// entry buffer.
+    pub(crate) fn refill_iterator_buffer(
+        &mut self,
+        id: u64,
+    ) -> Result<bool, RuntimeError> {
+        // Take the cursor out so we can mutate it; we'll put it back.
+        let cursor = match self.iterators.get(&id) {
+            Some(state) => state.cursor.clone(),
+            None => return Ok(false),
+        };
+        let Some(mut cursor) = cursor else {
+            return Ok(false); // fully materialized iterator, nothing to refill
+        };
+        if cursor.exhausted {
+            return Ok(false);
+        }
+
+        // Query the next page.
+        let (new_entries, last_key) = self.query_storage_page(&cursor)?;
+
+        if !new_entries.is_empty() {
+            // Append to the iterator's entry buffer.
+            if let Some(state) = self.iterators.get_mut(&id) {
+                state.entries.extend(new_entries);
+            }
+            cursor.last_key = last_key;
+        } else {
+            cursor.exhausted = true;
+        }
+
+        // Put the updated cursor back.
+        if let Some(state) = self.iterators.get_mut(&id) {
+            state.cursor = Some(cursor);
+        }
+        Ok(true)
+    }
+
+    /// Query the storage host for a single page of entries, using the cursor
+    /// for pagination. Returns the shaped entries and the last raw storage key
+    /// (for the cursor), or None if the page is empty.
+    pub(crate) fn query_storage_page(
         &self,
-        prefix: Vec<u8>,
-        options: i64,
-    ) -> Result<Vec<StackItem>, RuntimeError> {
-        Self::validate_find_options(options)?;
+        cursor: &StreamingCursor,
+    ) -> Result<(Vec<StackItem>, Option<Vec<u8>>), RuntimeError> {
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
-        // Bug #18: bound the host-query result set against `storage_limit` so a
-        // host with a giant prefix-matching key set can't be weaponised into a
-        // multi-GB Vec allocation here. The host-side `StorageQuery::limit`
-        // field accepts a usize cap; using `storage_limit / MIN_ENTRY_BYTES`
-        // gives a generous upper bound (a 10 MiB default with 16-byte
-        // estimated min entry size = 640K entries) that still rejects truly
-        // pathological queries before they materialise.
-        const MIN_ENTRY_BYTES: usize = 16;
-        let max_entries = self.storage_limit.saturating_div(MIN_ENTRY_BYTES).max(1);
         if let (Some(mut ptr), Some(account)) = (self.storage_host, self.storage_account.as_ref()) {
-            // # Safety
-            //
-            // The `storage_host` pointer is set via `bind_storage()`, which receives a raw pointer
-            // to a `StorageHost` struct. We guarantee:
-            //
-            // 1. The pointer is valid for the entire execution context lifetime (set at bind time)
-            // 2. No other code accesses or frees this storage during execution
-            // 3. We only hold mutable references for the duration of this method call
-            // 4. The storage host's memory is not modified by any external code
-            //
-            // This pattern is necessary because we're bridging between the Rust runtime
-            // and the storage layer which uses FFI-compatible interfaces.
             let storage = unsafe { ptr.as_mut() };
             let query = storage::StorageQuery {
                 account: account.clone(),
-                key_prefix: Some(prefix.clone()),
-                limit: Some(max_entries),
+                key_prefix: Some(cursor.prefix.clone()),
+                limit: Some(cursor.page_size),
                 include_pending: true,
+                start_after_key: cursor.last_key.clone(),
             };
             entries = storage.query(query)?;
         }
+        self.shape_raw_entries(entries, cursor)
+    }
+
+    /// Shape raw (key, value) entries into StackItems, merging the overlay
+    /// for keys within this page's range. Returns the shaped items and the
+    /// last raw key (after overlay merge) for cursor pagination.
+    pub(crate) fn shape_raw_entries(
+        &self,
+        mut entries: Vec<(Vec<u8>, Vec<u8>)>,
+        cursor: &StreamingCursor,
+    ) -> Result<(Vec<StackItem>, Option<Vec<u8>>), RuntimeError> {
+        let prefix = &cursor.prefix;
+        let options = cursor.options;
+
+        // Merge overlay: only overlay keys within this page's key range matter.
+        // Entries from the host query are already sorted by the storage manager.
+        let start_key = cursor.last_key.clone();
+        let end_key = entries.last().map(|(k, _)| k.clone());
 
         for (key, entry) in &self.storage_overlay {
-            if !key.starts_with(&prefix) {
+            if !key.starts_with(prefix) {
+                continue;
+            }
+            // Only merge if the overlay key falls in (start_key, end_key] range.
+            // When both are None (first page or empty page), include all matching
+            // overlay entries.
+            let in_range = match (&start_key, &end_key) {
+                (None, None) => true, // first page: include all overlay entries
+                (Some(s), Some(e)) => key.as_slice() > s.as_slice() && key.as_slice() <= e.as_slice(),
+                (None, Some(e)) => key.as_slice() <= e.as_slice(),
+                (Some(s), None) => key.as_slice() > s.as_slice(),
+            };
+            if !in_range {
                 continue;
             }
             match &entry.value {
@@ -141,45 +211,26 @@ impl ExecutionContext {
                     entries.retain(|(k, _)| k != key);
                     entries.push((key.clone(), value.clone()));
                 }
-                None => entries.retain(|(k, _)| k != key),
+                None => {
+                    entries.retain(|(k, _)| k != key);
+                }
             }
-        }
-
-        // Final cap: even after merging the overlay, refuse to materialise a
-        // result set bigger than `max_entries` (covers the case where the
-        // overlay alone has > max_entries matching keys, since the host-side
-        // `limit` only constrains the host query).
-        if entries.len() > max_entries {
-            return Err(RuntimeError::ExecutionError {
-                message: format!(
-                    "Storage.Find: result set ({} entries) exceeds storage_limit cap ({} entries)",
-                    entries.len(),
-                    max_entries
-                ),
-            });
         }
 
         entries.sort_by(|a, b| a.0.cmp(&b.0));
         if options & find_options::BACKWARDS != 0 {
             entries.reverse();
         }
+        let last_key = entries.last().map(|(k, _)| k.clone());
         let mut items = Vec::with_capacity(entries.len());
         for (k, v) in entries {
-            items.push(Self::shape_find_entry(&prefix, options, k, v));
+            items.push(Self::shape_find_entry(prefix, options, k, v));
         }
-        Ok(items)
-    }
-
-    pub(crate) fn allocate_iterator(&mut self, entries: Vec<StackItem>) -> StackItem {
-        let id = self.next_iterator_id;
-        self.next_iterator_id = self.next_iterator_id.saturating_add(1);
-        self.iterators
-            .insert(id, IteratorState { entries, index: 0 });
-        StackItem::byte_array(id.to_le_bytes().to_vec())
+        Ok((items, last_key))
     }
 
     pub(crate) fn iterator_id_from_item(item: &StackItem) -> Option<u64> {
-        if let StackItem::ByteArray(bytes) = item {
+        if let StackItem::ByteArray { data: bytes, .. } = item {
             let bytes = bytes.borrow();
             if bytes.len() >= 8 {
                 let mut buf = [0u8; 8];
@@ -332,7 +383,7 @@ impl ExecutionContext {
             (Some(mut ptr), Some(account)) => {
                 // # Safety
                 //
-                // Same guarantee as `build_storage_entries()`:
+                // Same guarantee as `query_storage_page()`:
                 // The storage_host pointer is valid for the execution context lifetime.
                 // We only borrow mutably for the duration of this single operation.
                 // No other code can access storage during this call since we're in a

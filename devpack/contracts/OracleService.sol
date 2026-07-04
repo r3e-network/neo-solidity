@@ -23,7 +23,6 @@ pragma solidity ^0.8.19;
 
 import "./FrameworkBase.sol";
 import "./Syscalls.sol";
-import "../libraries/Runtime.sol";
 
 /**
  * @dev Requester callback interface.
@@ -41,7 +40,6 @@ interface IOracleServiceReceiver {
 }
 
 contract OracleService is FrameworkBase {
-    using Runtime for *;
 
     // Oracle native contract hash (UInt160 as Solidity address).
     // Little-endian UInt160: 0x588717117e0aa81072afab71d2dd89fe7c4b92fe

@@ -6,10 +6,39 @@
 use super::stack::StackItem;
 
 /// Iterator state for SYSCALL streaming operations
+///
+/// Uses a hybrid approach: a small pre-fetched buffer (`entries`) for
+/// responsiveness, backed by an optional `StreamingCursor` that lazy-fetches
+/// additional pages from the storage host when the buffer is exhausted.
 #[derive(Debug, Clone)]
 pub struct IteratorState {
+    /// Pre-fetched entries (small initial batch, grows with lazy fetches)
     pub(crate) entries: Vec<StackItem>,
+    /// Current position within `entries`
     pub(crate) index: usize,
+    /// Cursor for fetching more entries on demand (None = fully materialized)
+    pub(crate) cursor: Option<StreamingCursor>,
+}
+
+/// Cursor state for lazy batch fetching of storage iterator entries.
+///
+/// Carries the query parameters and pagination state so that `Iterator.Next`
+/// can pull the next page from the storage host without materialising the
+/// entire result set upfront.
+#[derive(Debug, Clone)]
+pub struct StreamingCursor {
+    /// Storage key prefix being iterated
+    pub(crate) prefix: Vec<u8>,
+    /// Finder options flags (BACKWARDS, VALUES_ONLY, etc.)
+    pub(crate) options: i64,
+    /// Last key *returned* to the consumer (used as pagination cursor for
+    /// the next host query; None = fetch from the beginning of the prefix).
+    pub(crate) last_key: Option<Vec<u8>>,
+    /// Whether the storage host has returned zero results for the last page
+    /// (no more entries to fetch).
+    pub(crate) exhausted: bool,
+    /// Number of entries to fetch per page.
+    pub(crate) page_size: usize,
 }
 
 /// Contract state for deployed contracts

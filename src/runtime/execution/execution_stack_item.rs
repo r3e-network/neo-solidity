@@ -6,7 +6,7 @@ impl StackItem {
         match self {
             StackItem::Integer(i) => i.to_le_bytes().to_vec(),
             StackItem::UnsignedInteger(u) => u.to_le_bytes().to_vec(),
-            StackItem::ByteArray(bytes) => bytes.borrow().clone(),
+            StackItem::ByteArray { data: bytes, .. } => bytes.borrow().clone(),
             StackItem::Array(_) | StackItem::Map(_) => serde_json::to_vec(self).unwrap_or_default(),
             StackItem::Boolean(b) => vec![if *b { 1 } else { 0 }],
             StackItem::Null => vec![0],
@@ -36,7 +36,7 @@ impl StackItem {
         match self {
             StackItem::Integer(i) => *i != 0,
             StackItem::UnsignedInteger(u) => *u != 0,
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let bytes = bytes.borrow();
                 !bytes.is_empty() && bytes.iter().any(|&b| b != 0)
             }

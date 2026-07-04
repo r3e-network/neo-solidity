@@ -398,7 +398,7 @@ impl ExecutionContext {
                 let amount = match amount_item {
                     StackItem::UnsignedInteger(u) => u,
                     StackItem::Integer(i) if i > 0 => i as u64,
-                    StackItem::ByteArray(bytes) => {
+                    StackItem::ByteArray { data: bytes, .. } => {
                         let mut buf = [0u8; 8];
                         for (i, b) in bytes.borrow().iter().take(8).enumerate() {
                             buf[i] = *b;

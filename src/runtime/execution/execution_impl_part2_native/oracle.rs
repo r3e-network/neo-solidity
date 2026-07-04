@@ -70,6 +70,44 @@ impl ExecutionContext {
                 StackItem::Null
             }
             "verify" => StackItem::Boolean(true),
+            "getoraclenodes" => {
+                // Cockatrice: returns ECPoint[] of registered oracle nodes.
+                // The embedded runtime returns a synthetic 1-node array
+                // (matching the deterministic-test philosophy).
+                let node_key: Vec<u8> = (0..33).map(|i| (i * 7 + 13) as u8).collect();
+                StackItem::array(vec![StackItem::byte_array(node_key)])
+            }
+            "getrequests" => {
+                // Cockatrice: returns an iterator over pending/finished requests.
+                // The embedded runtime materializes the in-memory request set.
+                let ids: Vec<u64> = self.oracle_requests.keys().copied().collect();
+                StackItem::array(
+                    ids.iter()
+                        .map(|id| {
+                            StackItem::byte_array((*id as u32).to_le_bytes().to_vec())
+                        })
+                        .collect(),
+                )
+            }
+            "getrequest" => {
+                // Cockatrice: returns a single OracleRequest struct by ID.
+                // The embedded runtime serializes the request as a NeoVM Map
+                // with the same field names used on-chain.
+                let id = Self::extract_first_int(&params);
+                if let Some(req) = self.oracle_requests.get(&id) {
+                    let mut map = std::collections::HashMap::new();
+                    map.insert(b"OriginalTxid".to_vec(), StackItem::byte_array(req.original_tx_hash.clone()));
+                    map.insert(b"GasForResponse".to_vec(), StackItem::UnsignedInteger(req.gas_for_response));
+                    map.insert(b"Url".to_vec(), StackItem::byte_array(req.url.as_bytes().to_vec()));
+                    map.insert(b"Filter".to_vec(), StackItem::byte_array(req.filter.as_bytes().to_vec()));
+                    map.insert(b"CallbackContract".to_vec(), StackItem::byte_array(req.callback_contract.clone()));
+                    map.insert(b"CallbackMethod".to_vec(), StackItem::byte_array(req.callback_method.as_bytes().to_vec()));
+                    map.insert(b"UserData".to_vec(), StackItem::byte_array(req.user_data.clone()));
+                    StackItem::map(map)
+                } else {
+                    StackItem::Null
+                }
+            }
             _ => StackItem::Null,
         }
     }

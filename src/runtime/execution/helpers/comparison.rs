@@ -35,8 +35,49 @@ impl ExecutionContext {
             (StackItem::Integer(x), StackItem::Integer(y)) => Ok(x == y),
             (StackItem::UnsignedInteger(x), StackItem::UnsignedInteger(y)) => Ok(x == y),
             (StackItem::Boolean(x), StackItem::Boolean(y)) => Ok(x == y),
-            (StackItem::ByteArray(x), StackItem::ByteArray(y)) => Ok(x == y),
-            (StackItem::Array(x), StackItem::Array(y)) => Ok(x == y),
+            // ByteString (0x28) vs Buffer (0x30) — NeoVM EQUAL is type-strict.
+            // Equal bytes with different type tags must return false.
+            (
+                StackItem::ByteArray { data: x, type_tag: tx },
+                StackItem::ByteArray { data: y, type_tag: ty },
+            ) => Ok(tx == ty && x == y),
+            // Recursive element-wise comparison — must NOT delegate to
+            // `PartialEq` because that impl ignores `type_tag` for nested
+            // `ByteArray` elements (ByteString vs Buffer with equal bytes
+            // would incorrectly compare as equal).
+            (StackItem::Array(x), StackItem::Array(y)) => {
+                let x = x.borrow();
+                let y = y.borrow();
+                if x.len() != y.len() {
+                    return Ok(false);
+                }
+                for (a_item, b_item) in x.iter().zip(y.iter()) {
+                    if !self.stack_items_equal(a_item, b_item)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            // Map comparison — key-value pairs must match, with type-strict
+            // value comparison (recursive).
+            (StackItem::Map(x), StackItem::Map(y)) => {
+                let x = x.borrow();
+                let y = y.borrow();
+                if x.len() != y.len() {
+                    return Ok(false);
+                }
+                for (k, v) in x.iter() {
+                    match y.get(k) {
+                        Some(v2) => {
+                            if !self.stack_items_equal(v, v2)? {
+                                return Ok(false);
+                            }
+                        }
+                        None => return Ok(false),
+                    }
+                }
+                Ok(true)
+            }
             (StackItem::Null, StackItem::Null) => Ok(true),
             // Cross-type comparisons
             (StackItem::Integer(x), StackItem::UnsignedInteger(y)) => {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::execution::types::stack::ByteArrayType;
 
 impl ExecutionContext {
     pub(crate) fn append_item(&mut self) -> Result<(), RuntimeError> {
@@ -21,7 +22,7 @@ impl ExecutionContext {
                 // limit collectively.
                 self.enforce_global_stack_limit()
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let append = Self::stack_item_to_bytes(value);
                 bytes.borrow_mut().extend_from_slice(&append);
                 Ok(())
@@ -47,7 +48,7 @@ impl ExecutionContext {
                 items.remove(index);
                 Ok(())
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let index = self.index_from_key(&key, "REMOVE")?;
                 let mut bytes = bytes.borrow_mut();
                 if index >= bytes.len() {
@@ -76,7 +77,7 @@ impl ExecutionContext {
                 items.borrow_mut().clear();
                 Ok(())
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 bytes.borrow_mut().clear();
                 Ok(())
             }
@@ -102,7 +103,7 @@ impl ExecutionContext {
                     })?;
                 self.push_stack(value)
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, .. } => {
                 let value = bytes
                     .borrow_mut()
                     .pop()
@@ -127,7 +128,14 @@ impl ExecutionContext {
                 items.borrow_mut().reverse();
                 Ok(())
             }
-            StackItem::ByteArray(bytes) => {
+            StackItem::ByteArray { data: bytes, type_tag } => {
+                // NeoVM REVERSEITEMS only accepts Buffer (0x30) and Array;
+                // reversing a ByteString (0x28) is disallowed on a real node.
+                if type_tag == ByteArrayType::ByteString {
+                    return Err(RuntimeError::ExecutionError {
+                        message: "REVERSEITEMS: cannot reverse a ByteString".to_string(),
+                    });
+                }
                 bytes.borrow_mut().reverse();
                 Ok(())
             }

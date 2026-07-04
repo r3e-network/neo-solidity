@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 /// @title SimpleStorage - Basic storage operations for Neo N3
 /// @author Neo DevPack for Solidity Team

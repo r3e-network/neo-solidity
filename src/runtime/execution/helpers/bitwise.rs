@@ -57,7 +57,7 @@ impl ExecutionContext {
         match value {
             StackItem::Integer(v) => Ok(StackItem::Integer(!v)),
             StackItem::UnsignedInteger(v) => Ok(StackItem::UnsignedInteger(!v)),
-            StackItem::ByteArray(_) => {
+            StackItem::ByteArray { data: _, .. } => {
                 let x = self.coerce_item_to_bigint(&value).ok_or_else(|| {
                     RuntimeError::ExecutionError {
                         message: "Invalid operand for bitwise NOT".to_string(),
@@ -138,12 +138,12 @@ impl ExecutionContext {
             (StackItem::Boolean(_), StackItem::Null) => Ok(StackItem::Boolean(false)),
             (StackItem::Null, StackItem::Null) => Ok(StackItem::Integer(0)),
             // Handle ByteArray - convert to integer (little-endian)
-            (StackItem::ByteArray(ref x), StackItem::Integer(y)) => {
+            (StackItem::ByteArray { data: ref x, .. }, StackItem::Integer(y)) => {
                 let x_bytes = x.borrow();
                 let x_int = Self::bytes_to_i64_le(&x_bytes);
                 Ok(StackItem::Integer(x_int & y))
             }
-            (StackItem::Integer(x), StackItem::ByteArray(ref y)) => {
+            (StackItem::Integer(x), StackItem::ByteArray { data: ref y, .. }) => {
                 let y_bytes = y.borrow();
                 let y_int = Self::bytes_to_i64_le(&y_bytes);
                 Ok(StackItem::Integer(x & y_int))
@@ -153,17 +153,17 @@ impl ExecutionContext {
             // above — required when a mask is staged as a UnsignedInteger
             // (e.g. when it matches a PUSHINT that landed in the unsigned
             // narrow path) alongside a narrow serialized-slot read.
-            (StackItem::ByteArray(ref x), StackItem::UnsignedInteger(y)) => {
+            (StackItem::ByteArray { data: ref x, .. }, StackItem::UnsignedInteger(y)) => {
                 let x_bytes = x.borrow();
                 let x_u = Self::bytes_to_i64_le(&x_bytes) as u64;
                 Ok(StackItem::UnsignedInteger(x_u & y))
             }
-            (StackItem::UnsignedInteger(x), StackItem::ByteArray(ref y)) => {
+            (StackItem::UnsignedInteger(x), StackItem::ByteArray { data: ref y, .. }) => {
                 let y_bytes = y.borrow();
                 let y_u = Self::bytes_to_i64_le(&y_bytes) as u64;
                 Ok(StackItem::UnsignedInteger(x & y_u))
             }
-            (StackItem::ByteArray(ref x), StackItem::ByteArray(ref y)) => {
+            (StackItem::ByteArray { data: ref x, .. }, StackItem::ByteArray { data: ref y, .. }) => {
                 let x_bytes = x.borrow();
                 let y_bytes = y.borrow();
                 let x_int = Self::bytes_to_i64_le(&x_bytes);
@@ -179,7 +179,7 @@ impl ExecutionContext {
     pub(crate) fn bitwise_or(&self, a: StackItem, b: StackItem) -> Result<StackItem, RuntimeError> {
         // Task #50: accept ByteArray operands by routing through BigInt with a
         // 256-bit mask, so `uint256(2^63) | uint256(1)` no longer panics.
-        if matches!(a, StackItem::ByteArray(_)) || matches!(b, StackItem::ByteArray(_)) {
+        if matches!(a, StackItem::ByteArray { data: _, .. }) || matches!(b, StackItem::ByteArray { data: _, .. }) {
             let x = self
                 .coerce_item_to_bigint(&a)
                 .ok_or_else(|| RuntimeError::ExecutionError {
@@ -210,7 +210,7 @@ impl ExecutionContext {
     ) -> Result<StackItem, RuntimeError> {
         // Task #50: accept ByteArray operands via the BigInt path with a
         // 256-bit mask, matching the new OR/NOT semantics.
-        if matches!(a, StackItem::ByteArray(_)) || matches!(b, StackItem::ByteArray(_)) {
+        if matches!(a, StackItem::ByteArray { data: _, .. }) || matches!(b, StackItem::ByteArray { data: _, .. }) {
             let x = self
                 .coerce_item_to_bigint(&a)
                 .ok_or_else(|| RuntimeError::ExecutionError {
@@ -237,7 +237,7 @@ impl ExecutionContext {
     /// True when the LHS is a wide ByteArray (>8 bytes) that would otherwise
     /// be truncated by the narrow i64/u64 shift path. Task #H4.
     fn shift_lhs_is_wide(item: &StackItem) -> bool {
-        matches!(item, StackItem::ByteArray(bytes) if bytes.borrow().len() > 8)
+        matches!(item, StackItem::ByteArray { data: bytes, .. } if bytes.borrow().len() > 8)
     }
 
     pub(crate) fn shift_left(

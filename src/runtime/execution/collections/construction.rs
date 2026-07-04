@@ -55,7 +55,7 @@ impl ExecutionContext {
                         work.extend(rc.borrow().values().cloned());
                     }
                 }
-                StackItem::ByteArray(rc) => {
+                StackItem::ByteArray { data: rc, .. } => {
                     if seen.insert(Rc::as_ptr(&rc) as usize) {
                         count += 1;
                     }

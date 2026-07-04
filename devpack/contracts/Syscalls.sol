@@ -1,31 +1,51 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "./NativeContracts.sol";
+
 /**
  * @title Neo N3 Syscall and Native-call Helpers
  * @dev Provides access to N3 syscalls and native contract wrappers supported by the embedded runtime.
  * @author Jimmy <jimmy@r3e.network>
- * 
+ *
  * This library provides Solidity helpers for the syscall and native contract surfaces that
  * neo-devpack-solidity lowers today. The embedded runtime does not implement every Neo N3 host syscall.
  *
  * NOTE: Neo N3 exposes many features via *native contracts* (Ledger, Policy,
  * Oracle, ContractManagement, etc.) rather than syscalls. The neo-devpack-solidity
  * compiler lowers these helpers to `System.Contract.Call` as needed.
+ *
+ * DOMAIN-SPECIFIC LIBRARIES: For better code organization, this library has been
+ * split into focused domain modules under `syscalls/`:
+ *
+ *   syscalls/SyscallsLedger.sol    — Blockchain & Ledger operations
+ *   syscalls/SyscallsContract.sol  — Contract management & script hashes
+ *   syscalls/SyscallsStorage.sol   — Storage operations
+ *   syscalls/SyscallsRuntime.sol   — Runtime environment queries
+ *   syscalls/SyscallsCrypto.sol    — Cryptographic operations
+ *   syscalls/SyscallsStdLib.sol    — StdLib, encoding, memory utilities
+ *   syscalls/SyscallsPolicy.sol    — Network policy parameters
+ *   syscalls/SyscallsOracle.sol    — Oracle operations
+ *   syscalls/SyscallsRole.sol      — Role management
+ *   syscalls/SyscallsBase.sol      — Shared internal helpers & constants
+ *   syscalls/SyscallsTypes.sol     — Data structure definitions
+ *
+ * Import domain libraries directly for finer-grained dependencies:
+ *   import "./syscalls/SyscallsLedger.sol";
  */
 
 library Syscalls {
 
     // Native contract script hashes — imported from NativeContracts.sol (single source of truth).
-    // NOTE: These aliases exist for backward compatibility. New code should use
+    // These aliases exist for backward compatibility. New code should use
     // `NativeContracts.<NAME>` directly.
-    address constant CONTRACT_MANAGEMENT = 0xfffdc93764dbaddd97c48f252a53ea4643faa3fd;
-    address constant POLICY_CONTRACT = 0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b;
-    address constant ORACLE_CONTRACT = 0xfe924b7cfe89ddd271abaf7210a80a7e11178758;
-    address constant ROLE_MANAGEMENT = 0x49cf4e5378ffcd4dec034fd98a174c5491e395e2;
-    address constant LEDGER_CONTRACT = 0xda65b600f7124ce6c79950c1772a36403104f2be;
-    address constant CRYPTO_LIB = 0x726cb6e0cd8628a1350a611384688911ab75f51b;
-    address constant STD_LIB = 0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0;
+    address constant CONTRACT_MANAGEMENT = NativeContracts.CONTRACT_MANAGEMENT;
+    address constant POLICY_CONTRACT = NativeContracts.POLICY_CONTRACT;
+    address constant ORACLE_CONTRACT = NativeContracts.ORACLE_CONTRACT;
+    address constant ROLE_MANAGEMENT = NativeContracts.ROLE_MANAGEMENT;
+    address constant LEDGER_CONTRACT = NativeContracts.LEDGER_CONTRACT;
+    address constant CRYPTO_LIB = NativeContracts.CRYPTO_LIB;
+    address constant STD_LIB = NativeContracts.STD_LIB;
     
     // ========== Blockchain System Calls ==========
     
@@ -491,6 +511,15 @@ library Syscalls {
     }
 
     /**
+     * @dev SHA1 hash
+     */
+    function sha1(bytes memory data) internal view returns (bytes20) {
+        bytes memory params = abi.encode(data);
+        bytes memory result = contractCall(CRYPTO_LIB, "sha1", params);
+        return abi.decode(result, (bytes20));
+    }
+
+    /**
      * @dev Keccak-256 hash (CryptoLib native call, added at Neo N3 Cockatrice hardfork)
      *
      * NOTE: Solidity's built-in `keccak256()` is also lowered to this native call
@@ -610,6 +639,54 @@ library Syscalls {
     function bls12381Pairing(bytes memory g1, bytes memory g2) internal view returns (bytes memory) {
         bytes memory data = abi.encode(g1, g2);
         return contractCall(CRYPTO_LIB, "bls12381Pairing", data);
+    }
+
+    /**
+     * @dev Add two BLS12-381 G1 points (48-byte compressed encoding)
+     */
+    function bls12381G1Add(bytes memory x, bytes memory y) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x, y);
+        return contractCall(CRYPTO_LIB, "bls12381G1Add", data);
+    }
+
+    /**
+     * @dev Multiply BLS12-381 G1 point by scalar
+     */
+    function bls12381G1Mul(bytes memory x, bytes memory mul, bool neg) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x, mul, neg);
+        return contractCall(CRYPTO_LIB, "bls12381G1Mul", data);
+    }
+
+    /**
+     * @dev Negate BLS12-381 G1 point
+     */
+    function bls12381G1Neg(bytes memory x) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x);
+        return contractCall(CRYPTO_LIB, "bls12381G1Neg", data);
+    }
+
+    /**
+     * @dev Add two BLS12-381 G2 points (96-byte compressed encoding)
+     */
+    function bls12381G2Add(bytes memory x, bytes memory y) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x, y);
+        return contractCall(CRYPTO_LIB, "bls12381G2Add", data);
+    }
+
+    /**
+     * @dev Multiply BLS12-381 G2 point by scalar
+     */
+    function bls12381G2Mul(bytes memory x, bytes memory mul, bool neg) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x, mul, neg);
+        return contractCall(CRYPTO_LIB, "bls12381G2Mul", data);
+    }
+
+    /**
+     * @dev Negate BLS12-381 G2 point
+     */
+    function bls12381G2Neg(bytes memory x) internal view returns (bytes memory) {
+        bytes memory data = abi.encode(x);
+        return contractCall(CRYPTO_LIB, "bls12381G2Neg", data);
     }
     
     // ========== StdLib System Calls ==========
@@ -1098,6 +1175,13 @@ library Syscalls {
      */
     function getInvocationCounter() internal view returns (uint256) {
         return _syscall("System.Runtime.GetInvocationCounter", "");
+    }
+
+    /**
+     * @dev Get message value (msg.value equivalent — the value attached to the current invocation)
+     */
+    function getMsgValue() internal view returns (uint256) {
+        return _syscall("System.Runtime.GetMsgValue", "");
     }
     
     // ========== Policy System Calls ==========

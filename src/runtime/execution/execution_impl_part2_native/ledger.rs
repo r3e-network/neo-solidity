@@ -48,7 +48,40 @@ impl ExecutionContext {
                 StackItem::Integer(-1)
             }
             "gettransactionfromblock" => {
-                // params: [block_index, tx_index]
+                // params: [block_index_or_hash, tx_index]
+                // Cockatrice: returns a transaction from a block by index.
+                // Generate a deterministic synthetic tx for any valid block.
+                if let StackItem::Array(args) = &params {
+                    let borrowed = args.borrow();
+                    let block_index = borrowed.first().map(Self::extract_first_int).unwrap_or(0);
+                    let tx_index = borrowed.get(1).map(Self::extract_first_int).unwrap_or(0);
+
+                    let height = *self.block_height.get_or_insert(self.default_block_height);
+                    if block_index > height {
+                        return StackItem::Null;
+                    }
+
+                    // Build a deterministic synthetic tx hash from (block_index, tx_index)
+                    let mut seed = Vec::new();
+                    seed.extend_from_slice(&block_index.to_le_bytes());
+                    seed.extend_from_slice(&tx_index.to_le_bytes());
+                    let hash_bytes = Sha256::digest(&seed);
+                    let mut hash = [0u8; 32];
+                    hash.copy_from_slice(&hash_bytes);
+
+                    let tx = LedgerTransaction {
+                        hash,
+                        version: 0,
+                        nonce: tx_index as u32,
+                        sender: vec![0u8; 20],
+                        system_fee: 0,
+                        network_fee: 0,
+                        valid_until_block: (block_index + 2102400) as u32,
+                        script: vec![],
+                    };
+                    self.ledger_transactions.insert(hash, tx.clone());
+                    return Self::ledger_tx_to_stack_item(&tx);
+                }
                 StackItem::Null
             }
             "gettransactionsigners" => {

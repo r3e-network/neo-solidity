@@ -1,24 +1,5 @@
 use super::*;
 
-/// Named-operation fallback fee (in GAS fractions) for the legacy
-/// `consume_gas(op, None)` path. The primary interpreter charges per-opcode
-/// via `spec::opcode_gas`, so this table is only a compatibility fallback —
-/// a static `match` instead of the previous per-instance
-/// `HashMap<String, u64>` that allocated 9 key Strings on every
-/// `GasTracker::new`.
-fn named_operation_cost(operation: &str) -> u64 {
-    match operation {
-        // NeoVM opcode fees
-        "ADD" | "SUB" | "MUL" | "DIV" => 8,
-        "PUSH" | "POP" => 1,
-        // Syscall fees
-        "CALL" => 512,
-        "SSTORE" => 200,
-        "SLOAD" => 100,
-        _ => 1,
-    }
-}
-
 impl GasTracker {
     /// Create new gas tracker
     pub fn new(limit: u64) -> Self {
@@ -35,22 +16,24 @@ impl GasTracker {
         self.used = 0;
     }
 
-    /// Consume gas for operation
+    /// Consume a fixed gas amount for an operation.
+    /// The primary interpreter charges via `spec::opcode_gas` and dynamic
+    /// surcharges in `execute_instruction`; this method is used by bridge
+    /// helper methods that bypass the main opcode dispatch.
     pub fn consume_gas(
         &mut self,
-        operation: &str,
-        amount: Option<u64>,
+        _operation: &str,
+        amount: u64,
     ) -> Result<(), RuntimeError> {
-        let cost = amount.unwrap_or_else(|| named_operation_cost(operation));
 
-        if self.used + cost > self.limit {
+        if self.used + amount > self.limit {
             return Err(RuntimeError::OutOfGas {
-                used: self.used + cost,
+                used: self.used + amount,
                 limit: self.limit,
             });
         }
 
-        self.used += cost;
+        self.used += amount;
         Ok(())
     }
 

@@ -48,7 +48,7 @@ fn storage_find_respects_prefix_and_overlay() {
     let entry: StackItem = serde_json::from_slice(result).expect("iterator value json");
     let key = match entry {
         StackItem::Array(items) => match items.borrow().first() {
-            Some(StackItem::ByteArray(bytes)) => bytes.borrow().clone(),
+            Some(StackItem::ByteArray { data: bytes, .. }) => bytes.borrow().clone(),
             _ => Vec::new(),
         },
         _ => Vec::new(),

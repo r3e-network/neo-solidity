@@ -94,6 +94,11 @@ pub struct StorageQuery {
     pub key_prefix: Option<Vec<u8>>,
     pub limit: Option<usize>,
     pub include_pending: bool,
+    /// Cursor for paginated queries: only return entries whose key is
+    /// strictly greater than this value (forward) or strictly less than
+    /// this value (backward). Used by the streaming iterator to fetch
+    /// pages on demand without materialising the entire result set.
+    pub start_after_key: Option<Vec<u8>>,
 }
 
 impl StorageQuery {

@@ -41,13 +41,18 @@ impl StorageManager {
             }
         }
 
+        // Sort by key for consistent results (must happen before cursor filtering)
+        results.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // Apply cursor-based pagination: filter out keys before the cursor
+        if let Some(ref cursor) = query.start_after_key {
+            results.retain(|(k, _)| k.as_slice() > cursor.as_slice());
+        }
+
         // Apply limit
         if let Some(limit) = query.limit {
             results.truncate(limit);
         }
-
-        // Sort by key for consistent results
-        results.sort_by(|a, b| a.0.cmp(&b.0));
 
         Ok(results)
     }

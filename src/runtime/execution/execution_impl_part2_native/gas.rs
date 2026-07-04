@@ -8,7 +8,7 @@ impl ExecutionContext {
             "totalsupply" => StackItem::UnsignedInteger(self.gas_total_supply),
             "balanceof" => {
                 if let StackItem::Array(args) = params {
-                    if let Some(StackItem::ByteArray(acc)) = args.borrow().first() {
+                    if let Some(StackItem::ByteArray { data: acc, .. }) = args.borrow().first() {
                         let bal = *self.gas_balances.get(acc.borrow().as_slice()).unwrap_or(&0);
                         StackItem::UnsignedInteger(bal)
                     } else {

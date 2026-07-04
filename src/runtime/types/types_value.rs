@@ -145,7 +145,7 @@ impl RuntimeValue {
             StackItem::Boolean(b) => RuntimeValue::Boolean(*b),
             StackItem::Integer(i) => RuntimeValue::Integer(*i),
             StackItem::UnsignedInteger(u) => RuntimeValue::UnsignedInteger(*u),
-            StackItem::ByteArray(bytes) => RuntimeValue::ByteString(bytes.borrow().clone()),
+            StackItem::ByteArray { data: bytes, .. } => RuntimeValue::ByteString(bytes.borrow().clone()),
             StackItem::Array(items) => RuntimeValue::Array(
                 items
                     .borrow()

@@ -8,6 +8,7 @@ impl StorageQuery {
             key_prefix: None,
             limit: None,
             include_pending: false,
+            start_after_key: None,
         }
     }
 

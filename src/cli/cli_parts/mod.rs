@@ -1,9 +1,7 @@
 //! CLI sub-modules for the Neo DevPack for Solidity compiler.
 //!
-//! This module groups the CLI implementation files that were previously
-//! included via `#[path = "..."]` attributes in `cli/mod.rs`. Converting
-//! to a standard `mod` declaration fixes IDE navigation, rust-analyzer
-//! support, and refactoring tooling.
+//! This module groups the CLI implementation files using standard Rust
+//! module declarations for clean IDE navigation and rust-analyzer support.
 
 use crate::cli::{
     build_manifest, build_upgrade_report, bytecode, compile_contracts_with_options,

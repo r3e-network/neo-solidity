@@ -2,7 +2,7 @@ use super::*;
 
 pub(crate) fn extract_bytes(item: &StackItem) -> Result<Vec<u8>, VMBridgeError> {
     Ok(match item {
-        StackItem::ByteArray(bytes) => bytes.borrow().clone(),
+        StackItem::ByteArray { data: bytes, .. } => bytes.borrow().clone(),
         StackItem::UnsignedInteger(value) => value.to_be_bytes().to_vec(),
         StackItem::Integer(value) => {
             if *value < 0 {
@@ -38,7 +38,7 @@ pub(crate) fn extract_integer(item: &StackItem) -> Result<u128, VMBridgeError> {
             }
             *value as u128
         }
-        StackItem::ByteArray(bytes) => {
+        StackItem::ByteArray { data: bytes, .. } => {
             let bytes = bytes.borrow();
             if bytes.is_empty() {
                 0

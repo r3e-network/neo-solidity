@@ -8,11 +8,11 @@ impl ExecutionContext {
                 return StackItem::Boolean(false);
             }
             let from = match args.first() {
-                Some(StackItem::ByteArray(acc)) => acc.borrow().clone(),
+                Some(StackItem::ByteArray { data: acc, .. }) => acc.borrow().clone(),
                 _ => Vec::new(),
             };
             let to = match args.get(1) {
-                Some(StackItem::ByteArray(acc)) => acc.borrow().clone(),
+                Some(StackItem::ByteArray { data: acc, .. }) => acc.borrow().clone(),
                 _ => Vec::new(),
             };
             let amount = match args.get(2) {
