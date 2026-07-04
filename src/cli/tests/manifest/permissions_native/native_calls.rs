@@ -30,7 +30,7 @@ fn address_transfer_and_send_emit_gas_permissions() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -72,7 +72,7 @@ fn native_calls_emit_exact_permissions() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -114,7 +114,7 @@ fn native_contract_constant_member_calls_do_not_require_wildcard_permissions() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -157,7 +157,7 @@ fn contract_management_deploy_contract_requires_explicit_permission() {
         .expect("permissions array");
 
     let cm_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
     let cm_hash_be: Vec<u8> = cm_hash_le.iter().rev().copied().collect();
     let cm_contract = format!("0x{}", hex::encode(cm_hash_be));
 
@@ -201,12 +201,12 @@ fn contract_management_get_contract_requires_stdlib_serialize_permission() {
         .expect("permissions array");
 
     let cm_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
     let cm_hash_be: Vec<u8> = cm_hash_le.iter().rev().copied().collect();
     let cm_contract = format!("0x{}", hex::encode(cm_hash_be));
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 

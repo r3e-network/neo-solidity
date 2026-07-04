@@ -67,12 +67,12 @@ fn syscalls_contract_call_static_target_emits_exact_permissions() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 
@@ -175,7 +175,7 @@ fn native_contracts_member_call_emits_exact_native_permission() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -232,7 +232,7 @@ fn repeated_static_native_contract_calls_emit_single_deduplicated_permission_ent
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 

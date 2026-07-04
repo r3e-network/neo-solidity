@@ -74,7 +74,7 @@ pub(crate) fn infer_permissions(
     // permission ourselves; if the emitted bytecode ever starts performing the
     // deployment, the manifest will already authorize it.
     if contract_uses_new_contract(metadata) {
-        let hash_le = bytecode::native_contract_hash(ir::NativeContract::ContractManagement);
+        let hash_le = codegen::native_contract_hash(ir::NativeContract::ContractManagement);
         let hash_be = hash_le.iter().rev().copied().collect::<Vec<_>>();
         let contract_str = format!("0x{}", hex::encode(hash_be));
         native_methods

@@ -53,7 +53,7 @@ fn self_contract_calls_preserve_state_for_following_calls() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -100,7 +100,7 @@ fn syscalls_contract_call_dynamic_method_restricts_to_contract() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = format!("0x{}", hex::encode(gas_hash_be));
 
@@ -297,11 +297,11 @@ fn branch_selected_known_targets_do_not_require_wildcard_contract_permissions() 
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
 
-    let neo_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Neo);
+    let neo_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Neo);
     let neo_hash_be: Vec<u8> = neo_hash_le.iter().rev().copied().collect();
     let neo_contract = Value::String(format!("0x{}", hex::encode(neo_hash_be)));
 
@@ -359,11 +359,11 @@ fn correlated_branch_selected_target_and_method_do_not_cross_product_permissions
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
 
-    let neo_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Neo);
+    let neo_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Neo);
     let neo_hash_be: Vec<u8> = neo_hash_le.iter().rev().copied().collect();
     let neo_contract = Value::String(format!("0x{}", hex::encode(neo_hash_be)));
 

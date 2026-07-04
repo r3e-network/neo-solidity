@@ -19,7 +19,7 @@ fn syscalls_contract_exists_uses_contract_management_is_contract() {
         .expect("permissions array");
 
     let cm_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::ContractManagement);
     let cm_hash_be: Vec<u8> = cm_hash_le.iter().rev().copied().collect();
     let cm_contract = format!("0x{}", hex::encode(cm_hash_be));
 
@@ -57,7 +57,7 @@ fn runtime_notify_requires_stdlib_serialize_and_deserialize_permissions() {
         .expect("permissions array");
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 
@@ -139,12 +139,12 @@ fn mapping_storage_requires_crypto_keccak_and_stdlib_serialize_permissions() {
         .expect("permissions array");
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 
     let crypto_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::CryptoLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::CryptoLib);
     let crypto_hash_be: Vec<u8> = crypto_hash_le.iter().rev().copied().collect();
     let crypto_contract = format!("0x{}", hex::encode(crypto_hash_be));
 
@@ -203,7 +203,7 @@ fn parameterised_constructor_requires_stdlib_json_deserialize_permission() {
         .expect("permissions array");
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 
@@ -260,7 +260,7 @@ fn storage_put_contract_metadata_sets_storage_feature_and_stdlib_permissions() {
         .expect("permissions array");
 
     let stdlib_hash_le =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::StdLib);
     let stdlib_hash_be: Vec<u8> = stdlib_hash_le.iter().rev().copied().collect();
     let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 

@@ -243,7 +243,7 @@ fn compile_metadata(
     }
 
     if has_parameterised_constructor {
-        let stdlib_hash_le = bytecode::native_contract_hash(ir::NativeContract::StdLib);
+        let stdlib_hash_le = codegen::native_contract_hash(ir::NativeContract::StdLib);
         let stdlib_hash_be = stdlib_hash_le.iter().rev().copied().collect::<Vec<_>>();
         let stdlib_contract = format!("0x{}", hex::encode(stdlib_hash_be));
 

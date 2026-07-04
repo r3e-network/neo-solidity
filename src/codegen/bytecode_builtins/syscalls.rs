@@ -32,7 +32,7 @@ pub(crate) fn emit_native_contract_call(
     if use_callt {
         if let Ok(params) = u16::try_from(arg_count) {
             if !method.starts_with('_')
-                && method.len() <= neo_devpack_solidity::neo::MAX_TOKEN_METHOD_LENGTH
+                && method.len() <= crate::neo::MAX_TOKEN_METHOD_LENGTH
             {
                 if let Some(has_return_value) = native_method_has_return_value(contract, method) {
                     bytecode.push(OpCode::CALLT.byte());

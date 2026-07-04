@@ -1,6 +1,6 @@
 // ==================== Helper Function Unit Tests ====================
 
-use neo_devpack_solidity::opcode::OpCode;
+use crate::opcode::OpCode;
 
 #[test]
 fn emit_load_local_uses_short_form_for_small_indices() {

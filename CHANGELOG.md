@@ -5,6 +5,45 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.29.0] - 2026-07-04
+
+Architecture Phase 1: CLI decomposition. Extracts two major subsystems from
+the CLI god module (151 files) into first-class top-level modules.
+
+### Added
+- `src/codegen/` — new top-level module for NeoVM bytecode generation
+  (extracted from `src/cli/bytecode/`). Contains bytecode assembly, builtins,
+  disassembler, and storage helpers. 29 files, ~5,394 LOC.
+- `src/optimizer/` — new top-level module for IR optimization passes
+  (extracted from `src/cli/ir_optimize/`). Contains constant folding, label
+  deduplication, and NeoVM peephole optimization. 5 files, 692 LOC.
+
+### Changed
+- `src/cli/mod.rs` — removed `mod bytecode;` and `mod ir_optimize;` declarations.
+  CLI module now imports `generate_contract_bytecode` and `optimize_ir` from
+  the new top-level modules. CLI file count reduced from 151 to 117 files.
+- `src/cli/cli_parts/mod.rs` — imports `generate_contract_bytecode` from
+  `crate::codegen` and `optimize_ir` from `crate::optimizer` directly,
+  instead of through `crate::cli` re-exports.
+- `src/lib.rs` — added `pub mod codegen;` and `pub mod optimizer;` as
+  `#[doc(hidden)]` internal modules.
+- All `bytecode::` references in `cli_parts/` and `tests/` updated to
+  `codegen::` or `crate::codegen::`.
+
+### Deferred
+- Manifest extraction (`src/neo/` + `src/cli/cli_parts/cli_manifest/` →
+  `src/manifest/`) deferred to a sub-phase. Two blocking couplings identified:
+  1. Bidirectional dependency between `cli_manifest` and `standard_json`
+  2. `CompileError` ownership (defined in `cli_compile/types.rs`, used by
+     `cli_manifest`)
+
+### Verification
+- `cargo check`: 0 errors, 0 warnings
+- `cargo clippy`: 0 warnings
+- `cargo test`: 965 tests passed, 0 failed (zero regressions)
+- Public API unchanged: `compile_contracts`, `disassemble_neovm_bytecode`,
+  standard-JSON all work identically.
+
 ## [v0.28.1] - 2026-07-03
 
 Audit-driven patch release. Fixes all P2 and P3 issues identified in the

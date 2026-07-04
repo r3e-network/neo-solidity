@@ -34,11 +34,15 @@ pub mod opcode;
 // === Internal / test-facing (hidden from docs) ===
 
 #[doc(hidden)]
+pub mod codegen;
+#[doc(hidden)]
 pub mod frontend;
 #[doc(hidden)]
 pub mod interop;
 #[doc(hidden)]
 pub mod ir;
+#[doc(hidden)]
+pub mod optimizer;
 #[doc(hidden)]
 pub mod runtime;
 #[doc(hidden)]

@@ -37,7 +37,7 @@ fn callt_emits_method_tokens_for_native_calls() {
 
     let token = &artifact.tokens[0];
     let expected_hash =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     assert_eq!(token.hash, expected_hash);
     assert_eq!(token.method, "totalSupply");
     assert_eq!(token.parameters_count, 0);
@@ -86,7 +86,7 @@ fn callt_emits_cryptolib_tokens_for_neo_hash_helpers() {
 
     let artifact = &artifacts[0];
     let cryptolib_hash =
-        super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::CryptoLib);
+        crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::CryptoLib);
 
     let sha_token = artifact
         .tokens
@@ -150,7 +150,7 @@ fn callt_executes_neo_hash_helpers_through_cryptolib() {
         assert_eq!(artifacts.len(), 1);
 
         let artifact = &artifacts[0];
-        let cryptolib_hash = super::bytecode::native_contract_hash(
+        let cryptolib_hash = crate::codegen::native_contract_hash(
             neo_devpack_solidity::ir::NativeContract::CryptoLib,
         );
         assert!(

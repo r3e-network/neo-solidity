@@ -30,9 +30,9 @@
 // mod tests;` tree below, whose modules reach them via `use super::*`.
 // Gating them on `cfg(test)` keeps the release build free of unused imports.
 #[cfg(test)]
-use neo_devpack_solidity::ir;
+use crate::ir;
 #[cfg(test)]
-use neo_devpack_solidity::solidity::{
+use crate::solidity::{
     validate_contract, ContractMetadata, FunctionKind, FunctionMetadata,
 };
 #[cfg(test)]
@@ -40,18 +40,18 @@ use serde_json::{json, Value};
 #[cfg(test)]
 use sha3::{Digest, Keccak256};
 
-mod bytecode;
 #[cfg(test)]
 pub(crate) use crate::interop::interop_id_bytes;
-pub(crate) use bytecode::generate_contract_bytecode;
+#[cfg(test)]
+pub(crate) use crate::codegen::generate_contract_bytecode;
 // Public re-export of the NeoVM bytecode disassembler so external tooling
 // (fuzz targets, debugging consumers) can call it without touching
 // `pub(crate)` internals. The function is total — any byte sequence
 // produces a string without panicking. See
 // `fuzz/fuzz_targets/fuzz_target_disasm.rs`.
-pub use bytecode::disassemble_neovm_bytecode;
-mod ir_optimize;
-pub(crate) use ir_optimize::optimize_ir;
+pub use crate::codegen::disassemble_neovm_bytecode;
+#[cfg(test)]
+pub(crate) use crate::optimizer::optimize_ir;
 mod standard_json;
 pub(crate) use standard_json::*;
 

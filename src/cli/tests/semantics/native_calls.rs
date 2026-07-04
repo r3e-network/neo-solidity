@@ -14,7 +14,7 @@ fn native_calls_contract_constants_lower_to_native_hash_bytes() {
     let result = execute_bytecode(&artifacts[0].bytecode);
     assert!(result.is_success(), "expected constant-return to succeed");
 
-    let expected = super::bytecode::native_contract_hash(ir::NativeContract::Gas);
+    let expected = crate::codegen::native_contract_hash(ir::NativeContract::Gas);
     assert_eq!(
         result.return_data,
         expected.to_vec(),
@@ -105,7 +105,7 @@ fn native_contracts_gas_constant_matches_native_hash_bytes() {
         "expected NativeContracts constant-return to succeed"
     );
 
-    let expected = super::bytecode::native_contract_hash(ir::NativeContract::Gas);
+    let expected = crate::codegen::native_contract_hash(ir::NativeContract::Gas);
     assert_eq!(
         result.return_data,
         expected.to_vec(),

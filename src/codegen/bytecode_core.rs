@@ -22,7 +22,7 @@ pub(crate) struct CallPatch {
 #[derive(Clone, Debug)]
 pub(crate) struct BytecodeBuildOutput {
     pub script: Vec<u8>,
-    pub tokens: Vec<neo_devpack_solidity::neo::MethodToken>,
+    pub tokens: Vec<crate::neo::MethodToken>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -247,7 +247,7 @@ pub(crate) fn generate_contract_bytecode(
 fn apply_method_tokens(
     bytecode: &mut [u8],
     patches: &[MethodTokenPatch],
-) -> Result<Vec<neo_devpack_solidity::neo::MethodToken>, String> {
+) -> Result<Vec<crate::neo::MethodToken>, String> {
     use std::collections::{BTreeMap, BTreeSet};
 
     if patches.is_empty() {
@@ -255,16 +255,16 @@ fn apply_method_tokens(
     }
 
     let unique: BTreeSet<MethodTokenKey> = patches.iter().map(|p| p.token.clone()).collect();
-    if unique.len() > neo_devpack_solidity::neo::MAX_METHOD_TOKENS {
+    if unique.len() > crate::neo::MAX_METHOD_TOKENS {
         return Err(format!(
             "CALLT requires <= {} method token(s); got {}",
-            neo_devpack_solidity::neo::MAX_METHOD_TOKENS,
+            crate::neo::MAX_METHOD_TOKENS,
             unique.len()
         ));
     }
 
     let mut token_map: BTreeMap<MethodTokenKey, u16> = BTreeMap::new();
-    let mut tokens: Vec<neo_devpack_solidity::neo::MethodToken> = Vec::with_capacity(unique.len());
+    let mut tokens: Vec<crate::neo::MethodToken> = Vec::with_capacity(unique.len());
 
     for (index, key) in unique.into_iter().enumerate() {
         // M-BC1 fix — the u16 token index must not silently alias to #511 when
@@ -278,7 +278,7 @@ fn apply_method_tokens(
             )
         })?;
         token_map.insert(key.clone(), token_index);
-        tokens.push(neo_devpack_solidity::neo::MethodToken::new(
+        tokens.push(crate::neo::MethodToken::new(
             key.hash,
             &key.method,
             key.parameters_count,

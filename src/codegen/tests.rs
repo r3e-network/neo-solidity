@@ -1,7 +1,7 @@
 use super::*;
-use neo_devpack_solidity::interop::interop_id_bytes;
-use neo_devpack_solidity::solidity::analyse_source;
-use neo_devpack_solidity::{
+use crate::interop::interop_id_bytes;
+use crate::solidity::analyse_source;
+use crate::{
     frontend::VisibilityKind,
     solidity::{FunctionKind, FunctionMetadata, StateMutability},
 };

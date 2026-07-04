@@ -41,8 +41,13 @@
 - Runtime streamlining (167→120 files) — HIGH RISK, VM bridging coupling
 - Solidity 0.8.29+ feature additions (function types, fixed/ufixed) — feature work
 - 13 remaining 800+ line files — require surgical refactoring per file
-- P2: Fix NativeTypes.ContractState type mismatch (hash/id/updateCounter)
-- P2: Implement 20 missing runtime handlers (StdLib base58/memory ops, NEO governance, ContractMgmt)
-- P2: Remove dead code (build_storage_entries, allocate_iterator, VMBridge instruction mapping)
-- P2: Fix nested EQUAL type-strictness (PartialEq ignores type_tag for array elements)
-- P3: Add 14 Solidity wrappers for runtime methods without them
+
+## Version History
+- **v0.28.1** (2026-07-03): Audit-driven patch — fixed all P2/P3 issues from v0.28.0 audit
+  - P2-1: Nested EQUAL type-strictness (recursive Array/Map comparison)
+  - P2-2: NativeTypes.ContractState field types corrected
+  - P2-3: 20 missing runtime handlers implemented (NEO 5, ContractMgmt 4, StdLib 10, CryptoLib 1)
+  - P2-4/P2-5: Dead code removed
+  - P3-1 through P3-5: Clippy, imports, using directives, pragma, 14 missing Solidity wrappers
+  - New deps: bs58 (base58), ed25519-dalek (Ed25519 verification)
+- **v0.28.0** (2026-07-03): Precision & correctness release (ByteString/Buffer distinction, gas scaling, streaming iterator, Oracle enrichment)

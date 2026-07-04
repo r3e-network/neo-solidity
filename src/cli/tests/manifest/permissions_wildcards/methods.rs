@@ -300,7 +300,7 @@ fn branch_selected_known_methods_do_not_require_wildcard_method_permissions() {
         .as_array()
         .expect("permissions array");
 
-    let gas_hash_le = super::bytecode::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
+    let gas_hash_le = crate::codegen::native_contract_hash(neo_devpack_solidity::ir::NativeContract::Gas);
     let gas_hash_be: Vec<u8> = gas_hash_le.iter().rev().copied().collect();
     let gas_contract = Value::String(format!("0x{}", hex::encode(gas_hash_be)));
 

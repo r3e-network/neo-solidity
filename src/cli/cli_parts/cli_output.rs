@@ -196,7 +196,7 @@ pub(crate) fn write_json_file(
 }
 
 pub(crate) fn write_assembly_file(path: &str, script: &[u8]) -> Result<(), String> {
-    let assembly = bytecode::disassemble_neovm_bytecode(script);
+    let assembly = codegen::disassemble_neovm_bytecode(script);
     ensure_output_dir(path)?;
     fs::write(path, assembly)
         .map_err(|err| format!("Failed to write assembly file '{path}': {err}"))?;

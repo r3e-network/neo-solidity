@@ -5,7 +5,7 @@ pub(crate) fn require_native_method(
     contract: ir::NativeContract,
     method: &str,
 ) {
-    let hash_le = bytecode::native_contract_hash(contract);
+    let hash_le = codegen::native_contract_hash(contract);
     let hash_be = hash_le.iter().rev().copied().collect::<Vec<_>>();
     let contract_str = format!("0x{}", hex::encode(hash_be));
     native_methods

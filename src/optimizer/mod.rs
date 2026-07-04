@@ -11,7 +11,7 @@
 //! - **Level 2**: Constant folding and propagation
 //! - **Level 3**: NeoVM-specific optimizations (identity ops, boolean simplification)
 
-use neo_devpack_solidity::ir;
+use crate::ir;
 use num_traits::{ToPrimitive, Zero};
 
 mod optimize;
