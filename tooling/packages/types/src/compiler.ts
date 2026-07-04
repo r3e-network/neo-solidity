@@ -1,4 +1,46 @@
 /**
+ * Supported Solidity version range for the Neo DevPack for Solidity compiler.
+ * Keep this in sync with the Rust compiler (`src/frontend/frontend_parse/semver.rs`).
+ */
+export const SUPPORTED_SOLIDITY_RANGE = ">=0.8.19 <0.8.28";
+
+/** Minimum supported Solidity version (inclusive). */
+export const MIN_SUPPORTED_SOLIDITY_VERSION = "0.8.19";
+
+/** Maximum excluded Solidity version (exclusive). */
+export const MAX_EXCLUDED_SOLIDITY_VERSION = "0.8.28";
+
+/**
+ * Validate that a Solidity version falls within the supported range.
+ * Accepts plain versions ("0.8.19"), caret ranges ("^0.8.19"), or full range strings.
+ */
+export function isSupportedSolidityVersion(version: string): boolean {
+  const match = version.match(/(\d+\.\d+\.\d+)/);
+  if (!match) {
+    return false;
+  }
+  const v = match[1];
+  return (
+    compareSemver(v, MIN_SUPPORTED_SOLIDITY_VERSION) >= 0 &&
+    compareSemver(v, MAX_EXCLUDED_SOLIDITY_VERSION) < 0
+  );
+}
+
+function compareSemver(a: string, b: string): number {
+  const parse = (v: string) => v.split(".").map((n) => parseInt(n, 10));
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
+    if (na !== nb) {
+      return na - nb;
+    }
+  }
+  return 0;
+}
+
+/**
  * Configuration for the Neo DevPack for Solidity compiler
  */
 export interface NeoDevpackSolidityConfig {

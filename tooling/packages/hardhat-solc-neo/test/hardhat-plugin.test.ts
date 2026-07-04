@@ -4,7 +4,7 @@ import type { CompilationOutput, NeoHardhatConfig } from "@neo-devpack-solidity/
 
 const MINIMAL_CONFIG: NeoHardhatConfig = {
   solidity: {
-    version: "0.8.34",
+    version: "0.8.19",
     settings: {
       optimizer: { enabled: true, runs: 200 },
       outputSelection: { "*": { "*": ["abi", "evm.bytecode", "metadata"] } },
@@ -32,11 +32,11 @@ describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
   it("extracts versions from neo-solc output", () => {
     const compiler = new NeoDevpackSolidityCompiler(MINIMAL_CONFIG, { cache: "/tmp" });
     const parsed = (compiler as any).parseVersionOutput(
-      "neo-devpack-solidity: 0.9.10\nsolidity: 0.8.34\n"
+      "neo-devpack-solidity: 0.9.10\nsolidity: 0.8.19\n"
     ) as string[];
 
     expect(parsed).toContain("0.9.10");
-    expect(parsed).toContain("solidity-0.8.34");
+    expect(parsed).toContain("solidity-0.8.19");
   });
 
   it("validates version strings", () => {

@@ -38,7 +38,7 @@ describe("@neo-devpack-solidity/templates dist entrypoint", () => {
         author: "Neo DevPack for Solidity Team",
         description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
-        solcVersion: "0.8.34",
+        solcVersion: "0.8.19",
       },
       dryRun: false,
       interactive: false,

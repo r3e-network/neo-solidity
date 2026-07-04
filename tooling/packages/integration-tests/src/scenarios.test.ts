@@ -39,7 +39,7 @@ describe("Integration Test Scenarios", () => {
         author: "Neo DevPack for Solidity Team",
         description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
-        solcVersion: "0.8.34",
+        solcVersion: "0.8.19",
       },
       dryRun: false,
       interactive: false,
@@ -70,8 +70,8 @@ describe("Integration Test Scenarios", () => {
     expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-solc-neo');
     expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-neo-deployer');
     expect(hardhatConfig).not.toContain('@neo-devpack-solidity/hardhat-plugin');
-    expect(hardhatConfig).toContain('version: "0.8.34"');
-    expect(contractSource).toContain("pragma solidity ^0.8.34;");
+    expect(hardhatConfig).toContain('version: "0.8.19"');
+    expect(contractSource).toContain("pragma solidity ^0.8.19;");
   });
 
   it("scaffolds the ERC20 template without stale OpenZeppelin imports", async () => {
@@ -91,7 +91,7 @@ describe("Integration Test Scenarios", () => {
         author: "Neo DevPack for Solidity Team",
         description: "ERC20-style starter",
         license: "MIT",
-        solcVersion: "0.8.34",
+        solcVersion: "0.8.19",
         ownable: true,
         mintable: true,
         burnable: false,
@@ -108,8 +108,8 @@ describe("Integration Test Scenarios", () => {
 
     const contract = await fs.readFile(path.join(projectPath, "contracts", "MyToken.sol"), "utf8");
     const hardhatConfig = await fs.readFile(path.join(projectPath, "hardhat.config.js"), "utf8");
-    expect(contract).toContain("pragma solidity ^0.8.34;");
-    expect(hardhatConfig).toContain('version: "0.8.34"');
+    expect(contract).toContain("pragma solidity ^0.8.19;");
+    expect(hardhatConfig).toContain('version: "0.8.19"');
     expect(contract).toContain('import "@openzeppelin/contracts/token/ERC20/ERC20.sol";');
     expect(contract).toContain("contract MyToken is ERC20, Ownable");
     expect(contract).toContain("function mint(address to, uint256 amount) public onlyOwner");
@@ -176,8 +176,8 @@ describe("Integration Test Scenarios", () => {
 
     const counterContract = await fs.readFile(path.join(projectPath, "src", "Counter.sol"), "utf8");
     const counterTest = await fs.readFile(path.join(projectPath, "test", "Counter.t.sol"), "utf8");
-    expect(counterContract).toContain("pragma solidity ^0.8.34;");
-    expect(counterTest).toContain("pragma solidity ^0.8.34;");
+    expect(counterContract).toContain("pragma solidity ^0.8.19;");
+    expect(counterTest).toContain("pragma solidity ^0.8.19;");
 
     await expect(forge.build({ quiet: true })).rejects.toThrow(/not implemented yet/i);
   });

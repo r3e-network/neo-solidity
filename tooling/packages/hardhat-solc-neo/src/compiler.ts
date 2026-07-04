@@ -5,7 +5,9 @@ import { HardhatPluginError } from "hardhat/plugins";
 import { 
   CompilationInput, 
   CompilationOutput, 
-  NeoHardhatConfig
+  NeoHardhatConfig,
+  SUPPORTED_SOLIDITY_RANGE,
+  isSupportedSolidityVersion,
 } from "@neo-devpack-solidity/types";
 import chalk from "chalk";
 import Debug from "debug";
@@ -20,6 +22,13 @@ export class NeoDevpackSolidityCompiler {
   private paths: any;
 
   constructor(config: NeoHardhatConfig, paths: any) {
+    const version = config.solidity?.version;
+    if (version && !isSupportedSolidityVersion(version)) {
+      throw new HardhatPluginError(
+        "@neo-devpack-solidity/hardhat-solc-neo",
+        `Unsupported Solidity version "${version}". Supported range is ${SUPPORTED_SOLIDITY_RANGE}.`
+      );
+    }
     this.config = config;
     this.paths = paths;
   }

@@ -30,7 +30,7 @@ describe("@neo-devpack-solidity/templates", () => {
       author: "Neo DevPack for Solidity Team",
       description: "Basic Neo DevPack for Solidity project",
       license: "MIT",
-      solcVersion: "0.8.34",
+      solcVersion: "0.8.19",
       includeTests: true,
       includeDocs: false,
       framework: "hardhat",
@@ -55,7 +55,7 @@ describe("@neo-devpack-solidity/templates", () => {
     expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-solc-neo');
     expect(hardhatConfig).toContain('@neo-devpack-solidity/hardhat-neo-deployer');
     expect(hardhatConfig).not.toContain('@neo-devpack-solidity/hardhat-plugin');
-    expect(contractTemplate).toContain("pragma solidity ^0.8.34;");
+    expect(contractTemplate).toContain("pragma solidity ^0.8.19;");
 
     const testTemplate = String(template.files.find((file) => file.path === "test/{{contractName}}.test.js")?.content);
     expect(testTemplate).toContain("hre.neoSolc.artifacts.getBuildArtifact");
@@ -76,7 +76,7 @@ describe("@neo-devpack-solidity/templates", () => {
         author: "Neo DevPack for Solidity Team",
         description: "Basic Neo DevPack for Solidity project",
         license: "MIT",
-        solcVersion: "0.8.34",
+        solcVersion: "0.8.19",
       },
       dryRun: false,
       interactive: false,
@@ -87,7 +87,7 @@ describe("@neo-devpack-solidity/templates", () => {
     expect(result.success).toBe(true);
     expect(await fs.pathExists(path.join(projectPath, "package.json"))).toBe(true);
     expect(await fs.readFile(path.join(projectPath, "contracts", "BasicProject.sol"), "utf8")).toContain(
-      "pragma solidity ^0.8.34;",
+      "pragma solidity ^0.8.19;",
     );
   });
 });

@@ -1,6 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { NeoDevpackSolidityConfig, NeoNetworkConfig } from "@neo-devpack-solidity/types";
+import {
+  NeoDevpackSolidityConfig,
+  NeoNetworkConfig,
+  MIN_SUPPORTED_SOLIDITY_VERSION,
+  SUPPORTED_SOLIDITY_RANGE,
+  isSupportedSolidityVersion,
+} from "@neo-devpack-solidity/types";
 
 /**
  * Neo-Foundry configuration
@@ -76,7 +82,7 @@ export const DEFAULT_NEO_FOUNDRY_CONFIG: NeoFoundryConfig = {
       libs: ["lib"],
       remappings: [],
       neoSolc: {
-        version: "0.8.34",
+        version: MIN_SUPPORTED_SOLIDITY_VERSION,
         optimizer: {
           enabled: true,
           runs: 200
@@ -187,6 +193,7 @@ export class ConfigManager {
       
       // Merge with defaults
       this.config = this.mergeConfig(DEFAULT_NEO_FOUNDRY_CONFIG, parsed);
+      this.validateConfig();
       
       return this.config;
     } catch (error) {
@@ -226,6 +233,22 @@ export class ConfigManager {
       ...this.config.profile[profileName] || this.config.profile[this.config.defaultProfile],
       ...profileConfig
     };
+    this.validateConfig();
+  }
+
+  /**
+   * Validate the loaded configuration.
+   */
+  private validateConfig(): void {
+    for (const [profileName, profile] of Object.entries(this.config.profile)) {
+      const version = profile.neoSolc?.version;
+      if (version && !isSupportedSolidityVersion(version)) {
+        throw new Error(
+          `Profile "${profileName}" specifies unsupported Solidity version "${version}". ` +
+            `Supported range is ${SUPPORTED_SOLIDITY_RANGE}.`
+        );
+      }
+    }
   }
 
   /**
@@ -251,7 +274,7 @@ export class ConfigManager {
     
     // Create sample contract
     const sampleContract = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 contract Counter {
     uint256 public number;
@@ -269,7 +292,7 @@ contract Counter {
 
     // Create sample test
     const sampleTest = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/Counter.sol";

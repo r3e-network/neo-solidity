@@ -18,7 +18,7 @@ const hasNeoDeployerPlugin = loadOptionalPlugin("@neo-devpack-solidity/hardhat-n
  */
 const config = {
   solidity: {
-    version: "0.8.34",
+    version: "0.8.19",
     settings: {
       optimizer: {
         enabled: true,
@@ -69,7 +69,7 @@ const config = {
 if (hasNeoSolcPlugin) {
   config.neoSolc = {
     solidity: {
-      version: "0.8.34",
+      version: "0.8.19",
       settings: {
         optimizer: {
           enabled: true,

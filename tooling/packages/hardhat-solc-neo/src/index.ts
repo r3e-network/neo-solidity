@@ -1,6 +1,11 @@
 import { extendConfig, extendEnvironment } from "hardhat/config";
+import { HardhatPluginError } from "hardhat/plugins";
 import { HardhatConfig, HardhatUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
-import { NeoHardhatConfig } from "@neo-devpack-solidity/types";
+import {
+  NeoHardhatConfig,
+  SUPPORTED_SOLIDITY_RANGE,
+  isSupportedSolidityVersion,
+} from "@neo-devpack-solidity/types";
 
 // Import supported tasks
 import "./tasks/compile";
@@ -35,7 +40,7 @@ declare module "hardhat/types/runtime" {
 // Default configuration
 const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
   solidity: {
-    version: "0.8.34",
+    version: "0.8.19",
     settings: {
       optimizer: {
         enabled: true,
@@ -93,6 +98,14 @@ const DEFAULT_NEO_HARDHAT_CONFIG: NeoHardhatConfig = {
 // Extend Hardhat configuration
 extendConfig(
   (config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
+    const userVersion = userConfig.neoSolc?.solidity?.version;
+    if (userVersion && !isSupportedSolidityVersion(userVersion)) {
+      throw new HardhatPluginError(
+        "@neo-devpack-solidity/hardhat-solc-neo",
+        `Unsupported Solidity version "${userVersion}". Supported range is ${SUPPORTED_SOLIDITY_RANGE}.`
+      );
+    }
+
     const userNeoSettings: Partial<NeoHardhatConfig["solidity"]["settings"]["neo"]> =
       userConfig.neoSolc?.solidity?.settings?.neo ?? {};
     const userNeo: Partial<NeoHardhatConfig["neo"]> = userConfig.neoSolc?.neo ?? {};

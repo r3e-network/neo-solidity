@@ -12,7 +12,10 @@ import {
   ERC20TemplateOptions,
   ERC721TemplateOptions,
   CustomTemplateOptions,
-  PostInstallAction
+  PostInstallAction,
+  MIN_SUPPORTED_SOLIDITY_VERSION,
+  SUPPORTED_SOLIDITY_RANGE,
+  isSupportedSolidityVersion,
 } from '@neo-devpack-solidity/types';
 import fs from 'fs-extra';
 import * as path from 'path';
@@ -401,7 +404,7 @@ export class ProjectScaffolder extends EventEmitter {
         author: 'Neo DevPack for Solidity Team',
         description: 'Basic Neo DevPack for Solidity project',
         license: 'MIT',
-        solcVersion: '0.8.34',
+        solcVersion: MIN_SUPPORTED_SOLIDITY_VERSION,
         includeTests: true,
         includeDocs: false,
         framework: 'hardhat'
@@ -411,7 +414,7 @@ export class ProjectScaffolder extends EventEmitter {
         author: 'Neo DevPack for Solidity Team',
         description: 'ERC20 Token project',
         license: 'MIT',
-        solcVersion: '0.8.34',
+        solcVersion: MIN_SUPPORTED_SOLIDITY_VERSION,
         includeTests: true,
         includeDocs: true,
         framework: 'hardhat',
@@ -496,7 +499,17 @@ export class TemplateRegistry implements ITemplateRegistry {
 }
 
 export class TemplateGenerator implements ITemplateGenerator {
+  private validateSolcVersion(version?: string): void {
+    const effective = version || MIN_SUPPORTED_SOLIDITY_VERSION;
+    if (!isSupportedSolidityVersion(effective)) {
+      throw new Error(
+        `Unsupported Solidity version "${effective}". Supported range is ${SUPPORTED_SOLIDITY_RANGE}.`
+      );
+    }
+  }
+
   generateBasic(options: BasicTemplateOptions): ProjectTemplate {
+    this.validateSolcVersion(options.solcVersion);
     const files: TemplateFile[] = [
       {
         path: 'contracts/{{contractName}}.sol',
@@ -641,7 +654,7 @@ export class TemplateGenerator implements ITemplateGenerator {
   // Template Content Methods
   private getBasicContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 /**
  * @title {{contractName}}
@@ -672,7 +685,7 @@ contract {{contractName}} {
 
   private getERC20ContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 {{#if ownable}}import "@openzeppelin/contracts/access/Ownable.sol";{{/if}}
@@ -692,7 +705,7 @@ contract {{tokenName}} is ERC20{{#if ownable}}, Ownable{{/if}} {
 
   private getERC721ContractTemplate(): string {
     return `// SPDX-License-Identifier: {{license}}
-pragma solidity ^0.8.34;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";

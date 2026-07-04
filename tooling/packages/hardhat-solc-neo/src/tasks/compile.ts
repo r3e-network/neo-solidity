@@ -75,7 +75,7 @@ setTaskAction(neoCompileTask, async (taskArgs: any, hre: HardhatRuntimeEnvironme
       // Save build info
       const buildInfo: BuildInfo = {
         id: generateBuildId(),
-        solcVersion: hre.config.neoSolc.solidity.version || "0.8.34",
+        solcVersion: hre.config.neoSolc.solidity.version || "0.8.19",
         neoSolcVersion: "0.1.0", // Would get from Neo compiler
         input: { language: "Solidity", sources, settings: compilerSettings as any },
         output: compilationOutput,
