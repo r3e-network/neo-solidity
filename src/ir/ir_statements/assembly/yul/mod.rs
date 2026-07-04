@@ -282,7 +282,6 @@ fn lower_two_arg_yul_call(
     true
 }
 
-
 mod dispatch;
 pub(crate) use dispatch::*;
 mod opcodes;

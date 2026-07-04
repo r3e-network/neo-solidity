@@ -107,7 +107,11 @@ impl ExecutionContext {
         self.next_iterator_id = self.next_iterator_id.saturating_add(1);
         self.iterators.insert(
             id,
-            IteratorState { entries, index: 0, cursor: Some(cursor) },
+            IteratorState {
+                entries,
+                index: 0,
+                cursor: Some(cursor),
+            },
         );
         StackItem::byte_array(id.to_le_bytes().to_vec())
     }
@@ -116,10 +120,7 @@ impl ExecutionContext {
     /// cursor exists. Fetches the next page from the storage host, merges
     /// pending overlay entries, and appends shaped items to the iterator's
     /// entry buffer.
-    pub(crate) fn refill_iterator_buffer(
-        &mut self,
-        id: u64,
-    ) -> Result<bool, RuntimeError> {
+    pub(crate) fn refill_iterator_buffer(&mut self, id: u64) -> Result<bool, RuntimeError> {
         // Take the cursor out so we can mutate it; we'll put it back.
         let cursor = match self.iterators.get(&id) {
             Some(state) => state.cursor.clone(),
@@ -205,7 +206,9 @@ impl ExecutionContext {
             // overlay entries.
             let in_range = match (&start_key, &end_key) {
                 (None, None) => true, // first page: include all overlay entries
-                (Some(s), Some(e)) => key.as_slice() > s.as_slice() && key.as_slice() <= e.as_slice(),
+                (Some(s), Some(e)) => {
+                    key.as_slice() > s.as_slice() && key.as_slice() <= e.as_slice()
+                }
                 (None, Some(e)) => key.as_slice() <= e.as_slice(),
                 (Some(s), None) => key.as_slice() > s.as_slice(),
             };

@@ -45,12 +45,16 @@ impl ExecutionContext {
         let dst_item = self.pop_stack()?;
 
         match dst_item {
-            StackItem::ByteArray { data: dst, type_tag } => {
+            StackItem::ByteArray {
+                data: dst,
+                type_tag,
+            } => {
                 // NeoVM MEMCPY only accepts Buffer (0x30) as destination;
                 // copying into a ByteString (0x28) is disallowed on a real node.
                 if type_tag == ByteArrayType::ByteString {
                     return Err(RuntimeError::ExecutionError {
-                        message: "MEMCPY: destination must be a Buffer, not a ByteString".to_string(),
+                        message: "MEMCPY: destination must be a Buffer, not a ByteString"
+                            .to_string(),
                     });
                 }
                 let src_end =

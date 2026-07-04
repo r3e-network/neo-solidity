@@ -162,8 +162,20 @@ impl ExecutionContext {
                     0x21 | 0x22 => {
                         matches!(item, StackItem::Integer(_) | StackItem::UnsignedInteger(_))
                     }
-                    0x28 => matches!(item, StackItem::ByteArray { type_tag: ByteArrayType::ByteString, .. }),
-                    0x30 => matches!(item, StackItem::ByteArray { type_tag: ByteArrayType::Buffer, .. }),
+                    0x28 => matches!(
+                        item,
+                        StackItem::ByteArray {
+                            type_tag: ByteArrayType::ByteString,
+                            ..
+                        }
+                    ),
+                    0x30 => matches!(
+                        item,
+                        StackItem::ByteArray {
+                            type_tag: ByteArrayType::Buffer,
+                            ..
+                        }
+                    ),
                     0x40 | 0x41 => matches!(item, StackItem::Array(_)),
                     0x48 => matches!(item, StackItem::Map(_)),
                     0x60 => matches!(item, StackItem::ByteArray { data: _, .. }), // interop handles as byte tokens

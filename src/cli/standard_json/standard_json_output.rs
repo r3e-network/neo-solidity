@@ -183,4 +183,3 @@ pub(crate) fn sanitize_contract_name(name: &str) -> Option<String> {
         Some(filtered.trim_matches('_').to_string())
     }
 }
-

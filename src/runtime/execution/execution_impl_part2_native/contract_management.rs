@@ -9,7 +9,10 @@ impl ExecutionContext {
         match method {
             "getcontract" => {
                 if let StackItem::Array(args) = params {
-                    if let Some(StackItem::ByteArray { data: hash_bytes, .. }) = args.borrow().first() {
+                    if let Some(StackItem::ByteArray {
+                        data: hash_bytes, ..
+                    }) = args.borrow().first()
+                    {
                         let hash_slice = hash_bytes.borrow();
                         if let Some(state) = self.lookup_contract(hash_slice.as_slice()) {
                             return self.contract_to_stackitem(&state);
@@ -90,7 +93,10 @@ impl ExecutionContext {
             // even though the contract is actively executing.
             "iscontract" => {
                 if let StackItem::Array(args) = params {
-                    if let Some(StackItem::ByteArray { data: hash_bytes, .. }) = args.borrow().first() {
+                    if let Some(StackItem::ByteArray {
+                        data: hash_bytes, ..
+                    }) = args.borrow().first()
+                    {
                         let hash_slice = hash_bytes.borrow();
                         // Self-check: compiled contract is running — treat
                         // its `default_account_bytes` as an existing contract.
@@ -115,7 +121,10 @@ impl ExecutionContext {
                 if let StackItem::Array(args) = params {
                     let args_ref = args.borrow();
                     if args_ref.len() >= 2 {
-                        if let Some(StackItem::ByteArray { data: hash_bytes, .. }) = args_ref.first() {
+                        if let Some(StackItem::ByteArray {
+                            data: hash_bytes, ..
+                        }) = args_ref.first()
+                        {
                             let hash_slice = hash_bytes.borrow();
                             let method_bytes = Self::stack_item_to_bytes(args_ref[1].clone());
                             let method = String::from_utf8(method_bytes).unwrap_or_default();
@@ -159,7 +168,10 @@ impl ExecutionContext {
             // returns void). No state persistence in the embedded runtime.
             "destroycontract" => {
                 if let StackItem::Array(args) = &params {
-                    if let Some(StackItem::ByteArray { data: hash_bytes, .. }) = args.borrow().first() {
+                    if let Some(StackItem::ByteArray {
+                        data: hash_bytes, ..
+                    }) = args.borrow().first()
+                    {
                         let hash_slice = hash_bytes.borrow();
                         self.contract_registry.remove(hash_slice.as_slice());
                     }
@@ -193,9 +205,7 @@ impl ExecutionContext {
             }
             // ContractManagement.setMinimumDeploymentFee(fee) — governance
             // operation. No-op in the embedded runtime; return Null.
-            "setminimumdeploymentfee" => {
-                StackItem::Null
-            }
+            "setminimumdeploymentfee" => StackItem::Null,
             _ => StackItem::Null,
         }
     }

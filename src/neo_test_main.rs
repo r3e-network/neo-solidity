@@ -20,7 +20,7 @@
 //!     reason. (A `Test`/assert helper library can layer on top later.)
 //!
 //! Usage:
-//!   neo-test [PATH ...] [--match-test <substr>] [--match-contract <substr>]
+//!   neo-test [PATH ...] [--match-test `<substr>`] [--match-contract `<substr>`]
 //!            [-v|--verbose] [--gas] [--no-color]
 //! PATH may be a `.sol` file or a directory (scanned recursively for `*.t.sol`,
 //! falling back to `*.sol`). With no PATH, scans `./test` then `.`.

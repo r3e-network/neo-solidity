@@ -310,4 +310,3 @@ pub(crate) fn branch_supports_neo_devpack_solidity(branch: &str) -> bool {
 
     intersects_supported_neo_range(lower, upper)
 }
-

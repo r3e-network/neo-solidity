@@ -86,9 +86,7 @@ impl Report {
 
         out.push_str(&format!(
             "{severity}: {}{}: {}\n",
-            location_part,
-            diagnostic.code,
-            diagnostic.message
+            location_part, diagnostic.code, diagnostic.message
         ));
 
         for suggestion in &diagnostic.suggestions {
@@ -145,34 +143,41 @@ fn diagnostic_to_json(diagnostic: &Diagnostic) -> Value {
         location.insert("file".to_string(), serde_json::json!(file));
     }
     if let Some(span) = diagnostic.span {
-        location.insert("start".to_string(), serde_json::json!({
-            "line": span.start_line,
-            "column": span.start_col,
-            "offset": span.offset,
-        }));
-        location.insert("end".to_string(), serde_json::json!({
-            "line": span.end_line,
-            "column": span.end_col,
-            "offset": span.offset + span.length,
-        }));
+        location.insert(
+            "start".to_string(),
+            serde_json::json!({
+                "line": span.start_line,
+                "column": span.start_col,
+                "offset": span.offset,
+            }),
+        );
+        location.insert(
+            "end".to_string(),
+            serde_json::json!({
+                "line": span.end_line,
+                "column": span.end_col,
+                "offset": span.offset + span.length,
+            }),
+        );
     }
     if !location.is_empty() {
         obj.as_object_mut()
             .expect("diagnostic JSON must be an object")
-            .insert("sourceLocation".to_string(), serde_json::Value::Object(location));
+            .insert(
+                "sourceLocation".to_string(),
+                serde_json::Value::Object(location),
+            );
     }
 
     if !diagnostic.suggestions.is_empty() {
-        obj["suggestions"] = serde_json::json!(
-            diagnostic
-                .suggestions
-                .iter()
-                .map(|s| serde_json::json!({
-                    "message": s.message,
-                    "replacement": s.replacement,
-                }))
-                .collect::<Vec<_>>()
-        );
+        obj["suggestions"] = serde_json::json!(diagnostic
+            .suggestions
+            .iter()
+            .map(|s| serde_json::json!({
+                "message": s.message,
+                "replacement": s.replacement,
+            }))
+            .collect::<Vec<_>>());
     }
 
     obj
@@ -225,9 +230,8 @@ mod tests {
 
     #[test]
     fn suggestion_rendered() {
-        let diag = Diagnostic::error(ErrorCode::Nsh1000, "bad syntax").with_suggestion(
-            Suggestion::new("fix it").with_replacement("fixed"),
-        );
+        let diag = Diagnostic::error(ErrorCode::Nsh1000, "bad syntax")
+            .with_suggestion(Suggestion::new("fix it").with_replacement("fixed"));
         let rendered = Report::from_diagnostic(diag).render();
         assert!(rendered.contains("help: fix it"));
     }

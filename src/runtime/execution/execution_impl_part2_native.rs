@@ -11,4 +11,6 @@ mod oracle;
 mod policy;
 mod role_management;
 mod stdlib;
+mod stdlib_abi;
+mod stdlib_binary;
 mod treasury;

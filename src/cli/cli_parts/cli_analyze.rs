@@ -235,16 +235,16 @@ pub(crate) fn build_upgrade_report(
             }
             Err(CompileError::Manifest(diag)) => {
                 findings.push(UpgradeFinding::new(
-                    "manifest",
-                    UpgradeSeverity::Error,
-                    UpgradeCategory::ManifestReview,
-                    Some(diag.code.to_string()),
-                    None::<String>,
-                    diag.message,
-                    Some(
-                        "Review the inferred Neo permissions and contract metadata before deployment.",
-                    ),
-                ));
+                "manifest",
+                UpgradeSeverity::Error,
+                UpgradeCategory::ManifestReview,
+                Some(diag.code.to_string()),
+                None::<String>,
+                diag.message,
+                Some(
+                    "Review the inferred Neo permissions and contract metadata before deployment.",
+                ),
+            ));
                 false
             }
             Err(CompileError::ParseErrors(diags)) => {

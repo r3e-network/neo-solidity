@@ -201,10 +201,8 @@ fn compile_metadata(
         .iter()
         .any(|m| matches!(m.kind, FunctionKind::Constructor) && !m.parameters.is_empty());
 
-    let (ir_module, ir_warnings) =
-        ir::Module::from_contract_with_warnings(&metadata).map_err(|diags| {
-            CompileError::from_ir_diagnostics(diags)
-        })?;
+    let (ir_module, ir_warnings) = ir::Module::from_contract_with_warnings(&metadata)
+        .map_err(CompileError::from_ir_diagnostics)?;
     warnings.extend(ir_warnings);
     let ir_module = optimize_ir(ir_module, optimizer_level);
 

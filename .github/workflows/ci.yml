@@ -76,6 +76,12 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
         run: cargo test --workspace --all-features
+      - name: Audit file length (informational)
+        run: bash scripts/audit_file_length.sh
+        continue-on-error: true
+      - name: Audit unwrap usage (informational)
+        run: bash scripts/audit_unwrap.sh
+        continue-on-error: true
       - name: Build release binary
         run: cargo build --release
       - name: Verify lean build (--no-default-features)

@@ -54,11 +54,16 @@ impl UpgradeFinding {
 }
 
 pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
-    static BLOCKHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bblockhash\s*\(").expect("valid regex pattern"));
-    static SELFDESTRUCT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bselfdestruct\s*\(").expect("valid regex pattern"));
-    static CODEHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.codehash\b").expect("valid regex pattern"));
-    static TX_ORIGIN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\btx\.origin\b").expect("valid regex pattern"));
-    static MSG_SIG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bmsg\.sig\b").expect("valid regex pattern"));
+    static BLOCKHASH_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\bblockhash\s*\(").expect("valid regex pattern"));
+    static SELFDESTRUCT_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\bselfdestruct\s*\(").expect("valid regex pattern"));
+    static CODEHASH_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\.codehash\b").expect("valid regex pattern"));
+    static TX_ORIGIN_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\btx\.origin\b").expect("valid regex pattern"));
+    static MSG_SIG_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\bmsg\.sig\b").expect("valid regex pattern"));
     static DELEGATECALL_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"(?:\.|\b)delegatecall\s*\(").expect("valid regex pattern"));
     static STATICCALL_RE: Lazy<Regex> =
@@ -72,8 +77,9 @@ pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
     // positives that escalated to a hard error. Requiring a digit or `)`
     // before the unit excludes identifier/comment occurrences while still
     // catching the real `1 ether` / `(a + b) ether` forms.
-    static ETHER_UNIT_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").expect("valid regex pattern"));
+    static ETHER_UNIT_RE: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").expect("valid regex pattern")
+    });
     static SUPPORTS_INTERFACE_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\bsupportsInterface\s*\(").expect("valid regex pattern"));
 

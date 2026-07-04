@@ -46,14 +46,8 @@ fn diagnostic_to_standard_error(diag: &Diagnostic, file: &str) -> Value {
     let mut source_location = serde_json::Map::new();
     source_location.insert("file".to_string(), json!(file));
     if let Some(span) = diag.span {
-        source_location.insert(
-            "start".to_string(),
-            json!(span.offset),
-        );
-        source_location.insert(
-            "end".to_string(),
-            json!(span.offset + span.length),
-        );
+        source_location.insert("start".to_string(), json!(span.offset));
+        source_location.insert("end".to_string(), json!(span.offset + span.length));
     }
 
     let mut obj = json!({
@@ -67,15 +61,14 @@ fn diagnostic_to_standard_error(diag: &Diagnostic, file: &str) -> Value {
     });
 
     if !diag.suggestions.is_empty() {
-        obj["suggestions"] = json!(
-            diag.suggestions
-                .iter()
-                .map(|s| json!({
-                    "message": s.message,
-                    "replacement": s.replacement,
-                }))
-                .collect::<Vec<_>>()
-        );
+        obj["suggestions"] = json!(diag
+            .suggestions
+            .iter()
+            .map(|s| json!({
+                "message": s.message,
+                "replacement": s.replacement,
+            }))
+            .collect::<Vec<_>>());
     }
 
     obj
@@ -111,7 +104,8 @@ mod tests {
 
     #[test]
     fn manifest_error_renders_code() {
-        let diag = Diagnostic::error(ErrorCode::Nsh6000, "manifest failed").with_span(SourceSpan::at(1, 2));
+        let diag = Diagnostic::error(ErrorCode::Nsh6000, "manifest failed")
+            .with_span(SourceSpan::at(1, 2));
         let err = CompileError::Manifest(Box::new(diag)).into_errors("test.sol");
         assert_eq!(err[0]["code"], "NSH-6000");
         assert_eq!(err[0]["severity"], "error");
@@ -125,9 +119,8 @@ mod tests {
 
     #[test]
     fn diagnostics_include_suggestions() {
-        let diag = Diagnostic::error(ErrorCode::Nsh1000, "bad").with_suggestion(
-            crate::diagnostics::Suggestion::new("fix it").with_replacement("ok"),
-        );
+        let diag = Diagnostic::error(ErrorCode::Nsh1000, "bad")
+            .with_suggestion(crate::diagnostics::Suggestion::new("fix it").with_replacement("ok"));
         let err = CompileError::Diagnostics(vec![diag]).into_errors("test.sol");
         assert!(err[0]["suggestions"].is_array());
     }

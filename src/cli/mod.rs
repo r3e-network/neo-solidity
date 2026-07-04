@@ -32,18 +32,16 @@
 #[cfg(test)]
 use crate::ir;
 #[cfg(test)]
-use crate::solidity::{
-    validate_contract, ContractMetadata, FunctionKind, FunctionMetadata,
-};
+use crate::solidity::{validate_contract, ContractMetadata, FunctionKind, FunctionMetadata};
 #[cfg(test)]
 use serde_json::{json, Value};
 #[cfg(test)]
 use sha3::{Digest, Keccak256};
 
 #[cfg(test)]
-pub(crate) use crate::interop::interop_id_bytes;
-#[cfg(test)]
 pub(crate) use crate::codegen::generate_contract_bytecode;
+#[cfg(test)]
+pub(crate) use crate::interop::interop_id_bytes;
 // Public re-export of the NeoVM bytecode disassembler so external tooling
 // (fuzz targets, debugging consumers) can call it without touching
 // `pub(crate)` internals. The function is total — any byte sequence
@@ -83,15 +81,15 @@ pub fn fuzz_process_standard_json_content(input: &[u8]) -> Result<(), String> {
 }
 
 mod cli_parts;
+#[cfg(test)]
+pub(crate) use crate::manifest::{
+    detect_supported_standards, solidity_to_manifest_type, StandardsDiagnosticLevel,
+};
 pub(crate) use cli_parts::cli_analyze::*;
 pub use cli_parts::cli_compile::*;
 pub use cli_parts::cli_defs::*;
 pub(crate) use cli_parts::cli_deploy::*;
 pub(crate) use cli_parts::cli_diagnostics::*;
-#[cfg(test)]
-pub(crate) use crate::manifest::{
-    detect_supported_standards, solidity_to_manifest_type, StandardsDiagnosticLevel,
-};
 pub(crate) use cli_parts::cli_output::*;
 pub use cli_parts::cli_run::*;
 

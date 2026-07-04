@@ -6,10 +6,10 @@
 //!
 //! # Key Components
 //!
-//! - [`ContractMetadata`] - Complete metadata for a Solidity contract
-//! - [`FunctionMetadata`] - Function signature and body information
-//! - [`NatspecDoc`] - Extracted Natspec documentation (@title, @notice, @dev, etc.)
-//! - [`analyse_all_sources`] - Main entry point for multi-file analysis
+//! - `ContractMetadata` - Complete metadata for a Solidity contract
+//! - `FunctionMetadata` - Function signature and body information
+//! - `NatspecDoc` - Extracted Natspec documentation (@title, @notice, @dev, etc.)
+//! - `analyse_all_sources` - Main entry point for multi-file analysis
 //!
 //! # Example
 //!

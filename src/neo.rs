@@ -5,9 +5,9 @@
 //!
 //! # Key Components
 //!
-//! - [`MethodToken`] - Cross-contract call optimization tokens
-//! - [`build_nef_with_tokens`] - NEF file generation with method tokens
-//! - [`clamp_nef_source_with_flag`] - Source code embedding in NEF
+//! - [`MethodToken`](crate::neo::MethodToken) - Cross-contract call optimization tokens
+//! - [`build_nef_with_tokens`](crate::neo::build_nef_with_tokens) - NEF file generation with method tokens
+//! - [`clamp_nef_source_with_flag`](crate::neo::clamp_nef_source_with_flag) - Source code embedding in NEF
 //!
 //! # NEF Format
 //!

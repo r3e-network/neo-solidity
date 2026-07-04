@@ -40,7 +40,12 @@ impl ExecutionContext {
             self.instruction_pointer = frame.return_address;
             // Save return value (top of stack) before restoring stack
             let mut return_value = if self.stack.len() > frame.stack_base {
-                Some(self.stack.last().cloned().expect("guarded by len > stack_base"))
+                Some(
+                    self.stack
+                        .last()
+                        .cloned()
+                        .expect("guarded by len > stack_base"),
+                )
             } else {
                 None
             };

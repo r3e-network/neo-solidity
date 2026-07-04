@@ -83,9 +83,7 @@ impl ExecutionContext {
                 let ids: Vec<u64> = self.oracle_requests.keys().copied().collect();
                 StackItem::array(
                     ids.iter()
-                        .map(|id| {
-                            StackItem::byte_array((*id as u32).to_le_bytes().to_vec())
-                        })
+                        .map(|id| StackItem::byte_array((*id as u32).to_le_bytes().to_vec()))
                         .collect(),
                 )
             }
@@ -96,13 +94,34 @@ impl ExecutionContext {
                 let id = Self::extract_first_int(&params);
                 if let Some(req) = self.oracle_requests.get(&id) {
                     let mut map = std::collections::HashMap::new();
-                    map.insert(b"OriginalTxid".to_vec(), StackItem::byte_array(req.original_tx_hash.clone()));
-                    map.insert(b"GasForResponse".to_vec(), StackItem::UnsignedInteger(req.gas_for_response));
-                    map.insert(b"Url".to_vec(), StackItem::byte_array(req.url.as_bytes().to_vec()));
-                    map.insert(b"Filter".to_vec(), StackItem::byte_array(req.filter.as_bytes().to_vec()));
-                    map.insert(b"CallbackContract".to_vec(), StackItem::byte_array(req.callback_contract.clone()));
-                    map.insert(b"CallbackMethod".to_vec(), StackItem::byte_array(req.callback_method.as_bytes().to_vec()));
-                    map.insert(b"UserData".to_vec(), StackItem::byte_array(req.user_data.clone()));
+                    map.insert(
+                        b"OriginalTxid".to_vec(),
+                        StackItem::byte_array(req.original_tx_hash.clone()),
+                    );
+                    map.insert(
+                        b"GasForResponse".to_vec(),
+                        StackItem::UnsignedInteger(req.gas_for_response),
+                    );
+                    map.insert(
+                        b"Url".to_vec(),
+                        StackItem::byte_array(req.url.as_bytes().to_vec()),
+                    );
+                    map.insert(
+                        b"Filter".to_vec(),
+                        StackItem::byte_array(req.filter.as_bytes().to_vec()),
+                    );
+                    map.insert(
+                        b"CallbackContract".to_vec(),
+                        StackItem::byte_array(req.callback_contract.clone()),
+                    );
+                    map.insert(
+                        b"CallbackMethod".to_vec(),
+                        StackItem::byte_array(req.callback_method.as_bytes().to_vec()),
+                    );
+                    map.insert(
+                        b"UserData".to_vec(),
+                        StackItem::byte_array(req.user_data.clone()),
+                    );
                     StackItem::map(map)
                 } else {
                     StackItem::Null

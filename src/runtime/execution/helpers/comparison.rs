@@ -38,8 +38,14 @@ impl ExecutionContext {
             // ByteString (0x28) vs Buffer (0x30) — NeoVM EQUAL is type-strict.
             // Equal bytes with different type tags must return false.
             (
-                StackItem::ByteArray { data: x, type_tag: tx },
-                StackItem::ByteArray { data: y, type_tag: ty },
+                StackItem::ByteArray {
+                    data: x,
+                    type_tag: tx,
+                },
+                StackItem::ByteArray {
+                    data: y,
+                    type_tag: ty,
+                },
             ) => Ok(tx == ty && x == y),
             // Recursive element-wise comparison — must NOT delegate to
             // `PartialEq` because that impl ignores `type_tag` for nested

@@ -1,16 +1,15 @@
 //! Unified compiler diagnostics module.
 //!
 //! Provides the cross-phase error representation used by the Neo Solidity
-//! compiler: [`Diagnostic`], [`ErrorCode`], [`SourceSpan`], [`Severity`], and
-//! [`Suggestion`]. All compiler stages (parser, semantic analysis, IR lowering,
+//! compiler: [`Diagnostic`](crate::diagnostics::Diagnostic), [`ErrorCode`](crate::diagnostics::ErrorCode), [`SourceSpan`](crate::diagnostics::SourceSpan), [`Severity`](crate::diagnostics::Severity), and
+//! [`Suggestion`](crate::diagnostics::Suggestion). All compiler stages (parser, semantic analysis, IR lowering,
 //! optimizer, codegen, manifest) are expected to surface user-visible errors
-//! through [`Diagnostic`] so the CLI can render them consistently with an
+//! through [`Diagnostic`](crate::diagnostics::Diagnostic) so the CLI can render them consistently with an
 //! `NSH-XXXX` code and source location.
 //!
 //! The module intentionally does not depend on external diagnostic rendering
 //! libraries such as `miette` or `ariadne`; the formatting lives in
-//! [`report::Report`](crate::diagnostics::report::Report) and can be replaced
-//! later without changing the core data model.
+//! `report::Report` and can be replaced later without changing the core data model.
 
 mod diagnostic;
 mod error_code;

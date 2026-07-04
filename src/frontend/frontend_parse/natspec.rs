@@ -8,7 +8,10 @@ use super::*;
 /// declaration. A doc run is also broken when a non-whitespace token sits
 /// between two doc comments (that earlier doc belongs to the intervening
 /// declaration, not the later block).
-pub(crate) fn build_comment_map(comments: &[Comment], source: &str) -> HashMap<usize, NatspecDocIR> {
+pub(crate) fn build_comment_map(
+    comments: &[Comment],
+    source: &str,
+) -> HashMap<usize, NatspecDocIR> {
     let mut map = HashMap::new();
     let bytes = source.as_bytes();
     // (end_of_last_doc_line, accumulated_text)

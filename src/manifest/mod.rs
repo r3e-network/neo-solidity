@@ -7,9 +7,7 @@
 use crate::codegen;
 use crate::frontend::VisibilityKind;
 use crate::ir;
-use crate::solidity::{
-    ContractMetadata, EventMetadata, FunctionKind, FunctionMetadata,
-};
+use crate::solidity::{ContractMetadata, EventMetadata, FunctionKind, FunctionMetadata};
 use crate::type_system::NeoType;
 use serde_json::{json, Value};
 // `Digest` trait is consumed by `permissions/native.rs` via `use super::*`

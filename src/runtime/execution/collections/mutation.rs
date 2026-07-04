@@ -128,7 +128,10 @@ impl ExecutionContext {
                 items.borrow_mut().reverse();
                 Ok(())
             }
-            StackItem::ByteArray { data: bytes, type_tag } => {
+            StackItem::ByteArray {
+                data: bytes,
+                type_tag,
+            } => {
                 // NeoVM REVERSEITEMS only accepts Buffer (0x30) and Array;
                 // reversing a ByteString (0x28) is disallowed on a real node.
                 if type_tag == ByteArrayType::ByteString {

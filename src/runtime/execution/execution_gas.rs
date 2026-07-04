@@ -20,12 +20,7 @@ impl GasTracker {
     /// The primary interpreter charges via `spec::opcode_gas` and dynamic
     /// surcharges in `execute_instruction`; this method is used by bridge
     /// helper methods that bypass the main opcode dispatch.
-    pub fn consume_gas(
-        &mut self,
-        _operation: &str,
-        amount: u64,
-    ) -> Result<(), RuntimeError> {
-
+    pub fn consume_gas(&mut self, _operation: &str, amount: u64) -> Result<(), RuntimeError> {
         if self.used + amount > self.limit {
             return Err(RuntimeError::OutOfGas {
                 used: self.used + amount,

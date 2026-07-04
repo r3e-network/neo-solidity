@@ -40,7 +40,7 @@ pub(crate) fn resolve_solidity_sources_with_imports(
 
 /// Resolve a Solidity entry file's `import` directives from disk (Foundry-style
 /// remappings, auto-discovered `node_modules`, and `remappings.txt`) and return
-/// the single combined source string ready to hand to [`compile_contracts`].
+/// the single combined source string ready to hand to `compile_contracts`.
 ///
 /// `compile_contracts` itself takes a source STRING and performs no filesystem
 /// import resolution, so tools that compile a FILE — e.g. the `neo-test` runner

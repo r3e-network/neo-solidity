@@ -10,7 +10,7 @@
 //! This module is the **single source of truth** for every NeoVM opcode
 //! byte value used anywhere in the compiler, runtime simulator, and
 //! disassembler. Code that emits or interprets NeoVM bytecode must go
-//! through [`OpCode`] rather than hardcoding byte literals — that way
+//! through [`OpCode`](crate::opcode::OpCode) rather than hardcoding byte literals — that way
 //! renumbering, validation, gas accounting, and disassembler output
 //! stay in lockstep with the spec.
 //!
@@ -18,23 +18,23 @@
 //!
 //! Opcodes fall into two categories:
 //!
-//! * **Fixed** opcodes ([`OpCode::ADD`], [`OpCode::JMP`], …) have a
+//! * **Fixed** opcodes ([`OpCode::ADD`](crate::opcode::OpCode::ADD), [`OpCode::JMP`](crate::opcode::OpCode::JMP), …) have a
 //!   single, named variant and a single byte value.
-//! * **Indexed** opcode families ([`OpCode::PUSH0`]..[`OpCode::PUSH16`],
-//!   [`OpCode::LDLOC0`]..[`OpCode::LDLOC6`], [`OpCode::LDLOC`],
-//!   [`OpCode::LDSFLD0`].., [`OpCode::LDARG0`].., [`OpCode::STLOC0`]..,
-//!   [`OpCode::STSFLD0`].., [`OpCode::STARG0`]..) share a byte
-//!   prefix/suffix. Use the [`OpCode::push_small`], [`OpCode::ldloc`],
-//!   [`OpCode::stloc`], [`OpCode::ldarg`], [`OpCode::starg`],
-//!   [`OpCode::ldsfld`], [`OpCode::stsfld`] constructors instead of
+//! * **Indexed** opcode families ([`OpCode::PUSH0`](crate::opcode::OpCode::PUSH0)..[`OpCode::PUSH16`](crate::opcode::OpCode::PUSH16),
+//!   [`OpCode::LDLOC0`](crate::opcode::OpCode::LDLOC0)..[`OpCode::LDLOC6`](crate::opcode::OpCode::LDLOC6), [`OpCode::LDLOC`](crate::opcode::OpCode::LDLOC),
+//!   [`OpCode::LDSFLD0`](crate::opcode::OpCode::LDSFLD0).., [`OpCode::LDARG0`](crate::opcode::OpCode::LDARG0).., [`OpCode::STLOC0`](crate::opcode::OpCode::STLOC0)..,
+//!   [`OpCode::STSFLD0`](crate::opcode::OpCode::STSFLD0).., [`OpCode::STARG0`](crate::opcode::OpCode::STARG0)..) share a byte
+//!   prefix/suffix. Use the [`OpCode::push_small`](crate::opcode::OpCode::push_small), [`OpCode::ldloc`](crate::opcode::OpCode::ldloc),
+//!   [`OpCode::stloc`](crate::opcode::OpCode::stloc), [`OpCode::ldarg`](crate::opcode::OpCode::ldarg), [`OpCode::starg`](crate::opcode::OpCode::starg),
+//!   [`OpCode::ldsfld`](crate::opcode::OpCode::ldsfld), [`OpCode::stsfld`](crate::opcode::OpCode::stsfld) constructors instead of
 //!   computing `0x10 + n`.
 //!
 //! # Variants for data-bearing opcodes
 //!
-//! [`OpCode::PUSHDATA1`] / [`OpCode::PUSHDATA2`] / [`OpCode::PUSHDATA4`]
-//! and [`OpCode::PUSHINT8`]..[`OpCode::PUSHINT256`] are all distinct
-//! opcodes that the VM dispatches on. [`OpCode::push_data`] and
-//! [`OpCode::push_int`] select the right one based on operand size.
+//! [`OpCode::PUSHDATA1`](crate::opcode::OpCode::PUSHDATA1) / [`OpCode::PUSHDATA2`](crate::opcode::OpCode::PUSHDATA2) / [`OpCode::PUSHDATA4`](crate::opcode::OpCode::PUSHDATA4)
+//! and [`OpCode::PUSHINT8`](crate::opcode::OpCode::PUSHINT8)..[`OpCode::PUSHINT256`](crate::opcode::OpCode::PUSHINT256) are all distinct
+//! opcodes that the VM dispatches on. [`OpCode::push_data`](crate::opcode::OpCode::push_data) and
+//! [`OpCode::push_int`](crate::opcode::OpCode::push_int) select the right one based on operand size.
 //!
 //! # Usage
 //!

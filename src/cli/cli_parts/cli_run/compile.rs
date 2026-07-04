@@ -24,12 +24,9 @@ pub(crate) fn compile_input_or_exit(
                         Some(&code),
                         suggestion,
                     ),
-                    Severity::Error | Severity::Info => emit_error_with_suggestion(
-                        &diag.message,
-                        &code,
-                        json_errors,
-                        suggestion,
-                    ),
+                    Severity::Error | Severity::Info => {
+                        emit_error_with_suggestion(&diag.message, &code, json_errors, suggestion)
+                    }
                 }
             }
             std::process::exit(1);

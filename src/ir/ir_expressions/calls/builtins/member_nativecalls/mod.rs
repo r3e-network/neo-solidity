@@ -44,7 +44,7 @@ pub(crate) struct NativeContractDescriptor {
     name: &'static str,
 }
 
-/// Record the standard "<prefix>.<name> requires N argument(s), got M"
+/// Record the standard "`<prefix>.<name>` requires N argument(s), got M"
 /// diagnostic when the actual arg count disagrees, and return `Some(false)`
 /// so callers can early-return. The function returns `Some(false)` (not
 /// `None` / `Option<bool>`) so it composes with the existing
@@ -227,7 +227,9 @@ pub(crate) fn emit_ecpoint_to_address_conversion(
     instructions.push(Instruction::ArraySet);
 
     instructions.push(Instruction::LoadLocal(index_slot));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(index_slot));
     instructions.push(Instruction::Jump { target: loop_label });
@@ -314,7 +316,9 @@ pub(crate) fn emit_ecpoint_membership_check(
 
     instructions.push(Instruction::Label(advance_label));
     instructions.push(Instruction::LoadLocal(index_slot));
-    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(BigInt::one())));
+    instructions.push(Instruction::PushLiteral(LiteralValue::Integer(
+        BigInt::one(),
+    )));
     instructions.push(Instruction::BinaryOp(BinaryOperator::Add));
     instructions.push(Instruction::StoreLocal(index_slot));
     instructions.push(Instruction::Jump { target: loop_label });

@@ -11,7 +11,11 @@ impl ExecutionContext {
     /// Charge additional gas proportional to the larger of the two operand
     /// byte lengths. Used after the base opcode gas has already been charged
     /// in `execute_instruction`.
-    fn charge_operand_size_gas(&mut self, a: &StackItem, b: &StackItem) -> Result<(), RuntimeError> {
+    fn charge_operand_size_gas(
+        &mut self,
+        a: &StackItem,
+        b: &StackItem,
+    ) -> Result<(), RuntimeError> {
         let byte_len = |item: &StackItem| -> u64 {
             match item {
                 StackItem::ByteArray { data: bytes, .. } => bytes.borrow().len() as u64,

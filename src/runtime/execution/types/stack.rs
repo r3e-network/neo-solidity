@@ -57,12 +57,24 @@ impl StackItem {
 
     /// Check if this is a Buffer-tagged ByteArray.
     pub fn is_buffer(&self) -> bool {
-        matches!(self, Self::ByteArray { type_tag: ByteArrayType::Buffer, .. })
+        matches!(
+            self,
+            Self::ByteArray {
+                type_tag: ByteArrayType::Buffer,
+                ..
+            }
+        )
     }
 
     /// Check if this is a ByteString-tagged ByteArray.
     pub fn is_byte_string(&self) -> bool {
-        matches!(self, Self::ByteArray { type_tag: ByteArrayType::ByteString, .. })
+        matches!(
+            self,
+            Self::ByteArray {
+                type_tag: ByteArrayType::ByteString,
+                ..
+            }
+        )
     }
 
     pub fn array(items: Vec<StackItem>) -> Self {
@@ -178,9 +190,16 @@ impl PartialEq for StackItem {
             (StackItem::UnsignedInteger(a), StackItem::UnsignedInteger(b)) => a == b,
             (StackItem::Boolean(a), StackItem::Boolean(b)) => a == b,
             (StackItem::Null, StackItem::Null) => true,
-            (StackItem::ByteArray { data: a, type_tag: ta }, StackItem::ByteArray { data: b, type_tag: tb }) => {
-                ta == tb && a.borrow().eq(&*b.borrow())
-            }
+            (
+                StackItem::ByteArray {
+                    data: a,
+                    type_tag: ta,
+                },
+                StackItem::ByteArray {
+                    data: b,
+                    type_tag: tb,
+                },
+            ) => ta == tb && a.borrow().eq(&*b.borrow()),
             (StackItem::Array(a), StackItem::Array(b)) => a.borrow().eq(&*b.borrow()),
             (StackItem::Map(a), StackItem::Map(b)) => a.borrow().eq(&*b.borrow()),
             _ => false,

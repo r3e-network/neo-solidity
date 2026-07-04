@@ -140,7 +140,11 @@ impl ExecutionContext {
         } else if (1..=16).contains(&value) {
             // # Invariant: `value` is in 1..=16, which is exactly the range
             // `push_small` accepts. This cannot be None.
-            script.push(OpCode::push_small(value as u8).expect("value in 1..=16").byte());
+            script.push(
+                OpCode::push_small(value as u8)
+                    .expect("value in 1..=16")
+                    .byte(),
+            );
         } else if (i8::MIN as i64..=i8::MAX as i64).contains(&value) {
             script.push(OpCode::PUSHINT8.byte());
             script.push(value as i8 as u8);

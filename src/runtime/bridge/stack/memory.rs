@@ -130,7 +130,9 @@ impl VMBridge {
         let byte_value = match value {
             StackItem::UnsignedInteger(v) => (v & 0xFF) as u8,
             StackItem::Integer(v) => (v & 0xFF) as u8,
-            StackItem::ByteArray { data: bytes, .. } => bytes.borrow().first().copied().unwrap_or(0),
+            StackItem::ByteArray { data: bytes, .. } => {
+                bytes.borrow().first().copied().unwrap_or(0)
+            }
             _ => 0,
         };
 

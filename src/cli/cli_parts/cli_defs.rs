@@ -62,7 +62,10 @@ pub enum CompileError {
     /// Structured parser diagnostics.
     ParseErrors(Vec<Diagnostic>),
     /// IO failure while reading a source file or writing an output.
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// Fallback message-only error, used only during transition.
     Message(String),
 }
