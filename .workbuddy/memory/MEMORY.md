@@ -14,8 +14,9 @@
 - `src/ir/` — Intermediate representation construction, lowering, expressions, statements
 - `src/codegen/` — NeoVM bytecode generation (extracted from cli in v0.29.0)
 - `src/optimizer/` — IR optimization passes (extracted from cli in v0.29.0)
+- `src/manifest/` — Manifest generation, permissions inference, standards detection (extracted from cli in v0.29.1)
 - `src/runtime/` — Embedded NeoVM runtime simulator (167 files, deep nesting, high coupling)
-- `src/cli/` — Command-line interface, manifest generation, standard JSON, tests (117 files, down from 151)
+- `src/cli/` — Command-line interface, standard JSON, tests (106 files, down from 151)
 - `src/neo/` — NEF/manifest building and parsing utilities
 - `devpack/contracts/` — Solidity library contracts: Framework, Syscalls, NativeCalls
 
@@ -40,7 +41,7 @@
 - Fuzz tests in `tests/fuzz_tests/` — now using standard `mod.rs` layout (no #[path])
 
 ## v1.0 Remaining Roadmap
-- Phase 1 remaining: Manifest extraction (deferred — break standard_json bidirectional dep + CompileError ownership)
+- Phase 1: COMPLETE (v0.29.0 + v0.29.1) — CLI decomposition done (codegen + optimizer + manifest extracted)
 - Phase 2 (v0.30.x): Runtime isolation — decouple 4 subsystems via port interface (MEDIUM RISK)
 - Phase 3 (v0.31.x): Extension points — trait plugins (LOW RISK, parallel with Phase 2)
 - Phase 4 (v0.32.x): File refactoring — break 13 files >800 lines (MEDIUM RISK)
@@ -48,6 +49,11 @@
 - Solidity 0.8.29+ feature additions (function types, fixed/ufixed) — feature work
 
 ## Version History
+- **v0.29.1** (2026-07-04): Architecture Phase 1 complete — manifest extraction
+  - Extracted `src/manifest/` (11 files) from `src/cli/cli_parts/cli_manifest/`
+  - Broke bidirectional dependency (moved `solidity_to_manifest_type` to manifest)
+  - Broke CompileError ownership (created `ManifestError` type)
+  - CLI reduced from 117 to 106 files. Phase 1 total: 45 files extracted
 - **v0.29.0** (2026-07-04): Architecture Phase 1 — CLI decomposition
   - Extracted `src/codegen/` (29 files) from `src/cli/bytecode/`
   - Extracted `src/optimizer/` (5 files) from `src/cli/ir_optimize/`

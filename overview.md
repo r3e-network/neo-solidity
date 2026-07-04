@@ -1,34 +1,35 @@
-# v0.29.1 — Architecture Phase 1 Complete: Manifest Extraction
+# v0.30.0 — Architecture Phase 4: File Refactoring
 
 ## What was done
 
-Completed the manifest extraction, finishing Architecture Phase 1 (CLI decomposition). The CLI god module is now fully decomposed into three first-class top-level modules.
+Split 3 of the largest monolithic files (>800 lines) into smaller, domain-focused submodules. Reduces the count of non-test files exceeding 800 lines from 13 to 10.
 
-### Extracted module
+### Files split
 
-| Module | Source | Files | LOC | Key change |
-|--------|--------|-------|-----|-----------|
-| `src/manifest/` | `src/cli/cli_parts/cli_manifest/` | 11 | ~2,332 | Broke 2 blocking couplings |
+| File | Before | After | Strategy |
+|------|--------|-------|----------|
+| `assembly.rs` | 1440 lines | 5 files (10 + 190 + 289 + 562 + 407) | Domain separation: extsload vs Yul, then Yul dispatch vs opcodes |
+| `frontend_parse.rs` | 1037 lines | 5 files (13 + 246 + 312 + 304 + 184) | Domain separation: parse vs pragma vs semver vs natspec |
+| `lower_assignment.rs` | 1140 lines | 2 files (728 + 413) | Section extraction: storage array ops separated from main lowering |
 
-### Couplings broken
+### Remaining files >800 lines (10)
 
-1. **Bidirectional dependency** (`cli_manifest` ↔ `standard_json`):
-   - Moved `solidity_to_manifest_type` to `src/manifest/mod.rs`
-   - `standard_json` now imports from `crate::manifest` (one-directional)
+These are monolithic match chains or dispatchers that resist mechanical splitting:
 
-2. **`CompileError` ownership**:
-   - Created `ManifestError` type in manifest module
-   - `build_manifest` returns `Result<Value, ManifestError>`
-   - Mapped to `CompileError::Manifest` at CLI boundary
+| File | Lines | Type |
+|------|-------|------|
+| `stdlib.rs` | 1372 | Monolithic match dispatch |
+| `solidity_analyse.rs` | 1207 | Monolithic pipeline (1 fn, 5 stages) |
+| `low_level.rs` | 1103 | Monolithic dispatch |
+| `abi_encode.rs` | 1017 | Monomorphic encoder |
+| `abi_decode.rs` | 979 | Monomorphic decoder |
+| `resolve.rs` | 944 | Monolithic resolver |
+| `arrays.rs` | 918 | Monolithic handler |
+| `member_calls.rs` | 912 | Monolithic dispatch |
+| `binary_u256_softarith.rs` | 897 | Monolithic handler |
+| `return_lower.rs` | 866 | Monolithic handler |
 
-### CLI module reduction (full Phase 1)
-
-| Version | CLI files | Extracted |
-|---------|-----------|-----------|
-| v0.28.1 | 151 | — |
-| v0.29.0 | 117 | 34 (codegen + optimizer) |
-| v0.29.1 | 106 | 11 (manifest) |
-| **Total** | **106** | **45 files extracted** |
+These require surgical refactoring — each match arm may have implicit dependencies on shared locals or fallthrough behavior.
 
 ### Verification
 
@@ -36,17 +37,3 @@ Completed the manifest extraction, finishing Architecture Phase 1 (CLI decomposi
 - `cargo clippy`: 0 warnings
 - `cargo test`: **965 tests passed, 0 failed** — zero regressions
 - Public API unchanged
-
-## Phase 1 complete
-
-All three extractions from the CLI god module are done:
-1. `src/codegen/` (29 files) — v0.29.0
-2. `src/optimizer/` (5 files) — v0.29.0
-3. `src/manifest/` (11 files) — v0.29.1
-
-CLI reduced from 151 to 106 files (45 files, ~8,418 LOC extracted).
-
-## Next steps
-
-- **Phase 2** (v0.30.x): Runtime isolation — decouple 4 subsystems via port interface
-- **Phase 3** (v0.31.x): Extension points — trait plugins (can run parallel with Phase 2)

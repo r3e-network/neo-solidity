@@ -5,6 +5,42 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.30.0] - 2026-07-04
+
+Architecture Phase 4: file refactoring. Splits 3 of the largest monolithic
+files (>800 lines) into smaller, domain-focused submodules. Reduces the
+count of files exceeding 800 lines from 13 to 10.
+
+### Changed
+
+- `src/ir/ir_statements/assembly.rs` (1440 lines) split into:
+  - `assembly.rs` (10 lines) — module dispatcher
+  - `assembly/extsload.rs` (190 lines) — extsload/exttload storage access
+  - `assembly/yul/mod.rs` (289 lines) — Yul block lowering + state
+  - `assembly/yul/dispatch.rs` (562 lines) — Yul statement/expression dispatch
+  - `assembly/yul/opcodes.rs` (407 lines) — Individual Yul opcode implementations
+
+- `src/frontend/frontend_parse.rs` (1037 lines) split into:
+  - `frontend_parse.rs` (13 lines) — module dispatcher
+  - `frontend_parse/parse.rs` (246 lines) — source parsing + file-level injection
+  - `frontend_parse/pragma.rs` (312 lines) — pragma validation + feature gates
+  - `frontend_parse/semver.rs` (304 lines) — version range types + comparator parsing
+  - `frontend_parse/natspec.rs` (184 lines) — NatSpec comment handling
+
+- `src/ir/ir_statements/assignments/lower_assignment.rs` (1140 lines) split into:
+  - `lower_assignment.rs` (728 lines) — main assignment lowering
+  - `storage_array_ops.rs` (413 lines) — storage array memory↔storage copy + read + external dynamic assignment
+
+### Remaining
+10 files still exceed 800 lines — all are monolithic match chains or
+dispatchers that require surgical refactoring (not mechanical splitting).
+These will be addressed in subsequent releases.
+
+### Verification
+- `cargo check`: 0 errors, 0 warnings
+- `cargo clippy`: 0 warnings
+- `cargo test`: 965 tests passed, 0 failed (zero regressions)
+
 ## [v0.29.1] - 2026-07-04
 
 Architecture Phase 1 (continued): manifest extraction. Completes the CLI
