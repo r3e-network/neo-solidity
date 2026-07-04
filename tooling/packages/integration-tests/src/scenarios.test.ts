@@ -6,6 +6,7 @@ import { NeoABICompatibilityLayer } from "@neo-devpack-solidity/abi-router";
 import { NeoDevpackSolidityCLI } from "@neo-devpack-solidity/cli-tools";
 import { NeoForge } from "@neo-devpack-solidity/neo-foundry";
 import { ProjectScaffolder } from "@neo-devpack-solidity/templates";
+import { isSupportedSolidityVersion } from "@neo-devpack-solidity/types";
 
 const tempRoots: string[] = [];
 
@@ -180,6 +181,23 @@ describe("Integration Test Scenarios", () => {
     expect(counterTest).toContain("pragma solidity ^0.8.19;");
 
     await expect(forge.build({ quiet: true })).rejects.toThrow(/not implemented yet/i);
+  });
+
+  it("enforces the supported Solidity version range in neo-foundry configuration", async () => {
+    const root = await makeTempDir("neo-devpack-solidity-version-");
+    const projectPath = path.join(root, "version-project");
+    const forge = new NeoForge(path.join(projectPath, "neo-foundry.toml"));
+
+    await forge.init(projectPath);
+    const config = await (forge as any).config.loadConfig();
+    expect(isSupportedSolidityVersion(config.profile.default.neoSolc.version)).toBe(true);
+
+    const invalidForge = new NeoForge(path.join(projectPath, "neo-foundry-invalid.toml"));
+    expect(() =>
+      (invalidForge as any).config.setProfile("default", {
+        neoSolc: { version: "0.8.34" },
+      })
+    ).toThrow(/Supported range is/);
   });
 
   it("keeps ABI compatibility exports aligned across package boundaries", () => {

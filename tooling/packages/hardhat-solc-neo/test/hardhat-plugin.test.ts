@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NeoDevpackSolidityCompiler } from "../src/compiler";
+import { isSupportedSolidityVersion } from "@neo-devpack-solidity/types";
 import type { CompilationOutput, NeoHardhatConfig } from "@neo-devpack-solidity/types";
 
 const MINIMAL_CONFIG: NeoHardhatConfig = {
@@ -46,6 +47,18 @@ describe("@neo-devpack-solidity/hardhat-solc-neo", () => {
     expect((compiler as any).isValidVersion("0.1.0-alpha.1")).toBe(true);
     expect((compiler as any).isValidVersion("latest")).toBe(true);
     expect((compiler as any).isValidVersion("nope")).toBe(false);
+  });
+
+  it("accepts only supported Solidity versions", () => {
+    expect(isSupportedSolidityVersion(MINIMAL_CONFIG.solidity.version)).toBe(true);
+
+    const invalidConfig: NeoHardhatConfig = {
+      ...MINIMAL_CONFIG,
+      solidity: { ...MINIMAL_CONFIG.solidity, version: "0.8.34" },
+    };
+    expect(() => new NeoDevpackSolidityCompiler(invalidConfig, { cache: "/tmp" })).toThrow(
+      /Supported range is/
+    );
   });
 
   it("computes compilation stats from standard-json output", () => {

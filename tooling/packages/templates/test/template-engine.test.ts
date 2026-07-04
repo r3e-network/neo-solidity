@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { isSupportedSolidityVersion } from "@neo-devpack-solidity/types";
 import { ProjectScaffolder, TemplateEngine, TemplateGenerator } from "../src/template-engine";
 
 describe("@neo-devpack-solidity/templates", () => {
@@ -89,5 +90,39 @@ describe("@neo-devpack-solidity/templates", () => {
     expect(await fs.readFile(path.join(projectPath, "contracts", "BasicProject.sol"), "utf8")).toContain(
       "pragma solidity ^0.8.19;",
     );
+  });
+
+  it("defaults to a supported Solidity version and rejects out-of-range versions", () => {
+    const generator = new TemplateGenerator();
+
+    const defaultTemplate = generator.generateBasic({
+      name: "basic",
+      author: "Neo DevPack for Solidity Team",
+      description: "Basic Neo DevPack for Solidity project",
+      license: "MIT",
+      includeTests: false,
+      includeDocs: false,
+      framework: "hardhat",
+    });
+
+    const contractTemplate = String(
+      defaultTemplate.files.find((file) => file.path === "contracts/{{contractName}}.sol")?.content
+    );
+    const pragmaMatch = contractTemplate.match(/pragma solidity \^(\d+\.\d+\.\d+);/);
+    expect(pragmaMatch).toBeTruthy();
+    expect(isSupportedSolidityVersion(pragmaMatch![1])).toBe(true);
+
+    expect(() =>
+      generator.generateBasic({
+        name: "basic",
+        author: "Neo DevPack for Solidity Team",
+        description: "Basic Neo DevPack for Solidity project",
+        license: "MIT",
+        solcVersion: "0.8.34",
+        includeTests: false,
+        includeDocs: false,
+        framework: "hardhat",
+      })
+    ).toThrow(/Supported range is/);
   });
 });
