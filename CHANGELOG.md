@@ -5,6 +5,52 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.30.3] - 2026-08-11
+
+Release focused on runtime modularization, documentation cleanliness, and
+CI-driven hardening of the compiler and standard library.
+
+### Changed
+
+**Runtime `stdlib.rs` modularization**:
+- Split `src/runtime/execution/execution_impl_part2_native/stdlib.rs` into
+  three focused modules:
+  - `stdlib.rs`: Core string/encoding helpers and native dispatch.
+  - `stdlib_abi.rs`: ABI-encoded argument helpers (`abi_encode`, `call`, etc.).
+  - `stdlib_binary.rs`: Binary buffer helpers (`concat`, `range`, `take`, etc.).
+
+**Compiler analysis pipeline modularization**:
+- Split `src/solidity/solidity_analyse.rs` into pipeline-stage modules:
+  - `solidity_analyse.rs`: Top-level driver.
+  - `solidity_analyse_typecheck.rs`: Type checking and validation.
+  - `solidity_analyse_transform.rs`: Source-to-source transformations.
+
+### Fixed
+
+**Documentation warnings**:
+- Resolved all `cargo doc` warnings; `cargo doc --no-deps` now exits with
+  0 warnings.
+
+**QA gate formatting and clippy**:
+- Applied `cargo fmt --all` formatting fixes.
+- Applied `cargo clippy --all-targets --all-features` lint fixes.
+
+### Added
+
+**CI audit scripts**:
+- `scripts/ci/file_length_audit.py`: Enforces a per-file line-count budget to
+  prevent runaway module growth.
+- `scripts/ci/unwrap_audit.py`: Audits production `unwrap()` and `expect()`
+  usage and verifies each remaining instance is documented with an invariant
+  comment.
+
+### Verification
+- `cargo fmt --all -- --check`: passed
+- `cargo clippy --all-targets --all-features -- -D warnings`: 0 warnings
+- `cargo doc --no-deps`: 0 warnings
+- `cargo test --workspace --all-features`: passed
+- `cargo build --release`: succeeded
+
 ## [v0.30.2] - 2026-07-04
 
 Continued code quality fixes: all remaining production `unwrap()` converted
