@@ -288,8 +288,7 @@ pub(crate) fn print_upgrade_reports(reports: &[FileUpgradeReport]) {
     match serialize_upgrade_reports(reports) {
         Ok(serialized) => println!("{serialized}"),
         Err(err) => {
-            eprintln!("error: {err}");
-            std::process::exit(1);
+            crate::fatal_error!("error: {err}");
         }
     }
 }

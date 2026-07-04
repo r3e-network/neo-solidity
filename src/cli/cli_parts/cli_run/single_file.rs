@@ -40,8 +40,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
         .unwrap_or_default();
 
     if sources.is_empty() {
-        eprintln!("error: no input files provided");
-        std::process::exit(1);
+        crate::fatal_error!("error: no input files provided");
     }
 
     let output_arg = matches.get_one::<String>("output").cloned();
@@ -73,8 +72,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
             match parse_remapping(spec) {
                 Ok(remap) => remappings.push(remap),
                 Err(err) => {
-                    eprintln!("error: {err}");
-                    std::process::exit(1);
+                    crate::fatal_error!("error: {err}");
                 }
             }
         }
@@ -83,8 +81,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
         match load_remappings_file(std::path::Path::new(path)) {
             Ok(loaded) => remappings.extend(loaded),
             Err(err) => {
-                eprintln!("error: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("error: {err}");
             }
         }
     }
@@ -119,8 +116,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
         Some(path) => match load_manifest_permissions_override(path, manifest_permissions_mode) {
             Ok(override_permissions) => Some(override_permissions),
             Err(err) => {
-                eprintln!("error: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("error: {err}");
             }
         },
         None => None,
@@ -209,8 +205,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
         Some(value) => match neo_devpack_solidity::neo::parse_uint160_hex_be(value) {
             Ok(parsed) => Some(parsed),
             Err(err) => {
-                eprintln!("error: invalid --deployer value: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("error: invalid --deployer value: {err}");
             }
         },
         None => None,
@@ -219,10 +214,9 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
     if sources.len() > 1 {
         if let Some(output) = &output_arg {
             if !analyze_only && !is_output_directory(output, true) {
-                eprintln!(
+                crate::fatal_error!(
                     "error: when compiling multiple input files, --output must be a directory (got '{output}')"
                 );
-                std::process::exit(1);
             }
         }
 
@@ -261,8 +255,7 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
         ) {
             Ok(resolved) => resolved,
             Err(err) => {
-                eprintln!("Error resolving imports: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("Error resolving imports: {err}");
             }
         };
         let input_content = resolved.combined_source;
@@ -420,11 +413,10 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
 
     if analyze_only {
         if !contract_filters.is_empty() && !emitted_any {
-            eprintln!(
+            crate::fatal_error!(
                 "error: no matching contract(s) found for --contract {}",
                 contract_filters.join(", ")
             );
-            std::process::exit(1);
         }
         if let Some(output) = &output_arg {
             let report_path = analyze_output_path(output);
@@ -439,11 +431,10 @@ pub(crate) fn run_single_file(matches: &clap::ArgMatches) {
     }
 
     if !contract_filters.is_empty() && !emitted_any {
-        eprintln!(
+        crate::fatal_error!(
             "error: no matching contract(s) found for --contract {}",
             contract_filters.join(", ")
         );
-        std::process::exit(1);
     }
 
     println!("🎉 Neo DevPack for Solidity compilation completed");

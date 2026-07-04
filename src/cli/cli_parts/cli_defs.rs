@@ -14,6 +14,19 @@ pub(crate) fn compiler_version_string_4() -> String {
     format!("{major}.{minor}.{patch}.0")
 }
 
+/// Print a fatal error message to stderr and exit with code 1.
+///
+/// This is the standard CLI fatal-error pattern: all user-facing fatal
+/// errors go through this function so the pattern is centralized and
+/// consistent. Use this instead of raw `eprintln!` + `exit(1)`.
+#[macro_export]
+macro_rules! fatal_error {
+    ($($arg:tt)*) => {{
+        eprintln!($($arg)*);
+        std::process::exit(1);
+    }};
+}
+
 #[derive(Clone, Debug)]
 pub struct CompilationArtifacts {
     pub metadata: ContractMetadata,

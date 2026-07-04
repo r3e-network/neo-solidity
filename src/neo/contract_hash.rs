@@ -98,7 +98,9 @@ fn emit_push_u32(script: &mut Vec<u8>, value: u32) {
         return;
     }
     if value <= 16 {
-        script.push(OpCode::push_small(value as u8).expect("0..=16").byte());
+        // # Invariant: `value` is 1..=16 (0 is handled above), which is
+        // exactly the range `push_small` accepts. This cannot be None.
+        script.push(OpCode::push_small(value as u8).expect("value in 1..=16").byte());
         return;
     }
     if value <= i8::MAX as u32 {

@@ -5,6 +5,47 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.30.2] - 2026-07-04
+
+Continued code quality fixes: all remaining production `unwrap()` converted
+to `expect()` with documented invariants, and CLI fatal-error pattern
+centralized via `fatal_error!` macro.
+
+### Fixed
+
+**Regex literal `unwrap()` → `expect()`** (10 instances):
+- `solidity/upgrade.rs`: All 10 `Regex::new(...).unwrap()` calls converted
+  to `.expect("valid regex pattern")` with a module-level comment explaining
+  that these are compile-time constant patterns.
+
+**Range-guarded `expect()` documentation** (2 instances):
+- `runtime/execution/syscalls/contract.rs`: Added `# Invariant` comment
+  explaining the `1..=16` range guard.
+- `neo/contract_hash.rs`: Added `# Invariant` comment explaining the
+  `value <= 16` range guard.
+
+**CLI fatal-error pattern centralization** (12 instances):
+- Added `fatal_error!` macro in `cli_defs.rs` — standardizes the
+  `eprintln!` + `exit(1)` pattern.
+- `cli_run/single_file.rs`: 7 fatal-error patterns replaced with macro.
+- `cli_run/standard_json.rs`: 5 fatal-error patterns replaced with macro.
+- `cli_analyze.rs`: 1 fatal-error pattern replaced with macro.
+
+### Remaining `unwrap()`/`expect()` in production code
+All remaining instances (8) are documented invariants:
+- `resolve.rs` (1): Hardcoded table lookup with matching arm guarantee
+- `input.rs` (1): 32-byte read with documented memory_limit guarantee
+- `manifest/build.rs` (1): Non-empty iterator with invariant comment
+- `literals.rs` (1): Hardcoded exponent with invariant comment
+- `ctx_locals_scopes.rs` (1): `checked_add` with impossible-overflow comment
+- `power.rs` (1): Sign-tracking variable with invariant comment
+- `constant_folding.rs` (2): In-range arithmetic with invariant comments
+
+### Verification
+- `cargo check`: 0 errors, 0 warnings
+- `cargo clippy`: 0 warnings
+- `cargo test`: 965 tests passed, 0 failed (zero regressions)
+
 ## [v0.30.1] - 2026-07-04
 
 Code quality fixes from team capability improvement plan. Addresses error

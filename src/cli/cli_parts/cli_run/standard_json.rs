@@ -29,8 +29,7 @@ pub(crate) fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
 
         if let Some(path) = output_path {
             if let Err(err) = fs::write(path, &serialized) {
-                eprintln!("error: Failed to write standard JSON output: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("error: Failed to write standard JSON output: {err}");
             }
         } else {
             println!("{serialized}");
@@ -42,8 +41,7 @@ pub(crate) fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
         return false;
     }
     if matches.get_flag("analyze") {
-        eprintln!("error: --analyze is currently supported only in single-file mode");
-        std::process::exit(1);
+        crate::fatal_error!("error: --analyze is currently supported only in single-file mode");
     }
 
     use std::io::{self, IsTerminal, Read};
@@ -78,8 +76,7 @@ pub(crate) fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
         Some(path) => match load_manifest_permissions_override(path, manifest_permissions_mode) {
             Ok(override_permissions) => Some(override_permissions),
             Err(err) => {
-                eprintln!("error: {err}");
-                std::process::exit(1);
+                crate::fatal_error!("error: {err}");
             }
         },
         None => None,
@@ -102,14 +99,12 @@ pub(crate) fn try_run_standard_json(matches: &clap::ArgMatches) -> bool {
         )
     } else {
         if io::stdin().is_terminal() {
-            eprintln!("error: --standard-json requires --input <FILE> or JSON on stdin");
-            std::process::exit(1);
+            crate::fatal_error!("error: --standard-json requires --input <FILE> or JSON on stdin");
         }
 
         let mut content = String::new();
         if let Err(err) = io::stdin().read_to_string(&mut content) {
-            eprintln!("error: Failed to read standard JSON input from stdin: {err}");
-            std::process::exit(1);
+            crate::fatal_error!("error: Failed to read standard JSON input from stdin: {err}");
         }
 
         process_standard_json_content(

@@ -1,42 +1,40 @@
-# v0.30.1 — Code Quality Fixes
+# v0.30.2 — Continued Code Quality Fixes
 
 ## What was done
 
-Fixed error handling and unsafe code issues identified in the team capability improvement plan's code quality audit.
+Completed the remaining code quality fixes from the team capability improvement plan. All production `unwrap()` now have documented invariants, and CLI fatal-error patterns are centralized via a macro.
 
 ## Fixes Applied
 
-### 1. Manifest `eprintln!` elimination (7 → 0)
+### 1. Regex literal `unwrap()` → `expect()` (10 instances)
 
-All 7 `eprintln!` calls in `manifest/build.rs` were replaced with a `warnings: &mut Vec<String>` collector parameter. Warnings are now:
-- Collected during manifest building
-- Returned to the caller (`compile.rs`)
-- Converted to `Diagnostic::warning()` entries
-- Added to the compilation warnings list
+All 10 `Regex::new(...).unwrap()` calls in `solidity/upgrade.rs` converted to `.expect("valid regex pattern")` with a module-level comment explaining these are compile-time constant patterns.
 
-This means manifest warnings now flow through the standard diagnostic pipeline instead of being printed directly to stderr.
+### 2. Range-guarded `expect()` documentation (2 instances)
 
-### 2. Runtime `unwrap()` hardening (3 risky instances → 0)
+- `runtime/execution/syscalls/contract.rs`: Added `# Invariant` comment
+- `neo/contract_hash.rs`: Added `# Invariant` comment
 
-| File | Before | After |
-|------|--------|-------|
-| `execution_impl_part3_conversion.rs` | `bytes.last().unwrap()` (could panic on empty) | Empty-bytes guard + `expect()` |
-| `execution_impl_part3_offsets/call_stack.rs` | `.unwrap()` | `.expect("guarded by len > stack_base")` |
-| `execution_impl_part2_native/stdlib.rs` | `.unwrap()` | `.expect("guarded by len() == 1")` |
+### 3. CLI fatal-error pattern centralization (12 instances)
 
-### 3. Unsafe block documentation (1 undocumented → 0)
+Added `fatal_error!` macro in `cli_defs.rs` and replaced 12 `eprintln!` + `exit(1)` patterns across 3 files:
+- `cli_run/single_file.rs` (7)
+- `cli_run/standard_json.rs` (5)
+- `cli_analyze.rs` (1)
 
-Added `# Safety` comment to `storage_ops.rs` line 164 explaining the soundness argument.
+## Remaining Production unwrap/expect (8 instances)
 
-## Remaining Items
+All are documented invariants:
 
-All remaining `unwrap()`/`expect()` (30+ instances) are documented invariants:
-- Hardcoded table lookups with matching arms
-- `Regex::new()` on compile-time constant patterns (idiomatic Rust)
-- `checked_add` with impossible-overflow comments
-- Value-range-guarded lookups
-
-CLI `eprintln!` calls (in `single_file.rs`, `standard_json.rs`, `cli_analyze.rs`) are legitimate CLI stderr output — fatal errors followed by `exit(1)`. This is the standard pattern for CLI tools.
+| File | Count | Type |
+|------|-------|------|
+| `resolve.rs` | 1 | Hardcoded table lookup |
+| `input.rs` | 1 | 32-byte read with memory_limit guarantee |
+| `manifest/build.rs` | 1 | Non-empty iterator |
+| `literals.rs` | 1 | Hardcoded exponent |
+| `ctx_locals_scopes.rs` | 1 | `checked_add` with overflow comment |
+| `power.rs` | 1 | Sign-tracking variable |
+| `constant_folding.rs` | 2 | In-range arithmetic |
 
 ## Verification
 

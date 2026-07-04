@@ -54,17 +54,17 @@ impl UpgradeFinding {
 }
 
 pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
-    static BLOCKHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bblockhash\s*\(").unwrap());
-    static SELFDESTRUCT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bselfdestruct\s*\(").unwrap());
-    static CODEHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.codehash\b").unwrap());
-    static TX_ORIGIN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\btx\.origin\b").unwrap());
-    static MSG_SIG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bmsg\.sig\b").unwrap());
+    static BLOCKHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bblockhash\s*\(").expect("valid regex pattern"));
+    static SELFDESTRUCT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bselfdestruct\s*\(").expect("valid regex pattern"));
+    static CODEHASH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.codehash\b").expect("valid regex pattern"));
+    static TX_ORIGIN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\btx\.origin\b").expect("valid regex pattern"));
+    static MSG_SIG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\bmsg\.sig\b").expect("valid regex pattern"));
     static DELEGATECALL_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?:\.|\b)delegatecall\s*\(").unwrap());
+        Lazy::new(|| Regex::new(r"(?:\.|\b)delegatecall\s*\(").expect("valid regex pattern"));
     static STATICCALL_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?:\.|\b)staticcall\s*\(").unwrap());
+        Lazy::new(|| Regex::new(r"(?:\.|\b)staticcall\s*\(").expect("valid regex pattern"));
     static LOW_LEVEL_CALL_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"\.\s*call\s*(?:\(|\{)").unwrap());
+        Lazy::new(|| Regex::new(r"\.\s*call\s*(?:\(|\{)").expect("valid regex pattern"));
     // M-FE4 fix — require the unit to follow a digit or `)` (the EVM
     // numeric-literal-suffix shape). The previous `\b(?:...)\b` matched the
     // word `ether` inside a comment (`// whether we proceed`), a variable
@@ -73,9 +73,9 @@ pub fn analyze_upgrade_patterns(source: &str) -> Vec<UpgradeFinding> {
     // before the unit excludes identifier/comment occurrences while still
     // catching the real `1 ether` / `(a + b) ether` forms.
     static ETHER_UNIT_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").unwrap());
+        Lazy::new(|| Regex::new(r"(?:\d|\))\s*(?:wei|gwei|szabo|finney|ether)\b").expect("valid regex pattern"));
     static SUPPORTS_INTERFACE_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"\bsupportsInterface\s*\(").unwrap());
+        Lazy::new(|| Regex::new(r"\bsupportsInterface\s*\(").expect("valid regex pattern"));
 
     let mut findings = Vec::new();
 

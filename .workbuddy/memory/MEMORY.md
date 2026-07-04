@@ -50,6 +50,11 @@
 - Solidity 0.8.29+ feature additions (function types, fixed/ufixed) — feature work
 
 ## Version History
+- **v0.30.1** (2026-07-04): Code quality fixes from team capability improvement plan
+  - Eliminated 7 `eprintln!` in manifest/build.rs → warnings collector pattern
+  - Fixed 3 risky `unwrap()` in runtime (empty-bytes guard, documented invariants)
+  - Added `# Safety` comment to undocumented `unsafe` block
+  - Team capability improvement plan, code review checklist, CONTRIBUTING.md created
 - **v0.30.0** (2026-07-04): Architecture Phase 4 — file refactoring
   - Split 3 largest files: assembly.rs (1440→5 files), frontend_parse.rs (1037→5 files), lower_assignment.rs (1140→2 files)
   - Files >800 lines reduced from 13 to 10
