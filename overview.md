@@ -1,30 +1,34 @@
-# v0.29.0 — Architecture Phase 1: CLI Decomposition
+# v0.29.1 — Architecture Phase 1 Complete: Manifest Extraction
 
 ## What was done
 
-Extracted two major subsystems from the CLI god module (151 files) into first-class top-level modules, following the architecture design's Phase 1 plan.
+Completed the manifest extraction, finishing Architecture Phase 1 (CLI decomposition). The CLI god module is now fully decomposed into three first-class top-level modules.
 
-### Extracted modules
+### Extracted module
 
-| Module | Source | Files | LOC | Dependencies |
-|--------|--------|-------|-----|-------------|
-| `src/codegen/` | `src/cli/bytecode/` | 29 | ~5,394 | opcode, frontend, ir, solidity |
-| `src/optimizer/` | `src/cli/ir_optimize/` | 5 | 692 | ir only |
+| Module | Source | Files | LOC | Key change |
+|--------|--------|-------|-----|-----------|
+| `src/manifest/` | `src/cli/cli_parts/cli_manifest/` | 11 | ~2,332 | Broke 2 blocking couplings |
 
-### CLI module reduction
+### Couplings broken
 
-- **Before**: 151 files (bytecode + optimizer + cli_parts + standard_json + tests)
-- **After**: 117 files (cli_parts + standard_json + tests)
-- **Extracted**: 34 files (~6,086 LOC)
+1. **Bidirectional dependency** (`cli_manifest` ↔ `standard_json`):
+   - Moved `solidity_to_manifest_type` to `src/manifest/mod.rs`
+   - `standard_json` now imports from `crate::manifest` (one-directional)
 
-### Key decisions
+2. **`CompileError` ownership**:
+   - Created `ManifestError` type in manifest module
+   - `build_manifest` returns `Result<Value, ManifestError>`
+   - Mapped to `CompileError::Manifest` at CLI boundary
 
-1. **Optimizer extracted first** — simplest, depends only on `ir`. Validated the extraction approach.
-2. **Codegen extracted second** — self-contained, zero internal CLI coupling. All `bytecode::` references in cli_parts and tests updated to `codegen::`.
-3. **Manifest extraction deferred** — `cli_manifest` has two blocking couplings:
-   - Bidirectional dependency with `standard_json` (they call each other)
-   - `CompileError` ownership (defined in `cli_compile/types.rs`, used by `cli_manifest`)
-   - These require breaking before the manifest can be cleanly extracted
+### CLI module reduction (full Phase 1)
+
+| Version | CLI files | Extracted |
+|---------|-----------|-----------|
+| v0.28.1 | 151 | — |
+| v0.29.0 | 117 | 34 (codegen + optimizer) |
+| v0.29.1 | 106 | 11 (manifest) |
+| **Total** | **106** | **45 files extracted** |
 
 ### Verification
 
@@ -33,9 +37,16 @@ Extracted two major subsystems from the CLI god module (151 files) into first-cl
 - `cargo test`: **965 tests passed, 0 failed** — zero regressions
 - Public API unchanged
 
-## Follow-up items
+## Phase 1 complete
 
-- Break `standard_json ↔ cli_manifest` bidirectional dependency (sub-phase)
-- Break `CompileError` ownership coupling (sub-phase)
-- Complete manifest extraction once couplings are resolved
-- Phase 2 (Runtime isolation) can begin independently
+All three extractions from the CLI god module are done:
+1. `src/codegen/` (29 files) — v0.29.0
+2. `src/optimizer/` (5 files) — v0.29.0
+3. `src/manifest/` (11 files) — v0.29.1
+
+CLI reduced from 151 to 106 files (45 files, ~8,418 LOC extracted).
+
+## Next steps
+
+- **Phase 2** (v0.30.x): Runtime isolation — decouple 4 subsystems via port interface
+- **Phase 3** (v0.31.x): Extension points — trait plugins (can run parallel with Phase 2)

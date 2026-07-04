@@ -42,6 +42,8 @@ pub mod interop;
 #[doc(hidden)]
 pub mod ir;
 #[doc(hidden)]
+pub mod manifest;
+#[doc(hidden)]
 pub mod optimizer;
 #[doc(hidden)]
 pub mod runtime;

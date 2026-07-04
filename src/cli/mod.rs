@@ -88,7 +88,10 @@ pub use cli_parts::cli_compile::*;
 pub use cli_parts::cli_defs::*;
 pub(crate) use cli_parts::cli_deploy::*;
 pub(crate) use cli_parts::cli_diagnostics::*;
-pub(crate) use cli_parts::cli_manifest::*;
+#[cfg(test)]
+pub(crate) use crate::manifest::{
+    detect_supported_standards, solidity_to_manifest_type, StandardsDiagnosticLevel,
+};
 pub(crate) use cli_parts::cli_output::*;
 pub use cli_parts::cli_run::*;
 

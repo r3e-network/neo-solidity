@@ -12,10 +12,12 @@
 - `src/frontend/` — Solidity parsing, pragma validation, contract IR extraction
 - `src/solidity/` — Solidity analysis (inheritance, modifiers, sibling merge)
 - `src/ir/` — Intermediate representation construction, lowering, expressions, statements
+- `src/codegen/` — NeoVM bytecode generation (extracted from cli in v0.29.0)
+- `src/optimizer/` — IR optimization passes (extracted from cli in v0.29.0)
 - `src/runtime/` — Embedded NeoVM runtime simulator (167 files, deep nesting, high coupling)
-- `src/cli/` — Command-line interface, bytecode assembly, manifest generation, tests
-- `devpack/contracts/` — Solidity library contracts: Framework, Syscalls (split into domain libs), NativeCalls (split into domain libs)
-- `devpack/libraries/` — Neo.sol, Runtime.sol, Storage.sol
+- `src/cli/` — Command-line interface, manifest generation, standard JSON, tests (117 files, down from 151)
+- `src/neo/` — NEF/manifest building and parsing utilities
+- `devpack/contracts/` — Solidity library contracts: Framework, Syscalls, NativeCalls
 
 ## Key Conventions
 - No `#[path = "..."]` anti-pattern — all modules use standard Rust layout (0 remaining)
@@ -38,11 +40,20 @@
 - Fuzz tests in `tests/fuzz_tests/` — now using standard `mod.rs` layout (no #[path])
 
 ## v1.0 Remaining Roadmap
-- Runtime streamlining (167→120 files) — HIGH RISK, VM bridging coupling
+- Phase 1 remaining: Manifest extraction (deferred — break standard_json bidirectional dep + CompileError ownership)
+- Phase 2 (v0.30.x): Runtime isolation — decouple 4 subsystems via port interface (MEDIUM RISK)
+- Phase 3 (v0.31.x): Extension points — trait plugins (LOW RISK, parallel with Phase 2)
+- Phase 4 (v0.32.x): File refactoring — break 13 files >800 lines (MEDIUM RISK)
+- Phase 5 (v1.0, optional): Crate split — workspace (HIGH RISK, only if needed)
 - Solidity 0.8.29+ feature additions (function types, fixed/ufixed) — feature work
-- 13 remaining 800+ line files — require surgical refactoring per file
 
 ## Version History
+- **v0.29.0** (2026-07-04): Architecture Phase 1 — CLI decomposition
+  - Extracted `src/codegen/` (29 files) from `src/cli/bytecode/`
+  - Extracted `src/optimizer/` (5 files) from `src/cli/ir_optimize/`
+  - CLI reduced from 151 to 117 files
+  - Manifest extraction deferred (2 blocking couplings identified)
+  - Architecture design docs: `docs/architecture-design.md`, `docs/adr/adr-001-to-006.md`
 - **v0.28.1** (2026-07-03): Audit-driven patch — fixed all P2/P3 issues from v0.28.0 audit
   - P2-1: Nested EQUAL type-strictness (recursive Array/Map comparison)
   - P2-2: NativeTypes.ContractState field types corrected

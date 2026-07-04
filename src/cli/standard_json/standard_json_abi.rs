@@ -229,7 +229,7 @@ pub(crate) fn build_neo_method_map(metadata: &ContractMetadata) -> Map<String, V
     // distinct-arity overloads keep their original Solidity name in the
     // manifest, so the methodMap must point callers at the name that is
     // actually invokable on-chain.
-    let abi_name = super::manifest_abi_method_name_fn(exposed.iter().copied());
+    let abi_name = crate::manifest::manifest_abi_method_name_fn(exposed.iter().copied());
 
     for method in &exposed {
         let param_signature: Vec<String> = method

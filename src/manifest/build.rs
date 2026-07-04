@@ -209,7 +209,7 @@ pub(crate) fn build_manifest(
     ir_module: &ir::Module,
     bytecode: &[u8],
     tokens: &[crate::neo::MethodToken],
-) -> Result<serde_json::Value, CompileError> {
+) -> Result<serde_json::Value, super::ManifestError> {
     /// True for NeoTypes whose EVM ABI encoding is a single static 32-byte
     /// slot — the member shapes `lower_static_abi_slots_for_expr` supports.
     fn neotype_is_static_abi_scalar(neotype: &NeoType) -> bool {
@@ -265,7 +265,7 @@ pub(crate) fn build_manifest(
             Some(NeoType::Array(..)) => "Array",
             Some(NeoType::Mapping { .. }) => "Map",
             Some(NeoType::Struct { .. }) => "Array",
-            Some(NeoType::Any) | None => standard_json::solidity_to_manifest_type(solidity_type),
+            Some(NeoType::Any) | None => super::solidity_to_manifest_type(solidity_type),
         }
     }
 
@@ -500,7 +500,7 @@ pub(crate) fn build_manifest(
     let declared = extract_declared_supportedstandards(metadata);
     if !declared.is_empty() {
         validate_declared_standards(&declared, &metadata.methods, &metadata.events)
-            .map_err(CompileError::Manifest)?;
+            .map_err(super::ManifestError)?;
     }
     Ok(manifest)
 }

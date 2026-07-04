@@ -5,6 +5,39 @@ All notable changes to the Neo DevPack for Solidity will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.29.1] - 2026-07-04
+
+Architecture Phase 1 (continued): manifest extraction. Completes the CLI
+decomposition by extracting manifest generation into a first-class module.
+
+### Added
+- `src/manifest/` — new top-level module for manifest generation
+  (extracted from `src/cli/cli_parts/cli_manifest/`). Contains manifest
+  building, permissions inference, standards detection, and the
+  `solidity_to_manifest_type` type mapping function. 11 files, ~2,332 LOC.
+- `ManifestError` type — manifest-specific error type that doesn't depend
+  on `crate::cli`, mapped to `CompileError::Manifest` at the CLI boundary.
+
+### Changed
+- Broke bidirectional dependency between `cli_manifest` and `standard_json`:
+  - Moved `solidity_to_manifest_type` from `standard_json_output.rs` to
+    `src/manifest/mod.rs` (it's a manifest type mapping, belongs in manifest)
+  - `standard_json_abi.rs` now imports `manifest_abi_method_name_fn` from
+    `crate::manifest` (one-directional: standard_json → manifest)
+- Broke `CompileError` ownership coupling:
+  - `build_manifest` now returns `Result<Value, ManifestError>` instead of
+    `Result<Value, CompileError>`
+  - `cli_compile/compile.rs` maps `ManifestError` to `CompileError::Manifest`
+    at the boundary
+- CLI module reduced from 117 to 106 files (11 files extracted)
+- `cli_parts/mod.rs` no longer declares `cli_manifest` submodule
+
+### Verification
+- `cargo check`: 0 errors, 0 warnings
+- `cargo clippy`: 0 warnings
+- `cargo test`: 965 tests passed, 0 failed (zero regressions)
+- Public API unchanged
+
 ## [v0.29.0] - 2026-07-04
 
 Architecture Phase 1: CLI decomposition. Extracts two major subsystems from

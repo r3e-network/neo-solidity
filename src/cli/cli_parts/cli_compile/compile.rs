@@ -230,7 +230,8 @@ fn compile_metadata(
         &ir_module,
         &bytecode_output.script,
         &bytecode_output.tokens,
-    )?;
+    )
+    .map_err(|e| CompileError::Manifest(e.0))?;
 
     if let Some(source_override) =
         load_manifest_permissions_override_from_natspec(&metadata).map_err(CompileError::Message)?

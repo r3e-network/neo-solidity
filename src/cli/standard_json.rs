@@ -23,7 +23,7 @@
 //! compatible with standard Solidity compiler output.
 
 use super::{
-    compile_contracts_with_options, compiler_version_string_4, manifest_abi_method_name_fn,
+    compile_contracts_with_options, compiler_version_string_4,
     CompilationArtifacts, CompileOptions, ManifestPermissionsOverride, COMPILER_ID,
 };
 use neo_devpack_solidity::frontend::{parse_source, ContractKind, VisibilityKind};
